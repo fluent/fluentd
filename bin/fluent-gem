@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# -*- coding: utf-8 -*-
+require 'rubygems' unless defined?(gem)
+require 'rubygems/gem_runner'
+require 'rubygems/exceptions'
+begin
+  Gem::GemRunner.new.run ARGV
+rescue Gem::SystemExitException => e
+  exit e.exit_code
+end
