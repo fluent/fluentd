@@ -45,9 +45,7 @@ class FileOutput < BufferedOutput
     end
 
     # TODO timezone
-    if localtime = conf['localtime']
-      @localtime = true
-    end
+    @localtime = true if conf['localtime']
 
     # TODO configure rotate_time
     # TODO configure rotate_size
