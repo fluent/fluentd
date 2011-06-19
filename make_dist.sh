@@ -6,7 +6,7 @@ mkdir $dst || exit 1
 cp -fpR lib bin $dst/ || exit 1
 mkdir -p $dst/deps || exit 1
 cp deps/*.gem deps/ruby-*.tar.bz2 $dst/deps/
-cp README.md README COPYING NEWS ChangeLog AUTHORS INSTALL NOTICE \
+cp README.rdoc README COPYING NEWS ChangeLog AUTHORS INSTALL NOTICE \
     configure.in Makefile.in Makefile.am configure aclocal.m4 \
     Rakefile VERSION fluent.conf make_dist.sh \
     $dst/ || exit 1

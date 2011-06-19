@@ -85,7 +85,7 @@ class EngineClass
   end
 
   def load_plugin_dir(dir)
-    Plugin.load_plugin(dir)
+    Plugin.load_plugin_dir(dir)
   end
 
   def emit(tag, event)

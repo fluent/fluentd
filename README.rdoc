@@ -1,0 +1,57 @@
+= Fluent
+
+Fluent is an event collector system. It's said that Fluent is generalized version of syslogd, which can deal with JSON object for the log message.
+
+== Archtecture
+
+Fluent collects events from various data sources and write tem to files, database or other storages:
+
+    
+    Web apps  ---+                +--> file
+                 |                |
+                 +-->          ---+
+    /var/log  ------>  fluent  ------> mail
+                 +-->          ---+
+                 |                |
+    apache    ----                +--> fluent
+    
+
+Fluent also supports log transfer (not implemented yet):
+
+    
+    Web server
+    +--------+
+    | fluent -------
+    +--------+|     |
+     +--------+     |
+                    |
+    Proxy server    |    Log server, Amazon S3, HDFS, ...
+    +--------+      +--> +--------+
+    | fluent ----------> | fluent ||
+    +--------+|     +--> +--------+|
+     +--------+     |     +--------+
+                    |
+    Database server |
+    +--------+      |
+    | fluent ---------> mail
+    +--------+|
+     +--------+
+    
+
+An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time when the event occurs. Record is a JSON object.
+
+
+== Quick Start
+
+  $ gem install fluent
+  $ fluentd &
+  $ echo '{"json":"message"}' | fluent-cat debug.test
+
+
+Web site::  http://fluent.github.com/
+Documents:: http://fluent.github.com/doc/
+Source repository:: http://github.com/fluent
+Author:: Sadayuki Furuhashi
+Copyright:: (c) 2011 FURUHASHI Sadayuki
+License:: Apache License, Version 2.0
+

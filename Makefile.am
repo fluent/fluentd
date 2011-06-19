@@ -34,7 +34,7 @@ install: install-recursive
 	$(RUBY_BINDIR)/gem install --no-rdoc --no-ri "$(srcdir)/pkg/fluent-$(VERSION).gem"
 	mkdir -p $(sysconfdir)/fluent
 	cp -f $(srcdir)/fluent.conf $(sysconfdir)/fluent/fluent.conf
-	mkdir -p $(sysconfdir)/plugin
+	mkdir -p $(sysconfdir)/fluent/plugin
 
 dist:
 	cd $(srcdir) && ./make_dist.sh
