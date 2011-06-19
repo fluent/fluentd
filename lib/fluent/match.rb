@@ -71,6 +71,7 @@ class GlobMatchPattern < MatchPattern
   def initialize(pat)
     regex = ''
     escape = false
+    # FIXME
     pat.scan(/./) {|c|
       if escape
         regex << c
@@ -83,6 +84,8 @@ class GlobMatchPattern < MatchPattern
         regex << '[^\.]*'
       elsif c == '?'
         regex << '.'
+      else
+        regex << "\\#{c}"
       end
     }
     @regex = Regexp.new(regex)
