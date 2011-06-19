@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 mkdir -p ac
 test -f AUTHORS   || touch AUTHORS
@@ -15,6 +15,7 @@ function download() {
 }
 
 mkdir -p deps
+mkdir -p deps/ruby
 cd deps
 download "http://ftp.ruby-lang.org/pub/ruby/1.9" "ruby-1.9.2-p180.tar.bz2"
 download "http://rubygems.org/downloads" "jeweler-1.6.2.gem"
@@ -54,4 +55,6 @@ aclocal
 #autoheader
 automake --add-missing --copy
 autoconf
+
+rmdir deps/ruby
 

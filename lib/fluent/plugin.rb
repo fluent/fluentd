@@ -55,7 +55,7 @@ class PluginClass
   end
 
   def load_plugin_dir(dir)
-    Dir.entries(dir).each {|fname|
+    Dir.entries(dir).sort.each {|fname|
       if fname =~ /\.rb$/
         require File.join(dir, fname)
       end

@@ -1,0 +1,50 @@
+AC_INIT(lib/fluent/engine.rb)
+AC_CONFIG_AUX_DIR(ac)
+AM_INIT_AUTOMAKE(fluent, 0.9.0)
+
+AC_CHECK_LIB(z,deflate,,
+    AC_MSG_ERROR([zlib library not found]))
+
+AC_CHECK_HEADERS(openssl/sha.h,,
+    AC_MSG_ERROR([find openssl header not found]))
+AC_CHECK_LIB(crypto,SHA1,,
+    AC_MSG_ERROR([openssl library not found]))
+
+#AC_CONFIG_SUBDIRS([deps/ruby])
+
+orig_exec_prefix=$exec_prefix
+orig_prefix=$prefix
+
+if test "$prefix" = "NONE"; then
+    prefix=$ac_default_prefix
+fi
+exec_prefix=$prefix
+ruby_prefix=`eval echo $libdir/fluent/ruby`
+
+exec_prefix=$orig_exec_prefix
+prefix=$orig_prefix
+
+AC_SUBST(RUBY_PREFIX)
+AC_SUBST(RUBY_BINDIR)
+RUBY_PREFIX=$ruby_prefix
+RUBY_BINDIR=$ruby_prefix/bin
+
+AC_OUTPUT([Makefile])
+
+if test ! -d deps/ruby; then
+    mkdir -p deps/ruby-extract
+    tar jxf deps/ruby-*.tar.bz2 -C deps/ruby-extract
+    mv deps/ruby-extract/* deps/ruby
+fi
+
+cd deps/ruby && ./configure "--prefix=$ruby_prefix" \
+    --disable-install-doc \
+    --with-out-ext=dbm \
+    --with-out-ext=fiddle \
+    --with-out-ext=gdbm \
+    --with-out-ext=probe \
+    --with-out-ext=racc \
+    --with-out-ext=ripper \
+    --with-out-ext=sdbm \
+    --with-out-ext=tk
+

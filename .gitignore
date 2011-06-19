@@ -10,7 +10,6 @@ confdefs.h
 config.log
 config.status
 configure
-configure.in
 deps/
 fluent-cat
 fluent-gem

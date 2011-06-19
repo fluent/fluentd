@@ -9,7 +9,7 @@ begin
 		gemspec.summary = "Fluent event collector"
 		gemspec.author = "Sadayuki Furuhashi"
 		gemspec.email = "frsyuki@gmail.com"
-		gemspec.homepage = "http://github.com/fluent"
+		gemspec.homepage = "http://fluent.github.com/"
 		gemspec.has_rdoc = false
 		gemspec.require_paths = ["lib"]
 		gemspec.add_dependency "msgpack", "~> 0.4.4"
@@ -18,8 +18,8 @@ begin
 		gemspec.add_dependency "eventmachine", "~> 0.12.10"
 		gemspec.add_dependency "eventmachine-tail", "= 0.6.1"
 		#gemspec.test_files = Dir["test/**/*.rb"]
-		gemspec.files = Dir["lib/**/*", "test/**/*.rb"]
-		gemspec.executables = ['fluentd', 'fluent-cat']
+		gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"]
+		gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
 	end
 	Jeweler::GemcutterTasks.new
 rescue LoadError
