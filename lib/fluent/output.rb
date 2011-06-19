@@ -102,6 +102,13 @@ class BufferedOutput < Output
     @buffer.try_flush(self, true)
   end
 
+  def finalize_queue
+    begin
+      @buffer.finalize_queue(self)
+    rescue
+    end
+  end
+
   def clear_buffer!
     @buffer.clear!
   end
@@ -137,7 +144,7 @@ class BufferedOutput::WriterThread
   attr_accessor :flush_interval, :retry_limit, :retry_pattern, :retry_wait
 
   def configure(conf)
-    if flush_interval = conf['flush_interval']
+    if flush_interval = conf['buffer_flush_interval']
       @flush_interval = Config.time_value(flush_interval).to_i
     end
 
@@ -202,6 +209,10 @@ class BufferedOutput::WriterThread
     $log.error "error on output thread: ", $!
     $log.error_backtrace
     raise
+  ensure
+    @mutex.synchronize {
+      @output.finalize_queue
+    }
   end
 
   def calc_next_wait(now)

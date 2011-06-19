@@ -74,7 +74,23 @@ class PluginClass
     if klass = map[type]
       return klass.new
     end
+    try_load_plugin(name, type)
+    if klass = map[type]
+      return klass.new
+    end
     raise ConfigError, "Unknown #{name} plugin '#{type}'"
+  end
+
+  def try_load_plugin(name, type)
+    case name
+    when 'input'
+      require "fluent/plugin/in_#{type}"
+    when 'output'
+      require "fluent/plugin/out_#{type}"
+    when 'buffer'
+      require "fluent/plugin/buf_#{type}"
+    end
+  rescue LoadError
   end
 end
 

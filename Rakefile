@@ -12,9 +12,11 @@ begin
 		gemspec.homepage = "http://github.com/fluent"
 		gemspec.has_rdoc = false
 		gemspec.require_paths = ["lib"]
-		gemspec.add_dependency "msgpack", ">= 0.4.4"
+		gemspec.add_dependency "msgpack", "~> 0.4.4"
 		gemspec.add_dependency "json", ">= 1.4.3"
 		gemspec.add_dependency "rack", ">= 1.2.1"
+		gemspec.add_dependency "eventmachine", "~> 0.12.10"
+		gemspec.add_dependency "eventmachine-tail", "= 0.6.1"
 		#gemspec.test_files = Dir["test/**/*.rb"]
 		gemspec.files = Dir["lib/**/*", "test/**/*.rb"]
 		gemspec.executables = ['fluentd', 'fluent-cat']

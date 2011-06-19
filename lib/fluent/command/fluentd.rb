@@ -122,7 +122,7 @@ rescue
 end
 
 trap :INT do
-  Fluent::Engine.shutdown
+  Fluent::Engine.stop
 end
 
 trap :HUP do

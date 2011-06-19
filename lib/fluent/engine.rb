@@ -22,7 +22,6 @@ class EngineClass
   def initialize
     @matches = []
     @sources = []
-    @finish = false
   end
 
   def init
@@ -32,6 +31,7 @@ class EngineClass
     require 'stringio'
     require 'fileutils'
     require 'json'
+    require 'eventmachine'
     require 'fluent/env'
     require 'fluent/buffer'
     require 'fluent/config'
@@ -115,8 +115,21 @@ class EngineClass
     Time.now.to_i
   end
 
+  def run
+    EventMachine.run do
+      start
+    end
+    shutdown
+    nil
+  end
+
+  def stop
+    EventMachine.stop_event_loop
+    nil
+  end
+
+  private
   def start
-    @finish = false
     @matches.each {|m|
       m.start
     }
@@ -132,18 +145,6 @@ class EngineClass
     @sources.each {|s|
       s.shutdown rescue nil
     }
-    @finish = true
-  end
-
-  def join
-    until @finish
-      sleep 1
-    end
-  end
-
-  def run
-    start
-    join
   end
 end
 

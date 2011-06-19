@@ -115,11 +115,11 @@ class BasicBuffer < Buffer
   def shutdown
     @top.synchronize {
       @queue.synchronize {
-      until @queue.empty?
-        @queue.shift.close
-      end
-    }
-    @top.close
+        until @queue.empty?
+          @queue.shift.close
+        end
+      }
+      @top.close
     }
   end
 
@@ -131,6 +131,7 @@ class BasicBuffer < Buffer
         return false
 
       elsif @queue.size >= @queue_limit
+        # TODO
         raise BufferError, "queue size exceeds limit"
 
       else
@@ -155,6 +156,11 @@ class BasicBuffer < Buffer
 
   #def resume_queue
   #end
+
+  def finalize_queue(out)
+    while try_flush(out, true)
+    end
+  end
 
   #def new_data
   #end
@@ -205,8 +211,8 @@ class BasicBuffer < Buffer
 
       @queue.synchronize {
         @queue.delete_if {|c|
-        c.object_id == chunk.object_id
-      }
+          c.object_id == chunk.object_id
+        }
       }
       chunk.purge
 
