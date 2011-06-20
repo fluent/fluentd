@@ -25,6 +25,7 @@ class StdoutOutput < Output
     es.each {|e|
       puts "#{Time.at(e.time).localtime} #{tag}: #{e.record.to_json}"
     }
+    chain.next
   end
 end
 

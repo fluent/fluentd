@@ -30,11 +30,11 @@ class BucketOutput < Output
     conf.elements.select {|e|
       e.name == 'bucket'
     }.each {|e|
-        output = Plugin.new_output(e.arg)
-        output.configure(conf+e)
-        @buckets << output
-      }
-      @rr = 0  # TODO BucketOutput algorithm
+      output = Plugin.new_output(e.arg)
+      output.configure(conf+e)
+      @buckets << output
+    }
+    @rr = 0  # TODO BucketOutput algorithm
   end
 
   def start
@@ -52,6 +52,7 @@ class BucketOutput < Output
   def emit(tag, es, chain)
     b = next_bucket
     @buckets[b].emit(tag, es, chain)
+    chain.next
   end
 
   protected

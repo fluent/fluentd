@@ -23,23 +23,17 @@ class FileOutput < BufferedOutput
 
   def initialize
     super
-    @format = nil
+    @path = nil
     @localtime = false
   end
 
-  attr_accessor :format
+  attr_accessor :path
 
   def configure(conf)
     super
 
     if path = conf['path']
-      if pos = path.index('*')
-        @format = "#{path[0,pos]}%Y-%m-%d-%H#{path[pos+1..-1]}"
-      else
-        @format = "#{path}.%Y-%m-%d-%H"
-      end
-    elsif format = conf['format']
-      @format = format
+      @path = path
     else
       raise ConfigError, "'path' parameter is required on file output"
     end
@@ -69,7 +63,7 @@ class FileOutput < BufferedOutput
     else
       time = Time.now.utc
     end
-    path = time.strftime(@format)
+    path = time.strftime(@path)
     FileUtils.mkdir_p File.dirname(path)
     File.open(path, "a") {|f|
       f.write(chunk.read)
