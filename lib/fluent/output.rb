@@ -189,7 +189,7 @@ class BufferedOutput::WriterThread
         if @force || now - @last_try >= @flush_interval
           @mutex.unlock
           begin
-            try_flush(now)
+            try_flush(now)  # FIXME force
           ensure
             @mutex.lock
           end

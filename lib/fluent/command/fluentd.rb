@@ -116,7 +116,7 @@ rescue Fluent::ConfigError
   exit 1
 rescue
   # TODO error
-  puts $!
+  $log.error $!
   $log.debug_backtrace
   exit 1
 end

@@ -33,13 +33,14 @@ class EngineClass
     require 'json'
     require 'eventmachine'
     require 'fluent/env'
-    require 'fluent/buffer'
     require 'fluent/config'
-    require 'fluent/event'
-    require 'fluent/input'
-    require 'fluent/match'
-    require 'fluent/output'
     require 'fluent/plugin'
+    require 'fluent/parser'
+    require 'fluent/event'
+    require 'fluent/buffer'
+    require 'fluent/input'
+    require 'fluent/output'
+    require 'fluent/match'
     Plugin.load_built_in_plugin
     self
   end
