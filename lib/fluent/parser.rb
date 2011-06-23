@@ -47,7 +47,7 @@ class TextParser
     end
   end
 
-  def configure(conf)
+  def configure(conf, required=true)
     if format = conf['format']
       if format[0] == ?/ && format[format.length-1] == ?/
         # regexp
@@ -65,6 +65,7 @@ class TextParser
         use_template(format)
       end
     else
+      return nil if !required
       raise ConfigError, "'format' parameter is required"
     end
 
@@ -74,6 +75,8 @@ class TextParser
       end
       @time_format = time_format
     end
+
+    return true
   end
 
   def parse(text)
