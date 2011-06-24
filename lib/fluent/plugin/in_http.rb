@@ -21,9 +21,10 @@ module Fluent
 class HttpInput < Input
   Plugin.register_input('http', self)
 
+  require 'evma_httpserver'
+
   def initialize
-    require 'rack'
-    require 'webrick'
+    require 'webrick/httputils'
     @port = 9880
     @bind = '0.0.0.0'
   end
@@ -36,53 +37,28 @@ class HttpInput < Input
   end
 
   def start
-    case $log.level
-    when Log::LEVEL_TRACE
-      level = WEBrick::Log::DEBUG
-    when Log::LEVEL_DEBUG
-      level = WEBrick::Log::INFO
-    else
-      level = WEBrick::Log::WARN
-    end
-
-    log = WEBrick::Log.new($log.out, level)
-
-    @server = ::WEBrick::HTTPServer.new({
-      :BindAddress => @bind,
-      :Port => @port,
-      :Logger => log,
-    })
-
-    app = Rack::URLMap.new({
-      '/' => method(:on_request),
-    })
-    @server.mount("/", ::Rack::Handler::WEBrick, app)
-
-    @thread = Thread.new(&@server.method(:start))
+    EventMachine.start_server(@bind, @port, Handler, method(:on_request))
   end
 
   def shutdown
-    @server.shutdown
   end
 
-  def on_request(env)
-    request = ::Rack::Request.new(env)
-    path_info = request.path_info[1..-1]  # remove '/'
-
+  def on_request(path_info, params)
     begin
-      tag = path_info.split('/').join('.')
+      path = path_info[1..-1]  # remove /
+      tag = path.split('/').join('.')
 
-      if msgpack = request.POST['msgpack'] || request.GET['msgpack']
+      if msgpack = params['msgpack']
         record = MessagePack.unpack(msgpack)
 
-      elsif js = request.POST['json'] || request.GET['json']
+      elsif js = params['json']
         record = JSON.parse(js)
 
       else
         raise "'json' or 'msgpack' parameter is required"
       end
 
-      time = request.POST['time'] || request.GET['time']
+      time = params['time']
       time = time.to_i
       if time == 0
         time = Engine.now
@@ -91,10 +67,50 @@ class HttpInput < Input
       event = Event.new(time, record)
 
     rescue
-      return [400, {'ContentType'=>'text/plain'}, "400 Bad Request\n#{$!}"]
+      return [400, {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
     end
 
-    Engine.emit(tag, event)
+    # TODO server error
+    begin
+      Engine.emit(tag, event)
+    rescue
+      return [500, {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
+    end
+
+    return [200, {'Content-type'=>'text/plain'}, ""]
+  end
+
+  class Handler  < EventMachine::Connection
+    include EventMachine::HttpServer
+
+    def initialize(callback)
+      @callback = callback
+    end
+
+    def process_http_request
+      resp = EventMachine::DelegatedHttpResponse.new(self)
+
+      params = WEBrick::HTTPUtils.parse_query(@http_query_string)
+      if @http_content_type =~ /^application\/x-www-form-urlencoded/
+        params.update WEBrick::HTTPUtils.parse_query(@http_post_content)
+      elsif @http_content_type =~ /^multipart\/form-data; boundary=(.+)/
+        boundary = WEBrick::HTTPUtils.dequote($1)
+        params.update WEBrick::HTTPUtils.parse_form_data(@http_post_content, boundary)
+      end
+
+      op = Proc.new {
+        @callback.call(@http_path_info, params)
+      }
+
+      sender = Proc.new {|(code,header,body)|
+        resp.status = code
+        resp.headers = header
+        resp.content = body.to_s
+        resp.send_response
+      }
+
+      EventMachine.defer(op, sender)
+    end
   end
 end
 

@@ -33,7 +33,7 @@ class TextParser
   end
 
   def initialize
-    require 'time'
+    require 'time'  # Time.strptime, Time.parse
     @regexp = nil
     @time_format = nil
   end
@@ -41,7 +41,7 @@ class TextParser
   attr_accessor :regexp, :time_format
 
   def use_template(name)
-    @regexp, @time_format = Parser.get_template(name)
+    @regexp, @time_format = TextParser.get_template(name)
     unless @regexp
       raise ConfigError, "Unknown format template '#{name}'"
     end

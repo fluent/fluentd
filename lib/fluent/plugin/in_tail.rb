@@ -24,7 +24,6 @@ class TailInput < Input
   require 'eventmachine-tail'
 
   def initialize
-    require 'time'
     @paths = []
     @parser = TextParser.new
 

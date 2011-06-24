@@ -95,7 +95,7 @@ class SyslogInput < Input
     else
       callback = method(:receive_data)
     end
-    EventMachine.open_datagram_socket(@bind, @port, UdpServer.new(callback))
+    EventMachine.open_datagram_socket(@bind, @port, UdpHandler.new(callback))
   end
 
   def receive_data_parser(data)
@@ -160,7 +160,7 @@ class SyslogInput < Input
     Engine.emit(tag, Event.new(time, record))
   end
 
-  class UdpServer < EventMachine::Connection
+  class UdpHandler < EventMachine::Connection
     def initialize(callback)
       @callback = callback
     end
