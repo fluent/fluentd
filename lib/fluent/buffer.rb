@@ -169,11 +169,11 @@ class BasicBuffer < Buffer
     @queue.clear
   end
 
-  def try_flush(out, force=true)
+  def try_flush(out, force)
     if @queue.empty?
-      unless force
-        return false
-      end
+      #unless force
+      #  return false
+      #end
       @top.synchronize {
         unless @top.empty?
           n = new_data

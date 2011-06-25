@@ -98,8 +98,8 @@ class BufferedOutput < Output
     @writer.submit_flush
   end
 
-  def try_flush
-    @buffer.try_flush(self, true)
+  def try_flush(force)
+    @buffer.try_flush(self, force)
   end
 
   def finalize_queue
@@ -189,7 +189,7 @@ class BufferedOutput::WriterThread
         if @force || now - @last_try >= @flush_interval
           @mutex.unlock
           begin
-            try_flush(now)  # FIXME force
+            try_flush(now, @force)
           ensure
             @mutex.lock
           end
@@ -238,10 +238,10 @@ class BufferedOutput::WriterThread
     end
   end
 
-  def try_flush(now)
+  def try_flush(now, force)
     while true
       begin
-        has_next = @output.try_flush
+        has_next = @output.try_flush(force)
         @error_history.clear
         next if has_next
       rescue
