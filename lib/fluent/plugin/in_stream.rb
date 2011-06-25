@@ -21,7 +21,6 @@ module Fluent
 class StreamInput < Input
   def initialize
     require 'socket'
-    require 'msgpack'
   end
 
   def start

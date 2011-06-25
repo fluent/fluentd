@@ -31,6 +31,7 @@ class EngineClass
     require 'stringio'
     require 'fileutils'
     require 'json'
+    require 'msgpack'
     require 'eventmachine'
     require 'fluent/env'
     require 'fluent/config'
