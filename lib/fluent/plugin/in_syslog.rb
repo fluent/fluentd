@@ -22,7 +22,7 @@ class SyslogInput < Input
   Plugin.register_input('syslog', self)
 
   SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
-  SYSLOG_ALL_REGEXP = /^\<([0-9]+)\>(?<time>.*? .*? .*?) (?<host>.*?) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)/
+  SYSLOG_ALL_REGEXP = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* [^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
   TIME_FORMAT = "%b %d %H:%M:%S"
 
   FACILITY_MAP = {
@@ -95,7 +95,7 @@ class SyslogInput < Input
     else
       callback = method(:receive_data)
     end
-    EventMachine.open_datagram_socket(@bind, @port, UdpHandler.new(callback))
+    EventMachine.open_datagram_socket(@bind, @port, UdpHandler, callback)
   end
 
   def receive_data_parser(data)
@@ -125,14 +125,16 @@ class SyslogInput < Input
       $log.debug "invalid syslog message: #{data.dump}"
       return
     end
-    pri = m[1].to_i
 
+    pri = nil
     time = nil
     record = {}
 
     m.names.each {|name|
       if value = m[name]
         case name
+        when "pri"
+          pri = value.to_i
         when "time"
           time = Time.strptime(value, TIME_FORMAT).to_i
         else
@@ -162,6 +164,7 @@ class SyslogInput < Input
 
   class UdpHandler < EventMachine::Connection
     def initialize(callback)
+      super()
       @callback = callback
     end
 
