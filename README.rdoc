@@ -16,7 +16,7 @@ Fluent collects events from various data sources and write tem to files, databas
     apache    ----                +--> fluent
     
 
-Fluent also supports log transfer (not implemented yet):
+Fluent also supports log transfer:
 
     
     Web server
