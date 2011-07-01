@@ -19,16 +19,17 @@ module Fluent
 
 
 class FileBufferChunk < BufferChunk
-  def initialize(path)
+  def initialize(key, path, mode="a+")
+    super(key)
     @path = path
-    @file = File.open(@path, "a+")
+    @file = File.open(@path, mode)
     @size = @file.stat.size
-    super()
   end
 
   def <<(data)
     @file.write(data)
     @size += data.size
+    @file.flush  # TODO
   end
 
   def size
@@ -39,20 +40,16 @@ class FileBufferChunk < BufferChunk
     @size == 0
   end
 
-  def close_write
-    @file.flush
-  end
-
   def close
+    @file.close
     if @file.stat.size == 0
       File.unlink(@path)
     end
-    @file.close
   end
 
   def purge
-    File.unlink(@path) rescue nil  # TODO rescue?
     @file.close
+    File.unlink(@path) rescue nil  # TODO rescue?
   end
 
   def read
@@ -66,6 +63,11 @@ class FileBufferChunk < BufferChunk
   end
 
   attr_reader :path
+
+  def mv(path)
+    File.rename(@path, path)
+    @path = path
+  end
 end
 
 
@@ -73,12 +75,13 @@ class FileBuffer < BasicBuffer
   Plugin.register_buffer('file', self)
 
   def initialize
+    require 'uri'
     super
     @prefix = nil
     @suffix = nil
   end
 
-  attr_accessor :dir, :prefix, :suffix
+  attr_accessor :prefix, :suffix
 
   def configure(conf)
     super
@@ -89,7 +92,7 @@ class FileBuffer < BasicBuffer
         @suffix = path[pos+1..-1]
       else
         @prefix = path+"."
-        @suffix = ""
+        @suffix = ".log"
       end
     else
       raise ConfigError, "'buffer_path' parameter is required on file buffer"
@@ -97,34 +100,82 @@ class FileBuffer < BasicBuffer
   end
 
   def start
-    FileUtils.mkdir_p File.dirname(@prefix)
+    FileUtils.mkdir_p File.dirname(@prefix+"path")
     super
   end
 
-  def resume_queue
-    queue = resume_queue_paths.map {|path|
-      FileBufferChunk.new(path)
-    }
-    top = queue.pop || new_data
-    return queue, top
+  PATH_MATCH = /^(.*)_(a|r)([0-9a-fA-F]{16})$/
+
+  def new_chunk(key)
+    time16 = "%016x" % Engine.now.to_i
+    encoded_key = encode_key(key)
+    path = "#{@prefix}#{encoded_key}_a#{time16}#{@suffix}"
+    FileBufferChunk.new(key, path)
   end
 
-  def new_data
-    path = new_chunk_path
-    FileBufferChunk.new(path)
+  def resume
+    maps = []
+    queues = []
+
+    Dir.glob("#{@prefix}*#{@suffix}") {|path|
+      match = path[@prefix.length..-(@suffix.length+1)]
+      if m = PATH_MATCH.match(match)
+        key = decode_key(m[1])
+        ar = m[2]
+        time16 = m[3].to_i(16)
+
+        if ar == 'a'
+          chunk = FileBufferChunk.new(key, path, "a+")
+          maps << [time16, chunk]
+        elsif ar == 'r'
+          chunk = FileBufferChunk.new(key, path, "r")
+          queues << [time16, chunk]
+        end
+      end
+    }
+
+    map = {}
+    maps.sort_by {|(time16,chunk)|
+      time16
+    }.each {|(time16,chunk)|
+      map[chunk.key] = chunk
+    }
+
+    queue = queues.sort_by {|(time16,chunk)|
+      time16
+    }.map {|(time16,chunk)|
+      chunk
+    }
+
+    return queue, map
+  end
+
+  def enqueue(chunk)
+    path = chunk.path
+    mp = path[@prefix.length..-(@suffix.length+1)]
+
+    m = PATH_MATCH.match(mp)
+    encoded_key = m ? m[1] : ""
+    time16 = "%016x" % Engine.now.to_i
+
+    path = "#{@prefix}#{encoded_key}_r#{time16}#{@suffix}"
+    chunk.mv(path)
+  end
+
+  def clear!
+    @queue.delete_if {|chunk|
+      chunk.purge
+      true
+    }
   end
 
   protected
-  def new_chunk_path
-    time16 = "%016x" % Engine.now.to_i
-    path = "#{@prefix}#{time16}#{@suffix}"
+  def encode_key(key)
+		URI.encode(key, /[^-_.a-zA-Z0-9]/n)
   end
 
-  def resume_queue_paths
-    Dir.glob("#{@prefix}*#{@suffix}").sort.select {|path|
-      time16 = path[@prefix.length,8]
-      time16 =~ /^[0-9a-f]{8}/
-    }
+  def decode_key(encoded_key)
+		URI.decode(encoded_key, /[^-_.a-zA-Z0-9]/n)
   end
 end
 

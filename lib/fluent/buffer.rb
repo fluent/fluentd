@@ -35,10 +35,19 @@ class Buffer
   def shutdown
   end
 
-  #def emit(data, chain)
+  def before_shutdown(out)
+  end
+
+  #def emit(key, data, chain)
   #end
 
-  #def try_flush(out, force=false)
+  #def keys
+  #end
+
+  #def push(key)
+  #end
+
+  #def pop(out)
   #end
 
   #def clear!
@@ -49,9 +58,12 @@ end
 class BufferChunk
   include MonitorMixin
 
-  def initialize
+  def initialize(key)
     super()
+    @key = key
   end
+
+  attr_reader :key
 
   #def <<(data)
   #end
@@ -61,9 +73,6 @@ class BufferChunk
 
   def empty?
     size == 0
-  end
-
-  def close_write
   end
 
   #def close
@@ -77,25 +86,20 @@ class BufferChunk
 
   #def open
   #end
-
-  def to_str
-    read
-  end
 end
 
 
 class BasicBuffer < Buffer
+  include MonitorMixin
+
   def initialize
+    super()
     @chunk_limit = 1024*1024  # TODO default
     @queue_limit = 100 # TODO default
     @parallel = false
   end
 
   attr_accessor :queue_limit, :chunk_limit
-
-  def enable_parallel(b=true)
-    @parallel = b
-  end
 
   def configure(conf)
     if chunk_limit = conf['buffer_chunk_limit']
@@ -108,92 +112,98 @@ class BasicBuffer < Buffer
   end
 
   def start
-    @queue, @top = resume_queue
+    @queue, @map = resume
     @queue.extend(MonitorMixin)
   end
 
   def shutdown
-    @top.synchronize {
-      @queue.synchronize {
+    synchronize do
+      @queue.synchronize do
         until @queue.empty?
           @queue.shift.close
         end
+      end
+      @map.each_pair {|key,chunk|
+        chunk.close
       }
-      @top.close
-    }
+    end
   end
 
-  def emit(data, chain)
-    @top.synchronize {
-      if @top.size + data.size < @chunk_limit
+  def emit(key, data, chain)
+    key = key.to_s
+
+    synchronize do
+      top = (@map[key] ||= new_chunk(key))
+
+      if top.size + data.size <= @chunk_limit
         chain.next
-        @top << data
+        top << data
         return false
+
+      elsif data.size > @chunk_limit
+        # TODO
+        raise BufferError, "received data too large"
 
       elsif @queue.size >= @queue_limit
         # TODO
         raise BufferError, "queue size exceeds limit"
-
-      else
-        n = new_data
-        ok = false
-        begin
-          n << data
-          chain.next
-          @queue.synchronize {
-            @queue << @top
-          }
-          @top.close_write rescue nil
-          @top = n
-          ok = true
-        ensure
-          n.purge unless ok
-        end
-        return true
       end
-    }
+
+      nc = new_chunk(key)
+      ok = false
+
+      begin
+        nc << data
+        chain.next
+
+        @queue.synchronize {
+          enqueue(top)
+          @queue << top
+          @map[key] = nc
+        }
+
+        ok = true
+        return @queue.size == 1
+      ensure
+        nc.purge unless ok
+      end
+
+    end  # synchronize
   end
 
-  #def resume_queue
+  def keys
+    @map.keys
+  end
+
+  #def new_chunk(key)
   #end
 
-  def finalize_queue(out)
-    while try_flush(out, true)
-    end
-  end
-
-  #def new_data
+  #def resume
   #end
 
-  def clear!
-    @queue.clear
-  end
+  #def enqueue(chunk)
+  #end
 
-  def try_flush(out, force)
-    if @queue.empty?
-      #unless force
-      #  return false
-      #end
-      @top.synchronize {
-        unless @top.empty?
-          n = new_data
-          ok = false
-          begin
-            @queue.synchronize {
-              @queue << @top
-            }
-            @top.close_write rescue nil
-            @top = n
-            ok = true
-          ensure
-            n.purge unless ok
-          end
-        end
+  def push(key)
+    synchronize do
+      top = @map[key]
+      if !top || top.empty?
+        return false
+      end
+
+      @queue.synchronize {
+        enqueue(top)
+        @queue << top
+        @map.delete(key)
       }
-    end
 
+      return true
+    end  # synchronize
+  end
+
+  def pop(out)
     chunk = nil
-    @queue.synchronize {
+    synchronize do
       if @parallel
         chunk = @queue.find {|c| c.try_mon_enter }
         return false unless chunk
@@ -202,18 +212,19 @@ class BasicBuffer < Buffer
         return false unless chunk
         return false unless chunk.try_mon_enter
       end
-    }
+    end
 
     begin
       if !chunk.empty?
         write_chunk(chunk, out)
       end
 
-      @queue.synchronize {
+      synchronize do
         @queue.delete_if {|c|
           c.object_id == chunk.object_id
         }
-      }
+      end
+
       chunk.purge
 
       return !@queue.empty?

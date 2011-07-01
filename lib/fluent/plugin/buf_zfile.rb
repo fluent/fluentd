@@ -69,11 +69,11 @@ class ZFileBuffer < FileBuffer
     queue = resume_queue_paths.map {|path|
       ZFileBufferChunk.new(path)
     }
-    top = new_data
+    top = new_chunk
     return queue, top
   end
 
-  def new_data
+  def new_chunk
     path = new_chunk_path
     ZFileBufferChunk.new(path)
   end

@@ -19,7 +19,7 @@ module Fluent
 
 
 class OutputChain
-  def initialize(array, tag, es, chain)
+  def initialize(array, tag, es, chain=NullOutputChain.instance)
     @array = array
     @tag = tag
     @es = es
@@ -28,11 +28,11 @@ class OutputChain
   end
 
   def next
-    @offset += 1
     if @array.length <= @offset
       return @chain.next
     end
-    result = @array[@offset].emit(@tag, @es, self)
+    @offset += 1
+    result = @array[@offset-1].emit(@tag, @es, self)
     result
   end
 end
@@ -64,76 +64,11 @@ class Output
 end
 
 
-class BufferedOutput < Output
-  def initialize
-  end
-
-  def configure(conf)
-    buffer_type = conf['buffer_type'] || 'memory'
-    @buffer = Plugin.new_buffer(buffer_type)
-    @buffer.configure(conf)
-
-    @writer = WriterThread.new(self)
-    @writer.configure(conf)
-  end
-
-  def start
-    @buffer.start
-    @writer.start
-  end
-
-  def shutdown
-    @writer.shutdown
-    @buffer.shutdown
-  end
-
-  def emit(tag, es, chain)
-    data = format_stream(tag, es)
-    if @buffer.emit(data, chain)
-      submit_flush
-    end
-  end
-
-  def submit_flush
-    @writer.submit_flush
-  end
-
-  def try_flush(force)
-    @buffer.try_flush(self, force)
-  end
-
-  def finalize_queue
-    begin
-      @buffer.finalize_queue(self)
-    rescue
-    end
-  end
-
-  def clear_buffer!
-    @buffer.clear!
-  end
-
-  def format_stream(tag, es)
-    out = ''
-    es.each {|event|
-      out << format(tag, event)
-    }
-    out
-  end
-
-  #def format(tag, event)
-  #end
-
-  #def write(chunk)
-  #end
-end
-
-
-class BufferedOutput::WriterThread
+class OutputThread
   def initialize(output)
     @output = output
     @error_history = []
-    @force = false
+    @flush_now = false
     @finish = false
 
     @flush_interval = 60  # TODO default
@@ -144,7 +79,7 @@ class BufferedOutput::WriterThread
   attr_accessor :flush_interval, :retry_limit, :retry_pattern, :retry_wait
 
   def configure(conf)
-    if flush_interval = conf['buffer_flush_interval']
+    if flush_interval = conf['flush_interval']
       @flush_interval = Config.time_value(flush_interval).to_i
     end
 
@@ -163,18 +98,24 @@ class BufferedOutput::WriterThread
     @mutex = Mutex.new
     @cond = ConditionVariable.new
     @last_try = Engine.now
+    #calc_next_time()
+    # TODO
+    @next_time = @last_try
     @thread = Thread.new(&method(:run))
   end
 
   def shutdown
     @finish = true
-    submit_flush
+    @mutex.synchronize {
+      @cond.signal
+    }
+    Thread.pass
     @thread.join
   end
 
   def submit_flush
     @mutex.synchronize {
-      @force = true
+      @flush_now = true
       @cond.signal
     }
     Thread.pass
@@ -185,83 +126,174 @@ class BufferedOutput::WriterThread
     @mutex.lock
     begin
       until @finish
+
         now = Engine.now
-        if @force || now - @last_try >= @flush_interval
+
+        if @next_time <= now ||
+            (@flush_now && @error_history.empty?)
+
           @mutex.unlock
           begin
-            try_flush(now, @force)
+            try_flush(now)
           ensure
             @mutex.lock
           end
+
           now = @last_try = Engine.now
-          @force = false
+          @flush_now = false
         end
 
-        next_wait = calc_next_wait(now)
+        next_wait = calc_next_time() - now
         if next_wait > 0
           cond_wait(next_wait)
         end
+
       end
     ensure
       @mutex.unlock
     end
+
   rescue
     $log.error "error on output thread: ", $!
     $log.error_backtrace
     raise
   ensure
     @mutex.synchronize {
-      @output.finalize_queue
+      @output.before_shutdown
     }
   end
 
-  def calc_next_wait(now)
+  def calc_next_time
     if @error_history.empty?
-      return @last_try + @flush_interval - now
+      @next_time = @last_try + @flush_interval
+    else
+      # TODO retry pattern
+      @next_time = @last_try + @retry_wait * (2 ** (@error_history.size-1))
     end
-    # TODO retry pattern
-    @retry_wait * (2 ** (@error_history.size-1))
   end
 
   if ConditionVariable.new.method(:wait).arity == 1
     $log.warn "WARNING: Running on Ruby 1.8. Ruby 1.9 is recommended."
     require 'timeout'
-    def cond_wait(time)
-      Timeout.timeout(time) {
+    def cond_wait(sec)
+      Timeout.timeout(sec) {
         @cond.wait(@mutex)
       }
     rescue Timeout::Error
     end
   else
-    def cond_wait(time)
-      @cond.wait(@mutex, time)
+    def cond_wait(sec)
+      @cond.wait(@mutex, sec)
     end
   end
 
-  def try_flush(now, force)
+  def try_flush(time)
     while true
+
       begin
-        has_next = @output.try_flush(force)
+        has_next = @output.try_flush
         @error_history.clear
         next if has_next
+
       rescue
         $log.warn "failed to flush the buffer: ", $!
         $log.warn_backtrace
-        @error_history << now
+
+        @error_history << time
         if @error_history.size > @retry_limit
           $log.warn "retry count exceededs limit. aborted."
           write_abort
+        else
+          $log.info "retrying."
         end
-        $log.info "retrying."
       end
+
       break
     end
   end
 
   def write_abort
     # TODO clear buffer? configurable?
-    @output.clear_buffer! rescue nil
+    begin
+      @output.write_abort
+    rescue
+      $log.warn "clear buffer failed: ", $!
+      $log.warn_backtrace
+    end
     @error_history.clear
+  end
+end
+
+
+class BufferedOutput < Output
+  def initialize
+  end
+
+  def configure(conf)
+    buffer_type = conf['buffer_type'] || 'memory'
+    @buffer = Plugin.new_buffer(buffer_type)
+    @buffer.configure(conf)
+
+    @writer = OutputThread.new(self)
+    @writer.configure(conf)
+  end
+
+  def start
+    @buffer.start
+    @writer.start
+  end
+
+  def shutdown
+    @writer.shutdown
+    @buffer.shutdown
+  end
+
+  def emit(tag, es, chain)
+    key = ""
+    data = format_stream(tag, es)
+    if @buffer.emit(key, data, chain)
+      submit_flush
+    end
+  end
+
+  def submit_flush
+    @writer.submit_flush
+  end
+
+  def format_stream(tag, es)
+    out = ''
+    es.each {|event|
+      out << format(tag, event)
+    }
+    out
+  end
+
+  #def format(tag, event)
+  #end
+
+  #def write(chunk)
+  #end
+
+  def try_flush
+    @buffer.synchronize do
+      @buffer.keys.each {|key|
+        @buffer.push(key)
+      }
+    end
+    @buffer.pop(self)
+  end
+
+  def before_shutdown
+    begin
+      @buffer.before_shutdown(self)
+    rescue
+      $log.warn "before_shutdown failed: ", $!
+      $log.warn_backtrace
+    end
+  end
+
+  def write_abort
+    @buffer.clear!
   end
 end
 

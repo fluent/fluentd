@@ -19,9 +19,9 @@ module Fluent
 
 
 class MemoryBufferChunk < BufferChunk
-  def initialize(data='')
+  def initialize(key, data='')
     @data = data
-    super()
+    super(key)
   end
 
   def <<(data)
@@ -55,12 +55,29 @@ class MemoryBuffer < BasicBuffer
     super
   end
 
-  def resume_queue
-    return [], new_data
+  def before_shutdown(out)
+    synchronize do
+      @map.each_key {|key|
+        push(key)
+      }
+      while pop(out)
+      end
+    end
   end
 
-  def new_data
-    MemoryBufferChunk.new
+  def new_chunk(key)
+    MemoryBufferChunk.new(key)
+  end
+
+  def resume
+    return [], {}
+  end
+
+  def enqueue(chunk)
+  end
+
+  def clear!
+    @queue.clear
   end
 end
 
