@@ -50,6 +50,9 @@ class EngineClass
     $log.info "reading config file '#{path}'"
     conf = Config.read(path)
     configure(conf)
+    conf.check_not_fetched {|key,e|
+      $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
+    }
   end
 
   def configure(conf)

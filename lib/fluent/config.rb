@@ -27,7 +27,7 @@ end
 
 module Config
   class Element < Hash
-    def initialize(name, arg, attrs, elements)
+    def initialize(name, arg, attrs, elements, used=[])
       @name = name
       @arg = arg
       @elements = elements
@@ -35,9 +35,10 @@ module Config
       attrs.each {|k,v|
         self[k] = v
       }
+      @used = used
     end
 
-    attr_accessor :name, :arg, :elements
+    attr_accessor :name, :arg, :elements, :used
 
     def add_element(name, arg='')
       e = Element.new(name, arg, {}, [])
@@ -46,11 +47,28 @@ module Config
     end
 
     def +(o)
-      Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements)
+      Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, @used+o.used)
+    end
+
+    def [](key)
+      @used << key
+      super
+    end
+
+    def check_not_fetched(&block)
+      each_key {|key|
+        unless @used.include?(key)
+          block.call(key, self)
+        end
+      }
+      @elements.each {|e|
+        e.check_not_fetched(&block)
+      }
     end
 
     def to_s(nest = 0)
       indent = "  "*nest
+      nindent = "  "*(nest+1)
       out = ""
       if @arg.empty?
         out << "#{indent}<#{@name}>\n"
@@ -58,7 +76,7 @@ module Config
         out << "#{indent}<#{@name} #{@name}>\n"
       end
       each_pair {|k,v|
-        out << "#{indent}#{k} = #{v}\n"
+        out << "#{nindent}#{k} = #{v}\n"
       }
       @elements.each {|e|
         out << e.to_s(nest+1)
@@ -105,6 +123,8 @@ module Config
       $~[1].to_i * 60
     when /([0-9]+)h/
       $~[1].to_i * 60*60
+    when /([0-9]+)d/
+      $~[1].to_i * 24*60*60
     else
       str.to_f
     end
