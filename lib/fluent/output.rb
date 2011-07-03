@@ -345,22 +345,22 @@ class TimeSlicedOutput < BufferedOutput
       when 'hourly'
         if @localtime
           Proc.new {|time|
-            Time.at(time).strftime("%Y%m%d_%H")
+            Time.at(time).strftime("%Y%m%d%H")
           }
         else
           Proc.new {|time|
-            Time.at(time).utc.strftime("%Y%m%d_%H")
+            Time.at(time).utc.strftime("%Y%m%d%H")
           }
         end
 
       when 'minutely'
         if @localtime
           Proc.new {|time|
-            Time.at(time).strftime("%Y%m%d_%H%M")
+            Time.at(time).strftime("%Y%m%d%H%M")
           }
         else
           Proc.new {|time|
-            Time.at(time).utc.strftime("%Y%m%d_%H%M")
+            Time.at(time).utc.strftime("%Y%m%d%H%M")
           }
         end
 
