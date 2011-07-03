@@ -298,5 +298,111 @@ class BufferedOutput < Output
 end
 
 
+class TimeSlicedOutput < BufferedOutput
+  def initialize
+    super
+    @slice_wait = 10*60  # TODO default value
+    @localtime = false
+    @time_slicer = nil
+    @ignore_old = false
+  end
+
+  def configure(conf)
+    super
+
+    if conf['localtime']
+      @localtime = true
+    end
+
+    if slice = conf['time_slice']
+      @time_slicer = case slice
+      #when /^monthly(?:\/([0-9]+))?$/i
+      #when /^daily(?:\/([0-9]+))?$/i
+      #when /^weekly(?:\/(\w+))?$/i
+      #when /^hourly(?:\/([0-9]+))?$/i
+      when 'monthly'
+        if @localtime
+          Proc.new {|time|
+            Time.at(time).strftime("%Y%m")
+          }
+        else
+          Proc.new {|time|
+            Time.at(time).utc.strftime("%Y%m")
+          }
+        end
+
+      when 'daily'
+        if @localtime
+          Proc.new {|time|
+            Time.at(time).strftime("%Y%m%d")
+          }
+        else
+          Proc.new {|time|
+            Time.at(time).utc.strftime("%Y%m%d")
+          }
+        end
+
+      when 'hourly'
+        if @localtime
+          Proc.new {|time|
+            Time.at(time).strftime("%Y%m%d_%H")
+          }
+        else
+          Proc.new {|time|
+            Time.at(time).utc.strftime("%Y%m%d_%H")
+          }
+        end
+
+      when 'minutely'
+        if @localtime
+          Proc.new {|time|
+            Time.at(time).strftime("%Y%m%d_%H%M")
+          }
+        else
+          Proc.new {|time|
+            Time.at(time).utc.strftime("%Y%m%d_%H%M")
+          }
+        end
+
+      else
+        raise ConfigError, "'time_slice' parameter must be one of the 'monthly', 'daily', 'hourly' or 'minutely'"
+      end
+
+    else
+      raise ConfigError, "'time_slice' parameter is required for time sliced output plugin"
+    end
+
+    if wait = conf['time_slice_wait']
+      @slice_wait = Config.time_value(wait)
+    end
+  end
+
+  def emit(tag, es, chain)
+    es.each {|e|
+      key = @time_slicer.call(e.time)
+      data = format(tag, e)
+      if @buffer.emit(key, data, chain)
+        submit_flush
+      end
+    }
+  end
+
+  def try_flush
+    nowslice = @time_slicer.call(Engine.now.to_i - @slice_wait)
+    @buffer.synchronize do
+      @buffer.keys.each {|key|
+        if key < nowslice
+          @buffer.push(key)
+        end
+      }
+    end
+    @buffer.pop(self)
+  end
+
+  #def format(tag, event)
+  #end
+end
+
+
 end
 

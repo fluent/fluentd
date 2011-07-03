@@ -133,7 +133,7 @@ class BasicBuffer < Buffer
     key = key.to_s
 
     synchronize do
-      top = (@map[key] ||= new_chunk(key))
+      top = (@map[key] ||= new_chunk(key))  # TODO generate unique chunk id
 
       if top.size + data.size <= @chunk_limit
         chain.next
@@ -149,7 +149,7 @@ class BasicBuffer < Buffer
         raise BufferError, "queue size exceeds limit"
       end
 
-      nc = new_chunk(key)
+      nc = new_chunk(key)  # TODO generate unique chunk id
       ok = false
 
       begin
