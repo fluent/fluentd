@@ -27,6 +27,8 @@ class EngineClass
   def init
     $log.info "started at #{Time.now}"
     require 'thread'
+    require 'socket'
+    BasicSocket.do_not_reverse_lookup = false
     require 'monitor'
     require 'stringio'
     require 'fileutils'
