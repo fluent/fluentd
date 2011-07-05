@@ -4,7 +4,7 @@ Fluent is an event collector system. It's said that Fluent is generalized versio
 
 == Archtecture
 
-Fluent collects events from various data sources and write tem to files, database or other storages:
+Fluent collects events from various data sources and write them to files, database or other storages:
 
     
     Web apps  ---+                +--> file
