@@ -1,4 +1,10 @@
 
+Release 0.9.3 - 2011/07/05
+  * Disable EventMachine.epoll because it doesn't work correctly on
+    Ruby 1.9 with threads
+  * in_tcp and in_unix uses EventMachine instead of threads
+  * Set BasicSocket.do_not_reverse_lookup = true
+
 Release 0.9.2 - 2011/07/03
   * Added TimeSlicedOutput that splits buffer chunk exactly based on the time
   * Changed structure of buffers from queue to map + queue
