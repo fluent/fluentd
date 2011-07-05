@@ -28,7 +28,7 @@ class EngineClass
     $log.info "started at #{Time.now}"
     require 'thread'
     require 'socket'
-    BasicSocket.do_not_reverse_lookup = false
+    BasicSocket.do_not_reverse_lookup = true
     require 'monitor'
     require 'stringio'
     require 'fileutils'
@@ -125,7 +125,7 @@ class EngineClass
   def run
     # FIXME EventMachine on Ruby 1.9 with threads
     #       don't work with epoll correctly
-    EventMachine.epoll = false
+    EventMachine.epoll = false if EventMachine.epoll?
     EventMachine.run do
       start
     end
