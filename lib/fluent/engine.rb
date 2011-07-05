@@ -123,6 +123,9 @@ class EngineClass
   end
 
   def run
+    # FIXME EventMachine on Ruby 1.9 with threads
+    #       don't work with epoll correctly
+    EventMachine.epoll = false
     EventMachine.run do
       start
     end
