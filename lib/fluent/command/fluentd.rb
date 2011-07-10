@@ -45,8 +45,8 @@ op.on('-r NAME', "load library") {|s|
   libs << s
 }
 
-op.on('-d', '--daemon', "daemonize fluent process", TrueClass) {|b|
-  daemonize = b
+op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
+  daemonize = s
 }
 
 op.on('-o', '--log PATH', "log file path") {|s|
@@ -129,6 +129,19 @@ trap :HUP do
   if log_file
     $log.reopen(log_file, "a")
   end
+end
+
+if daemonize
+  exit!(0) if fork
+  Process.setsid
+  exit!(0) if fork
+  File.umask(0)
+  STDIN.reopen("/dev/null")
+  STDOUT.reopen("/dev/null", "w")
+  STDERR.reopen("/dev/null", "w")
+  File.open(daemonize, "w") {|f|
+    f.write Process.pid.to_s
+  }
 end
 
 Fluent::Engine.run

@@ -99,6 +99,7 @@ class TailInput < Input
     def read
       super
     rescue
+      $log.error "tail: #{$!}"
       if $!.to_s == "closed stream"
         @file = nil
         schedule_reopen
