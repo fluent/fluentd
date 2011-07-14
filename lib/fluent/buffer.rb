@@ -86,6 +86,12 @@ class BufferChunk
 
   #def open
   #end
+
+  def write_to(io)
+    open {|i|
+      FileUtils.copy_stream(i, io)
+    }
+  end
 end
 
 

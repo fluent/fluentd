@@ -1,6 +1,6 @@
 AC_INIT(lib/fluent/engine.rb)
 AC_CONFIG_AUX_DIR(ac)
-AM_INIT_AUTOMAKE(fluent, 0.9.3)
+AM_INIT_AUTOMAKE(fluent, 0.9.4)
 
 AC_CHECK_LIB(z,deflate,,
     AC_MSG_ERROR([zlib library not found]))

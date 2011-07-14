@@ -45,6 +45,10 @@ class MemoryBufferChunk < BufferChunk
   def open(&block)
     StringIO.open(@data, &block)
   end
+
+  def write_to(io)
+    io.write @data
+  end
 end
 
 
