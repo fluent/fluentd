@@ -36,11 +36,17 @@ class HttpInput < Input
     @bind = conf['bind'] || @bind
   end
 
+  # TODO multithreading
   def start
-    EventMachine.start_server(@bind, @port, Handler, method(:on_request))
+    $log.debug "listening http on #{@bind}:#{@port}"
+    callback = method(:on_request)
+    EventMachine.start_server(@bind, @port, Handler) {|c|
+      c.callback = callback
+    }
   end
 
   def shutdown
+    # TODO graceful shut-down
   end
 
   def on_request(path_info, params)
@@ -80,16 +86,12 @@ class HttpInput < Input
     return [200, {'Content-type'=>'text/plain'}, ""]
   end
 
-  class Handler  < EventMachine::Connection
+  module Handler
     include EventMachine::HttpServer
 
-    def initialize(callback)
-      @callback = callback
-    end
+    attr_accessor :callback
 
     def process_http_request
-      resp = EventMachine::DelegatedHttpResponse.new(self)
-
       params = WEBrick::HTTPUtils.parse_query(@http_query_string)
       if @http_content_type =~ /^application\/x-www-form-urlencoded/
         params.update WEBrick::HTTPUtils.parse_query(@http_post_content)
@@ -98,18 +100,28 @@ class HttpInput < Input
         params.update WEBrick::HTTPUtils.parse_form_data(@http_post_content, boundary)
       end
 
-      op = Proc.new {
-        @callback.call(@http_path_info, params)
-      }
+      resp = EventMachine::DelegatedHttpResponse.new(self)
 
-      sender = Proc.new {|(code,header,body)|
-        resp.status = code
-        resp.headers = header
-        resp.content = body.to_s
-        resp.send_response
-      }
+      code, header, body = @callback.call(@http_path_info, params)
 
-      EventMachine.defer(op, sender)
+      resp.status = code
+      resp.headers = header
+      resp.content = body.to_s
+      resp.send_response
+
+      # Cool.io doesn't support thread pool
+      #op = Proc.new {
+      #  @callback.call(@http_path_info, params)
+      #}
+      #
+      #sender = Proc.new {|(code,header,body)|
+      #  resp.status = code
+      #  resp.headers = header
+      #  resp.content = body.to_s
+      #  resp.send_response
+      #}
+      #
+      #EventMachine.defer(op, sender)
     end
   end
 end
