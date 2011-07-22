@@ -21,21 +21,17 @@ module Fluent
 class TailInput < Input
   Plugin.register_input('tail', self)
 
-  require 'eventmachine-tail'
-
   def initialize
     @paths = []
     @parser = TextParser.new
-
-    # TODO
-    #@read_all = false
-    #@last_record_file = nil
   end
 
   def configure(conf)
     if path = conf['path']
       @paths = path.split(',').map {|path| path.strip }
-    else
+    end
+
+    if @paths.empty?
       raise ConfigError, "tail: 'path' parameter is required on tail input"
     end
 
@@ -49,17 +45,27 @@ class TailInput < Input
   end
 
   def start
+    @loop = Coolio::Loop.new
     @paths.each {|path|
-      # -1 = seek to the end of file.
-      # logs never duplicate but may be lost if fluent is down
-      Tailer.new(path, -1, &method(:receive_lines))
+      $log.debug "following tail of #{path}"
+      @loop.attach Handler.new(path, method(:receive_lines))
     }
+    @thread = Thread.new(&method(:run))
   end
 
   def shutdown
+    @loop.stop
+    @thread.join
   end
 
-  def receive_lines(path, lines)
+  def run
+    @loop.run
+  rescue
+    $log.error "unexpected error: #{$!}"
+    $log.error_backtrace
+  end
+
+  def receive_lines(lines)
     array = []
     lines.each {|line|
       begin
@@ -78,42 +84,57 @@ class TailInput < Input
     end
   end
 
-  class Tailer < EventMachine::FileTail
-    def initialize(path, startpos=-1, &callback)
-      super(path, startpos)
+  # seek to the end of file first.
+  # logs never duplicate but may be lost if fluent is down.
+  class Handler < Coolio::StatWatcher
+    def initialize(path, callback)
+      @pos = File.stat(path).size
+      @buffer = ''
       @callback = callback
-      @buffer = BufferedTokenizer.new
+      super(path)
     end
 
-    def receive_data(data)
+    def on_change
       lines = []
-      @buffer.extract(data).each do |line|
-        lines << line
-      end
-      EventMachine.defer {
-        @callback.call(path, lines)
+
+      File.open(path) {|f|
+        if f.lstat.size < @pos
+          # moved or deleted
+          @pos = 0
+        else
+          f.seek(@pos)
+        end
+
+        line = f.gets
+        unless line
+          return
+        end
+
+        @buffer << line
+        unless line[line.length-1] == ?\n
+          @pos = f.pos
+          return
+        end
+
+        lines << @buffer
+        @buffer = ''
+
+        while line = f.gets
+          unless line[line.length-1] == ?\n
+            @buffer = line
+            break
+          end
+          lines << line
+        end
+
+        @pos = f.pos
       }
-    end
 
-    # FIXME for event-machine-tail-0.6.1
-    def read
-      super
-    rescue
-      $log.error "tail: #{$!}"
-      if $!.to_s == "closed stream"
-        @file = nil
-        schedule_reopen
-      else
-        raise
-      end
-    end
+      @callback.call(lines)
 
-    def on_exception(e)
-      if e.class == Errno::ENOENT
-        $log.error "tail: #{path} does not exist"
-      end
-      # raise error
-      super(e)
+    rescue Errno::ENOENT
+      # moved or deleted
+      @pos = 0
     end
   end
 end
