@@ -28,7 +28,7 @@ class BucketOutput < Output
 
   def configure(conf)
     conf.elements.select {|e|
-      e.name == 'bucket'
+      e.name == 'store'
     }.each {|e|
       output = Plugin.new_output(e.arg)
       output.configure(conf+e)

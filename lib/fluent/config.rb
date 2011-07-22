@@ -76,7 +76,7 @@ module Config
         out << "#{indent}<#{@name} #{@name}>\n"
       end
       each_pair {|k,v|
-        out << "#{nindent}#{k} = #{v}\n"
+        out << "#{nindent}#{k} #{v}\n"
       }
       @elements.each {|e|
         out << e.to_s(nest+1)

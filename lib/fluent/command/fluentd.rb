@@ -1,5 +1,5 @@
 #
-# Fluent cat
+# Fluentd
 #
 # Copyright (C) 2011 FURUHASHI Sadayuki
 #
@@ -28,6 +28,11 @@ log_level = Fluent::Log::LEVEL_INFO
 log_file = nil
 daemonize = false
 libs = []
+setup_path = nil
+
+op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
+  setup_path = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
+}
 
 op.on('-c', '--config PATH', "config flie path (default: #{config_path})") {|s|
   config_path = s
@@ -92,6 +97,19 @@ end
 $log = Fluent::Log.new(log_level, log_out)
 if log_level <= Fluent::Log::LEVEL_DEBUG
   $log.enable_debug
+end
+
+
+if setup_path
+  require 'fileutils'
+  FileUtils.mkdir_p File.join(setup_path, "plugin")
+  confpath = File.join(setup_path, "fluent.conf")
+  File.open(confpath, "w") {|f|
+    conf = File.read File.join(File.dirname(__FILE__), "..", "..", "..", "fluent.conf")
+    f.write conf
+  }
+  puts "Installed #{confpath}."
+  exit 0
 end
 
 
