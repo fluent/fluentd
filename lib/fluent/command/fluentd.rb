@@ -104,11 +104,15 @@ if setup_path
   require 'fileutils'
   FileUtils.mkdir_p File.join(setup_path, "plugin")
   confpath = File.join(setup_path, "fluent.conf")
-  File.open(confpath, "w") {|f|
-    conf = File.read File.join(File.dirname(__FILE__), "..", "..", "..", "fluent.conf")
-    f.write conf
-  }
-  puts "Installed #{confpath}."
+  if File.exist?(confpath)
+    puts "#{confpath} already exists."
+  else
+    File.open(confpath, "w") {|f|
+      conf = File.read File.join(File.dirname(__FILE__), "..", "..", "..", "fluent.conf")
+      f.write conf
+    }
+    puts "Installed #{confpath}."
+  end
   exit 0
 end
 
