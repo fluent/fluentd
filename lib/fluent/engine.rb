@@ -34,7 +34,8 @@ class EngineClass
     require 'fileutils'
     require 'json'
     require 'msgpack'
-    require 'eventmachine'
+    require 'cool.io'
+    require 'cool.io/eventmachine'
     require 'fluent/env'
     require 'fluent/config'
     require 'fluent/plugin'
@@ -123,18 +124,17 @@ class EngineClass
   end
 
   def run
-    # FIXME EventMachine on Ruby 1.9 with threads
-    #       don't work with epoll correctly
-    EventMachine.epoll = false if EventMachine.epoll?
-    EventMachine.run do
-      start
-    end
+    start
+    # TODO attach async watch for thread pool
+    Coolio::Loop.default.attach Coolio::TimerWatcher.new(1)  # for empty loop
+    Coolio::Loop.default.run
     shutdown
     nil
   end
 
   def stop
-    EventMachine.stop_event_loop
+    $log.info "shutting down fluentd"
+    Coolio::Loop.default.stop
     nil
   end
 
