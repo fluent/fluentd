@@ -21,8 +21,8 @@ download "http://ftp.ruby-lang.org/pub/ruby/1.9" "ruby-1.9.2-p180.tar.bz2"
 download "http://rubygems.org/downloads" "jeweler-1.6.2.gem"
 download "http://rubygems.org/downloads" "json-1.5.2.gem"
 download "http://rubygems.org/downloads" "msgpack-0.4.4.gem"
-download "http://rubygems.org/downloads" "eventmachine-0.12.10.gem"
-download "http://rubygems.org/downloads" "eventmachine-tail-0.6.1.gem"
+download "http://rubygems.org/downloads" "iobuffer-0.1.3.gem"
+download "http://rubygems.org/downloads" "cool.io-1.0.0.gem"
 download "http://rubygems.org/downloads" "eventmachine_httpserver-0.2.1.gem"
 cd ..
 
