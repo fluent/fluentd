@@ -24,15 +24,27 @@ class StreamInput < Input
   end
 
   def start
-    listen
+    @loop = Coolio::Loop.new
+    @lsock = listen
+    @loop.attach(@lsock)
+    @thread = Thread.new(&method(:run))
   end
 
   def shutdown
     @lsock.close
+    @loop.stop
+    @thread.join
   end
 
   #def listen
   #end
+
+  def run
+    @loop.run
+  rescue
+    $log.error "unexpected error: #{$!}"
+    $log.error_backtrace
+  end
 
   protected
   def callback(msgs)
@@ -41,7 +53,6 @@ class StreamInput < Input
     }
   end
 
-  private
   # message Entry {
   #   1: long? time
   #   2: object record
@@ -83,24 +94,23 @@ class StreamInput < Input
     Engine.emit_stream(tag, es)
   end
 
-  class Handler < EventMachine::Connection
-    def initialize(callback)
+  class Handler < Coolio::Socket
+    def initialize(io, callback)
+      super(io)
       $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
       @callback = callback
       @u = MessagePack::Unpacker.new
     end
 
-    def receive_data(data)
+    def on_read(data)
       msgs = []
       @u.feed_each(data) {|msg|
         msgs << msg
       }
-      EventMachine.defer {
-        @callback.call(msgs)
-      }
+      @callback.call(msgs)
     end
 
-    def unbind
+    def on_close
       $log.trace { "closed fluent socket object_id=#{self.object_id}" }
     end
   end
@@ -117,7 +127,7 @@ class TcpInput < StreamInput
 
   def listen
     $log.debug "listening fluent socket on #{@bind}:#{@port}"
-    EventMachine.start_server(@bind, @port, Handler, method(:callback))
+    Coolio::TCPServer.new(@bind, @port, Handler, method(:callback))
   end
 end
 
@@ -135,7 +145,7 @@ class UnixInput < StreamInput
     end
     FileUtils.mkdir_p File.dirname(@path)
     $log.debug "listening fluent socket on #{@path}"
-    EventMachine.start_unix_domain_server(@path, Handler, method(:callback))
+    Coolio::UNIXServer.new(@path, Handler, method(:callback))
   end
 end
 
