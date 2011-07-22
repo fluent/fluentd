@@ -21,7 +21,7 @@ module Fluent
 class HttpInput < Input
   Plugin.register_input('http', self)
 
-  require 'evma_httpserver'
+  require 'http/parser'
 
   def initialize
     require 'webrick/httputils'
@@ -39,14 +39,23 @@ class HttpInput < Input
   # TODO multithreading
   def start
     $log.debug "listening http on #{@bind}:#{@port}"
-    callback = method(:on_request)
-    EventMachine.start_server(@bind, @port, Handler) {|c|
-      c.callback = callback
-    }
+    @loop = Coolio::Loop.new
+    @lsock = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_request))
+    @loop.attach(@lsock)
+    @thread = Thread.new(&method(:run))
   end
 
   def shutdown
-    # TODO graceful shut-down
+    @lsock.close
+    @loop.stop
+    #@thread.join  # TODO
+  end
+
+  def run
+    @loop.run
+  rescue
+    $log.error "unexpected error: #{$!}"
+    $log.error_backtrace
   end
 
   def on_request(path_info, params)
@@ -86,42 +95,70 @@ class HttpInput < Input
     return [200, {'Content-type'=>'text/plain'}, ""]
   end
 
-  module Handler
-    include EventMachine::HttpServer
+  class Handler < Coolio::Socket
+    def initialize(io, callback)
+      super(io)
+      @callback = callback
+      @next_close = false
+    end
 
-    attr_accessor :callback
+    def on_connect
+      @parser = Http::Parser.new(self)
+    end
 
-    def process_http_request
-      params = WEBrick::HTTPUtils.parse_query(@http_query_string)
-      if @http_content_type =~ /^application\/x-www-form-urlencoded/
-        params.update WEBrick::HTTPUtils.parse_query(@http_post_content)
-      elsif @http_content_type =~ /^multipart\/form-data; boundary=(.+)/
+    def on_read(data)
+      @parser << data
+    rescue
+      $log.warn "unexpected error: ", $!
+      $log.warn_backtrace
+    end
+
+    def on_message_begin
+      @body = ''
+    end
+
+    def on_body(chunk)
+      @body << chunk
+    end
+
+    def on_message_complete
+      params = WEBrick::HTTPUtils.parse_query(@parser.query_string)
+
+      content_type = nil
+      @parser.headers.each_pair {|k,v|
+        if k =~ /Content-Type/i
+          content_type = v
+          break
+        end
+      }
+
+      if content_type =~ /^application\/x-www-form-urlencoded/
+        params.update WEBrick::HTTPUtils.parse_query(@body)
+      elsif content_type =~ /^multipart\/form-data; boundary=(.+)/
         boundary = WEBrick::HTTPUtils.dequote($1)
-        params.update WEBrick::HTTPUtils.parse_form_data(@http_post_content, boundary)
+        params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
       end
+      path_info = @parser.request_path
 
-      resp = EventMachine::DelegatedHttpResponse.new(self)
+      code, header, body = *@callback.call(path_info, params)
+      body = body.to_s
 
-      code, header, body = @callback.call(@http_path_info, params)
+      header['Content-length'] = body.size
+      header['Content-type'] ||= 'text/plain'
 
-      resp.status = code
-      resp.headers = header
-      resp.content = body.to_s
-      resp.send_response
+      data = %[HTTP/1.1 #{code} ...\r\n]
+      header.each_pair {|k,v|
+        data << "#{k}: #{v}\r\n"
+      }
+      data << "\r\n"
+      data << body
 
-      # Cool.io doesn't support thread pool
-      #op = Proc.new {
-      #  @callback.call(@http_path_info, params)
-      #}
-      #
-      #sender = Proc.new {|(code,header,body)|
-      #  resp.status = code
-      #  resp.headers = header
-      #  resp.content = body.to_s
-      #  resp.send_response
-      #}
-      #
-      #EventMachine.defer(op, sender)
+      write data
+      @next_close = true
+    end
+
+    def on_write_complete
+      close if @next_close # TODO keepalive
     end
   end
 end

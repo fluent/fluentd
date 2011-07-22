@@ -33,7 +33,7 @@ class StreamInput < Input
   def shutdown
     @lsock.close
     @loop.stop
-    @thread.join
+    #@thread.join  # TODO
   end
 
   #def listen
@@ -99,6 +99,9 @@ class StreamInput < Input
       super(io)
       $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
       @callback = callback
+    end
+
+    def on_connect
       @u = MessagePack::Unpacker.new
     end
 
