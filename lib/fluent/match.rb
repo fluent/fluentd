@@ -57,38 +57,108 @@ class MatchPattern
   #end
 end
 
-class RegexMatchPattern < MatchPattern
-  def initialize(regex)
-    @regex = regex
-  end
-
-  def match(str)
-    @regex.match(str) != nil
-  end
-end
+## TODO
+#class RegexMatchPattern < MatchPattern
+#  def initialize(regex)
+#    @regex = regex
+#  end
+#
+#  def match(str)
+#    @regex.match(str) != nil
+#  end
+#end
 
 class GlobMatchPattern < MatchPattern
   def initialize(pat)
-    regex = ''
+    stack = []
+    regex = ['']
     escape = false
-    # FIXME
-    pat.scan(/./) {|c|
+    dot = false
+
+    i = 0
+    while i < pat.length
+      c = pat[i,1]
+
       if escape
-        regex << c
+        regex.last << Regexp.escape(c)
         escape = false
-      elsif c == '/'
-        escape = true
-      elsif c =~ /[a-zA-Z0-9_]/
-        regex << c
-      elsif c == '*'
-        regex << '[^\.]*'
-      elsif c == '?'
-        regex << '.'
-      else
-        regex << "\\#{c}"
+        i += 1
+        next
+
+      elsif pat[i,2] == "**"
+        # recursive any
+        if dot
+          regex.last << "(?![^\\.])"
+          dot = false
+        end
+        if pat[i+2,1] == "."
+          regex.last << "(?:.*\\.|\\A)"
+          i += 3
+        else
+          regex.last << ".*"
+          i += 2
+        end
+        next
+
+      elsif dot
+        regex.last << "\\."
+        dot = false
       end
-    }
-    @regex = Regexp.new(regex)
+
+      if c == "\\"
+        escape = true
+
+      elsif c == "."
+        dot = true
+
+      elsif c == "*"
+        # any
+        regex.last << "[^\\.]*"
+
+      # TODO
+      #elsif c == "["
+      #  # character class
+      #  chars = ''
+      #  while i < pat.length
+      #    c = pat[i,1]
+      #    if c == "]"
+      #      break
+      #    else
+      #      chars << c
+      #    end
+      #    i += 1
+      #  end
+      #  regex.last << '['+Regexp.escape(chars).gsub("\\-",'-')+']'
+
+      elsif c == "{"
+        # or
+        stack.push []
+        regex.push ''
+
+      elsif c == "}" && !stack.empty?
+        stack.last << regex.pop
+        regex.last << Regexp.union(*stack.pop.map {|r| Regexp.new(r) }).to_s
+
+      elsif c == "," && !stack.empty?
+        stack.last << regex.pop
+        regex.push ''
+
+      elsif c =~ /[a-zA-Z0-9_]/
+        regex.last << c
+
+      else
+        regex.last << "\\#{c}"
+      end
+
+      i += 1
+    end
+
+    until stack.empty?
+      stack.last << regex.pop
+      regex.last << Regexp.union(*stack.pop).to_s
+    end
+
+    @regex = Regexp.new("\\A"+regex.last+"\\Z")
   end
 
   def match(str)

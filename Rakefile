@@ -16,7 +16,7 @@ begin
     gemspec.add_dependency "json", ">= 1.4.3"
     gemspec.add_dependency "cool.io", "~> 1.0.0"
     gemspec.add_dependency "http_parser.rb", "~> 0.5.1"
-    #gemspec.test_files = Dir["test/**/*.rb"]
+    gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
       %w[fluent.conf]
     gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
@@ -24,6 +24,12 @@ begin
   Jeweler::GemcutterTasks.new
 rescue LoadError
   puts "Jeweler not available. Install it with: gem install jeweler"
+end
+
+Rake::TestTask.new(:test) do |t|
+  t.test_files = Dir['test/*_test.rb']
+  t.ruby_opts = ['-rubygems'] if defined? Gem
+  t.ruby_opts << '-I.'
 end
 
 VERSION_FILE = "lib/fluent/version.rb"
