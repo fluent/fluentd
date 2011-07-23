@@ -1,4 +1,12 @@
 
+Release 0.9.5 - 2011/07/23
+
+  * Added <secondary> tag that fallbacks to secondary output when it can't
+    write to primary output.
+  * <match> pattern supports **; matches any fragments recursively.
+  * <match> pattern supports {x,y,...}; matches any of the inner patterns.
+
+
 Release 0.9.4 - 2011/07/22
 
   * Switched EventMachine to Cool.io
