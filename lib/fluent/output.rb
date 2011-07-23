@@ -74,9 +74,12 @@ class OutputThread
     @flush_interval = 60  # TODO default
     @retry_limit = 10  # TODO default
     @retry_wait = 1.0  # TODO default
+
+    @secondary = nil
+    @fallback_count = 3
   end
 
-  attr_accessor :flush_interval, :retry_limit, :retry_pattern, :retry_wait
+  attr_accessor :flush_interval, :retry_limit, :retry_wait, :fallback_count
 
   def configure(conf)
     if flush_interval = conf['flush_interval']
@@ -92,6 +95,15 @@ class OutputThread
     end
 
     # TODO configure retry_pattern
+
+    if econf = conf.elements.select {|e| e.name == 'secondary' }.first
+      type = econf['type'] || conf['type']
+      if type != conf['type']
+        $log.warn 'type of secondary output should be same as primary output'
+      end
+      @secondary = Plugin.new_output(type)
+      @secondary.configure(econf)
+    end
   end
 
   def start
@@ -102,6 +114,7 @@ class OutputThread
     # TODO
     @next_time = @last_try
     @thread = Thread.new(&method(:run))
+    @secondary.start if @secondary
   end
 
   def shutdown
@@ -109,6 +122,7 @@ class OutputThread
     @mutex.synchronize {
       @cond.signal
     }
+    @secondary.shutdown if @secondary
     Thread.pass
     @thread.join
   end
@@ -200,8 +214,21 @@ class OutputThread
         $log.warn_backtrace
 
         @error_history << time
+
+        if @secondary && @error_history.size >= @fallback_count
+          $log.error "falling back to secondary output."
+          begin
+            @output.flush_secondary(@secondary)
+            @error_history.clear
+            break
+          rescue
+            $log.warn "failed to flush the buffer to secondary output: ", $!
+            $log.warn_backtrace
+          end
+        end
+
         if @error_history.size > @retry_limit
-          $log.warn "retry count exceededs limit. aborted."
+          $log.warn "retry count exceededs limit."
           write_abort
         else
           $log.info "retrying."
@@ -213,12 +240,24 @@ class OutputThread
   end
 
   def write_abort
-    # TODO clear buffer? configurable?
+    #if @secondary
+    #  $log.error "falling back to secondary output."
+    #  begin
+    #    @output.flush_secondary(@secondary)
+    #    @error_history.clear
+    #    return true
+    #  rescue
+    #    $log.error "failed to flush the buffer to secondary output: ", $!
+    #    $log.error_backtrace
+    #  end
+    #end
+
+    $log.error "throwing away old logs."
     begin
       @output.write_abort
     rescue
-      $log.warn "clear buffer failed: ", $!
-      $log.warn_backtrace
+      $log.error "unexpected error while aborting: ", $!
+      $log.error_backtrace
     end
     @error_history.clear
   end
@@ -294,6 +333,11 @@ class BufferedOutput < Output
 
   def write_abort
     @buffer.clear!
+  end
+
+  def flush_secondary(secondary)
+    while @buffer.pop(secondary)
+    end
   end
 end
 
