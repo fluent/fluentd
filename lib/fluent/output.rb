@@ -99,7 +99,7 @@ class OutputThread
     if econf = conf.elements.select {|e| e.name == 'secondary' }.first
       type = econf['type'] || conf['type']
       if type != conf['type']
-        $log.warn 'type of secondary output should be same as primary output'
+        $log.warn "type of secondary output should be same as primary output: #{econf}"
       end
       @secondary = Plugin.new_output(type)
       @secondary.configure(econf)

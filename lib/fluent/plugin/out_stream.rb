@@ -43,6 +43,35 @@ class StreamOutput < BufferedOutput
       sock.close
     end
   end
+
+  def flush_secondary(secondary)
+    unless secondary.is_a?(StreamOutput)
+      secondary = ReformatWriter.new(secondary)
+    end
+    while @buffer.pop(secondary)
+    end
+  end
+
+  class ReformatWriter
+    def initialize(secondary)
+      @secondary = secondary
+    end
+
+    def write(chunk)
+      chain = NullOutputChain.instance
+      chunk.open {|io|
+        u = MessagePack::Unpacker.new(io)
+        begin
+          u.each {|(tag,entries)|
+            entries.map! {|o| Event.new.from_msgpack(o) }
+            es = ArrayEventStream.new(entries)
+            @secondary.emit(tag, es, chain)
+          }
+        rescue EOFError
+        end
+      }
+    end
+  end
 end
 
 
