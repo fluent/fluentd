@@ -79,10 +79,6 @@ class MemoryBuffer < BasicBuffer
 
   def enqueue(chunk)
   end
-
-  def clear!
-    @queue.clear
-  end
 end
 
 

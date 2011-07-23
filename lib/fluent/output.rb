@@ -72,7 +72,7 @@ class OutputThread
     @finish = false
 
     @flush_interval = 60  # TODO default
-    @retry_limit = 10  # TODO default
+    @retry_limit = 8  # TODO default
     @retry_wait = 1.0  # TODO default
 
     @secondary = nil
@@ -227,7 +227,7 @@ class OutputThread
           end
         end
 
-        if @error_history.size > @retry_limit
+        if @error_history.size >= @retry_limit
           $log.warn "retry count exceededs limit."
           write_abort
         else

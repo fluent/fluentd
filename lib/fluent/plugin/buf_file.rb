@@ -162,13 +162,6 @@ class FileBuffer < BasicBuffer
     chunk.mv(path)
   end
 
-  def clear!
-    @queue.delete_if {|chunk|
-      chunk.purge
-      true
-    }
-  end
-
   protected
   def encode_key(key)
 		URI.encode(key, /[^-_.a-zA-Z0-9]/n)

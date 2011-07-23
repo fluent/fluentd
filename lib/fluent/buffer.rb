@@ -242,6 +242,13 @@ class BasicBuffer < Buffer
   def write_chunk(chunk, out)
     out.write(chunk)
   end
+
+  def clear!
+    @queue.delete_if {|chunk|
+      chunk.purge
+      true
+    }
+  end
 end
 
 
