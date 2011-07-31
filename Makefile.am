@@ -20,7 +20,7 @@ fluent-cat:
 	echo 'export FLUENT_CONF="$(sysconfdir)/fluent/fluent.conf"' >> $@
 	echo 'export FLUENT_PLUGIN="$(sysconfdir)/fluent/plugin"' >> $@
 	echo 'export FLUENT_SOCKET="$(localstatedir)/run/fluent.sock"' >> $@
-	echo 'exec "$(RUBY_BINDIR)/fluent-cat" "$$@"' >> $@
+	echo 'exec "$(RUBY_BINDIR)/ruby" "$(RUBY_BINDIR)/fluent-cat" "$$@"' >> $@
 	chmod 755 $@
 
 fluentd:
@@ -28,19 +28,19 @@ fluentd:
 	echo 'export FLUENT_CONF="$(sysconfdir)/fluent/fluent.conf"' >> $@
 	echo 'export FLUENT_PLUGIN="$(sysconfdir)/fluent/plugin"' >> $@
 	echo 'export FLUENT_SOCKET="$(localstatedir)/run/fluent.sock"' >> $@
-	echo 'exec "$(RUBY_BINDIR)/fluentd" "$$@"' >> $@
+	echo 'exec "$(RUBY_BINDIR)/ruby" "$(RUBY_BINDIR)/fluentd" "$$@"' >> $@
 	chmod 755 $@
 
 install: install-recursive
 	for gem in $(srcdir)/deps/*.gem; do \
 		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
-			$(DEST_GEM) install --no-rdoc --no-ri "$$gem"; \
+			$(DEST_GEM) install --no-rdoc --no-ri --env-shebang "$$gem"; \
 	done
 	cd "$(srcdir)" && \
 		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
 		$(DEST_RAKE)
 	RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
-		$(DEST_GEM) install --no-rdoc --no-ri "$(srcdir)/pkg/fluent-$(VERSION).gem"
+		$(DEST_GEM) install --no-rdoc --no-ri --env-shebang "$(srcdir)/pkg/fluent-$(VERSION).gem"
 	mkdir -p $(DESTDIR)$(sysconfdir)/fluent
 	cp -f $(srcdir)/fluent.conf $(DESTDIR)$(sysconfdir)/fluent/fluent.conf
 	mkdir -p $(DESTDIR)$(sysconfdir)/fluent/plugin
