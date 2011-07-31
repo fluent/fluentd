@@ -26,8 +26,10 @@ prefix=$orig_prefix
 
 AC_SUBST(RUBY_PREFIX)
 AC_SUBST(RUBY_BINDIR)
+AC_SUBST(RUBY_LIBDIR)
 RUBY_PREFIX=$ruby_prefix
 RUBY_BINDIR=$ruby_prefix/bin
+RUBY_LIBDIR=$ruby_prefix/lib
 
 AC_OUTPUT([Makefile])
 

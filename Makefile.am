@@ -5,6 +5,11 @@ bin_SCRIPTS = fluent-gem fluent-cat fluentd
 
 MOSTLYCLEANFILES = $(bin_SCRIPTS)
 
+DEST_RUBY = $(DESTDIR)$(RUBY_BINDIR)/ruby
+DEST_GEM = $(DEST_RUBY) -rrubygems -rrubygems/gem_runner -rrubygems/exceptions -e 'Gem::GemRunner.new.run ARGV'
+DEST_RAKE = $(DEST_RUBY) -rrake -e 'Rake.application.run'
+DEST_RUBY_LIBDIR = $(DESTDIR)$(RUBY_LIBDIR)/ruby
+
 fluent-gem:
 	echo '#!/bin/sh' > $@
 	echo 'exec "$(RUBY_BINDIR)/gem" "$$@"' >> $@
@@ -28,13 +33,17 @@ fluentd:
 
 install: install-recursive
 	for gem in $(srcdir)/deps/*.gem; do \
-		$(RUBY_BINDIR)/gem install --no-rdoc --no-ri "$$gem"; \
+		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
+			$(DEST_GEM) install --no-rdoc --no-ri "$$gem"; \
 	done
-	cd "$(srcdir)" && $(RUBY_BINDIR)/rake
-	$(RUBY_BINDIR)/gem install --no-rdoc --no-ri "$(srcdir)/pkg/fluent-$(VERSION).gem"
-	mkdir -p $(sysconfdir)/fluent
-	cp -f $(srcdir)/fluent.conf $(sysconfdir)/fluent/fluent.conf
-	mkdir -p $(sysconfdir)/fluent/plugin
+	cd "$(srcdir)" && \
+		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
+		$(DEST_RAKE)
+	RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
+		$(DEST_GEM) install --no-rdoc --no-ri "$(srcdir)/pkg/fluent-$(VERSION).gem"
+	mkdir -p $(DESTDIR)$(sysconfdir)/fluent
+	cp -f $(srcdir)/fluent.conf $(DESTDIR)$(sysconfdir)/fluent/fluent.conf
+	mkdir -p $(DESTDIR)$(sysconfdir)/fluent/plugin
 
 dist:
 	cd $(srcdir) && ./make_dist.sh
