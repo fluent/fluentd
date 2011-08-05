@@ -118,6 +118,10 @@ class EngineClass
     raise
   end
 
+  def match?(tag)
+    @matches.find {|m| m.match(tag) }
+  end
+
   def now
     # TODO thread update
     Time.now.to_i

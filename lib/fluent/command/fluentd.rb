@@ -19,6 +19,7 @@
 require 'optparse'
 require 'fluent/log'
 require 'fluent/env'
+require 'fluent/version'
 
 op = OptionParser.new
 
@@ -88,18 +89,6 @@ rescue
 end
 
 
-if log_file
-  log_out = File.open(log_file, "a")
-else
-  log_out = $stdout
-end
-
-$log = Fluent::Log.new(log_level, log_out)
-if log_level <= Fluent::Log::LEVEL_DEBUG
-  $log.enable_debug
-end
-
-
 if setup_path
   require 'fileutils'
   FileUtils.mkdir_p File.join(setup_path, "plugin")
@@ -116,6 +105,17 @@ if setup_path
   exit 0
 end
 
+
+if log_file
+  log_out = File.open(log_file, "a")
+else
+  log_out = $stdout
+end
+
+$log = Fluent::Log.new(log_out, log_level)
+if log_level <= Fluent::Log::LEVEL_DEBUG
+  $log.enable_debug
+end
 
 require 'fluent/engine'
 Fluent::Engine.init
@@ -143,6 +143,10 @@ rescue
   exit 1
 end
 
+if Fluent::Engine.match?($log.tag)
+  $log.enable_event
+end
+
 trap :INT do
   Fluent::Engine.stop
 end
@@ -166,5 +170,6 @@ if daemonize
   }
 end
 
+$log.info "running fluent-#{Fluent::VERSION}"
 Fluent::Engine.run
 

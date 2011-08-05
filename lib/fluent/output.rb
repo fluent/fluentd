@@ -287,8 +287,7 @@ class BufferedOutput < Output
     @buffer.shutdown
   end
 
-  def emit(tag, es, chain)
-    key = ""
+  def emit(tag, es, chain, key="")
     data = format_stream(tag, es)
     if @buffer.emit(key, data, chain)
       submit_flush
