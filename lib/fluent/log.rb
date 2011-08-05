@@ -46,7 +46,7 @@ class Log
     @debug_mode = false
     @self_event = false
     @tag = 'fluent'
-    @time_format = '%Y-%m-%dT%H:%M:%S.%06d: '
+    @time_format = '%Y-%m-%d %H:%M:%S %z: '
     if out.tty?
       enable_color
     else
