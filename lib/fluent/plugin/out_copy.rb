@@ -18,7 +18,7 @@
 module Fluent
 
 
-class CopyOutput < Output
+class CopyOutput < MultiOutput
   Plugin.register_output('copy', self)
 
   def initialize
@@ -64,6 +64,10 @@ class CopyOutput < Output
     end
     chain = OutputChain.new(@stores, tag, es, chain)
     chain.next
+  end
+
+  def outputs
+    @stores
   end
 end
 

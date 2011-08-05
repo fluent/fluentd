@@ -119,6 +119,10 @@ class EngineClass
     @matches.find {|m| m.match(tag) }
   end
 
+  def flush!
+    flush_recursive(@matches)
+  end
+
   def now
     # TODO thread update
     Time.now.to_i
@@ -160,6 +164,24 @@ class EngineClass
     }
     @sources.each {|s|
       s.shutdown rescue nil
+    }
+  end
+
+  def flush_recursive(array)
+    array.each {|m|
+      begin
+        if m.is_a?(Match)
+          m = m.output
+        end
+        if m.is_a?(BufferedOutput)
+          m.try_flush
+        elsif m.is_a?(MultiOutput)
+          flush_recursive(m.outputs)
+        end
+      rescue
+        $log.debug "error while force flushing", :error=>$!.to_s
+        $log.debug_backtrace
+      end
     }
   end
 end

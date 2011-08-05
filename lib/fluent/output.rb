@@ -447,5 +447,11 @@ class TimeSlicedOutput < BufferedOutput
 end
 
 
+class MultiOutput < Output
+  #def outputs
+  #end
+end
+
+
 end
 

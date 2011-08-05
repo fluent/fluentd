@@ -18,7 +18,7 @@
 module Fluent
 
 
-class BucketOutput < Output
+class BucketOutput < MultiOutput
   # TODO
   #Plugin.register_output('bucket', self)
 
@@ -53,6 +53,10 @@ class BucketOutput < Output
     b = next_bucket
     @buckets[b].emit(tag, es, chain)
     chain.next
+  end
+
+  def outputs
+    @buckets
   end
 
   protected

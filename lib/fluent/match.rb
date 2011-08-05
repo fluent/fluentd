@@ -26,6 +26,8 @@ class Match
     @output = output
   end
 
+  attr_reader :output
+
   def emit(tag, es)
     chain = NullOutputChain.instance
     @output.emit(tag, es, chain)

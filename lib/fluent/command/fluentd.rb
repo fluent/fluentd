@@ -151,10 +151,19 @@ trap :INT do
   Fluent::Engine.stop
 end
 
+trap :TERM do
+  Fluent::Engine.stop
+end
+
 trap :HUP do
   if log_file
     $log.reopen(log_file, "a")
   end
+end
+
+trap :USR1 do
+  $log.info "force flushing"
+  Fluent::Engine.flush!
 end
 
 if daemonize
