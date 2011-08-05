@@ -25,7 +25,6 @@ class EngineClass
   end
 
   def init
-    $log.info "started at #{Time.now}"
     require 'thread'
     require 'socket'
     BasicSocket.do_not_reverse_lookup = true
@@ -50,7 +49,7 @@ class EngineClass
   end
 
   def read_config(path)
-    $log.info "reading config file '#{path}'"
+    $log.info "reading config file", :path=>path
     conf = Config.read(path)
     configure(conf)
     conf.check_not_fetched {|key,e|
@@ -82,7 +81,7 @@ class EngineClass
       unless type
         raise ConfigError, "Missing 'type' parameter on <match #{e.arg}> directive"
       end
-      $log.info "adding match pattern=#{pattern.dump} type=#{type.dump}"
+      $log.info "adding match", :pattern=>pattern, :type=>type
 
       output = Plugin.new_output(type)
       output.configure(e)
@@ -108,13 +107,11 @@ class EngineClass
     if match = @matches.find {|m| m.match(tag) }
       match.emit(tag, es)
     else
-      $log.trace { "no pattern matched: tag=#{tag}" }
+      $log.on_trace { $log.trace "no pattern matched", :tag=>tag }
     end
   rescue
-    $log.on_warn {
-      $log.warn "emit transaction faild: ", $!
-      $log.warn_backtrace
-    }
+    $log.warn "emit transaction faild ", :error=>$!.to_s
+    $log.warn_backtrace
     raise
   end
 
@@ -134,7 +131,7 @@ class EngineClass
     begin
       Coolio::Loop.default.run
     rescue
-      $log.error "unexpected error: #{$!}"
+      $log.error "unexpected error", :error=>$!.to_s
       $log.error_backtrace
     end
     shutdown

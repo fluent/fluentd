@@ -54,7 +54,7 @@ class HttpInput < Input
   def run
     @loop.run
   rescue
-    $log.error "unexpected error: #{$!}"
+    $log.error "unexpected error", :error=>$!.to_s
     $log.error_backtrace
   end
 
@@ -109,7 +109,7 @@ class HttpInput < Input
     def on_read(data)
       @parser << data
     rescue
-      $log.warn "unexpected error: ", $!
+      $log.warn "unexpected error", :error=>$!.to_s
       $log.warn_backtrace
     end
 

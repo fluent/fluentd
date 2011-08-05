@@ -42,7 +42,7 @@ class StreamInput < Input
   def run
     @loop.run
   rescue
-    $log.error "unexpected error: #{$!}"
+    $log.error "unexpected error", :error=>$!.to_s
     $log.error_backtrace
   end
 

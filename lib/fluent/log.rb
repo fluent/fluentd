@@ -245,6 +245,12 @@ class Log
       end
     end
 
+    record.each_pair {|k,v|
+      if v.object_id != message.object_id
+        message << " #{k}=#{v.inspect}"
+      end
+    }
+
     return time, message
   end
 

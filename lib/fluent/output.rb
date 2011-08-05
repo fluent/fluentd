@@ -168,7 +168,7 @@ class OutputThread
     end
 
   rescue
-    $log.error "error on output thread: ", $!
+    $log.error "error on output thread", :error=>$!.to_s
     $log.error_backtrace
     raise
   ensure
@@ -210,7 +210,7 @@ class OutputThread
         next if has_next
 
       rescue
-        $log.warn "failed to flush the buffer: ", $!
+        $log.warn "failed to flush the buffer", :error=>$!.to_s
         $log.warn_backtrace
 
         @error_history << time
@@ -222,7 +222,7 @@ class OutputThread
             @error_history.clear
             break
           rescue
-            $log.warn "failed to flush the buffer to secondary output: ", $!
+            $log.warn "failed to flush the buffer to secondary output: ", :error=>$!.to_s
             $log.warn_backtrace
           end
         end
@@ -256,7 +256,7 @@ class OutputThread
     begin
       @output.write_abort
     rescue
-      $log.error "unexpected error while aborting: ", $!
+      $log.error "unexpected error while aborting", :error=>$!.to_s
       $log.error_backtrace
     end
     @error_history.clear
@@ -325,7 +325,7 @@ class BufferedOutput < Output
     begin
       @buffer.before_shutdown(self)
     rescue
-      $log.warn "before_shutdown failed: ", $!
+      $log.warn "before_shutdown failed", :error=>$!.to_s
       $log.warn_backtrace
     end
   end

@@ -115,14 +115,14 @@ class SyslogInput < Input
     emit(pri, time, record)
 
   rescue
-    $log.warn "#{data.dump}: #{$!}"
+    $log.warn data.dump, :error=>$!.to_s
     $log.debug_backtrace
   end
 
   def receive_data(data)
     m = SYSLOG_ALL_REGEXP.match(data)
     unless m
-      $log.debug "invalid syslog message: #{data.dump}"
+      $log.debug "invalid syslog message", :data=>data
       return
     end
 
@@ -148,7 +148,7 @@ class SyslogInput < Input
     emit(pri, time, record)
 
   rescue
-    $log.warn "#{data.dump}: #{$!}"
+    $log.warn data.dump, :error=>$!.to_s
     $log.debug_backtrace
   end
 

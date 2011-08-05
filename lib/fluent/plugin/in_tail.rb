@@ -61,7 +61,7 @@ class TailInput < Input
   def run
     @loop.run
   rescue
-    $log.error "unexpected error: #{$!}"
+    $log.error "unexpected error", :error=>$!.to_s
     $log.error_backtrace
   end
 
@@ -74,7 +74,7 @@ class TailInput < Input
           array << Event.new(time, record)
         end
       rescue
-        $log.warn "#{line.dump}: #{$!}"
+        $log.warn line.dump, :error=>$!.to_s
         $log.debug_backtrace
       end
     }
