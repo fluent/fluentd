@@ -1,4 +1,14 @@
 
+Release 0.9.6 - 2011/08/06
+
+  * Force flush buffered events on SIGUSR1
+  * out_tdlog uses event tag for the database and table name
+  * Fluent can log Fluent logs
+  * Colorize Fluent logs on console
+  * Changed default unix domain socket path to /var/run/fluent/fluent.sock
+  * Makefile.am and configure.in aware fakeroot
+
+
 Release 0.9.5 - 2011/07/23
 
   * Added <secondary> tag that fallbacks to secondary output when it can't
