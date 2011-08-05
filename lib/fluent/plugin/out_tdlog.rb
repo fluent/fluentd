@@ -65,19 +65,21 @@ class TreasureDataLogOutput < BufferedOutput
   end
 
   def emit(tag, es, chain)
+    # TODO check table name is in the list
+    # TODO if not exists, get table list from API server
+    # TODO if not exists, raise error
     if @key
-      super(tag, es, chain, @key)
-
+      key = @key
     else
       database, table = tag.split('.')[-2,2]
       if !validate_name(database) || !validate_name(table)
         $log.debug { "Invalid tag #{tag.inspect}" }
         return
       end
-
       key = "#{database}.#{table}"
-      super(tag, es, chain, key)
     end
+
+    super(tag, es, chain, key)
   end
 
   def validate_name(name)
@@ -147,7 +149,6 @@ class TreasureDataLogOutput < BufferedOutput
 
     $log.trace { "uploading logs to TreasureData database=#{database} table=#{table} (#{size}bytes)" }
 
-return
     response = http.request(req)
 
     if response.code[0] != ?2
