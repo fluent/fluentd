@@ -21,7 +21,7 @@ module Fluent
 class TreasureDataLogOutput < BufferedOutput
   Plugin.register_output('tdlog', self)
 
-  HOST = 'api.treasure-data.com'
+  HOST = ENV['TD_API_SERVER'] || 'api.treasure-data.com'
   PORT = 80
   USE_SSL = false
 
@@ -35,6 +35,7 @@ class TreasureDataLogOutput < BufferedOutput
     super
     @tmpdir = '/tmp/fluent/tdlog'
     @apikey = nil
+    @key = nil
   end
 
   def configure(conf)
@@ -45,18 +46,43 @@ class TreasureDataLogOutput < BufferedOutput
 
     @apikey = conf['apikey']
     unless @apikey
-      raise ConfigError, "'apikey' parameter is required on td output"
+      raise ConfigError, "'apikey' parameter is required on tdlog output"
     end
 
-    @database = conf['database']
-    unless @database
-      raise ConfigError, "'database' parameter is required on td output"
+    database = conf['database']
+    table = conf['table']
+    if database && table
+      if !validate_name(database)
+        raise ConfigError, "Invalid database name #{database.inspect}: #{conf}"
+      end
+      if !validate_name(table)
+        raise ConfigError, "Invalid table name #{table.inspect}: #{conf}"
+      end
+      @key = "#{database}.#{table}"
+    elsif (database && !table) || (!database && table)
+      raise ConfigError, "'database' and 'table' parameter are required on tdlog output"
     end
+  end
 
-    @table = conf['table']
-    unless @table
-      raise ConfigError, "'table' parameter is required on td output"
+  def emit(tag, es, chain)
+    if @key
+      super(tag, es, chain, @key)
+
+    else
+      database, table = tag.split('.')[-2,2]
+      if !validate_name(database) || !validate_name(table)
+        $log.debug { "Invalid tag #{tag.inspect}" }
+        return
+      end
+
+      key = "#{database}.#{table}"
+      super(tag, es, chain, key)
     end
+  end
+
+  def validate_name(name)
+    # TODO
+    true
   end
 
   def format_stream(tag, es)
@@ -70,6 +96,12 @@ class TreasureDataLogOutput < BufferedOutput
   end
 
   def write(chunk)
+    database, table = chunk.key.split('.',2)
+    if !validate_name(database) || !validate_name(table)
+      $log.error "Invalid key name #{chunk.key.inspect}"
+      return
+    end
+
     f = Tempfile.new("tdlog-", @tmpdir)
     w = Zlib::GzipWriter.new(f)
 
@@ -79,14 +111,14 @@ class TreasureDataLogOutput < BufferedOutput
 
     size = f.pos
     f.pos = 0
-    upload(f, size)
+    upload(database, table, f, size)
 
   ensure
     w.close if w
     f.close if f
   end
 
-  def upload(f, size)
+  def upload(database, table, io, size)
     http = Net::HTTP.new(HOST, PORT)
     if USE_SSL
       http.use_ssl = true
@@ -104,17 +136,18 @@ class TreasureDataLogOutput < BufferedOutput
     header['Content-Length'] = size.to_s
     header['Content-Type'] = 'application/octet-stream'
 
-    url = "/v3/table/import/#{e @database}/#{e @table}/msgpack.gz"
+    url = "/v3/table/import/#{e database}/#{e table}/msgpack.gz"
 
     req = Net::HTTP::Put.new(url, header)
     if req.respond_to?(:body_stream=)
-      req.body_stream = f
+      req.body_stream = io
     else  # Ruby 1.8
-      req.body = f.read
+      req.body = io.read
     end
 
-    $log.trace { "uploading logs to TreasureData table=#{@database}.#{@table} (#{size}bytes)" }
+    $log.trace { "uploading logs to TreasureData database=#{database} table=#{table} (#{size}bytes)" }
 
+return
     response = http.request(req)
 
     if response.code[0] != ?2
@@ -129,4 +162,3 @@ end
 
 
 end
-
