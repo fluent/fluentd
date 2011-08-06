@@ -133,7 +133,7 @@ class TreasureDataLogOutput < BufferedOutput
     #http.read_timeout = options[:read_timeout]
 
     header = {}
-    header['Authorization'] = "TRD #{@apikey}"
+    header['Authorization'] = "TD1 #{@apikey}"
     header['Date'] = Time.now.rfc2822
     header['Content-Length'] = size.to_s
     header['Content-Type'] = 'application/octet-stream'
