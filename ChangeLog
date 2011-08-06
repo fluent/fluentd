@@ -1,4 +1,11 @@
 
+Release 0.9.7 - 2011/08/06
+
+  * Load plugins named fluent_plugin.rb installed by RubyGems
+  * Load plugins located on fluent/plugin/{buf,in,out}_{type} installed by RubyGems
+  * Removed out_tdlog plugin to fluent-plugin-td gem
+
+
 Release 0.9.6 - 2011/08/06
 
   * Force flush buffered events on SIGUSR1

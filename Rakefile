@@ -18,7 +18,7 @@ begin
     gemspec.add_dependency "http_parser.rb", "~> 0.5.1"
     gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
-      %w[fluent.conf]
+      %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluent.gemspec]
     gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
   end
   Jeweler::GemcutterTasks.new
