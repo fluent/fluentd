@@ -44,7 +44,7 @@ class EngineClass
     require 'fluent/input'
     require 'fluent/output'
     require 'fluent/match'
-    Plugin.load_built_in_plugin
+    Plugin.load_plugins
     self
   end
 

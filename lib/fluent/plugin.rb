@@ -49,9 +49,10 @@ class PluginClass
     new_impl('buffer', @buffer, type)
   end
 
-  def load_built_in_plugin
+  def load_plugins
     dir = File.join(File.dirname(__FILE__), "plugin")
     load_plugin_dir(dir)
+    load_gem_plugins
   end
 
   def load_plugin_dir(dir)
@@ -64,6 +65,20 @@ class PluginClass
   end
 
   private
+  def load_gem_plugins
+    return unless defined? Gem
+    plugins = Gem.find_files('fluent_plugin')
+
+    plugins.each {|plugin|
+      begin
+        load plugin
+      rescue ::Exception => e
+        msg = "#{plugin.inspect}: #{e.message} (#{e.class})"
+        $log.warn "Error loading Fluent plugin #{msg}"
+      end
+    }
+  end
+
   def register_impl(name, map, type, klass)
     map[type] = klass
     $log.trace { "registered #{name} plugin '#{type}'" }
@@ -84,13 +99,24 @@ class PluginClass
   def try_load_plugin(name, type)
     case name
     when 'input'
-      require "fluent/plugin/in_#{type}"
+      path = "fluent/plugin/in_#{type}"
     when 'output'
-      require "fluent/plugin/out_#{type}"
+      path = "fluent/plugin/out_#{type}"
     when 'buffer'
-      require "fluent/plugin/buf_#{type}"
+      path = "fluent/plugin/buf_#{type}"
+    else
+      return
     end
-  rescue LoadError
+    if defined? Gem
+      if file = Gem.find_files(path).first
+        require file
+      end
+    else
+      begin
+        require path
+      rescue LoadError
+      end
+    end
   end
 end
 
