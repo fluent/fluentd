@@ -72,7 +72,7 @@ class OutputThread
     @finish = false
 
     @flush_interval = 60  # TODO default
-    @retry_limit = 8  # TODO default
+    @retry_limit = 17  # TODO default
     @retry_wait = 1.0  # TODO default
 
     @secondary = nil

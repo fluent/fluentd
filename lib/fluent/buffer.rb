@@ -100,8 +100,8 @@ class BasicBuffer < Buffer
 
   def initialize
     super()
-    @chunk_limit = 1024*1024  # TODO default
-    @queue_limit = 100 # TODO default
+    @chunk_limit = 16*1024*1024  # TODO default
+    @queue_limit = 64 # TODO default
     @parallel = false
   end
 
