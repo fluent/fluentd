@@ -47,11 +47,7 @@ class Log
     @self_event = false
     @tag = 'fluent'
     @time_format = '%Y-%m-%d %H:%M:%S %z: '
-    if out.tty?
-      enable_color
-    else
-      disable_color
-    end
+    enable_color out.tty?
   end
 
   attr_accessor :out
