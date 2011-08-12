@@ -30,6 +30,8 @@ log_file = nil
 daemonize = false
 libs = []
 setup_path = nil
+chuser = nil
+chgroup = nil
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
   setup_path = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
@@ -53,6 +55,14 @@ op.on('-r NAME', "load library") {|s|
 
 op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
   daemonize = s
+}
+
+op.on('--user USER', "change user") {|s|
+  chuser = s
+}
+
+op.on('--group GROUP', "change group") {|s|
+  chgroup = s
 }
 
 op.on('-o', '--log PATH', "log file path") {|s|
@@ -106,16 +116,7 @@ if setup_path
 end
 
 
-if log_file
-  log_out = File.open(log_file, "a")
-else
-  log_out = $stdout
-end
-
-$log = Fluent::Log.new(log_out, log_level)
-if log_level <= Fluent::Log::LEVEL_DEBUG
-  $log.enable_debug
-end
+$log = Fluent::Log.new(STDOUT, log_level)
 
 require 'fluent/engine'
 Fluent::Engine.init
@@ -142,6 +143,42 @@ rescue
   $log.debug_backtrace
   exit 1
 end
+
+
+if chgroup
+  chgid = chgroup.to_i
+  if chgid.to_s != chgroup
+    chgid = `id -u #{chgroup}`.to_i
+    if $?.to_i != 0
+      exit 1
+    end
+  end
+  Process::GID.change_privilege(chgid)
+end
+
+if chuser
+  chuid = chuser.to_i
+  if chuid.to_s != chuser
+    chuid = `id -u #{chuser}`.to_i
+    if $?.to_i != 0
+      exit 1
+    end
+  end
+  Process::UID.change_privilege(chuid)
+end
+
+
+if log_file
+  log_out = File.open(log_file, "a")
+else
+  log_out = STDOUT
+end
+
+$log = Fluent::Log.new(log_out, log_level)
+if log_level <= Fluent::Log::LEVEL_DEBUG
+  $log.enable_debug
+end
+
 
 if Fluent::Engine.match?($log.tag)
   $log.enable_event
