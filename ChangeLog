@@ -1,4 +1,13 @@
 
+Release 0.9.8 - 2011/08/16
+
+  * in_http plugin supports 'Expect: 100-continue' header
+  * Added --user and --group command line arguments to change privilege
+  * Changed default retry_limit parameter from 8 to 17
+  * Changed default buffer_chunk_limit parameter from 1m to 16m
+  * Changed default buffer_queue_limit parameter from 100 to 64
+
+
 Release 0.9.7 - 2011/08/06
 
   * Load plugins named fluent_plugin.rb installed by RubyGems
