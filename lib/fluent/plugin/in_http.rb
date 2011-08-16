@@ -27,6 +27,7 @@ class HttpInput < Input
     require 'webrick/httputils'
     @port = 9880
     @bind = '0.0.0.0'
+    @body_size_limit = 32*1024*1024  # TODO default
   end
 
   def configure(conf)
@@ -34,13 +35,17 @@ class HttpInput < Input
     @port = @port.to_i
 
     @bind = conf['bind'] || @bind
+
+    if body_size_limit = conf['body_size_limit']
+      @body_size_limit = Config.size_value(body_size_limit)
+    end
   end
 
   # TODO multithreading
   def start
     $log.debug "listening http on #{@bind}:#{@port}"
     @loop = Coolio::Loop.new
-    @lsock = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_request))
+    @lsock = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_request), @body_size_limit)
     @loop.attach(@lsock)
     @thread = Thread.new(&method(:run))
   end
@@ -82,23 +87,25 @@ class HttpInput < Input
       event = Event.new(time, record)
 
     rescue
-      return [400, {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
+      return ["400 Bad Request", {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
     end
 
     # TODO server error
     begin
       Engine.emit(tag, event)
     rescue
-      return [500, {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
+      return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
     end
 
-    return [200, {'Content-type'=>'text/plain'}, ""]
+    return ["200 OK", {'Content-type'=>'text/plain'}, ""]
   end
 
   class Handler < Coolio::Socket
-    def initialize(io, callback)
+    def initialize(io, callback, body_size_limit)
       super(io)
       @callback = callback
+      @body_size_limit = body_size_limit
+      @content_type = ""
       @next_close = false
     end
 
@@ -117,24 +124,50 @@ class HttpInput < Input
       @body = ''
     end
 
+    def on_headers_complete(headers)
+      expect = nil
+      size = nil
+      headers.each_pair {|k,v|
+        case k
+        when /Expect/i
+          expect = v
+        when /Content-Length/i
+          size = v.to_i
+        when /Content-Type/i
+          @content_type = v
+        end
+      }
+      if expect
+        if expect == '100-continue'
+          if !size || size < @body_size_limit
+            send_response_nobody("100 Continue", {})
+          else
+            send_response_and_close("413 Request Entity Too Large", {}, "Too large")
+          end
+        else
+          send_response_and_close("417 Expectation Failed", {}, "")
+        end
+      end
+    end
+
     def on_body(chunk)
+      if @body.bytesize + chunk.bytesize > @body_size_limit
+        unless closing?
+          send_response_and_close("413 Request Entity Too Large", {}, "Too large")
+        end
+        return
+      end
       @body << chunk
     end
 
     def on_message_complete
+      return if closing?
+
       params = WEBrick::HTTPUtils.parse_query(@parser.query_string)
 
-      content_type = nil
-      @parser.headers.each_pair {|k,v|
-        if k =~ /Content-Type/i
-          content_type = v
-          break
-        end
-      }
-
-      if content_type =~ /^application\/x-www-form-urlencoded/
+      if @content_type =~ /^application\/x-www-form-urlencoded/
         params.update WEBrick::HTTPUtils.parse_query(@body)
-      elsif content_type =~ /^multipart\/form-data; boundary=(.+)/
+      elsif @content_type =~ /^multipart\/form-data; boundary=(.+)/
         boundary = WEBrick::HTTPUtils.dequote($1)
         params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
       end
@@ -143,22 +176,44 @@ class HttpInput < Input
       code, header, body = *@callback.call(path_info, params)
       body = body.to_s
 
-      header['Content-length'] = body.size
-      header['Content-type'] ||= 'text/plain'
-
-      data = %[HTTP/1.1 #{code} ...\r\n]
-      header.each_pair {|k,v|
-        data << "#{k}: #{v}\r\n"
-      }
-      data << "\r\n"
-      data << body
-
-      write data
-      @next_close = true
+      # TODO keepalive
+      send_response_and_close(code, header, body)
     end
 
     def on_write_complete
       close if @next_close # TODO keepalive
+    end
+
+    def send_response_and_close(code, headers, body)
+      send_response(code, headers, body)
+      @next_close = true
+    end
+
+    def closing?
+      @next_close
+    end
+
+    def send_response(code, header, body)
+      header['Content-length'] ||= body.bytesize
+      header['Content-type'] ||= 'text/plain'
+
+      data = %[HTTP/1.1 #{code}\r\n]
+      header.each_pair {|k,v|
+        data << "#{k}: #{v}\r\n"
+      }
+      data << "\r\n"
+      write data
+
+      write body
+    end
+
+    def send_response_nobody(code, header)
+      data = %[HTTP/1.1 #{code}\r\n]
+      header.each_pair {|k,v|
+        data << "#{k}: #{v}\r\n"
+      }
+      data << "\r\n"
+      write data
     end
   end
 end
