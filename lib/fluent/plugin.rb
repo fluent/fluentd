@@ -108,8 +108,10 @@ class PluginClass
       return
     end
     if defined? Gem
-      if file = Gem.find_files(path).first
-        require file
+      files = Gem.find_files(path)
+      if files && !files.empty?
+        # prefer newer version
+        require files.sort.last
       end
     else
       begin
