@@ -69,6 +69,7 @@ class TailInput < Input
     array = []
     lines.each {|line|
       begin
+        line.rstrip!  # remove \n
         time, record = @parser.parse(line)
         if time && record
           array << Event.new(time, record)
