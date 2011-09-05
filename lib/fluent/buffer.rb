@@ -113,7 +113,7 @@ class BasicBuffer < Buffer
     end
 
     if queue_limit = conf['buffer_queue_limit']
-      @queue_limit = @queue_limit.to_i
+      @queue_limit = queue_limit.to_i
     end
   end
 
