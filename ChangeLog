@@ -1,4 +1,10 @@
 
+Release 0.9.9 - 2011/09/06
+
+  * in_tail strips \n at the end of log line
+  * Uses newer one if multiple plugins are found
+
+
 Release 0.9.8 - 2011/08/16
 
   * in_http plugin supports 'Expect: 100-continue' header
