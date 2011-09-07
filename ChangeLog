@@ -1,4 +1,9 @@
 
+Release 0.9.10 - 2011/09/07
+
+  * Periodic timer enqueues buffer chunks only when queue is empty
+
+
 Release 0.9.9 - 2011/09/06
 
   * in_tail strips \n at the end of log line
