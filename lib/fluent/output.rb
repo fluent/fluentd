@@ -313,10 +313,12 @@ class BufferedOutput < Output
   #end
 
   def try_flush
-    @buffer.synchronize do
-      @buffer.keys.each {|key|
-        @buffer.push(key)
-      }
+    if @buffer.queue_size == 0
+      @buffer.synchronize do
+        @buffer.keys.each {|key|
+          @buffer.push(key)
+        }
+      end
     end
     @buffer.pop(self)
   end

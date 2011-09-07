@@ -181,6 +181,10 @@ class BasicBuffer < Buffer
     @map.keys
   end
 
+  def queue_size
+    @queue.size
+  end
+
   #def new_chunk(key)
   #end
 
