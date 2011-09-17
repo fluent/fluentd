@@ -27,6 +27,7 @@ class HttpInput < Input
     require 'webrick/httputils'
     @port = 9880
     @bind = '0.0.0.0'
+    @keepalive_timeout = 10  # TODO default
     @body_size_limit = 32*1024*1024  # TODO default
   end
 
@@ -41,12 +42,48 @@ class HttpInput < Input
     end
   end
 
+  class KeepaliveManager < Coolio::TimerWatcher
+    class TimerValue
+      def initialize
+        @value = 0
+      end
+      attr_accessor :value
+    end
+
+    def initialize(timeout)
+      super(1, true)
+      @cons = {}
+      @timeout = timeout
+    end
+
+    def add(sock)
+      @cons[sock] = sock
+    end
+
+    def delete(sock)
+      @cons.delete(sock)
+    end
+
+    def on_timer
+      @cons.each_pair {|sock,val|
+        if sock.step_idle > @timeout
+          sock.close
+        end
+      }
+    end
+  end
+
   # TODO multithreading
   def start
     $log.debug "listening http on #{@bind}:#{@port}"
+
+    @km = KeepaliveManager.new(@keepalive_timeout)
+    @lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
+
     @loop = Coolio::Loop.new
-    @lsock = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_request), @body_size_limit)
+    @loop.attach(@km)
     @loop.attach(@lsock)
+
     @thread = Thread.new(&method(:run))
   end
 
@@ -101,12 +138,24 @@ class HttpInput < Input
   end
 
   class Handler < Coolio::Socket
-    def initialize(io, callback, body_size_limit)
+    def initialize(io, km, callback, body_size_limit)
       super(io)
+      @km = km
       @callback = callback
       @body_size_limit = body_size_limit
       @content_type = ""
       @next_close = false
+
+      @idle = 0
+      @km.add(self)
+    end
+
+    def step_idle
+      @idle += 1
+    end
+
+    def on_close
+      @km.delete(self)
     end
 
     def on_connect
@@ -114,10 +163,12 @@ class HttpInput < Input
     end
 
     def on_read(data)
+      @idle = 0
       @parser << data
     rescue
       $log.warn "unexpected error", :error=>$!.to_s
       $log.warn_backtrace
+      close
     end
 
     def on_message_begin
@@ -127,6 +178,11 @@ class HttpInput < Input
     def on_headers_complete(headers)
       expect = nil
       size = nil
+      if @parser.http_version == '1.1'
+        @keep_alive = true
+      else
+        @keep_alive = false
+      end
       headers.each_pair {|k,v|
         case k
         when /Expect/i
@@ -135,6 +191,12 @@ class HttpInput < Input
           size = v.to_i
         when /Content-Type/i
           @content_type = v
+        when /Connection/i
+          if v =~ /close/i
+            @keep_alive = false
+          elsif v =~ /Keep-alive/i
+            @keep_alive = true
+          end
         end
       }
       if expect
@@ -176,16 +238,20 @@ class HttpInput < Input
       code, header, body = *@callback.call(path_info, params)
       body = body.to_s
 
-      # TODO keepalive
-      send_response_and_close(code, header, body)
+      if @keep_alive
+        header['Connection'] = 'Keep-Alive'
+        send_response(code, header, body)
+      else
+        send_response_and_close(code, header, body)
+      end
     end
 
     def on_write_complete
-      close if @next_close # TODO keepalive
+      close if @next_close
     end
 
-    def send_response_and_close(code, headers, body)
-      send_response(code, headers, body)
+    def send_response_and_close(code, header, body)
+      send_response(code, header, body)
       @next_close = true
     end
 
