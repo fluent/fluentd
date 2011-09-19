@@ -23,7 +23,15 @@ class StreamOutput < BufferedOutput
     super
     require 'socket'
     require 'fileutils'
-    @timeout = 10
+    @send_timeout = 10
+  end
+
+  def configure(conf)
+    super
+
+    if send_timeout = conf['send_timeout']
+      @send_timeout = Config.time_value(send_timeout).to_i
+    end
   end
 
   def format_stream(tag, es)
@@ -37,10 +45,10 @@ class StreamOutput < BufferedOutput
   def write(chunk)
     sock = connect
     begin
-      opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+      opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
       sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
-      opt = [@timeout.to_i, 0].pack('L!L!')  # struct timeval
+      opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
       sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
       chunk.write_to(sock)
