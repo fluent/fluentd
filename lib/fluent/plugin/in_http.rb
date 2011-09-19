@@ -178,7 +178,7 @@ class HttpInput < Input
     def on_headers_complete(headers)
       expect = nil
       size = nil
-      if @parser.http_version == '1.1'
+      if @parser.http_version == [1, 1]
         @keep_alive = true
       else
         @keep_alive = false

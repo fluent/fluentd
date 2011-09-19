@@ -97,6 +97,8 @@ class StreamInput < Input
   class Handler < Coolio::Socket
     def initialize(io, callback)
       super(io)
+      opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+      io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
       $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
       @callback = callback
     end
