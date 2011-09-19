@@ -1,4 +1,12 @@
 
+Release 0.9.11 - 2011/09/19
+
+  * Added out_null plugin
+  * Added out_roundrobin plugin
+  * in_http supports keep-alive
+  * in_tcp and in_unix detect network failure
+
+
 Release 0.9.10 - 2011/09/07
 
   * Periodic timer enqueues buffer chunks only when queue is empty
