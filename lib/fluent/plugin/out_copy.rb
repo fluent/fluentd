@@ -22,8 +22,10 @@ class CopyOutput < MultiOutput
   Plugin.register_output('copy', self)
 
   def initialize
-    @stores = []
+    @outputs = []
   end
+
+  attr_reader :outputs
 
   def configure(conf)
     conf.elements.select {|e|
@@ -37,20 +39,19 @@ class CopyOutput < MultiOutput
 
       output = Plugin.new_output(type)
       output.configure(e)
-
-      @stores << output
+      @outputs << output
     }
   end
 
   def start
-    @stores.each {|s|
-      s.start
+    @outputs.each {|o|
+      o.start
     }
   end
 
   def shutdown
-    @stores.each {|s|
-      s.shutdown
+    @outputs.each {|o|
+      o.shutdown
     }
   end
 
@@ -62,12 +63,8 @@ class CopyOutput < MultiOutput
       }
       es = ArrayEventStream.new(array)
     end
-    chain = OutputChain.new(@stores, tag, es, chain)
+    chain = OutputChain.new(@outputs, tag, es, chain)
     chain.next
-  end
-
-  def outputs
-    @stores
   end
 end
 

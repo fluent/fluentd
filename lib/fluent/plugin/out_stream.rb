@@ -23,7 +23,7 @@ class StreamOutput < BufferedOutput
     super
     require 'socket'
     require 'fileutils'
-    @send_timeout = 10
+    @send_timeout = 60
   end
 
   def configure(conf)

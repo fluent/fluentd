@@ -18,50 +18,52 @@
 module Fluent
 
 
-class BucketOutput < MultiOutput
-  # TODO
-  #Plugin.register_output('bucket', self)
+class RoundRobinOutput < MultiOutput
+  Plugin.register_output('roundrobin', self)
 
   def initialize
-    @buckets = []
+    @outputs = []
   end
+
+  attr_reader :outputs
 
   def configure(conf)
     conf.elements.select {|e|
       e.name == 'store'
     }.each {|e|
-      output = Plugin.new_output(e.arg)
-      output.configure(conf+e)
-      @buckets << output
+      type = e['type']
+      unless type
+        raise ConfigError, "Missing 'type' parameter on <store> directive"
+      end
+      $log.debug "adding store type=#{type.dump}"
+
+      output = Plugin.new_output(type)
+      output.configure(e)
+      @outputs << output
     }
-    @rr = 0  # TODO BucketOutput algorithm
+    @rr = 0
   end
 
   def start
-    @buckets.each {|b|
-      b.start
+    @outputs.each {|o|
+      o.start
     }
   end
 
   def shutdown
-    @buckets.each {|b|
-      b.shutdown
+    @outputs.each {|o|
+      o.shutdown
     }
   end
 
   def emit(tag, es, chain)
-    b = next_bucket
-    @buckets[b].emit(tag, es, chain)
-    chain.next
-  end
-
-  def outputs
-    @buckets
+    next_output.emit(tag, es, chain)
   end
 
   protected
-  def next_bucket
-    @rr = 0 if (@rr += 1) >= @buckets.size
+  def next_output
+    @rr = 0 if (@rr += 1) >= @outputs.size
+    @outputs[@rr]
   end
 end
 
