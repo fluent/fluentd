@@ -1,4 +1,11 @@
 
+Release 0.9.12 - 2011/09/20
+
+  * Updated out_file plugin
+    * Supports log compression
+	* Slices log files every day by default
+
+
 Release 0.9.11 - 2011/09/19
 
   * Added out_null plugin
