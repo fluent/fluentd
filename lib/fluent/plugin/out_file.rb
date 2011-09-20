@@ -18,32 +18,50 @@
 module Fluent
 
 
-class FileOutput < BufferedOutput
-  Plugin.register_output('file', self)
+class FileOutput < TimeSlicedOutput
+  Plugin.register_output('file2', self)
+
+  SUPPORTED_COMPRESS = {
+    :gz => :gz,
+    :gzip => :gz,
+  }
 
   def initialize
+    require 'zlib'
     super
     @path = nil
-    @localtime = false
+    @compress = nil
   end
 
-  attr_accessor :path
+  attr_accessor :path, :compress
 
   def configure(conf)
-    super
-
     if path = conf['path']
       @path = path
-    else
+    end
+    unless @path
       raise ConfigError, "'path' parameter is required on file output"
     end
 
-    # TODO timezone
-    @localtime = true if conf['localtime']
+    if pos = @path.index('*')
+      @path_prefix = @path[0,pos]
+      @path_suffix = @path[pos+1..-1]
+      conf['buffer_path'] ||= "#{@path}"
+    else
+      @path_prefix = @path+"."
+      @path_suffix = ".log"
+      conf['buffer_path'] ||= "#{@path}.*"
+    end
 
-    # TODO configure rotate_time
-    # TODO configure rotate_size
-    # TODO compression
+    super
+
+    if compress = conf['compress']
+      c = SUPPORTED_COMPRESS[compress.to_sym]
+      unless c
+        raise ConfigError, "Unsupported compression algorithm '#{compress}'"
+      end
+      @compress = c
+    end
   end
 
   def format(tag, event)
@@ -58,16 +76,23 @@ class FileOutput < BufferedOutput
   end
 
   def write(chunk)
-    if @localtime
-      time = Time.now
-    else
-      time = Time.now.utc
-    end
-    path = time.strftime(@path)
+    i = 0
+    begin
+      path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}"
+      i += 1
+    end while File.exist?(path)
     FileUtils.mkdir_p File.dirname(path)
-    File.open(path, "a") {|f|
-      f.write(chunk.read)
-    }
+
+    case @compress
+    when nil
+      File.open(path, "a") {|f|
+        chunk.write_to(f)
+      }
+    when :gz
+      Zlib::GzipWriter.open("#{path}.gz") {|f|
+        chunk.write_to(f)
+      }
+    end
   end
 end
 

@@ -77,39 +77,41 @@ class FileBuffer < BasicBuffer
   def initialize
     require 'uri'
     super
-    @prefix = nil
-    @suffix = nil
+    @buffer_path = nil
   end
 
-  attr_accessor :prefix, :suffix
+  attr_accessor :buffer_path
 
   def configure(conf)
     super
 
-    if path = conf['buffer_path']
-      if pos = path.index('*')
-        @prefix = path[0,pos]
-        @suffix = path[pos+1..-1]
-      else
-        @prefix = path+"."
-        @suffix = ".log"
-      end
-    else
+    if buffer_path = conf['buffer_path']
+      @buffer_path = buffer_path
+    end
+    unless @buffer_path
       raise ConfigError, "'buffer_path' parameter is required on file buffer"
+    end
+
+    if pos = @buffer_path.index('*')
+      @buffer_path_prefix = @buffer_path[0,pos]
+      @buffer_path_suffix = @buffer_path[pos+1..-1]
+    else
+      @buffer_path_prefix = @buffer_path+"."
+      @buffer_path_suffix = ".log"
     end
   end
 
   def start
-    FileUtils.mkdir_p File.dirname(@prefix+"path")
+    FileUtils.mkdir_p File.dirname(@buffer_path_prefix+"path")
     super
   end
 
-  PATH_MATCH = /^(.*)_(a|r)([0-9a-fA-F]{16})$/
+  PATH_MATCH = /^(.*)[\._](b|q)([0-9a-fA-F]{1,16})$/
 
   def new_chunk(key)
-    time16 = "%016x" % Engine.now.to_i
+    tsuffix = Engine.now.to_i.to_s(16)
     encoded_key = encode_key(key)
-    path = "#{@prefix}#{encoded_key}_a#{time16}#{@suffix}"
+    path = "#{@buffer_path_prefix}#{encoded_key}.b#{tsuffix}#{@buffer_path_suffix}"
     FileBufferChunk.new(key, path)
   end
 
@@ -117,33 +119,33 @@ class FileBuffer < BasicBuffer
     maps = []
     queues = []
 
-    Dir.glob("#{@prefix}*#{@suffix}") {|path|
-      match = path[@prefix.length..-(@suffix.length+1)]
+    Dir.glob("#{@buffer_path_prefix}*#{@buffer_path_suffix}") {|path|
+      match = path[@buffer_path_prefix.length..-(@buffer_path_suffix.length+1)]
       if m = PATH_MATCH.match(match)
         key = decode_key(m[1])
-        ar = m[2]
-        time16 = m[3].to_i(16)
+        bq = m[2]
+        tsuffix = m[3].to_i(16)
 
-        if ar == 'a'
+        if bq == 'b'
           chunk = FileBufferChunk.new(key, path, "a+")
-          maps << [time16, chunk]
-        elsif ar == 'r'
+          maps << [tsuffix, chunk]
+        elsif bq == 'q'
           chunk = FileBufferChunk.new(key, path, "r")
-          queues << [time16, chunk]
+          queues << [tsuffix, chunk]
         end
       end
     }
 
     map = {}
-    maps.sort_by {|(time16,chunk)|
-      time16
-    }.each {|(time16,chunk)|
+    maps.sort_by {|(tsuffix,chunk)|
+      tsuffix
+    }.each {|(tsuffix,chunk)|
       map[chunk.key] = chunk
     }
 
-    queue = queues.sort_by {|(time16,chunk)|
-      time16
-    }.map {|(time16,chunk)|
+    queue = queues.sort_by {|(tsuffix,chunk)|
+      tsuffix
+    }.map {|(tsuffix,chunk)|
       chunk
     }
 
@@ -152,13 +154,13 @@ class FileBuffer < BasicBuffer
 
   def enqueue(chunk)
     path = chunk.path
-    mp = path[@prefix.length..-(@suffix.length+1)]
+    mp = path[@buffer_path_prefix.length..-(@buffer_path_suffix.length+1)]
 
     m = PATH_MATCH.match(mp)
     encoded_key = m ? m[1] : ""
-    time16 = "%016x" % Engine.now.to_i
+    tsuffix = Engine.now.to_i.to_s(16)
 
-    path = "#{@prefix}#{encoded_key}_r#{time16}#{@suffix}"
+    path = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"
     chunk.mv(path)
   end
 

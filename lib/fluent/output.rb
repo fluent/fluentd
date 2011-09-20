@@ -266,11 +266,14 @@ end
 
 class BufferedOutput < Output
   def initialize
+    @buffer_type = 'memory'
   end
 
   def configure(conf)
-    buffer_type = conf['buffer_type'] || 'memory'
-    @buffer = Plugin.new_buffer(buffer_type)
+    if buffer_type = conf['buffer_type']
+      @buffer_type = buffer_type
+    end
+    @buffer = Plugin.new_buffer(@buffer_type)
     @buffer.configure(conf)
 
     @writer = OutputThread.new(self)
@@ -346,79 +349,38 @@ end
 class TimeSlicedOutput < BufferedOutput
   def initialize
     super
-    @slice_wait = 10*60  # TODO default value
+    @time_format = '%Y%m%d'
+    @time_wait = 10*60  # TODO default value
     @localtime = false
-    @time_slicer = nil
     @ignore_old = false
+    @buffer_type = 'file'  # overwrite default buffer_type
+    # TODO @flush_interval = 60  # overwrite default flush_interval
   end
 
   def configure(conf)
     super
 
+    # TODO timezone
     if conf['localtime']
       @localtime = true
     end
 
-    if slice = conf['time_slice']
-      @time_slicer = case slice
-      #when /^monthly(?:\/([0-9]+))?$/i
-      #when /^daily(?:\/([0-9]+))?$/i
-      #when /^weekly(?:\/(\w+))?$/i
-      #when /^hourly(?:\/([0-9]+))?$/i
-      when 'monthly'
-        if @localtime
-          Proc.new {|time|
-            Time.at(time).strftime("%Y%m")
-          }
-        else
-          Proc.new {|time|
-            Time.at(time).utc.strftime("%Y%m")
-          }
-        end
-
-      when 'daily'
-        if @localtime
-          Proc.new {|time|
-            Time.at(time).strftime("%Y%m%d")
-          }
-        else
-          Proc.new {|time|
-            Time.at(time).utc.strftime("%Y%m%d")
-          }
-        end
-
-      when 'hourly'
-        if @localtime
-          Proc.new {|time|
-            Time.at(time).strftime("%Y%m%d%H")
-          }
-        else
-          Proc.new {|time|
-            Time.at(time).utc.strftime("%Y%m%d%H")
-          }
-        end
-
-      when 'minutely'
-        if @localtime
-          Proc.new {|time|
-            Time.at(time).strftime("%Y%m%d%H%M")
-          }
-        else
-          Proc.new {|time|
-            Time.at(time).utc.strftime("%Y%m%d%H%M")
-          }
-        end
-
-      else
-        raise ConfigError, "'time_slice' parameter must be one of the 'monthly', 'daily', 'hourly' or 'minutely'"
-      end
-
-    else
-      raise ConfigError, "'time_slice' parameter is required for time sliced output plugin"
+    if time_format = conf['time_format']
+      @time_format = time_format
     end
 
-    if wait = conf['time_slice_wait']
-      @slice_wait = Config.time_value(wait)
+    if time_wait = conf['time_wait']
+      @time_wait = Config.time_value(time_wait)
+    end
+
+    if @localtime
+      @time_slicer = Proc.new {|time|
+        Time.at(time).strftime(@time_format)
+      }
+    else
+      @time_slicer = Proc.new {|time|
+        Time.at(time).utc.strftime(@time_format)
+      }
     end
   end
 
@@ -433,7 +395,7 @@ class TimeSlicedOutput < BufferedOutput
   end
 
   def try_flush
-    nowslice = @time_slicer.call(Engine.now.to_i - @slice_wait)
+    nowslice = @time_slicer.call(Engine.now.to_i - @time_wait)
     @buffer.synchronize do
       @buffer.keys.each {|key|
         if key < nowslice
