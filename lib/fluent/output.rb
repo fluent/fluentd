@@ -269,6 +269,8 @@ class BufferedOutput < Output
     @buffer_type = 'memory'
   end
 
+  attr_accessor :buffer_type
+
   def configure(conf)
     if buffer_type = conf['buffer_type']
       @buffer_type = buffer_type
@@ -351,17 +353,21 @@ class TimeSlicedOutput < BufferedOutput
     super
     @time_format = '%Y%m%d'
     @time_wait = 10*60  # TODO default value
-    @localtime = false
-    @ignore_old = false
+    @localtime = true
     @buffer_type = 'file'  # overwrite default buffer_type
+    #@ignore_old = false   # TODO
     # TODO @flush_interval = 60  # overwrite default flush_interval
   end
+
+  attr_accessor :time_format, :time_wait, :localtime
 
   def configure(conf)
     super
 
     # TODO timezone
-    if conf['localtime']
+    if conf['utc']
+      @localtime = false
+    elsif conf['localtime']
       @localtime = true
     end
 

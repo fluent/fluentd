@@ -19,7 +19,7 @@ module Fluent
 
 
 class FileOutput < TimeSlicedOutput
-  Plugin.register_output('file2', self)
+  Plugin.register_output('file', self)
 
   SUPPORTED_COMPRESS = {
     :gz => :gz,
@@ -28,6 +28,7 @@ class FileOutput < TimeSlicedOutput
 
   def initialize
     require 'zlib'
+    require 'time'
     super
     @path = nil
     @compress = nil
@@ -62,17 +63,20 @@ class FileOutput < TimeSlicedOutput
       end
       @compress = c
     end
+
+    if @localtime
+      @formatter = Proc.new {|tag,event|
+        "#{Time.at(event.time).iso8601}\t#{tag}\t#{event.record.to_json}\n"
+      }
+    else
+      @formatter = Proc.new {|tag,event|
+        "#{Time.at(event.time).utc.iso8601}\t#{tag}\t#{event.record.to_json}\n"
+      }
+    end
   end
 
   def format(tag, event)
-    # TODO foramt
-    #msg = e.record.map {|k,v|
-    #	k = "\"#{k}\"" if k.include?(' ')
-    #	v = "\"#{v}\"" if v.include?(' ')
-    #	"#{k}=#{v}"
-    #}.join(' ')
-    msg = event.record.to_json
-    "#{Time.at(event.time).to_s} #{tag}: #{msg}\n"
+    @formatter.call(tag, event)
   end
 
   def write(chunk)
