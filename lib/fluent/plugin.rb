@@ -107,17 +107,32 @@ class PluginClass
     else
       return
     end
-    if defined? Gem
-      files = Gem.find_files(path)
-      if files && !files.empty?
-        # prefer newer version
-        require files.sort.last
-      end
-    else
-      begin
-        require path
-      rescue LoadError
-      end
+
+    # prefer LOAD_PATH
+    files = $LOAD_PATH.map {|lp|
+      lpath = File.join(lp, "#{path}.rb")
+      File.exist?(lpath) ? lpath : nil
+    }.compact
+    unless files.empty?
+      # prefer newer version
+      require files.sort.last
+      return
+    end
+
+    # search gems
+    if defined?(::Gem) && ::Gem.respond_to?(:searcher)
+      #files = Gem.find_files(path).sort
+      specs = Gem.searcher.find_all(path)
+      specs = specs.sort_by {|spec| spec.version }
+
+      # prefer newer version
+      specs.reverse_each {|spec|
+        files = Gem.searcher.matching_files(spec, path)
+        unless files.empty?
+          require files.first
+          return
+        end
+      }
     end
   end
 end
