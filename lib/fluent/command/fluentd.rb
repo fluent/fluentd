@@ -22,7 +22,9 @@ require 'fluent/env'
 require 'fluent/version'
 
 op = OptionParser.new
+op.version = Fluent::VERSION
 
+# default values
 config_path = Fluent::DEFAULT_CONFIG_PATH
 plugin_dirs = [Fluent::DEFAULT_PLUGIN_DIR]
 log_level = Fluent::Log::LEVEL_INFO
