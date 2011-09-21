@@ -130,6 +130,17 @@ module Config
     end
   end
 
+  def self.bool_value(str)
+    case str.to_s
+    when 'true', 'yes'
+      true
+    when 'false', 'no'
+      false
+    else
+      nil
+    end
+  end
+
   private
   def self.parse_element(name, lines, i, fname)
     attrs = {}
