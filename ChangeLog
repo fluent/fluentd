@@ -1,4 +1,12 @@
 
+Release 0.9.13 - 2011/09/21
+
+  * Updated out_file plugin
+    * Uses localtime by default
+    * Uses \t to separate time, tag and JSON.
+    * Uses ISO-8601 for the time format
+
+
 Release 0.9.12 - 2011/09/20
 
   * Updated out_file plugin
