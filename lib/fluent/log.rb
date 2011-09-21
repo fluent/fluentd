@@ -99,6 +99,15 @@ class Log
   end
   alias TRACE trace
 
+  def trace_backtrace(backtrace=$!.backtrace)
+    return if @level > LEVEL_TRACE
+    time = Time.now
+    backtrace.each {|msg|
+      puts ["  ", caller_line(time,4), msg].join
+    }
+    nil
+  end
+
   def on_debug(&block)
     return if @level > LEVEL_DEBUG
     block.call if block

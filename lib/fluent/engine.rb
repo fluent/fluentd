@@ -130,16 +130,13 @@ class EngineClass
 
   def run
     start
+
+    # for empty loop
+    Coolio::Loop.default.attach Coolio::TimerWatcher.new(1, true)
     # TODO attach async watch for thread pool
-    Coolio::Loop.default.attach Coolio::TimerWatcher.new(1, true)  # for empty loop
-    begin
-      Coolio::Loop.default.run
-    rescue
-      $log.error "unexpected error", :error=>$!.to_s
-      $log.error_backtrace
-    end
+    Coolio::Loop.default.run
+
     shutdown
-    nil
   end
 
   def stop
