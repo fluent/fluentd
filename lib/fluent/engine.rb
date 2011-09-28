@@ -131,6 +131,10 @@ class EngineClass
   def run
     start
 
+    if match?($log.tag)
+      $log.enable_event
+    end
+
     # for empty loop
     Coolio::Loop.default.attach Coolio::TimerWatcher.new(1, true)
     # TODO attach async watch for thread pool

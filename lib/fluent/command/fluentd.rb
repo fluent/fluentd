@@ -130,11 +130,13 @@ $log.enable_color(false) if log_file
 $log.enable_debug if log_level <= Fluent::Log::LEVEL_DEBUG
 
 
+require 'fluent/engine'
+require 'fluent/config'
+
 begin
   #
   # initialize
   #
-  require 'fluent/engine'
   Fluent::Engine.init
 
   libs.each {|ilb|
@@ -148,10 +150,6 @@ begin
   }
 
   Fluent::Engine.read_config(config_path)
-
-  if Fluent::Engine.match?($log.tag)
-    $log.enable_event
-  end
 
 
   #
