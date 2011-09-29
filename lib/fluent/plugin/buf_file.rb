@@ -27,9 +27,19 @@ class FileBufferChunk < BufferChunk
   end
 
   def <<(data)
-    @file.write(data)
-    @size += data.bytesize
-    @file.flush
+    while true
+      n = @file.syswrite(data)
+      @size += n
+      if data.bytesize <= n
+        break
+      else
+        data = data[n..-1]
+        #data.slice!(0, n-1)
+      end
+    end
+    #@file.write(data)
+    #@size += data.bytesize
+    #@file.flush
   end
 
   def size
