@@ -141,12 +141,12 @@ class BasicBuffer < Buffer
     synchronize do
       top = (@map[key] ||= new_chunk(key))  # TODO generate unique chunk id
 
-      if top.size + data.size <= @chunk_limit
+      if top.size + data.bytesize <= @chunk_limit
         chain.next
         top << data
         return false
 
-      elsif data.size > @chunk_limit
+      elsif data.bytesize > @chunk_limit
         # TODO
         raise BufferError, "received data too large"
 

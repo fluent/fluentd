@@ -35,7 +35,7 @@ class ZFileBufferChunk < FileBufferChunk
     zdata = @z.flush
     unless zdata.empty?
       @file.write(zdata)
-      @size += zdata.size
+      @size += zdata.bytesize
     end
     super
   end

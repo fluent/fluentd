@@ -29,7 +29,7 @@ class MemoryBufferChunk < BufferChunk
   end
 
   def size
-    @data.size
+    @data.bytesize
   end
 
   def close

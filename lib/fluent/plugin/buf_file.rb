@@ -28,8 +28,8 @@ class FileBufferChunk < BufferChunk
 
   def <<(data)
     @file.write(data)
-    @size += data.size
-    @file.flush  # TODO
+    @size += data.bytesize
+    @file.flush
   end
 
   def size
