@@ -24,7 +24,7 @@ class TextParser
     'syslog' => [/^(?<time>[^ ]* [^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, "%b %d %H:%M:%S"],
   }
 
-  def self.register_template(name, regexp)
+  def self.register_template(name, regexp, time_format)
     TEMPLATES[name] = [regexp, time_format]
   end
 
