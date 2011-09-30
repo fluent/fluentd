@@ -45,6 +45,8 @@ class EngineClass
     require 'fluent/output'
     require 'fluent/match'
     Plugin.load_plugins
+    Encoding.default_internal = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_internal)
+    Encoding.default_external = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_external)
     self
   end
 
