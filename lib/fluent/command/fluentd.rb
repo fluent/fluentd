@@ -145,6 +145,7 @@ begin
 
   plugin_dirs.each {|dir|
     if Dir.exist?(dir)
+      dir = File.expand_path(dir)
       Fluent::Engine.load_plugin_dir(dir)
     end
   }
