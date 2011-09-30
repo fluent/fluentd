@@ -1,9 +1,16 @@
 
+Release 0.9.15 - 2011/09/21
+
+  * Set default encoding to ASCII-8BIT
+  * Fixed thread issues in BasicBuffer
+  * Performance improvements
+
+
 Release 0.9.14 - 2011/09/21
 
- * Fixed to write unexpected error to log files
- * Plugin loader uses GemSpec if it is available to load newer plugin
- * Added Config.bool_value method for plugins
+  * Fixed to write unexpected error to log files
+  * Plugin loader uses GemSpec if it is available to load newer plugin
+  * Added Config.bool_value method for plugins
 
 
 Release 0.9.13 - 2011/09/21
