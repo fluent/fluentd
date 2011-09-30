@@ -213,7 +213,7 @@ class BasicBuffer < Buffer
 
   def pop(out)
     chunk = nil
-    synchronize do
+    @queue.synchronize do
       if @parallel
         chunk = @queue.find {|c| c.try_mon_enter }
         return false unless chunk
@@ -229,7 +229,7 @@ class BasicBuffer < Buffer
         write_chunk(chunk, out)
       end
 
-      synchronize do
+      @queue.synchronize do
         @queue.delete_if {|c|
           c.object_id == chunk.object_id
         }
