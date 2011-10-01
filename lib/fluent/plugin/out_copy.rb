@@ -59,7 +59,7 @@ class CopyOutput < MultiOutput
     unless es.repeatable?
       array = []
       es.each {|e|
-        e << array
+        array << e
       }
       es = ArrayEventStream.new(array)
     end
