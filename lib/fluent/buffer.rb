@@ -201,11 +201,11 @@ class BasicBuffer < Buffer
         return false
       end
 
-      @queue.synchronize {
+      @queue.synchronize do
         enqueue(top)
         @queue << top
         @map.delete(key)
-      }
+      end
 
       return true
     end  # synchronize
@@ -229,11 +229,9 @@ class BasicBuffer < Buffer
         write_chunk(chunk, out)
       end
 
-      @queue.synchronize do
-        @queue.delete_if {|c|
-          c.object_id == chunk.object_id
-        }
-      end
+      @queue.delete_if {|c|
+        c.object_id == chunk.object_id
+      }
 
       chunk.purge
 
