@@ -32,7 +32,7 @@ config_path = Fluent::DEFAULT_CONFIG_PATH
 format = 'json'
 
 op.on('-p', '--port PORT', "fluent tcp port (default: #{port})", Integer) {|i|
-  port = s
+  port = i
 }
 
 op.on('-h', '--host HOST', "fluent host (default: #{host})") {|s|
