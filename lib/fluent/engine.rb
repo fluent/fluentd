@@ -98,7 +98,7 @@ class EngineClass
   end
 
   def emit(tag, event)
-    emit_stream tag, ArrayEventStream.new([event])
+    emit_stream tag, OneEventStream.new(event)
   end
 
   def emit_array(tag, array)

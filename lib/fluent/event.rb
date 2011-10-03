@@ -19,87 +19,112 @@ module Fluent
 
 
 class Event
-	def initialize(time=0, record={})
-		@time = time
-		@record = record
-	end
-	attr_reader :time, :record
+  def initialize(time=0, record={})
+    @time = time
+    @record = record
+  end
+  attr_reader :time, :record
 
-	def from_msgpack(msg)
-		@time = msg[0].to_i
-		@record = msg[1] || {}
-		return self
-	end
+  def from_msgpack(msg)
+    @time = msg[0].to_i
+    @record = msg[1] || {}
+    return self
+  end
 
-	def to_msgpack(out = '')
-		[@time, @record].to_msgpack(out)
-	end
+  def to_msgpack(out = '')
+    [@time, @record].to_msgpack(out)
+  end
 end
 
 
 class EventStream
-	def repeatable?
-		false
-	end
+  def repeatable?
+    false
+  end
 
-	#def each(&block)
-	#end
+  #def each(&block)
+  #end
+
+  def to_msgpack_stream(out = '')
+    each {|record|
+      record.to_msgpack
+    }
+  end
+end
+
+
+class OneEventStream < EventStream
+  def initialize(event)
+    @event = event
+  end
+
+  def repeatable?
+    true
+  end
+
+  def each(&block)
+    block.call(@event)
+  end
 end
 
 
 class ArrayEventStream < EventStream
-	def initialize(array)
-		@array = array
-	end
+  def initialize(array)
+    @array = array
+  end
 
-	def repeatable?
-		true
-	end
+  def repeatable?
+    true
+  end
 
-	def each(&block)
-		@array.each(&block)
-	end
+  def each(&block)
+    @array.each(&block)
+  end
 end
 
 
-class RawEventStream < EventStream
-	def initialize(data)
-		@data = data
-	end
+class MessagePackEventStream < EventStream
+  def initialize(data)
+    @data = data
+  end
 
-	def repeatable?
-		true
-	end
+  def repeatable?
+    true
+  end
 
-	def each(&block)
-		array = []
-		u = MessagePack::Unpacker.new
-		u.feed_each(@data) {|obj|
-			yield Event.new.from_msgpack(obj)
-		}
-	end
+  def each(&block)
+    array = []
+    u = MessagePack::Unpacker.new
+    u.feed_each(@data) {|obj|
+      yield Event.new.from_msgpack(obj)
+    }
+  end
+
+  def to_msgpack_stream(out = '')
+    out << @data
+  end
 end
 
 
-class IoEventStream < EventStream
-	def initialize(io, num)
-		@io = io
-		@num = num
-		@u = MessagePack::Unpacker.new(@io)
-	end
-
-	def repeatable?
-		false
-	end
-
-	def each(&block)
-		return nil if @num == 0
-		@u.each {|obj|
-			yield Event.new.from_msgpack(obj)
-			break if @array.size >= @num
-		}
-	end
-end
+#class IoEventStream < EventStream
+#  def initialize(io, num)
+#    @io = io
+#    @num = num
+#    @u = MessagePack::Unpacker.new(@io)
+#  end
+#
+#  def repeatable?
+#    false
+#  end
+#
+#  def each(&block)
+#    return nil if @num == 0
+#    @u.each {|obj|
+#      yield Event.new.from_msgpack(obj)
+#      break if @array.size >= @num
+#    }
+#  end
+#end
 
 
 end

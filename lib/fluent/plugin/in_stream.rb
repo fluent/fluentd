@@ -47,20 +47,19 @@ class StreamInput < Input
   end
 
   protected
-  def callback(msgs)
-    msgs.each {|msg|
-      on_message(msg)
-    }
-  end
-
   # message Entry {
-  #   1: long? time
+  #   1: long time
   #   2: object record
   # }
   #
   # message Forward {
   #   1: string tag
   #   2: list<Entry> entries
+  # }
+  #
+  # message PackedForward {
+  #   1: string tag
+  #   2: raw entries  # msgpack stream of Entry
   # }
   #
   # message Message {
@@ -73,7 +72,12 @@ class StreamInput < Input
     tag = msg[0].to_s
     entries = msg[1]
 
-    if entries.class == Array
+    if entries.class == String
+      # PackedForward
+      stream = MessagePackEventStream.new(entries)
+      Engine.emit_stream(tag, stream)
+
+    elsif entries.class == Array
       # Forward
       entries.map! {|e|
         time = e[0].to_i
@@ -81,26 +85,25 @@ class StreamInput < Input
         record = e[1]
         Event.new(time, record)
       }
-      es = ArrayEventStream.new(entries)
+      Engine.emit_array(tag, entries)
+
     else
       # Message
       time = msg[1]
       time = Engine.now if time == 0
       record = msg[2]
       event = Event.new(time, record)
-      es = ArrayEventStream.new([event])
+      Engine.emit(tag, event)
     end
-
-    Engine.emit_stream(tag, es)
   end
 
   class Handler < Coolio::Socket
-    def initialize(io, callback)
+    def initialize(io, on_message)
       super(io)
       opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
       io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
       $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
-      @callback = callback
+      @on_message = on_message
     end
 
     def on_connect
@@ -112,7 +115,7 @@ class StreamInput < Input
       @u.feed_each(data) {|msg|
         msgs << msg
       }
-      @callback.call(msgs)
+      msgs.each(&@on_message)
     end
 
     def on_close
@@ -132,7 +135,7 @@ class TcpInput < StreamInput
 
   def listen
     $log.debug "listening fluent socket on #{@bind}:#{@port}"
-    Coolio::TCPServer.new(@bind, @port, Handler, method(:callback))
+    Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
   end
 end
 
@@ -150,7 +153,7 @@ class UnixInput < StreamInput
     end
     FileUtils.mkdir_p File.dirname(@path)
     $log.debug "listening fluent socket on #{@path}"
-    Coolio::UNIXServer.new(@path, Handler, method(:callback))
+    Coolio::UNIXServer.new(@path, Handler, method(:on_message))
   end
 end
 

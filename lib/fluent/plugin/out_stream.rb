@@ -35,11 +35,8 @@ class StreamOutput < BufferedOutput
   end
 
   def format_stream(tag, es)
-    entries = []
-    es.each {|event|
-      entries << event
-    }
-    [tag, entries].to_msgpack
+    # use PackedForward
+    [tag, es.to_msgpack_stream].to_msgpack
   end
 
   def write(chunk)
