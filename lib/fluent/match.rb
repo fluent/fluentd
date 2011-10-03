@@ -50,6 +50,22 @@ class Match
 end
 
 
+class NullMatch
+  def emit(tag, es)
+  end
+
+  def start
+  end
+
+  def shutdown
+  end
+
+  def match(tag)
+    false
+  end
+end
+
+
 class MatchPattern
   def self.create(str)
     GlobMatchPattern.new(str)

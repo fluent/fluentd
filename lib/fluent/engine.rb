@@ -22,6 +22,7 @@ class EngineClass
   def initialize
     @matches = []
     @sources = []
+    @match_cache = {}
   end
 
   def init
@@ -106,10 +107,13 @@ class EngineClass
   end
 
   def emit_stream(tag, es)
-    if match = @matches.find {|m| m.match(tag) }
+    match = (@match_cache[tag] ||= @matches.find {|m| m.match(tag) })
+    #match = @matches.find {|m| m.match(tag) }
+    if match
       match.emit(tag, es)
     else
       $log.on_trace { $log.trace "no pattern matched", :tag=>tag }
+      @match_cache[tag] = NullMatch.new
     end
   rescue
     $log.warn "emit transaction faild ", :error=>$!.to_s
