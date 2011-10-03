@@ -107,14 +107,14 @@ class EngineClass
   end
 
   def emit_stream(tag, es)
-    match = (@match_cache[tag] ||= @matches.find {|m| m.match(tag) })
-    #match = @matches.find {|m| m.match(tag) }
-    if match
-      match.emit(tag, es)
-    else
-      $log.on_trace { $log.trace "no pattern matched", :tag=>tag }
-      @match_cache[tag] = NullMatch.new
+    match = @match_cache[tag]
+    unless match
+      match = @matches.find {|m| m.match(tag) } || NoMatchMatch.new
+      if @match_cache.size < 1024  # TODO size limit
+        @match_cache[tag] = match
+      end
     end
+    match.emit(tag, es)
   rescue
     $log.warn "emit transaction faild ", :error=>$!.to_s
     $log.warn_backtrace
@@ -190,6 +190,22 @@ class EngineClass
         $log.debug_backtrace
       end
     }
+  end
+
+  class NoMatchMatch
+    def emit(tag, es)
+      $log.on_trace { $log.trace "no pattern matched", :tag=>tag }
+    end
+
+    def start
+    end
+
+    def shutdown
+    end
+
+    def match(tag)
+      false
+    end
   end
 end
 
