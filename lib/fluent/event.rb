@@ -84,8 +84,9 @@ end
 
 
 class MessagePackEventStream < EventStream
-  def initialize(data)
+  def initialize(data, cached_unpacker=nil)
     @data = data
+    @unpacker = cached_unpacker || MessagePack::Unpacker.new
   end
 
   def repeatable?
@@ -93,9 +94,8 @@ class MessagePackEventStream < EventStream
   end
 
   def each(&block)
-    array = []
-    u = MessagePack::Unpacker.new
-    u.feed_each(@data) {|obj|
+    @unpacker.reset
+    @unpacker.feed_each(@data) {|obj|
       yield Event.new.from_msgpack(obj)
     }
   end
