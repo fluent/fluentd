@@ -388,11 +388,22 @@ class TimeSlicedOutput < BufferedOutput
         Time.at(time).utc.strftime(@time_format)
       }
     end
+
+    @time_slice_cache_interval = time_slice_cache_interval
+    @before_tc = nil
+    @before_key = nil
   end
 
   def emit(tag, es, chain)
     es.each {|e|
-      key = @time_slicer.call(e.time)
+      tc = e.time / @time_slice_cache_interval
+      if @before_tc == tc
+        key = @before_key
+      else
+        @before_tc = tc
+        key = @time_slicer.call(e.time)
+        @before_key = key
+      end
       data = format(tag, e)
       if @buffer.emit(key, data, chain)
         submit_flush
@@ -414,6 +425,19 @@ class TimeSlicedOutput < BufferedOutput
 
   #def format(tag, event)
   #end
+
+  private
+  def time_slice_cache_interval
+    if @time_slicer.call(0) != @time_slicer.call(60-1)
+      return 1
+    elsif @time_slicer.call(0) != @time_slicer.call(60*60-1)
+      return 30
+    elsif @time_slicer.call(0) != @time_slicer.call(24*60*60-1)
+      return 60*30
+    else
+      return 24*60*30
+    end
+  end
 end
 
 

@@ -77,7 +77,7 @@ class StreamInput < Input
       # Forward
       array = entries.map {|e|
         time = e[0].to_i
-        time = Engine.now if time == 0
+        time = (now ||= Engine.now) if time == 0
         record = e[1]
         Event.new(time, record)
       }
