@@ -64,25 +64,47 @@ class FileOutput < TimeSlicedOutput
       @compress = c
     end
 
-    if @localtime
-      @formatter = Proc.new {|tag,event|
-        "#{Time.at(event.time).iso8601}\t#{tag}\t#{event.record.to_json}\n"
-      }
-    else
-      @formatter = Proc.new {|tag,event|
-        "#{Time.at(event.time).utc.iso8601}\t#{tag}\t#{event.record.to_json}\n"
-      }
-    end
+    # TODO create a generic class to cache strftime
+    @tc1 = 0
+    @tc1_str = nil
+    @tc2 = 0
+    @tc2_str = nil
   end
 
   def format(tag, event)
-    @formatter.call(tag, event)
+    time = event.time
+    if @tc1 == time
+      time_str = @tc1_str
+    elsif @tc2 == time
+      time_str = @tc2_str
+    else
+      if @localtime
+        time_str = Time.at(time).iso8601
+      else
+        time_str = Time.at(time).utc.iso8601
+      end
+      if @tc1 < @tc2
+        @tc1 = time
+        @tc1_str = time_str
+      else
+        @tc2 = time
+        @tc2_str = time_str
+      end
+    end
+    "#{time_str}\t#{tag}\t#{event.record.to_json}\n"
   end
 
   def write(chunk)
+    case @compress
+    when nil
+      suffix = ''
+    when :gz
+      suffix = ".gz"
+    end
+
     i = 0
     begin
-      path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}"
+      path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
       i += 1
     end while File.exist?(path)
     FileUtils.mkdir_p File.dirname(path)
@@ -93,7 +115,7 @@ class FileOutput < TimeSlicedOutput
         chunk.write_to(f)
       }
     when :gz
-      Zlib::GzipWriter.open("#{path}.gz") {|f|
+      Zlib::GzipWriter.open(path) {|f|
         chunk.write_to(f)
       }
     end
