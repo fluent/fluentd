@@ -75,13 +75,13 @@ class StreamInput < Input
 
     if entries.class == Array
       # Forward
-      array = entries.map {|e|
+      entries.map! {|e|
         time = e[0].to_i
         time = (now ||= Engine.now) if time == 0
         record = e[1]
         Event.new(time, record)
       }
-      es = ArrayEventStream.new(array)
+      es = ArrayEventStream.new(entries)
     else
       # Message
       time = msg[1]
