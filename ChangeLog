@@ -1,4 +1,11 @@
 
+Release 0.9.17 - 2011/10/03
+
+  * TimeSlicedOutput caches results of strftime() for performance
+  * Fixed TextParser.register_template (thanks eiichiroi)
+  * Fixed fluent-cat --port argument to work
+
+
 Release 0.9.16 - 2011/10/01
 
   * Fixed it can't use relative path for --plugin command line argument
