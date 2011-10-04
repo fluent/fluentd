@@ -1,4 +1,13 @@
 
+Release 0.9.18 - 2011/10/04
+
+  * Performance improvements
+    * in_tcp uses lazy deserialization
+	* Engine caches results of Match#match
+	* out_file caches results of strftime
+  * Fixed TextParser.register_template
+
+
 Release 0.9.17 - 2011/10/03
 
   * TimeSlicedOutput caches results of strftime() for performance
