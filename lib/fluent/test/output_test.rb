@@ -19,8 +19,33 @@ module Fluent
 module Test
 
 
+class TestOutputChain
+  def initialize
+    @called = 0
+  end
+
+  def next
+    @called += 1
+  end
+
+  attr_reader :called
+end
+
+
 class OutputTestDriver < TestDriver
-  # TODO
+  def initialize(klass, tag='test', &block)
+    super(klass, &block)
+    @tag = tag
+  end
+
+  attr_accessor :tag
+
+  def emit(record, time=Time.now)
+    es = OneEventStream.new(Event.new(time.to_i, record))
+    chain = TestOutputChain.new
+    @instance.emit(@tag, es, chain)
+    assert_equal 1, chain.called
+  end
 end
 
 
