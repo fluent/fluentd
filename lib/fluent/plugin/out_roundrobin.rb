@@ -41,7 +41,7 @@ class RoundRobinOutput < MultiOutput
       output.configure(e)
       @outputs << output
     }
-    @rr = 0
+    @rr = -1  # starts from @output[0]
   end
 
   def start
