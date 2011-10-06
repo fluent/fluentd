@@ -58,8 +58,7 @@ class StreamOutput < BufferedOutput
     unless secondary.is_a?(StreamOutput)
       secondary = ReformatWriter.new(secondary)
     end
-    while @buffer.pop(secondary)
-    end
+    @buffer.pop(secondary)
   end
 
   class ReformatWriter

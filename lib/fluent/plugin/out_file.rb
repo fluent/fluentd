@@ -122,6 +122,10 @@ class FileOutput < TimeSlicedOutput
 
     return path  # for test
   end
+
+  def secondary_init(primary)
+    # don't warn even if primary.class is not FileOutput
+  end
 end
 
 

@@ -61,6 +61,12 @@ class Output
 
   #def emit(tag, es, chain)
   #end
+
+  def secondary_init(primary)
+    if primary.class != self.class
+        $log.warn "type of secondary output should be same as primary output", :primary=>primary.class.to_s, :secondary=>self.class.to_s
+    end
+  end
 end
 
 
@@ -76,10 +82,10 @@ class OutputThread
     @retry_wait = 1.0  # TODO default
 
     @secondary = nil
-    @fallback_count = 3
+    @secondary_limit = 8  # TODO default
   end
 
-  attr_accessor :flush_interval, :retry_limit, :retry_wait, :fallback_count
+  attr_accessor :flush_interval, :retry_limit, :retry_wait, :secondary_limit
 
   def configure(conf)
     if flush_interval = conf['flush_interval']
@@ -88,6 +94,9 @@ class OutputThread
 
     if retry_limit = conf['retry_limit']
       @retry_limit = retry_limit.to_i
+      if @retry_limit < 0
+        raise ConfigError, "invalid parameter 'retry_limit #{retry_limit}'"
+      end
     end
 
     if retry_wait = conf['retry_wait']
@@ -98,11 +107,17 @@ class OutputThread
 
     if econf = conf.elements.select {|e| e.name == 'secondary' }.first
       type = econf['type'] || conf['type']
-      if type != conf['type']
-        $log.warn "type of secondary output should be same as primary output: #{econf}"
-      end
       @secondary = Plugin.new_output(type)
       @secondary.configure(econf)
+
+      if secondary_limit = conf['secondary_limit']
+        @secondary_limit = secondary_limit.to_i
+        if @secondary_limit < 0
+          raise ConfigError, "invalid parameter 'secondary_limit #{secondary_limit}'"
+        end
+      end
+
+      @secondary.secondary_init(@output)
     end
   end
 
@@ -178,11 +193,13 @@ class OutputThread
   end
 
   def calc_next_time
+    # TODO retry pattern
     if @error_history.empty?
       @next_time = @last_try + @flush_interval
-    else
-      # TODO retry pattern
+    elsif @error_history.size <= @retry_limit
       @next_time = @last_try + @retry_wait * (2 ** (@error_history.size-1))
+    else
+      @next_time = @last_try + @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
     end
   end
 
@@ -205,7 +222,12 @@ class OutputThread
     while true
 
       begin
-        has_next = @output.try_flush
+        if @error_history.size > @retry_limit
+          has_next = @output.flush_secondary(@secondary)
+        else
+          has_next = @output.try_flush
+        end
+
         @error_history.clear
         next if has_next
 
@@ -213,26 +235,28 @@ class OutputThread
         $log.warn "failed to flush the buffer", :error=>$!.to_s
         $log.warn_backtrace
 
+        error_count = @error_history.size
         @error_history << time
 
-        if @secondary && @error_history.size >= @fallback_count
-          $log.error "falling back to secondary output."
-          begin
-            @output.flush_secondary(@secondary)
-            @error_history.clear
-            break
-          rescue
-            $log.warn "failed to flush the buffer to secondary output: ", :error=>$!.to_s
-            $log.warn_backtrace
-          end
-        end
+        if error_count < @retry_limit
+          $log.info "retrying."
 
-        if @error_history.size >= @retry_limit
+        elsif @secondary
+          if error_count == @retry_limit
+            $log.warn "retry count exceededs limit. falling back to secondary output."
+            next  # retry immediately
+          elsif error_count <= @retry_limit + @secondary_limit
+            $log.info "retrying secondary."
+          else
+            $log.warn "secondary retry count exceededs limit."
+            write_abort
+          end
+
+        else
           $log.warn "retry count exceededs limit."
           write_abort
-        else
-          $log.info "retrying."
         end
+
       end
 
       break
@@ -240,18 +264,6 @@ class OutputThread
   end
 
   def write_abort
-    #if @secondary
-    #  $log.error "falling back to secondary output."
-    #  begin
-    #    @output.flush_secondary(@secondary)
-    #    @error_history.clear
-    #    return true
-    #  rescue
-    #    $log.error "failed to flush the buffer to secondary output: ", $!
-    #    $log.error_backtrace
-    #  end
-    #end
-
     $log.error "throwing away old logs."
     begin
       @output.write_abort
@@ -342,8 +354,7 @@ class BufferedOutput < Output
   end
 
   def flush_secondary(secondary)
-    while @buffer.pop(secondary)
-    end
+    @buffer.pop(secondary)
   end
 end
 
