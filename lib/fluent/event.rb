@@ -34,6 +34,26 @@ class Event
   def to_msgpack(out = '')
     [@time, @record].to_msgpack(out)
   end
+
+  def <=>(o)
+    unless o.is_a?(Event)
+      raise "ArgumentError: comparison of Event with #{o.class} failed"
+    end
+
+    t = @time <=> o.time
+    return if t != 0
+    @record <=> o.record
+  end
+
+  def ==(o)
+    o.class == Event && @time == o.time && @record == o.record
+  end
+
+  alias eql? ==
+
+  def hash
+    @time.hash ^ @record.hash
+  end
 end
 
 
