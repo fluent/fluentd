@@ -1,18 +1,18 @@
-require File.dirname(__FILE__)+'/test_helper'
+require File.dirname(__FILE__) + '/helper'
 
 require 'fluent/match'
 
 class MatchTest < Test::Unit::TestCase
   include Fluent
 
-  it 'simple' do
+  def test_simple
     assert_match('a', 'a')
     assert_match('a.b', 'a.b')
     assert_not_match('a', 'b')
     assert_not_match('a.b', 'aab')
   end
 
-  it 'wildcard' do
+  def test_wildcard
     assert_match('a*', 'a')
     assert_match('a*', 'ab')
     assert_match('a*', 'abc')
@@ -40,7 +40,7 @@ class MatchTest < Test::Unit::TestCase
     assert_not_match('a.*.c', 'a.c')
   end
 
-  it 'recursive wildcard' do
+  def test_recursive_wildcard
     assert_match('a.**', 'a')
     assert_not_match('a.**', 'ab')
     assert_not_match('a.**', 'abc')
@@ -70,7 +70,7 @@ class MatchTest < Test::Unit::TestCase
     assert_match('**a', 'd.e.a')
   end
 
-  it 'or' do
+  def test_or
     assert_match('a.{b,c}', 'a.b')
     assert_match('a.{b,c}', 'a.c')
     assert_not_match('a.{b,c}', 'a.d')
@@ -86,7 +86,7 @@ class MatchTest < Test::Unit::TestCase
     assert_not_match('a.{b.**,c}', 'a.c.d')
   end
 
-  #it 'character class' do
+  #def test_character_class
   #  assert_match('[a]', 'a')
   #  assert_match('[ab]', 'a')
   #  assert_match('[ab]', 'b')

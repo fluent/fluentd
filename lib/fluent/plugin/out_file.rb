@@ -119,6 +119,8 @@ class FileOutput < TimeSlicedOutput
         chunk.write_to(f)
       }
     end
+
+    return path  # for test
   end
 end
 
