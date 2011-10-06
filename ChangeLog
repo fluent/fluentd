@@ -1,4 +1,15 @@
 
+Release 0.9.19 - 2011/10/07
+
+  * Secondary outputs work only when error count exceededs retry_limit
+  * Secondary outputs retry upto secondary_limit
+  * Added Output#secondary_init
+  * Added unit test driver for output plugins
+  * Added Fluent::Test.test? method
+  * Added comparision methods (<=>, ==, eql? and hash) to Event class
+  * Added test cases for out_copy, out_roundrobin and out_file
+
+
 Release 0.9.18 - 2011/10/04
 
   * Performance improvements
