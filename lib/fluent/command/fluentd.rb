@@ -139,7 +139,7 @@ begin
   #
   Fluent::Engine.init
 
-  libs.each {|ilb|
+  libs.each {|lib|
     require lib
   }
 
