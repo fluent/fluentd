@@ -21,6 +21,7 @@ module Fluent
 class StreamInput < Input
   def initialize
     require 'socket'
+    require 'yajl'
   end
 
   def start
@@ -108,10 +109,30 @@ class StreamInput < Input
     end
 
     def on_connect
-      @u = MessagePack::Unpacker.new
     end
 
     def on_read(data)
+      first = data[0]
+      if first == '{' || first == '['
+        m = method(:on_read_json)
+        @y = Yajl::Parser.new
+        @y.on_parse_complete = @on_message
+      else
+        m = method(:on_read_msgpack)
+        @u = MessagePack::Unpacker.new
+      end
+
+      (class<<self;self;end).module_eval do
+        define_method(:on_read, m)
+      end
+      m.call(data)
+    end
+
+    def on_read_json(data)
+      @y << data
+    end
+
+    def on_read_msgpack(data)
       msgs = []
       @u.feed_each(data) {|msg|
         msgs << msg

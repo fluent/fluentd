@@ -193,7 +193,7 @@ class Writer
     end
 
     begin
-      socket.write [@tag, array].to_msgpack
+      socket.write [@tag, array].to_json
       socket.flush
     rescue
       $stderr.puts "write failed: #{$!}"

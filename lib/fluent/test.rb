@@ -28,14 +28,14 @@ module Test
   end
 
   def self.setup
+    @@test = true
+
     require 'fluent/engine'
     require 'fluent/log'
 
     $log = Fluent::Log.new unless $log
     Fluent.__send__(:remove_const, :Engine)
     Fluent.const_set(:Engine, EngineClass.new).init
-
-    @@test = true
   end
 end
 end
