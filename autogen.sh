@@ -16,6 +16,7 @@ function download() {
 
 mkdir -p deps
 mkdir -p deps/ruby
+mkdir -p plugins
 cd deps
 download "http://ftp.ruby-lang.org/pub/ruby/1.9" "ruby-1.9.2-p180.tar.bz2"
 download "http://rubygems.org/downloads" "jeweler-1.6.2.gem"
