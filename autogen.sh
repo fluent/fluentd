@@ -24,6 +24,7 @@ download "http://rubygems.org/downloads" "msgpack-0.4.4.gem"
 download "http://rubygems.org/downloads" "iobuffer-0.1.3.gem"
 download "http://rubygems.org/downloads" "cool.io-1.0.0.gem"
 download "http://rubygems.org/downloads" "http_parser.rb-0.5.1.gem"
+download "http://rubygems.org/downloads" "yajl-ruby-1.0.0.gem"
 cd ..
 
 echo "#!/bin/sh
