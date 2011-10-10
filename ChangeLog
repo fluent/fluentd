@@ -1,4 +1,13 @@
 
+Release 0.9.20 - 2011/10/07
+
+  * Config#has_key? sets used flag not to show warning
+  * in_tcp supports JSON
+  * Depends on Yajl
+  * Fixed fluentd -r option
+  * Fixed autogen.sh to create plugins directory
+
+
 Release 0.9.19 - 2011/10/07
 
   * Secondary outputs work only when error count exceededs retry_limit
