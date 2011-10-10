@@ -50,6 +50,11 @@ module Config
       Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, @used+o.used)
     end
 
+    def has_key?(key)
+      @used << key
+      super
+    end
+
     def [](key)
       @used << key
       super
