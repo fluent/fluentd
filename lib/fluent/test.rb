@@ -17,11 +17,11 @@
 #
 module Fluent
 module Test
+  require 'fluent/load'
+  require 'fluent/test/base'
+  require 'fluent/test/output_test'
+  require 'fluent/test/output_test'
   require 'test/unit'
-
-  autoload :TestDriver, 'fluent/test/base'
-  autoload :OutputTestDriver, 'fluent/test/output_test'
-  autoload :BufferedOutputTestDriver, 'fluent/test/output_test'
 
   @@test = false
 

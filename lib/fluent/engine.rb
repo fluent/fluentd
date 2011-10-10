@@ -26,26 +26,8 @@ class EngineClass
   end
 
   def init
-    require 'thread'
-    require 'socket'
+    require 'fluent/load'
     BasicSocket.do_not_reverse_lookup = true
-    require 'monitor'
-    require 'stringio'
-    require 'fileutils'
-    require 'json'
-    require 'msgpack'
-    require 'cool.io'
-    require 'cool.io/eventmachine'
-    require 'fluent/env'
-    require 'fluent/config'
-    require 'fluent/plugin'
-    require 'fluent/parser'
-    require 'fluent/event'
-    require 'fluent/buffer'
-    require 'fluent/input'
-    require 'fluent/output'
-    require 'fluent/match'
-    require 'fluent/test'
     Plugin.load_plugins
     Encoding.default_internal = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_internal)
     Encoding.default_external = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_external)
