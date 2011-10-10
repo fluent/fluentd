@@ -18,8 +18,6 @@
 module Fluent
 module Test
 
-require 'test/unit'
-
 
 class TestDriver
   include ::Test::Unit::Assertions

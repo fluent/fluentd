@@ -17,6 +17,8 @@
 #
 module Fluent
 module Test
+  require 'test/unit'
+
   autoload :TestDriver, 'fluent/test/base'
   autoload :OutputTestDriver, 'fluent/test/output_test'
   autoload :BufferedOutputTestDriver, 'fluent/test/output_test'
