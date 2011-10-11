@@ -26,7 +26,6 @@ class EngineClass
   end
 
   def init
-    require 'fluent/load'
     BasicSocket.do_not_reverse_lookup = true
     Plugin.load_plugins
     Encoding.default_internal = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_internal)
@@ -194,6 +193,22 @@ end
 
 Engine = EngineClass.new
 
+
+module Test
+  @@test = false
+
+  def test?
+    @@test
+  end
+
+  def self.setup
+    @@test = true
+
+    $log = Fluent::Log.new unless $log
+    Fluent.__send__(:remove_const, :Engine)
+    Fluent.const_set(:Engine, EngineClass.new).init
+  end
+end
 
 end
 

@@ -130,8 +130,7 @@ $log.enable_color(false) if log_file
 $log.enable_debug if log_level <= Fluent::Log::LEVEL_DEBUG
 
 
-require 'fluent/engine'
-require 'fluent/config'
+require 'fluent/load'
 
 begin
   #
