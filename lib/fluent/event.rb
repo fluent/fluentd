@@ -28,10 +28,12 @@ class EventStream
   #def each(&block)
   #end
 
-  def to_msgpack_stream(out = '')
+  def to_msgpack_stream
+    out = ''
     each {|record|
-      record.to_msgpack
+      record.to_msgpack(out)
     }
+    out
   end
 end
 
@@ -126,8 +128,8 @@ class MessagePackEventStream < EventStream
     nil
   end
 
-  def to_msgpack_stream(out = '')
-    out << @data
+  def to_msgpack_stream
+    @data
   end
 end
 
