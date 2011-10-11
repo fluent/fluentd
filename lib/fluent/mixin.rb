@@ -120,9 +120,9 @@ module SetTimeKeyMixin
 
   def format_stream(tag, es)
     out = ''
-    es.each {|event|
-      event.record[@time_key] = @timef.format(event.time)
-      out << format(tag, event)
+    es.each {|time,record|
+      record[@time_key] = @timef.format(time)
+      out << format(tag, time, record)
     }
     out
   end
