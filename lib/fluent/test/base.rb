@@ -49,6 +49,8 @@ class TestDriver
   def run(&block)
     @instance.start
     begin
+      # wait until thread starts
+      50.times { Thread.pass }
       return yield
     ensure
       @instance.shutdown

@@ -16,17 +16,26 @@
 #    limitations under the License.
 #
 module Fluent
+module Test
 
 
-class TestOutput < Output
-  Plugin.register_output('test', self)
-
-  def initialize
+class InputTestDriver < TestDriver
+  def initialize(klass, &block)
+    super(klass, &block)
     @emits = []
-    @name = nil
+    @expects = nil
   end
 
-  attr_reader :emits, :name
+  def expect(tag, time, record)
+    (@expects ||= []) << [tag, time, record]
+    self
+  end
+
+  def expects
+    @expects ||= []
+  end
+
+  attr_reader :emits
 
   def events
     all = []
@@ -46,23 +55,35 @@ class TestOutput < Output
     all
   end
 
-  def configure(conf)
-    if name = conf['name']
-      @name = name
-    end
+  def run(&block)
+    m = method(:emit_stream)
+    super {
+      Engine.define_singleton_method(:emit_stream) {|tag,es|
+        m.call(tag, es)
+      }
+
+      block.call
+
+      if @expects
+        i = 0
+        @emits.each {|tag,events|
+          events.each {|time,record|
+            assert_equal(@expects[i], [tag, time, record])
+            i += 1
+          }
+        }
+        assert_equal @expects.length, i
+      end
+    }
+    self
   end
 
-  def start
-  end
-
-  def shutdown
-  end
-
-  def emit(tag, es, chain)
-    chain.next
+  private
+  def emit_stream(tag, es)
     @emits << [tag, es.to_a]
   end
 end
 
 
+end
 end

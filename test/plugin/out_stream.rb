@@ -40,7 +40,6 @@ class TcpOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    require 'fluent/plugin/out_stream'
     super(Fluent::TcpOutput, conf)
   end
 
@@ -63,7 +62,6 @@ class UnixOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    require 'fluent/plugin/out_stream'
     super(Fluent::UnixOutput, conf)
   end
 

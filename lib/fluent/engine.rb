@@ -206,9 +206,17 @@ module Test
   def self.setup
     @@test = true
 
-    $log = Fluent::Log.new unless $log
     Fluent.__send__(:remove_const, :Engine)
-    Fluent.const_set(:Engine, EngineClass.new).init
+    engine = Fluent.const_set(:Engine, EngineClass.new).init
+
+    engine.define_singleton_method(:now=) {|n|
+      @now = n.to_i
+    }
+    engine.define_singleton_method(:now) {
+      @now || super()
+    }
+
+    nil
   end
 end
 
