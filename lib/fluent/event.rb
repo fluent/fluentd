@@ -103,7 +103,7 @@ class MultiEventStream < EventStream
   def each(&block)
     time_array = @time_array
     record_array = @record_array
-    for i in 0..time.length-1
+    for i in 0..time_array.length-1
       block.call(time_array[i], record_array[i])
     end
     nil

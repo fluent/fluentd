@@ -20,9 +20,14 @@ module Fluent
 
 class Match
   def initialize(pattern_str, output)
-    @patterns = pattern_str.split(/\s+/).map {|str|
+    patterns = pattern_str.split(/\s+/).map {|str|
       MatchPattern.create(str)
     }
+    if patterns.length == 1
+      @pattern = patterns[0]
+    else
+      @pattern = OrMatchPattern.new(patterns)
+    end
     @output = output
   end
 
@@ -42,7 +47,7 @@ class Match
   end
 
   def match(tag)
-    if @patterns.any? {|pattern| pattern.match(tag) }
+    if @pattern.match(tag)
       return true
     end
     return false
@@ -165,6 +170,17 @@ class GlobMatchPattern < MatchPattern
 
   def match(str)
     @regex.match(str) != nil
+  end
+end
+
+
+class OrMatchPattern < MatchPattern
+  def initialize(patterns)
+    @patterns = patterns
+  end
+
+  def match(str)
+    @patterns.any? {|pattern| pattern.match(str) }
   end
 end
 
