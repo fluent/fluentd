@@ -11,11 +11,11 @@ module StreamInputTest
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
     Fluent::Engine.now = time
 
-    d.expect "tag1", time, {"a"=>1}
-    d.expect "tag2", time, {"a"=>2}
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expects.each {|tag,time,record|
+      d.expected_emits.each {|tag,time,record|
         send_data [tag, 0, record].to_msgpack
       }
       sleep 0.5
@@ -27,11 +27,11 @@ module StreamInputTest
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect "tag1", time, {"a"=>1}
-    d.expect "tag2", time, {"a"=>2}
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expects.each {|tag,time,record|
+      d.expected_emits.each {|tag,time,record|
         send_data [tag, time, record].to_msgpack
       }
       sleep 0.5
@@ -43,12 +43,12 @@ module StreamInputTest
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect "tag1", time, {"a"=>1}
-    d.expect "tag1", time, {"a"=>2}
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag1", time, {"a"=>2}
 
     d.run do
       entries = []
-      d.expects.each {|tag,time,record|
+      d.expected_emits.each {|tag,time,record|
         entries << [time, record]
       }
       send_data ["tag1", entries].to_msgpack
@@ -61,12 +61,12 @@ module StreamInputTest
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect "tag1", time, {"a"=>1}
-    d.expect "tag1", time, {"a"=>2}
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag1", time, {"a"=>2}
 
     d.run do
       entries = ''
-      d.expects.each {|tag,time,record|
+      d.expected_emits.each {|tag,time,record|
         [time, record].to_msgpack(entries)
       }
       send_data ["tag1", entries].to_msgpack

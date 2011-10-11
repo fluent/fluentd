@@ -26,12 +26,12 @@ class InputTestDriver < TestDriver
     @expects = nil
   end
 
-  def expect(tag, time, record)
+  def expect_emit(tag, time, record)
     (@expects ||= []) << [tag, time, record]
     self
   end
 
-  def expects
+  def expected_emits
     @expects ||= []
   end
 
