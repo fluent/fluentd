@@ -222,26 +222,25 @@ module Configurable
       if block && type
         raise ArgumentError, "wrong number of arguments (#{1+args.length} for #{block ? 2 : 3})"
       end
-      type ||= :string
 
-      case type
-      when :string
-        block = Proc.new {|val| val }
-      when :integer
-        block = Proc.new {|val| val.to_i }
-      when :size
-        block = Proc.new {|val| Config.size_value(val) }
-      when :bool
-        block = Proc.new {|val| Config.bool_value(val) }
-      when :time
-        block = Proc.new {|val| Config.time_value(val) }
-      else
-        raise ArgumentError, "unknown config_param type `#{type}'"
-      end
+      block ||= case type
+          when :string, nil
+            Proc.new {|val| val }
+          when :integer
+            Proc.new {|val| val.to_i }
+          when :size
+            Proc.new {|val| Config.size_value(val) }
+          when :bool
+            Proc.new {|val| Config.bool_value(val) }
+          when :time
+            Proc.new {|val| Config.time_value(val) }
+          else
+            raise ArgumentError, "unknown config_param type `#{type}'"
+          end
 
-      cps = config_params
-      cps.delete(name)
-      cps[name] = [block, opts]
+      params = config_params_set
+      params.delete(name)
+      params[name] = [block, opts]
 
       if opts.has_key?(:default)
         config_set_default(name, opts[:default])
@@ -251,31 +250,47 @@ module Configurable
     end
 
     def config_set_default(name, defval)
-      ds = config_defaults
-      ds.delete(name)
-      ds[name] = defval
+      defaults = config_defaults_set
+      defaults.delete(name)
+      defaults[name] = defval
       nil
     end
 
     def config_params
-      class_copy_on_write_variable(:config_params_value, {})
+      singleton_value(:_config_params)
     end
 
     def config_defaults
-      class_copy_on_write_variable(:config_defaults_value, {})
+      singleton_value(:_config_defaults)
     end
 
     private
-    def class_copy_on_write_variable(name, val)
+    def config_params_set
+      singleton_value_set(:_config_params)
+    end
+
+    def config_defaults_set
+      singleton_value_set(:_config_defaults)
+    end
+
+    def singleton_value_set(name)
       if methods(false).include?(name)
         __send__(name)
       else
-        if respond_to?(name)
-          val = __send__(name).dup
-        end
+        val = {}
         define_singleton_method(name) { val }
         val
       end
+    end
+
+    def singleton_value(name)
+      val = {}
+      ancestors.reverse_each {|c|
+        if c.methods(false).include?(name)
+          val.merge!(c.__send__(name))
+        end
+      }
+      val
     end
   end
 end
