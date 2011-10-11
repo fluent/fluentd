@@ -194,7 +194,7 @@ module Configurable
     self.class.config_params.each_pair {|name,(block,opts)|
       varname = :"@#{name}"
       if val = conf[name.to_s]
-        val = block.yield(val, opts, name)
+        val = self.instance_exec(val, opts, name, &block)
         instance_variable_set(varname, val)
       end
       unless instance_variable_defined?(varname)
@@ -206,8 +206,9 @@ module Configurable
 
   module ClassMethods
     def config_param(name, *args, &block)
-      opts = {}
+      name = name.to_sym
 
+      opts = {}
       args.each {|a|
         if a.is_a?(Symbol)
           opts[:type] = a
@@ -250,9 +251,12 @@ module Configurable
     end
 
     def config_set_default(name, defval)
+      name = name.to_sym
+
       defaults = config_defaults_set
       defaults.delete(name)
       defaults[name] = defval
+
       nil
     end
 
