@@ -28,8 +28,10 @@ class EngineClass
   def init
     BasicSocket.do_not_reverse_lookup = true
     Plugin.load_plugins
-    Encoding.default_internal = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_internal)
-    Encoding.default_external = 'ASCII-8BIT' if defined?(Encoding) && Encoding.respond_to?(:default_external)
+    if defined?(Encoding)
+      Encoding.default_internal = 'ASCII-8BIT' if Encoding.respond_to?(:default_internal)
+      Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
+    end
     self
   end
 

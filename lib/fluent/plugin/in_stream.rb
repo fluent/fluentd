@@ -133,11 +133,7 @@ class StreamInput < Input
     end
 
     def on_read_msgpack(data)
-      msgs = []
-      @u.feed_each(data) {|msg|
-        msgs << msg
-      }
-      msgs.each(&@on_message)
+      @u.feed_each(data, &@on_message)
     end
 
     def on_close
