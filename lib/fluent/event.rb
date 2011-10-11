@@ -48,6 +48,7 @@ class OneEventStream < EventStream
 
   def each(&block)
     block.call(@time, @record)
+    nil
   end
 end
 
@@ -67,6 +68,7 @@ class ArrayEventStream < EventStream
 
   def each(&block)
     @entries.each(&block)
+    nil
   end
 
   #attr_reader :entries
@@ -102,6 +104,7 @@ class MultiEventStream < EventStream
     for i in 0..time.length-1
       block.call(time_array[i], record_array[i])
     end
+    nil
   end
 end
 
@@ -120,6 +123,7 @@ class MessagePackEventStream < EventStream
     @unpacker.reset
     # TODO format check
     @unpacker.feed_each(@data, &block)
+    nil
   end
 
   def to_msgpack_stream(out = '')

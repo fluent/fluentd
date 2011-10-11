@@ -46,8 +46,15 @@ class MemoryBufferChunk < BufferChunk
     StringIO.open(@data, &block)
   end
 
+  # optimize
   def write_to(io)
     io.write @data
+  end
+
+  # optimize
+  def msgpack_each(&block)
+    u = MessagePack::Unpacker.new(io)
+    u.feed_each(@data, &block)
   end
 end
 

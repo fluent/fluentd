@@ -96,6 +96,16 @@ class BufferChunk
       FileUtils.copy_stream(i, io)
     }
   end
+
+  def msgpack_each(&block)
+    open {|io|
+      u = MessagePack::Unpacker.new(io)
+      begin
+        u.each(&block)
+      rescue EOFError
+      end
+    }
+  end
 end
 
 
