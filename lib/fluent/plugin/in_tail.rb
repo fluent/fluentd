@@ -23,7 +23,6 @@ class TailInput < Input
 
   def initialize
     @paths = []
-    @parser = TextParser.new
   end
 
   def configure(conf)
@@ -35,13 +34,18 @@ class TailInput < Input
       raise ConfigError, "tail: 'path' parameter is required on tail input"
     end
 
-    @parser.configure(conf)
-
     if tag = conf['tag']
       @tag = tag
     else
       raise ConfigError, "tail: 'tag' parameter is required on tail input"
     end
+
+    configure_parser(conf)
+  end
+
+  def configure_parser(conf)
+    @parser = TextParser.new
+    @parser.configure(conf)
   end
 
   def start
@@ -70,7 +74,7 @@ class TailInput < Input
     lines.each {|line|
       begin
         line.rstrip!  # remove \n
-        time, record = @parser.parse(line)
+        time, record = parse_line(line)
         if time && record
           array << Event.new(time, record)
         end
@@ -83,6 +87,10 @@ class TailInput < Input
     unless array.empty?
       Engine.emit_stream(@tag, ArrayEventStream.new(array))
     end
+  end
+
+  def parse_line(line)
+    return @parser.parse(line)
   end
 
   # seek to the end of file first.

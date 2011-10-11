@@ -32,9 +32,10 @@ class FileOutput < TimeSlicedOutput
     super
     @path = nil
     @compress = nil
+    @time_format = nil
   end
 
-  attr_accessor :path, :compress
+  attr_accessor :path, :compress, :time_format
 
   def configure(conf)
     if path = conf['path']
@@ -64,33 +65,15 @@ class FileOutput < TimeSlicedOutput
       @compress = c
     end
 
-    # TODO create a generic class to cache strftime
-    @tc1 = 0
-    @tc1_str = nil
-    @tc2 = 0
-    @tc2_str = nil
+    if time_format = conf['time_format']
+      @time_format = time_format
+    end
+
+    @timef = TimeFormatter.new(@time_format, @localtime)
   end
 
   def format(tag, event)
-    time = event.time
-    if @tc1 == time
-      time_str = @tc1_str
-    elsif @tc2 == time
-      time_str = @tc2_str
-    else
-      if @localtime
-        time_str = Time.at(time).iso8601
-      else
-        time_str = Time.at(time).utc.iso8601
-      end
-      if @tc1 < @tc2
-        @tc1 = time
-        @tc1_str = time_str
-      else
-        @tc2 = time
-        @tc2_str = time_str
-      end
-    end
+    time_str = @timef.format(event.time)
     "#{time_str}\t#{tag}\t#{event.record.to_json}\n"
   end
 

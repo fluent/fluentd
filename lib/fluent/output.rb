@@ -362,15 +362,15 @@ end
 class TimeSlicedOutput < BufferedOutput
   def initialize
     super
-    @time_format = '%Y%m%d'
-    @time_wait = 10*60  # TODO default value
+    @time_slice_format = '%Y%m%d'
+    @time_slice_wait = 10*60  # TODO default value
     @localtime = true
     @buffer_type = 'file'  # overwrite default buffer_type
     #@ignore_old = false   # TODO
     # TODO @flush_interval = 60  # overwrite default flush_interval
   end
 
-  attr_accessor :time_format, :time_wait, :localtime
+  attr_accessor :time_slice_format, :time_slice_wait, :localtime
 
   def configure(conf)
     super
@@ -382,21 +382,21 @@ class TimeSlicedOutput < BufferedOutput
       @localtime = true
     end
 
-    if time_format = conf['time_format']
-      @time_format = time_format
+    if time_slice_format = conf['time_slice_format']
+      @time_slice_format = time_slice_format
     end
 
-    if time_wait = conf['time_wait']
-      @time_wait = Config.time_value(time_wait)
+    if time_slice_wait = conf['time_slice_wait']
+      @time_slice_wait = Config.time_value(time_slice_wait)
     end
 
     if @localtime
       @time_slicer = Proc.new {|time|
-        Time.at(time).strftime(@time_format)
+        Time.at(time).strftime(@time_slice_format)
       }
     else
       @time_slicer = Proc.new {|time|
-        Time.at(time).utc.strftime(@time_format)
+        Time.at(time).utc.strftime(@time_slice_format)
       }
     end
 
@@ -423,7 +423,7 @@ class TimeSlicedOutput < BufferedOutput
   end
 
   def try_flush
-    nowslice = @time_slicer.call(Engine.now.to_i - @time_wait)
+    nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
     @buffer.synchronize do
       @buffer.keys.each {|key|
         if key < nowslice
