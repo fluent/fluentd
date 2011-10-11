@@ -36,7 +36,7 @@ class StreamInput < Input
   def shutdown
     @lsock.close
     @loop.stop
-    #@thread.join  # TODO
+    @thread.join
   end
 
   #def listen
@@ -103,8 +103,10 @@ class StreamInput < Input
   class Handler < Coolio::Socket
     def initialize(io, on_message)
       super(io)
-      opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-      io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+      if io.is_a?(TCPSocket)
+        opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+        io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+      end
       $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
       @on_message = on_message
     end

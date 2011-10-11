@@ -85,7 +85,7 @@ class HttpInput < Input
   def shutdown
     @lsock.close
     @loop.stop
-    #@thread.join  # TODO
+    @thread.join
   end
 
   def run
