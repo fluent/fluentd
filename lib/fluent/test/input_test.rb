@@ -62,7 +62,7 @@ class InputTestDriver < TestDriver
         m.call(tag, es)
       }
 
-      block.call
+      block.call if block
 
       if @expects
         i = 0

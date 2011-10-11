@@ -50,7 +50,7 @@ class TestDriver
     @instance.start
     begin
       # wait until thread starts
-      50.times { Thread.pass }
+      10.times { sleep 0.01 }
       return yield
     ensure
       @instance.shutdown

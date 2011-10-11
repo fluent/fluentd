@@ -32,7 +32,7 @@ class TestOutputChain
 end
 
 
-class OutputTestDriver < TestDriver
+class OutputTestDriver < InputTestDriver
   def initialize(klass, tag='test', &block)
     super(klass, &block)
     @tag = tag
@@ -49,10 +49,10 @@ class OutputTestDriver < TestDriver
 end
 
 
-class BufferedOutputTestDriver < TestDriver
+class BufferedOutputTestDriver < InputTestDriver
   def initialize(klass, tag='test', &block)
     super(klass, &block)
-    @emits = []
+    @entries = []
     @expected_buffer = nil
     @tag = tag
   end
@@ -60,7 +60,7 @@ class BufferedOutputTestDriver < TestDriver
   attr_accessor :tag
 
   def emit(record, time=Time.now)
-    @emits << [time.to_i, record]
+    @entries << [time.to_i, record]
     self
   end
 
@@ -68,18 +68,22 @@ class BufferedOutputTestDriver < TestDriver
     (@expected_buffer ||= '') << str
   end
 
-  def run
+  def run(&block)
+    result = nil
     super {
-      es = ArrayEventStream.new(@emits)
+      es = ArrayEventStream.new(@entries)
       buffer = @instance.format_stream(@tag, es)
+
+      block.call if block
 
       if @expected_buffer
         assert_equal(@expected_buffer, buffer)
       end
 
       chunk = MemoryBufferChunk.new('', buffer)
-      @instance.write(chunk)
+      result = @instance.write(chunk)
     }
+    result
   end
 end
 
