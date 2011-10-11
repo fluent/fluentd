@@ -25,21 +25,16 @@ class HttpInput < Input
 
   def initialize
     require 'webrick/httputils'
-    @port = 9880
-    @bind = '0.0.0.0'
-    @keepalive_timeout = 10  # TODO default
-    @body_size_limit = 32*1024*1024  # TODO default
+    super
   end
 
+  config_param :port, :integer, :default => 9880
+  config_param :bind, :string, :default => '0.0.0.0'
+  config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
+  config_param :keepalive_timeout, :time, :default => 10   # TODO default
+
   def configure(conf)
-    @port = conf['port'] || @port
-    @port = @port.to_i
-
-    @bind = conf['bind'] || @bind
-
-    if body_size_limit = conf['body_size_limit']
-      @body_size_limit = Config.size_value(body_size_limit)
-    end
+    super
   end
 
   class KeepaliveManager < Coolio::TimerWatcher
@@ -53,7 +48,7 @@ class HttpInput < Input
     def initialize(timeout)
       super(1, true)
       @cons = {}
-      @timeout = timeout
+      @timeout = timeout.to_i
     end
 
     def add(sock)

@@ -39,8 +39,8 @@ class TestOutput < Output
   end
 
   def configure(conf)
-    if conf['name']
-      @name = conf['name']
+    if name = conf['name']
+      @name = name
     end
   end
 

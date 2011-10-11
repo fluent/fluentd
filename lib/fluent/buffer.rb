@@ -23,10 +23,14 @@ end
 
 
 class Buffer
+  include Configurable
+
   def initialize
+    super
   end
 
   def configure(conf)
+    super
   end
 
   def start
@@ -108,6 +112,8 @@ class BasicBuffer < Buffer
   attr_accessor :queue_limit, :chunk_limit
 
   def configure(conf)
+    super
+
     if chunk_limit = conf['buffer_chunk_limit']
       @chunk_limit = Config.size_value(chunk_limit)
     end

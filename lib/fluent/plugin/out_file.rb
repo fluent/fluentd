@@ -26,16 +26,23 @@ class FileOutput < TimeSlicedOutput
     :gzip => :gz,
   }
 
+  config_param :path, :string
+
+  config_param :time_format, :string, :default => nil
+
+  config_param :compress, :default => nil do |val|
+    c = SUPPORTED_COMPRESS[val.to_sym]
+    unless c
+      raise ConfigError, "Unsupported compression algorithm '#{compress}'"
+    end
+    c
+  end
+
   def initialize
     require 'zlib'
     require 'time'
     super
-    @path = nil
-    @compress = nil
-    @time_format = nil
   end
-
-  attr_accessor :path, :compress, :time_format
 
   def configure(conf)
     if path = conf['path']
@@ -56,18 +63,6 @@ class FileOutput < TimeSlicedOutput
     end
 
     super
-
-    if compress = conf['compress']
-      c = SUPPORTED_COMPRESS[compress.to_sym]
-      unless c
-        raise ConfigError, "Unsupported compression algorithm '#{compress}'"
-      end
-      @compress = c
-    end
-
-    if time_format = conf['time_format']
-      @time_format = time_format
-    end
 
     @timef = TimeFormatter.new(@time_format, @localtime)
   end

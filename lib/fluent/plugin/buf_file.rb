@@ -87,20 +87,12 @@ class FileBuffer < BasicBuffer
   def initialize
     require 'uri'
     super
-    @buffer_path = nil
   end
 
-  attr_accessor :buffer_path
+  config_param :buffer_path, :string
 
   def configure(conf)
     super
-
-    if buffer_path = conf['buffer_path']
-      @buffer_path = buffer_path
-    end
-    unless @buffer_path
-      raise ConfigError, "'buffer_path' parameter is required on file buffer"
-    end
 
     if pos = @buffer_path.index('*')
       @buffer_path_prefix = @buffer_path[0,pos]

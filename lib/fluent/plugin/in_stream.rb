@@ -22,6 +22,7 @@ class StreamInput < Input
   def initialize
     require 'socket'
     require 'yajl'
+    super
   end
 
   def start
@@ -146,9 +147,11 @@ end
 class TcpInput < StreamInput
   Plugin.register_input('tcp', self)
 
+  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+  config_param :bind, :string, :default => '0.0.0.0'
+
   def configure(conf)
-    @port = conf['port'] || DEFAULT_LISTEN_PORT
-    @bind = conf['bind'] || '0.0.0.0'
+    super
   end
 
   def listen
@@ -161,8 +164,10 @@ end
 class UnixInput < StreamInput
   Plugin.register_input('unix', self)
 
+  config_param :path, :string, :default => DEFAULT_SOCKET_PATH
+
   def configure(conf)
-    @path = conf['path'] || DEFAULT_SOCKET_PATH
+    super
   end
 
   def listen

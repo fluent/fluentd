@@ -55,6 +55,10 @@ end
 class MemoryBuffer < BasicBuffer
   Plugin.register_buffer('memory', self)
 
+  def initialize
+    super
+  end
+
   def configure(conf)
     super
   end

@@ -47,10 +47,14 @@ end
 
 
 class Output
+  include Configurable
+
   def initialize
+    super
   end
 
   def configure(conf)
+    super
   end
 
   def start
@@ -278,15 +282,14 @@ end
 
 class BufferedOutput < Output
   def initialize
-    @buffer_type = 'memory'
+    super
   end
 
-  attr_accessor :buffer_type
+  config_param :buffer_type, :string, :default => 'memory'
 
   def configure(conf)
-    if buffer_type = conf['buffer_type']
-      @buffer_type = buffer_type
-    end
+    super
+
     @buffer = Plugin.new_buffer(@buffer_type)
     @buffer.configure(conf)
 
@@ -362,15 +365,16 @@ end
 class TimeSlicedOutput < BufferedOutput
   def initialize
     super
-    @time_slice_format = '%Y%m%d'
-    @time_slice_wait = 10*60  # TODO default value
     @localtime = true
-    @buffer_type = 'file'  # overwrite default buffer_type
     #@ignore_old = false   # TODO
     # TODO @flush_interval = 60  # overwrite default flush_interval
   end
 
-  attr_accessor :time_slice_format, :time_slice_wait, :localtime
+  config_param :time_slice_format, :string, :default => '%Y%m%d'
+  config_param :time_slice_wait, :time, :default => 10*60  # TODO default value
+  config_set_default :buffer_type, 'file'  # overwrite default buffer_type
+
+  attr_accessor :localtime
 
   def configure(conf)
     super

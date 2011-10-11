@@ -26,12 +26,10 @@ class StreamOutput < BufferedOutput
     @send_timeout = 60
   end
 
+  config_param :send_timeout, :time, :default => 60
+
   def configure(conf)
     super
-
-    if send_timeout = conf['send_timeout']
-      @send_timeout = Config.time_value(send_timeout).to_i
-    end
   end
 
   def format_stream(tag, es)
@@ -89,20 +87,13 @@ class TcpOutput < StreamOutput
 
   def initialize
     super
-    @port = DEFAULT_LISTEN_PORT
   end
+
+  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+  config_param :host, :string
 
   def configure(conf)
     super
-
-    @port = conf['port'] || @port
-    @port = @port.to_i
-
-    if host = conf['host']
-      @host = host
-    else
-      raise ConfigError, "'host' parameter is required on tcp output"
-    end
   end
 
   def connect
@@ -116,17 +107,12 @@ class UnixOutput < StreamOutput
 
   def initialize
     super
-    @path = ''
   end
+
+  config_param :path, :string
 
   def configure(conf)
     super
-
-    if path = conf['path']
-      @path = path
-    else
-      raise ConfigError, "'path' parameter is required on unix output"
-    end
   end
 
   def connect

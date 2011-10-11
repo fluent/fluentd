@@ -64,15 +64,15 @@ class SyslogInput < Input
   }
 
   def initialize
-    @port = 5140
-    @bind = '0.0.0.0'
+    super
   end
 
-  def configure(conf)
-    @port = conf['port'] || @port
-    @port = @port.to_i
+  config_param :port, :integer, :default => 5140
+  config_param :bind, :string, :default => '0.0.0.0'
+  config_param :tag, :string
 
-    @bind = conf['bind'] || @bind
+  def configure(conf)
+    super
 
     parser = TextParser.new
     if parser.configure(conf, false)
@@ -80,12 +80,6 @@ class SyslogInput < Input
       @parser = parser
     else
       @parser = nil
-    end
-
-    if tag = conf['tag']
-      @tag = tag
-    else
-      raise ConfigError, "tail: 'tag' parameter is required on tail input"
     end
   end
 

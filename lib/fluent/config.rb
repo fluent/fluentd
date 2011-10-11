@@ -178,5 +178,108 @@ module Config
 end
 
 
+module Configurable
+  def self.included(mod)
+    mod.extend(ClassMethods)
+  end
+
+  def initialize
+    self.class.config_defaults.each_pair {|name,defval|
+      varname = :"@#{name}"
+      instance_variable_set(varname, defval)
+    }
+  end
+
+  def configure(conf)
+    self.class.config_params.each_pair {|name,(block,opts)|
+      varname = :"@#{name}"
+      if val = conf[name.to_s]
+        val = block.yield(val, opts, name)
+        instance_variable_set(varname, val)
+      end
+      unless instance_variable_defined?(varname)
+        $log.error "config error in:\n#{conf}"
+        raise ConfigError, "'#{name}' parameter is required"
+      end
+    }
+  end
+
+  module ClassMethods
+    def config_param(name, *args, &block)
+      opts = {}
+
+      args.each {|a|
+        if a.is_a?(Symbol)
+          opts[:type] = a
+        elsif a.is_a?(Hash)
+          opts.merge!(a)
+        else
+          raise ArgumentError, "wrong number of arguments (#{1+args.length} for #{block ? 2 : 3})"
+        end
+      }
+
+      type = opts[:type]
+      if block && type
+        raise ArgumentError, "wrong number of arguments (#{1+args.length} for #{block ? 2 : 3})"
+      end
+      type ||= :string
+
+      case type
+      when :string
+        block = Proc.new {|val| val }
+      when :integer
+        block = Proc.new {|val| val.to_i }
+      when :size
+        block = Proc.new {|val| Config.size_value(val) }
+      when :bool
+        block = Proc.new {|val| Config.bool_value(val) }
+      when :time
+        block = Proc.new {|val| Config.time_value(val) }
+      else
+        raise ArgumentError, "unknown config_param type `#{type}'"
+      end
+
+      cps = config_params
+      cps.delete(name)
+      cps[name] = [block, opts]
+
+      if opts.has_key?(:default)
+        config_set_default(name, opts[:default])
+      end
+
+      attr_accessor name
+    end
+
+    def config_set_default(name, defval)
+      ds = config_defaults
+      ds.delete(name)
+      ds[name] = defval
+      nil
+    end
+
+    def config_params
+      class_copy_on_write_variable(:config_params_value, {})
+    end
+
+    def config_defaults
+      class_copy_on_write_variable(:config_defaults_value, {})
+    end
+
+    private
+    def class_copy_on_write_variable(name, val)
+      if methods(false).include?(name)
+        __send__(name)
+      else
+        if respond_to?(name)
+          val = __send__(name).dup
+        end
+        define_singleton_method(name) { val }
+        val
+      end
+    end
+  end
+end
+
+
 end
 

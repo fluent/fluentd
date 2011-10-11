@@ -19,10 +19,14 @@ module Fluent
 
 
 class Input
+  include Configurable
+
 	def initialize
+    super
 	end
 
 	def configure(conf)
+    super
 	end
 
 	def start

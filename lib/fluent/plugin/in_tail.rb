@@ -22,22 +22,19 @@ class TailInput < Input
   Plugin.register_input('tail', self)
 
   def initialize
+    super
     @paths = []
   end
 
-  def configure(conf)
-    if path = conf['path']
-      @paths = path.split(',').map {|path| path.strip }
-    end
+  config_param :path, :string
+  config_param :tag, :string
 
+  def configure(conf)
+    super
+
+    @paths = @path.split(',').map {|path| path.strip }
     if @paths.empty?
       raise ConfigError, "tail: 'path' parameter is required on tail input"
-    end
-
-    if tag = conf['tag']
-      @tag = tag
-    else
-      raise ConfigError, "tail: 'tag' parameter is required on tail input"
     end
 
     configure_parser(conf)
