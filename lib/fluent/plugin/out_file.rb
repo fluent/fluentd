@@ -67,9 +67,9 @@ class FileOutput < TimeSlicedOutput
     @timef = TimeFormatter.new(@time_format, @localtime)
   end
 
-  def format(tag, event)
-    time_str = @timef.format(event.time)
-    "#{time_str}\t#{tag}\t#{event.record.to_json}\n"
+  def format(tag, time, record)
+    time_str = @timef.format(time)
+    "#{time_str}\t#{tag}\t#{record.to_json}\n"
   end
 
   def write(chunk)

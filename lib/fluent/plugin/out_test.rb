@@ -29,7 +29,9 @@ class TestOutput < Output
   attr_reader :emits, :name
 
   def events
-    @emits.map {|tag,events| events }.flatten
+    all = []
+    @emits.each {|tag,events| all.concat events }
+    all
   end
 
   def records
@@ -53,8 +55,7 @@ class TestOutput < Output
   def emit(tag, es, chain)
     chain.next
 
-    events = []
-    es.each {|e| events << e }
+    events = es.to_a
 
     @emits << [tag, events]
   end

@@ -116,15 +116,13 @@ class HttpInput < Input
         time = Engine.now
       end
 
-      event = Event.new(time, record)
-
     rescue
       return ["400 Bad Request", {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
     end
 
     # TODO server error
     begin
-      Engine.emit(tag, event)
+      Engine.emit(tag, time, record)
     rescue
       return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
     end

@@ -22,8 +22,8 @@ class StdoutOutput < Output
   Plugin.register_output('stdout', self)
 
   def emit(tag, es, chain)
-    es.each {|e|
-      puts "#{Time.at(e.time).localtime} #{tag}: #{e.record.to_json}"
+    es.each {|time,record|
+      puts "#{Time.at(time).localtime} #{tag}: #{record.to_json}"
     }
     chain.next
   end

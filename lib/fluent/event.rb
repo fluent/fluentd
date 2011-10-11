@@ -18,46 +18,9 @@
 module Fluent
 
 
-class Event
-  def initialize(time=0, record={})
-    @time = time
-    @record = record
-  end
-  attr_reader :time, :record
-
-  def from_msgpack(msg)
-    @time = msg[0].to_i
-    @record = msg[1] || {}
-    return self
-  end
-
-  def to_msgpack(out = '')
-    [@time, @record].to_msgpack(out)
-  end
-
-  def <=>(o)
-    unless o.is_a?(Event)
-      raise "ArgumentError: comparison of Event with #{o.class} failed"
-    end
-
-    t = @time <=> o.time
-    return if t != 0
-    @record <=> o.record
-  end
-
-  def ==(o)
-    o.class == Event && @time == o.time && @record == o.record
-  end
-
-  alias eql? ==
-
-  def hash
-    @time.hash ^ @record.hash
-  end
-end
-
-
 class EventStream
+  include Enumerable
+
   def repeatable?
     false
   end
@@ -74,8 +37,9 @@ end
 
 
 class OneEventStream < EventStream
-  def initialize(event)
-    @event = event
+  def initialize(time, record)
+    @time = time
+    @record = record
   end
 
   def repeatable?
@@ -83,22 +47,61 @@ class OneEventStream < EventStream
   end
 
   def each(&block)
-    block.call(@event)
+    block.call(@time, @record)
   end
 end
 
 
 class ArrayEventStream < EventStream
-  def initialize(array)
-    @array = array
+  def initialize(entries)
+    @entries = entries
   end
 
   def repeatable?
     true
   end
 
+  def empty?
+    @time_array.empty?
+  end
+
   def each(&block)
-    @array.each(&block)
+    @entries.each(&block)
+  end
+
+  #attr_reader :entries
+  #
+  #def to_a
+  #  @entries
+  #end
+end
+
+
+class MultiEventStream < EventStream
+  def initialize
+    @time_array = []
+    @record_array = []
+  end
+
+  def add(time, record)
+    @time_array << time
+    @record_array << record
+  end
+
+  def repeatable?
+    true
+  end
+
+  def empty?
+    @time_array.empty?
+  end
+
+  def each(&block)
+    time_array = @time_array
+    record_array = @record_array
+    for i in 0..time.length-1
+      block.call(time_array[i], record_array[i])
+    end
   end
 end
 
@@ -115,9 +118,8 @@ class MessagePackEventStream < EventStream
 
   def each(&block)
     @unpacker.reset
-    @unpacker.feed_each(@data) {|obj|
-      yield Event.new.from_msgpack(obj)
-    }
+    # TODO format check
+    @unpacker.feed_each(@data, &block)
   end
 
   def to_msgpack_stream(out = '')
@@ -140,7 +142,7 @@ end
 #  def each(&block)
 #    return nil if @num == 0
 #    @u.each {|obj|
-#      yield Event.new.from_msgpack(obj)
+#      block.call(obj[0], obj[1])
 #      break if @array.size >= @num
 #    }
 #  end

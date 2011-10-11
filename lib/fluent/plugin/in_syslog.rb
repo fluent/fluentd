@@ -153,7 +153,7 @@ class SyslogInput < Input
 
     tag = "#{@tag}.#{facility}.#{priority}"
 
-    Engine.emit(tag, Event.new(time, record))
+    Engine.emit(tag, time, record)
   end
 
   class UdpHandler < EventMachine::Connection

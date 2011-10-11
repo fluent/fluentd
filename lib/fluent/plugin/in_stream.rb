@@ -77,26 +77,26 @@ class StreamInput < Input
 
     if entries.class == String
       # PackedForward
-      stream = MessagePackEventStream.new(entries, @cached_unpacker)
-      Engine.emit_stream(tag, stream)
+      es = MessagePackEventStream.new(entries, @cached_unpacker)
+      Engine.emit_stream(tag, es)
 
     elsif entries.class == Array
       # Forward
-      entries.map! {|e|
+      es = MultiEventStream.new
+      entries.each {|e|
         time = e[0].to_i
         time = (now ||= Engine.now) if time == 0
         record = e[1]
-        Event.new(time, record)
+        es.add(time, record)
       }
-      Engine.emit_array(tag, entries)
+      Engine.emit_stream(tag, es)
 
     else
       # Message
       time = msg[1]
       time = Engine.now if time == 0
       record = msg[2]
-      event = Event.new(time, record)
-      Engine.emit(tag, event)
+      Engine.emit(tag, time, record)
     end
   end
 

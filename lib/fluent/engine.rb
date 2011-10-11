@@ -82,8 +82,8 @@ class EngineClass
     Plugin.load_plugin_dir(dir)
   end
 
-  def emit(tag, event)
-    emit_stream tag, OneEventStream.new(event)
+  def emit(tag, time, record)
+    emit_stream tag, OneEventStream.new(time, record)
   end
 
   def emit_array(tag, array)

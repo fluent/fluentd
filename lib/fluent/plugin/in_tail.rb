@@ -67,13 +67,13 @@ class TailInput < Input
   end
 
   def receive_lines(lines)
-    array = []
+    es = MultiEventStream.new
     lines.each {|line|
       begin
         line.rstrip!  # remove \n
         time, record = parse_line(line)
         if time && record
-          array << Event.new(time, record)
+          es.add(time, record)
         end
       rescue
         $log.warn line.dump, :error=>$!.to_s
@@ -81,8 +81,8 @@ class TailInput < Input
       end
     }
 
-    unless array.empty?
-      Engine.emit_stream(@tag, ArrayEventStream.new(array))
+    unless es.empty?
+      Engine.emit_stream(@tag, es)
     end
   end
 

@@ -320,13 +320,13 @@ class BufferedOutput < Output
 
   def format_stream(tag, es)
     out = ''
-    es.each {|event|
-      out << format(tag, event)
+    es.each {|time,record|
+      out << format(tag, time, record)
     }
     out
   end
 
-  #def format(tag, event)
+  #def format(tag, time, record)
   #end
 
   #def write(chunk)
@@ -410,16 +410,16 @@ class TimeSlicedOutput < BufferedOutput
   end
 
   def emit(tag, es, chain)
-    es.each {|e|
-      tc = e.time / @time_slice_cache_interval
+    es.each {|time,record|
+      tc = time / @time_slice_cache_interval
       if @before_tc == tc
         key = @before_key
       else
         @before_tc = tc
-        key = @time_slicer.call(e.time)
+        key = @time_slicer.call(time)
         @before_key = key
       end
-      data = format(tag, e)
+      data = format(tag, time, record)
       if @buffer.emit(key, data, chain)
         submit_flush
       end

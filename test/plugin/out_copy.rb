@@ -46,8 +46,8 @@ class CopyOutputTest < Test::Unit::TestCase
 
     d.instance.outputs.each {|o|
       assert_equal [
-          Fluent::Event.new(time, {"a"=>1}),
-          Fluent::Event.new(time, {"a"=>2}),
+          [time, {"a"=>1}],
+          [time, {"a"=>2}],
         ], o.events
     }
   end

@@ -245,8 +245,7 @@ class Log
     if @self_event
       c = caller
       if c.count(c.shift) <= 0
-        e = Event.new(time.to_i, record)
-        Engine.emit("#{@tag}.#{level}", e)
+        Engine.emit("#{@tag}.#{level}", time.to_i, record)
       end
     end
 

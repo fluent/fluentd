@@ -49,16 +49,16 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     os = d.instance.outputs
 
     assert_equal [
-        Fluent::Event.new(time, {"a"=>1}),
-        Fluent::Event.new(time, {"a"=>4}),
+        [time, {"a"=>1}],
+        [time, {"a"=>4}],
       ], os[0].events
 
     assert_equal [
-        Fluent::Event.new(time, {"a"=>2}),
+        [time, {"a"=>2}],
       ], os[1].events
 
     assert_equal [
-        Fluent::Event.new(time, {"a"=>3}),
+        [time, {"a"=>3}],
       ], os[2].events
   end
 end

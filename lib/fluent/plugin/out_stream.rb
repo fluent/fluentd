@@ -67,11 +67,14 @@ class StreamOutput < BufferedOutput
     def write(chunk)
       chain = NullOutputChain.instance
       chunk.open {|io|
+        # TODO use MessagePackIoEventStream
         u = MessagePack::Unpacker.new(io)
         begin
           u.each {|(tag,entries)|
-            entries.map! {|o| Event.new.from_msgpack(o) }
-            es = ArrayEventStream.new(entries)
+            es = MultiEventStream.new
+            entries.each {|o|
+              es.add(o[0], o[1])
+            }
             @secondary.emit(tag, es, chain)
           }
         rescue EOFError

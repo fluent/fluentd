@@ -41,7 +41,7 @@ class OutputTestDriver < TestDriver
   attr_accessor :tag
 
   def emit(record, time=Time.now)
-    es = OneEventStream.new(Event.new(time.to_i, record))
+    es = OneEventStream.new(time.to_i, record)
     chain = TestOutputChain.new
     @instance.emit(@tag, es, chain)
     assert_equal 1, chain.called
@@ -60,7 +60,7 @@ class BufferedOutputTestDriver < TestDriver
   attr_accessor :tag
 
   def emit(record, time=Time.now)
-    @emits << Event.new(time.to_i, record)
+    @emits << [time.to_i, record]
     self
   end
 
