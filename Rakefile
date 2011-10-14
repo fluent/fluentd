@@ -17,6 +17,7 @@ begin
     gemspec.add_dependency "yajl-ruby", "~> 1.0.0"
     gemspec.add_dependency "cool.io", "~> 1.0.0"
     gemspec.add_dependency "http_parser.rb", "~> 0.5.1"
+    gemspec.add_dependency "rake", ">= 0.9.2"
     gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
       %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluent.gemspec]
@@ -57,5 +58,5 @@ Rake::TestTask.new(:base_test) do |t|
   #t.warning = true
 end
 
-task :default => [VERSION_FILE, :build]
+task :default => [VERSION_FILE, :build, :gemspec]
 
