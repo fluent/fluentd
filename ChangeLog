@@ -1,4 +1,12 @@
 
+Release 0.10.1 - 2011/10/16
+
+  * SetTimeKeyMixin accepts include_time_key parameter
+  * SetTagKeyMixin accepts include_tag_key parameter
+  * Fixed Makefile.am
+  * Fixed MemoryBufferChunk#msgpack_each
+
+
 Release 0.10.0 - 2011/10/16
 
   * Removed Event class
