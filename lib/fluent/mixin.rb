@@ -154,7 +154,7 @@ module SetTagKeyMixin
 
   def filter_record(tag, time, record)
     super
-    record[@time_key] = @timef.format(time)
+    record[@tag_key] = tag
   end
 end
 

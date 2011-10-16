@@ -20,10 +20,9 @@ module Fluent
 
 class StreamOutput < BufferedOutput
   def initialize
-    super
     require 'socket'
     require 'fileutils'
-    @send_timeout = 60
+    super
   end
 
   config_param :send_timeout, :time, :default => 60
