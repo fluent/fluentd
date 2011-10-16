@@ -53,7 +53,7 @@ class MemoryBufferChunk < BufferChunk
 
   # optimize
   def msgpack_each(&block)
-    u = MessagePack::Unpacker.new(io)
+    u = MessagePack::Unpacker.new
     u.feed_each(@data, &block)
   end
 end
