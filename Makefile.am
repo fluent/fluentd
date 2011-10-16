@@ -40,7 +40,7 @@ install: install-recursive
 		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
 		$(DEST_RAKE)
 	RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
-		$(DEST_GEM) install --no-rdoc --no-ri "$(srcdir)/pkg/fluent-$(VERSION).gem"
+		$(DEST_GEM) install --no-rdoc --no-ri "$(srcdir)/pkg/fluentd-$(VERSION).gem"
 	mkdir -p $(DESTDIR)$(sysconfdir)/fluent
 	cp -f $(srcdir)/fluent.conf $(DESTDIR)$(sysconfdir)/fluent/fluent.conf
 	mkdir -p $(DESTDIR)$(sysconfdir)/fluent/plugin
