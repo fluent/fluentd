@@ -7,35 +7,35 @@ Fluent is an event collector system. It's said that Fluent is generalized versio
 Fluent collects events from various data sources and write them to files, database or other storages:
 
     
-    Web apps  ---+                +--> file
-                 |                |
-                 +-->          ---+
-    /var/log  ------>  fluent  ------> mail
-                 +-->          ---+
-                 |                |
-    apache    ----                +--> fluent
+    Web apps  ---+                 +--> file
+                 |                 |
+                 +-->           ---+
+    /var/log  ------>  fluentd  ------> mail
+                 +-->           ---+
+                 |                 |
+    apache    ----                 +--> fluentd
     
 
 Fluent also supports log transfer:
 
     
     Web server
-    +--------+
-    | fluent -------
-    +--------+|     |
-     +--------+     |
-                    |
-    Proxy server    |    Log server, Amazon S3, HDFS, ...
-    +--------+      +--> +--------+
-    | fluent ----------> | fluent ||
-    +--------+|     +--> +--------+|
-     +--------+     |     +--------+
-                    |
-    Database server |
-    +--------+      |
-    | fluent ---------> mail
-    +--------+|
-     +--------+
+    +---------+
+    | fluentd -------
+    +---------+|     |
+     +---------+     |
+                     |
+    Proxy server     |    Log server, Amazon S3, HDFS, ...
+    +---------+      +--> +---------+
+    | fluentd ----------> | fluentd ||
+    +---------+|     +--> +---------+|
+     +---------+     |     +---------+
+                     |
+    Database server  |
+    +---------+      |
+    | fluentd ---------> mail
+    +---------+|
+     +---------+
     
 
 An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time when the event occurs. Record is a JSON object.
@@ -43,13 +43,13 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 
 == Quick Start
 
-  $ gem install fluent
+  $ gem install fluentd
   $ fluentd &
   $ echo '{"json":"message"}' | fluent-cat debug.test
 
 
-Web site::  http://fluent.github.com/
-Documents:: http://fluent.github.com/doc/
+Web site::  http://fluentd.org/
+Documents:: http://fluentd.org/doc/
 Source repository:: http://github.com/fluent
 Author:: Sadayuki Furuhashi
 Copyright:: (c) 2011 FURUHASHI Sadayuki

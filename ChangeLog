@@ -1,4 +1,18 @@
 
+Release 0.10.0 - 2011/10/16
+
+  * Removed Event class
+    * def format(tag, event) -> format(time, tag, record)
+	* def emit(tag, event) -> emit(tag, time, record)
+  * Added plugin APIs
+    * Added Configurable
+    * Added TimeFormatter
+    * Added SetTimeKeyMixin
+    * Added SetTagKeyMixin
+    * Added InputTestDriver
+  * Added Gemfile, gemspec and .rvmrc files
+
+
 Release 0.9.20 - 2011/10/07
 
   * Config#has_key? sets used flag not to show warning

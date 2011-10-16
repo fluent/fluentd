@@ -5,11 +5,11 @@ require 'rake/clean'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gemspec|
-    gemspec.name = "fluent"
+    gemspec.name = "fluentd"
     gemspec.summary = "Fluent event collector"
     gemspec.author = "Sadayuki Furuhashi"
     gemspec.email = "frsyuki@gmail.com"
-    gemspec.homepage = "http://fluent.github.com/"
+    gemspec.homepage = "http://fluentd.org/"
     gemspec.has_rdoc = false
     gemspec.require_paths = ["lib"]
     gemspec.add_dependency "msgpack", "~> 0.4.4"
@@ -20,7 +20,7 @@ begin
     gemspec.add_dependency "rake", ">= 0.9.2"
     gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
-      %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluent.gemspec]
+      %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluentd.gemspec]
     gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
   end
   Jeweler::GemcutterTasks.new
