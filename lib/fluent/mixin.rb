@@ -104,12 +104,6 @@ end
 module SetTimeKeyMixin
   include RecordFilterMixin
 
-  def initialize
-    super
-    @time_key = "time"
-    @localtime = true
-  end
-
   attr_accessor :time_key, :localtime
 
   def configure(conf)
@@ -145,11 +139,6 @@ end
 module SetTagKeyMixin
   include RecordFilterMixin
 
-  def initialize
-    super
-    @tag_key = "tag"
-  end
-
   attr_accessor :tag_key
 
   def configure(conf)
@@ -157,6 +146,9 @@ module SetTagKeyMixin
 
     if tag_key = conf['tag_key']
       @tag_key = tag_key
+    end
+    unless @tag_key
+      @tag_key = 'tag'
     end
   end
 
