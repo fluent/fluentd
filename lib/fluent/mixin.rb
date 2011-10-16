@@ -86,14 +86,31 @@ class TimeFormatter
 end
 
 
+module RecordFilterMixin
+  def filter_record(tag, time, record)
+  end
+
+  def format_stream(tag, es)
+    out = ''
+    es.each {|time,record|
+      filter_record(tag, time, record)
+      out << format(tag, time, record)
+    }
+    out
+  end
+end
+
+
 module SetTimeKeyMixin
+  include RecordFilterMixin
+
   def initialize
     super
     @time_key = "time"
     @localtime = true
   end
 
-  attr_accessor :localtime
+  attr_accessor :time_key, :localtime
 
   def configure(conf)
     super
@@ -118,13 +135,34 @@ module SetTimeKeyMixin
     @timef = TimeFormatter.new(@time_format, @localtime)
   end
 
-  def format_stream(tag, es)
-    out = ''
-    es.each {|time,record|
-      record[@time_key] = @timef.format(time)
-      out << format(tag, time, record)
-    }
-    out
+  def filter_record(tag, time, record)
+    super
+    record[@time_key] = @timef.format(time)
+  end
+end
+
+
+module SetTagKeyMixin
+  include RecordFilterMixin
+
+  def initialize
+    super
+    @tag_key = "tag"
+  end
+
+  attr_accessor :tag_key
+
+  def configure(conf)
+    super
+
+    if tag_key = conf['tag_key']
+      @tag_key = tag_key
+    end
+  end
+
+  def filter_record(tag, time, record)
+    super
+    record[@time_key] = @timef.format(time)
   end
 end
 
