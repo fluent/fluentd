@@ -22,6 +22,7 @@ begin
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
       %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluentd.gemspec]
     gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
+    gemspec.required_ruby_version = '~> 1.9.2'
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError
