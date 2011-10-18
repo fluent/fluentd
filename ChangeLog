@@ -1,4 +1,11 @@
 
+Release 0.10.2 - 2011/10/18
+
+  * Fixed EventStream#to_msgpack_stream (thanks CkReal)
+  * Added gemspec.required_ruby_version = '~> 1.9.2' (thanks sakuro)
+
+
+
 Release 0.10.1 - 2011/10/16
 
   * SetTimeKeyMixin accepts include_time_key parameter

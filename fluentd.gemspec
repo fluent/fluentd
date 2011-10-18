@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{fluentd}
-  s.version = "0.10.1"
+  s.version = "0.10.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Sadayuki Furuhashi"]
-  s.date = %q{2011-10-16}
+  s.date = %q{2011-10-18}
   s.email = %q{frsyuki@gmail.com}
   s.executables = ["fluentd", "fluent-cat", "fluent-gem"]
   s.extra_rdoc_files = [
@@ -72,6 +72,7 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://fluentd.org/}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
+  s.required_ruby_version = Gem::Requirement.new("~> 1.9.2")
   s.rubygems_version = %q{1.3.7}
   s.summary = %q{Fluent event collector}
   s.test_files = [
