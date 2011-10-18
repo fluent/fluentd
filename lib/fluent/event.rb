@@ -30,8 +30,8 @@ class EventStream
 
   def to_msgpack_stream
     out = ''
-    each {|record|
-      record.to_msgpack(out)
+    each {|time,record|
+      [time,record].to_msgpack(out)
     }
     out
   end
