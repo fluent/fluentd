@@ -12,6 +12,9 @@ class ConfigTest < Test::Unit::TestCase
     write_config "#{TMP_DIR}/config_test_1.conf", %[
       k1 root_config
       include dir/config_test_2.conf  #
+      include #{TMP_DIR}/config_test_4.conf
+      include file://#{TMP_DIR}/config_test_5.conf
+      include config.d/*.conf
     ]
     write_config "#{TMP_DIR}/dir/config_test_2.conf", %[
       k2 relative_path_include
@@ -19,15 +22,12 @@ class ConfigTest < Test::Unit::TestCase
     ]
     write_config "#{TMP_DIR}/config_test_3.conf", %[
       k3 relative_include_in_included_file
-      include #{TMP_DIR}/config_test_4.conf
     ]
     write_config "#{TMP_DIR}/config_test_4.conf", %[
       k4 absolute_path_include
-      include file://#{TMP_DIR}/config_test_5.conf
     ]
     write_config "#{TMP_DIR}/config_test_5.conf", %[
       k5 uri_include
-      include config.d/*.conf
     ]
     write_config "#{TMP_DIR}/config.d/config_test_6.conf", %[
       k6 wildcard_include_1

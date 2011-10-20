@@ -154,7 +154,7 @@ module Config
     end
 
     def self.parse(io, fname, basepath=Dir.pwd)
-      attrs, elems = Parser.new(basepath, io.each_line, fname, 0).parse!(true)
+      attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
       Element.new('ROOT', '', attrs, elems)
     end
 
@@ -167,10 +167,10 @@ module Config
 
     def parse!(allow_include, elem_name=nil, attrs={}, elems=[])
       while line = @iterator.next
+        @i += 1
         line.lstrip!
         line.gsub!(/\s*(?:\#.*)?$/,'')
         if line.empty?
-          @i += 1
           next
         elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
           e_name = m[1]
@@ -178,7 +178,6 @@ module Config
           e_attrs, e_elems = parse!(false, e_name)
           elems << Element.new(e_name, e_arg, e_attrs, e_elems)
         elsif line == "</#{elem_name}>"
-          @i += 1
           break
         elsif m = /^([a-zA-Z0-9_]+)\s*(.*)$/.match(line)
           key = m[1]
@@ -188,7 +187,6 @@ module Config
           else
             attrs[key] = value
           end
-          @i += 1
           next
         else
           raise ConfigParseError, "parse error at #{@fname} line #{@i}"
