@@ -92,13 +92,11 @@ module Config
   end
 
   def self.read(path)
-    parse(File.read(path), File.basename(path))
+    Parser.read(path)
   end
 
-  def self.parse(str, fname)
-    lines = str.split("\n")
-    i, attrs, elems = parse_element('end', lines, 0, fname)
-    Element.new('ROOT', '', attrs, elems)
+  def self.parse(str, fname, basepath=Dir.pwd)
+    Parser.parse(str, fname, basepath)
   end
 
   def self.new(name='')
@@ -147,33 +145,91 @@ module Config
   end
 
   private
-  def self.parse_element(name, lines, i, fname)
-    attrs = {}
-    elems = []
-    while i < lines.length
-      line = lines[i]
-      line.lstrip!
-      line.gsub!(/\s*(?:\#.*)?$/,'')
+  class Parser
+    def self.read(path)
+      path = File.expand_path(path)
+      File.open(path) {|io|
+        parse(io, File.basename(path), File.dirname(path))
+      }
+    end
+
+    def self.parse(io, fname, basepath=Dir.pwd)
+      attrs, elems = Parser.new(basepath, io.each_line, fname, 0).parse!(true)
+      Element.new('ROOT', '', attrs, elems)
+    end
+
+    def initialize(basepath, iterator, fname, i=0)
+      @basepath = basepath
+      @iterator = iterator
+      @i = i
+      @fname = fname
+    end
+
+    def parse!(allow_include, elem_name=nil, attrs={}, elems=[])
+      while line = @iterator.next
+        line.lstrip!
+        line.gsub!(/\s*(?:\#.*)?$/,'')
         if line.empty?
-          i += 1
+          @i += 1
           next
         elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
           e_name = m[1]
           e_arg = m[2] || ""
-          i, e_attrs, e_elems = parse_element(e_name, lines, i+1, fname)
+          e_attrs, e_elems = parse!(false, e_name)
           elems << Element.new(e_name, e_arg, e_attrs, e_elems)
-        elsif line == "</#{name}>"
-          i += 1
+        elsif line == "</#{elem_name}>"
+          @i += 1
           break
-        elsif m = /^([a-zA-Z0-9_]+)\s*(.+)?$/.match(line)
-          attrs[m[1]] = m[2] || ""
-          i += 1
+        elsif m = /^([a-zA-Z0-9_]+)\s*(.*)$/.match(line)
+          key = m[1]
+          value = m[2]
+          if allow_include && key == 'include'
+            process_include(attrs, elems, value)
+          else
+            attrs[key] = value
+          end
+          @i += 1
           next
         else
-          raise ConfigParseError, "parse error at #{fname}:#{i}"
+          raise ConfigParseError, "parse error at #{@fname} line #{@i}"
         end
+      end
+
+      return attrs, elems
+    rescue StopIteration
+      return attrs, elems
     end
-    return i, attrs, elems
+
+    def process_include(attrs, elems, uri)
+      u = URI.parse(uri)
+      if u.scheme == 'file' || u.path == uri  # file path
+        path = u.path
+        if path[0] != ?/
+          pattern = File.expand_path("#{@basepath}/#{path}")
+        else
+          pattern = path
+        end
+
+        Dir.glob(pattern).each {|path|
+          basepath = File.dirname(path)
+          fname = File.basename(path)
+          File.open(path) {|f|
+            Parser.new(basepath, f.each_line, fname).parse!(true, nil, attrs, elems)
+          }
+        }
+
+      else
+        basepath = '/'
+        fname = path
+        require 'open-uri'
+        open(uri) {|f|
+          Parser.new(basepath, f.each_line, fname).parse!(true, nil, attrs, elems)
+        }
+      end
+
+    rescue SystemCallError
+      raise ConfigParseError, "include error at #{@fname} line #{@i}: #{$!.to_s}"
+    end
   end
 end
 
