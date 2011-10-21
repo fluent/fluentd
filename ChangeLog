@@ -1,9 +1,15 @@
 
+Release 0.10.3 - 2011/10/21
+
+  * Supports 'include' in config file
+    * Supports "http://" schema
+	* Supports wildcards
+
+
 Release 0.10.2 - 2011/10/18
 
   * Fixed EventStream#to_msgpack_stream (thanks CkReal)
   * Added gemspec.required_ruby_version = '~> 1.9.2' (thanks sakuro)
-
 
 
 Release 0.10.1 - 2011/10/16

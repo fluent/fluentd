@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{fluentd}
-  s.version = "0.10.2"
+  s.version = "0.10.3"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Sadayuki Furuhashi"]
-  s.date = %q{2011-10-18}
+  s.date = %q{2011-10-21}
   s.email = %q{frsyuki@gmail.com}
   s.executables = ["fluentd", "fluent-cat", "fluent-gem"]
   s.extra_rdoc_files = [
@@ -60,6 +60,7 @@ Gem::Specification.new do |s|
      "lib/fluent/test/input_test.rb",
      "lib/fluent/test/output_test.rb",
      "lib/fluent/version.rb",
+     "test/config.rb",
      "test/helper.rb",
      "test/match.rb",
      "test/plugin/in_http.rb",
@@ -76,7 +77,8 @@ Gem::Specification.new do |s|
   s.rubygems_version = %q{1.3.7}
   s.summary = %q{Fluent event collector}
   s.test_files = [
-    "test/helper.rb",
+    "test/config.rb",
+     "test/helper.rb",
      "test/match.rb",
      "test/plugin/in_http.rb",
      "test/plugin/in_stream.rb",
