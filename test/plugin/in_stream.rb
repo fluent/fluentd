@@ -74,6 +74,22 @@ module StreamInputTest
     end
   end
 
+  def test_message_json
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
+
+    d.run do
+      d.expected_emits.each {|tag,time,record|
+        send_data [tag, time, record].to_json
+      }
+      sleep 0.5
+    end
+  end
+
   def create_driver(klass, conf)
     Fluent::Test::InputTestDriver.new(klass).configure(conf)
   end
