@@ -91,22 +91,26 @@ class EngineClass
   end
 
   def emit_stream(tag, es)
-    match = @match_cache[tag]
-    unless match
-      match = @matches.find {|m| m.match(tag) } || NoMatchMatch.new
+    target = @match_cache[tag]
+    unless target
+      target = match(tag) || NoMatchMatch.new
       if @match_cache.size < 1024  # TODO size limit
-        @match_cache[tag] = match
+        @match_cache[tag] = target
       end
     end
-    match.emit(tag, es)
+    target.emit(tag, es)
   rescue
     $log.warn "emit transaction faild ", :error=>$!.to_s
     $log.warn_backtrace
     raise
   end
 
-  def match?(tag)
+  def match(tag)
     @matches.find {|m| m.match(tag) }
+  end
+
+  def match?(tag)
+    !!match(tag)
   end
 
   def flush!
