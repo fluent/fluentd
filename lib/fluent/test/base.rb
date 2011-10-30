@@ -25,7 +25,8 @@ class TestDriver
   def initialize(klass, &block)
     if klass.is_a?(Class)
       if block
-        klass = Class.new(klass, &block)
+        klass = klass.dup
+        klass.module_eval(&block)
       end
       @instance = klass.new
     else
