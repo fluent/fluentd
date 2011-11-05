@@ -40,7 +40,9 @@ class InputTestDriver < TestDriver
   def events
     all = []
     @emits.each {|tag,events|
-      all.concat events
+      events.each {|time,record|
+        all << [tag, time, record]
+      }
     }
     all
   end
