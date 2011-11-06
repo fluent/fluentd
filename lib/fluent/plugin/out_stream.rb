@@ -18,6 +18,7 @@
 module Fluent
 
 
+# obsolete
 class StreamOutput < BufferedOutput
   def initialize
     require 'socket'
@@ -84,11 +85,13 @@ class StreamOutput < BufferedOutput
 end
 
 
+# obsolete
 class TcpOutput < StreamOutput
   Plugin.register_output('tcp', self)
 
   def initialize
     super
+    $log.warn "'tcp' output is obsoleted. Use 'forward' instead."
   end
 
   config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
@@ -104,11 +107,13 @@ class TcpOutput < StreamOutput
 end
 
 
+# obsolete
 class UnixOutput < StreamOutput
   Plugin.register_output('unix', self)
 
   def initialize
     super
+    $log.warn "'unix' output is obsoleted."
   end
 
   config_param :path, :string

@@ -18,17 +18,36 @@
 module Fluent
 
 
-class StreamInput < Input
+class ForwardInput < Input
+  Plugin.register_input('forward', self)
+
+  # backward compatibility
+  Plugin.register_input('tcp', self)
+
   def initialize
     require 'socket'
     require 'yajl'
     super
   end
 
+  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+  config_param :bind, :string, :default => '0.0.0.0'
+
+  def configure(conf)
+    super
+  end
+
   def start
     @loop = Coolio::Loop.new
+
     @lsock = listen
     @loop.attach(@lsock)
+
+    @usock = UDPSocket.new
+    @usock.bind(@bind, @port)
+    @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
+    @loop.attach(@hbr)
+
     @thread = Thread.new(&method(:run))
     @cached_unpacker = MessagePack::Unpacker.new
   end
@@ -39,7 +58,19 @@ class StreamInput < Input
     @thread.join
   end
 
+  def listen
+    $log.info "listening fluent socket on #{@bind}:#{@port}"
+    Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+  end
+
+  #config_param :path, :string, :default => DEFAULT_SOCKET_PATH
   #def listen
+  #  if File.exist?(@path)
+  #    File.unlink(@path)
+  #  end
+  #  FileUtils.mkdir_p File.dirname(@path)
+  #  $log.debug "listening fluent socket on #{@path}"
+  #  Coolio::UNIXServer.new(@path, Handler, method(:on_message))
   #end
 
   def run
@@ -143,42 +174,25 @@ class StreamInput < Input
       $log.trace { "closed fluent socket object_id=#{self.object_id}" }
     end
   end
-end
 
-
-class TcpInput < StreamInput
-  Plugin.register_input('tcp', self)
-
-  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
-  config_param :bind, :string, :default => '0.0.0.0'
-
-  def configure(conf)
-    super
-  end
-
-  def listen
-    $log.debug "listening fluent socket on #{@bind}:#{@port}"
-    Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
-  end
-end
-
-
-class UnixInput < StreamInput
-  Plugin.register_input('unix', self)
-
-  config_param :path, :string, :default => DEFAULT_SOCKET_PATH
-
-  def configure(conf)
-    super
-  end
-
-  def listen
-    if File.exist?(@path)
-      File.unlink(@path)
+  class HeartbeatRequestHandler < Coolio::IO
+    def initialize(io, callback)
+      super(io)
+      @io = io
+      @callback = callback
     end
-    FileUtils.mkdir_p File.dirname(@path)
-    $log.debug "listening fluent socket on #{@path}"
-    Coolio::UNIXServer.new(@path, Handler, method(:on_message))
+
+    def on_readable
+      msg, addr = @io.recvfrom(1024)
+      host = addr[3]
+      port = addr[1]
+      @callback.call(host, port, msg)
+    end
+  end
+
+  def on_heartbeat_request(host, port, msg)
+    $log.trace "heartbeat request from #{host}:#{port}"
+    @usock.send "", 0, host, port
   end
 end
 
