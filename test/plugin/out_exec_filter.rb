@@ -42,10 +42,10 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       sleep 0.5
     end
 
-    events = d.events
-    assert_equal 2, events.length
-    assert_equal ["test", time, {"k2"=>"1"}], events[0]
-    assert_equal ["test", time, {"k2"=>"2"}], events[1]
+    emits = d.emits
+    assert_equal 2, emits.length
+    assert_equal ["test", time, {"k2"=>"1"}], emits[0]
+    assert_equal ["test", time, {"k2"=>"2"}], emits[1]
   end
 
   def test_emit_2
@@ -65,10 +65,10 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       sleep 0.5
     end
 
-    events = d.events
-    assert_equal 2, events.length
-    assert_equal ["xxx", time, {"k2"=>"1"}], events[0]
-    assert_equal ["xxx", time, {"k2"=>"2"}], events[1]
+    emits = d.emits
+    assert_equal 2, emits.length
+    assert_equal ["xxx", time, {"k2"=>"1"}], emits[0]
+    assert_equal ["xxx", time, {"k2"=>"2"}], emits[1]
   end
 end
 

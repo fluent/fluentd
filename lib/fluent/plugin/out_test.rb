@@ -22,15 +22,25 @@ class TestOutput < Output
   Plugin.register_output('test', self)
 
   def initialize
-    @emits = []
+    @emit_streams = []
     @name = nil
   end
 
-  attr_reader :emits, :name
+  attr_reader :emit_streams, :name
+
+  def emits
+    all = []
+    @emit_streams.each {|tag,events|
+      events.each {|time,record|
+        all << [tag, time, record]
+      }
+    }
+    all
+  end
 
   def events
     all = []
-    @emits.each {|tag,events|
+    @emit_streams.each {|tag,events|
       all.concat events
     }
     all
@@ -38,7 +48,7 @@ class TestOutput < Output
 
   def records
     all = []
-    @emits.each {|tag,events|
+    @emit_streams.each {|tag,events|
       events.each {|time,record|
         all << record
       }
@@ -60,7 +70,7 @@ class TestOutput < Output
 
   def emit(tag, es, chain)
     chain.next
-    @emits << [tag, es.to_a]
+    @emit_streams << [tag, es.to_a]
   end
 end
 

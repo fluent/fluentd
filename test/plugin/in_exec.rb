@@ -36,8 +36,9 @@ class ExecInputTest < Test::Unit::TestCase
       sleep 2
     end
 
-    assert_equal true, d.events.length > 0
-    assert_equal ["tag1", time, {"k1"=>"ok"}], d.events[0]
+    emits = d.emits
+    assert_equal true, emits.length > 0
+    assert_equal ["tag1", time, {"k1"=>"ok"}], emits[0]
   end
 end
 

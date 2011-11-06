@@ -22,7 +22,7 @@ module Test
 class InputTestDriver < TestDriver
   def initialize(klass, &block)
     super(klass, &block)
-    @emits = []
+    @emit_streams = []
     @expects = nil
   end
 
@@ -35,11 +35,11 @@ class InputTestDriver < TestDriver
     @expects ||= []
   end
 
-  attr_reader :emits
+  attr_reader :emit_streams
 
-  def events
+  def emits
     all = []
-    @emits.each {|tag,events|
+    @emit_streams.each {|tag,events|
       events.each {|time,record|
         all << [tag, time, record]
       }
@@ -47,9 +47,17 @@ class InputTestDriver < TestDriver
     all
   end
 
+  def events
+    all = []
+    @emit_streams.each {|tag,events|
+      all.concat events
+    }
+    all
+  end
+
   def records
     all = []
-    @emits.each {|tag,events|
+    @emit_streams.each {|tag,events|
       events.each {|time,record|
         all << record
       }
@@ -68,7 +76,7 @@ class InputTestDriver < TestDriver
 
       if @expects
         i = 0
-        @emits.each {|tag,events|
+        @emit_streams.each {|tag,events|
           events.each {|time,record|
             assert_equal(@expects[i], [tag, time, record])
             i += 1
@@ -82,7 +90,7 @@ class InputTestDriver < TestDriver
 
   private
   def emit_stream(tag, es)
-    @emits << [tag, es.to_a]
+    @emit_streams << [tag, es.to_a]
   end
 end
 
