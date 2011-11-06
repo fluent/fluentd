@@ -43,12 +43,12 @@ class ExecFilterOutput < Output
       @localtime = false
     end
 
-    @in_keys = @in_keys.split(',')
-    @out_keys = @out_keys.split(',')
-
     if !@tag && !@tag_key
       raise ConfigError, "'tag' or 'tag_key' option is required on exec_filter output"
     end
+
+    @in_keys = @in_keys.split(',')
+    @out_keys = @out_keys.split(',')
 
     if @time_key
       if @time_format
@@ -131,6 +131,7 @@ class ExecFilterOutput < Output
         $log.warn_backtrace $!.backtrace
       end
     }
+    Process.waitpid(@pid)
   rescue
     $log.error "exec_filter process exited", :error=>$!
     $log.warn_backtrace $!.backtrace

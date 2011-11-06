@@ -18,7 +18,7 @@
 module Fluent
 
 
-class ExecOutput < BufferedOutput
+class ExecOutput < TimeSlicedOutput
   Plugin.register_output('exec', self)
 
   def initialize
@@ -32,16 +32,9 @@ class ExecOutput < BufferedOutput
   config_param :tag_key, :string, :default => nil
   config_param :time_key, :string, :default => nil
   config_param :time_format, :string, :default => nil
-  attr_accessor :localtime
 
   def configure(conf)
     super
-
-    if localtime = conf['localtime']
-      @localtime = true
-    elsif utc = conf['utc']
-      @localtime = false
-    end
 
     @keys = @keys.split(',')
 
@@ -55,23 +48,21 @@ class ExecOutput < BufferedOutput
     end
   end
 
-  def format_stream(tag, es)
+  def format(tag, time, record)
     out = ''
-    es.each {|time,record|
-      last = @keys.length-1
-      for i in 0..last
-        key = @keys[i]
-        if key == @time_key
-          out << @time_format_proc.call(time)
-        elsif key == @tag_key
-          out << tag
-        else
-          out << record[key].to_s
-        end
-        out << "\t" if i != last
+    last = @keys.length-1
+    for i in 0..last
+      key = @keys[i]
+      if key == @time_key
+        out << @time_format_proc.call(time)
+      elsif key == @tag_key
+        out << tag
+      else
+        out << record[key].to_s
       end
-      out << "\n"
-    }
+      out << "\t" if i != last
+    end
+    out << "\n"
     out
   end
 
