@@ -33,6 +33,7 @@ class ForwardOutput < BufferedOutput
   config_param :recover_wait, :time, :default => 10
   config_param :hard_timeout, :time, :default => nil
   config_param :phi_threshold, :integer, :default => 8
+  attr_reader :nodes
 
   def configure(conf)
     super
@@ -89,6 +90,13 @@ class ForwardOutput < BufferedOutput
     @loop.attach(@timer)
 
     @thread = Thread.new(&method(:run))
+  end
+
+  def shutdown
+    @finished = true
+    @usock.close
+    @loop.stop
+    @thread.join
   end
 
   def run

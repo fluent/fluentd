@@ -1,8 +1,27 @@
 require 'fluent/test'
 
-module StreamInputTest
+class ForwardInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+  end
+
+  CONFIG = %[
+    port 13998
+    bind 127.0.0.1
+  ]
+
+  def create_driver(conf=CONFIG)
+    Fluent::Test::InputTestDriver.new(Fluent::ForwardInput).configure(conf)
+  end
+
+  def test_configure
+    d = create_driver
+    assert_equal 13998, d.instance.port
+    assert_equal '127.0.0.1', d.instance.bind
+  end
+
+  def connect
+    TCPSocket.new('127.0.0.1', 13998)
   end
 
   def test_time
@@ -90,10 +109,6 @@ module StreamInputTest
     end
   end
 
-  def create_driver(klass, conf)
-    Fluent::Test::InputTestDriver.new(klass).configure(conf)
-  end
-
   def send_data(data)
     io = connect
     begin
@@ -102,51 +117,7 @@ module StreamInputTest
       io.close
     end
   end
-end
 
-class TcpInputTest < Test::Unit::TestCase
-  include StreamInputTest
-
-  CONFIG = %[
-    port 13998
-    bind 127.0.0.1
-  ]
-
-  def create_driver(conf=CONFIG)
-    super(Fluent::TcpInput, conf)
-  end
-
-  def test_configure
-    d = create_driver
-    assert_equal 13998, d.instance.port
-    assert_equal '127.0.0.1', d.instance.bind
-  end
-
-  def connect
-    TCPSocket.new('127.0.0.1', 13998)
-  end
-end
-
-class UnixInputTest < Test::Unit::TestCase
-  include StreamInputTest
-
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp"
-
-  CONFIG = %[
-    path #{TMP_DIR}/unix
-  ]
-
-  def create_driver(conf=CONFIG)
-    super(Fluent::UnixInput, conf)
-  end
-
-  def test_configure
-    d = create_driver
-    assert_equal "#{TMP_DIR}/unix", d.instance.path
-  end
-
-  def connect
-    UNIXSocket.new("#{TMP_DIR}/unix")
-  end
+  # TODO heartbeat
 end
 

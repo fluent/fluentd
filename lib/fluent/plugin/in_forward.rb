@@ -56,6 +56,7 @@ class ForwardInput < Input
     @lsock.close
     @loop.stop
     @thread.join
+    @usock.close
   end
 
   def listen
