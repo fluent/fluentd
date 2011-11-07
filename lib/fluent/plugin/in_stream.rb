@@ -18,33 +18,18 @@
 module Fluent
 
 
-class ForwardInput < Input
-  Plugin.register_input('forward', self)
-
+# obsolete
+class StreamInput < Input
   def initialize
     require 'socket'
     require 'yajl'
     super
   end
 
-  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
-  config_param :bind, :string, :default => '0.0.0.0'
-
-  def configure(conf)
-    super
-  end
-
   def start
     @loop = Coolio::Loop.new
-
     @lsock = listen
     @loop.attach(@lsock)
-
-    @usock = UDPSocket.new
-    @usock.bind(@bind, @port)
-    @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
-    @loop.attach(@hbr)
-
     @thread = Thread.new(&method(:run))
     @cached_unpacker = MessagePack::Unpacker.new
   end
@@ -53,22 +38,9 @@ class ForwardInput < Input
     @lsock.close
     @loop.stop
     @thread.join
-    @usock.close
   end
 
-  def listen
-    $log.info "listening fluent socket on #{@bind}:#{@port}"
-    Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
-  end
-
-  #config_param :path, :string, :default => DEFAULT_SOCKET_PATH
   #def listen
-  #  if File.exist?(@path)
-  #    File.unlink(@path)
-  #  end
-  #  FileUtils.mkdir_p File.dirname(@path)
-  #  $log.debug "listening fluent socket on #{@path}"
-  #  Coolio::UNIXServer.new(@path, Handler, method(:on_message))
   #end
 
   def run
@@ -172,25 +144,54 @@ class ForwardInput < Input
       $log.trace { "closed fluent socket object_id=#{self.object_id}" }
     end
   end
+end
 
-  class HeartbeatRequestHandler < Coolio::IO
-    def initialize(io, callback)
-      super(io)
-      @io = io
-      @callback = callback
-    end
 
-    def on_readable
-      msg, addr = @io.recvfrom(1024)
-      host = addr[3]
-      port = addr[1]
-      @callback.call(host, port, msg)
-    end
+# obsolete
+# ForwardInput is backward compatible with TcpInput
+#class TcpInput < StreamInput
+#  Plugin.register_input('tcp', self)
+#
+#  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+#  config_param :bind, :string, :default => '0.0.0.0'
+#
+#  def configure(conf)
+#    super
+#  end
+#
+#  def listen
+#    $log.debug "listening fluent socket on #{@bind}:#{@port}"
+#    Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+#  end
+#end
+class TcpInput < ForwardInput
+  Plugin.register_input('tcp', self)
+
+  def initialize
+    super
+    $log.warn "'tcp' input is obsoleted and will be removed. Use 'forward' instead."
+  end
+end
+
+
+# obsolete
+class UnixInput < StreamInput
+  Plugin.register_input('unix', self)
+
+  config_param :path, :string, :default => DEFAULT_SOCKET_PATH
+
+  def configure(conf)
+    super
+    $log.warn "'unix' input is obsoleted and will be removed. Use 'forward' instead."
   end
 
-  def on_heartbeat_request(host, port, msg)
-    $log.trace "heartbeat request from #{host}:#{port}"
-    @usock.send "", 0, host, port
+  def listen
+    if File.exist?(@path)
+      File.unlink(@path)
+    end
+    FileUtils.mkdir_p File.dirname(@path)
+    $log.debug "listening fluent socket on #{@path}"
+    Coolio::UNIXServer.new(@path, Handler, method(:on_message))
   end
 end
 

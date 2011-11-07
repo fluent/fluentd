@@ -91,7 +91,7 @@ class TcpOutput < StreamOutput
 
   def initialize
     super
-    $log.warn "'tcp' output is obsoleted. Use 'forward' instead."
+    $log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
   end
 
   config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
@@ -113,7 +113,7 @@ class UnixOutput < StreamOutput
 
   def initialize
     super
-    $log.warn "'unix' output is obsoleted."
+    $log.warn "'unix' output is obsoleted and will be removed."
   end
 
   config_param :path, :string
