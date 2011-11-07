@@ -1,4 +1,11 @@
 
+Release 0.10.4 - 2011/11/07
+
+* TestDriver uses klass.dup.module_eval instead of inheriting class to
+  override methods
+* fixed encoding problem of String#[] in FileBufferChunk#<<(data)
+
+
 Release 0.10.3 - 2011/10/21
 
   * Supports 'include' in config file
