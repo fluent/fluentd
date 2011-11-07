@@ -23,23 +23,13 @@ class FileBufferChunk < BufferChunk
     super(key)
     @path = path
     @file = File.open(@path, mode)
+    @file.sync = true
     @size = @file.stat.size
   end
 
   def <<(data)
-    while true
-      n = @file.syswrite(data)
-      @size += n
-      if data.bytesize <= n
-        break
-      else
-        data = data[n..-1]
-        #data.slice!(0, n-1)
-      end
-    end
-    #@file.write(data)
-    #@size += data.bytesize
-    #@file.flush
+    @file.write(data)
+    @size += data.bytesize
   end
 
   def size
