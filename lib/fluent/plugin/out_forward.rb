@@ -35,6 +35,10 @@ class ForwardOutput < BufferedOutput
   config_param :phi_threshold, :integer, :default => 8
   attr_reader :nodes
 
+  # backward compatibility
+  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+  config_param :host, :string, :default => nil
+
   def configure(conf)
     super
 
@@ -42,12 +46,21 @@ class ForwardOutput < BufferedOutput
 
     recover_sample_size = @recover_wait / @heartbeat_interval
 
+    if host = conf['host']
+      $log.warn "'host' option in forward output is obsoleted. Use '<server> host xxx </server>' instead."
+      port = conf['port']
+      port = port ? port.to_i : DEFAULT_LISTEN_PORT
+      e = conf.elements.add_element('server')
+      e['host'] = host
+      e['port'] = port.to_s
+    end
+
     conf.elements.each {|e|
       next if e.name != "server"
 
       host = e['host']
       port = e['port']
-      port = port ? port.to_i : 24224
+      port = port ? port.to_i : DEFAULT_LISTEN_PORT
 
       weight = e['weight']
       weight = weight ? weight.to_i : 60
