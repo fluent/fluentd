@@ -1,4 +1,11 @@
 
+Release 0.10.5 - 2011/11/08
+
+* Added out_forward, in_forward
+* Added out_exec, in_exec
+* Added out_exec_filter
+
+
 Release 0.10.4 - 2011/11/07
 
 * TestDriver uses klass.dup.module_eval instead of inheriting class to
