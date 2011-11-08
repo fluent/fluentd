@@ -42,18 +42,19 @@ class ForwardOutput < BufferedOutput
   def configure(conf)
     super
 
-    @hard_timeout ||= @send_timeout
-
-    recover_sample_size = @recover_wait / @heartbeat_interval
-
+    # backward compatibility
     if host = conf['host']
       $log.warn "'host' option in forward output is obsoleted. Use '<server> host xxx </server>' instead."
       port = conf['port']
       port = port ? port.to_i : DEFAULT_LISTEN_PORT
-      e = conf.elements.add_element('server')
+      e = conf.add_element('server')
       e['host'] = host
       e['port'] = port.to_s
     end
+
+    @hard_timeout ||= @send_timeout
+
+    recover_sample_size = @recover_wait / @heartbeat_interval
 
     conf.elements.each {|e|
       next if e.name != "server"
