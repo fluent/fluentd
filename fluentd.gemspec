@@ -36,5 +36,5 @@ EOF
   gem.add_dependency "yajl-ruby", "~> 1.0.0"
   gem.add_dependency "cool.io", "~> 1.0.0"
   gem.add_dependency "http_parser.rb", "~> 0.5.1"
-  gem.add_dependency "rake", ">= 0.9.2"
+  gem.add_development_dependency "rake", ">= 0.9.2"
 end

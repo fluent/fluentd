@@ -1,4 +1,13 @@
 
+Release 0.10.6 - 2011/11/11
+
+* Fixed --group NAME cmdline argument
+* Run configure(conf) after changing user and group
+* Fixed SIGHUP handling
+* BasicBuffer plugin uses Configurable module
+* buf_file uses microseconds + 12 bits random number for unique file name
+
+
 Release 0.10.5 - 2011/11/08
 
 * Added out_forward, in_forward
