@@ -47,6 +47,7 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
   $ fluentd &
   $ echo '{"json":"message"}' | fluent-cat debug.test
 
+== Meta
 
 Web site::  http://fluentd.org/
 Documents:: http://fluentd.org/doc/
@@ -54,4 +55,11 @@ Source repository:: http://github.com/fluent
 Author:: Sadayuki Furuhashi
 Copyright:: (c) 2011 FURUHASHI Sadayuki
 License:: Apache License, Version 2.0
+
+Contributed by:
+
+* Eiichiro Iwata
+* Masahiro Nakagawa
+* Takashi Nagayasu
+* Yuichi Tateno
 
