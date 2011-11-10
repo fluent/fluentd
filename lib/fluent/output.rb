@@ -236,28 +236,34 @@ class OutputThread
         next if has_next
 
       rescue
-        $log.warn "failed to flush the buffer", :error=>$!.to_s
-        $log.warn_backtrace
-
+        e = $!
         error_count = @error_history.size
         @error_history << time
 
         if error_count < @retry_limit
-          $log.info "retrying."
+          $log.warn "failed to flush the buffer, retrying.", :error=>e.to_s
+          $log.warn_backtrace e.backtrace
 
         elsif @secondary
           if error_count == @retry_limit
+            $log.warn "failed to flush the buffer.", :error=>e.to_s
             $log.warn "retry count exceededs limit. falling back to secondary output."
+            $log.warn_backtrace e.backtrace
             next  # retry immediately
           elsif error_count <= @retry_limit + @secondary_limit
-            $log.info "retrying secondary."
+            $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s
+            $log.warn_backtrace e.backtrace
           else
+            $log.warn "failed to flush the buffer.", :error=>e.to_s
             $log.warn "secondary retry count exceededs limit."
+            $log.warn_backtrace e.backtrace
             write_abort
           end
 
         else
+          $log.warn "failed to flush the buffer.", :error=>e.to_s
           $log.warn "retry count exceededs limit."
+          $log.warn_backtrace e.backtrace
           write_abort
         end
 
