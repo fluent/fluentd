@@ -98,12 +98,11 @@ class FileBuffer < BasicBuffer
     super
   end
 
-  PATH_MATCH = /^(.*)[\._](b|q)([0-9a-fA-F]{1,16})$/
+  PATH_MATCH = /^(.*)[\._](b|q)([0-9a-fA-F]{1,32})$/
 
   def new_chunk(key)
-    tsuffix = Engine.now.to_i.to_s(16)
     encoded_key = encode_key(key)
-    path = "#{@buffer_path_prefix}#{encoded_key}.b#{tsuffix}#{@buffer_path_suffix}"
+    path = make_path(encoded_key, "b")
     FileBufferChunk.new(key, path)
   end
 
@@ -150,10 +149,9 @@ class FileBuffer < BasicBuffer
 
     m = PATH_MATCH.match(mp)
     encoded_key = m ? m[1] : ""
-    tsuffix = Engine.now.to_i.to_s(16)
+    npath = make_path(encoded_key, "q")
 
-    path = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"
-    chunk.mv(path)
+    chunk.mv(npath)
   end
 
   protected
@@ -163,6 +161,12 @@ class FileBuffer < BasicBuffer
 
   def decode_key(encoded_key)
 		URI.decode(encoded_key, /[^-_.a-zA-Z0-9]/n)
+  end
+
+  def make_path(encoded_key, bq)
+    now = Time.now.utc
+    tsuffix = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff)).to_s(16)
+    "#{@buffer_path_prefix}#{encoded_key}.#{bq}#{tsuffix}#{@buffer_path_suffix}"
   end
 end
 
