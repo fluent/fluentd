@@ -66,6 +66,10 @@ class MemoryBuffer < BasicBuffer
     super
   end
 
+  # overwrite default buffer_chunk_limit and buffer_queue_limit
+  config_set_default :buffer_chunk_limit, 32*1024*1024
+  config_set_default :buffer_queue_limit, 32
+
   def configure(conf)
     super
   end

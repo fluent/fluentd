@@ -367,12 +367,12 @@ class TimeSlicedOutput < BufferedOutput
     super
     @localtime = true
     #@ignore_old = false   # TODO
-    # TODO @flush_interval = 60  # overwrite default flush_interval
   end
 
   config_param :time_slice_format, :string, :default => '%Y%m%d'
-  config_param :time_slice_wait, :time, :default => 10*60  # TODO default value
+  config_param :time_slice_wait, :time, :default => 10*60
   config_set_default :buffer_type, 'file'  # overwrite default buffer_type
+  # config_set_default :flush_interval, 60  # TODO overwrite default flush_interval
 
   attr_accessor :localtime
 
@@ -384,14 +384,6 @@ class TimeSlicedOutput < BufferedOutput
       @localtime = false
     elsif conf['localtime']
       @localtime = true
-    end
-
-    if time_slice_format = conf['time_slice_format']
-      @time_slice_format = time_slice_format
-    end
-
-    if time_slice_wait = conf['time_slice_wait']
-      @time_slice_wait = Config.time_value(time_slice_wait)
     end
 
     if @localtime

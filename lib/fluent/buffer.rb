@@ -113,24 +113,14 @@ class BasicBuffer < Buffer
   include MonitorMixin
 
   def initialize
-    super()
-    @chunk_limit = 16*1024*1024  # TODO default
-    @queue_limit = 64 # TODO default
-    @parallel = false
+    super
   end
 
-  attr_accessor :queue_limit, :chunk_limit
+  config_param :buffer_chunk_limit, :size, :default => 256*1024*1024
+  config_param :buffer_queue_limit, :integer, :default => 128
 
   def configure(conf)
     super
-
-    if chunk_limit = conf['buffer_chunk_limit']
-      @chunk_limit = Config.size_value(chunk_limit)
-    end
-
-    if queue_limit = conf['buffer_queue_limit']
-      @queue_limit = queue_limit.to_i
-    end
   end
 
   def start
@@ -157,16 +147,16 @@ class BasicBuffer < Buffer
     synchronize do
       top = (@map[key] ||= new_chunk(key))  # TODO generate unique chunk id
 
-      if top.size + data.bytesize <= @chunk_limit
+      if top.size + data.bytesize <= @buffer_chunk_limit
         chain.next
         top << data
         return false
 
-      elsif data.bytesize > @chunk_limit
+      elsif data.bytesize > @buffer_chunk_limit
         # TODO
         raise BufferError, "received data too large"
 
-      elsif @queue.size >= @queue_limit
+      elsif @queue.size >= @buffer_queue_limit
         # TODO
         raise BufferError, "queue size exceeds limit"
       end
