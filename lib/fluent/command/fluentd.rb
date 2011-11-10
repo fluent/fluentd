@@ -200,7 +200,7 @@ begin
 
   trap :HUP do
     if log_file
-      $log.reopen(log_file, "a")
+      log_out.reopen(log_file, "a")
     end
   end
 
