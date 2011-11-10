@@ -158,7 +158,7 @@ begin
   if chgroup
     chgid = chgroup.to_i
     if chgid.to_s != chgroup
-      chgid = `id -u #{chgroup}`.to_i
+      chgid = `id -g #{chgroup}`.to_i
       if $?.to_i != 0
         exit 1
       end
