@@ -37,7 +37,13 @@ class EngineClass
 
   def read_config(path)
     $log.info "reading config file", :path=>path
-    conf = Config.read(path)
+    File.open(path) {|io|
+      parse_config(io, File.basename(path), File.dirname(path))
+    }
+  end
+
+  def parse_config(io, fname, basepath=Dir.pwd)
+    conf = Config.parse(io, fname, basepath)
     configure(conf)
     conf.check_not_fetched {|key,e|
       $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."

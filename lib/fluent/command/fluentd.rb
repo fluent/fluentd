@@ -134,26 +134,16 @@ require 'fluent/load'
 
 begin
   #
-  # initialize
+  # read config file
   #
-  Fluent::Engine.init
-
-  libs.each {|lib|
-    require lib
-  }
-
-  plugin_dirs.each {|dir|
-    if Dir.exist?(dir)
-      dir = File.expand_path(dir)
-      Fluent::Engine.load_plugin_dir(dir)
-    end
-  }
-
-  Fluent::Engine.read_config(config_path)
+  $log.info "reading config file", :path=>config_path
+  config_fname = File.basename(config_path)
+  config_basedir = File.dirname(config_path)
+  config_data = File.read(config_path)
 
 
   #
-  # daemonize
+  # change user
   #
   if chgroup
     chgid = chgroup.to_i
@@ -177,6 +167,29 @@ begin
     Process::UID.change_privilege(chuid)
   end
 
+
+  #
+  # run configure
+  #
+  Fluent::Engine.init
+
+  libs.each {|lib|
+    require lib
+  }
+
+  plugin_dirs.each {|dir|
+    if Dir.exist?(dir)
+      dir = File.expand_path(dir)
+      Fluent::Engine.load_plugin_dir(dir)
+    end
+  }
+
+  Fluent::Engine.parse_config(config_data, config_fname, config_basedir)
+
+
+  #
+  # daemonize
+  #
   trap :INT do
     Fluent::Engine.stop
   end
