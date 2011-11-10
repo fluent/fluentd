@@ -224,7 +224,7 @@ class ForwardOutput < BufferedOutput
 
   def on_heartbeat(sockaddr, msg)
     if node = @nodes[sockaddr]
-      $log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
+      #$log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
       node.heartbeat
     end
   end
@@ -253,7 +253,7 @@ class ForwardOutput < BufferedOutput
     def tick
       now = Time.now.to_f
       phi = @failure.phi(now)
-      $log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+      #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
       if phi > @phi_threshold
         $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
         @available = false
