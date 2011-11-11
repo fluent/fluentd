@@ -31,14 +31,16 @@ fluentd:
 	echo 'exec "$(RUBY_BINDIR)/fluentd" "$$@"' >> $@
 	chmod 755 $@
 
-install: install-recursive
+pkg/fluentd-$(VERSION).gem:
+	cd "$(srcdir)" && \
+		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
+		$(DEST_RAKE)
+
+install: install-recursive pkg/fluentd-$(VERSION).gem
 	for gem in $(srcdir)/deps/*.gem; do \
 		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
 			$(DEST_GEM) install --no-rdoc --no-ri "$$gem"; \
 	done
-	cd "$(srcdir)" && \
-		RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
-		$(DEST_RAKE)
 	RUBYLIB="$(DEST_RUBY_LIBDIR)/1.9.1:$(DEST_RUBY_LIBDIR)/1.9.1/$(shell $(DEST_RUBY) --version | sed -E 's/.*\[(.*)\]/\1/')" \
 		$(DEST_GEM) install --no-rdoc --no-ri "$(srcdir)/pkg/fluentd-$(VERSION).gem"
 	mkdir -p $(DESTDIR)$(sysconfdir)/fluent
