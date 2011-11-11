@@ -47,6 +47,9 @@ install: install-recursive pkg/fluentd-$(VERSION).gem
 	cp -f $(srcdir)/fluent.conf $(DESTDIR)$(sysconfdir)/fluent/fluent.conf
 	mkdir -p $(DESTDIR)$(sysconfdir)/fluent/plugin
 
+distdir:
+	@echo do nothing
+
 dist:
 	cd $(srcdir) && ./make_dist.sh
 
