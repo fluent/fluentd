@@ -59,5 +59,5 @@ Rake::TestTask.new(:base_test) do |t|
   #t.warning = true
 end
 
-task :default => [VERSION_FILE, :build, :gemspec]
+task :default => [VERSION_FILE, :build]
 
