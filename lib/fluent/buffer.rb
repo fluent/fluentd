@@ -114,7 +114,10 @@ class BasicBuffer < Buffer
 
   def initialize
     super
+    @parallel = true
   end
+
+  attr_writer :parallel
 
   config_param :buffer_chunk_limit, :size, :default => 256*1024*1024
   config_param :buffer_queue_limit, :integer, :default => 128
