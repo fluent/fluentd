@@ -283,6 +283,8 @@ module Configurable
             Proc.new {|val| val }
           when :integer
             Proc.new {|val| val.to_i }
+          when :float
+            Proc.new {|val| val.to_f }
           when :size
             Proc.new {|val| Config.size_value(val) }
           when :bool
