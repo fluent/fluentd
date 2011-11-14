@@ -118,7 +118,7 @@ class OutputThread
         if @flush_now || @next_time <= time
           @mutex.unlock
           begin
-            @next_time = try_write
+            @next_time = @output.try_flush
           ensure
             @mutex.lock
           end
@@ -140,12 +140,6 @@ class OutputThread
     @mutex.synchronize {
       @output.before_shutdown
     }
-  end
-
-  def try_write
-    return @output.try_write
-  rescue
-    # TODO rescue
   end
 
   if ConditionVariable.new.method(:wait).arity == 1
@@ -179,7 +173,7 @@ class BufferedOutput < Output
   config_param :buffer_type, :string, :default => 'memory'
   config_param :flush_interval, :time, :default => 60
   config_param :retry_limit, :integer, :default => 17
-  config_param :retry_wait, :integer, :default => 1.0  # FIXME float
+  config_param :retry_wait, :float, :default => 1.0
   config_param :num_threads, :integer, :default => 1
 
   def configure(conf)
@@ -188,8 +182,12 @@ class BufferedOutput < Output
     @buffer = Plugin.new_buffer(@buffer_type)
     @buffer.configure(conf)
 
-    if @num_threads == 1 && @buffer.respond_to?(:parallel=)
-      @buffer.parallel = false
+    if @buffer.respond_to?(:enable_parallel)
+      if @num_threads == 1
+        @buffer.enable_parallel(false)
+      else
+        @buffer.enable_parallel(true)
+      end
     end
 
     @writers = (1..@num_threads).map {
@@ -253,22 +251,30 @@ class BufferedOutput < Output
   #def write(chunk)
   #end
 
-  def try_flush
-    if @buffer.queue_size == 0 && @next_flush_time < (now = Engine.now)
-      @buffer.synchronize do
-        @buffer.keys.each {|key|
-          @buffer.push(key)
-        }
-        @next_flush_time = now + @flush_interval
-      end
-    end
+  def enqueue_buffer
+    @buffer.keys.each {|key|
+      @buffer.push(key)
+    }
   end
 
-  def try_write
-    try_flush
+  def try_flush
+    time = Engine.now
+
+    empty = @buffer.queue_size == 0
+    if empty && @next_flush_time < (now = Engine.now)
+      @buffer.synchronize do
+        if @next_flush_time < now
+          enqueue_buffer
+          @next_flush_time = now + @flush_interval
+          empty = @buffer.queue_size == 0
+        end
+      end
+    end
+    if empty
+      return time + 1  # TODO 1
+    end
 
     begin
-      time = Engine.now
       retrying = !@error_history.empty?
 
       if retrying
@@ -282,7 +288,7 @@ class BufferedOutput < Output
             # clear them if when it suceeds
             @last_retry_time = time
             @error_history << time
-            @next_error_ti = calc_next_retry_time
+            @next_retry_time += calc_retry_wait
           end
         end
       end
@@ -316,7 +322,7 @@ class BufferedOutput < Output
           if @error_history.empty?
             @last_retry_time = time
             @error_history << time
-            @next_error_ti = calc_next_retry_time
+            @next_retry_time = time + calc_retry_wait
           end
         end
       end
@@ -363,13 +369,13 @@ class BufferedOutput < Output
     end
   end
 
-  def calc_next_retry_time
+  def calc_retry_wait
     # TODO retry pattern
     if @error_history.size <= @retry_limit
-      @last_retry_time + @retry_wait * (2 ** (@error_history.size-1))
+      @retry_wait * (2 ** (@error_history.size-1))
     else
       # secondary retry
-      @last_retry_time + @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
+      @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
     end
   end
 
@@ -444,15 +450,13 @@ class TimeSlicedOutput < BufferedOutput
     }
   end
 
-  def try_flush
+  def enqueue_buffer
     nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
-    @buffer.synchronize do
-      @buffer.keys.each {|key|
-        if key < nowslice
-          @buffer.push(key)
-        end
-      }
-    end
+    @buffer.keys.each {|key|
+      if key < nowslice
+        @buffer.push(key)
+      end
+    }
   end
 
   #def format(tag, event)
