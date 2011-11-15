@@ -61,6 +61,9 @@ class DetachProcessManager
     return nil, forward_thread
   end
 
+  def setup_delegate
+  end
+
   private
   def read_header(ipr)
     sz = ipr.read(4).unpack('N')[0]
@@ -117,9 +120,13 @@ class DetachProcessManager
     #override_delegate_methods(delegate_object, child_uri)
 
     fwd = new_forwarder(opw, 0.5)  # TODO interval
-    delegate_object.define_singleton_method(:emit) do |tag,es,chain|
-      chain.next
-      fwd.emit(tag, es)
+    #delegate_object.define_singleton_method(:emit) do |tag,es,chain|
+    #  chain.next
+    #  fwd.emit(tag, es)
+    #end
+
+    forward_thread.define_singleton_method(:forwarder) do
+      fwd
     end
 
     return forward_thread
@@ -192,7 +199,7 @@ class DetachProcessManager
   end
 
   def new_forwarder(w, interval)
-    if interval < 0.2
+    if interval < 0.2  # TODO interval
       Forwarder.new(w)
     else
       DelayedForwarder.new(w, interval)
@@ -206,7 +213,8 @@ class DetachProcessManager
 
     def emit(tag, es)
       ms = es.to_msgpack_stream
-      [tag, ms].write(@w)
+      #[tag, ms].to_msgpack(@w)  # not thread safe
+      @w.write [tag, ms].to_msgpack
     end
   end
 
@@ -240,6 +248,19 @@ class DetachProcessManager
       $log.error "error on forwerder thread", :error=>$!.to_s
       $log.error_backtrace
       raise
+    end
+  end
+
+  class MultiForwarder
+    def initialize(forwarders)
+      @forwarders = forwarders
+      @rr = 1
+    end
+
+    def emit(tag, es)
+      forwarder = @forwarders[@rr]
+      @rr = (@rr + 1) % @forwarders.length
+      forwarder.emit(tag, es)
     end
   end
 end
@@ -290,7 +311,7 @@ module DetachProcessImpl
     end
 
     # parent process
-    # re-override shutdown method
+    # override shutdown method
     define_singleton_method(:shutdown) do
       begin
         children.each {|pair|
@@ -307,6 +328,18 @@ module DetachProcessImpl
         $log.error "unknown error while shutting down remote child process", :error=>$!.to_s
         $log.error_backtrace
       end
+    end
+
+    # override emit method
+    forwarders = children.map {|pair| pair[1].forwarder }
+    if forwarders.length > 1
+      fwd = DetachProcessManager::MultiForwarder.new(forwarders)
+    else
+      fwd = forwarders[0]
+    end
+    define_singleton_method(:emit) do |tag,es,chain|
+      chain.next
+      fwd.emit(tag, es)
     end
   end
 
@@ -326,8 +359,9 @@ module DetachProcessImpl
     end
 
     def stop
+      return if @finished
+      @finished = true
       @mutex.synchronize do
-        @finished = true
         @cond.broadcast
       end
     end
