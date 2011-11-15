@@ -145,7 +145,7 @@ class EngineClass
 
   def stop
     $log.info "shutting down fluentd"
-    Coolio::Loop.default.stop
+    Coolio::Loop.default.stop  # TODO stop only when it's running
     nil
   end
 

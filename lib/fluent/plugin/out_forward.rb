@@ -21,6 +21,8 @@ module Fluent
 class ForwardOutput < BufferedOutput
   Plugin.register_output('forward', self)
 
+  include DetachProcessMixin
+
   def initialize
     super
     require 'socket'
@@ -81,29 +83,31 @@ class ForwardOutput < BufferedOutput
   end
 
   def start
-    super
+    detach_process do
+      super
 
-    @weight_array = []
-    gcd = @nodes.values.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
-    @nodes.each_value {|n|
-      (n.weight / gcd).times {
-        @weight_array << n
+      @weight_array = []
+      gcd = @nodes.values.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
+      @nodes.each_value {|n|
+        (n.weight / gcd).times {
+          @weight_array << n
+        }
       }
-    }
-    @weight_array.sort_by { rand }
+      @weight_array.sort_by { rand }
 
-    @rr = 0
+      @rr = 0
 
-    @loop = Coolio::Loop.new
+      @loop = Coolio::Loop.new
 
-    @usock = UDPSocket.new
-    @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-    @loop.attach(@hb)
+      @usock = UDPSocket.new
+      @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
+      @loop.attach(@hb)
 
-    @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
-    @loop.attach(@timer)
+      @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
+      @loop.attach(@timer)
 
-    @thread = Thread.new(&method(:run))
+      @thread = Thread.new(&method(:run))
+    end
   end
 
   def shutdown
