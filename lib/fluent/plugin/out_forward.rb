@@ -108,9 +108,9 @@ class ForwardOutput < BufferedOutput
 
   def shutdown
     @finished = true
-    @usock.close
     @loop.stop
     @thread.join
+    @usock.close
   end
 
   def run
@@ -202,7 +202,12 @@ class ForwardOutput < BufferedOutput
     return if @finished
     @nodes.each_pair {|sockaddr,n|
       n.tick
-      @usock.send "", 0, sockaddr
+      begin
+        @usock.send "", 0, sockaddr
+      rescue
+        # TODO log
+        $log.debug "failed to send heartbeat packet to #{Socket.unpack_sockaddr_in(sockaddr).reverse.join(':')}", :error=>$!
+      end
     }
   end
 

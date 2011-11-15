@@ -77,63 +77,18 @@ end
 class OutputThread
   def initialize(output)
     @output = output
-    @error_history = []
     @flush_now = false
     @finish = false
-
-    @flush_interval = 60  # TODO default
-    @retry_limit = 17  # TODO default
-    @retry_wait = 1.0  # TODO default
-
-    @secondary = nil
-    @secondary_limit = 8  # TODO default
+    @next_time = Engine.now + 1.0
   end
 
-  attr_accessor :flush_interval, :retry_limit, :retry_wait, :secondary_limit
-
   def configure(conf)
-    if flush_interval = conf['flush_interval']
-      @flush_interval = Config.time_value(flush_interval).to_i
-    end
-
-    if retry_limit = conf['retry_limit']
-      @retry_limit = retry_limit.to_i
-      if @retry_limit < 0
-        raise ConfigError, "invalid parameter 'retry_limit #{retry_limit}'"
-      end
-    end
-
-    if retry_wait = conf['retry_wait']
-      @retry_wait = Config.time_value(retry_wait)
-    end
-
-    # TODO configure retry_pattern
-
-    if econf = conf.elements.select {|e| e.name == 'secondary' }.first
-      type = econf['type'] || conf['type']
-      @secondary = Plugin.new_output(type)
-      @secondary.configure(econf)
-
-      if secondary_limit = conf['secondary_limit']
-        @secondary_limit = secondary_limit.to_i
-        if @secondary_limit < 0
-          raise ConfigError, "invalid parameter 'secondary_limit #{secondary_limit}'"
-        end
-      end
-
-      @secondary.secondary_init(@output)
-    end
   end
 
   def start
     @mutex = Mutex.new
     @cond = ConditionVariable.new
-    @last_try = Engine.now
-    #calc_next_time()
-    # TODO
-    @next_time = @last_try
     @thread = Thread.new(&method(:run))
-    @secondary.start if @secondary
   end
 
   def shutdown
@@ -141,7 +96,6 @@ class OutputThread
     @mutex.synchronize {
       @cond.signal
     }
-    @secondary.shutdown if @secondary
     Thread.pass
     @thread.join
   end
@@ -159,33 +113,25 @@ class OutputThread
     @mutex.lock
     begin
       until @finish
+        time = Engine.now
 
-        now = Engine.now
-
-        if @next_time <= now ||
-            (@flush_now && @error_history.empty?)
-
+        if @flush_now || @next_time <= time
           @mutex.unlock
           begin
-            try_flush(now)
+            @next_time = @output.try_flush
           ensure
             @mutex.lock
           end
-
-          now = @last_try = Engine.now
-          @flush_now = false
+          next_wait = @next_time - Engine.now
+        else
+          next_wait = @next_time - time
         end
 
-        next_wait = calc_next_time() - now
-        if next_wait > 0
-          cond_wait(next_wait)
-        end
-
+        cond_wait(next_wait) if next_wait > 0
       end
     ensure
       @mutex.unlock
     end
-
   rescue
     $log.error "error on output thread", :error=>$!.to_s
     $log.error_backtrace
@@ -194,17 +140,6 @@ class OutputThread
     @mutex.synchronize {
       @output.before_shutdown
     }
-  end
-
-  def calc_next_time
-    # TODO retry pattern
-    if @error_history.empty?
-      @next_time = @last_try + @flush_interval
-    elsif @error_history.size <= @retry_limit
-      @next_time = @last_try + @retry_wait * (2 ** (@error_history.size-1))
-    else
-      @next_time = @last_try + @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
-    end
   end
 
   if ConditionVariable.new.method(:wait).arity == 1
@@ -221,77 +156,25 @@ class OutputThread
       @cond.wait(@mutex, sec)
     end
   end
-
-  def try_flush(time)
-    while true
-
-      begin
-        if @error_history.size > @retry_limit
-          has_next = @output.flush_secondary(@secondary)
-        else
-          has_next = @output.try_flush
-        end
-
-        @error_history.clear
-        next if has_next
-
-      rescue
-        e = $!
-        error_count = @error_history.size
-        @error_history << time
-
-        if error_count < @retry_limit
-          $log.warn "failed to flush the buffer, retrying.", :error=>e.to_s
-          $log.warn_backtrace e.backtrace
-
-        elsif @secondary
-          if error_count == @retry_limit
-            $log.warn "failed to flush the buffer.", :error=>e.to_s
-            $log.warn "retry count exceededs limit. falling back to secondary output."
-            $log.warn_backtrace e.backtrace
-            next  # retry immediately
-          elsif error_count <= @retry_limit + @secondary_limit
-            $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s
-            $log.warn_backtrace e.backtrace
-          else
-            $log.warn "failed to flush the buffer.", :error=>e.to_s
-            $log.warn "secondary retry count exceededs limit."
-            $log.warn_backtrace e.backtrace
-            write_abort
-          end
-
-        else
-          $log.warn "failed to flush the buffer.", :error=>e.to_s
-          $log.warn "retry count exceededs limit."
-          $log.warn_backtrace e.backtrace
-          write_abort
-        end
-
-      end
-
-      break
-    end
-  end
-
-  def write_abort
-    $log.error "throwing away old logs."
-    begin
-      @output.write_abort
-    rescue
-      $log.error "unexpected error while aborting", :error=>$!.to_s
-      $log.error_backtrace
-    end
-    @error_history.clear
-  end
 end
 
 
 class BufferedOutput < Output
   def initialize
     super
+    @next_flush_time = 0
+    @last_retry_time = 0
+    @next_retry_time = 0
+    @error_history = []
+    @error_history.extend(MonitorMixin)
+    @secondary_limit = 8
   end
 
   config_param :buffer_type, :string, :default => 'memory'
+  config_param :flush_interval, :time, :default => 60
+  config_param :retry_limit, :integer, :default => 17
+  config_param :retry_wait, :float, :default => 1.0
+  config_param :num_threads, :integer, :default => 1
 
   def configure(conf)
     super
@@ -299,17 +182,46 @@ class BufferedOutput < Output
     @buffer = Plugin.new_buffer(@buffer_type)
     @buffer.configure(conf)
 
-    @writer = OutputThread.new(self)
-    @writer.configure(conf)
+    if @buffer.respond_to?(:enable_parallel)
+      if @num_threads == 1
+        @buffer.enable_parallel(false)
+      else
+        @buffer.enable_parallel(true)
+      end
+    end
+
+    @writers = (1..@num_threads).map {
+      writer = OutputThread.new(self)
+      writer.configure(conf)
+      writer
+    }
+
+    if sconf = conf.elements.select {|e| e.name == 'secondary' }.first
+      type = sconf['type'] || conf['type']
+      @secondary = Plugin.new_output(type)
+      @secondary.configure(sconf)
+
+      if secondary_limit = conf['secondary_limit']
+        @secondary_limit = secondary_limit.to_i
+        if @secondary_limit < 0
+          raise ConfigError, "invalid parameter 'secondary_limit #{secondary_limit}'"
+        end
+      end
+
+      @secondary.secondary_init(self)
+    end
   end
 
   def start
+    @next_flush_time = Engine.now + @flush_interval
     @buffer.start
-    @writer.start
+    @secondary.start if @secondary
+    @writers.each {|writer| writer.start }
   end
 
   def shutdown
-    @writer.shutdown
+    @writers.each {|writer| writer.shutdown }
+    @secondary.shutdown if @secondary
     @buffer.shutdown
   end
 
@@ -321,7 +233,8 @@ class BufferedOutput < Output
   end
 
   def submit_flush
-    @writer.submit_flush
+    # TODO roundrobin?
+    @writers.first.submit_flush
   end
 
   def format_stream(tag, es)
@@ -338,15 +251,113 @@ class BufferedOutput < Output
   #def write(chunk)
   #end
 
+  def enqueue_buffer
+    @buffer.keys.each {|key|
+      @buffer.push(key)
+    }
+  end
+
   def try_flush
-    if @buffer.queue_size == 0
+    time = Engine.now
+
+    empty = @buffer.queue_size == 0
+    if empty && @next_flush_time < (now = Engine.now)
       @buffer.synchronize do
-        @buffer.keys.each {|key|
-          @buffer.push(key)
-        }
+        if @next_flush_time < now
+          enqueue_buffer
+          @next_flush_time = now + @flush_interval
+          empty = @buffer.queue_size == 0
+        end
       end
     end
-    @buffer.pop(self)
+    if empty
+      return time + 1  # TODO 1
+    end
+
+    begin
+      retrying = !@error_history.empty?
+
+      if retrying
+        @error_history.synchronize do
+          if retrying = !@error_history.empty?  # re-check in synchronize
+            if @next_retry_time >= time
+              # allow retrying for only one thread
+              return time + 1  # TODO 1
+            end
+            # assume next retry failes and
+            # clear them if when it suceeds
+            @last_retry_time = time
+            @error_history << time
+            @next_retry_time += calc_retry_wait
+          end
+        end
+      end
+
+      if @secondary && @error_history.size > @retry_limit
+        has_next = flush_secondary(@secondary)
+      else
+        has_next = @buffer.pop(self)
+      end
+
+      # success
+      if retrying
+        @error_history.clear
+        # Note: don't notify to other threads to prevent
+        #       burst to recovered server
+      end
+
+      if has_next
+        return time  # call try_flush soon
+      else
+        return time + 1  # TODO 1
+      end
+
+    rescue => e
+      if retrying
+        error_count = @error_history.size
+      else
+        # first error
+        error_count = 0
+        @error_history.synchronize do
+          if @error_history.empty?
+            @last_retry_time = time
+            @error_history << time
+            @next_retry_time = time + calc_retry_wait
+          end
+        end
+      end
+
+      if error_count < @retry_limit
+        $log.warn "failed to flush the buffer, retrying.", :error=>e.to_s
+        $log.warn_backtrace e.backtrace
+
+      elsif @secondary
+        if error_count == @retry_limit
+          $log.warn "failed to flush the buffer.", :error=>e.to_s
+          $log.warn "retry count exceededs limit. falling back to secondary output."
+          $log.warn_backtrace e.backtrace
+          retry  # retry immediately
+        elsif error_count <= @retry_limit + @secondary_limit
+          $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s
+          $log.warn_backtrace e.backtrace
+        else
+          $log.warn "failed to flush the buffer.", :error=>e.to_s
+          $log.warn "secondary retry count exceededs limit."
+          $log.warn_backtrace e.backtrace
+          write_abort
+          @error_history.clear
+        end
+
+      else
+        $log.warn "failed to flush the buffer.", :error=>e.to_s
+        $log.warn "retry count exceededs limit."
+        $log.warn_backtrace e.backtrace
+        write_abort
+        @error_history.clear
+      end
+
+      return @next_retry_time
+    end
   end
 
   def before_shutdown
@@ -358,8 +369,24 @@ class BufferedOutput < Output
     end
   end
 
+  def calc_retry_wait
+    # TODO retry pattern
+    if @error_history.size <= @retry_limit
+      @retry_wait * (2 ** (@error_history.size-1))
+    else
+      # secondary retry
+      @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
+    end
+  end
+
   def write_abort
-    @buffer.clear!
+    $log.error "throwing away old logs."
+    begin
+      @buffer.clear!
+    rescue
+      $log.error "unexpected error while aborting", :error=>$!.to_s
+      $log.error_backtrace
+    end
   end
 
   def flush_secondary(secondary)
@@ -378,7 +405,6 @@ class TimeSlicedOutput < BufferedOutput
   config_param :time_slice_format, :string, :default => '%Y%m%d'
   config_param :time_slice_wait, :time, :default => 10*60
   config_set_default :buffer_type, 'file'  # overwrite default buffer_type
-  # config_set_default :flush_interval, 60  # TODO overwrite default flush_interval
 
   attr_accessor :localtime
 
@@ -424,16 +450,13 @@ class TimeSlicedOutput < BufferedOutput
     }
   end
 
-  def try_flush
+  def enqueue_buffer
     nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
-    @buffer.synchronize do
-      @buffer.keys.each {|key|
-        if key < nowslice
-          @buffer.push(key)
-        end
-      }
-    end
-    @buffer.pop(self)
+    @buffer.keys.each {|key|
+      if key < nowslice
+        @buffer.push(key)
+      end
+    }
   end
 
   #def format(tag, event)
