@@ -157,9 +157,10 @@ class BasicBuffer < Buffer
         top << data
         return false
 
-      elsif data.bytesize > @buffer_chunk_limit
-        # TODO
-        raise BufferError, "received data too large"
+      ## FIXME
+      #elsif data.bytesize > @buffer_chunk_limit
+      #  # TODO
+      #  raise BufferError, "received data too large"
 
       elsif @queue.size >= @buffer_queue_limit
         # TODO
