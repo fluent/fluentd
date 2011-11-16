@@ -124,6 +124,11 @@ class BasicBuffer < Buffer
   config_param :buffer_chunk_limit, :size, :default => 256*1024*1024
   config_param :buffer_queue_limit, :integer, :default => 128
 
+  alias chunk_limit buffer_chunk_limit
+  alias chunk_limit= buffer_chunk_limit=
+  alias queue_limit buffer_queue_limit
+  alias queue_limit= buffer_queue_limit=
+
   def configure(conf)
     super
   end
