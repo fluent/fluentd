@@ -18,10 +18,8 @@
 module Fluent
 
 
-class ForwardOutput < BufferedOutput
+class ForwardOutput < ObjectBufferedOutput
   Plugin.register_output('forward', self)
-
-  include DetachProcessMixin
 
   def initialize
     super
@@ -83,35 +81,34 @@ class ForwardOutput < BufferedOutput
   end
 
   def start
-    detach_process do
-      super
+    super
 
-      @weight_array = []
-      gcd = @nodes.values.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
-      @nodes.each_value {|n|
-        (n.weight / gcd).times {
-          @weight_array << n
-        }
+    @weight_array = []
+    gcd = @nodes.values.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
+    @nodes.each_value {|n|
+      (n.weight / gcd).times {
+        @weight_array << n
       }
-      @weight_array.sort_by { rand }
+    }
+    @weight_array.sort_by { rand }
 
-      @rr = 0
+    @rr = 0
 
-      @loop = Coolio::Loop.new
+    @loop = Coolio::Loop.new
 
-      @usock = UDPSocket.new
-      @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-      @loop.attach(@hb)
+    @usock = UDPSocket.new
+    @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
+    @loop.attach(@hb)
 
-      @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
-      @loop.attach(@timer)
+    @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
+    @loop.attach(@timer)
 
-      @thread = Thread.new(&method(:run))
-    end
+    @thread = Thread.new(&method(:run))
   end
 
   def shutdown
     @finished = true
+    @loop.watchers.each {|w| w.detach }
     @loop.stop
     @thread.join
     @usock.close
@@ -132,14 +129,14 @@ class ForwardOutput < BufferedOutput
     end
   end
 
-  def write(chunk)
+  def write_objects(tag, es)
     wlen = @weight_array.length
     wlen.times do
       node = @weight_array[@rr]
       @rr = (@rr + 1) % wlen
 
       if node.available?
-        send_data(node, chunk)
+        send_data(node, tag, es)
         return
       end
     end
@@ -151,7 +148,7 @@ class ForwardOutput < BufferedOutput
   # MessagePack FixArray length = 2
   FORWARD_HEADER = [0x92].pack('C')
 
-  def send_data(node, chunk)
+  def send_data(node, tag, es)
     sock = connect(node)
     begin
       opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -164,10 +161,10 @@ class ForwardOutput < BufferedOutput
       sock.write FORWARD_HEADER
 
       # writeRaw(tag)
-      sock.write chunk.key.to_msgpack  # tag
+      sock.write tag.to_msgpack  # tag
 
       # beginRaw(size)
-      sz = chunk.size
+      sz = es.size
       #if sz < 32
       #  # FixRaw
       #  sock.write [0xa0 | sz].pack('C')
@@ -180,7 +177,7 @@ class ForwardOutput < BufferedOutput
       #end
 
       # writeRawBody(packed_es)
-      chunk.write_to(sock)
+      es.write_to(sock)
     ensure
       sock.close
     end

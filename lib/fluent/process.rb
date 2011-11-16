@@ -147,7 +147,13 @@ class DetachProcessManager
 
   def output_forward_main(opr, target)
     read_event_stream(opr) {|tag,es|
-      target.emit(tag, es, NullOutputChain.instance)
+      # FIXME error
+      begin
+        target.emit(tag, es, NullOutputChain.instance)
+      rescue
+        $log.warn "failed to emit", :error=>$!.to_s, :pid=>Process.pid
+        $log.warn_backtrace
+      end
     }
   rescue
     $log.error "error on output process forwarding thread", :error=>$!.to_s, :pid=>Process.pid
@@ -267,11 +273,14 @@ end
 
 
 module DetachProcessImpl
+  def on_detach_process(i)
+  end
+
   protected
   def detach_process_impl(num, &block)
     children = []
 
-    num.times do
+    num.times do |i|
       pid, forward_thread = DetachProcessManager.instance.fork(self)
 
       if pid
@@ -283,6 +292,8 @@ module DetachProcessImpl
 
       # child process
       begin
+        on_detach_process(i)
+
         block.call
 
         # disable Engine.stop called by signal handler

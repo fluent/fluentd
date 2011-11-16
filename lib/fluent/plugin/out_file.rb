@@ -21,8 +21,6 @@ module Fluent
 class FileOutput < TimeSlicedOutput
   Plugin.register_output('file', self)
 
-  include DetachProcessMixin
-
   SUPPORTED_COMPRESS = {
     :gz => :gz,
     :gzip => :gz,

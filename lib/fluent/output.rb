@@ -395,6 +395,42 @@ class BufferedOutput < Output
 end
 
 
+class ObjectBufferedOutput < BufferedOutput
+  def initialize
+    super
+  end
+
+  def emit(tag, es, chain)
+    data = es.to_msgpack_stream
+    key = tag
+    if @buffer.emit(key, data, chain)
+      submit_flush
+    end
+  end
+
+  module BufferedEventStreamMixin
+    include Enumerable
+
+    def repeatable?
+      true
+    end
+
+    def each(&block)
+      msgpack_each(&block)
+    end
+
+    def to_msgpack_stream
+      read
+    end
+  end
+
+  def write(chunk)
+    chunk.extend(BufferedEventStreamMixin)
+    write_objects(chunk.key, chunk)
+  end
+end
+
+
 class TimeSlicedOutput < BufferedOutput
   def initialize
     super

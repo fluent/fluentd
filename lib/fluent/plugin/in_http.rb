@@ -89,8 +89,9 @@ class HttpInput < Input
   end
 
   def shutdown
-    @lsock.close
+    @loop.watchers.each {|w| w.detach }
     @loop.stop
+    @lsock.close
     @thread.join
   end
 
