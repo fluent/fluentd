@@ -1,4 +1,13 @@
 
+Release 0.10.7 - 2011/11/16
+
+* Supports multi-threaded on buffered output plugins ('num_threads')
+* Supports multi-process on input plugins ('detach_process')
+* Added ObjectBufferedOutput
+* Ensure to call 'shutdown' method of started plugins
+* in_tail supports 'pos_file' option that stores read position to a file
+
+
 Release 0.10.6 - 2011/11/11
 
 * Fixed --group NAME cmdline argument

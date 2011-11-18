@@ -114,6 +114,11 @@ class BasicBuffer < Buffer
 
   def initialize
     super
+    @parallel_pop = true
+  end
+
+  def enable_parallel(b=true)
+    @parallel_pop = b
   end
 
   config_param :buffer_chunk_limit, :size, :default => 256*1024*1024
@@ -152,9 +157,10 @@ class BasicBuffer < Buffer
         top << data
         return false
 
-      elsif data.bytesize > @buffer_chunk_limit
-        # TODO
-        raise BufferError, "received data too large"
+      ## FIXME
+      #elsif data.bytesize > @buffer_chunk_limit
+      #  # TODO
+      #  raise BufferError, "received data too large"
 
       elsif @queue.size >= @buffer_queue_limit
         # TODO
@@ -220,7 +226,7 @@ class BasicBuffer < Buffer
   def pop(out)
     chunk = nil
     @queue.synchronize do
-      if @parallel
+      if @parallel_pop
         chunk = @queue.find {|c| c.try_mon_enter }
         return false unless chunk
       else

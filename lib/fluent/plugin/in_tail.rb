@@ -67,6 +67,7 @@ class TailInput < Input
   end
 
   def shutdown
+    @loop.watchers.each {|w| w.detach }
     @loop.stop
     @thread.join
     @pf_file.close if @pf_file
