@@ -123,16 +123,14 @@ class PluginClass
     # search gems
     if defined?(::Gem) && ::Gem.respond_to?(:searcher)
       #files = Gem.find_files(path).sort
-      specs = Gem.searcher.find_all(path)
+      specs = Gem::Specification.find_all {|spec| spec.contains_requirable_file? path}
       specs = specs.sort_by {|spec| spec.version }
 
       # prefer newer version
-      specs.reverse_each {|spec|
-        files = Gem.searcher.matching_files(spec, path)
-        unless files.empty?
-          require files.first
-          return
-        end
+      unless specs.empty?
+        require specs.last
+        return
+      end
       }
     end
   end
