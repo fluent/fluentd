@@ -58,10 +58,15 @@ Author:: Sadayuki Furuhashi
 Copyright:: (c) 2011 FURUHASHI Sadayuki
 License:: Apache License, Version 2.0
 
-Contributed by:
+== Contributors:
 
-* Eiichiro Iwata
-* Masahiro Nakagawa
+Patches contributed by:
+
+* {Eiichiro Iwata}[http://github.com/eiichiroi]
+* {Francesc Esplugas}[https://github.com/fesplugas]
+* {Masahiro Nakagawa}[https://github.com/repeatedly]
+* {Sakuro Ogawa}[https://github.com/sakuro]
 * Takashi Nagayasu
-* Yuichi Tateno
-
+* {Tsuyoshi Ozawa}[https://github.com/oza]
+* {uu59}[https://github.com/uu59]
+* {Yuichi Tateno}[https://github.com/hotchpotch]
