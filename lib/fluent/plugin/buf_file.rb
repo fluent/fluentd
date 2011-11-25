@@ -41,8 +41,9 @@ class FileBufferChunk < BufferChunk
   end
 
   def close
+    stat = @file.stat
     @file.close
-    if @file.stat.size == 0
+    if stat.size == 0
       File.unlink(@path)
     end
   end

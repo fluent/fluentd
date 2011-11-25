@@ -21,6 +21,8 @@ module Fluent
 class HttpInput < Input
   Plugin.register_input('http', self)
 
+  include DetachMultiProcessMixin
+
   require 'http/parser'
 
   def initialize
@@ -68,23 +70,28 @@ class HttpInput < Input
     end
   end
 
-  # TODO multithreading
   def start
     $log.debug "listening http on #{@bind}:#{@port}"
+    lsock = TCPServer.new(@bind, @port)
 
-    @km = KeepaliveManager.new(@keepalive_timeout)
-    @lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
+    detach_multi_process do
+      super
+      @km = KeepaliveManager.new(@keepalive_timeout)
+      #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
+      @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit)
 
-    @loop = Coolio::Loop.new
-    @loop.attach(@km)
-    @loop.attach(@lsock)
+      @loop = Coolio::Loop.new
+      @loop.attach(@km)
+      @loop.attach(@lsock)
 
-    @thread = Thread.new(&method(:run))
+      @thread = Thread.new(&method(:run))
+    end
   end
 
   def shutdown
-    @lsock.close
+    @loop.watchers.each {|w| w.detach }
     @loop.stop
+    @lsock.close
     @thread.join
   end
 

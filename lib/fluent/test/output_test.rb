@@ -87,7 +87,55 @@ class BufferedOutputTestDriver < InputTestDriver
   end
 end
 
+class TimeSlicedOutputTestDriver < InputTestDriver
+  def initialize(klass, tag='test', &block)
+    super(klass, &block)
+    @entries = {}
+    @expected_buffer = nil
+    @tag = tag
+  end
+
+  attr_accessor :tag
+
+  def emit(record, time=Time.now)
+    slicer = @instance.instance_eval{@time_slicer}
+    key = slicer.call(time.to_i)
+    @entries[key] = [] unless @entries.has_key?(key)
+    @entries[key] << [time.to_i, record]
+    self
+  end
+
+  def expect_format(str)
+    (@expected_buffer ||= '') << str
+  end
+
+  def run(&block)
+    result = []
+    super {
+      @entries.keys.each {|key|
+        es = ArrayEventStream.new(@entries[key])
+        @instance.emit(@tag, es, NullOutputChain.instance)
+      }    
+
+      block.call if block
+
+      chunks = @instance.instance_eval {
+        @buffer.instance_eval {
+          chunks = []
+          @map.keys.each {|key|
+            chunks.push(@map.delete(key))
+          }
+          chunks   
+        }
+      }
+      chunks.each { |chunk|
+        result.push(@instance.write(chunk))
+      }
+          
+    }
+    result
+  end
+end
 
 end
 end
-
