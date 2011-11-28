@@ -50,10 +50,12 @@ class ForwardInput < Input
   end
 
   def shutdown
-    @lsock.close
+    @loop.watchers.each {|w| w.detach }
     @loop.stop
-    @thread.join
     @usock.close
+    TCPSocket.open('127.0.0.1', @port) {|sock| }  # FIXME @thread.join blocks without this line
+    @thread.join
+    @lsock.close
   end
 
   def listen

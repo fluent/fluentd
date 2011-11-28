@@ -23,6 +23,8 @@ class EngineClass
     @matches = []
     @sources = []
     @match_cache = {}
+    @started = []
+    @default_loop = nil
   end
 
   def init
@@ -129,23 +131,33 @@ class EngineClass
   end
 
   def run
-    start
+    begin
+      start
 
-    if match?($log.tag)
-      $log.enable_event
+      if match?($log.tag)
+        $log.enable_event
+      end
+
+      # for empty loop
+      @default_loop = Coolio::Loop.default
+      @default_loop.attach Coolio::TimerWatcher.new(1, true)
+      # TODO attach async watch for thread pool
+      @default_loop.run
+
+    rescue
+      $log.error "unexpected error", :error=>$!.to_s
+      $log.error_backtrace
+    ensure
+      shutdown
     end
-
-    # for empty loop
-    Coolio::Loop.default.attach Coolio::TimerWatcher.new(1, true)
-    # TODO attach async watch for thread pool
-    Coolio::Loop.default.run
-
-    shutdown
   end
 
   def stop
     $log.info "shutting down fluentd"
-    Coolio::Loop.default.stop
+    if @default_loop
+      @default_loop.stop
+      @default_loop = nil
+    end
     nil
   end
 
@@ -153,18 +165,22 @@ class EngineClass
   def start
     @matches.each {|m|
       m.start
+      @started << m
     }
     @sources.each {|s|
       s.start
+      @started << s
     }
   end
 
   def shutdown
-    @matches.each {|m|
-      m.shutdown rescue nil
-    }
-    @sources.each {|s|
-      s.shutdown rescue nil
+    @started.reverse_each {|s|
+      begin
+        s.shutdown
+      rescue
+        $log.warn "unexpected error while shutting down", :error=>$!.to_s
+        $log.warn_backtrace
+      end
     }
   end
 
