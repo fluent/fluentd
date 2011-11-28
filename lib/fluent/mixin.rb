@@ -192,5 +192,135 @@ module SetTagKeyMixin
   end
 end
 
+module PlainTextFormatterMixin
+  attr_accessor :output_include_time, :output_include_tag, :output_data_type
+  attr_accessor :add_newline, :field_separator
+
+  # config_param :output_data_type, :string, :default => 'json' # or 'attr:field' or 'attr:field1,field2,field3(...)'
+  def configure(conf)
+    super
+
+    @output_include_time ||= true
+    @output_include_tag ||= true
+    @output_data_type ||= 'json'
+
+    @field_separator = case @field_separator
+                       when 'SPACE' then ' '
+                       when 'COMMA' then ','
+                       else "\t"
+                       end
+    @add_newline = Fluent::Config.bool_value(conf['add_newline'])
+    if @add_newline.nil?
+      @add_newline = true
+    end
+
+    # default timezone: utc
+    if @localtime.nil? and @utc.nil?
+      @utc = true
+      @localtime = false
+    elsif not @localtime and not @utc
+      @utc = true
+      @localtime = false
+    end
+    # mix-in default time formatter (or you can overwrite @timef on your own configure)
+    @timef = @output_include_time ? Fluent::TimeFormatter.new(@time_format, @localtime) : nil
+
+    @custom_attributes = []
+    if @output_data_type == 'json'
+      self.instance_eval {
+        def stringify_record(record)
+          record.to_json
+        end
+      }
+    elsif @output_data_type =~ /^attr:(.*)$/
+      @custom_attributes = $1.split(',')
+      if @custom_attributes.size > 1
+        self.instance_eval {
+          def stringify_record(record)
+            @custom_attributes.map{|attr| (record[attr] || 'NULL').to_s}.join(@field_separator)
+          end
+        }
+      elsif @custom_attributes.size == 1
+        self.instance_eval {
+          def stringify_record(record)
+            (record[@custom_attributes[0]] || 'NULL').to_s
+          end
+        }
+      else
+        raise Fluent::ConfigError, "Invalid attributes specification: '#{@output_data_type}', needs one or more attributes."
+      end
+    else
+      raise Fluent::ConfigError, "Invalid output_data_type: '#{@output_data_type}'. specify 'json' or 'attr:ATTRIBUTE_NAME' or 'attr:ATTR1,ATTR2,...'"
+    end
+
+    if @output_include_time and @output_include_tag
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record)
+            @timef.format(time) + @field_separator + tag + @field_separator + stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record)
+            @timef.format(time) + @field_separator + tag + @field_separator + stringify_record(record)
+          end
+        }
+      end
+    elsif @output_include_time
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record);
+            @timef.format(time) + @field_separator + stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record);
+            @timef.format(time) + @field_separator + stringify_record(record)
+          end
+        }
+      end
+    elsif @output_include_tag
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record);
+            tag + @field_separator + stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record);
+            tag + @field_separator + stringify_record(record)
+          end
+        }
+      end
+    else # without time, tag
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record);
+            stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record);
+            stringify_record(record)
+          end
+        }
+      end
+    end
+  end
+
+  def stringify_record(record)
+    record.to_json
+  end
+
+  def format(tag, time, record)
+    time_str = @timef.format(time)
+    time_str + @field_separator + tag + @field_separator + stringify_record(record) + "\n"
+  end
+
+end
 
 end
