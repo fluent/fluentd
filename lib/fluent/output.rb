@@ -304,6 +304,7 @@ class BufferedOutput < Output
         @error_history.clear
         # Note: don't notify to other threads to prevent
         #       burst to recovered server
+        $log.warn "retry suceeded.", :instance=>object_id
       end
 
       if has_next
@@ -328,20 +329,20 @@ class BufferedOutput < Output
       end
 
       if error_count < @retry_limit
-        $log.warn "failed to flush the buffer, retrying.", :error=>e.to_s
+        $log.warn "failed to flush the buffer, retrying.", :error=>e.to_s, :instance=>object_id
         $log.warn_backtrace e.backtrace
 
       elsif @secondary
         if error_count == @retry_limit
-          $log.warn "failed to flush the buffer.", :error=>e.to_s
+          $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
           $log.warn "retry count exceededs limit. falling back to secondary output."
           $log.warn_backtrace e.backtrace
           retry  # retry immediately
         elsif error_count <= @retry_limit + @secondary_limit
-          $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s
+          $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s, :instance=>object_id
           $log.warn_backtrace e.backtrace
         else
-          $log.warn "failed to flush the buffer.", :error=>e.to_s
+          $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
           $log.warn "secondary retry count exceededs limit."
           $log.warn_backtrace e.backtrace
           write_abort
@@ -349,7 +350,7 @@ class BufferedOutput < Output
         end
 
       else
-        $log.warn "failed to flush the buffer.", :error=>e.to_s
+        $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
         $log.warn "retry count exceededs limit."
         $log.warn_backtrace e.backtrace
         write_abort
