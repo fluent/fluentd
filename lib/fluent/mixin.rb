@@ -200,26 +200,42 @@ module PlainTextFormatterMixin
   def configure(conf)
     super
 
-    @output_include_time ||= true
-    @output_include_tag ||= true
-    @output_data_type ||= 'json'
+    if conf['output_include_time'].nil?
+      @output_include_time = true
+    else
+      @output_include_time = Fluent::Config.bool_value(conf['output_include_time'])
+    end
+    if conf['output_include_tag'].nil?
+      @output_include_tag = true
+    else
+      @output_include_tag = Fluent::Config.bool_value(conf['output_include_tag'])
+    end
+    @output_data_type = conf['output_data_type'] || 'json'
 
-    @field_separator = case @field_separator
+    @field_separator = case conf['field_separator']
                        when 'SPACE' then ' '
                        when 'COMMA' then ','
                        else "\t"
                        end
-    @add_newline = Fluent::Config.bool_value(conf['add_newline'])
-    if @add_newline.nil?
+    if conf['add_newline'].nil?
       @add_newline = true
+    else
+      @add_newline = Fluent::Config.bool_value(conf['add_newline'])
     end
 
     # default timezone: utc
     if @localtime.nil? and @utc.nil?
+      if conf.has_key?('localtime') or conf.has_key?('utc')
+        @utc = conf.has_key?('utc')
+        @localtime = conf.has_key?('localtime')
+      end
+    end
+    if (@localtime and @utc) or (not @localtime and not @utc)
       @utc = true
       @localtime = false
-    elsif not @localtime and not @utc
-      @utc = true
+    elsif @localtime
+      @utc = false
+    elsif @utc
       @localtime = false
     end
     # mix-in default time formatter (or you can overwrite @timef on your own configure)
