@@ -25,26 +25,28 @@ op = OptionParser.new
 op.version = Fluent::VERSION
 
 # default values
-config_path = Fluent::DEFAULT_CONFIG_PATH
-plugin_dirs = [Fluent::DEFAULT_PLUGIN_DIR]
-log_level = Fluent::Log::LEVEL_INFO
-log_file = nil
-daemonize = false
-libs = []
-setup_path = nil
-chuser = nil
-chgroup = nil
-
-op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
-  setup_path = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
+opts = {
+  :config_path => Fluent::DEFAULT_CONFIG_PATH,
+  :plugin_dirs => [Fluent::DEFAULT_PLUGIN_DIR],
+  :log_level => Fluent::Log::LEVEL_INFO,
+  :log_path => nil,
+  :daemonize => false,
+  :libs => [],
+  :setup_path => nil,
+  :chuser => nil,
+  :chgroup => nil,
 }
 
-op.on('-c', '--config PATH', "config flie path (default: #{config_path})") {|s|
-  config_path = s
+op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
+  opts[:setup_path] = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
+}
+
+op.on('-c', '--config PATH', "config flie path (default: #{Fluent::DEFAULT_CONFIG_PATH})") {|s|
+  opts[:config_path] = s
 }
 
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
-  plugin_dirs << s
+  opts[:plugin_dirs] << s
 }
 
 op.on('-I PATH', "add library path") {|s|
@@ -52,32 +54,32 @@ op.on('-I PATH', "add library path") {|s|
 }
 
 op.on('-r NAME', "load library") {|s|
-  libs << s
+  opts[:libs] << s
 }
 
 op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
-  daemonize = s
+  opts[:daemonize] = s
 }
 
 op.on('--user USER', "change user") {|s|
-  chuser = s
+  opts[:chuser] = s
 }
 
 op.on('--group GROUP', "change group") {|s|
-  chgroup = s
+  opts[:chgroup] = s
 }
 
 op.on('-o', '--log PATH', "log file path") {|s|
-  log_file = s
+  opts[:log_path] = s
 }
 
 op.on('-v', '--verbose', "increment verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
-    case log_level
+    case opts[:log_level]
     when Fluent::Log::LEVEL_INFO
-      log_level = Fluent::Log::LEVEL_DEBUG
+      opts[:log_level] = Fluent::Log::LEVEL_DEBUG
     when Fluent::Log::LEVEL_DEBUG
-      log_level = Fluent::Log::LEVEL_TRACE
+      opts[:log_level] = Fluent::Log::LEVEL_TRACE
     end
   end
 }
@@ -101,7 +103,7 @@ rescue
 end
 
 
-if setup_path
+if setup_path = opts[:setup_path]
   require 'fileutils'
   FileUtils.mkdir_p File.join(setup_path, "plugin")
   confpath = File.join(setup_path, "fluent.conf")
@@ -117,142 +119,6 @@ if setup_path
   exit 0
 end
 
-
-if log_file && log_file != "-"
-  log_out = File.open(log_file, "a")
-else
-  log_out = STDOUT
-end
-
-$log = Fluent::Log.new(log_out, log_level)
-
-$log.enable_color(false) if log_file
-$log.enable_debug if log_level <= Fluent::Log::LEVEL_DEBUG
-
-
-require 'fluent/load'
-
-begin
-  #
-  # read config file
-  #
-  $log.info "reading config file", :path=>config_path
-  config_fname = File.basename(config_path)
-  config_basedir = File.dirname(config_path)
-  config_data = File.read(config_path)
-
-
-  #
-  # change user
-  #
-  if chgroup
-    chgid = chgroup.to_i
-    if chgid.to_s != chgroup
-      chgid = `id -g #{chgroup}`.to_i
-      if $?.to_i != 0
-        exit 1
-      end
-    end
-    Process::GID.change_privilege(chgid)
-  end
-
-  if chuser
-    chuid = chuser.to_i
-    if chuid.to_s != chuser
-      chuid = `id -u #{chuser}`.to_i
-      if $?.to_i != 0
-        exit 1
-      end
-    end
-    Process::UID.change_privilege(chuid)
-  end
-
-
-  #
-  # run configure
-  #
-  Fluent::Engine.init
-
-  libs.each {|lib|
-    require lib
-  }
-
-  plugin_dirs.each {|dir|
-    if Dir.exist?(dir)
-      dir = File.expand_path(dir)
-      Fluent::Engine.load_plugin_dir(dir)
-    end
-  }
-
-  Fluent::Engine.parse_config(config_data, config_fname, config_basedir)
-
-
-  #
-  # daemonize
-  #
-  trap :INT do
-    Fluent::Engine.stop
-  end
-
-  trap :TERM do
-    Fluent::Engine.stop
-  end
-
-  trap :HUP do
-    if log_file
-      log_out.reopen(log_file, "a")
-    end
-  end
-
-  trap :USR1 do
-    $log.info "force flushing buffered events"
-    Fluent::Engine.flush!
-  end
-
-  if daemonize
-    exit!(0) if fork
-    Process.setsid
-    exit!(0) if fork
-    File.umask(0)
-    STDIN.reopen("/dev/null")
-    STDOUT.reopen("/dev/null", "w")
-    STDERR.reopen("/dev/null", "w")
-    File.open(daemonize, "w") {|f|
-      f.write Process.pid.to_s
-    }
-  end
-
-
-  #
-  # run
-  #
-  $log.info "running fluent-#{Fluent::VERSION}"
-  Fluent::Engine.run
-
-rescue Fluent::ConfigError
-  $log.error "config error", :file=>config_path, :error=>$!.to_s
-  $log.debug_backtrace
-
-  # also STDOUT
-  if log_out != STDOUT
-    console = Fluent::Log.new(STDOUT, log_level).enable_debug
-    console.error "config error", :file=>config_path, :error=>$!.to_s
-    console.debug_backtrace
-  end
-
-  exit 1
-
-rescue
-  $log.error "unexpected error", :error=>$!.to_s
-  $log.error_backtrace
-
-  # also STDOUT
-  if log_out != STDOUT
-    console = Fluent::Log.new(STDOUT, log_level).enable_debug
-    console.error "unexpected error", :error=>$!.to_s
-    console.error_backtrace
-  end
-
-  exit 1
-end
+require 'fluent/supervisor'
+Fluent::Supervisor.new(opts).start
 
