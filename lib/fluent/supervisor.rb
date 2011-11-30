@@ -116,13 +116,13 @@ class Supervisor
       exit! 1
     end
 
+    @wait_daemonize_pipe_r.close
+    @wait_daemonize_pipe_r = nil
+
     # write pid file
     File.open(@daemonize, "w") {|f|
       f.write supervisor_pid
     }
-
-    @wait_daemonize_pipe_r.close
-    @wait_daemonize_pipe_r = nil
   end
 
   def finish_daemonize
@@ -139,6 +139,7 @@ class Supervisor
   def supervise(&block)
     start_time = Time.now
 
+    $log.info "starting fluentd-#{Fluent::VERSION}"
     @main_pid = fork do
       main_process(&block)
     end
@@ -291,7 +292,6 @@ class Supervisor
   end
 
   def run_engine
-    $log.info "running fluent-#{Fluent::VERSION}"
     Fluent::Engine.run
   end
 end
