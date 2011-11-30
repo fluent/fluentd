@@ -59,6 +59,7 @@ class Supervisor
     @chuser = opt[:chuser]
     @libs = opt[:libs]
     @plugin_dirs = opt[:plugin_dirs]
+    @inline_config = opt[:inline_config]
 
     @log = LoggerInitializer.new(@log_path, @log_level)
     @finished = false
@@ -225,6 +226,7 @@ class Supervisor
     @config_fname = File.basename(@config_path)
     @config_basedir = File.dirname(@config_path)
     @config_data = File.read(@config_path)
+    @config_data << "\n" << @inline_config.gsub("\\n","\n") unless @inline_config.nil?
   end
 
   def run_configure

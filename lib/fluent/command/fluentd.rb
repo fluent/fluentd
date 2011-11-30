@@ -73,6 +73,11 @@ op.on('-o', '--log PATH', "log file path") {|s|
   opts[:log_path] = s
 }
 
+op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-fly") {|s|
+  opts[:inline_config] = s
+}
+
+
 op.on('-v', '--verbose', "increment verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
     case opts[:log_level]
