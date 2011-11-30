@@ -226,7 +226,11 @@ class Supervisor
     @config_fname = File.basename(@config_path)
     @config_basedir = File.dirname(@config_path)
     @config_data = File.read(@config_path)
-    @config_data << "\n" << @inline_config.gsub("\\n","\n") unless @inline_config.nil?
+    if @inline_config == '-'
+      @config_data << "\n" << STDIN.read
+    elsif @inline_config
+      @config_data << "\n" << @inline_config.gsub("\\n","\n")
+    end
   end
 
   def run_configure
