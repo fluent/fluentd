@@ -22,10 +22,9 @@ class MixinTest < Test::Unit::TestCase
     assert_equal true, d.instance.output_include_time
     assert_equal true, d.instance.output_include_tag
     assert_equal 'json', d.instance.output_data_type
-    assert_equal "\t", d.instance.field_separator
-    assert_equal true, d.instance.add_newline
-    assert_equal true, d.instance.instance_eval{@utc}
-    assert_equal false, d.instance.instance_eval{@localtime}
+    assert_equal "\t", d.instance.output_field_separator
+    assert_equal true, d.instance.output_add_newline
+    assert_equal nil, d.instance.instance_eval{@localtime}
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
     d.emit({"foo"=>1,"bar"=>501}, time)
@@ -38,7 +37,6 @@ class MixinTest < Test::Unit::TestCase
     d = create_driver %[
 utc
 ]
-    assert_equal true, d.instance.instance_eval{@utc}
     assert_equal false, d.instance.instance_eval{@localtime}
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
@@ -50,7 +48,6 @@ utc
     d = create_driver %[
 localtime
 ]
-    assert_equal false, d.instance.instance_eval{@utc}
     assert_equal true, d.instance.instance_eval{@localtime}
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
@@ -143,9 +140,9 @@ output_data_type attr:foo,bar
 
   def test_add_newline
     d = create_driver %[
-add_newline false
+output_add_newline false
 ]
-    assert_equal false, d.instance.add_newline
+    assert_equal false, d.instance.output_add_newline
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
     d.emit({"foo"=>1,"bar"=>"This is what you want"}, time)
@@ -154,9 +151,9 @@ add_newline false
     assert_equal %[2011-11-29T12:02:50Z\ttest\t{"foo":1,"bar":"This is what you want"}2011-11-29T12:02:50Z\ttest\t{"foo":2,"bar":"Is this what you want or not"}], text
     
     d = create_driver %[
-add_newline false
+output_add_newline false
 ]
-    assert_equal false, d.instance.add_newline
+    assert_equal false, d.instance.output_add_newline
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
     d.emit({"foo"=>1,"bar"=>"This is what you want\n"}, time)
@@ -166,9 +163,9 @@ add_newline false
 
     d = create_driver %[
 output_data_type attr:bar
-add_newline false
+output_add_newline false
 ]
-    assert_equal false, d.instance.add_newline
+    assert_equal false, d.instance.output_add_newline
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
     d.emit({"foo"=>1,"bar"=>"This is what you want\n"}, time)
@@ -178,9 +175,9 @@ add_newline false
 
     d = create_driver %[
 output_data_type attr:bar
-add_newline true
+output_add_newline true
 ]
-    assert_equal true, d.instance.add_newline
+    assert_equal true, d.instance.output_add_newline
 
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
     d.emit({"foo"=>1,"bar"=>"This is what you want\n"}, time)
@@ -193,38 +190,38 @@ add_newline true
     time = Time.parse("2011-11-29 12:02:50 UTC").to_i
 
     d = create_driver %[
-field_separator SPACE
+output_field_separator SPACE
 ]
-    assert_equal " ", d.instance.field_separator
+    assert_equal " ", d.instance.output_field_separator
     d.emit({"foo"=>1,"bar"=>501}, time)
     d.emit({"foo"=>2,"bar"=>502}, time)
     text = d.run
     assert_equal %[2011-11-29T12:02:50Z test {"foo":1,"bar":501}\n2011-11-29T12:02:50Z test {"foo":2,"bar":502}\n], text
 
     d = create_driver %[
-field_separator SPACE
+output_field_separator SPACE
 output_data_type attr:bar,foo
 ]
-    assert_equal " ", d.instance.field_separator
+    assert_equal " ", d.instance.output_field_separator
     d.emit({"foo"=>1,"bar"=>501}, time)
     d.emit({"foo"=>2,"bar"=>502}, time)
     text = d.run
     assert_equal %[2011-11-29T12:02:50Z test 501 1\n2011-11-29T12:02:50Z test 502 2\n], text
 
     d = create_driver %[
-field_separator COMMA
+output_field_separator COMMA
 ]
-    assert_equal ",", d.instance.field_separator
+    assert_equal ",", d.instance.output_field_separator
     d.emit({"foo"=>1,"bar"=>501}, time)
     d.emit({"foo"=>2,"bar"=>502}, time)
     text = d.run
     assert_equal %[2011-11-29T12:02:50Z,test,{"foo":1,"bar":501}\n2011-11-29T12:02:50Z,test,{"foo":2,"bar":502}\n], text
 
     d = create_driver %[
-field_separator COMMA
+output_field_separator COMMA
 output_data_type attr:foo,bar
 ]
-    assert_equal ",", d.instance.field_separator
+    assert_equal ",", d.instance.output_field_separator
     d.emit({"foo"=>1,"bar"=>501}, time)
     d.emit({"foo"=>2,"bar"=>502}, time)
     text = d.run

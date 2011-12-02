@@ -194,147 +194,150 @@ end
 
 module PlainTextFormatterMixin
   attr_accessor :output_include_time, :output_include_tag, :output_data_type
-  attr_accessor :add_newline, :field_separator
+  attr_accessor :output_add_newline, :output_field_separator
+
+  def initialize
+    super
+    # default values may be overwriten by subclasses
+    @output_include_time = true
+    @output_include_tag = true
+    @output_data_type = 'json'
+    @output_field_separator = "\t"
+    @output_add_newline = true
+  end
 
   # config_param :output_data_type, :string, :default => 'json' # or 'attr:field' or 'attr:field1,field2,field3(...)'
   def configure(conf)
     super
 
-    if conf['output_include_time'].nil?
-      @output_include_time = true
-    else
-      @output_include_time = Fluent::Config.bool_value(conf['output_include_time'])
-    end
-    if conf['output_include_tag'].nil?
-      @output_include_tag = true
-    else
-      @output_include_tag = Fluent::Config.bool_value(conf['output_include_tag'])
-    end
-    @output_data_type = conf['output_data_type'] || 'json'
-
-    @field_separator = case conf['field_separator']
-                       when 'SPACE' then ' '
-                       when 'COMMA' then ','
-                       else "\t"
-                       end
-    if conf['add_newline'].nil?
-      @add_newline = true
-    else
-      @add_newline = Fluent::Config.bool_value(conf['add_newline'])
+    if output_include_time = conf['output_include_time']
+      @output_include_time = Config.bool_value(output_include_time)
     end
 
-    # default timezone: utc
-    if @localtime.nil? and @utc.nil?
-      if conf.has_key?('localtime') or conf.has_key?('utc')
-        @utc = conf.has_key?('utc')
-        @localtime = conf.has_key?('localtime')
+    if output_include_tag = conf['output_include_tag']
+      @output_include_tag = Config.bool_value(output_include_tag)
+    end
+
+    if output_data_type = conf['output_data_type']
+      @output_data_type = output_data_type
+    end
+
+    if output_field_separator = conf['output_field_separator']
+      case output_field_separator
+      when 'SPACE'
+        @output_field_separator = ' '
+      when 'COMMA'
+        @output_field_separator = ','
+      else
+        raise ConfigError, "Unknown output_field_separator option #{output_field_separator.dump}"
       end
     end
-    if (@localtime and @utc) or (not @localtime and not @utc)
-      @utc = true
-      @localtime = false
-    elsif @localtime
-      @utc = false
-    elsif @utc
+
+    if output_add_newline = conf['output_add_newline']
+      @output_add_newline = Config.bool_value(output_add_newline)
+    end
+
+    # default timezone: utc (localtime=nil)
+    if conf['localtime']
+      @localtime = true
+    elsif conf['utc']
       @localtime = false
     end
-    # mix-in default time formatter (or you can overwrite @timef on your own configure)
-    @timef = @output_include_time ? Fluent::TimeFormatter.new(@time_format, @localtime) : nil
 
-    @custom_attributes = []
-    if @output_data_type == 'json'
-      self.instance_eval {
-        def stringify_record(record)
-          record.to_json
-        end
+    # mix-in default time formatter (or you can overwrite @time_format/@localtime (or @timef itself) on your own configure)
+    if @output_include_time
+      timef = @timef || TimeFormatter.new(@time_format, @localtime)
+    end
+
+    output_field_separator = @output_field_separator
+
+    ##
+    # optimize stringify_record(record) method
+    #
+    case @output_data_type
+    when 'json'
+      define_singleton_method(:stringify_record) {|record|
+        record.to_json
       }
-    elsif @output_data_type =~ /^attr:(.*)$/
-      @custom_attributes = $1.split(',')
-      if @custom_attributes.size > 1
-        self.instance_eval {
-          def stringify_record(record)
-            @custom_attributes.map{|attr| (record[attr] || 'NULL').to_s}.join(@field_separator)
-          end
+
+    when /^attr:(.*)$/
+      out_keys = $1.split(',')
+      if out_keys.size > 1
+        define_singleton_method(:stringify_record) {|record|
+          out_keys.map {|attr|
+            r = record[attr]
+            r.respond_to?(:to_str) ? r.to_str : r.to_json
+          }.join(output_field_separator)
         }
-      elsif @custom_attributes.size == 1
-        self.instance_eval {
-          def stringify_record(record)
-            (record[@custom_attributes[0]] || 'NULL').to_s
-          end
+      elsif out_keys.size == 1
+        out_key = out_keys[0]
+        define_singleton_method(:stringify_record) {|record|
+          r = record[out_key]
+          r.respond_to?(:to_str) ? r.to_str : r.to_json
         }
       else
-        raise Fluent::ConfigError, "Invalid attributes specification: '#{@output_data_type}', needs one or more attributes."
+        raise ConfigError, "Invalid attributes specification: '#{@output_data_type}', needs one or more attributes."
       end
+
     else
-      raise Fluent::ConfigError, "Invalid output_data_type: '#{@output_data_type}'. specify 'json' or 'attr:ATTRIBUTE_NAME' or 'attr:ATTR1,ATTR2,...'"
+      raise ConfigError, "Invalid output_data_type: '#{@output_data_type}'. specify 'json' or 'attr:ATTRIBUTE_NAME' or 'attr:ATTR1,ATTR2,...'"
     end
 
+    ##
+    # optimize format(tag, time, record) method
+    #
     if @output_include_time and @output_include_tag
-      if @add_newline
-        self.instance_eval {
-          def format(tag,time,record)
-            @timef.format(time) + @field_separator + tag + @field_separator + stringify_record(record) + "\n"
-          end
+      if @output_add_newline
+        define_singleton_method(:format) {|tag,time,record|
+          "#{timef.format(time)}#{output_field_separator}#{tag}#{output_field_separator}#{stringify_record(record)}\n"
         }
       else
-        self.instance_eval {
-          def format(tag,time,record)
-            @timef.format(time) + @field_separator + tag + @field_separator + stringify_record(record)
-          end
+        define_singleton_method(:format) {|tag,time,record|
+          "#{timef.format(time)}#{output_field_separator}#{tag}#{output_field_separator}#{stringify_record(record)}"
         }
       end
+
     elsif @output_include_time
-      if @add_newline
-        self.instance_eval {
-          def format(tag,time,record);
-            @timef.format(time) + @field_separator + stringify_record(record) + "\n"
-          end
+      if @output_add_newline
+        define_singleton_method(:format) {|tag,time,record|
+          "#{timef.format(time)}#{output_field_separator}#{stringify_record(record)}\n"
         }
       else
-        self.instance_eval {
-          def format(tag,time,record);
-            @timef.format(time) + @field_separator + stringify_record(record)
-          end
+        define_singleton_method(:format) {|tag,time,record|
+          "#{timef.format(time)}#{output_field_separator}#{stringify_record(record)}"
         }
       end
+
     elsif @output_include_tag
-      if @add_newline
-        self.instance_eval {
-          def format(tag,time,record);
-            tag + @field_separator + stringify_record(record) + "\n"
-          end
+      if @output_add_newline
+        define_singleton_method(:format) {|tag,time,record|
+          "#{tag}#{output_field_separator}#{stringify_record(record)}\n"
         }
       else
-        self.instance_eval {
-          def format(tag,time,record);
-            tag + @field_separator + stringify_record(record)
-          end
+        define_singleton_method(:format) {|tag,time,record|
+          "#{tag}#{output_field_separator}#{stringify_record(record)}"
         }
       end
+
     else # without time, tag
-      if @add_newline
-        self.instance_eval {
-          def format(tag,time,record);
-            stringify_record(record) + "\n"
-          end
+      if @output_add_newline
+        define_singleton_method(:format) {|tag,time,record|
+          "#{stringify_record(record)}\n"
         }
       else
-        self.instance_eval {
-          def format(tag,time,record);
-            stringify_record(record)
-          end
+        define_singleton_method(:format) {|tag,time,record|
+          stringify_record(record)
         }
       end
     end
   end
 
   def stringify_record(record)
-    record.to_json
+    # will be overridden in configure
   end
 
   def format(tag, time, record)
-    time_str = @timef.format(time)
-    time_str + @field_separator + tag + @field_separator + stringify_record(record) + "\n"
+    # will be overridden in configure
   end
 
 end
