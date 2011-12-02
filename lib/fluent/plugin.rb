@@ -109,7 +109,7 @@ class PluginClass
       return
     end
 
-    # prefer LOAD_PATH
+    # prefer LOAD_PATH than gems
     files = $LOAD_PATH.map {|lp|
       lpath = File.join(lp, "#{path}.rb")
       File.exist?(lpath) ? lpath : nil
@@ -122,29 +122,31 @@ class PluginClass
 
     # search gems
     if defined?(::Gem::Specification) && ::Gem::Specification.respond_to?(:find_all)
-      specs = Gem::Specification.find_all {|spec| spec.contains_requirable_file? path}
-      specs = specs.sort_by {|spec| spec.version }
+      specs = Gem::Specification.find_all {|spec|
+        spec.contains_requirable_file? path
+      }
 
       # prefer newer version
-      unless specs.empty?
-        spec = specs.last
-        spec.require_paths.each do |lib|
+      specs = specs.sort_by {|spec| spec.version }
+      if spec = specs.last
+        spec.require_paths.each {|lib|
           file = "#{spec.full_gem_path}/#{lib}/#{path}"
           require file
-        end
+        }
       end
-    # backward compatibility
+
+    # backward compatibility for rubygems < 1.8
     elsif defined?(::Gem) && ::Gem.respond_to?(:searcher)
       #files = Gem.find_files(path).sort
       specs = Gem.searcher.find_all(path)
-      specs = specs.sort_by {|spec| spec.version }
 
       # prefer newer version
+      specs = specs.sort_by {|spec| spec.version }
       specs.reverse_each {|spec|
         files = Gem.searcher.matching_files(spec, path)
         unless files.empty?
           require files.first
-          return
+          break
         end
       }
     end
