@@ -65,6 +65,7 @@ Patches contributed by:
 * {Abhishek Parolkar}[https://github.com/parolkar]
 * {Eiichiro Iwata}[http://github.com/eiichiroi]
 * {Francesc Esplugas}[https://github.com/fesplugas]
+* {hirochachacha}[https://github.com/hirochachacha]
 * {Masahiro Nakagawa}[https://github.com/repeatedly]
 * {Sakuro Ozawa}[https://github.com/sakuro]
 * Takashi Nagayasu
