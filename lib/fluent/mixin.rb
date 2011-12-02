@@ -192,5 +192,151 @@ module SetTagKeyMixin
   end
 end
 
+module PlainTextFormatterMixin
+  attr_accessor :output_include_time, :output_include_tag, :output_data_type
+  attr_accessor :add_newline, :field_separator
+
+  # config_param :output_data_type, :string, :default => 'json' # or 'attr:field' or 'attr:field1,field2,field3(...)'
+  def configure(conf)
+    super
+
+    if conf['output_include_time'].nil?
+      @output_include_time = true
+    else
+      @output_include_time = Fluent::Config.bool_value(conf['output_include_time'])
+    end
+    if conf['output_include_tag'].nil?
+      @output_include_tag = true
+    else
+      @output_include_tag = Fluent::Config.bool_value(conf['output_include_tag'])
+    end
+    @output_data_type = conf['output_data_type'] || 'json'
+
+    @field_separator = case conf['field_separator']
+                       when 'SPACE' then ' '
+                       when 'COMMA' then ','
+                       else "\t"
+                       end
+    if conf['add_newline'].nil?
+      @add_newline = true
+    else
+      @add_newline = Fluent::Config.bool_value(conf['add_newline'])
+    end
+
+    # default timezone: utc
+    if @localtime.nil? and @utc.nil?
+      if conf.has_key?('localtime') or conf.has_key?('utc')
+        @utc = conf.has_key?('utc')
+        @localtime = conf.has_key?('localtime')
+      end
+    end
+    if (@localtime and @utc) or (not @localtime and not @utc)
+      @utc = true
+      @localtime = false
+    elsif @localtime
+      @utc = false
+    elsif @utc
+      @localtime = false
+    end
+    # mix-in default time formatter (or you can overwrite @timef on your own configure)
+    @timef = @output_include_time ? Fluent::TimeFormatter.new(@time_format, @localtime) : nil
+
+    @custom_attributes = []
+    if @output_data_type == 'json'
+      self.instance_eval {
+        def stringify_record(record)
+          record.to_json
+        end
+      }
+    elsif @output_data_type =~ /^attr:(.*)$/
+      @custom_attributes = $1.split(',')
+      if @custom_attributes.size > 1
+        self.instance_eval {
+          def stringify_record(record)
+            @custom_attributes.map{|attr| (record[attr] || 'NULL').to_s}.join(@field_separator)
+          end
+        }
+      elsif @custom_attributes.size == 1
+        self.instance_eval {
+          def stringify_record(record)
+            (record[@custom_attributes[0]] || 'NULL').to_s
+          end
+        }
+      else
+        raise Fluent::ConfigError, "Invalid attributes specification: '#{@output_data_type}', needs one or more attributes."
+      end
+    else
+      raise Fluent::ConfigError, "Invalid output_data_type: '#{@output_data_type}'. specify 'json' or 'attr:ATTRIBUTE_NAME' or 'attr:ATTR1,ATTR2,...'"
+    end
+
+    if @output_include_time and @output_include_tag
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record)
+            @timef.format(time) + @field_separator + tag + @field_separator + stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record)
+            @timef.format(time) + @field_separator + tag + @field_separator + stringify_record(record)
+          end
+        }
+      end
+    elsif @output_include_time
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record);
+            @timef.format(time) + @field_separator + stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record);
+            @timef.format(time) + @field_separator + stringify_record(record)
+          end
+        }
+      end
+    elsif @output_include_tag
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record);
+            tag + @field_separator + stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record);
+            tag + @field_separator + stringify_record(record)
+          end
+        }
+      end
+    else # without time, tag
+      if @add_newline
+        self.instance_eval {
+          def format(tag,time,record);
+            stringify_record(record) + "\n"
+          end
+        }
+      else
+        self.instance_eval {
+          def format(tag,time,record);
+            stringify_record(record)
+          end
+        }
+      end
+    end
+  end
+
+  def stringify_record(record)
+    record.to_json
+  end
+
+  def format(tag, time, record)
+    time_str = @timef.format(time)
+    time_str + @field_separator + tag + @field_separator + stringify_record(record) + "\n"
+  end
+
+end
 
 end
