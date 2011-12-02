@@ -121,7 +121,20 @@ class PluginClass
     end
 
     # search gems
-    if defined?(::Gem) && ::Gem.respond_to?(:searcher)
+    if defined?(::Gem::Specification) && ::Gem::Specification.respond_to?(:find_all)
+      specs = Gem::Specification.find_all {|spec| spec.contains_requirable_file? path}
+      specs = specs.sort_by {|spec| spec.version }
+
+      # prefer newer version
+      unless specs.empty?
+        spec = specs.last
+        spec.require_paths.each do |lib|
+          file = "#{spec.full_gem_path}/#{lib}/#{path}"
+          require file
+        end
+      end
+    # backward compatibility
+    elsif defined?(::Gem) && ::Gem.respond_to?(:searcher)
       #files = Gem.find_files(path).sort
       specs = Gem.searcher.find_all(path)
       specs = specs.sort_by {|spec| spec.version }
