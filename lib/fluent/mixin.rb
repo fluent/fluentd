@@ -192,154 +192,155 @@ module SetTagKeyMixin
   end
 end
 
-module PlainTextFormatterMixin
-  attr_accessor :output_include_time, :output_include_tag, :output_data_type
-  attr_accessor :output_add_newline, :output_field_separator
 
-  def initialize
-    super
-    # default values may be overwriten by subclasses
-    @output_include_time = true
-    @output_include_tag = true
-    @output_data_type = 'json'
-    @output_field_separator = "\t"
-    @output_add_newline = true
-  end
+#module PlainTextFormatterMixin
+#  attr_accessor :output_include_time, :output_include_tag, :output_data_type
+#  attr_accessor :output_add_newline, :output_field_separator
+#
+#  def initialize
+#    super
+#    # default values may be overwriten by subclasses
+#    @output_include_time = true
+#    @output_include_tag = true
+#    @output_data_type = 'json'
+#    @output_field_separator = "\t"
+#    @output_add_newline = true
+#  end
+#
+#  # config_param :output_data_type, :string, :default => 'json' # or 'attr:field' or 'attr:field1,field2,field3(...)'
+#  def configure(conf)
+#    super
+#
+#    if output_include_time = conf['output_include_time']
+#      @output_include_time = Config.bool_value(output_include_time)
+#    end
+#
+#    if output_include_tag = conf['output_include_tag']
+#      @output_include_tag = Config.bool_value(output_include_tag)
+#    end
+#
+#    if output_data_type = conf['output_data_type']
+#      @output_data_type = output_data_type
+#    end
+#
+#    if output_field_separator = conf['output_field_separator']
+#      case output_field_separator
+#      when 'SPACE'
+#        @output_field_separator = ' '
+#      when 'COMMA'
+#        @output_field_separator = ','
+#      else
+#        raise ConfigError, "Unknown output_field_separator option #{output_field_separator.dump}"
+#      end
+#    end
+#
+#    if output_add_newline = conf['output_add_newline']
+#      @output_add_newline = Config.bool_value(output_add_newline)
+#    end
+#
+#    # default timezone: utc (localtime=nil)
+#    if conf['localtime']
+#      @localtime = true
+#    elsif conf['utc']
+#      @localtime = false
+#    end
+#
+#    # mix-in default time formatter (or you can overwrite @time_format/@localtime (or @timef itself) on your own configure)
+#    if @output_include_time
+#      timef = @timef || TimeFormatter.new(@time_format, @localtime)
+#    end
+#
+#    output_field_separator = @output_field_separator
+#
+#    ##
+#    # optimize stringify_record(record) method
+#    #
+#    case @output_data_type
+#    when 'json'
+#      define_singleton_method(:stringify_record) {|record|
+#        record.to_json
+#      }
+#
+#    when /^attr:(.*)$/
+#      out_keys = $1.split(',')
+#      if out_keys.size > 1
+#        define_singleton_method(:stringify_record) {|record|
+#          out_keys.map {|attr|
+#            r = record[attr]
+#            r.respond_to?(:to_str) ? r.to_str : r.to_json
+#          }.join(output_field_separator)
+#        }
+#      elsif out_keys.size == 1
+#        out_key = out_keys[0]
+#        define_singleton_method(:stringify_record) {|record|
+#          r = record[out_key]
+#          r.respond_to?(:to_str) ? r.to_str : r.to_json
+#        }
+#      else
+#        raise ConfigError, "Invalid attributes specification: '#{@output_data_type}', needs one or more attributes."
+#      end
+#
+#    else
+#      raise ConfigError, "Invalid output_data_type: '#{@output_data_type}'. specify 'json' or 'attr:ATTRIBUTE_NAME' or 'attr:ATTR1,ATTR2,...'"
+#    end
+#
+#    ##
+#    # optimize format(tag, time, record) method
+#    #
+#    if @output_include_time and @output_include_tag
+#      if @output_add_newline
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{timef.format(time)}#{output_field_separator}#{tag}#{output_field_separator}#{stringify_record(record)}\n"
+#        }
+#      else
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{timef.format(time)}#{output_field_separator}#{tag}#{output_field_separator}#{stringify_record(record)}"
+#        }
+#      end
+#
+#    elsif @output_include_time
+#      if @output_add_newline
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{timef.format(time)}#{output_field_separator}#{stringify_record(record)}\n"
+#        }
+#      else
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{timef.format(time)}#{output_field_separator}#{stringify_record(record)}"
+#        }
+#      end
+#
+#    elsif @output_include_tag
+#      if @output_add_newline
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{tag}#{output_field_separator}#{stringify_record(record)}\n"
+#        }
+#      else
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{tag}#{output_field_separator}#{stringify_record(record)}"
+#        }
+#      end
+#
+#    else # without time, tag
+#      if @output_add_newline
+#        define_singleton_method(:format) {|tag,time,record|
+#          "#{stringify_record(record)}\n"
+#        }
+#      else
+#        define_singleton_method(:format) {|tag,time,record|
+#          stringify_record(record)
+#        }
+#      end
+#    end
+#  end
+#
+#  def stringify_record(record)
+#    # will be overridden in configure
+#  end
+#
+#  def format(tag, time, record)
+#    # will be overridden in configure
+#  end
+#end
 
-  # config_param :output_data_type, :string, :default => 'json' # or 'attr:field' or 'attr:field1,field2,field3(...)'
-  def configure(conf)
-    super
-
-    if output_include_time = conf['output_include_time']
-      @output_include_time = Config.bool_value(output_include_time)
-    end
-
-    if output_include_tag = conf['output_include_tag']
-      @output_include_tag = Config.bool_value(output_include_tag)
-    end
-
-    if output_data_type = conf['output_data_type']
-      @output_data_type = output_data_type
-    end
-
-    if output_field_separator = conf['output_field_separator']
-      case output_field_separator
-      when 'SPACE'
-        @output_field_separator = ' '
-      when 'COMMA'
-        @output_field_separator = ','
-      else
-        raise ConfigError, "Unknown output_field_separator option #{output_field_separator.dump}"
-      end
-    end
-
-    if output_add_newline = conf['output_add_newline']
-      @output_add_newline = Config.bool_value(output_add_newline)
-    end
-
-    # default timezone: utc (localtime=nil)
-    if conf['localtime']
-      @localtime = true
-    elsif conf['utc']
-      @localtime = false
-    end
-
-    # mix-in default time formatter (or you can overwrite @time_format/@localtime (or @timef itself) on your own configure)
-    if @output_include_time
-      timef = @timef || TimeFormatter.new(@time_format, @localtime)
-    end
-
-    output_field_separator = @output_field_separator
-
-    ##
-    # optimize stringify_record(record) method
-    #
-    case @output_data_type
-    when 'json'
-      define_singleton_method(:stringify_record) {|record|
-        record.to_json
-      }
-
-    when /^attr:(.*)$/
-      out_keys = $1.split(',')
-      if out_keys.size > 1
-        define_singleton_method(:stringify_record) {|record|
-          out_keys.map {|attr|
-            r = record[attr]
-            r.respond_to?(:to_str) ? r.to_str : r.to_json
-          }.join(output_field_separator)
-        }
-      elsif out_keys.size == 1
-        out_key = out_keys[0]
-        define_singleton_method(:stringify_record) {|record|
-          r = record[out_key]
-          r.respond_to?(:to_str) ? r.to_str : r.to_json
-        }
-      else
-        raise ConfigError, "Invalid attributes specification: '#{@output_data_type}', needs one or more attributes."
-      end
-
-    else
-      raise ConfigError, "Invalid output_data_type: '#{@output_data_type}'. specify 'json' or 'attr:ATTRIBUTE_NAME' or 'attr:ATTR1,ATTR2,...'"
-    end
-
-    ##
-    # optimize format(tag, time, record) method
-    #
-    if @output_include_time and @output_include_tag
-      if @output_add_newline
-        define_singleton_method(:format) {|tag,time,record|
-          "#{timef.format(time)}#{output_field_separator}#{tag}#{output_field_separator}#{stringify_record(record)}\n"
-        }
-      else
-        define_singleton_method(:format) {|tag,time,record|
-          "#{timef.format(time)}#{output_field_separator}#{tag}#{output_field_separator}#{stringify_record(record)}"
-        }
-      end
-
-    elsif @output_include_time
-      if @output_add_newline
-        define_singleton_method(:format) {|tag,time,record|
-          "#{timef.format(time)}#{output_field_separator}#{stringify_record(record)}\n"
-        }
-      else
-        define_singleton_method(:format) {|tag,time,record|
-          "#{timef.format(time)}#{output_field_separator}#{stringify_record(record)}"
-        }
-      end
-
-    elsif @output_include_tag
-      if @output_add_newline
-        define_singleton_method(:format) {|tag,time,record|
-          "#{tag}#{output_field_separator}#{stringify_record(record)}\n"
-        }
-      else
-        define_singleton_method(:format) {|tag,time,record|
-          "#{tag}#{output_field_separator}#{stringify_record(record)}"
-        }
-      end
-
-    else # without time, tag
-      if @output_add_newline
-        define_singleton_method(:format) {|tag,time,record|
-          "#{stringify_record(record)}\n"
-        }
-      else
-        define_singleton_method(:format) {|tag,time,record|
-          stringify_record(record)
-        }
-      end
-    end
-  end
-
-  def stringify_record(record)
-    # will be overridden in configure
-  end
-
-  def format(tag, time, record)
-    # will be overridden in configure
-  end
-
-end
 
 end
