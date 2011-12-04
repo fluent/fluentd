@@ -157,11 +157,11 @@ class FileBuffer < BasicBuffer
 
   protected
   def encode_key(key)
-		URI.encode(key, /[^-_.a-zA-Z0-9]/n)
+    URI.escape(key, /[^-_.a-zA-Z0-9]/n)
   end
 
   def decode_key(encoded_key)
-		URI.decode(encoded_key, /[^-_.a-zA-Z0-9]/n)
+    URI.unescape(encoded_key)
   end
 
   def make_path(encoded_key, bq)
