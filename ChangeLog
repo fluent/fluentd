@@ -1,4 +1,16 @@
 
+Release 0.10.8 - 2011/12/03
+
+* Added Supervisor: restart process on SIGHUP or unexpected end of process
+* Added -i commandline option which allows inline config
+* Added TimeSlicedOutputTestDriver
+* BufferedOutput outputs 'retry suceeded' message
+* Use Gem::Specification instead of Gem.searcher which is obsoleted
+* Added BasicBuffer#chunk_limit -> buffer_chunk_limit alias for backward
+  compatibility
+* buf_file: fixed to work with keys which contains '/'
+
+
 Release 0.10.7 - 2011/11/16
 
 * Supports multi-threaded on buffered output plugins ('num_threads')
