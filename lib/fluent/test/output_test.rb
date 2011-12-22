@@ -112,12 +112,18 @@ class TimeSlicedOutputTestDriver < InputTestDriver
   def run(&block)
     result = []
     super {
+      buffer = ''
       @entries.keys.each {|key|
         es = ArrayEventStream.new(@entries[key])
         @instance.emit(@tag, es, NullOutputChain.instance)
+        buffer << @instance.format_stream(@tag, es)
       }
 
       block.call if block
+
+      if @expected_buffer
+        assert_equal(@expected_buffer, buffer)
+      end
 
       chunks = @instance.instance_eval {
         @buffer.instance_eval {
