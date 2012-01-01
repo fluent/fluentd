@@ -42,6 +42,9 @@ class TailInput < Input
       @pf_file = File.open(@pos_file, File::RDWR|File::CREAT)
       @pf_file.sync = true
       @pf = PositionFile.parse(@pf_file)
+    else
+      $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
+      $log.warn "this parameter is highly recommended to save the position to resume tailing."
     end
 
     configure_parser(conf)
