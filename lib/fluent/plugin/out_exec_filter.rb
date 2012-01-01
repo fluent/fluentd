@@ -27,7 +27,9 @@ class ExecFilterOutput < Output
 
   config_param :command, :string
   config_param :in_keys, :string
+  config_param :remove_prefix, :string, :default => nil
   config_param :out_keys, :string
+  config_param :add_prefix, :string, :default => nil
   config_param :tag, :string, :default => nil
   config_param :tag_key, :string, :default => nil
   config_param :time_key, :string, :default => nil
@@ -61,6 +63,14 @@ class ExecFilterOutput < Output
         @time_parse_proc = Proc.new {|str| str.to_i }
       end
     end
+
+    if @remove_prefix
+      @removed_prefix_string = @remove_prefix + '.'
+      @removed_length = @removed_prefix_string.length
+    end
+    if @add_prefix
+      @added_prefix_string = @add_prefix + '.'
+    end
   end
 
   def start
@@ -82,6 +92,12 @@ class ExecFilterOutput < Output
 
   def emit(tag, es, chain)
     out = ''
+    if @remove_prefix
+      if (tag[0, @removed_length] == @removed_prefix_string and tag.length > @removed_length) or tag == @removed_prefix
+        tag = tag[@removed_length..-1] || ''
+      end
+    end
+
     es.each {|time,record|
       last = @in_keys.length-1
       for i in 0..last
@@ -116,7 +132,11 @@ class ExecFilterOutput < Output
           if key == @time_key
             time = @time_parse_proc.call(val)
           elsif key == @tag_key
-            tag = val
+            tag = if @add_prefix
+                    @added_prefix_string + val
+                  else
+                    val
+                  end
           else
             record[key] = val
           end
