@@ -112,11 +112,16 @@ class TailInput < Input
       if @inode == @pe.read_inode
         # seek to the saved position
         @pos = @pe.read_pos
+      elsif @pe.persistent?
+        # read from the head of the file if
+        # persistent pos file is enable
+        @pos = 0
+        @pe.update(@inode, @pos)
       else
         # seek to the end of file first.
         # logs never duplicate but may be lost if fluent is down.
         @pos = stat.size
-        @pe.update(@inode, stat.size)
+        @pe.update(@inode, @pos)
       end
       @buffer = ''
       @callback = callback
@@ -222,6 +227,10 @@ class TailInput < Input
       @last_pos = last_pos
     end
 
+    def persistent?
+      true
+    end
+
     def [](path)
       if m = @map[path]
         return m
@@ -256,6 +265,9 @@ class TailInput < Input
   class NullPositionEntry
     require 'singleton'
     include Singleton
+    def persistent?
+      false
+    end
     def update(ino, pos)
     end
     def update_pos(pos)
