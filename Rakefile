@@ -29,12 +29,6 @@ rescue LoadError
   puts "Jeweler not available. Install it with: gem install jeweler"
 end
 
-Rake::TestTask.new(:test) do |t|
-  t.test_files = Dir['test/*_test.rb']
-  t.ruby_opts = ['-rubygems'] if defined? Gem
-  t.ruby_opts << '-I.'
-end
-
 VERSION_FILE = "lib/fluent/version.rb"
 
 file VERSION_FILE => ["VERSION"] do |t|
