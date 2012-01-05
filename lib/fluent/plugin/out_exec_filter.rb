@@ -81,11 +81,27 @@ class ExecFilterOutput < Output
   end
 
   def shutdown
-    Process.kill(:TERM, @pid)
+    begin
+      Process.kill(:TERM, @pid)
+    rescue Errno::ESRCH
+      if $!.message == 'No such process'
+        # child process killed by signal chained from fluentd process
+      else
+        raise
+      end
+    end
     if @thread.join(60)  # TODO wait time
       return
     end
-    Process.kill(:KILL, @pid)
+    begin
+      Process.kill(:KILL, @pid)
+    rescue Errno::ESRCH
+      if $!.message == 'No such process'
+        # successfully killed by :TERM, ignored
+      else
+        raise
+      end
+    end
     @thread.join
     nil
   end
