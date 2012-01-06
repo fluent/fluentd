@@ -64,7 +64,7 @@ class TailInput < Input
       @loop.attach h
     }
     handlers.each {|h|
-      h.on_change  # initialize call
+      h.on_change(nil, nil)  # initialize call  # TODO prev, cur
     }
     @thread = Thread.new(&method(:run))
   end
@@ -131,7 +131,7 @@ class TailInput < Input
       super(path)
     end
 
-    def on_change
+    def on_change(prev, cur)
       lines = []
       inode = nil
 
