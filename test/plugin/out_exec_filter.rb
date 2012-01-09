@@ -55,7 +55,6 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d.run do
       d.emit({"k1"=>1}, time)
       d.emit({"k1"=>2}, time)
-      sleep 0.5
     end
 
     emits = d.emits
@@ -78,7 +77,6 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d.run do
       d.emit({"k1"=>1}, time)
       d.emit({"k1"=>2}, time)
-      sleep 0.5
     end
 
     emits = d.emits
@@ -101,7 +99,6 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
       d.emit({"val1"=>"sed-ed value poo"}, time)
-      sleep 0.5
     end
 
     emits = d.emits
@@ -121,7 +118,6 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
       d.emit({"val1"=>"sed-ed value poo"}, time)
-      sleep 0.5
     end
 
     emits = d.emits
@@ -146,7 +142,6 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
       d.emit({"val1"=>"sed-ed value poo"}, time)
-      sleep 0.5
     end
 
     emits = d.emits
