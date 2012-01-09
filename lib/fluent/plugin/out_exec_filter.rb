@@ -135,7 +135,7 @@ class ExecFilterOutput < BufferedOutput
   end
 
   def write(chunk)
-    r = @rr = @rr + 1 % @children.length
+    r = @rr = (@rr + 1) % @children.length
     @children[r].write chunk
   end
 
