@@ -63,6 +63,7 @@ License:: Apache License, Version 2.0
 Patches contributed by:
 
 * {Abhishek Parolkar}[https://github.com/parolkar]
+* {Chad Skidmore}[https://github.com/chad-skidmore]
 * {Eiichiro Iwata}[http://github.com/eiichiroi]
 * {Francesc Esplugas}[https://github.com/fesplugas]
 * {hirochachacha}[https://github.com/hirochachacha]
