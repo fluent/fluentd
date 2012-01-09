@@ -178,7 +178,7 @@ class TailInput < Input
         @pe.update_pos(@pos)
       end
 
-      @callback.call(lines)
+      @callback.call(lines) unless lines.empty?
 
     rescue Errno::ENOENT
       # moved or deleted
@@ -221,6 +221,10 @@ class TailInput < Input
       @file.pos = @seek
       @file.read(16).to_i(16)
     end
+
+    def persistent?
+      true
+    end
   end
 
   class PositionFile
@@ -228,10 +232,6 @@ class TailInput < Input
       @file = file
       @map = map
       @last_pos = last_pos
-    end
-
-    def persistent?
-      true
     end
 
     def [](path)
