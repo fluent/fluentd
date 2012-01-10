@@ -14,6 +14,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     time_key time
     time_format %Y-%m-%d %H:%M:%S
     localtime
+    num_children 3
   ]
 
   def create_driver(conf = CONFIG, tag = 'test')
@@ -29,6 +30,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal "time", d.instance.time_key
     assert_equal "%Y-%m-%d %H:%M:%S", d.instance.time_format
     assert_equal true, d.instance.localtime
+    assert_equal 3, d.instance.num_children
 
     d = create_driver %[
       command sed -l -e s/foo/bar/
@@ -36,6 +38,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       out_keys time,k2
       tag xxx
       time_key time
+      num_children 3
     ]
     assert_equal "sed -l -e s/foo/bar/", d.instance.command
 
@@ -70,6 +73,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       out_keys time,k2
       tag xxx
       time_key time
+      num_children 3
     ]
 
     time = Time.parse("2011-01-02 13:14:15").to_i
@@ -92,6 +96,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       out_keys time,val2
       tag xxx
       time_key time
+      num_children 3
     ]
 
     time = Time.parse("2011-01-02 13:14:15").to_i
@@ -111,6 +116,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       out_keys time,val2
       tag xxx
       time_key time
+      num_children 3
     ]
 
     time = Time.parse("2011-01-02 13:14:15").to_i
@@ -135,6 +141,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       add_prefix output
       tag_key tag
       time_key time
+      num_children 3
     ], 'input.test')
 
     time = Time.parse("2011-01-02 13:14:15").to_i
