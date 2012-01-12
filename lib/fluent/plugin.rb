@@ -94,7 +94,7 @@ class PluginClass
     if klass = map[type]
       return klass.new
     end
-    raise ConfigError, "Unknown #{name} plugin '#{type}'. Run 'gem search fluent-plugin' to find plugins"
+    raise ConfigError, "Unknown #{name} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"
   end
 
   def try_load_plugin(name, type)
