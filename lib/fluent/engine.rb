@@ -108,7 +108,7 @@ class EngineClass
     end
     target.emit(tag, es)
   rescue
-    $log.warn "emit transaction faild ", :error=>$!.to_s
+    $log.warn "emit transaction failed ", :error=>$!.to_s
     $log.warn_backtrace
     raise
   end
