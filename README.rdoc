@@ -69,7 +69,9 @@ Patches contributed by:
 * {hirochachacha}[https://github.com/hirochachacha]
 * {Masahiro Nakagawa}[https://github.com/repeatedly]
 * {Sakuro Ozawa}[https://github.com/sakuro]
-* Takashi Nagayasu
+* {Satoshi Tagomori}[https://github.com/tagomoris]
+* {Takashi Nagayasu}[https://github.com/sumipan]
 * {Tsuyoshi Ozawa}[https://github.com/oza]
 * {uu59}[https://github.com/uu59]
+* {Waldemar Quevedo Salinas}[https://github.com/wallyqs]
 * {Yuichi Tateno}[https://github.com/hotchpotch]
