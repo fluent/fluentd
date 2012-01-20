@@ -1,4 +1,16 @@
 
+Release 0.10.9 - 2012/01/19
+
+* Fixed TimeSlicedOutputTestDriver
+* Updated cool.io 1.0.0 -> 1.1.0
+* TextParser: fixed regexp of syslog parser to work with rsyslog on CentOS
+* out_exec_filter: improve performance by using buffering
+* out_exec_filter: added num_children parameter
+* out_exec_filter: added remove_prefix/add_prefix parameters
+* out_tail: show warning if pos_file parameter is not set
+* out_copy: fixed problems when event stream is not repeatable
+
+
 Release 0.10.8 - 2011/12/03
 
 * Added Supervisor: restart process on SIGHUP or unexpected end of process
