@@ -57,10 +57,11 @@ class CopyOutput < MultiOutput
 
   def emit(tag, es, chain)
     unless es.repeatable?
-      es = MultiEventStream.new
-      array = es.map {|time,record|
-        es.add(time, record)
+      m = MultiEventStream.new
+      es.each {|time,record|
+        m.add(time, record)
       }
+      es = m
     end
     chain = OutputChain.new(@outputs, tag, es, chain)
     chain.next
