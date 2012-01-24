@@ -16,7 +16,7 @@ Release 0.10.8 - 2011/12/03
 * Added Supervisor: restart process on SIGHUP or unexpected end of process
 * Added -i commandline option which allows inline config
 * Added TimeSlicedOutputTestDriver
-* BufferedOutput outputs 'retry suceeded' message
+* BufferedOutput outputs 'retry succeeded' message
 * Use Gem::Specification instead of Gem.searcher which is obsoleted
 * Added BasicBuffer#chunk_limit -> buffer_chunk_limit alias for backward
   compatibility

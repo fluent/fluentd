@@ -285,7 +285,7 @@ class BufferedOutput < Output
               return time + 1  # TODO 1
             end
             # assume next retry failes and
-            # clear them if when it suceeds
+            # clear them if when it succeeds
             @last_retry_time = time
             @error_history << time
             @next_retry_time += calc_retry_wait
@@ -304,7 +304,7 @@ class BufferedOutput < Output
         @error_history.clear
         # Note: don't notify to other threads to prevent
         #       burst to recovered server
-        $log.warn "retry suceeded.", :instance=>object_id
+        $log.warn "retry succeeded.", :instance=>object_id
       end
 
       if has_next
