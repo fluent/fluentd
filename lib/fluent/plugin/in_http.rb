@@ -232,6 +232,8 @@ class HttpInput < Input
       elsif @content_type =~ /^multipart\/form-data; boundary=(.+)/
         boundary = WEBrick::HTTPUtils.dequote($1)
         params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
+      elsif @content_type =~ /^application\/json/
+        params['json'] = @body
       end
       path_info = @parser.request_path
 
