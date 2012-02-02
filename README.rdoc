@@ -54,6 +54,7 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 Web site::  http://fluentd.org/
 Documents:: http://fluentd.org/doc/
 Source repository:: http://github.com/fluent
+Discussion:: http://groups.google.com/group/fluentd
 Author:: Sadayuki Furuhashi
 Copyright:: (c) 2011 FURUHASHI Sadayuki
 License:: Apache License, Version 2.0
