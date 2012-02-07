@@ -2,7 +2,7 @@
 
 Fluent is an event collector system. It's said that Fluent is generalized version of syslogd, which can deal with JSON object for the log message.
 
-== Archtecture
+== Architecture
 
 Fluent collects events from various data sources and write them to files, database or other storages:
 
