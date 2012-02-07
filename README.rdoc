@@ -1,10 +1,10 @@
 = Fluentd
 
-Fluentd is an event collector system. Fluentd is generalized version of syslogd, which deals with JSON object for the log message.
+Fluentd is an event collector system. It is a generalized version of syslogd, which handles JSON objects for its log messages.
 
 == Architecture
 
-Fluentd collects events from various data sources and write them to files, database or other storages:
+Fluentd collects events from various data sources and writes them to files, database or other types of storages:
 
     
     Web apps  ---+                 +--> file
@@ -13,7 +13,7 @@ Fluentd collects events from various data sources and write them to files, datab
     /var/log  ------>  Fluentd  ------> mail
                  +-->           ---+
                  |                 |
-    apache    ----                 +--> Fluentd
+    Apache    ----                 +--> Fluentd
     
 
 Fluent also supports log transfer:
@@ -38,7 +38,7 @@ Fluent also supports log transfer:
      +---------+
     
 
-An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time when the event occurs. Record is a JSON object.
+An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time recorded at occurrence of an event. Record is a JSON object.
 
 
 == Quick Start
