@@ -68,6 +68,7 @@ Patches contributed by:
 * {Eiichiro Iwata}[http://github.com/eiichiroi]
 * {Francesc Esplugas}[https://github.com/fesplugas]
 * {hirochachacha}[https://github.com/hirochachacha]
+* {Hiro Yoshikawa}[https://github.com/hiroyoshikawa]
 * {Masahiro Nakagawa}[https://github.com/repeatedly]
 * {Nathan Parry}[https://github.com/nparry]
 * {Sakuro Ozawa}[https://github.com/sakuro]
