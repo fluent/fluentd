@@ -58,6 +58,25 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_application_json
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
+
+    d.run do
+      d.expected_emits.each {|tag,time,record|
+        http = Net::HTTP.new("127.0.0.1", 9911)
+        req = Net::HTTP::Post.new("/#{tag}?time=#{time.to_s}", {"content-type"=>"application/json; charset=utf-8"})
+        req.body = record.to_json
+        res = http.request(req)
+        assert_equal "200", res.code
+      }
+    end
+  end
+
   def test_msgpack
     d = create_driver
 
