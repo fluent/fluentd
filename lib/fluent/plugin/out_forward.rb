@@ -196,6 +196,8 @@ class ForwardOutput < ObjectBufferedOutput
 
     def on_timer
       @callback.call
+    rescue
+      # TODO log?
     end
   end
 
@@ -225,6 +227,8 @@ class ForwardOutput < ObjectBufferedOutput
       port = addr[1]
       sockaddr = Socket.pack_sockaddr_in(port, host)
       @callback.call(sockaddr, msg)
+    rescue
+      # TODO log?
     end
   end
 
