@@ -164,10 +164,18 @@ class ForwardInput < Input
 
     def on_read_json(data)
       @y << data
+    rescue
+      $log.error "forward error: #{$!.to_s}"
+      $log.error_backtrace
+      close
     end
 
     def on_read_msgpack(data)
       @u.feed_each(data, &@on_message)
+    rescue
+      $log.error "forward error: #{$!.to_s}"
+      $log.error_backtrace
+      close
     end
 
     def on_close
@@ -187,6 +195,9 @@ class ForwardInput < Input
       host = addr[3]
       port = addr[1]
       @callback.call(host, port, msg)
+    rescue
+      # TODO log?
+      close
     end
   end
 
