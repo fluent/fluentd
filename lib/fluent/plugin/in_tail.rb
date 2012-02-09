@@ -109,7 +109,7 @@ class TailInput < Input
 
   class Handler < Coolio::StatWatcher
     def initialize(path, pe, callback)
-      stat = File.lstat(path)
+      stat = File.stat(path)
       @pe = pe
       @inode = stat.ino
       if @inode == @pe.read_inode
@@ -131,7 +131,7 @@ class TailInput < Input
       inode = nil
 
       File.open(path) {|f|
-        stat = f.lstat
+        stat = f.stat
         inode = stat.ino
 
         if @inode != inode || stat.size < @pos
