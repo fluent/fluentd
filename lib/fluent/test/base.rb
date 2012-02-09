@@ -51,7 +51,7 @@ class TestDriver
     @instance.start
     begin
       # wait until thread starts
-      10.times { sleep 0.01 }
+      10.times { sleep 0.05 }
       return yield
     ensure
       @instance.shutdown
