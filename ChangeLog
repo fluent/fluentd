@@ -1,4 +1,14 @@
 
+Release 0.10.10 - 2012/02/09
+
+* in_forward and on_forward don't raise exceptions in callback handlers of
+  cool.io not to stop Loop#run
+* TimeSlicedOutput ignores time_slice_wait if flush_interval is specified
+* in_tail follows symbolic links correctly
+* in_http supports "Content-Type: application/json"
+* TestDriver#run sleeps 0.5 seconds for the out_exec_filter plugin
+
+
 Release 0.10.9 - 2012/01/19
 
 * Fixed TimeSlicedOutputTestDriver
