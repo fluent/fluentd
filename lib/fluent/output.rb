@@ -442,6 +442,7 @@ class TimeSlicedOutput < BufferedOutput
   config_param :time_slice_format, :string, :default => '%Y%m%d'
   config_param :time_slice_wait, :time, :default => 10*60
   config_set_default :buffer_type, 'file'  # overwrite default buffer_type
+  config_set_default :flush_interval, nil
 
   attr_accessor :localtime
 
@@ -468,6 +469,28 @@ class TimeSlicedOutput < BufferedOutput
     @time_slice_cache_interval = time_slice_cache_interval
     @before_tc = nil
     @before_key = nil
+
+    if @flush_interval
+      if conf['time_slice_wait']
+        $log.warn "time_slice_wait is ignored if flush_interval is specified: #{conf}"
+      end
+      @enqueue_buffer_proc = Proc.new do
+        @buffer.keys.each {|key|
+          @buffer.push(key)
+        }
+      end
+
+    else
+      @flush_interval = [60, @time_slice_cache_interval].min
+      @enqueue_buffer_proc = Proc.new do
+        nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
+        @buffer.keys.each {|key|
+          if key < nowslice
+            @buffer.push(key)
+          end
+        }
+      end
+    end
   end
 
   def emit(tag, es, chain)
@@ -488,12 +511,7 @@ class TimeSlicedOutput < BufferedOutput
   end
 
   def enqueue_buffer
-    nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
-    @buffer.keys.each {|key|
-      if key < nowslice
-        @buffer.push(key)
-      end
-    }
+    @enqueue_buffer_proc.call
   end
 
   #def format(tag, event)
