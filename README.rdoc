@@ -71,6 +71,7 @@ Patches contributed by:
 * {Hiro Yoshikawa}[https://github.com/hiroyoshikawa]
 * {Masahiro Nakagawa}[https://github.com/repeatedly]
 * {Nathan Parry}[https://github.com/nparry]
+* {Nobuyuki Kubota}[https://github.com/nobu-k]
 * {Sakuro Ozawa}[https://github.com/sakuro]
 * {Satoshi Tagomori}[https://github.com/tagomoris]
 * {Takashi Nagayasu}[https://github.com/sumipan]
