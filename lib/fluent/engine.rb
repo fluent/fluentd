@@ -203,8 +203,19 @@ class EngineClass
   end
 
   class NoMatchMatch
+    def initialize
+      @count = 0
+    end
+
     def emit(tag, es)
-      $log.on_trace { $log.trace "no pattern matched", :tag=>tag }
+      if @count < 512
+        @count += 1
+        if Math.log(@count) / Math.log(2) % 1.0 == 0
+          $log.warn "no patterns matched", :tag=>tag
+          return
+        end
+      end
+      $log.on_trace { $log.trace "no patterns matched", :tag=>tag }
     end
 
     def start
