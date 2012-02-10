@@ -122,12 +122,12 @@ class TailInput < Input
     end
 
     def on_rotate(io)
-      $log.info "detected rotation of #{@path}. Waiting #{@rotate_wait} seconds"
+      return if @rotate_queue.include?(io)
+      $log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
       @rotate_queue.push(io)
 
       # start rotate_timer
       unless @rotate_timer
-        # TODO timer
         @rotate_timer = RotateTimer.new(@rotate_wait, method(:on_rotate_timer))
         @rotate_timer.attach(@loop)
       end
