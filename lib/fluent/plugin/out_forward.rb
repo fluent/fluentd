@@ -66,15 +66,17 @@ class ForwardOutput < ObjectBufferedOutput
       weight = e['weight']
       weight = weight ? weight.to_i : 60
 
+      standby = !!e['standby']
+
       name = e['name']
       unless name
         name = "#{host}:#{port}"
       end
 
-      failure = FailureDetector.new(@heartbeat_interval.to_f/2, @hard_timeout)
+      failure = FailureDetector.new(@heartbeat_interval.to_f/2, @hard_timeout, Time.now.to_i.to_f)
       sockaddr = Socket.pack_sockaddr_in(port, host)
       port, host = Socket.unpack_sockaddr_in(sockaddr)
-      @nodes[sockaddr] = Node.new(name, host, port, weight, failure,
+      @nodes[sockaddr] = Node.new(name, host, port, weight, standby, failure,
                                   @phi_threshold, recover_sample_size)
       $log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
     }
@@ -83,15 +85,8 @@ class ForwardOutput < ObjectBufferedOutput
   def start
     super
 
-    @weight_array = []
-    gcd = @nodes.values.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
-    @nodes.each_value {|n|
-      (n.weight / gcd).times {
-        @weight_array << n
-      }
-    }
-    @weight_array.sort_by { rand }
-
+    @rand_seed = Random.new.seed
+    rebuild_weight_array
     @rr = 0
 
     @loop = Coolio::Loop.new
@@ -145,6 +140,44 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   private
+  def rebuild_weight_array
+    standby_nodes, regular_nodes = @nodes.values.partition {|n|
+      n.standby?
+    }
+
+    lost_weight = 0
+    regular_nodes.each {|n|
+      unless n.available?
+        lost_weight += n.weight
+      end
+    }
+    $log.debug "rebuilding weight array", :lost_weight=>lost_weight
+
+    if lost_weight > 0
+      standby_nodes.each {|n|
+        if n.available?
+          regular_nodes << n
+          $log.info "using standby node #{n.host}:#{n.port}", :weight=>n.weight
+          lost_weight -= n.weight
+          break if lost_weight <= 0
+        end
+      }
+    end
+
+    weight_array = []
+    gcd = regular_nodes.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
+    regular_nodes.each {|n|
+      (n.weight / gcd).times {
+        weight_array << n
+      }
+    }
+
+    r = Random.new(@rand_seed)
+    weight_array.sort_by { r.rand }
+
+    @weight_array = weight_array
+  end
+
   # MessagePack FixArray length = 2
   FORWARD_HEADER = [0x92].pack('C')
 
@@ -204,8 +237,11 @@ class ForwardOutput < ObjectBufferedOutput
   def on_timer
     return if @finished
     @nodes.each_pair {|sockaddr,n|
-      n.tick
+      if n.tick
+        rebuild_weight_array
+      end
       begin
+        #$log.trace "sending heartbeat #{n.host}:#{n.port}"
         @usock.send "", 0, sockaddr
       rescue
         # TODO log
@@ -235,49 +271,75 @@ class ForwardOutput < ObjectBufferedOutput
   def on_heartbeat(sockaddr, msg)
     if node = @nodes[sockaddr]
       #$log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
-      node.heartbeat
+      if node.heartbeat
+        rebuild_weight_array
+      end
     end
   end
 
   class Node
-    def initialize(name, host, port, weight, failure,
+    def initialize(name, host, port, weight, standby, failure,
                    phi_threshold, recover_sample_size)
       @name = name
       @host = host
       @port = port
       @weight = weight
+      @standby = standby
       @failure = failure
       @phi_threshold = phi_threshold
       @recover_sample_size = recover_sample_size
       @available = true
     end
 
-    attr_reader :name, :host, :port
-    attr_reader :weight
-    attr_writer :available
+    attr_reader :name, :host, :port, :weight
+    attr_writer :weight, :standby, :available
 
     def available?
       @available
     end
 
+    def standby?
+      @standby
+    end
+
     def tick
       now = Time.now.to_f
+      if !@available
+        if @failure.hard_timeout?(now)
+          @failure.clear
+        end
+        return nil
+      end
+
+      if @failure.hard_timeout?(now)
+        $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :hard_timeout=>true
+        @available = false
+        @failure.clear
+        return true
+      end
+
       phi = @failure.phi(now)
       #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
       if phi > @phi_threshold
         $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
         @available = false
         @failure.clear
+        return true
+      else
+        return false
       end
     end
 
     def heartbeat
       now = Time.now.to_f
       @failure.add(now)
-      if !@available && @failure.sample_size > @recover_sample_size &&
-            @failure.phi(now) <= @phi_threshold
+      #$log.trace "heartbeat from '#{@name}'", :host=>@host, :port=>@port, :available=>@available, :sample_size=>@failure.sample_size
+      if !@available && @failure.sample_size > @recover_sample_size
         $log.info "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
         @available = true
+        return true
+      else
+        return nil
       end
     end
 
@@ -290,27 +352,26 @@ class ForwardOutput < ObjectBufferedOutput
     PHI_FACTOR = 1.0 / Math.log(10.0)
     SAMPLE_SIZE = 1000
 
-    def initialize(init_int, hard_timeout)
-      @last = 0
+    def initialize(init_int, hard_timeout, init_last)
+      @last = init_last
       @init_int = init_int
       @hard_timeout = hard_timeout
-      @window = []
-      @failure = false
+      @window = [init_int]
+    end
+
+    def hard_timeout?(now)
+      now - @last > @hard_timeout
     end
 
     def add(now)
-      if @last > 0
-        int = now - @last
+      if @window.empty?
+        @window << @init_int
+        @last = now
       else
-        int = @init_int
-      end
-      if int <= @hard_timeout
+        int = now - @last
         @window << int
         @window.shift if @window.length > SAMPLE_SIZE
         @last = now
-        true
-      else
-        false
       end
     end
 
