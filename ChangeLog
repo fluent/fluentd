@@ -1,7 +1,13 @@
 
+Release 0.10.11 - 2012/02/10
+
+* out_forward supports 'standby' parameter
+* out_forward handles 'hard_timeout' correctly
+
+
 Release 0.10.10 - 2012/02/09
 
-* in_forward and on_forward don't raise exceptions in callback handlers of
+* in_forward and out_forward don't raise exceptions in callback handlers of
   cool.io not to stop Loop#run
 * TimeSlicedOutput ignores time_slice_wait if flush_interval is specified
 * in_tail follows symbolic links correctly
