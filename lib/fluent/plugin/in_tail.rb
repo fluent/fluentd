@@ -238,7 +238,7 @@ class TailInput < Input
       end
 
       def on_change(prev, cur)
-        @h.call
+        @h.check
       end
     end
 
