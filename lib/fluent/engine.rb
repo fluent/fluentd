@@ -208,14 +208,14 @@ class EngineClass
     end
 
     def emit(tag, es)
-      if @count < 512
-        @count += 1
-        if Math.log(@count) / Math.log(2) % 1.0 == 0
+      # TODO use time instead of num of records
+      c = (@count += 1)
+      if c < 512
+        if Math.log(c) / Math.log(2) % 1.0 == 0
           $log.warn "no patterns matched", :tag=>tag
           return
         end
       else
-        c = (@count += 1)
         if c % 512 == 0
           $log.warn "no patterns matched", :tag=>tag
           return
