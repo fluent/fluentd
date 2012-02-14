@@ -245,7 +245,7 @@ class ForwardOutput < ObjectBufferedOutput
         @usock.send "", 0, sockaddr
       rescue
         # TODO log
-        $log.debug "failed to send heartbeat packet to #{Socket.unpack_sockaddr_in(sockaddr).reverse.join(':')}", :error=>$!
+        $log.debug "failed to send heartbeat packet to #{Socket.unpack_sockaddr_in(sockaddr).reverse.join(':')}", :error=>$!.to_s
       end
     }
   end

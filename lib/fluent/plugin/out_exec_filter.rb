@@ -167,7 +167,7 @@ class ExecFilterOutput < BufferedOutput
       Engine.emit(tag, time, record)
     end
   rescue
-    $log.error "exec_filter failed to emit", :error=>$!, :line=>line
+    $log.error "exec_filter failed to emit", :error=>$!.to_s, :line=>line
     $log.warn_backtrace $!.backtrace
   end
 
@@ -217,7 +217,7 @@ class ExecFilterOutput < BufferedOutput
     def run
       @io.each_line(&@each_line)
     rescue
-      $log.error "exec_filter process exited", :error=>$!
+      $log.error "exec_filter process exited", :error=>$!.to_s
       $log.warn_backtrace $!.backtrace
     ensure
       Process.waitpid(@pid)

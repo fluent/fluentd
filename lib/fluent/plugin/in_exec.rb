@@ -122,7 +122,7 @@ class ExecInput < Input
         Engine.emit(tag, time, record)
       end
     rescue
-      $log.error "exec failed to emit", :error=>$!, :line=>line
+      $log.error "exec failed to emit", :error=>$!.to_s, :line=>line
       $log.warn_backtrace $!.backtrace
     end
   end
