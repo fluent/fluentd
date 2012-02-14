@@ -31,7 +31,7 @@ class ForwardOutput < ObjectBufferedOutput
   config_param :send_timeout, :time, :default => 60
   config_param :heartbeat_interval, :time, :default => 1
   config_param :recover_wait, :time, :default => 10
-  config_param :hard_timeout, :time, :default => nil
+  config_param :hard_timeout, :time, :default => 60
   config_param :phi_threshold, :integer, :default => 8
   attr_reader :nodes
 
@@ -51,8 +51,6 @@ class ForwardOutput < ObjectBufferedOutput
       e['host'] = host
       e['port'] = port.to_s
     end
-
-    @hard_timeout ||= @send_timeout
 
     recover_sample_size = @recover_wait / @heartbeat_interval
 
