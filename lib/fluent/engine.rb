@@ -214,6 +214,12 @@ class EngineClass
           $log.warn "no patterns matched", :tag=>tag
           return
         end
+      else
+        c = (@count += 1)
+        if c % 512 == 0
+          $log.warn "no patterns matched", :tag=>tag
+          return
+        end
       end
       $log.on_trace { $log.trace "no patterns matched", :tag=>tag }
     end
