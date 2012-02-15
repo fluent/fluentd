@@ -361,6 +361,11 @@ class BufferedOutput < Output
     end
   end
 
+  def force_flush
+    enqueue_buffer
+    submit_flush
+  end
+
   def before_shutdown
     begin
       @buffer.before_shutdown(self)

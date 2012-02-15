@@ -4,7 +4,6 @@ Release 0.10.12 - 2012/02/13
 * Engine shows warnings when emitted record doesn't match any outputs
 * in_tail is rewritten to follow symbolic links correctly
 * out_forward uses independent default value as 'hard_timeout' parameter
-* 
 
 
 Release 0.10.11 - 2012/02/10

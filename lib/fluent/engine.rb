@@ -191,7 +191,7 @@ class EngineClass
           m = m.output
         end
         if m.is_a?(BufferedOutput)
-          m.try_flush
+          m.force_flush
         elsif m.is_a?(MultiOutput)
           flush_recursive(m.outputs)
         end
