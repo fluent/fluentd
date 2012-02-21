@@ -58,15 +58,20 @@ class TailInput < Input
 
   def start
     @loop = Coolio::Loop.new
-    @tailers = @paths.map {|path|
+    @tails = @paths.map {|path|
       pe = @pf ? @pf[path] : NullPositionEntry.instance
-      Tailer.new(@loop, path, @rotate_wait, pe, method(:receive_lines))
+      TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
+    }
+    @tails.each {|tail|
+      tail.attach(@loop)
     }
     @thread = Thread.new(&method(:run))
   end
 
   def shutdown
-    @loop.watchers.each {|w| w.detach }
+    @tails.each {|tail|
+      tail.close
+    }
     @loop.stop
     @thread.join
     @pf_file.close if @pf_file
@@ -103,228 +108,214 @@ class TailInput < Input
     return @parser.parse(line)
   end
 
-  class Tailer
-    def initialize(loop, path, rotate_wait, pe, receive_lines)
-      @loop = loop
+  class TailWatcher
+    def initialize(path, rotate_wait, pe, &callback)
       @path = path
       @rotate_wait = rotate_wait
-      @pe = pe
-      @receive_lines = receive_lines
+      @pe = pe || NullPositionEntry.instance
+      @callback = callback
 
       @rotate_queue = []
-      @rotate_timer = nil
+
+      @timer_trigger = TimerWatcher.new(1, true, &method(:on_notify))
+      @stat_trigger = StatWatcher.new(path, &method(:on_notify))
+
+      @rotate_handler = RotateHandler.new(path, &method(:on_rotate))
       @io_handler = nil
-
-      @rh = RotateHandler.new(path, method(:rotate))
-      @rh.check  # invoke rotate
-      @rh.on_rotate = method(:on_rotate)
-      @rh.attach(@loop)
-    end
-
-    def on_rotate(io)
-      return if @rotate_queue.include?(io)
-      $log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
-      @rotate_queue.push(io)
-
-      # start rotate_timer
-      unless @rotate_timer
-        @rotate_timer = RotateTimer.new(@rotate_wait, method(:on_rotate_timer))
-        @rotate_timer.attach(@loop)
-      end
-    end
-
-    def on_rotate_timer
-      io = @rotate_queue.first
-      rotate(io, 0)
-    end
-
-    def rotate(io, start_pos=nil)
-      # start_pos is nil if first
-      io_handler = IOHandler.new(io, start_pos, @pe, @receive_lines)
-
-      if @io_handler
-        @io_handler.close
-        @io_handler = nil
-      end
-      io_handler.attach(@loop)
-      @io_handler = io_handler
-      @rotate_queue.shift
-
-      if @rotate_queue.empty?
-        @rotate_timer.detach if @rotate_timer
-        @rotate_timer = nil
-      end
-    end
-
-    def shutdown
-      @rotate_queue.reject! {|io|
-        io.close
-        true
-      }
-      if @io_handler
-        @io_handler.close
-        @io_handler = nil
-      end
-      if @rotate_timer
-        @rotate_timer.detach
-        @rotate_timer = nil
-      end
-    end
-  end
-
-  class RotateHandler
-    def initialize(path, on_rotate)
-      @path = path
-      @inode = nil
-      @fsize = 0
-      @on_rotate = on_rotate
-      @path = path
-      @stat_watcher = Stat.new(self, @path)
-      @timer_watcher = Timer.new(self, 1)
-    end
-
-    attr_accessor :on_rotate
-
-    def check
-      begin
-        io = File.open(@path)
-      rescue Errno::ENOENT
-        # moved or deleted
-        @inode = nil
-        @fsize = 0
-        return
-      end
-
-      begin
-        stat = io.stat
-        inode = stat.ino
-        fsize = stat.size
-
-        if @inode != inode || fsize < @fsize
-          # rotated or truncated
-          @on_rotate.call(io)
-          io = nil
-        end
-
-        @inode = inode
-        @fsize = fsize
-      ensure
-        io.close if io
-      end
-
-    rescue
-      $log.error $!.to_s
-      $log.error_backtrace
     end
 
     def attach(loop)
-      @stat_watcher.attach(loop)
-      @timer_watcher.attach(loop)
+      @timer_trigger.attach(loop)
+      @stat_trigger.attach(loop)
+      on_notify
     end
 
     def detach
-      @stat_watcher.detach
-      @timer_watcher.detach
+      @timer_trigger.detach if @timer_trigger.attached?
+      @stat_trigger.detach if @stat_trigger.attached?
     end
 
-    def attached?
-      @stat_watcher.attached?
+    def close
+      @rotate_queue.reject! {|req|
+        req.io.close
+        true
+      }
+      detach
     end
 
-    class Stat < Coolio::StatWatcher
-      def initialize(h, path)
-        @h = h
-        super(path)
+    def on_notify
+      @rotate_handler.on_notify
+      return unless @io_handler
+      @io_handler.on_notify
+
+      # proceeds rotate queue
+      return if @rotate_queue.empty?
+      @rotate_queue.first.tick
+
+      while @rotate_queue.first.ready?
+        io_handler = IOHandler.new(@rotate_queue.first.io, @pe, &@callback)
+        @io_handler.close
+        @io_handler = io_handler
+        @rotate_queue.shift
       end
-
-      def on_change(prev, cur)
-        @h.check
-      end
     end
 
-    class Timer < Coolio::TimerWatcher
-      def initialize(h, interval)
-        @h = h
-        super(interval, true)
-      end
-
-      def on_timer
-        @h.check
-      end
-    end
-  end
-
-  class RotateTimer < Coolio::TimerWatcher
-    def initialize(interval, callback)
-      super(interval, true)
-      @callback = callback
-    end
-
-    def on_timer
-      @callback.call
-    rescue
-      # TODO log?
-    end
-  end
-
-  class IOHandler < Coolio::IOWatcher
-    def initialize(io, start_pos, pe, receive_lines)
-      $log.info "following tail of #{io.path}"
-      @io = io
-      @pe = pe
-      @receive_lines = receive_lines
-
-      if start_pos
-        # rotated
-        @pos = start_pos
-
-      else
+    def on_rotate(io)
+      if @io_handler == nil
         # first time
         stat = io.stat
         fsize = stat.size
         inode = stat.ino
         if inode == @pe.read_inode
           # seek to the saved position
-          @pos = @pe.read_pos
+          pos = @pe.read_pos
         else
           # seek to the end of the file.
           # logs never duplicate but may be lost if fluentd is down.
-          @pos = fsize
-          @pe.update(inode, @pos)
+          pos = fsize
+          @pe.update(inode, pos)
         end
+        io.seek(pos)
+
+        @io_handler = IOHandler.new(io, @pe, &@callback)
+
+      else
+        $log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
+        if @rotate_queue.find {|req| req.io == io }
+          return
+        end
+        wait = @rotate_wait
+        wait -= @rotate_wait.first.wait unless @rotate_queue.empty?
+        @rotate_queue << RotationRequest.new(io, wait)
       end
-
-      io.seek(@pos)
-
-      @buffer = ''
-      super(io)
     end
 
-    def on_readable
-      lines = []
-
-      while line = @io.gets
-        @buffer << line
-        @pos = @io.pos
-        unless @buffer[@buffer.length-1] == ?\n
-          break
-        end
-        lines << line
+    class TimerWatcher < Coolio::TimerWatcher
+      def initialize(interval, repeat, &callback)
+        @callback = callback
+        super(interval, repeat)
       end
 
-      @pe.update_pos(@pos)
-      @receive_lines.call(lines) unless lines.empty?
-    rescue
-      $log.error $!.to_s
-      $log.error_backtrace
-      close
+      def on_timer
+        @callback.call
+      rescue
+        # TODO log?
+        $log.error $!.to_s
+        $log.error_backtrace
+      end
     end
 
-    def close
-      detach if attached?
-      @io.close unless @io.closed?
+    class StatWatcher < Coolio::StatWatcher
+      def initialize(path, &callback)
+        @callback = callback
+        super(path)
+      end
+
+      def on_change(prev, cur)
+        @callback.call
+      rescue
+        # TODO log?
+        $log.error $!.to_s
+        $log.error_backtrace
+      end
+    end
+
+    class RotationRequest
+      def initialize(io, wait)
+        @io = io
+        @wait = wait
+      end
+
+      attr_reader :io
+
+      def tick
+        @wait -= 1
+      end
+
+      def ready?
+        @wait <= 0
+      end
+    end
+
+    class IOHandler
+      def initialize(io, pe, &callback)
+        $log.info "following tail of #{io.path}"
+        @io = io
+        @pe = pe
+        @callback = callback
+        @buffer = ''
+      end
+
+      def on_notify
+        lines = []
+
+        while line = @io.gets
+          @buffer << line
+          @pos = @io.pos
+          unless @buffer[@buffer.length-1] == ?\n
+            break
+          end
+          lines << line
+        end
+
+        unless lines.empty?
+          @pe.update_pos(@pos)
+          @callback.call(lines)
+        end
+      rescue
+        $log.error $!.to_s
+        $log.error_backtrace
+        close
+      end
+
+      def close
+        @io.close unless @io.closed?
+      end
+    end
+
+    class RotateHandler
+      def initialize(path, &callback)
+        @path = path
+        @inode = nil
+        @fsize = 0
+        @callback = callback
+        @path = path
+      end
+
+      def on_notify
+        begin
+          io = File.open(@path)
+        rescue Errno::ENOENT
+          # moved or deleted
+          @inode = nil
+          @fsize = 0
+          return
+        end
+
+        begin
+          stat = io.stat
+          inode = stat.ino
+          fsize = stat.size
+
+          if @inode != inode || fsize < @fsize
+            # rotated or truncated
+            @callback.call(io)
+            io = nil
+          end
+
+          @inode = inode
+          @fsize = fsize
+        ensure
+          io.close if io
+        end
+
+      rescue
+        $log.error $!.to_s
+        $log.error_backtrace
+      end
     end
   end
+
 
   class PositionFile
     def initialize(file, map, last_pos)
