@@ -166,7 +166,6 @@ class TailInput < Input
     end
 
     def on_rotate(io)
-      puts "on_rotate: #{io.inspect}"
       if @io_handler == nil
         if io
           # first time
@@ -310,7 +309,7 @@ class TailInput < Input
       def initialize(path, &on_rotate)
         @path = path
         @inode = nil
-        @fsize = nil  # first
+        @fsize = -1  # first
         @on_rotate = on_rotate
         @path = path
       end
