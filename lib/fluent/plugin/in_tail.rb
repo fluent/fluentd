@@ -109,11 +109,11 @@ class TailInput < Input
   end
 
   class TailWatcher
-    def initialize(path, rotate_wait, pe, &callback)
+    def initialize(path, rotate_wait, pe, &receive_lines)
       @path = path
       @rotate_wait = rotate_wait
       @pe = pe || NullPositionEntry.instance
-      @callback = callback
+      @receive_lines = receive_lines
 
       @rotate_queue = []
 
@@ -153,39 +153,56 @@ class TailInput < Input
       @rotate_queue.first.tick
 
       while @rotate_queue.first.ready?
-        io_handler = IOHandler.new(@rotate_queue.first.io, @pe, &@callback)
+        if io = @rotate_queue.first.io
+          io_handler = IOHandler.new(io, @pe, &@receive_lines)
+        else
+          io_handler = NullIOHandler.new
+        end
         @io_handler.close
         @io_handler = io_handler
         @rotate_queue.shift
+        break if @rotate_queue.empty?
       end
     end
 
     def on_rotate(io)
+      puts "on_rotate: #{io.inspect}"
       if @io_handler == nil
-        # first time
-        stat = io.stat
-        fsize = stat.size
-        inode = stat.ino
-        if inode == @pe.read_inode
-          # seek to the saved position
-          pos = @pe.read_pos
-        else
-          # seek to the end of the file.
-          # logs never duplicate but may be lost if fluentd is down.
-          pos = fsize
-          @pe.update(inode, pos)
-        end
-        io.seek(pos)
+        if io
+          # first time
+          stat = io.stat
+          fsize = stat.size
+          inode = stat.ino
+          if inode == @pe.read_inode
+            # seek to the saved position
+            pos = @pe.read_pos
+          else
+            # seek to the end of the file.
+            # logs never duplicate but may be lost if fluentd is down.
+            pos = fsize
+            @pe.update(inode, pos)
+          end
+          io.seek(pos)
 
-        @io_handler = IOHandler.new(io, @pe, &@callback)
+          @io_handler = IOHandler.new(io, @pe, &@receive_lines)
+        else
+          @io_handler = NullIOHandler.new
+        end
 
       else
-        $log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
-        if @rotate_queue.find {|req| req.io == io }
+        if io && @rotate_queue.find {|req| req.io == io }
           return
         end
-        wait = @rotate_wait
-        wait -= @rotate_wait.first.wait unless @rotate_queue.empty?
+        last_io = @rotate_queue.empty? ? @io_handler.io : @rotate_queue.last.io
+        if last_io == nil
+          $log.info "detected rotation of #{@path}"
+          # rotate imeediately if previous file is nil
+          wait = 0
+        else
+          $log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
+          wait = @rotate_wait
+          wait -= @rotate_queue.first.wait unless @rotate_queue.empty?
+        end
         @rotate_queue << RotationRequest.new(io, wait)
       end
     end
@@ -238,13 +255,15 @@ class TailInput < Input
     end
 
     class IOHandler
-      def initialize(io, pe, &callback)
+      def initialize(io, pe, &receive_lines)
         $log.info "following tail of #{io.path}"
         @io = io
         @pe = pe
-        @callback = callback
+        @receive_lines = receive_lines
         @buffer = ''
       end
+
+      attr_reader :io
 
       def on_notify
         lines = []
@@ -260,7 +279,7 @@ class TailInput < Input
 
         unless lines.empty?
           @pe.update_pos(@pos)
-          @callback.call(lines)
+          @receive_lines.call(lines)
         end
       rescue
         $log.error $!.to_s
@@ -273,33 +292,45 @@ class TailInput < Input
       end
     end
 
+    class NullIOHandler
+      def initialize
+      end
+
+      def io
+      end
+
+      def on_notify
+      end
+
+      def close
+      end
+    end
+
     class RotateHandler
-      def initialize(path, &callback)
+      def initialize(path, &on_rotate)
         @path = path
         @inode = nil
-        @fsize = 0
-        @callback = callback
+        @fsize = nil  # first
+        @on_rotate = on_rotate
         @path = path
       end
 
       def on_notify
         begin
           io = File.open(@path)
-        rescue Errno::ENOENT
-          # moved or deleted
-          @inode = nil
-          @fsize = 0
-          return
-        end
-
-        begin
           stat = io.stat
           inode = stat.ino
           fsize = stat.size
+        rescue Errno::ENOENT
+          # moved or deleted
+          inode = nil
+          fsize = 0
+        end
 
+        begin
           if @inode != inode || fsize < @fsize
             # rotated or truncated
-            @callback.call(io)
+            @on_rotate.call(io)
             io = nil
           end
 
