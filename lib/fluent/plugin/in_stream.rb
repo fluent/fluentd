@@ -170,8 +170,7 @@ class TcpInput < ForwardInput
 
   def initialize
     super
-    ## TODO
-    #$log.warn "'tcp' input is obsoleted and will be removed. Use 'forward' instead."
+    $log.warn "'tcp' input is obsoleted and will be removed soon. Use 'forward' instead."
   end
 end
 
@@ -184,8 +183,7 @@ class UnixInput < StreamInput
 
   def configure(conf)
     super
-    ## TODO
-    #$log.warn "'unix' input is obsoleted and will be removed. Use 'forward' instead."
+    $log.warn "'unix' input is obsoleted and will be removed. Use 'forward' instead."
   end
 
   def listen

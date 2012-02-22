@@ -91,8 +91,8 @@ class TcpOutput < StreamOutput
 
   def initialize
     super
-    ## TODO
-    #$log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
+    $log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
+    $log.warn "see 'forward' section in http://fluentd.org/doc/plugin.html for the high-availability configuration."
   end
 
   config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
@@ -114,8 +114,7 @@ class UnixOutput < StreamOutput
 
   def initialize
     super
-    ## TODO
-    #$log.warn "'unix' output is obsoleted and will be removed."
+    $log.warn "'unix' output is obsoleted and will be removed."
   end
 
   config_param :path, :string
