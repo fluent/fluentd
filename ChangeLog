@@ -1,4 +1,10 @@
 
+Release 0.10.13 - 2012/02/21
+
+* Rewrote in_tail
+* Fixed SIGUSR1 handler to force flush logs
+
+
 Release 0.10.12 - 2012/02/13
 
 * Engine shows warnings when emitted record doesn't match any outputs
