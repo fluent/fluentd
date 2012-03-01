@@ -155,4 +155,94 @@ module MixinTest
       d.run
     end
   end
+
+  class HandleTagMixinTest < Test::Unit::TestCase
+    include Utils
+
+    def test_add_tag_prefix
+      format_check({
+        'a' => 1
+      }, 'tag_prefix.test')
+
+      d = create_driver(Fluent::HandleTagNameMixin, %[
+        add_tag_prefix tag_prefix.
+        include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_add_tag_suffix
+      format_check({
+        'a' => 1
+      }, 'test.test_suffix')
+
+      d = create_driver(Fluent::HandleTagNameMixin, %[
+        add_tag_suffix .test_suffix
+        include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_remove_tag_prefix
+      format_check({
+        'a' => 1
+      }, 'st')
+
+      d = create_driver(Fluent::HandleTagNameMixin, %[
+        remove_tag_prefix te
+        include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_remove_tag_suffix
+      format_check({
+        'a' => 1
+      }, 'te')
+
+      d = create_driver(Fluent::HandleTagNameMixin, %[
+        remove_tag_suffix st
+        include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_with_set_tag_key_mixin
+      format_check({
+        'tag' => 'tag_prefix.test',
+        'a' => 1
+      }, 'tag_prefix.test')
+
+      d = create_driver([Fluent::SetTagKeyMixin, Fluent::HandleTagNameMixin], %[
+        add_tag_prefix tag_prefix.
+        include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_with_set_tag_key_mixin_include_order_reverse
+      format_check({
+        'tag' => 'tag_prefix.test',
+        'a' => 1
+      }, 'tag_prefix.test')
+
+      d = create_driver([Fluent::HandleTagNameMixin, Fluent::SetTagKeyMixin], %[
+        add_tag_prefix tag_prefix.
+        include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+  end
 end
