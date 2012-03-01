@@ -100,6 +100,32 @@ module RecordFilterMixin
   end
 end
 
+module HandleTagNameMixin
+  include RecordFilterMixin
+
+  attr_accessor :remove_tag_prefix, :remove_tag_suffix, :add_tag_prefix, :add_tag_suffix
+  def configure(conf)
+    super
+    if remove_tag_prefix = conf['remove_tag_prefix']
+      @remove_tag_prefix = Regexp.new('^' + Regexp.escape(remove_tag_prefix))
+    end
+
+    if remove_tag_suffix = conf['remove_tag_suffix']
+      @remove_tag_suffix = Regexp.new(Regexp.escape(remove_tag_suffix) + '$')
+    end
+
+    @add_tag_prefix = conf['add_tag_prefix']
+    @add_tag_suffix = conf['add_tag_suffix']
+  end
+
+  def filter_record(tag, time, record)
+    tag.sub!(@remove_tag_prefix, '') if @remove_tag_prefix
+    tag.sub!(@remove_tag_suffix, '') if @remove_tag_suffix
+    tag.insert(0, @add_tag_prefix) if @add_tag_prefix
+    tag << @add_tag_suffix if @add_tag_suffix
+    super(tag, time, record)
+  end
+end
 
 module SetTimeKeyMixin
   include RecordFilterMixin
@@ -151,7 +177,6 @@ module SetTimeKeyMixin
     end
   end
 end
-
 
 module SetTagKeyMixin
   include RecordFilterMixin
