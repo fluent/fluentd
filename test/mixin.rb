@@ -1,232 +1,158 @@
 require 'helper'
 require 'fluent/mixin'
+require 'fluent/env'
+require 'fluent/plugin'
+require 'fluent/config'
+require 'fluent/test'
+require 'timecop'
 
-#class MixinTest < Test::Unit::TestCase
-#  class MixinOutputTester < Fluent::BufferedOutput
-#    Fluent::Plugin.register_output('mixintest', self)
-#    include Fluent::PlainTextFormatterMixin
-#    def configure(conf)
-#      super
-#    end
-#    def write(chunk)
-#      chunk.read
-#    end
-#  end
-#
-#  def create_driver(conf='')
-#    Fluent::Test::BufferedOutputTestDriver.new(MixinOutputTester).configure(conf)
-#  end
-#
-#  def test_default_config
-#    d = create_driver
-#    assert_equal true, d.instance.output_include_time
-#    assert_equal true, d.instance.output_include_tag
-#    assert_equal 'json', d.instance.output_data_type
-#    assert_equal "\t", d.instance.output_field_separator
-#    assert_equal true, d.instance.output_add_newline
-#    assert_equal nil, d.instance.instance_eval{@localtime}
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t{"foo":1,"bar":501}\n2011-11-29T12:02:50Z\ttest\t{"foo":2,"bar":502}\n], text
-#  end
-#
-#  def test_timezone
-#    d = create_driver %[
-#utc
-#]
-#    assert_equal false, d.instance.instance_eval{@localtime}
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t{"foo":1,"bar":501}\n2011-11-29T12:02:50Z\ttest\t{"foo":2,"bar":502}\n], text
-#
-#    d = create_driver %[
-#localtime
-#]
-#    assert_equal true, d.instance.instance_eval{@localtime}
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    time_s = Time.parse("2011-11-29 12:02:50 UTC").getlocal.iso8601
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal time_s + %[\ttest\t{"foo":1,"bar":501}\n] + time_s + %[\ttest\t{"foo":2,"bar":502}\n], text
-#  end
-#
-#  def test_time_tag_onoff
-#    d = create_driver %[
-#output_include_time true
-#output_include_tag false
-#]
-#    assert_equal true, d.instance.output_include_time
-#    assert_equal false, d.instance.output_include_tag
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\t{"foo":1,"bar":501}\n2011-11-29T12:02:50Z\t{"foo":2,"bar":502}\n], text
-#
-#    d = create_driver %[
-#output_include_time false
-#output_include_tag true
-#]
-#    assert_equal false, d.instance.output_include_time
-#    assert_equal true, d.instance.output_include_tag
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[test\t{"foo":1,"bar":501}\ntest\t{"foo":2,"bar":502}\n], text
-#    
-#    d = create_driver %[
-#output_include_time false
-#output_include_tag false
-#]
-#    assert_equal false, d.instance.output_include_time
-#    assert_equal false, d.instance.output_include_tag
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[{"foo":1,"bar":501}\n{"foo":2,"bar":502}\n], text
-#  end
-#
-#  def test_data_type
-#    d = create_driver %[
-#output_data_type json
-#]
-#    assert_equal 'json', d.instance.output_data_type
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t{"foo":1,"bar":"This is what you want"}\n2011-11-29T12:02:50Z\ttest\t{"foo":2,"bar":"Is this what you want or not"}\n], text
-#
-#    d = create_driver %[
-#output_data_type attr:foo
-#]
-#    assert_equal 'attr:foo', d.instance.output_data_type
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t1\n2011-11-29T12:02:50Z\ttest\t2\n], text
-#
-#    d = create_driver %[
-#output_data_type attr:bar
-#]
-#    assert_equal 'attr:bar', d.instance.output_data_type
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\tThis is what you want\n2011-11-29T12:02:50Z\ttest\tIs this what you want or not\n], text
-#
-#    d = create_driver %[
-#output_data_type attr:foo,bar
-#]
-#    assert_equal 'attr:foo,bar', d.instance.output_data_type
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t1\tThis is what you want\n2011-11-29T12:02:50Z\ttest\t2\tIs this what you want or not\n], text
-#  end
-#
-#  def test_add_newline
-#    d = create_driver %[
-#output_add_newline false
-#]
-#    assert_equal false, d.instance.output_add_newline
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t{"foo":1,"bar":"This is what you want"}2011-11-29T12:02:50Z\ttest\t{"foo":2,"bar":"Is this what you want or not"}], text
-#    
-#    d = create_driver %[
-#output_add_newline false
-#]
-#    assert_equal false, d.instance.output_add_newline
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want\n"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not\n"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\t{"foo":1,"bar":"This is what you want\\n"}2011-11-29T12:02:50Z\ttest\t{"foo":2,"bar":"Is this what you want or not\\n"}], text
-#
-#    d = create_driver %[
-#output_data_type attr:bar
-#output_add_newline false
-#]
-#    assert_equal false, d.instance.output_add_newline
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want\n"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not\n"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\tThis is what you want\n2011-11-29T12:02:50Z\ttest\tIs this what you want or not\n], text
-#
-#    d = create_driver %[
-#output_data_type attr:bar
-#output_add_newline true
-#]
-#    assert_equal true, d.instance.output_add_newline
-#
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#    d.emit({"foo"=>1,"bar"=>"This is what you want\n"}, time)
-#    d.emit({"foo"=>2,"bar"=>"Is this what you want or not\n"}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z\ttest\tThis is what you want\n\n2011-11-29T12:02:50Z\ttest\tIs this what you want or not\n\n], text
-#  end
-#
-#  def test_field_separator
-#    time = Time.parse("2011-11-29 12:02:50 UTC").to_i
-#
-#    d = create_driver %[
-#output_field_separator SPACE
-#]
-#    assert_equal " ", d.instance.output_field_separator
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z test {"foo":1,"bar":501}\n2011-11-29T12:02:50Z test {"foo":2,"bar":502}\n], text
-#
-#    d = create_driver %[
-#output_field_separator SPACE
-#output_data_type attr:bar,foo
-#]
-#    assert_equal " ", d.instance.output_field_separator
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z test 501 1\n2011-11-29T12:02:50Z test 502 2\n], text
-#
-#    d = create_driver %[
-#output_field_separator COMMA
-#]
-#    assert_equal ",", d.instance.output_field_separator
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z,test,{"foo":1,"bar":501}\n2011-11-29T12:02:50Z,test,{"foo":2,"bar":502}\n], text
-#
-#    d = create_driver %[
-#output_field_separator COMMA
-#output_data_type attr:foo,bar
-#]
-#    assert_equal ",", d.instance.output_field_separator
-#    d.emit({"foo"=>1,"bar"=>501}, time)
-#    d.emit({"foo"=>2,"bar"=>502}, time)
-#    text = d.run
-#    assert_equal %[2011-11-29T12:02:50Z,test,1,501\n2011-11-29T12:02:50Z,test,2,502\n], text
-#  end
-#
-#end
+module MixinTest
+  module Utils
+    def setup
+      super
+      Fluent::Test.setup
+      @time = Time.utc(1,2,3,4,5,2010,nil,nil,nil,nil)
+      Timecop.freeze(@time)
+    end
 
+    def teardown
+      super
+      Timecop.return
+    end
+
+    module Checker
+      extend self
+      def format_check(tag, time, record); end
+    end
+
+    @@num = 0
+    def create_register_output_name
+      "mixin_text_#{@@num+=1}"
+    end
+
+    def format_check(hash, tagname = 'test')
+      mock(Checker).format_check(tagname, @time.to_i, hash)
+    end
+
+    def create_driver(include_klass, conf = '')
+      register_output_name = create_register_output_name
+      include_klasses = [include_klass].flatten
+
+      klass = Class.new(Fluent::BufferedOutput) {
+        include_klasses.each {|k| include k }
+
+        Fluent::Plugin.register_output(register_output_name, self)
+        def format(tag, time, record)
+          Checker.format_check(tag, time, record)
+          [tag, time, record].to_msgpack
+        end
+
+        def write(chunk); end
+      }
+
+      Fluent::Test::BufferedOutputTestDriver.new(klass) {
+      }.configure("tyep #{register_output_name}" + conf)
+    end
+  end
+
+  class SetTagKeyMixinText < Test::Unit::TestCase
+    include Utils
+
+    def test_tag_key_default
+      format_check({
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTagKeyMixin, %[
+      ])
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_include_tag_key_true
+      format_check({
+        'tag' => 'test',
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTagKeyMixin, %[
+      include_tag_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_include_tag_key_false
+      format_check({
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTagKeyMixin, %[
+      include_tag_key false
+      ])
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_tag_key_set
+      format_check({
+        'tag_key_changed' => 'test',
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTagKeyMixin, %[
+      include_tag_key true
+      tag_key tag_key_changed
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+  end
+
+  class SetTimeKeyMixinText < Test::Unit::TestCase
+    include Utils
+
+    def test_time_key_default
+      format_check({
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTimeKeyMixin, %[
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_include_time_key_true
+      format_check({
+        'time' => "2010-05-04T03:02:01Z",
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTimeKeyMixin, %[
+      include_time_key true
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_time_format
+      format_check({
+        'time' => "20100504",
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTimeKeyMixin, %[
+      include_time_key true
+      time_format %Y%m%d
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+  end
+end
