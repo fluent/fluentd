@@ -18,6 +18,8 @@ begin
     gemspec.add_dependency "cool.io", "~> 1.1.0"
     gemspec.add_dependency "http_parser.rb", "~> 0.5.1"
     gemspec.add_development_dependency "rake", ">= 0.9.2"
+    gemspec.add_development_dependency "rr", ">= 1.0.0"
+    gemspec.add_development_dependency "timecop", ">= 0.3.0"
     gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
       %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluentd.gemspec]
