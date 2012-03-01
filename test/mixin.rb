@@ -215,6 +215,20 @@ module MixinTest
       d.run
     end
 
+    def test_mix_tag_handle
+      format_check({
+        'a' => 1
+      }, 'prefix.t')
+
+      d = create_driver(Fluent::HandleTagNameMixin, %[
+        remove_tag_prefix tes
+        add_tag_prefix prefix.
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
     def test_with_set_tag_key_mixin
       format_check({
         'tag' => 'tag_prefix.test',

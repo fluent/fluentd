@@ -119,10 +119,10 @@ module HandleTagNameMixin
   end
 
   def filter_record(tag, time, record)
-    tag = tag.insert(0, @add_tag_prefix) if @add_tag_prefix
-    tag << @add_tag_suffix if @add_tag_suffix
     tag.sub!(@remove_tag_prefix, '') if @remove_tag_prefix
     tag.sub!(@remove_tag_suffix, '') if @remove_tag_suffix
+    tag.insert(0, @add_tag_prefix) if @add_tag_prefix
+    tag << @add_tag_suffix if @add_tag_suffix
     super(tag, time, record)
   end
 end
