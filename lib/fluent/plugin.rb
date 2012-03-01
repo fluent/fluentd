@@ -23,6 +23,7 @@ class PluginClass
     @input = {}
     @output = {}
     @buffer = {}
+    @filter = {}
   end
 
   def register_input(type, klass)
@@ -37,6 +38,10 @@ class PluginClass
     register_impl('buffer', @buffer, type, klass)
   end
 
+  def register_filter(type, klass)
+    register_impl('filter', @filter, type, klass)
+  end
+
   def new_input(type)
     new_impl('input', @input, type)
   end
@@ -47,6 +52,10 @@ class PluginClass
 
   def new_buffer(type)
     new_impl('buffer', @buffer, type)
+  end
+
+  def new_filter(type, filter)
+    new_impl('filter', @filter, type, {path: filter})
   end
 
   def load_plugins
@@ -86,18 +95,18 @@ class PluginClass
     nil
   end
 
-  def new_impl(name, map, type)
+  def new_impl(name, map, type, opt = {})
     if klass = map[type]
       return klass.new
     end
-    try_load_plugin(name, type)
+    try_load_plugin(name, type, opt)
     if klass = map[type]
       return klass.new
     end
     raise ConfigError, "Unknown #{name} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"
   end
 
-  def try_load_plugin(name, type)
+  def try_load_plugin(name, type, opt = {})
     case name
     when 'input'
       path = "fluent/plugin/in_#{type}"
@@ -105,6 +114,12 @@ class PluginClass
       path = "fluent/plugin/out_#{type}"
     when 'buffer'
       path = "fluent/plugin/buf_#{type}"
+    when 'filter'
+      path = opt[:path]
+      file = File.exist?(path) ? path : nil
+      require file if file
+      $log.trace file
+      return
     else
       return
     end

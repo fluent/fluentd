@@ -1,7 +1,8 @@
 #
 # Fluent
 #
-# Copyright (C) 2011 FURUHASHI Sadayuki
+# Copyright (C) 2011-2012 FURUHASHI Sadayuki
+# Copyright (C) 2012 NTT Communications
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -30,6 +31,8 @@ class TailInput < Input
   config_param :tag, :string
   config_param :rotate_wait, :time, :default => 5
   config_param :pos_file, :string, :default => nil
+  config_param :filter_script, :string
+  config_param :filter_type, :string
 
   def configure(conf)
     super
@@ -46,6 +49,19 @@ class TailInput < Input
     else
       $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
       $log.warn "this parameter is highly recommended to save the position to resume tailing."
+    end
+
+    @filter_script = conf['filter_script']
+    @filter_type = conf['filter_type']
+    $log.warn @filter_type
+    $log.warn @filter_script
+    if @filter_script
+      begin
+        @filter_instance = Plugin.new_filter(@filter_type, @filter_script)
+      rescue
+        $log.error "illigal script error:", :error=>$!.to_s
+        $log.error_backtrace
+      end
     end
 
     configure_parser(conf)
@@ -84,6 +100,13 @@ class TailInput < Input
     $log.error_backtrace
   end
 
+  def user_defined_filter(time, record)
+    @filter_instance.filter(time, record) if @filter_instance
+  rescue
+    $log.warn line.dump, :error=>$!.to_s
+    $log.debug_backtrace
+  end
+
   def receive_lines(lines)
     es = MultiEventStream.new
     lines.each {|line|
@@ -91,6 +114,7 @@ class TailInput < Input
         line.rstrip!  # remove \n
         time, record = parse_line(line)
         if time && record
+          user_defined_filter(time, record)
           es.add(time, record)
         end
       rescue
