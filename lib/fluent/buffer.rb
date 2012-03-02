@@ -21,6 +21,12 @@ module Fluent
 class BufferError < StandardError
 end
 
+class BufferChunkLimitError < BufferError
+end
+
+class BufferQueueLimitError < BufferError
+end
+
 
 class Buffer
   include Configurable
@@ -165,11 +171,17 @@ class BasicBuffer < Buffer
       ## FIXME
       #elsif data.bytesize > @buffer_chunk_limit
       #  # TODO
-      #  raise BufferError, "received data too large"
+      #  raise BufferChunkLimitError, "received data too large"
 
       elsif @queue.size >= @buffer_queue_limit
-        # TODO
-        raise BufferError, "queue size exceeds limit"
+        raise BufferQueueLimitError, "queue size exceeds limit"
+      end
+
+      if data.bytesize > @buffer_chunk_limit
+        $log.warn "Size of the emitted data exceeds buffer_chunk_limit."
+        $log.warn "This may occur problems in the output plugins ``at this server.``"
+        $log.warn "To avoid problems, set a smaller number to the buffer_chunk_limit"
+        $log.warn "in the forward output ``at the log forwarding server.``"
       end
 
       nc = new_chunk(key)  # TODO generate unique chunk id
