@@ -168,6 +168,7 @@ class BufferedOutput < Output
     @error_history = []
     @error_history.extend(MonitorMixin)
     @secondary_limit = 8
+    @emit_count = 0
   end
 
   config_param :buffer_type, :string, :default => 'memory'
@@ -210,6 +211,9 @@ class BufferedOutput < Output
 
       @secondary.secondary_init(self)
     end
+
+    Status.register(self, "queue_size") { @buffer.queue_size }
+    Status.register(self, "emit_count") { @emit_count }
   end
 
   def start
@@ -226,6 +230,7 @@ class BufferedOutput < Output
   end
 
   def emit(tag, es, chain, key="")
+    @emit_count += 1
     data = format_stream(tag, es)
     if @buffer.emit(key, data, chain)
       submit_flush
