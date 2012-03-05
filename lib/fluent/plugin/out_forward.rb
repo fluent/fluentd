@@ -171,7 +171,7 @@ class ForwardOutput < ObjectBufferedOutput
     }
 
     r = Random.new(@rand_seed)
-    weight_array.sort_by { r.rand }
+    weight_array.sort_by! { r.rand }
 
     @weight_array = weight_array
   end
