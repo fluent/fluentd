@@ -20,9 +20,10 @@ begin
     gemspec.add_development_dependency "rake", ">= 0.9.2"
     gemspec.add_development_dependency "rr", ">= 1.0.0"
     gemspec.add_development_dependency "timecop", ">= 0.3.0"
+    gemspec.add_development_dependency "jeweler", ">= 1.0.0"
     gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
-      %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluentd.gemspec]
+      %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluentd.gemspec Gemfile]
     gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
     gemspec.required_ruby_version = '~> 1.9.2'
   end
