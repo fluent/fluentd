@@ -1,4 +1,13 @@
 
+Release 0.10.14 - 2012/03/05
+
+* Added experimental in_status plugin
+* Show warnings if in_tcp or out_tcp is used
+* BasicBuffer shows warnings when data.bytesize > @buffer_chunk_limit
+* out_forward: randomize roundrobin queue correctly
+* Added development dependencies to the gemspec
+
+
 Release 0.10.13 - 2012/02/21
 
 * Rewrote in_tail
