@@ -5,15 +5,16 @@
 
 Gem::Specification.new do |s|
   s.name = "fluentd"
-  s.version = "0.10.13"
+  s.version = "0.10.14"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Sadayuki Furuhashi"]
-  s.date = "2012-03-05"
+  s.date = "2012-03-07"
   s.email = "frsyuki@gmail.com"
   s.executables = ["fluentd", "fluent-cat", "fluent-gem"]
   s.extra_rdoc_files = [
     "ChangeLog",
+    "README",
     "README.rdoc"
   ]
   s.files = [
@@ -89,7 +90,7 @@ Gem::Specification.new do |s|
   s.homepage = "http://fluentd.org/"
   s.require_paths = ["lib"]
   s.required_ruby_version = Gem::Requirement.new("~> 1.9.2")
-  s.rubygems_version = "1.8.11"
+  s.rubygems_version = "1.8.12"
   s.summary = "Fluent event collector"
   s.test_files = ["test/config.rb", "test/helper.rb", "test/match.rb", "test/mixin.rb", "test/plugin/in_exec.rb", "test/plugin/in_forward.rb", "test/plugin/in_http.rb", "test/plugin/in_stream.rb", "test/plugin/out_copy.rb", "test/plugin/out_exec.rb", "test/plugin/out_exec_filter.rb", "test/plugin/out_file.rb", "test/plugin/out_forward.rb", "test/plugin/out_roundrobin.rb", "test/plugin/out_stream.rb"]
 
@@ -99,6 +100,13 @@ Gem::Specification.new do |s|
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
       s.add_runtime_dependency(%q<fluentd>, [">= 0"])
       s.add_development_dependency(%q<rake>, [">= 0.9.2"])
+      s.add_development_dependency(%q<rr>, [">= 1.0.0"])
+      s.add_development_dependency(%q<timecop>, [">= 0.3.0"])
+      s.add_development_dependency(%q<jeweler>, [">= 1.0.0"])
+      s.add_development_dependency(%q<rake>, [">= 0.9.2"])
+      s.add_development_dependency(%q<rr>, [">= 1.0.0"])
+      s.add_development_dependency(%q<timecop>, [">= 0.3.0"])
+      s.add_development_dependency(%q<jeweler>, [">= 1.0.0"])
       s.add_runtime_dependency(%q<msgpack>, ["~> 0.4.4"])
       s.add_runtime_dependency(%q<json>, [">= 1.4.3"])
       s.add_runtime_dependency(%q<yajl-ruby>, ["~> 1.0.0"])
@@ -111,6 +119,13 @@ Gem::Specification.new do |s|
     else
       s.add_dependency(%q<fluentd>, [">= 0"])
       s.add_dependency(%q<rake>, [">= 0.9.2"])
+      s.add_dependency(%q<rr>, [">= 1.0.0"])
+      s.add_dependency(%q<timecop>, [">= 0.3.0"])
+      s.add_dependency(%q<jeweler>, [">= 1.0.0"])
+      s.add_dependency(%q<rake>, [">= 0.9.2"])
+      s.add_dependency(%q<rr>, [">= 1.0.0"])
+      s.add_dependency(%q<timecop>, [">= 0.3.0"])
+      s.add_dependency(%q<jeweler>, [">= 1.0.0"])
       s.add_dependency(%q<msgpack>, ["~> 0.4.4"])
       s.add_dependency(%q<json>, [">= 1.4.3"])
       s.add_dependency(%q<yajl-ruby>, ["~> 1.0.0"])
@@ -124,6 +139,13 @@ Gem::Specification.new do |s|
   else
     s.add_dependency(%q<fluentd>, [">= 0"])
     s.add_dependency(%q<rake>, [">= 0.9.2"])
+    s.add_dependency(%q<rr>, [">= 1.0.0"])
+    s.add_dependency(%q<timecop>, [">= 0.3.0"])
+    s.add_dependency(%q<jeweler>, [">= 1.0.0"])
+    s.add_dependency(%q<rake>, [">= 0.9.2"])
+    s.add_dependency(%q<rr>, [">= 1.0.0"])
+    s.add_dependency(%q<timecop>, [">= 0.3.0"])
+    s.add_dependency(%q<jeweler>, [">= 1.0.0"])
     s.add_dependency(%q<msgpack>, ["~> 0.4.4"])
     s.add_dependency(%q<json>, [">= 1.4.3"])
     s.add_dependency(%q<yajl-ruby>, ["~> 1.0.0"])

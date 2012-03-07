@@ -56,5 +56,15 @@ Rake::TestTask.new(:base_test) do |t|
   #t.warning = true
 end
 
-task :default => [VERSION_FILE, :build]
+# workaround for fluentd >= 0 dependency
+task :mv_gemfile do
+  File.rename "Gemfile", "Gemfile.bak" rescue nil
+end
+
+# workaround for fluentd >= 0 dependency
+task :revert_gemfile do
+  File.rename "Gemfile.bak", "Gemfile" rescue nil
+end
+
+task :default => [VERSION_FILE, :mv_gemfile, :build, :revert_gemfile]
 
