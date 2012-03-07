@@ -61,21 +61,4 @@ License:: Apache License, Version 2.0
 
 == Contributors:
 
-Patches contributed by:
-
-* {Abhishek Parolkar}[https://github.com/parolkar]
-* {Chad Skidmore}[https://github.com/chad-skidmore]
-* {Eiichiro Iwata}[http://github.com/eiichiroi]
-* {Francesc Esplugas}[https://github.com/fesplugas]
-* {hirochachacha}[https://github.com/hirochachacha]
-* {Hiro Yoshikawa}[https://github.com/hiroyoshikawa]
-* {Masahiro Nakagawa}[https://github.com/repeatedly]
-* {Nathan Parry}[https://github.com/nparry]
-* {Nobuyuki Kubota}[https://github.com/nobu-k]
-* {Sakuro Ozawa}[https://github.com/sakuro]
-* {Satoshi Tagomori}[https://github.com/tagomoris]
-* {Takashi Nagayasu}[https://github.com/sumipan]
-* {Tsuyoshi Ozawa}[https://github.com/oza]
-* {uu59}[https://github.com/uu59]
-* {Waldemar Quevedo Salinas}[https://github.com/wallyqs]
-* {Yuichi Tateno}[https://github.com/hotchpotch]
+Patches contributed by {those people}[https://github.com/fluent/fluentd/contributors].
