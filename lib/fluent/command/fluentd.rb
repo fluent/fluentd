@@ -41,7 +41,7 @@ op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "insta
   opts[:setup_path] = s || File.dirname(Fluent::DEFAULT_CONFIG_PATH)
 }
 
-op.on('-c', '--config PATH', "config flie path (default: #{Fluent::DEFAULT_CONFIG_PATH})") {|s|
+op.on('-c', '--config PATH', "config file path (default: #{Fluent::DEFAULT_CONFIG_PATH})") {|s|
   opts[:config_path] = s
 }
 
