@@ -387,6 +387,9 @@ class ForwardOutput < ObjectBufferedOutput
       }
       mean = mean / fact
 
+      # Normalize arrive intervals into 1sec
+      mean = mean - @heartbeat_interval + 1
+
       # Calculate phi of the phi accrual failure detector
       t = now - @last
       phi = PHI_FACTOR * t / mean
