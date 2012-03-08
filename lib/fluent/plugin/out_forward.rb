@@ -71,7 +71,7 @@ class ForwardOutput < ObjectBufferedOutput
         name = "#{host}:#{port}"
       end
 
-      failure = FailureDetector.new(@heartbeat_interval.to_f/2, @hard_timeout, Time.now.to_i.to_f)
+      failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
       sockaddr = Socket.pack_sockaddr_in(port, host)
       port, host = Socket.unpack_sockaddr_in(sockaddr)
       @nodes[sockaddr] = Node.new(name, host, port, weight, standby, failure,
@@ -317,7 +317,7 @@ class ForwardOutput < ObjectBufferedOutput
       end
 
       phi = @failure.phi(now)
-      #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+      $log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
       if phi > @phi_threshold
         $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
         @available = false
@@ -350,11 +350,12 @@ class ForwardOutput < ObjectBufferedOutput
     PHI_FACTOR = 1.0 / Math.log(10.0)
     SAMPLE_SIZE = 1000
 
-    def initialize(init_int, hard_timeout, init_last)
+    def initialize(heartbeat_interval, hard_timeout, init_last)
+      @heartbeat_interval = heartbeat_interval
       @last = init_last
-      @init_int = init_int
+      @init_gap = heartbeat_interval.to_f
       @hard_timeout = hard_timeout
-      @window = [init_int]
+      @window = [@init_gap]
     end
 
     def hard_timeout?(now)
@@ -363,11 +364,11 @@ class ForwardOutput < ObjectBufferedOutput
 
     def add(now)
       if @window.empty?
-        @window << @init_int
+        @window << @init_gap
         @last = now
       else
-        int = now - @last
-        @window << int
+        gap = now - @last
+        @window << gap
         @window.shift if @window.length > SAMPLE_SIZE
         @last = now
       end
@@ -376,9 +377,21 @@ class ForwardOutput < ObjectBufferedOutput
     def phi(now)
       size = @window.size
       return 0.0 if size == 0
+
+      # Calculate weighted moving average
+      mean = 0.0
+      fact = 0
+      @window.each_with_index {|gap,i|
+        mean += gap * (1+i)
+        fact += (1+i)
+      }
+      mean = mean / fact
+
+      # Calculate phi of the phi accrual failure detector
       t = now - @last
-      mean = @window.inject(0) {|r,v| r + v } / size
-      return PHI_FACTOR * t / mean
+      phi = PHI_FACTOR * t / mean
+
+      return phi
     end
 
     def sample_size
