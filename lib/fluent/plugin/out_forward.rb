@@ -317,7 +317,7 @@ class ForwardOutput < ObjectBufferedOutput
       end
 
       phi = @failure.phi(now)
-      $log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+      #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
       if phi > @phi_threshold
         $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
         @available = false
@@ -353,8 +353,10 @@ class ForwardOutput < ObjectBufferedOutput
     def initialize(heartbeat_interval, hard_timeout, init_last)
       @heartbeat_interval = heartbeat_interval
       @last = init_last
-      @init_gap = heartbeat_interval.to_f
       @hard_timeout = hard_timeout
+
+      # microsec
+      @init_gap = (heartbeat_interval * 1e6).to_i
       @window = [@init_gap]
     end
 
@@ -368,7 +370,7 @@ class ForwardOutput < ObjectBufferedOutput
         @last = now
       else
         gap = now - @last
-        @window << gap
+        @window << (gap * 1e6).to_i
         @window.shift if @window.length > SAMPLE_SIZE
         @last = now
       end
@@ -379,16 +381,16 @@ class ForwardOutput < ObjectBufferedOutput
       return 0.0 if size == 0
 
       # Calculate weighted moving average
-      mean = 0.0
+      mean_usec = 0
       fact = 0
       @window.each_with_index {|gap,i|
-        mean += gap * (1+i)
+        mean_usec += gap * (1+i)
         fact += (1+i)
       }
-      mean = mean / fact
+      mean_usec = mean_usec / fact
 
       # Normalize arrive intervals into 1sec
-      mean = mean - @heartbeat_interval + 1
+      mean = (mean_usec.to_f / 1e6) - @heartbeat_interval + 1
 
       # Calculate phi of the phi accrual failure detector
       t = now - @last
