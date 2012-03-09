@@ -1,4 +1,12 @@
 
+Release 0.10.15 - 2012/03/09
+
+* Added experimental in_status plugin
+* out_forward: normalize the phi value of the failure detector into 1sec
+* out_forward: improved memory efficiency
+* out_forward: use weighted moving average for the phi accrual failure detector
+
+
 Release 0.10.14 - 2012/03/05
 
 * Show warnings if in_tcp or out_unix is used
