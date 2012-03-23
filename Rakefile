@@ -14,7 +14,7 @@ begin
     gemspec.require_paths = ["lib"]
     gemspec.add_dependency "msgpack", "~> 0.4.4"
     gemspec.add_dependency "json", ">= 1.4.3"
-    gemspec.add_dependency "yajl-ruby", "~> 1.0.0"
+    gemspec.add_dependency "yajl-ruby", "~> 1.0"
     gemspec.add_dependency "cool.io", "~> 1.1.0"
     gemspec.add_dependency "http_parser.rb", "~> 0.5.1"
     gemspec.add_development_dependency "rake", ">= 0.9.2"
