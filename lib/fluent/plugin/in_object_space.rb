@@ -27,7 +27,7 @@ class ObjectSpaceInput < Input
 
   config_param :emit_interval, :time, :default => 60
   config_param :tag, :string
-  config_param :top, :integer, :default => 2
+  config_param :top, :integer, :default => 15
 
   class TimerWatcher < Coolio::TimerWatcher
     def initialize(interval, repeat, &callback)
