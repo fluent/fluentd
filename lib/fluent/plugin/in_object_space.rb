@@ -18,8 +18,8 @@
 module Fluent
 
 
-class GCStatInput < Input
-  Plugin.register_input('gc_stat', self)
+class ObjectSpaceInput < Input
+  Plugin.register_input('object_space', self)
 
   def initialize
     super
@@ -27,6 +27,7 @@ class GCStatInput < Input
 
   config_param :emit_interval, :time, :default => 60
   config_param :tag, :string
+  config_param :top, :integer, :default => 2
 
   class TimerWatcher < Coolio::TimerWatcher
     def initialize(interval, repeat, &callback)
@@ -67,9 +68,45 @@ class GCStatInput < Input
     $log.error_backtrace
   end
 
+  class Counter
+    def initialize(klass, init_count)
+      @name = klass.to_s
+      @count = init_count
+    end
+
+    def incr!
+      @count += 1
+    end
+
+    attr_reader :name
+    attr_reader :count
+  end
+
   def on_timer
     now = Engine.now
-    record = GC.stat
+
+    array = []
+    map = {}
+
+    ObjectSpace.each_object {|obj|
+      klass = obj.class
+      if c = map[klass]
+        c.incr!
+      else
+        c = Counter.new(klass, 1)
+        array << c
+        map[klass] = c
+      end
+    }
+
+    array.sort_by! {|c| -c.count }
+
+    record = {}
+    array.each_with_index {|c,i|
+      break if i >= @top
+      record[c.name] = c.count
+    }
+
     Engine.emit(@tag, now, record)
   end
 end
