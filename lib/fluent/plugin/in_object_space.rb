@@ -70,7 +70,7 @@ class ObjectSpaceInput < Input
 
   class Counter
     def initialize(klass, init_count)
-      @name = klass.to_s
+      @klass = klass
       @count = init_count
     end
 
@@ -78,7 +78,10 @@ class ObjectSpaceInput < Input
       @count += 1
     end
 
-    attr_reader :name
+    def name
+      @klass.name
+    end
+
     attr_reader :count
   end
 

@@ -1,5 +1,4 @@
 require 'fluent/test'
-require 'net/http'
 
 class ObjectSpaceInputTest < Test::Unit::TestCase
   def setup
@@ -35,7 +34,8 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
 
-    assert_equal 2, emits[0].size
+    tag, time, record = emits[0]
+    assert_equal 2, record.size
   end
 end
 
