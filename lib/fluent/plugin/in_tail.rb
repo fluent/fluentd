@@ -269,10 +269,11 @@ class TailInput < Input
 
         while line = @io.gets
           @buffer << line
-          @pos = @io.pos
           unless @buffer[@buffer.length-1] == ?\n
+            @io.pos = pos
             break
           end
+          @pos = @io.pos
           lines << line
         end
 
