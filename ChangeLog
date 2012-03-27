@@ -1,4 +1,11 @@
 
+Release 0.10.16 - 2012/03/26
+
+* Added in_gc plugin
+* Added in_object_space plugin
+* Changed dependency yajl-ruby from '~> 1.0.0' to '~> 1.0'
+
+
 Release 0.10.15 - 2012/03/09
 
 * Added experimental in_status plugin
