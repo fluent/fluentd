@@ -31,6 +31,8 @@ class TailInput < Input
   config_param :rotate_wait, :time, :default => 5
   config_param :pos_file, :string, :default => nil
 
+  attr_reader :paths
+
   def configure(conf)
     super
 
@@ -260,6 +262,7 @@ class TailInput < Input
         @pe = pe
         @receive_lines = receive_lines
         @buffer = ''
+        @iobuf = ''
       end
 
       attr_reader :io
@@ -267,18 +270,24 @@ class TailInput < Input
       def on_notify
         lines = []
 
-        while line = @io.gets
-          @buffer << line
-          @pos = @io.pos
-          unless @buffer[@buffer.length-1] == ?\n
+        while true
+          begin
+            if @buffer.empty?
+              @io.read_nonblock(2048, @buffer)
+            else
+              @buffer << @io.read_nonblock(2048, @iobuf)
+            end
+            while line = @buffer.slice!(/.*?\n/m)
+              lines << line
+            end
+          rescue EOFError
             break
           end
-          lines << line
         end
 
         unless lines.empty?
-          @pe.update_pos(@pos)
           @receive_lines.call(lines)
+          @pe.update_pos(@io.pos - @buffer.bytesize)
         end
       rescue
         $log.error $!.to_s
