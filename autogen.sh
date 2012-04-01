@@ -15,9 +15,11 @@ function download() {
 }
 
 mkdir -p deps
+mkdir -p deps/jemalloc
 mkdir -p deps/ruby
 mkdir -p plugins
 cd deps
+download "http://www.canonware.com/download/jemalloc" "jemalloc-2.2.5.tar.bz2"
 download "http://ftp.ruby-lang.org/pub/ruby/1.9" "ruby-1.9.2-p290.tar.bz2"
 download "http://rubygems.org/downloads" "json-1.5.2.gem"
 download "http://rubygems.org/downloads" "msgpack-0.4.4.gem"
@@ -42,7 +44,7 @@ cp -fpR lib bin \$dst/ || exit 1
 mkdir -p \$dst/deps || exit 1
 mkdir -p \$dst/pkg || exit 1
 cp pkg/fluentd-\$version.gem \$dst/pkg/
-cp deps/*.gem deps/ruby-*.tar.bz2 \$dst/deps/
+cp deps/*.gem deps/ruby-*.tar.bz2 deps/jemalloc-*.tar.bz2 \$dst/deps/
 cp README.rdoc README COPYING NEWS ChangeLog AUTHORS INSTALL NOTICE \\
     configure.in Makefile.in Makefile.am configure aclocal.m4 \\
     Rakefile VERSION fluent.conf make_dist.sh \\
@@ -65,5 +67,6 @@ aclocal
 automake --add-missing --copy
 autoconf
 
+rmdir deps/jemalloc 2>/dev/null
 rmdir deps/ruby 2>/dev/null
 

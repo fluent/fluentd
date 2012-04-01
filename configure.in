@@ -33,6 +33,14 @@ RUBY_LIBDIR=$ruby_prefix/lib
 
 AC_OUTPUT([Makefile])
 
+if test ! -d deps/jemalloc; then
+    mkdir -p deps/jemalloc-extract
+    tar jxf deps/jemalloc-*.tar.bz2 -C deps/jemalloc-extract
+    mv deps/jemalloc-extract/* deps/jemalloc
+fi
+
+cd deps/jemalloc && ./configure && cd ../..
+
 if test ! -d deps/ruby; then
     mkdir -p deps/ruby-extract
     tar jxf deps/ruby-*.tar.bz2 -C deps/ruby-extract
@@ -49,4 +57,3 @@ cd deps/ruby && ./configure "--prefix=$ruby_prefix" \
     --with-out-ext=ripper \
     --with-out-ext=sdbm \
     --with-out-ext=tk
-

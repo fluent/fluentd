@@ -1,5 +1,4 @@
-
-SUBDIRS = deps/ruby
+SUBDIRS = deps/jemalloc deps/ruby
 
 bin_SCRIPTS = fluent-gem fluent-cat fluentd
 
