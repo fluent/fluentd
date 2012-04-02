@@ -1,4 +1,14 @@
 
+Release 0.10.17 - 2012/04/02
+
+* in_tail: don't ignore last line without LF [#44]
+* Added HandleTagNameMixin
+* Removed automake/conf style build support
+    Maintainig automake/conf style files are complex, but no user. We've decided
+    not to have those files anymore. Otherwise it's still used at rpm/deb packaging
+    scripts.
+
+
 Release 0.10.16 - 2012/03/26
 
 * Added in_gc plugin
