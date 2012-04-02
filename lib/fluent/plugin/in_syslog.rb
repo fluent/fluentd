@@ -102,6 +102,7 @@ class SyslogInput < Input
     text = m[2]
 
     time, record = @parser.parse(text)
+    time ||= Fluent::Engine.now
     unless time && record
       return
     end

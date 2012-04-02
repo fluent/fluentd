@@ -105,8 +105,6 @@ class TextParser
       end
     }
 
-    time ||= Engine.now
-
     return time, record
   end
 end
