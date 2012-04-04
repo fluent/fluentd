@@ -45,8 +45,8 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 
   $ gem install fluentd
   $ # install sample configuration file to the directory
-  $ sudo fluentd -s
-  $ fluentd &
+  $ fluentd -s conf
+  $ fluentd -c conf/fluent.conf &
   $ echo '{"json":"message"}' | fluent-cat debug.test
 
 == Meta
