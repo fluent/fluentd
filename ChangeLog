@@ -1,4 +1,10 @@
 
+Release 0.10.18 - 2012/04/13
+
+* Use Yajl instead of standard json library to avoid encoding problem
+* buf_memory: call force_encoding('ASCII-8BIT') to avoid encoding problem
+
+
 Release 0.10.17 - 2012/04/02
 
 * in_tail: don't ignore last line without LF [#44]
