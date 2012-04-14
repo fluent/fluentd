@@ -21,10 +21,12 @@ module Fluent
 class MemoryBufferChunk < BufferChunk
   def initialize(key, data='')
     @data = data
+    @data.force_encoding('ASCII-8BIT')
     super(key)
   end
 
   def <<(data)
+    data.force_encoding('ASCII-8BIT')
     @data << data
   end
 
