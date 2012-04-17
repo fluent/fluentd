@@ -1,4 +1,11 @@
 
+Release 0.10.19 - 2012/04/13
+
+* Fixed in_syslog
+* in_tail: fixed "invalid byte sequence in US-ASCII" error
+* in_unix is not obsoleted
+
+
 Release 0.10.18 - 2012/04/13
 
 * Use Yajl instead of standard json library to avoid encoding problem

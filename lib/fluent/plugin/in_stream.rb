@@ -175,7 +175,6 @@ class TcpInput < ForwardInput
 end
 
 
-# obsolete
 class UnixInput < StreamInput
   Plugin.register_input('unix', self)
 
