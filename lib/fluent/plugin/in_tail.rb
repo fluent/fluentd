@@ -261,8 +261,8 @@ class TailInput < Input
         @io = io
         @pe = pe
         @receive_lines = receive_lines
-        @buffer = ''
-        @iobuf = ''
+        @buffer = ''.force_encoding('ASCII-8BIT')
+        @iobuf = ''.force_encoding('ASCII-8BIT')
       end
 
       attr_reader :io
