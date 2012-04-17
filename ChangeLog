@@ -1,5 +1,5 @@
 
-Release 0.10.19 - 2012/04/13
+Release 0.10.19 - 2012/04/17
 
 * Fixed in_syslog
 * in_tail: fixed "invalid byte sequence in US-ASCII" error
