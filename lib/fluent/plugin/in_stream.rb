@@ -183,7 +183,7 @@ class UnixInput < StreamInput
 
   def configure(conf)
     super
-    $log.warn "'unix' input is obsoleted and will be removed. Use 'forward' instead."
+    #$log.warn "'unix' input is obsoleted and will be removed. Use 'forward' instead."
   end
 
   def listen
