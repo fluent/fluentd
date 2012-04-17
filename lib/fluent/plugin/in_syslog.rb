@@ -89,9 +89,34 @@ class SyslogInput < Input
     else
       callback = method(:receive_data)
     end
-    EventMachine.open_datagram_socket(@bind, @port, UdpHandler, callback)
+
+    @loop = Coolio::Loop.new
+
+    $log.debug "listening syslog socket on #{@bind}:#{@port}"
+    @usock = UDPSocket.new
+    @usock.bind(@bind, @port)
+
+    @handler = UdpHandler.new(@usock, callback)
+    @loop.attach(@handler)
+
+    @thread = Thread.new(&method(:run))
   end
 
+  def shutdown
+    @loop.watchers.each {|w| w.detach }
+    @loop.stop
+    @handler.close
+    @thread.join
+  end
+
+  def run
+    @loop.run
+  rescue
+    $log.error "unexpected error", :error=>$!.to_s
+    $log.error_backtrace
+  end
+
+  protected
   def receive_data_parser(data)
     m = SYSLOG_REGEXP.match(data)
     unless m
@@ -156,16 +181,21 @@ class SyslogInput < Input
     Engine.emit(tag, time, record)
   end
 
-  class UdpHandler < EventMachine::Connection
-    def initialize(callback)
-      super()
+  class UdpHandler < Coolio::IO
+    def initialize(io, callback)
+      super(io)
+      @io = io
       @callback = callback
     end
 
-    def receive_data(data)
-      EventMachine.defer {
-        @callback.call(data)
-      }
+    def on_readable
+      msg, addr = @io.recvfrom_nonblock(1024)
+      #host = addr[3]
+      #port = addr[1]
+      #@callback.call(host, port, msg)
+      @callback.call(msg)
+    rescue
+      # TODO log?
     end
   end
 end
