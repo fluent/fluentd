@@ -24,16 +24,11 @@ class StdoutOutput < Output
   config_param :autoflush, :bool, :default => false
 
   def emit(tag, es, chain)
-    if @autoflush
-      es.each {|time,record|
-        puts "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}"
-        STDOUT.flush
-      }
-    else
-      es.each {|time,record|
-        puts "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}"
-      }
-    end
+    es.each {|time,record|
+      puts "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}"
+    }
+    STDOUT.flush if @autoflush
+
     chain.next
   end
 end
