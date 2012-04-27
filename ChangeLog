@@ -1,4 +1,11 @@
 
+Release 0.10.20 - 2012/04/27
+
+* Fixed Config#to_s
+* out_exec_filter: supports 'out_format json' option
+* out_exec_filter: supports 'in_format json' option
+
+
 Release 0.10.19 - 2012/04/17
 
 * Fixed in_syslog
