@@ -78,7 +78,7 @@ module Config
       if @arg.empty?
         out << "#{indent}<#{@name}>\n"
       else
-        out << "#{indent}<#{@name} #{@name}>\n"
+        out << "#{indent}<#{@name} #{@arg}>\n"
       end
       each_pair {|k,v|
         out << "#{nindent}#{k} #{v}\n"
