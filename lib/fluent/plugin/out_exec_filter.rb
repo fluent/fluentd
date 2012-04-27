@@ -36,15 +36,19 @@ class ExecFilterOutput < BufferedOutput
   config_param :remove_prefix, :string, :default => nil
   config_param :add_prefix, :string, :default => nil
 
-  # TODO in_format
-  config_param :in_keys do |val|
+  config_param :in_format, :default => :tsv do |val|
+    f = SUPPORTED_FORMAT[val]
+    raise ConfigError, "Unsupported in_format '#{val}'" unless f
+    f
+  end
+  config_param :in_keys, :default => [] do |val|
     val.split(',')
   end
 
   config_param :out_format, :default => :tsv do |val|
-    c = SUPPORTED_FORMAT[val]
-    raise ConfigError, "Unsupported out_format '#{val}'" unless c
-    c
+    f = SUPPORTED_FORMAT[val]
+    raise ConfigError, "Unsupported out_format '#{val}'" unless f
+    f
   end
   config_param :out_keys, :default => [] do |val|  # for tsv format
     val.split(',')
@@ -94,16 +98,26 @@ class ExecFilterOutput < BufferedOutput
       @added_prefix_string = @add_prefix + '.'
     end
 
+    case @in_format
+    when :tsv
+      if @in_keys.empty?
+        raise ConfigError, "in_keys option is required on exec_filter output for tsv in_format"
+      end
+      @formatter = TSVFormatter.new(@in_keys)
+    when :json
+      @formatter = JSONFormatter.new
+    when :msgpack
+      @formatter = MessagePackFormatter.new
+    end
+
     case @out_format
     when :tsv
       if @out_keys.empty?
-        raise ConfigError, "out_keys option is required on exec_filter output"
+        raise ConfigError, "out_keys option is required on exec_filter output for tsv in_format"
       end
       @parser = TSVParser.new(@out_keys, method(:on_message))
-
     when :json
       @parser = JSONParser.new(method(:on_message))
-
     when :msgpack
       @parser = MessagePackParser.new(method(:on_message))
     end
@@ -141,27 +155,22 @@ class ExecFilterOutput < BufferedOutput
   end
 
   def format_stream(tag, es)
-    out = ''
     if @remove_prefix
       if (tag[0, @removed_length] == @removed_prefix_string and tag.length > @removed_length) or tag == @removed_prefix
         tag = tag[@removed_length..-1] || ''
       end
     end
 
+    out = ''
+
     es.each {|time,record|
-      last = @in_keys.length-1
-      for i in 0..last
-        key = @in_keys[i]
-        if key == @time_key
-          out << @time_format_proc.call(time)
-        elsif key == @tag_key
-          out << tag
-        else
-          out << record[key].to_s
-        end
-        out << "\t" if i != last
+      if @time_key
+        record[@time_key] = @time_format_proc.call(time)
       end
-      out << "\n"
+      if @tag_key
+        record[@tag_key] = tag
+      end
+      @formatter.call(record, out)
     }
 
     out
@@ -222,6 +231,38 @@ class ExecFilterOutput < BufferedOutput
       $log.warn_backtrace $!.backtrace
     ensure
       Process.waitpid(@pid)
+    end
+  end
+
+  class Formatter
+  end
+
+  class TSVFormatter < Formatter
+    def initialize(in_keys)
+      @in_keys = in_keys
+      super()
+    end
+
+    def call(record, out)
+      last = @in_keys.length-1
+      for i in 0..last
+        key = @in_keys[i]
+        out << record[key].to_s
+        out << "\t" if i != last
+      end
+      out << "\n"
+    end
+  end
+
+  class JSONFormatter < Formatter
+    def call(record, out)
+      out << Yajl.dump(record)
+    end
+  end
+
+  class MessagePackFormatter < Formatter
+    def call(record, out)
+      record.to_msgpack(out)
     end
   end
 
