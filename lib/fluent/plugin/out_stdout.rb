@@ -21,10 +21,14 @@ module Fluent
 class StdoutOutput < Output
   Plugin.register_output('stdout', self)
 
+  config_param :autoflush, :bool, :default => false
+
   def emit(tag, es, chain)
     es.each {|time,record|
       puts "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}"
     }
+    STDOUT.flush if @autoflush
+
     chain.next
   end
 end
