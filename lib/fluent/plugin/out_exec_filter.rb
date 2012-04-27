@@ -229,7 +229,7 @@ class ExecFilterOutput < BufferedOutput
     if val = record.delete(@time_key)
       time = @time_parse_proc.call(val)
     else
-      time = Engine.new
+      time = Engine.now
     end
 
     if val = record.delete(@tag_key)
@@ -245,7 +245,7 @@ class ExecFilterOutput < BufferedOutput
     Engine.emit(tag, time, record)
 
   rescue
-    $log.error "exec_filter failed to emit", :error=>$!.to_s, :line=>line
+    $log.error "exec_filter failed to emit", :error=>$!.to_s, :record=>Yajl.dump(record)
     $log.warn_backtrace $!.backtrace
   end
 
