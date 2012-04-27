@@ -25,15 +25,37 @@ class ExecFilterOutput < BufferedOutput
     super
   end
 
+  SUPPORTED_FORMAT = {
+    'tsv' => :tsv,
+    'json' => :json,
+    'msgpack' => :msgpack,
+  }
+
   config_param :command, :string
-  config_param :in_keys, :string
+
   config_param :remove_prefix, :string, :default => nil
-  config_param :out_keys, :string
   config_param :add_prefix, :string, :default => nil
+
+  # TODO in_format
+  config_param :in_keys do |val|
+    val.split(',')
+  end
+
+  config_param :out_format, :default => :tsv do |val|
+    c = SUPPORTED_FORMAT[val]
+    raise ConfigError, "Unsupported out_format '#{val}'" unless c
+    c
+  end
+  config_param :out_keys, :default => [] do |val|  # for tsv format
+    val.split(',')
+  end
+
   config_param :tag, :string, :default => nil
   config_param :tag_key, :string, :default => nil
+
   config_param :time_key, :string, :default => nil
   config_param :time_format, :string, :default => nil
+
   config_param :localtime, :bool, :default => true
   config_param :num_children, :integer, :default => 1
 
@@ -51,9 +73,6 @@ class ExecFilterOutput < BufferedOutput
     if !@tag && !@tag_key
       raise ConfigError, "'tag' or 'tag_key' option is required on exec_filter output"
     end
-
-    @in_keys = @in_keys.split(',')
-    @out_keys = @out_keys.split(',')
 
     if @time_key
       if @time_format
@@ -74,6 +93,20 @@ class ExecFilterOutput < BufferedOutput
     if @add_prefix
       @added_prefix_string = @add_prefix + '.'
     end
+
+    case @out_format
+    when :tsv
+      if @out_keys.empty?
+        raise ConfigError, "out_keys option is required on exec_filter output"
+      end
+      @parser = TSVParser.new(@out_keys, method(:on_message))
+
+    when :json
+      @parser = JSONParser.new(method(:on_message))
+
+    when :msgpack
+      @parser = MessagePackParser.new(method(:on_message))
+    end
   end
 
   def start
@@ -83,7 +116,7 @@ class ExecFilterOutput < BufferedOutput
     @rr = 0
     begin
       @num_children.times do
-        c = ChildProcess.new(&method(:each_line))
+        c = ChildProcess.new(@parser)
         c.start(@command)
         @children << c
       end
@@ -139,43 +172,11 @@ class ExecFilterOutput < BufferedOutput
     @children[r].write chunk
   end
 
-  def each_line(line)
-    line.chomp!
-    vals = line.split("\t")
-
-    tag = @tag
-    time = nil
-    record = {}
-    for i in 0..@out_keys.length-1
-      key = @out_keys[i]
-      val = vals[i]
-      if key == @time_key
-        time = @time_parse_proc.call(val)
-      elsif key == @tag_key
-        tag = if @add_prefix
-                @added_prefix_string + val
-              else
-                val
-              end
-      else
-        record[key] = val
-      end
-    end
-
-    if tag
-      time ||= Engine.now
-      Engine.emit(tag, time, record)
-    end
-  rescue
-    $log.error "exec_filter failed to emit", :error=>$!.to_s, :line=>line
-    $log.warn_backtrace $!.backtrace
-  end
-
   class ChildProcess
-    def initialize(&each_line)
+    def initialize(parser)
       @pid = nil
       @thread = nil
-      @each_line = each_line
+      @parser = parser
     end
 
     def start(command)
@@ -215,12 +216,80 @@ class ExecFilterOutput < BufferedOutput
     end
 
     def run
-      @io.each_line(&@each_line)
+      @parser.call(@io)
     rescue
       $log.error "exec_filter process exited", :error=>$!.to_s
       $log.warn_backtrace $!.backtrace
     ensure
       Process.waitpid(@pid)
+    end
+  end
+
+  def on_message(record)
+    if val = record.delete(@time_key)
+      time = @time_parse_proc.call(val)
+    else
+      time = Engine.new
+    end
+
+    if val = record.delete(@tag_key)
+      tag = if @add_prefix
+              @added_prefix_string + val
+            else
+              val
+            end
+    else
+      tag = @tag
+    end
+
+    Engine.emit(tag, time, record)
+
+  rescue
+    $log.error "exec_filter failed to emit", :error=>$!.to_s, :line=>line
+    $log.warn_backtrace $!.backtrace
+  end
+
+  class Parser
+    def initialize(on_message)
+      @on_message = on_message
+    end
+  end
+
+  class TSVParser < Parser
+    def initialize(out_keys, on_message)
+      @out_keys = out_keys
+      super(on_message)
+    end
+
+    def call(io)
+      io.each_line(&method(:each_line))
+    end
+
+    def each_line(line)
+      line.chomp!
+      vals = line.split("\t")
+
+      record = Hash[@out_keys.zip(vals)]
+
+      @on_message.call(record)
+    end
+  end
+
+  class JSONParser < Parser
+    def call(io)
+      y = Yajl::Parser.new
+      y.on_parse_complete = @on_message
+      y.parse(io)
+    end
+  end
+
+  class MessagePackParser < Parser
+    def call(io)
+      @u = MessagePack::Unpacker.new(io)
+      begin
+        @u.each(&@on_message)
+      rescue EOFError
+      end
     end
   end
 end

@@ -156,5 +156,25 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal ["output.test", time, {"val2"=>"sed-ed value bar"}], emits[0]
     assert_equal ["output.test", time, {"val2"=>"sed-ed value poo"}], emits[1]
   end
+
+  def test_json_1
+    d = create_driver(%[
+      command cat
+      in_keys message
+      out_format json
+      time_key time
+      tag_key tag
+    ], 'input.test')
+
+    time = Time.parse("2011-01-02 13:14:15").to_i
+
+    d.run do
+      d.emit({"message"=>%[{"time":#{time},"tag":"t1","k1":"v1"}]}, time+10)
+    end
+
+    emits = d.emits
+    assert_equal 1, emits.length
+    assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
+  end
 end
 

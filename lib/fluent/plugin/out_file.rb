@@ -22,8 +22,8 @@ class FileOutput < TimeSlicedOutput
   Plugin.register_output('file', self)
 
   SUPPORTED_COMPRESS = {
-    :gz => :gz,
-    :gzip => :gz,
+    'gz' => :gz,
+    'gzip' => :gz,
   }
 
   config_param :path, :string
@@ -31,9 +31,9 @@ class FileOutput < TimeSlicedOutput
   config_param :time_format, :string, :default => nil
 
   config_param :compress, :default => nil do |val|
-    c = SUPPORTED_COMPRESS[val.to_sym]
+    c = SUPPORTED_COMPRESS[val]
     unless c
-      raise ConfigError, "Unsupported compression algorithm '#{compress}'"
+      raise ConfigError, "Unsupported compression algorithm '#{val}'"
     end
     c
   end
