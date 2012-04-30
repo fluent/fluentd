@@ -19,32 +19,85 @@ module Fluent
 
 
 class TextParser
-  TEMPLATES = {
-    'apache' => [/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, "%d/%b/%Y:%H:%M:%S %z"],
-    'syslog' => [/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, "%b %d %H:%M:%S"],
-  }
+  class RegexpParser
+    def initialize(regexp, time_format)
+      @regexp = regexp
+      @time_format = time_format
+    end
 
-  def self.register_template(name, regexp, time_format=nil)
-    TEMPLATES[name] = [regexp, time_format]
+    attr_accessor :time_format
+
+    def call(text)
+      m = @regexp.match(text)
+      unless m
+        $log.debug "pattern not match: #{text}"
+        # TODO?
+        return nil, nil
+      end
+
+      time = nil
+      record = {}
+
+      m.names.each {|name|
+        if value = m[name]
+          case name
+          when "time"
+            if @time_format
+              time = Time.strptime(value, @time_format).to_i
+            else
+              time = Time.parse(value).to_i
+            end
+          else
+            record[name] = value
+          end
+        end
+      }
+
+      time ||= Engine.now
+
+      return time, record
+    end
   end
 
-  def self.get_template(name)
-    return *TEMPLATES[name]
+  class JSONParser
+    attr_accessor :time_format
+
+    def call(text)
+      record = Yajl.load(text)
+
+      if value = record.delete('time')
+        if @time_format
+          time = Time.strptime(value, @time_format).to_i
+        else
+          time = value.to_i
+        end
+      else
+        time = Engine.now
+      end
+
+      return time, record
+    end
+  end
+
+  TEMPLATES = {
+    'apache' => RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, "%d/%b/%Y:%H:%M:%S %z"),
+    'syslog' => RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, "%b %d %H:%M:%S"),
+    'json' => JSONParser.new,
+  }
+
+  def self.register_template(name, regexp_or_proc, time_format=nil)
+    if regexp_or_proc.is_a?(Regexp)
+      pr = regexp_or_proc
+    else
+      regexp = regexp_or_proc
+      pr = RegexpParser.new(regexp, time_format)
+    end
+
+    TEMPLATES[name] = pr
   end
 
   def initialize
-    require 'time'  # Time.strptime, Time.parse
-    @regexp = nil
-    @time_format = nil
-  end
-
-  attr_accessor :regexp, :time_format
-
-  def use_template(name)
-    @regexp, @time_format = TextParser.get_template(name)
-    unless @regexp
-      raise ConfigError, "Unknown format template '#{name}'"
-    end
+    @proc = nil
   end
 
   def configure(conf, required=true)
@@ -52,62 +105,47 @@ class TextParser
       if format[0] == ?/ && format[format.length-1] == ?/
         # regexp
         begin
-          @regexp = Regexp.new(format[1..-2])
-          if @regexp.named_captures.empty?
+          regexp = Regexp.new(format[1..-2])
+          if regexp.named_captures.empty?
             raise "No named captures"
           end
         rescue
           raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
         end
 
+        time_format = conf['time_format']
+        if time_format
+          unless regexp.names.include?('time')
+            raise ConfigError, "'time_format' parameter is invalid when format doesn't have 'time' capture"
+          end
+        end
+
+        @proc = RegexpParser.new(regexp, time_format)
+
       else
-        # template
-        use_template(format)
+        # built-in template
+        @proc = TEMPLATES[format]
+        unless @proc
+          raise ConfigError, "Unknown format template '#{format}'"
+        end
+
+        time_format = conf['time_format']
+        if time_format
+          @proc.time_format = time_format
+        end
+
       end
+
     else
       return nil if !required
       raise ConfigError, "'format' parameter is required"
-    end
-
-    if time_format = conf['time_format']
-      unless @regexp.names.include?('time')
-        raise ConfigError, "'time_format' parameter is invalid when format doesn't have 'time' capture"
-      end
-      @time_format = time_format
     end
 
     return true
   end
 
   def parse(text)
-    m = @regexp.match(text)
-    unless m
-      $log.debug "pattern not match: #{text}"
-      # TODO?
-      return nil, nil
-    end
-
-    time = nil
-    record = {}
-
-    m.names.each {|name|
-      if value = m[name]
-        case name
-        when "time"
-          if @time_format
-            time = Time.strptime(value, @time_format).to_i
-          else
-            time = Time.parse(value).to_i
-          end
-        else
-          record[name] = value
-        end
-      end
-    }
-
-    time ||= Engine.now
-
-    return time, record
+    return @proc.call(text)
   end
 end
 
