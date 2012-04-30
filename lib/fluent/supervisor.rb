@@ -20,14 +20,21 @@ module Fluent
 
 class Supervisor
   class LoggerInitializer
-    def initialize(path, level)
+    def initialize(path, level, chuser, chgroup)
       @path = path
       @level = level
+      @chuser = chuser
+      @chgroup = chgroup
     end
 
     def init
       if @path && @path != "-"
         @io = File.open(@path, "a")
+        if @chuser || @chgroup
+          chuid = @chuser ? `id -u #{@chuser}`.to_i : nil
+          chgid = @chgroup ? `id -g #{@chgroup}`.to_i : nil
+          File.chown(chuid, chgid, @path)
+        end
       else
         @io = STDOUT
       end
@@ -61,7 +68,7 @@ class Supervisor
     @plugin_dirs = opt[:plugin_dirs]
     @inline_config = opt[:inline_config]
 
-    @log = LoggerInitializer.new(@log_path, @log_level)
+    @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
     @finished = false
     @main_pid = nil
   end
