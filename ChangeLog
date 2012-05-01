@@ -1,9 +1,12 @@
 
 Release 0.10.21 - 2012/05/01
 
-* TextParser supports 'format json'
-* Fixed type of the 'retry_wait' parameter of buffered output plugins
-  from 'float' to 'time'
+* in_tail and TextParser support 'format json'
+* in_tail and TextParser support 'time_key' and 'time_format' parameters for 'format json'
+* in_tail: improved the file reader not to consume too much memory if the file is huge
+* out_stdout: uses logger instead of STDOUT to show records even if Fluentd is daemonized
+* Fixed the type of 'retry_wait' parameter of buffered output plugins from 'float' to 'time'
+* Fixed owner of log files for log rotation to work properly with --user and --group options
 
 
 Release 0.10.20 - 2012/04/27
