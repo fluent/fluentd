@@ -20,12 +20,17 @@ module Fluent
 
 class TextParser
   class RegexpParser
-    def initialize(regexp, time_format)
-      @regexp = regexp
-      @time_format = time_format
-    end
+    include Configurable
 
-    attr_accessor :time_format
+    config_param :time_format, :string
+
+    def initialize(regexp, conf={})
+      super()
+      @regexp = regexp
+      unless conf.empty?
+        configure(conf)
+      end
+    end
 
     def call(text)
       m = @regexp.match(text)
@@ -83,8 +88,8 @@ class TextParser
   end
 
   TEMPLATES = {
-    'apache' => RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, "%d/%b/%Y:%H:%M:%S %z"),
-    'syslog' => RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, "%b %d %H:%M:%S"),
+    'apache' => RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}),
+    'syslog' => RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}),
     'json' => JSONParser.new,
   }
 
@@ -93,61 +98,57 @@ class TextParser
       pr = regexp_or_proc
     else
       regexp = regexp_or_proc
-      pr = RegexpParser.new(regexp, time_format)
+      pr = RegexpParser.new(regexp, {'time_format'=>time_format})
     end
 
     TEMPLATES[name] = pr
   end
 
   def initialize
-    @proc = nil
+    @parser = nil
   end
 
   def configure(conf, required=true)
-    if format = conf['format']
-      if format[0] == ?/ && format[format.length-1] == ?/
-        # regexp
-        begin
-          regexp = Regexp.new(format[1..-2])
-          if regexp.named_captures.empty?
-            raise "No named captures"
-          end
-        rescue
-          raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
-        end
+    format = conf['format']
 
-        time_format = conf['time_format']
-        if time_format
-          unless regexp.names.include?('time')
-            raise ConfigError, "'time_format' parameter is invalid when format doesn't have 'time' capture"
-          end
-        end
-
-        @proc = RegexpParser.new(regexp, time_format)
-
+    if format == nil
+      if required
+        raise ConfigError, "'format' parameter is required"
       else
-        # built-in template
-        @proc = TEMPLATES[format]
-        unless @proc
-          raise ConfigError, "Unknown format template '#{format}'"
-        end
+        return nil
+      end
+    end
 
-        if @proc.respond_to?(:configure)
-          @proc.configure(conf)
+    if format[0] == ?/ && format[format.length-1] == ?/
+      # regexp
+      begin
+        regexp = Regexp.new(format[1..-2])
+        if regexp.named_captures.empty?
+          raise "No named captures"
         end
-
+      rescue
+        raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
       end
 
+      @parser = RegexpParser.new(regexp)
+
     else
-      return nil if !required
-      raise ConfigError, "'format' parameter is required"
+      # built-in template
+      @parser = TEMPLATES[format]
+      unless @parser
+        raise ConfigError, "Unknown format template '#{format}'"
+      end
+    end
+
+    if @parser.respond_to?(:configure)
+      @parser.configure(conf)
     end
 
     return true
   end
 
   def parse(text)
-    return @proc.call(text)
+    return @parser.call(text)
   end
 end
 
