@@ -1,4 +1,11 @@
 
+Release 0.10.21 - 2012/05/01
+
+* TextParser supports 'format json'
+* Fixed type of the 'retry_wait' parameter of buffered output plugins
+  from 'float' to 'time'
+
+
 Release 0.10.20 - 2012/04/27
 
 * Fixed Config#to_s

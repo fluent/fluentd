@@ -60,12 +60,15 @@ class TextParser
   end
 
   class JSONParser
-    attr_accessor :time_format
+    include Configurable
+
+    config_param :time_key, :string, :default => 'time'
+    config_param :time_format, :string, :default => nil
 
     def call(text)
       record = Yajl.load(text)
 
-      if value = record.delete('time')
+      if value = record.delete(@time_key)
         if @time_format
           time = Time.strptime(value, @time_format).to_i
         else
@@ -129,9 +132,8 @@ class TextParser
           raise ConfigError, "Unknown format template '#{format}'"
         end
 
-        time_format = conf['time_format']
-        if time_format
-          @proc.time_format = time_format
+        if @proc.respond_to?(:configure)
+          @proc.configure(conf)
         end
 
       end
