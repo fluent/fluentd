@@ -1,4 +1,13 @@
 
+Release 0.10.22 - 2012/05/02
+
+* Fixed in_tail and TextParser not to raise "time_format is required" error
+* out_exec_filter: fixed JSONFormatter to add \n at the end of records
+* out_exec_filter: separated {tag_key,time_key,time_format} parameters to
+  {in_,out_}{tag_key,time_key,time_format parameters while keeping
+  compatibility
+
+
 Release 0.10.21 - 2012/05/01
 
 * in_tail and TextParser support 'format json'
