@@ -14,12 +14,6 @@ class StdoutOutputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert (not d.instance.autoflush)
-
-    d = create_driver %[
-      autoflush true
-    ]
-    assert d.instance.autoflush
   end
 
   # def test_emit
