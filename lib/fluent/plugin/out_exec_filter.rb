@@ -256,7 +256,7 @@ class ExecFilterOutput < BufferedOutput
 
   class JSONFormatter < Formatter
     def call(record, out)
-      out << Yajl.dump(record)
+      out << Yajl.dump(record) << "\n"
     end
   end
 
