@@ -22,7 +22,7 @@ class TextParser
   class RegexpParser
     include Configurable
 
-    config_param :time_format, :string
+    config_param :time_format, :string, :default => nil
 
     def initialize(regexp, conf={})
       super()
