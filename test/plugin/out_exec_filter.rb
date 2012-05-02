@@ -8,10 +8,11 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   CONFIG = %[
     command cat
-    in_keys time,tag,k1
-    out_keys time,tag,k2
+    in_keys time_in,tag,k1
+    out_keys time_out,tag,k2
     tag_key tag
-    time_key time
+    in_time_key time_in
+    out_time_key time_out
     time_format %Y-%m-%d %H:%M:%S
     localtime
     num_children 3
@@ -24,11 +25,14 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   def test_configure
     d = create_driver
 
-    assert_equal ["time","tag","k1"], d.instance.in_keys
-    assert_equal ["time","tag","k2"], d.instance.out_keys
-    assert_equal "tag", d.instance.tag_key
-    assert_equal "time", d.instance.time_key
-    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.time_format
+    assert_equal ["time_in","tag","k1"], d.instance.in_keys
+    assert_equal ["time_out","tag","k2"], d.instance.out_keys
+    assert_equal "tag", d.instance.out_tag_key
+    assert_equal "tag", d.instance.in_tag_key
+    assert_equal "time_in", d.instance.in_time_key
+    assert_equal "time_out", d.instance.out_time_key
+    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.in_time_format
+    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.out_time_format
     assert_equal true, d.instance.localtime
     assert_equal 3, d.instance.num_children
 

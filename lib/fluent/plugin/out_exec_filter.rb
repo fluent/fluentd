@@ -44,6 +44,9 @@ class ExecFilterOutput < BufferedOutput
   config_param :in_keys, :default => [] do |val|
     val.split(',')
   end
+  config_param :in_tag_key, :default => nil
+  config_param :in_time_key, :default => nil
+  config_param :in_time_format, :default => nil
 
   config_param :out_format, :default => :tsv do |val|
     f = SUPPORTED_FORMAT[val]
@@ -53,9 +56,11 @@ class ExecFilterOutput < BufferedOutput
   config_param :out_keys, :default => [] do |val|  # for tsv format
     val.split(',')
   end
+  config_param :out_tag_key, :default => nil
+  config_param :out_time_key, :default => nil
+  config_param :out_time_format, :default => nil
 
   config_param :tag, :string, :default => nil
-  config_param :tag_key, :string, :default => nil
 
   config_param :time_key, :string, :default => nil
   config_param :time_format, :string, :default => nil
@@ -66,6 +71,24 @@ class ExecFilterOutput < BufferedOutput
   config_set_default :flush_interval, 1
 
   def configure(conf)
+    if tag_key = conf['tag_key']
+      # TODO obsoleted?
+      @in_tag_key = tag_key
+      @out_tag_key = tag_key
+    end
+
+    if time_key = conf['time_key']
+      # TODO obsoleted?
+      @in_time_key = time_key
+      @out_time_key = time_key
+    end
+
+    if time_format = conf['time_format']
+      # TODO obsoleted?
+      @in_time_format = time_format
+      @out_time_format = time_format
+    end
+
     super
 
     if localtime = conf['localtime']
@@ -74,20 +97,29 @@ class ExecFilterOutput < BufferedOutput
       @localtime = false
     end
 
-    if !@tag && !@tag_key
-      raise ConfigError, "'tag' or 'tag_key' option is required on exec_filter output"
+    if !@tag && !@out_tag_key
+      raise ConfigError, "'tag' or 'out_tag_key' option is required on exec_filter output"
     end
 
-    if @time_key
-      if @time_format
-        f = @time_format
+    if @in_time_key
+      if f = @in_time_format
         tf = TimeFormatter.new(f, @localtime)
         @time_format_proc = tf.method(:format)
-        @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
       else
         @time_format_proc = Proc.new {|time| time.to_s }
+      end
+    elsif @in_time_format
+      $log.warn "in_time_format effects nothing when in_time_key is not specified: #{conf}"
+    end
+
+    if @out_time_key
+      if f = @out_time_format
+        @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
+      else
         @time_parse_proc = Proc.new {|str| str.to_i }
       end
+    elsif @out_time_format
+      $log.warn "out_time_format effects nothing when out_time_key is not specified: #{conf}"
     end
 
     if @remove_prefix
@@ -164,11 +196,11 @@ class ExecFilterOutput < BufferedOutput
     out = ''
 
     es.each {|time,record|
-      if @time_key
-        record[@time_key] = @time_format_proc.call(time)
+      if @in_time_key
+        record[@in_time_key] = @time_format_proc.call(time)
       end
-      if @tag_key
-        record[@tag_key] = tag
+      if @in_tag_key
+        record[@in_tag_key] = tag
       end
       @formatter.call(record, out)
     }
@@ -267,13 +299,13 @@ class ExecFilterOutput < BufferedOutput
   end
 
   def on_message(record)
-    if val = record.delete(@time_key)
+    if val = record.delete(@out_time_key)
       time = @time_parse_proc.call(val)
     else
       time = Engine.now
     end
 
-    if val = record.delete(@tag_key)
+    if val = record.delete(@out_tag_key)
       tag = if @add_prefix
               @added_prefix_string + val
             else
