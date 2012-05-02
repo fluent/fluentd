@@ -115,7 +115,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], emits[0]
 
     d = create_driver %[
-      command sed -l -e s/foo/bar/
+      command sed --unbuffered -l -e s/foo/bar/
       in_keys time,val1
       out_keys time,val2
       tag xxx
@@ -138,7 +138,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   def test_emit_4
     d = create_driver(%[
-      command sed -l -e s/foo/bar/
+      command sed --unbuffered -l -e s/foo/bar/
       in_keys tag,time,val1
       remove_prefix input
       out_keys tag,time,val2
