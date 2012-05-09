@@ -191,14 +191,16 @@ class BasicBuffer < Buffer
         nc << data
         chain.next
 
+        flush_trigger = false
         @queue.synchronize {
           enqueue(top)
+          flush_trigger = @queue.empty?
           @queue << top
           @map[key] = nc
         }
 
         ok = true
-        return @queue.size == 1
+        return flush_trigger
       ensure
         nc.purge unless ok
       end
