@@ -77,7 +77,6 @@ end
 class OutputThread
   def initialize(output)
     @output = output
-    @flush_now = false
     @finish = false
     @next_time = Engine.now + 1.0
   end
@@ -102,7 +101,7 @@ class OutputThread
 
   def submit_flush
     @mutex.synchronize {
-      @flush_now = true
+      @next_time = 0
       @cond.signal
     }
     Thread.pass
@@ -115,7 +114,7 @@ class OutputThread
       until @finish
         time = Engine.now
 
-        if @flush_now || @next_time <= time
+        if @next_time <= time
           @mutex.unlock
           begin
             @next_time = @output.try_flush
