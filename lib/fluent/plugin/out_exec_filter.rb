@@ -221,13 +221,16 @@ class ExecFilterOutput < BufferedOutput
     end
 
     def start(command)
+      @command = command
       @io = IO.popen(command, "r+")
       @pid = @io.pid
       @io.sync = true
+      @finished = false
       @thread = Thread.new(&method(:run))
     end
 
     def shutdown
+      @finished = true
       begin
         Process.kill(:TERM, @pid)
       rescue Errno::ESRCH
@@ -259,10 +262,13 @@ class ExecFilterOutput < BufferedOutput
     def run
       @parser.call(@io)
     rescue
-      $log.error "exec_filter process exited", :error=>$!.to_s
+      $log.error "exec_filter thread unexpectedly failed with an error.", :command=>@command, :error=>$!.to_s
       $log.warn_backtrace $!.backtrace
     ensure
-      Process.waitpid(@pid)
+      pid, stat = Process.waitpid2(@pid)
+      unless @finished
+        $log.error "exec_filter process unexpectedly exited.", :command=>@command, :ecode=>stat.to_i
+      end
     end
   end
 
