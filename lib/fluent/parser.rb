@@ -75,7 +75,7 @@ class TextParser
 
     attr_accessor :preserve_time
 
-    def initialize(conf={})
+    def initialize
       super
       @preserve_time = false
     end
