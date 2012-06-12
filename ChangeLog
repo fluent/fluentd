@@ -1,4 +1,43 @@
 
+Release 0.10.22 - 2012/05/02
+
+* Fixed in_tail and TextParser not to raise "time_format is required" error
+* out_exec_filter: fixed JSONFormatter to add \n at the end of records
+* out_exec_filter: separated {tag_key,time_key,time_format} parameters to
+  {in_,out_}{tag_key,time_key,time_format parameters while keeping
+  compatibility
+
+
+Release 0.10.21 - 2012/05/01
+
+* in_tail and TextParser support 'format json'
+* in_tail and TextParser support 'time_key' and 'time_format' parameters for 'format json'
+* in_tail: improved the file reader not to consume too much memory if the file is huge
+* out_stdout: uses logger instead of STDOUT to show records even if Fluentd is daemonized
+* Fixed the type of 'retry_wait' parameter of buffered output plugins from 'float' to 'time'
+* Fixed owner of log files for log rotation to work properly with --user and --group options
+
+
+Release 0.10.20 - 2012/04/27
+
+* Fixed Config#to_s
+* out_exec_filter: supports 'out_format json' option
+* out_exec_filter: supports 'in_format json' option
+
+
+Release 0.10.19 - 2012/04/17
+
+* Fixed in_syslog
+* in_tail: fixed "invalid byte sequence in US-ASCII" error
+* in_unix is not obsoleted
+
+
+Release 0.10.18 - 2012/04/13
+
+* Use Yajl instead of standard json library to avoid encoding problem
+* buf_memory: call force_encoding('ASCII-8BIT') to avoid encoding problem
+
+
 Release 0.10.17 - 2012/04/02
 
 * in_tail: don't ignore last line without LF [#44]

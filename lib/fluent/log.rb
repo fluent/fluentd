@@ -227,6 +227,14 @@ class Log
     nil
   end
 
+  def write(data)
+    @out.write(data)
+  end
+
+  def flush
+    @out.flush
+  end
+
   private
   def event(level, args)
     time = Time.now

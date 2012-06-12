@@ -21,10 +21,12 @@ module Fluent
 class MemoryBufferChunk < BufferChunk
   def initialize(key, data='')
     @data = data
+    @data.force_encoding('ASCII-8BIT')
     super(key)
   end
 
   def <<(data)
+    data.force_encoding('ASCII-8BIT')
     @data << data
   end
 
@@ -66,9 +68,9 @@ class MemoryBuffer < BasicBuffer
     super
   end
 
-  # overwrite default buffer_chunk_limit and buffer_queue_limit
-  config_set_default :buffer_chunk_limit, 32*1024*1024
-  config_set_default :buffer_queue_limit, 32
+  # Overwrite default BasicBuffer#buffer_queue_limit
+  # to limit total memory usage upto 512MB.
+  config_set_default :buffer_queue_limit, 64
 
   def configure(conf)
     super

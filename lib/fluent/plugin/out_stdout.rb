@@ -23,8 +23,10 @@ class StdoutOutput < Output
 
   def emit(tag, es, chain)
     es.each {|time,record|
-      puts "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}"
+      $log.write "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}\n"
     }
+    $log.flush
+
     chain.next
   end
 end

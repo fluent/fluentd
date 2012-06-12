@@ -77,7 +77,6 @@ end
 class OutputThread
   def initialize(output)
     @output = output
-    @flush_now = false
     @finish = false
     @next_time = Engine.now + 1.0
   end
@@ -102,7 +101,7 @@ class OutputThread
 
   def submit_flush
     @mutex.synchronize {
-      @flush_now = true
+      @next_time = 0
       @cond.signal
     }
     Thread.pass
@@ -115,7 +114,7 @@ class OutputThread
       until @finish
         time = Engine.now
 
-        if @flush_now || @next_time <= time
+        if @next_time <= time
           @mutex.unlock
           begin
             @next_time = @output.try_flush
@@ -174,7 +173,7 @@ class BufferedOutput < Output
   config_param :buffer_type, :string, :default => 'memory'
   config_param :flush_interval, :time, :default => 60
   config_param :retry_limit, :integer, :default => 17
-  config_param :retry_wait, :float, :default => 1.0
+  config_param :retry_wait, :time, :default => 1.0
   config_param :num_threads, :integer, :default => 1
 
   def configure(conf)

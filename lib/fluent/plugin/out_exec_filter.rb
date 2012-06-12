@@ -25,21 +25,70 @@ class ExecFilterOutput < BufferedOutput
     super
   end
 
+  SUPPORTED_FORMAT = {
+    'tsv' => :tsv,
+    'json' => :json,
+    'msgpack' => :msgpack,
+  }
+
   config_param :command, :string
-  config_param :in_keys, :string
+
   config_param :remove_prefix, :string, :default => nil
-  config_param :out_keys, :string
   config_param :add_prefix, :string, :default => nil
+
+  config_param :in_format, :default => :tsv do |val|
+    f = SUPPORTED_FORMAT[val]
+    raise ConfigError, "Unsupported in_format '#{val}'" unless f
+    f
+  end
+  config_param :in_keys, :default => [] do |val|
+    val.split(',')
+  end
+  config_param :in_tag_key, :default => nil
+  config_param :in_time_key, :default => nil
+  config_param :in_time_format, :default => nil
+
+  config_param :out_format, :default => :tsv do |val|
+    f = SUPPORTED_FORMAT[val]
+    raise ConfigError, "Unsupported out_format '#{val}'" unless f
+    f
+  end
+  config_param :out_keys, :default => [] do |val|  # for tsv format
+    val.split(',')
+  end
+  config_param :out_tag_key, :default => nil
+  config_param :out_time_key, :default => nil
+  config_param :out_time_format, :default => nil
+
   config_param :tag, :string, :default => nil
-  config_param :tag_key, :string, :default => nil
+
   config_param :time_key, :string, :default => nil
   config_param :time_format, :string, :default => nil
+
   config_param :localtime, :bool, :default => true
   config_param :num_children, :integer, :default => 1
 
   config_set_default :flush_interval, 1
 
   def configure(conf)
+    if tag_key = conf['tag_key']
+      # TODO obsoleted?
+      @in_tag_key = tag_key
+      @out_tag_key = tag_key
+    end
+
+    if time_key = conf['time_key']
+      # TODO obsoleted?
+      @in_time_key = time_key
+      @out_time_key = time_key
+    end
+
+    if time_format = conf['time_format']
+      # TODO obsoleted?
+      @in_time_format = time_format
+      @out_time_format = time_format
+    end
+
     super
 
     if localtime = conf['localtime']
@@ -48,23 +97,29 @@ class ExecFilterOutput < BufferedOutput
       @localtime = false
     end
 
-    if !@tag && !@tag_key
-      raise ConfigError, "'tag' or 'tag_key' option is required on exec_filter output"
+    if !@tag && !@out_tag_key
+      raise ConfigError, "'tag' or 'out_tag_key' option is required on exec_filter output"
     end
 
-    @in_keys = @in_keys.split(',')
-    @out_keys = @out_keys.split(',')
-
-    if @time_key
-      if @time_format
-        f = @time_format
+    if @in_time_key
+      if f = @in_time_format
         tf = TimeFormatter.new(f, @localtime)
         @time_format_proc = tf.method(:format)
-        @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
       else
         @time_format_proc = Proc.new {|time| time.to_s }
+      end
+    elsif @in_time_format
+      $log.warn "in_time_format effects nothing when in_time_key is not specified: #{conf}"
+    end
+
+    if @out_time_key
+      if f = @out_time_format
+        @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
+      else
         @time_parse_proc = Proc.new {|str| str.to_i }
       end
+    elsif @out_time_format
+      $log.warn "out_time_format effects nothing when out_time_key is not specified: #{conf}"
     end
 
     if @remove_prefix
@@ -73,6 +128,30 @@ class ExecFilterOutput < BufferedOutput
     end
     if @add_prefix
       @added_prefix_string = @add_prefix + '.'
+    end
+
+    case @in_format
+    when :tsv
+      if @in_keys.empty?
+        raise ConfigError, "in_keys option is required on exec_filter output for tsv in_format"
+      end
+      @formatter = TSVFormatter.new(@in_keys)
+    when :json
+      @formatter = JSONFormatter.new
+    when :msgpack
+      @formatter = MessagePackFormatter.new
+    end
+
+    case @out_format
+    when :tsv
+      if @out_keys.empty?
+        raise ConfigError, "out_keys option is required on exec_filter output for tsv in_format"
+      end
+      @parser = TSVParser.new(@out_keys, method(:on_message))
+    when :json
+      @parser = JSONParser.new(method(:on_message))
+    when :msgpack
+      @parser = MessagePackParser.new(method(:on_message))
     end
   end
 
@@ -83,7 +162,7 @@ class ExecFilterOutput < BufferedOutput
     @rr = 0
     begin
       @num_children.times do
-        c = ChildProcess.new(&method(:each_line))
+        c = ChildProcess.new(@parser)
         c.start(@command)
         @children << c
       end
@@ -108,27 +187,22 @@ class ExecFilterOutput < BufferedOutput
   end
 
   def format_stream(tag, es)
-    out = ''
     if @remove_prefix
       if (tag[0, @removed_length] == @removed_prefix_string and tag.length > @removed_length) or tag == @removed_prefix
         tag = tag[@removed_length..-1] || ''
       end
     end
 
+    out = ''
+
     es.each {|time,record|
-      last = @in_keys.length-1
-      for i in 0..last
-        key = @in_keys[i]
-        if key == @time_key
-          out << @time_format_proc.call(time)
-        elsif key == @tag_key
-          out << tag
-        else
-          out << record[key].to_s
-        end
-        out << "\t" if i != last
+      if @in_time_key
+        record[@in_time_key] = @time_format_proc.call(time)
       end
-      out << "\n"
+      if @in_tag_key
+        record[@in_tag_key] = tag
+      end
+      @formatter.call(record, out)
     }
 
     out
@@ -139,53 +213,24 @@ class ExecFilterOutput < BufferedOutput
     @children[r].write chunk
   end
 
-  def each_line(line)
-    line.chomp!
-    vals = line.split("\t")
-
-    tag = @tag
-    time = nil
-    record = {}
-    for i in 0..@out_keys.length-1
-      key = @out_keys[i]
-      val = vals[i]
-      if key == @time_key
-        time = @time_parse_proc.call(val)
-      elsif key == @tag_key
-        tag = if @add_prefix
-                @added_prefix_string + val
-              else
-                val
-              end
-      else
-        record[key] = val
-      end
-    end
-
-    if tag
-      time ||= Engine.now
-      Engine.emit(tag, time, record)
-    end
-  rescue
-    $log.error "exec_filter failed to emit", :error=>$!.to_s, :line=>line
-    $log.warn_backtrace $!.backtrace
-  end
-
   class ChildProcess
-    def initialize(&each_line)
+    def initialize(parser)
       @pid = nil
       @thread = nil
-      @each_line = each_line
+      @parser = parser
     end
 
     def start(command)
+      @command = command
       @io = IO.popen(command, "r+")
       @pid = @io.pid
       @io.sync = true
+      @finished = false
       @thread = Thread.new(&method(:run))
     end
 
     def shutdown
+      @finished = true
       begin
         Process.kill(:TERM, @pid)
       rescue Errno::ESRCH
@@ -215,12 +260,115 @@ class ExecFilterOutput < BufferedOutput
     end
 
     def run
-      @io.each_line(&@each_line)
+      @parser.call(@io)
     rescue
-      $log.error "exec_filter process exited", :error=>$!.to_s
+      $log.error "exec_filter thread unexpectedly failed with an error.", :command=>@command, :error=>$!.to_s
       $log.warn_backtrace $!.backtrace
     ensure
-      Process.waitpid(@pid)
+      pid, stat = Process.waitpid2(@pid)
+      unless @finished
+        $log.error "exec_filter process unexpectedly exited.", :command=>@command, :ecode=>stat.to_i
+      end
+    end
+  end
+
+  class Formatter
+  end
+
+  class TSVFormatter < Formatter
+    def initialize(in_keys)
+      @in_keys = in_keys
+      super()
+    end
+
+    def call(record, out)
+      last = @in_keys.length-1
+      for i in 0..last
+        key = @in_keys[i]
+        out << record[key].to_s
+        out << "\t" if i != last
+      end
+      out << "\n"
+    end
+  end
+
+  class JSONFormatter < Formatter
+    def call(record, out)
+      out << Yajl.dump(record) << "\n"
+    end
+  end
+
+  class MessagePackFormatter < Formatter
+    def call(record, out)
+      record.to_msgpack(out)
+    end
+  end
+
+  def on_message(record)
+    if val = record.delete(@out_time_key)
+      time = @time_parse_proc.call(val)
+    else
+      time = Engine.now
+    end
+
+    if val = record.delete(@out_tag_key)
+      tag = if @add_prefix
+              @added_prefix_string + val
+            else
+              val
+            end
+    else
+      tag = @tag
+    end
+
+    Engine.emit(tag, time, record)
+
+  rescue
+    $log.error "exec_filter failed to emit", :error=>$!.to_s, :record=>Yajl.dump(record)
+    $log.warn_backtrace $!.backtrace
+  end
+
+  class Parser
+    def initialize(on_message)
+      @on_message = on_message
+    end
+  end
+
+  class TSVParser < Parser
+    def initialize(out_keys, on_message)
+      @out_keys = out_keys
+      super(on_message)
+    end
+
+    def call(io)
+      io.each_line(&method(:each_line))
+    end
+
+    def each_line(line)
+      line.chomp!
+      vals = line.split("\t")
+
+      record = Hash[@out_keys.zip(vals)]
+
+      @on_message.call(record)
+    end
+  end
+
+  class JSONParser < Parser
+    def call(io)
+      y = Yajl::Parser.new
+      y.on_parse_complete = @on_message
+      y.parse(io)
+    end
+  end
+
+  class MessagePackParser < Parser
+    def call(io)
+      @u = MessagePack::Unpacker.new(io)
+      begin
+        @u.each(&@on_message)
+      rescue EOFError
+      end
     end
   end
 end

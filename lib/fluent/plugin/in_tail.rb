@@ -256,40 +256,51 @@ class TailInput < Input
       end
     end
 
+    MAX_LINES_AT_ONCE = 1000
+
     class IOHandler
       def initialize(io, pe, &receive_lines)
         $log.info "following tail of #{io.path}"
         @io = io
         @pe = pe
         @receive_lines = receive_lines
-        @buffer = ''
-        @iobuf = ''
+        @buffer = ''.force_encoding('ASCII-8BIT')
+        @iobuf = ''.force_encoding('ASCII-8BIT')
       end
 
       attr_reader :io
 
       def on_notify
-        lines = []
+        begin
+          lines = []
+          read_more = false
 
-        while true
           begin
-            if @buffer.empty?
-              @io.read_nonblock(2048, @buffer)
-            else
-              @buffer << @io.read_nonblock(2048, @iobuf)
-            end
-            while line = @buffer.slice!(/.*?\n/m)
-              lines << line
+            while true
+              if @buffer.empty?
+                @io.read_nonblock(2048, @buffer)
+              else
+                @buffer << @io.read_nonblock(2048, @iobuf)
+              end
+              while line = @buffer.slice!(/.*?\n/m)
+                lines << line
+              end
+              if lines.size >= MAX_LINES_AT_ONCE
+                # not to use too much memory in case the file is very large
+                read_more = true
+                break
+              end
             end
           rescue EOFError
-            break
           end
-        end
 
-        unless lines.empty?
-          @receive_lines.call(lines)
-          @pe.update_pos(@io.pos - @buffer.bytesize)
-        end
+          unless lines.empty?
+            @receive_lines.call(lines)
+            @pe.update_pos(@io.pos - @buffer.bytesize)
+          end
+
+        end while read_more
+
       rescue
         $log.error $!.to_s
         $log.error_backtrace
