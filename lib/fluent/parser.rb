@@ -24,7 +24,7 @@ class TextParser
 
     config_param :time_format, :string, :default => nil
 
-#    attr_accessor :preserve_time
+    attr_accessor :preserve_time
 
     def initialize(regexp, conf={})
       super()
@@ -32,7 +32,7 @@ class TextParser
       unless conf.empty?
         configure(conf)
       end
-#      @preserve_time = false
+      @preserve_time = false
     end
 
     def call(text)
@@ -61,7 +61,7 @@ class TextParser
         end
       }
 
-      time ||= Engine.now #unless @preserve_time
+      time ||= Engine.now unless @preserve_time
 
       return time, record
     end
@@ -73,12 +73,12 @@ class TextParser
     config_param :time_key, :string, :default => 'time'
     config_param :time_format, :string, :default => nil
 
-#    attr_accessor :preserve_time
+    attr_accessor :preserve_time
 
-    # def initialize(conf={})
-    #   super
-    #   @preserve_time = false
-    # end
+    def initialize(conf={})
+      super
+      @preserve_time = false
+    end
 
     def call(text)
       record = Yajl.load(text)
@@ -91,7 +91,7 @@ class TextParser
           time = value.to_i
         end
       else
-        time = Engine.now #unless @preserve_time
+        time = Engine.now unless @preserve_time
       end
 
       return time, record
@@ -102,15 +102,15 @@ class TextParser
   end
 
   TEMPLATES = {
-      'apache' => {
-        :class => RegexpParser,
-        :args  => [/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}],
-      },
-      'syslog' => {
-        :class => RegexpParser,
-        :args  => [/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}]
-      },
-      'json' => { :class => JSONParser, :args => [] },
+    'apache' => {
+      :class => RegexpParser,
+      :args  => [/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}],
+    },
+    'syslog' => {
+      :class => RegexpParser,
+      :args  => [/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}]
+    },
+    'json' => { :class => JSONParser, :args => [] },
   }
 
   def self.register_template(name, regexp_or_proc, time_format=nil)
