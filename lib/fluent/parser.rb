@@ -165,7 +165,7 @@ class TextParser
       @parser.configure(conf)
     end
 
-    @parser.overwrite_time = overwrite_time
+    @parser.preserve_time = (not overwrite_time)
 
     return true
   end
