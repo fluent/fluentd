@@ -84,6 +84,9 @@ class TextParser
       end
 
       return time, record
+    rescue Yajl::ParseError
+      # TODO?
+      return nil, nil
     end
   end
 
