@@ -22,8 +22,6 @@ class ForwardInput < Input
   Plugin.register_input('forward', self)
 
   def initialize
-    require 'socket'
-    require 'yajl'
     super
   end
 

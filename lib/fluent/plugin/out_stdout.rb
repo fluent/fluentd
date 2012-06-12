@@ -23,7 +23,7 @@ class StdoutOutput < Output
 
   def emit(tag, es, chain)
     es.each {|time,record|
-      puts "#{Time.at(time).localtime} #{tag}: #{record.to_json}"
+      puts "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}"
     }
     chain.next
   end

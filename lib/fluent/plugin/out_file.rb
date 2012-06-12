@@ -69,7 +69,7 @@ class FileOutput < TimeSlicedOutput
 
   def format(tag, time, record)
     time_str = @timef.format(time)
-    "#{time_str}\t#{tag}\t#{record.to_json}\n"
+    "#{time_str}\t#{tag}\t#{Yajl.dump(record)}\n"
   end
 
   def write(chunk)
