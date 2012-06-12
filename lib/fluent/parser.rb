@@ -24,12 +24,15 @@ class TextParser
 
     config_param :time_format, :string, :default => nil
 
+    attr_accessor :preserve_time
+
     def initialize(regexp, conf={})
       super()
       @regexp = regexp
       unless conf.empty?
         configure(conf)
       end
+      @preserve_time = false
     end
 
     def call(text)
@@ -58,7 +61,7 @@ class TextParser
         end
       }
 
-      time ||= Engine.now
+      time ||= Engine.now unless @preserve_time
 
       return time, record
     end
@@ -70,9 +73,17 @@ class TextParser
     config_param :time_key, :string, :default => 'time'
     config_param :time_format, :string, :default => nil
 
+    attr_accessor :preserve_time
+
+    def initialize
+      super
+      @preserve_time = false
+    end
+
     def call(text)
       record = Yajl.load(text)
 
+      time = nil
       if value = record.delete(@time_key)
         if @time_format
           time = Time.strptime(value, @time_format).to_i
@@ -80,7 +91,7 @@ class TextParser
           time = value.to_i
         end
       else
-        time = Engine.now
+        time = Engine.now unless @preserve_time
       end
 
       return time, record
@@ -91,27 +102,33 @@ class TextParser
   end
 
   TEMPLATES = {
-    'apache' => RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}),
-    'syslog' => RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}),
-    'json' => JSONParser.new,
+    'apache' => {
+      :class => RegexpParser,
+      :args  => [/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}],
+    },
+    'syslog' => {
+      :class => RegexpParser,
+      :args  => [/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}]
+    },
+    'json' => { :class => JSONParser, :args => [] },
   }
 
   def self.register_template(name, regexp_or_proc, time_format=nil)
-    if regexp_or_proc.is_a?(Regexp)
-      pr = regexp_or_proc
-    else
-      regexp = regexp_or_proc
-      pr = RegexpParser.new(regexp, {'time_format'=>time_format})
-    end
+    args = if regexp_or_proc.is_a?(Regexp)
+             [regexp_or_proc]
+           else
+             regexp = regexp_or_proc
+             [regexp, {'time_format'=>time_format}]
+           end
 
-    TEMPLATES[name] = pr
+    TEMPLATES[name] = {:class => RegexpParser, :args => args}
   end
 
   def initialize
     @parser = nil
   end
 
-  def configure(conf, required=true)
+  def configure(conf, required=true, overwrite_time=true)
     format = conf['format']
 
     if format == nil
@@ -137,15 +154,18 @@ class TextParser
 
     else
       # built-in template
-      @parser = TEMPLATES[format]
-      unless @parser
+      parser_opts = TEMPLATES[format]
+      unless parser_opts
         raise ConfigError, "Unknown format template '#{format}'"
       end
+      @parser = parser_opts[:class].new(*(parser_opts[:args]))
     end
 
     if @parser.respond_to?(:configure)
       @parser.configure(conf)
     end
+
+    @parser.preserve_time = (not overwrite_time)
 
     return true
   end
