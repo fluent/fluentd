@@ -92,7 +92,6 @@ class TailInput < Input
       begin
         line.rstrip!  # remove \n
         time, record = parse_line(line)
-        time ||= Fluent::Engine.now
         if time && record
           es.add(time, record)
         end
