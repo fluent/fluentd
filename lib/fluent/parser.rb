@@ -98,10 +98,10 @@ class TextParser
 
   def self.register_template(name, regexp_or_proc, time_format=nil)
     if regexp_or_proc.is_a?(Regexp)
-      pr = regexp_or_proc
-    else
       regexp = regexp_or_proc
       pr = RegexpParser.new(regexp, {'time_format'=>time_format})
+    else
+      pr = regexp_or_proc
     end
 
     TEMPLATES[name] = pr
