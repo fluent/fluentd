@@ -1,4 +1,21 @@
 
+Release 0.10.23 - 2012/06/25
+
+* out_exec_filter: show more error messages when child process unexpectedly exited
+* in_tail: Added 'apache2' format template which converts fields into integers or nil
+* TextParser creates a parser instance for each output for proper configuration
+* BufferedOutput: reset @flush_now flag
+* changed default buffer limit parameters:
+    Fluentd core:
+      buffer_chunk_limit 256MB -> 8MB
+      buffer_queue_limit 128 -> 256
+    buf_memory:
+      buffer_chunk_limit 32MB -> 8MB
+      buffer_queue_limit 32 -> 64
+    out_file:
+      buffer_chunk_limit -> 256MB
+
+
 Release 0.10.22 - 2012/05/02
 
 * Fixed in_tail and TextParser not to raise "time_format is required" error
