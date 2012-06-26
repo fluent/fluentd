@@ -90,10 +90,62 @@ class TextParser
     end
   end
 
+  class ApacheParser
+    include Configurable
+
+    REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
+
+    def call(text)
+      m = REGEXP.match(text)
+      unless m
+        $log.debug "pattern not match: #{text}"
+        return nil, nil
+      end
+
+      host = m['host']
+      host = (host == '-') ? nil : host
+
+      user = m['user']
+      user = (user == '-') ? nil : user
+
+      time = m['time']
+      time = Time.strptime(time, "%d/%b/%Y:%H:%M:%S %z").to_i
+
+      method = m['method']
+      path = m['path']
+
+      code = m['code'].to_i
+      code = nil if code == 0
+
+      size = m['size']
+      size = (size == '-') ? nil : size.to_i
+
+      referer = m['referer']
+      referer = (referer == '-') ? nil : referer
+
+      agent = m['agent']
+      agent = (agent == '-') ? nil : agent
+
+      record = {
+        "host" => host,
+        "user" => user,
+        "method" => method,
+        "path" => path,
+        "code" => code,
+        "size" => size,
+        "referer" => referer,
+        "agent" => agent,
+      }
+
+      return time, record
+    end
+  end
+
   TEMPLATES = {
-    'apache' => RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}),
-    'syslog' => RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}),
-    'json' => JSONParser.new,
+    'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
+    'apache2' => Proc.new { ApacheParser.new },
+    'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
+    'json' => Proc.new { JSONParser.new },
   }
 
   def self.register_template(name, regexp_or_proc, time_format=nil)
@@ -137,10 +189,11 @@ class TextParser
 
     else
       # built-in template
-      @parser = TEMPLATES[format]
-      unless @parser
+      factory = TEMPLATES[format]
+      unless factory
         raise ConfigError, "Unknown format template '#{format}'"
       end
+      @parser = factory.call
     end
 
     if @parser.respond_to?(:configure)
