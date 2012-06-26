@@ -141,7 +141,7 @@ class TextParser
     end
   end
 
-  TEMPLATES = {
+  TEMPLATE_FACTORIES = {
     'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
     'apache2' => Proc.new { ApacheParser.new },
     'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
@@ -151,12 +151,12 @@ class TextParser
   def self.register_template(name, regexp_or_proc, time_format=nil)
     if regexp_or_proc.is_a?(Regexp)
       regexp = regexp_or_proc
-      pr = RegexpParser.new(regexp, {'time_format'=>time_format})
+      factory = Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
     else
-      pr = regexp_or_proc
+      factory = Proc.new { regexp_or_proc }
     end
 
-    TEMPLATES[name] = pr
+    TEMPLATE_FACTORIES[name] = factory
   end
 
   def initialize
@@ -189,7 +189,7 @@ class TextParser
 
     else
       # built-in template
-      factory = TEMPLATES[format]
+      factory = TEMPLATE_FACTORIES[format]
       unless factory
         raise ConfigError, "Unknown format template '#{format}'"
       end
