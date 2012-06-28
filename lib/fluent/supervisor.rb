@@ -109,6 +109,9 @@ class Supervisor
     @wait_daemonize_pipe_r.close
     @wait_daemonize_pipe_r = nil
 
+    # in case the child process forked during run_configure
+    @wait_daemonize_pipe_w.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+
     Process.setsid
     exit!(0) if fork
     File.umask(0)
