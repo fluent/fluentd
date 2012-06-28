@@ -90,6 +90,64 @@ class TextParser
     end
   end
 
+  class ValuesParser
+    include Configurable
+
+    config_param :keys, :string
+    config_param :time_key, :string, :default => nil
+    config_param :time_format, :string, :default => nil
+
+    def configure(conf)
+      super
+
+      @keys = @keys.split(",")
+
+      if @time_key && !@keys.include?(@time_key)
+        raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
+      end
+
+      if @time_format && !@time_key
+        $log.warn "time_format parameter is ignored because time_key parameter is not set"
+      end
+    end
+
+    def values_map(values)
+      record = Hash[keys.zip(values)]
+
+      if @time_key
+        value = record[@time_key]
+        if @time_format
+          time = Time.strptime(value, @time_format).to_i
+        else
+          time = Time.parse(value).to_i
+        end
+      else
+        time = Engine.now
+      end
+
+      return time, record
+    end
+  end
+
+  class TSVParser < ValuesParser
+    config_param :delimiter, :string, :default => "\t"
+
+    def call(text)
+      return values_map(text.split(@delimiter))
+    end
+  end
+
+  class CSVParser < ValuesParser
+    def initialize
+      super
+      require 'csv'
+    end
+
+    def call(text)
+      return values_map(CSV.parse_line(text))
+    end
+  end
+
   class ApacheParser
     include Configurable
 
@@ -146,6 +204,8 @@ class TextParser
     'apache2' => Proc.new { ApacheParser.new },
     'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
     'json' => Proc.new { JSONParser.new },
+    'tsv' => Proc.new { TSVParser.new },
+    'csv' => Proc.new { CSVParser.new },
   }
 
   def self.register_template(name, regexp_or_proc, time_format=nil)
