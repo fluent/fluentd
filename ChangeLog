@@ -1,4 +1,11 @@
 
+Release 0.10.24 - 2012/06/28
+
+* TextParser/in_tail: supports 'tsv' and 'csv' preset formats
+* supervisor set FD_CLOEXEC to @wait_daemonize_pipe_w in case the child
+process forked during run_configure
+
+
 Release 0.10.23 - 2012/06/25
 
 * out_exec_filter: show more error messages when child process unexpectedly exited
