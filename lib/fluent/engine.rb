@@ -174,13 +174,17 @@ class EngineClass
   end
 
   def shutdown
-    @started.reverse_each {|s|
-      begin
-        s.shutdown
-      rescue
-        $log.warn "unexpected error while shutting down", :error=>$!.to_s
-        $log.warn_backtrace
+    @started.map {|s|
+      Thread.new do
+        begin
+          s.shutdown
+        rescue
+          $log.warn "unexpected error while shutting down", :error=>$!.to_s
+          $log.warn_backtrace
+        end
       end
+    }.each {|t|
+      t.join
     }
   end
 
