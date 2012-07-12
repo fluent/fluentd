@@ -278,15 +278,16 @@ class ExecFilterOutput < BufferedOutput
       rescue Errno::EPIPE => e
         # Broken pipe (child process unexpectedly exited)
         $log.warn "exec_filter Broken pipe, child process maybe exited.", :command => @command
-        try_respawn
-        retry # retry chunk#write_to with child respawned
+        if try_respawn
+          retry # retry chunk#write_to with child respawned
+        end
       end
     end
 
     def try_respawn
-      return if @respawns == 0
+      return false if @respawns == 0
       @mutex.synchronize do
-        return if @respawns == 0
+        return false if @respawns == 0
 
         kill_child(5) # TODO wait time
 
@@ -298,6 +299,7 @@ class ExecFilterOutput < BufferedOutput
         @respawns -= 1 if @respawns > 0
       end
       $log.warn "exec_filter child process successfully respawned.", :command => @command, :respawns => @respawns
+      true
     end
 
     def run
