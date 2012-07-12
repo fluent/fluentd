@@ -68,6 +68,9 @@ class ExecFilterOutput < BufferedOutput
   config_param :localtime, :bool, :default => true
   config_param :num_children, :integer, :default => 1
 
+  # nil, 'none' or 0: no respawn, 'inf' or -1: infinite times, positive integer: try to respawn specified times only
+  config_param :child_respawn, :string, :default => nil
+
   config_set_default :flush_interval, 1
 
   def configure(conf)
@@ -153,6 +156,16 @@ class ExecFilterOutput < BufferedOutput
     when :msgpack
       @parser = MessagePackParser.new(method(:on_message))
     end
+
+    @respawns = if @child_respawn.nil? or @child_respawn == 'none' or @child_respawn == '0'
+                  0
+                elsif @child_respawn == 'inf' or @child_respawn == '-1'
+                  -1
+                elsif @child_respawn =~ /^\d+$/
+                  @child_respawn.to_i
+                else
+                  raise ConfigError, "child_respawn option argument invalid: none(or 0), inf(or -1) or positive number"
+                end
   end
 
   def start
@@ -162,7 +175,7 @@ class ExecFilterOutput < BufferedOutput
     @rr = 0
     begin
       @num_children.times do
-        c = ChildProcess.new(@parser)
+        c = ChildProcess.new(@parser, @respawns)
         c.start(@command)
         @children << c
       end
@@ -214,30 +227,33 @@ class ExecFilterOutput < BufferedOutput
   end
 
   class ChildProcess
-    def initialize(parser)
+    def initialize(parser,respawns=0)
       @pid = nil
       @thread = nil
       @parser = parser
+      @respawns = respawns
+      @mutex = Mutex.new
     end
 
     def start(command)
       @command = command
-      @io = IO.popen(command, "r+")
-      @pid = @io.pid
-      @io.sync = true
+      @mutex.synchronize do
+        @io = IO.popen(command, "r+")
+        @pid = @io.pid
+        @io.sync = true
+        @thread = Thread.new(&method(:run))
+      end
       @finished = false
-      @thread = Thread.new(&method(:run))
     end
 
-    def shutdown
-      @finished = true
+    def kill_child(join_wait)
       begin
         Process.kill(:TERM, @pid)
       rescue Errno::ESRCH
         # Errno::ESRCH 'No such process', ignore
         # child process killed by signal chained from fluentd process
       end
-      if @thread.join(60)  # TODO wait time
+      if @thread.join(join_wait)
         # @thread successfully shutdown
         return
       end
@@ -249,8 +265,39 @@ class ExecFilterOutput < BufferedOutput
       @thread.join
     end
 
+    def shutdown
+      @finished = true
+      @mutex.synchronize do
+        kill_child(60) # TODO wait time
+      end
+    end
+
     def write(chunk)
-      chunk.write_to(@io)
+      begin
+        chunk.write_to(@io)
+      rescue Errno::EPIPE => e
+        # Broken pipe (child process unexpectedly exited)
+        $log.warn "exec_filter Broken pipe, child process maybe exited.", :command => @command
+        try_respawn
+        retry # retry chunk#write_to with child respawned
+      end
+    end
+
+    def try_respawn
+      return if @respawns == 0
+      @mutex.synchronize do
+        return if @respawns == 0
+
+        kill_child(5) # TODO wait time
+
+        @io = IO.popen(@command, "r+")
+        @pid = @io.pid
+        @io.sync = true
+        @thread = Thread.new(&method(:run))
+
+        @respawns -= 1 if @respawns > 0
+      end
+      $log.warn "exec_filter child process successfully respawned.", :command => @command, :respawns => @respawns
     end
 
     def run
@@ -262,6 +309,9 @@ class ExecFilterOutput < BufferedOutput
       pid, stat = Process.waitpid2(@pid)
       unless @finished
         $log.error "exec_filter process unexpectedly exited.", :command=>@command, :ecode=>stat.to_i
+        unless @respawns == 0
+          $log.warn "exec_filter child process will respawn for next input data (respawns #{@respawns})."
+        end
       end
     end
   end
