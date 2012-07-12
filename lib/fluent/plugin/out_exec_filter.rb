@@ -234,23 +234,17 @@ class ExecFilterOutput < BufferedOutput
       begin
         Process.kill(:TERM, @pid)
       rescue Errno::ESRCH
-        if $!.message == 'No such process'
-          # child process killed by signal chained from fluentd process
-        else
-          raise
-        end
+        # Errno::ESRCH 'No such process', ignore
+        # child process killed by signal chained from fluentd process
       end
       if @thread.join(60)  # TODO wait time
+        # @thread successfully shutdown
         return
       end
       begin
         Process.kill(:KILL, @pid)
       rescue Errno::ESRCH
-        if $!.message == 'No such process'
-          # ignore if successfully killed by :TERM
-        else
-          raise
-        end
+        # ignore if successfully killed by :TERM
       end
       @thread.join
     end
