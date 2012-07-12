@@ -22,7 +22,21 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     Fluent::Test::OutputTestDriver.new(Fluent::ExecFilterOutput, tag).configure(conf)
   end
 
+  def gnu_sed?
+    @gnu_sed ||= !! `#{sed} --version 2>&1`.match(/GNU sed/)
+  end
+
+  def sed
+    # gsed check for darwin
+    @sed_coomand ||= `which gsed 2>&1` ? 'gsed' : 'sed'
+  end
+
+  def sed_check
+    skip "don't found GNU sed" unless gnu_sed?
+  end
+
   def test_configure
+    sed_check
     d = create_driver
 
     assert_equal ["time_in","tag","k1"], d.instance.in_keys
@@ -37,14 +51,14 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal 3, d.instance.num_children
 
     d = create_driver %[
-      command sed -l -e s/foo/bar/
+      command #{sed} -l -e s/foo/bar/
       in_keys time,k1
       out_keys time,k2
       tag xxx
       time_key time
       num_children 3
     ]
-    assert_equal "sed -l -e s/foo/bar/", d.instance.command
+    assert_equal "#{sed} -l -e s/foo/bar/", d.instance.command
 
     d = create_driver(CONFIG + %[
       remove_prefix before
@@ -114,8 +128,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal 1, emits.length
     assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], emits[0]
 
+    sed_check
     d = create_driver %[
-      command sed --unbuffered -l -e s/foo/bar/
+      command #{sed} --unbuffered -l -e s/foo/bar/
       in_keys time,val1
       out_keys time,val2
       tag xxx
@@ -137,8 +152,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   end
 
   def test_emit_4
+    sed_check
     d = create_driver(%[
-      command sed --unbuffered -l -e s/foo/bar/
+      command #{sed} --unbuffered -l -e s/foo/bar/
       in_keys tag,time,val1
       remove_prefix input
       out_keys tag,time,val2
