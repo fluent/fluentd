@@ -4,12 +4,6 @@ require 'fileutils'
 class ExecFilterOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-
-    @sed_command = 'command sed --unbuffered -l -e '
-    ok = system('echo xxx | ' + @sed_command + " 's/x/y/g' >/dev/null 2>&1")
-    unless ok
-      @sed_command = 'command sed -l -e '
-    end
   end
 
   CONFIG = %[
@@ -26,6 +20,17 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   def create_driver(conf = CONFIG, tag = 'test')
     Fluent::Test::OutputTestDriver.new(Fluent::ExecFilterOutput, tag).configure(conf)
+  end
+
+  def sed_unbuffered_support?
+    @sed_unbuffered_support ||= lambda {
+      system("echo xxx | sed --unbuffered -l -e 's/x/y/g' >/dev/null 2>&1")
+      $?.success?
+    }.call
+  end
+
+  def sed_unbuffered_option
+    sed_unbuffered_support? ? '--unbuffered' : ''
   end
 
   def test_configure
@@ -120,7 +125,8 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal 1, emits.length
     assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], emits[0]
 
-    d = create_driver @sed_command + "s/foo/bar/\n" + %[
+    d = create_driver %[
+      command sed #{sed_unbuffered_option} -l -e s/foo/bar/
       in_keys time,val1
       out_keys time,val2
       tag xxx
@@ -142,7 +148,8 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   end
 
   def test_emit_4
-    d = create_driver(@sed_command + "s/foo/bar/\n" + %[
+    d = create_driver(%[
+      command sed #{sed_unbuffered_option} -l -e s/foo/bar/
       in_keys tag,time,val1
       remove_prefix input
       out_keys tag,time,val2
