@@ -280,6 +280,8 @@ class ExecFilterOutput < BufferedOutput
         $log.warn "exec_filter Broken pipe, child process maybe exited.", :command => @command
         if try_respawn
           retry # retry chunk#write_to with child respawned
+        else
+          raise e # to retry #write with other ChildProcess instance (when num_children > 1)
         end
       end
     end
