@@ -75,5 +75,33 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(true, emits.length > 0)
     assert_equal({"message"=>"test3test4"}, emits[0][2])
   end
-end
 
+  def test_whitespace
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
+
+    d = create_driver
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        f.puts "    "		# 4 spaces
+        f.puts "    4 spaces"
+        f.puts "4 spaces    "
+        f.puts "	"	# tab
+        f.puts "	tab"
+        f.puts "tab	"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"    "}, emits[0][2])
+    assert_equal({"message"=>"    4 spaces"}, emits[1][2])
+    assert_equal({"message"=>"4 spaces    "}, emits[2][2])
+    assert_equal({"message"=>"	"}, emits[3][2])
+    assert_equal({"message"=>"	tab"}, emits[4][2])
+    assert_equal({"message"=>"tab	"}, emits[5][2])
+  end
+end
