@@ -23,9 +23,10 @@ class RoundRobinOutput < MultiOutput
 
   def initialize
     @outputs = []
+    @weights = []
   end
 
-  attr_reader :outputs
+  attr_reader :outputs, :weights
 
   def configure(conf)
     conf.elements.select {|e|
@@ -35,13 +36,21 @@ class RoundRobinOutput < MultiOutput
       unless type
         raise ConfigError, "Missing 'type' parameter on <store> directive"
       end
-      $log.debug "adding store type=#{type.dump}"
+      weight = if e.arg and e.arg =~ /^weight:(\d+)$/
+                 $1.to_i
+               else
+                 1
+               end
+      $log.debug "adding store type=#{type.dump}, weight=#{weight}"
 
       output = Plugin.new_output(type)
       output.configure(e)
       @outputs << output
+      @weights << weight
     }
+    @outputs_size = @outputs.size
     @rr = -1  # starts from @output[0]
+    @rw = @weights.dup # round robin weights
   end
 
   def start
@@ -62,7 +71,18 @@ class RoundRobinOutput < MultiOutput
 
   protected
   def next_output
-    @rr = 0 if (@rr += 1) >= @outputs.size
+    @round = 0
+    @rr = 0 if (@rr += 1) >= @outputs_size
+    while @rw[@rr] == 0 and @round < @outputs_size
+      @round += 1
+      @rr = 0 if (@rr += 1) >= @outputs_size
+    end
+    if @round == @outputs_size
+      @rr = 0
+      @rw = @weights.dup
+    end
+    @rw[@rr] -= 1
+
     @outputs[@rr]
   end
 end
