@@ -90,7 +90,7 @@ class TailInput < Input
     es = MultiEventStream.new
     lines.each {|line|
       begin
-        line.rstrip!  # remove \n
+        line.chomp!  # remove \n
         time, record = parse_line(line)
         if time && record
           es.add(time, record)
