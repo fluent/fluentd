@@ -27,6 +27,7 @@ class RoundRobinOutput < MultiOutput
   end
 
   attr_reader :outputs, :weights
+  attr_accessor :rand_seed
 
   def configure(conf)
     conf.elements.select {|e|
@@ -36,11 +37,9 @@ class RoundRobinOutput < MultiOutput
       unless type
         raise ConfigError, "Missing 'type' parameter on <store> directive"
       end
-      weight = if e.arg and e.arg =~ /^weight:(\d+)$/
-                 $1.to_i
-               else
-                 1
-               end
+
+      weight = e['weight']
+      weight = weight ? weight.to_i : 1
       $log.debug "adding store type=#{type.dump}, weight=#{weight}"
 
       output = Plugin.new_output(type)
@@ -48,12 +47,13 @@ class RoundRobinOutput < MultiOutput
       @outputs << output
       @weights << weight
     }
-    @outputs_size = @outputs.size
     @rr = -1  # starts from @output[0]
-    @rw = @weights.dup # round robin weights
+    @rand_seed = Random.new.seed
   end
 
   def start
+    rebuild_weight_array
+
     @outputs.each {|o|
       o.start
     }
@@ -71,19 +71,27 @@ class RoundRobinOutput < MultiOutput
 
   protected
   def next_output
-    @round = 0
-    @rr = 0 if (@rr += 1) >= @outputs_size
-    while @rw[@rr] == 0 and @round < @outputs_size
-      @round += 1
-      @rr = 0 if (@rr += 1) >= @outputs_size
-    end
-    if @round == @outputs_size
-      @rr = 0
-      @rw = @weights.dup
-    end
-    @rw[@rr] -= 1
+    @rr = 0 if (@rr += 1) >= @weight_array.size
+    @weight_array[@rr]
+  end
 
-    @outputs[@rr]
+  def rebuild_weight_array
+    gcd = @weights.inject(0) {|r,w| r.gcd(w) }
+
+    weight_array = []
+    @outputs.zip(@weights).each {|output,weight|
+      (weight / gcd).times {
+        weight_array << output
+      }
+    }
+
+    # don't randomize order if all weight is 1 (=default)
+    if @weights.any? {|w| w > 1 }
+      r = Random.new(@rand_seed)
+      weight_array.sort_by! { r.rand }
+    end
+
+    @weight_array = weight_array
   end
 end
 

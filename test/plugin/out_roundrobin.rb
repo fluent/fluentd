@@ -19,20 +19,22 @@ class RoundRobinOutputTest < Test::Unit::TestCase
       name c2
     </store>
   ]
-  CONFIG2 = %[
-<store weight:3>
-  type test
-  name c0
-</store>
-<store weight:3>
-  type test
-  name c1
-</store>
-<store>
-  type test
-  name c2
-</store>
-]
+  CONFIG_WITH_WEIGHT = %[
+    <store>
+      type test
+      name c0
+      weight 3
+    </store>
+    <store>
+      type test
+      name c1
+      weight 3
+    </store>
+    <store>
+      type test
+      name c2
+    </store>
+  ]
 
   def create_driver(conf = CONFIG)
     Fluent::Test::OutputTestDriver.new(Fluent::RoundRobinOutput).configure(conf)
@@ -56,7 +58,7 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     assert_equal 1, weights[1]
     assert_equal 1, weights[2]
 
-    d = create_driver(CONFIG2)
+    d = create_driver(CONFIG_WITH_WEIGHT)
 
     outputs = d.instance.outputs
     assert_equal 3, outputs.size
@@ -78,10 +80,12 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     d = create_driver
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
-    d.emit({"a"=>3}, time)
-    d.emit({"a"=>4}, time)
+    d.run do
+      d.emit({"a"=>1}, time)
+      d.emit({"a"=>2}, time)
+      d.emit({"a"=>3}, time)
+      d.emit({"a"=>4}, time)
+    end
 
     os = d.instance.outputs
 
@@ -100,35 +104,20 @@ class RoundRobinOutputTest < Test::Unit::TestCase
   end
 
   def test_emit_weighted
-    d = create_driver(CONFIG2)
+    d = create_driver(CONFIG_WITH_WEIGHT)
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    (1..12).each do |i|
-      d.emit({"a"=>i}, time)
+    d.run do
+      14.times do |i|
+        d.emit({"a"=>i}, time)
+      end
     end
 
     os = d.instance.outputs
 
-    assert_equal [
-      [time, {"a"=>1}],
-      [time, {"a"=>4}],
-      [time, {"a"=>6}],
-      [time, {"a"=>8}],
-      [time, {"a"=>11}],
-    ], os[0].events
-
-    assert_equal [
-      [time, {"a"=>2}],
-      [time, {"a"=>5}],
-      [time, {"a"=>7}],
-      [time, {"a"=>9}],
-      [time, {"a"=>12}],
-    ], os[1].events
-
-    assert_equal [
-      [time, {"a"=>3}],
-      [time, {"a"=>10}],
-    ], os[2].events
+    assert_equal 6, os[0].events.size  # weight=3
+    assert_equal 6, os[1].events.size  # weight=3
+    assert_equal 2, os[2].events.size  # weight=1
   end
 end
 
