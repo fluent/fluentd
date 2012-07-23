@@ -1,4 +1,12 @@
 
+Release 0.10.25 - 2012/07/23
+
+* shutdown won't block
+* out_exec_filter supports 'child_respawn' option
+* in_tail doesn't remove whitespaces
+* out_roundrobin supports 'weight' option
+
+
 Release 0.10.24 - 2012/06/28
 
 * TextParser/in_tail: supports 'tsv' and 'csv' preset formats
