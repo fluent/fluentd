@@ -123,18 +123,29 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   def write_objects(tag, es)
+    error = nil
+
     wlen = @weight_array.length
     wlen.times do
       node = @weight_array[@rr]
       @rr = (@rr + 1) % wlen
 
       if node.available?
-        send_data(node, tag, es)
-        return
+        begin
+          send_data(node, tag, es)
+          return
+        rescue
+          # for load balancing during detecting crashed servers
+          error = $!  # use the latest error
+        end
       end
     end
 
-    raise "no nodes are available"  # TODO message
+    if error
+      raise error
+    else
+      raise "no nodes are available"  # TODO message
+    end
   end
 
   private
@@ -169,6 +180,10 @@ class ForwardOutput < ObjectBufferedOutput
         weight_array << n
       }
     }
+
+    # for load balancing during detecting crashed servers
+    coe = (regular_nodes.size * 6) / weight_array.size
+    weight_array *= coe if coe > 1
 
     r = Random.new(@rand_seed)
     weight_array.sort_by! { r.rand }
