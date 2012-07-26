@@ -51,7 +51,7 @@ module MixinTest
       }
 
       Fluent::Test::BufferedOutputTestDriver.new(klass) {
-      }.configure("tyep #{register_output_name}" + conf)
+      }.configure("type #{register_output_name}" + conf)
     end
   end
 
