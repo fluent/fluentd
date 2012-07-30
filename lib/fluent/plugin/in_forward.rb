@@ -27,6 +27,8 @@ class ForwardInput < Input
 
   config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
   config_param :bind, :string, :default => '0.0.0.0'
+  # encrypt
+  config_param :password, :string, :default => nil
 
   def configure(conf)
     super
@@ -79,6 +81,21 @@ class ForwardInput < Input
   end
 
   protected
+  def decrypt(encrypted, password, salt = '')
+    cipher = OpenSSL::Cipher::BF.new
+    key_iv = OpenSSL::PKCS5.pbkdf2_hmac_sha1(password, salt, 2000, cipher.key_len + cipher.iv_len)
+    key = key_iv[0, cipher.key_len]
+    iv = key_iv[cipher.key_len, cipher.iv_len]
+    cipher.key = key
+    cipher.iv = iv
+    cipher.decrypt
+    
+    decrypted_data = ''
+    decrypted_data << cipher.update(encrypted)
+    decrypted_data << cipher.final
+    decrypted_data
+  end
+
   # message Entry {
   #   1: long time
   #   2: object record
@@ -92,6 +109,7 @@ class ForwardInput < Input
   # message PackedForward {
   #   1: string tag
   #   2: raw entries  # msgpack stream of Entry
+  #   3: hash attribute # msgpack stream of attribute
   # }
   #
   # message Message {
@@ -101,8 +119,33 @@ class ForwardInput < Input
   # }
   def on_message(msg)
     # TODO format error
+    attribute = (msg.length == 3 && msg[1].class == String && msg[2].class == Hash) ? msg.last : {}
+    attribute_detail = (attribute['detail']) ? attribute['detail'] : {}
     tag = msg[0].to_s
     entries = msg[1]
+
+    if attribute['encrypted']
+      # attribute detail
+      packed_attribute_detail = decrypt(attribute['detail'], @password, attribute['salt'])
+      attribute_detail = MessagePack.unpack(packed_attribute_detail)
+      # tag
+      encrypted_tag = tag.dump
+      tag = decrypt(tag, @password, attribute['salt'])
+      decrypted_tag = tag.dump
+      $log.trace("tag decrypted(dump): [#{encrypted_tag}] -> [#{decrypted_tag}]")
+      # entries
+      entries = decrypt(entries, @password, attribute['salt'])
+    end
+    attribute['detail'] = attribute_detail
+    $log.trace("attribute:#{attribute}")
+    if attribute_detail['compressed']
+      # entries
+      before_size = entries.bytesize
+      entries = Zlib::Inflate.inflate(entries)
+      after_size = entries.bytesize
+      percent = sprintf("%.2f", after_size.to_f / before_size.to_f * 100)
+      $log.trace("entries inflated: #{before_size} bytes to #{after_size} bytes (#{percent} %)")
+    end
 
     if entries.class == String
       # PackedForward
