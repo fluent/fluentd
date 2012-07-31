@@ -77,15 +77,29 @@ op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to
   opts[:inline_config] = s
 }
 
+op.on('-q', '--quiet', "decrement log verbose level (-q: warn, -qq: error, -qqq fatal)", TrueClass) {|b|
+  if b
+    opts[:log_level] = case opts[:log_level]
+                       when Fluent::Log::LEVEL_TRACE then Fluent::Log::LEVEL_DEBUG
+                       when Fluent::Log::LEVEL_DEBUG then Fluent::Log::LEVEL_INFO
+                       when Fluent::Log::LEVEL_INFO then Fluent::Log::LEVEL_WARN
+                       when Fluent::Log::LEVEL_WARN then Fluent::Log::LEVEL_ERROR
+                       when Fluent::Log::LEVEL_ERROR then Fluent::Log::LEVEL_FATAL
+                       else opts[:log_level]
+                       end
+  end
+}
 
 op.on('-v', '--verbose', "increment verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
-    case opts[:log_level]
-    when Fluent::Log::LEVEL_INFO
-      opts[:log_level] = Fluent::Log::LEVEL_DEBUG
-    when Fluent::Log::LEVEL_DEBUG
-      opts[:log_level] = Fluent::Log::LEVEL_TRACE
-    end
+    opts[:log_level] = case opts[:log_level]
+                       when Fluent::Log::LEVEL_DEBUG then Fluent::Log::LEVEL_TRACE
+                       when Fluent::Log::LEVEL_INFO then Fluent::Log::LEVEL_DEBUG
+                       when Fluent::Log::LEVEL_WARN then Fluent::Log::LEVEL_INFO
+                       when Fluent::Log::LEVEL_ERROR then Fluent::Log::LEVEL_WARN
+                       when Fluent::Log::LEVEL_TRACE then Fluent::Log::LEVEL_ERROR
+                       else opts[:log_level]
+                       end
   end
 }
 
