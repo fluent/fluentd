@@ -303,6 +303,9 @@ class ForwardOutput < ObjectBufferedOutput
       @recover_sample_size = recover_sample_size
       @dns_cache_expire = dns_cache_expire
       @available = true
+
+      @resolved_host = nil
+      @resolved_time = 0
       resolved_host  # check dns
     end
 
@@ -319,20 +322,30 @@ class ForwardOutput < ObjectBufferedOutput
     end
 
     def resolved_host
-      return resolve_dns! if @dns_cache_expire == 0
-      now = Engine.now
-      if !@resolved_host || (@dns_cache_expire && now - @resolved_time >= @dns_cache_expire)
-        d = resolve_dns!
-        @resolved_time = now
-        return d
+      case @dns_cache_expire
+      when 0
+        # cache is disabled
+        return resolve_dns!
+
+      when nil
+        # persistent cache
+        return @resolved_host ||= resolve_dns!
+
+      else
+        now = Engine.now
+        rh = @resolved_host
+        if !rh || (@dns_cache_expire && now - @resolved_time >= @dns_cache_expire)
+          rh = @resolved_host = resolve_dns!
+          @resolved_time = now
+        end
+        return rh
       end
-      return @resolved_host
     end
 
     def resolve_dns!
       @sockaddr = Socket.pack_sockaddr_in(@port, @host)
       port, resolved_host = Socket.unpack_sockaddr_in(sockaddr)
-      @resolved_host = resolved_host
+      return resolved_host
     end
     private :resolve_dns!
 
