@@ -32,6 +32,7 @@ class ForwardOutput < ObjectBufferedOutput
   config_param :heartbeat_interval, :time, :default => 1
   config_param :recover_wait, :time, :default => 10
   config_param :hard_timeout, :time, :default => 60
+  config_param :dns_expire_time, :time, :default => nil  # 0 means disable cache
   config_param :phi_threshold, :integer, :default => 8
   attr_reader :nodes
 
@@ -75,7 +76,7 @@ class ForwardOutput < ObjectBufferedOutput
       sockaddr = Socket.pack_sockaddr_in(port, host)
       port, host = Socket.unpack_sockaddr_in(sockaddr)
       @nodes[sockaddr] = Node.new(name, host, port, weight, standby, failure,
-                                  @phi_threshold, recover_sample_size)
+                                  @phi_threshold, recover_sample_size, @dns_expire_time)
       $log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
     }
   end
@@ -292,7 +293,7 @@ class ForwardOutput < ObjectBufferedOutput
 
   class Node
     def initialize(name, host, port, weight, standby, failure,
-                   phi_threshold, recover_sample_size)
+                   phi_threshold, recover_sample_size, dns_expire_time)
       @name = name
       @host = host
       @port = port
@@ -301,7 +302,9 @@ class ForwardOutput < ObjectBufferedOutput
       @failure = failure
       @phi_threshold = phi_threshold
       @recover_sample_size = recover_sample_size
+      @dns_expire_time = dns_expire_time
       @available = true
+      resolved_host  # check dns
     end
 
     attr_reader :name, :host, :port, :weight
@@ -315,6 +318,24 @@ class ForwardOutput < ObjectBufferedOutput
       @standby
     end
 
+    def resolved_host
+      return resolve_dns if @dns_expire_time == 0
+      now = Engine.now
+      if !@resolved_host || (@dns_expire_time && now - @resolved_time >= @dns_expire_time)
+        d = @resolved_host = resolve_dns
+        @resolved_time = now
+        return d
+      end
+      return @resolved_host
+    end
+
+    def resolve_dns
+      sockaddr = Socket.pack_sockaddr_in(@port, @host)
+      port, resolved_host = Socket.unpack_sockaddr_in(sockaddr)
+      resolved_host
+    end
+    private :resolve_dns
+
     def tick
       now = Time.now.to_f
       if !@available
@@ -327,6 +348,7 @@ class ForwardOutput < ObjectBufferedOutput
       if @failure.hard_timeout?(now)
         $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :hard_timeout=>true
         @available = false
+        @resolved_host = nil  # expire cached host
         @failure.clear
         return true
       end
@@ -336,6 +358,7 @@ class ForwardOutput < ObjectBufferedOutput
       if phi > @phi_threshold
         $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
         @available = false
+        @resolved_host = nil  # expire cached host
         @failure.clear
         return true
       else
