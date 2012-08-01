@@ -32,7 +32,7 @@ class ForwardOutput < ObjectBufferedOutput
   config_param :heartbeat_interval, :time, :default => 1
   config_param :recover_wait, :time, :default => 10
   config_param :hard_timeout, :time, :default => 60
-  config_param :dns_cache_expire, :time, :default => nil  # 0 means disable cache
+  config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
   config_param :phi_threshold, :integer, :default => 8
   attr_reader :nodes
 
@@ -74,7 +74,7 @@ class ForwardOutput < ObjectBufferedOutput
 
       failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
       @nodes << Node.new(name, host, port, weight, standby, failure,
-                         @phi_threshold, recover_sample_size, @dns_cache_expire)
+                         @phi_threshold, recover_sample_size, @expire_dns_cache)
       $log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
     }
   end
@@ -292,7 +292,7 @@ class ForwardOutput < ObjectBufferedOutput
 
   class Node
     def initialize(name, host, port, weight, standby, failure,
-                   phi_threshold, recover_sample_size, dns_cache_expire)
+                   phi_threshold, recover_sample_size, expire_dns_cache)
       @name = name
       @host = host
       @port = port
@@ -301,7 +301,7 @@ class ForwardOutput < ObjectBufferedOutput
       @failure = failure
       @phi_threshold = phi_threshold
       @recover_sample_size = recover_sample_size
-      @dns_cache_expire = dns_cache_expire
+      @expire_dns_cache = expire_dns_cache
       @available = true
 
       @resolved_host = nil
@@ -322,7 +322,7 @@ class ForwardOutput < ObjectBufferedOutput
     end
 
     def resolved_host
-      case @dns_cache_expire
+      case @expire_dns_cache
       when 0
         # cache is disabled
         return resolve_dns!
@@ -334,7 +334,7 @@ class ForwardOutput < ObjectBufferedOutput
       else
         now = Engine.now
         rh = @resolved_host
-        if !rh || now - @resolved_time >= @dns_cache_expire
+        if !rh || now - @resolved_time >= @expire_dns_cache
           rh = @resolved_host = resolve_dns!
           @resolved_time = now
         end
