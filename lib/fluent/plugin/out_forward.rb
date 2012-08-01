@@ -282,7 +282,7 @@ class ForwardOutput < ObjectBufferedOutput
 
   def on_heartbeat(sockaddr, msg)
     port, host = Socket.unpack_sockaddr_in(sockaddr)
-    if node = @nodes.find {|n| n.port == port && n.resolved_host == host }
+    if node = @nodes.find {|n| n.sockaddr == sockaddr }
       #$log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
       if node.heartbeat
         rebuild_weight_array
@@ -308,6 +308,7 @@ class ForwardOutput < ObjectBufferedOutput
 
     attr_reader :name, :host, :port, :weight
     attr_writer :weight, :standby, :available
+    attr_reader :sockaddr  # used by on_heartbeat
 
     def available?
       @available
@@ -318,22 +319,22 @@ class ForwardOutput < ObjectBufferedOutput
     end
 
     def resolved_host
-      return resolve_dns if @dns_cache_expire == 0
+      return resolve_dns! if @dns_cache_expire == 0
       now = Engine.now
       if !@resolved_host || (@dns_cache_expire && now - @resolved_time >= @dns_cache_expire)
-        d = @resolved_host = resolve_dns
+        d = resolve_dns!
         @resolved_time = now
         return d
       end
       return @resolved_host
     end
 
-    def resolve_dns
-      sockaddr = Socket.pack_sockaddr_in(@port, @host)
+    def resolve_dns!
+      @sockaddr = Socket.pack_sockaddr_in(@port, @host)
       port, resolved_host = Socket.unpack_sockaddr_in(sockaddr)
-      return resolved_host
+      @resolved_host = resolved_host
     end
-    private :resolve_dns
+    private :resolve_dns!
 
     def tick
       now = Time.now.to_f
