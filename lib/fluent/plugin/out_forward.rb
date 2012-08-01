@@ -25,14 +25,14 @@ class ForwardOutput < ObjectBufferedOutput
     super
     require 'socket'
     require 'fileutils'
-    @nodes = {}  #=> {sockaddr => Node}
+    @nodes = []  #=> [Node]
   end
 
   config_param :send_timeout, :time, :default => 60
   config_param :heartbeat_interval, :time, :default => 1
   config_param :recover_wait, :time, :default => 10
   config_param :hard_timeout, :time, :default => 60
-  config_param :dns_expire_time, :time, :default => nil  # 0 means disable cache
+  config_param :dns_cache_expire, :time, :default => nil  # 0 means disable cache
   config_param :phi_threshold, :integer, :default => 8
   attr_reader :nodes
 
@@ -73,10 +73,8 @@ class ForwardOutput < ObjectBufferedOutput
       end
 
       failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
-      sockaddr = Socket.pack_sockaddr_in(port, host)
-      port, host = Socket.unpack_sockaddr_in(sockaddr)
-      @nodes[sockaddr] = Node.new(name, host, port, weight, standby, failure,
-                                  @phi_threshold, recover_sample_size, @dns_expire_time)
+      @nodes << Node.new(name, host, port, weight, standby, failure,
+                         @phi_threshold, recover_sample_size, @dns_cache_expire)
       $log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
     }
   end
@@ -151,7 +149,7 @@ class ForwardOutput < ObjectBufferedOutput
 
   private
   def rebuild_weight_array
-    standby_nodes, regular_nodes = @nodes.values.partition {|n|
+    standby_nodes, regular_nodes = @nodes.partition {|n|
       n.standby?
     }
 
@@ -232,7 +230,7 @@ class ForwardOutput < ObjectBufferedOutput
 
   def connect(node)
     # TODO unix socket?
-    TCPSocket.new(node.host, node.port)
+    TCPSocket.new(node.resolved_host, node.port)
   end
 
   class HeartbeatRequestTimer < Coolio::TimerWatcher
@@ -250,16 +248,16 @@ class ForwardOutput < ObjectBufferedOutput
 
   def on_timer
     return if @finished
-    @nodes.each_pair {|sockaddr,n|
+    @nodes.each {|n|
       if n.tick
         rebuild_weight_array
       end
       begin
         #$log.trace "sending heartbeat #{n.host}:#{n.port}"
-        @usock.send "", 0, sockaddr
+        @usock.send "", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
       rescue
         # TODO log
-        $log.debug "failed to send heartbeat packet to #{Socket.unpack_sockaddr_in(sockaddr).reverse.join(':')}", :error=>$!.to_s
+        $log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s
       end
     }
   end
@@ -283,7 +281,8 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   def on_heartbeat(sockaddr, msg)
-    if node = @nodes[sockaddr]
+    port, host = Socket.unpack_sockaddr_in(sockaddr)
+    if node = @nodes.find {|n| n.port == port && n.resolved_host == host }
       #$log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
       if node.heartbeat
         rebuild_weight_array
@@ -293,7 +292,7 @@ class ForwardOutput < ObjectBufferedOutput
 
   class Node
     def initialize(name, host, port, weight, standby, failure,
-                   phi_threshold, recover_sample_size, dns_expire_time)
+                   phi_threshold, recover_sample_size, dns_cache_expire)
       @name = name
       @host = host
       @port = port
@@ -302,7 +301,7 @@ class ForwardOutput < ObjectBufferedOutput
       @failure = failure
       @phi_threshold = phi_threshold
       @recover_sample_size = recover_sample_size
-      @dns_expire_time = dns_expire_time
+      @dns_cache_expire = dns_cache_expire
       @available = true
       resolved_host  # check dns
     end
@@ -319,9 +318,9 @@ class ForwardOutput < ObjectBufferedOutput
     end
 
     def resolved_host
-      return resolve_dns if @dns_expire_time == 0
+      return resolve_dns if @dns_cache_expire == 0
       now = Engine.now
-      if !@resolved_host || (@dns_expire_time && now - @resolved_time >= @dns_expire_time)
+      if !@resolved_host || (@dns_cache_expire && now - @resolved_time >= @dns_cache_expire)
         d = @resolved_host = resolve_dns
         @resolved_time = now
         return d
@@ -332,7 +331,7 @@ class ForwardOutput < ObjectBufferedOutput
     def resolve_dns
       sockaddr = Socket.pack_sockaddr_in(@port, @host)
       port, resolved_host = Socket.unpack_sockaddr_in(sockaddr)
-      resolved_host
+      return resolved_host
     end
     private :resolve_dns
 

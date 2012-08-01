@@ -27,7 +27,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     nodes = d.instance.nodes
     assert_equal 51, d.instance.send_timeout
     assert_equal 1, nodes.length
-    node = nodes.values.first
+    node = nodes.first
     assert_equal "test", node.name
     assert_equal '127.0.0.1', node.host
     assert_equal 13999, node.port
