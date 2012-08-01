@@ -334,7 +334,7 @@ class ForwardOutput < ObjectBufferedOutput
       else
         now = Engine.now
         rh = @resolved_host
-        if !rh || (@dns_cache_expire && now - @resolved_time >= @dns_cache_expire)
+        if !rh || now - @resolved_time >= @dns_cache_expire
           rh = @resolved_host = resolve_dns!
           @resolved_time = now
         end
