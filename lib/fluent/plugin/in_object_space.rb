@@ -92,7 +92,7 @@ class ObjectSpaceInput < Input
     map = {}
 
     ObjectSpace.each_object {|obj|
-      klass = obj.class
+      klass = obj.class rescue Object
       if c = map[klass]
         c.incr!
       else
