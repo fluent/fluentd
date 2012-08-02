@@ -18,6 +18,7 @@ module MixinTest
     def teardown
       super
       Timecop.return
+      GC.start
     end
 
     module Checker
