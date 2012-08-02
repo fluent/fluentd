@@ -1,6 +1,12 @@
 require 'fluent/test'
 
 class ObjectSpaceInputTest < Test::Unit::TestCase
+  class FailObject
+    def self.class
+      raise "error"
+    end
+  end
+
   def setup
     Fluent::Test.setup
   end
