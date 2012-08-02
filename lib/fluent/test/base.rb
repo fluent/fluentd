@@ -39,7 +39,7 @@ class TestDriver
 
   def configure(str)
     if str.is_a?(Config)
-      @config = @str
+      @config = str
     else
       @config = Config.parse(str, "(test)")
     end
