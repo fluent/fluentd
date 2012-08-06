@@ -16,7 +16,7 @@ conf = <<EOF
 </filter>
 
 <match **>
-  type stdout
+  type buffered_stdout
 </match>
 EOF
 

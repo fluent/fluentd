@@ -16,25 +16,15 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Buffers
 
+    here = File.expand_path(File.dirname(__FILE__))
 
-  class Agent
-    def initialize
-    end
+    {
+      :MemoryBuffer => 'buffers/memory_buffer',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
-

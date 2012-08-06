@@ -16,25 +16,18 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Collectors
 
+    here = File.expand_path(File.dirname(__FILE__))
 
-  class Agent
-    def initialize
-    end
+    {
+      :FilteringCollector => 'collectors/filtering_collector',
+      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
+      :NoMatchCollector => 'collectors/no_match_collector',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
 

@@ -59,10 +59,10 @@ module Fluentd
           @pm.run
         ensure
           begin
-            @pm.stop(true)
+            #@pm.stop(true)  # TODO
             @pm.join
           ensure
-            @pm.close
+            @pm.shutdown
           end
         end
       end
@@ -91,7 +91,7 @@ module Fluentd
         new_bus = nil
 
       ensure
-        new_bus.close if new_bus
+        new_bus.shutdown if new_bus
       end
     end
 

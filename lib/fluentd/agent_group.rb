@@ -42,9 +42,9 @@ module Fluentd
       }
     end
 
-    def close
-      @agents.each {|agent| agent.close }
-      @agent_groups.each {|group| group.close }
+    def shutdown
+      @agents.each {|agent| agent.shutdown }
+      @agent_groups.each {|group| group.shutdown }
     end
   end
 

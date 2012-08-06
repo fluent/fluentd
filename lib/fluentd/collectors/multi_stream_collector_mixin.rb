@@ -16,41 +16,44 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Builtin
+  module Collectors
 
-    class CopyFilter < Outputs::BasicOutput
-      include StreamSource
+    module MultiStreamCollectorMixin
+      include Collector
 
-      Plugin.register_filter(:copy, self)
-
-      class CopyWriter
+      class MultiStreamWriter
         include Collector::Writer
 
-        def initialize(writer)
-          @writer = writer
+        def initialize(bus)
+          @writers = {}
+          @bus = bus
         end
 
         def append(tag, time, record)
-          @writer.append(tag, time, record)
-          return time, record
+          w = (@writers[tag] ||= @bus.open_stream(tag))
+          w.append(tag, time, record)
         end
 
-        def write(tag, chunk)
-          @writer.write(tag, chunk)
-          return chunk
+        def chunk(tag, chunk)
+          w = (@writers[tag] ||= @bus.open_stream(tag))
+          w.write(tag, record)
         end
 
         def close
-          @writer.close
+          @writers.values.reverse_each {|w|
+            w.close  # TODO log
+          }
         end
       end
 
       def open
-        w = stream_source.open
-        return CopyWriter.new(w)
+        return ensure_close(open, &proc) if block_given?
+        MultiStreamWriter.new(self)
       end
+
+      #def open_stream(tag)
+      #end
     end
 
   end
 end
-

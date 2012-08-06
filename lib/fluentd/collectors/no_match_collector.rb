@@ -16,25 +16,33 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Collectors
 
+    class NoMatchCollector
+      include Collector
 
-  class Agent
-    def initialize
+      def open(tag)
+        # TODO
+        #$log.on_trace { $log.trace "no patterns matched", :tag=>tag }
+        return NoMatchWriter.new
+      end
+
+      class NoMatchWriter
+        include Collector::Writer
+
+        def append(tag, time, record)
+          # TODO
+        end
+
+        def write(tag, chunk)
+          # TODO
+        end
+
+        def close
+          # TODO
+        end
+      end
     end
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
-

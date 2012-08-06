@@ -18,7 +18,7 @@
 module Fluentd
 
 
-  class Chunk
+  module Chunk
     #def attributes
     #end
 
@@ -26,19 +26,6 @@ module Fluentd
     #end
   end
 
-
-  class MessagePackChunk
-    def initialize(attributes, raw)
-      @attributes = attributes
-      @raw = raw
-    end
-
-    attr_reader :attributes
-
-    def each(&block)
-      MessagePack::Unpacker.new(@raw).each(&block)
-    end
-  end
 
 end
 

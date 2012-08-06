@@ -20,14 +20,26 @@ module Fluentd
 
   module Collector
     module Writer
-      def append(time, record)
+      def append(tag, time, record)
       end
 
-      def write(chunk)
+      def write(tag, chunk)
+      end
+
+      def close
       end
     end
 
-    def open(tag, &block)
+    def open
+    end
+
+    private
+    def ensure_close(writer, block)
+      begin
+        block.yield(writer)
+      ensure
+        writer.close
+      end
     end
   end
 

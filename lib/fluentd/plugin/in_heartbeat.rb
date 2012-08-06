@@ -18,9 +18,7 @@
 module Fluentd
   module Builtin
 
-    class HeartbeatInput < Agent
-      # TODO create base class for Input plugins
-      include StreamSource
+    class HeartbeatInput < Inputs::BasicInput
 
       Plugin.register_input(:heartbeat, self)
 
@@ -40,36 +38,33 @@ module Fluentd
         @thread = Thread.new(&method(:run))
       end
 
-      def open(tag, &block)
-        @mutex.synchronize do
-          @tag = tag
-          yield self
+      def stop
+        @finish_flag.set!
+        if @thread
+          @thread.join
+          @thread = nil
         end
       end
 
-      def append(time, record)
-        puts "#{time} #{@tag} #{record.to_json}"
-      end
-
-      def write(chunk)
-        chunk.each(&method(:append))
-      end
-
       def shutdown
+        #stop
       end
 
       private
       def run
         until @finish_flag.set?
           begin
-            stream_source.open(@tag) do |w|
-              w.append(Time.now.to_i, @message)
+            w = stream_source.open
+            begin
+              w.append(@tag, Time.now.to_i, @message)
+            ensure
+              w.close
             end
           rescue
             puts "error: #{$!}"
             $!.backtrace.each {|bt| puts "  #{bt}" }
           end
-          sleep 1
+          @finish_flag.wait(1)
         end
       end
     end

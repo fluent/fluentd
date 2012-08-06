@@ -18,13 +18,6 @@
 module Fluentd
 
 
-  class ConfigError < StandardError
-  end
-
-  class ConfigParseError < ConfigError
-  end
-
-
   module Config
     class Element < Hash
       def initialize(name, arg, attrs, elements, used=[])

@@ -16,25 +16,11 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Outputs
 
-
-  class Agent
-    def initialize
+    class BasicOutput < Agent
+      include Collector
     end
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
-

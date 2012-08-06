@@ -16,25 +16,11 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Inputs
 
-
-  class Agent
-    def initialize
+    class BasicInput < Agent
+      include StreamSource
     end
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
-

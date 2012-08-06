@@ -18,32 +18,27 @@
 module Fluentd
   module Builtin
 
-    class StdoutOutput < Agent
-      # TODO create base class for Output plugins
-      include Collector
-
+    class StdoutOutput < Outputs::BasicOutput
       Plugin.register_output(:stdout, self)
-
-      def initialize
-        @mutex = Mutex.new
-      end
 
       def configure(conf)
       end
 
-      def open(tag, &block)
-        @mutex.synchronize do
-          @tag = tag
-          yield self
-        end
+      def open
+        return self
       end
 
-      def append(time, record)
-        puts "#{time} #{@tag} #{record.to_json}"
+      def close
       end
 
-      def write(chunk)
-        chunk.each(&method(:append))
+      def append(tag, time, record)
+        print "#{tag}\t#{time}\t#{record.to_json}\n"
+      end
+
+      def write(tag, chunk)
+        chunk.each {|time,record|
+          append(tag, time, record)
+        }
       end
     end
 

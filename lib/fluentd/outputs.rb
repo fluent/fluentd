@@ -16,30 +16,16 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Outputs
 
+    here = File.expand_path(File.dirname(__FILE__))
 
-  class Buffer
-    include Collector
+    {
+      :BasicOutput => 'outputs/basic_output',
+      :BufferedOutput => 'outputs/buffered_output',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
 
-    def initialize
-    end
-
-    # TODO not implemented yet
-
-    #def open(tag, &block)
-    #  block.call(partition(tag))
-    #end
-    #
-    #def partition(tag)
-    #end
-    #
-    #def acquire
-    #end
-    #
-    #def release(chunk)
-    #end
   end
-
-
 end
-

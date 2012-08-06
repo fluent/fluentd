@@ -19,13 +19,13 @@ module Fluentd
 
 
   class MessageBus < AgentGroup
-    include Collector
+    include Collectors::MultiStreamCollectorMixin
 
     def initialize
       super
       @match_cache = {}
       @matches = []
-      @default_collector = NoMatchCollector.new
+      @default_collector = Collectors::NoMatchCollector.new
     end
 
     attr_accessor :default_collector
@@ -54,17 +54,6 @@ module Fluentd
       }
     end
 
-    def open(tag, &block)
-      collector = @match_cache[tag]
-      unless collector
-        collector = match(tag) || @default_collector
-        if @match_cache.size < 1024  # TODO size limit
-          @match_cache[tag] = collector
-        end
-      end
-      collector.open(tag, &block)
-    end
-
     def add_source(type, e)
       #$log.info "adding source", :type=>type
       agent = Plugin.new_input(type)
@@ -87,7 +76,36 @@ module Fluentd
       @matches << FilterMatch.new(pattern, agent)
     end
 
+    # override
+    def open_stream(tag)
+      collector = @match_cache[tag]
+      unless collector
+        collector = match(tag) || @default_collector
+        if @match_cache.size < 1024  # TODO size limit
+          @match_cache[tag] = collector
+        end
+      end
+      collector.open
+    end
+
     private
+
+    def match(tag)
+      collectors = []
+      @matches.each {|m|
+        if m.pattern.match?(m)
+          collectors << m.collector
+          unless m.filter?
+            if collectors.size == 1
+              return collectors[0]
+            else
+              return Collectors::FilteringCollector.new(collectors)
+            end
+          end
+        end
+      }
+      return nil
+    end
 
     class Match
       def initialize(pattern, collector)
@@ -108,23 +126,6 @@ module Fluentd
       end
     end
 
-    def match(tag)
-      collectors = []
-      @matches.each {|m|
-        if m.pattern.match?(m)
-          collectors << m.collector
-          unless m.filter?
-            if collectors.size == 1
-              return collectors[0]
-            else
-              return FilteredCollector.new(collectors)
-            end
-          end
-        end
-      }
-      return nil
-    end
-
     def configure_agent(agent, e)
       add_agent(agent)
 
@@ -142,16 +143,7 @@ module Fluentd
       agent = nil
 
     ensure
-      agent.close if agent
-    end
-
-    class NoMatchCollector
-      include Collector
-
-      def open(tag, &block)
-        # TODO
-        #$log.on_trace { $log.trace "no patterns matched", :tag=>tag }
-      end
+      agent.shutdown if agent
     end
   end
 
@@ -172,16 +164,16 @@ module Fluentd
       }
     end
 
-    def open(tag, label=nil, &block)
+    def open(label=nil)
       if label
         if bus = @labels[label]
-          return bus.open(tag, &block)
+          return bus.open
         else
           raise "unknown label: #{label}"  # TODO error
         end
       else
         # default label
-        super(tag, &block)
+        super()
       end
     end
 

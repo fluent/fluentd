@@ -16,25 +16,21 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Builtin
 
+    class BufferedStdoutOutput < Outputs::BufferedOutput
+      Plugin.register_output(:buffered_stdout, self)
 
-  class Agent
-    def initialize
+      def initialize
+        super
+      end
+
+      def write(tag, chunk)
+        chunk.each {|time,record|
+          print "#{tag}\t#{time}\t#{record.to_json}\n"
+        }
+      end
     end
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
-

@@ -18,15 +18,13 @@
 module Fluentd
   module Builtin
 
-    class RedirectOutput < Agent
-      # TODO create base class for Output plugins
-      include Collector
+    class RedirectOutput < Outputs::BasicOutput
       include StreamSource
 
       Plugin.register_output(:redirect, self)
 
-      def open(tag, &block)
-        stream_source.open(tag, &block)
+      def open
+        stream_source.open
       end
     end
 

@@ -55,8 +55,8 @@ module Fluentd
       @processor.join
     end
 
-    def close
-      @processor.close
+    def shutdown
+      @processor.shutdown
     end
 
     private
@@ -96,13 +96,13 @@ module Fluentd
 
     def stop(immediate)
       @started_agents.each {|agent|
-        agent.shutdown
+        agent.stop
       }
     end
 
-    def close
+    def shutdown
       @agents.each {|agent|
-        agent.close
+        agent.shutdown
       }
     end
 
@@ -114,7 +114,7 @@ module Fluentd
         @processor_id = processor_id
       end
 
-      def open(tag, &block)
+      def open
         if Processor::PROCESSOR_ID == @processor_id
           return super
         end

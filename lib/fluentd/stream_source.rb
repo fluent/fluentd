@@ -24,10 +24,6 @@ module Fluentd
     def setup_internal_bus(bus)
       @stream_source = bus
     end
-
-    def open_bus(tag, &block)
-      @stream_source.open(tag, &block)
-    end
   end
 
 

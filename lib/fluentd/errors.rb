@@ -18,23 +18,11 @@
 module Fluentd
 
 
-  class Agent
-    def initialize
-    end
+  class ConfigError < StandardError
+  end
 
-    def configure(conf)
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
+  class ConfigParseError < ConfigError
   end
 
 
 end
-
