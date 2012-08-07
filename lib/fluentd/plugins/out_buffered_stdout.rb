@@ -16,7 +16,7 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Builtin
+  module Plugins
 
     class BufferedStdoutOutput < Outputs::BufferedOutput
       Plugin.register_output(:buffered_stdout, self)

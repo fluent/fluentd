@@ -21,6 +21,7 @@ module Fluentd
     here = File.expand_path(File.dirname(__FILE__))
 
     {
+      :BasicChunk => 'chunks/basic_chunk',
       #:OneChunk => 'chunks/one_chunk',
     }.each_pair {|k,v|
       autoload k, File.join(here, v)

@@ -18,9 +18,7 @@
 module Fluentd
   module Outputs
 
-    class BufferedOutput < Agent
-      include Collector
-
+    class BufferedOutput < BasicOutput
       class FlushThread
         def initialize(try_flush)
           @try_flush = try_flush
@@ -71,7 +69,7 @@ module Fluentd
 
       def configure(conf)
         # TODO
-        @buffer = Buffers::MemoryBuffer.new
+        @buffer = Plugins::MemoryBuffer.new
       end
 
       def start
@@ -84,7 +82,12 @@ module Fluentd
         @buffer.start
       end
 
+      def stop
+        @buffer.stop if @buffer
+      end
+
       def shutdown
+        @buffer.shutdown if @buffer
         @flush_threads.reverse_each {|t|
           t.shutdown
         }

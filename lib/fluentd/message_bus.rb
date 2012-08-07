@@ -19,7 +19,32 @@ module Fluentd
 
 
   class MessageBus < AgentGroup
-    include Collectors::MultiStreamCollectorMixin
+    include Collector
+
+    class MessageBusWriter
+      include Collector::Writer
+
+      def initialize(bus)
+        @writers = {}
+        @bus = bus
+      end
+
+      def append(tag, time, record)
+        w = (@writers[tag] ||= @bus.open_stream(tag))
+        w.append(tag, time, record)
+      end
+
+      def chunk(tag, chunk)
+        w = (@writers[tag] ||= @bus.open_stream(tag))
+        w.write(tag, record)
+      end
+
+      def close
+        @writers.values.reverse_each {|w|
+          w.close  # TODO log
+        }
+      end
+    end
 
     def initialize
       super
@@ -29,6 +54,11 @@ module Fluentd
     end
 
     attr_accessor :default_collector
+
+    def open
+      return ensure_close(open, &proc) if block_given?
+      MessageBusWriter.new(self)
+    end
 
     def configure(conf)
       conf.elements.select {|e|

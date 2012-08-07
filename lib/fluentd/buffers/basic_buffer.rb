@@ -16,17 +16,12 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Builtin
+  module Buffers
 
-    class RedirectOutput < Outputs::BasicOutput
-      include StreamSource
-
-      Plugin.register_output(:redirect, self)
-
-      def open
-        stream_source.open
-      end
+    class BasicBuffer < Agent
+      include Collector
     end
 
   end
 end
+

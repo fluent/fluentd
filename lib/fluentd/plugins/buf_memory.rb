@@ -16,14 +16,10 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Buffers
+  module Plugins
 
-    class MemoryBuffer < Agent
-      include Collector
-
-      class MemoryBufferChunk
-        include Chunk
-
+    class MemoryBuffer < Buffers::BasicBuffer
+      class MemoryBufferChunk < Chunks::BasicChunk
         def initialize(tag)
           @tag = tag
           @data = ''.force_encoding('ASCII-8BIT')
@@ -45,15 +41,18 @@ module Fluentd
       end
 
       def initialize
+        @mutex = Mutex.new
         @map = {}
         @queue = []
-        #@opener = Openers::InstanceLockOpener.new
       end
 
-      # FIXME mutex
-
       def open
-        self
+        @mutex.lock
+        begin
+          self
+        ensure
+          @mutex.unlock
+        end
       end
 
       def append(tag, time, record)

@@ -16,16 +16,20 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Chunks
 
+    class BasicChunk
+      #def read
+      #end
 
-  module Chunk
-    #def attributes
-    #end
+      def write_to(io)
+        io.write(read)
+      end
 
-    #def each(&block)
-    #end
+      #def each(&block)
+      #end
+    end
+
   end
-
-
 end
 

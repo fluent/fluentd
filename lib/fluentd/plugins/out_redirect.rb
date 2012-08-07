@@ -16,15 +16,17 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Buffers
+  module Plugins
 
-    here = File.expand_path(File.dirname(__FILE__))
+    class RedirectOutput < Outputs::BasicOutput
+      include StreamSource
 
-    {
-      :BasicBuffer => 'buffers/basic_buffer',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+      Plugin.register_output(:redirect, self)
+
+      def open
+        stream_source.open
+      end
+    end
 
   end
 end

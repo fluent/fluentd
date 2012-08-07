@@ -16,7 +16,7 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Builtin
+  module Plugins
 
     class StdoutOutput < Outputs::BasicOutput
       Plugin.register_output(:stdout, self)

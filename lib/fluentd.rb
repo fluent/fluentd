@@ -26,7 +26,6 @@ module Fluentd
   {
     :Agent => 'fluentd/agent',
     :AgentGroup => 'fluentd/agent_group',
-    :Chunk => 'fluentd/chunk',
     :Collector => 'fluentd/collector',
     :Collectors => 'fluentd/collectors',
     :ConfigError => 'fluentd/errors',
