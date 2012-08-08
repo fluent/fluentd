@@ -91,7 +91,6 @@ module Fluentd
     end
   end
 
-
   class PluginClass
     def initialize
       @input = PluginRegistry.new(:input, 'fluent/plugin/in_')
@@ -163,8 +162,5 @@ module Fluentd
       }
     end
   end
-
-  Plugin = PluginClass.new
-
 
 end

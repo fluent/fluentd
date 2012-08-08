@@ -15,20 +15,46 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluentd
-  module Collectors
+module Fluent
 
-    here = File.expand_path(File.dirname(__FILE__))
+  class InputBackwardCompatWrapper
+    class Factory
+      def initialize(klass)
+        @klass = klass
+      end
 
-    {
-      :ProxyCollector => 'collectors/proxy_collector',
-      :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
-      :NoMatchCollector => 'collectors/no_match_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+      def new
+        InputBackwardCompatWrapper.new(@klass.new)
+      end
+    end
 
+    def initialize(base)
+      @base = base
+    end
+
+    def start
+      @base.start
+    end
+
+    def stop
+      @base.shutdown
+    end
+
+    def configure(conf)
+      # TODO wrapper
+      @base.configure(conf)
+    end
+
+    def shutdown
+    end
   end
-end
 
+  class InputForwardCompatWrapper < Fluentd::Agent
+    include Fluentd::StreamSource
+
+    def initialize(source)
+      @source = source
+    end
+  end
+
+end

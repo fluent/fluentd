@@ -195,6 +195,7 @@ module Fluentd
     end
 
     def open(label=nil)
+      return ensure_close(open, &proc) if block_given?
       if label
         if bus = @labels[label]
           return bus.open

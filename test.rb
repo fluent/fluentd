@@ -16,6 +16,13 @@ conf = <<EOF
 </filter>
 
 <match **>
+  type roundrobin
+  <store>
+    type stdout
+  </store>
+</match>
+
+<match **>
   type buffered_stdout
 </match>
 EOF

@@ -15,20 +15,17 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluentd
-  module Collectors
+module Fluent
 
-    here = File.expand_path(File.dirname(__FILE__))
+  class EventStreamChunk < Fluentd::Chunks::BasicChunk
+    def read
+      @es_chunk_data ||= to_msgpack_stream
+    end
 
-    {
-      :ProxyCollector => 'collectors/proxy_collector',
-      :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
-      :NoMatchCollector => 'collectors/no_match_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
-
+    def size
+      read.size
+    end
   end
+
 end
 

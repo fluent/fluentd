@@ -36,7 +36,6 @@ module Fluentd
     :LabeledMessageBus => 'fluentd/message_bus',
     :PluginRegistry => 'fluentd/plugin',
     :PluginClass => 'fluentd/plugin',
-    :Plugin => 'fluentd/plugin',
     :Outputs => 'fluentd/outputs',
     :Inputs => 'fluentd/inputs',
     :Chunks => 'fluentd/chunks',
@@ -44,6 +43,7 @@ module Fluentd
     :StreamSource => 'fluentd/stream_source',
     :ProcessManager => 'fluentd/process_manager',
     :Processor => 'fluentd/process_manager',
+    :Engine => 'fluentd/engine',
     :Supervisor => 'fluentd/supervisor',
     :BlockingFlag => 'fluentd/util/blocking_flag',
     :DaemonsLogger => 'fluentd/util/daemons_logger',
@@ -54,6 +54,7 @@ module Fluentd
 
   [
     'fluentd/version',
+    'fluent',
   ].each {|v|
     require File.join(here, v)
   }

@@ -15,20 +15,15 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluentd
-  module Collectors
+module Fluent
 
-    here = File.expand_path(File.dirname(__FILE__))
+  here = File.expand_path(File.dirname(__FILE__))
 
-    {
-      :ProxyCollector => 'collectors/proxy_collector',
-      :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
-      :NoMatchCollector => 'collectors/no_match_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+  {
+    :EngineClass => 'fluent/engine',
+    :PluginClass => 'fluent/plugin',
+  }.each_pair {|k,v|
+    autoload k, File.join(here, v)
+  }
 
-  end
 end
-

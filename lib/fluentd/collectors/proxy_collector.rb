@@ -18,17 +18,23 @@
 module Fluentd
   module Collectors
 
-    here = File.expand_path(File.dirname(__FILE__))
+    class ProxyCollector
+      include Collector
 
-    {
-      :ProxyCollector => 'collectors/proxy_collector',
-      :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
-      :NoMatchCollector => 'collectors/no_match_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+      def initialize(instance)
+        @instance = instance
+      end
+
+      def reset(instance)
+        old = @instance
+        @instance = instance
+        return old
+      end
+
+      def open(&block)
+        @instance.open(&block)
+      end
+    end
 
   end
 end
-

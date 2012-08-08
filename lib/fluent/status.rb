@@ -1,7 +1,7 @@
 #
-# Fluentd
+# Fluent
 #
-# Copyright (C) 2011-2012 FURUHASHI Sadayuki
+# Copyright (C) 2011 FURUHASHI Sadayuki
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,20 +15,35 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluentd
-  module Collectors
+module Fluent
 
-    here = File.expand_path(File.dirname(__FILE__))
 
-    {
-      :ProxyCollector => 'collectors/proxy_collector',
-      :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
-      :NoMatchCollector => 'collectors/no_match_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
 
+class StatusClass
+  def initialize
+    @entries = {}
   end
+
+  def register(instance, name, &block)
+    (@entries[instance.object_id] ||= {})[name] = block
+    nil
+  end
+
+  def each(&block)
+    @entries.each {|obj_id,hash|
+      record = {}
+      hash.each_pair {|name,block|
+        record[name] = block.call
+      }
+      block.call(record)
+    }
+  end
+end
+
+# Don't use this class from plugins.
+# The interface may be changed
+Status = StatusClass.new
+
+
 end
 

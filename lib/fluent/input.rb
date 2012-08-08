@@ -1,7 +1,7 @@
 #
-# Fluentd
+# Fluent
 #
-# Copyright (C) 2011-2012 FURUHASHI Sadayuki
+# Copyright (C) 2011 FURUHASHI Sadayuki
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,20 +15,27 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluentd
-  module Collectors
+module Fluent
 
-    here = File.expand_path(File.dirname(__FILE__))
 
-    {
-      :ProxyCollector => 'collectors/proxy_collector',
-      :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
-      :NoMatchCollector => 'collectors/no_match_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+class Input
+  include Configurable
 
-  end
+	def initialize
+    super
+	end
+
+	def configure(conf)
+    super
+	end
+
+	def start
+	end
+
+	def shutdown
+	end
+end
+
+
 end
 

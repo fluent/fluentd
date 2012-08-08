@@ -41,11 +41,6 @@ module Fluentd
       STDERR.sync = true
       @log = DaemonsLogger.new(STDERR)
 
-      # load plugins
-      Plugin.load_plugins
-
-      @pm = ProcessManager.new
-      @message_bus = nil
     end
 
     attr_reader :message_bus
@@ -54,16 +49,12 @@ module Fluentd
       @log.info "Fluentd #{VERSION}"
 
       install_signal_handlers do
-        restart(:_initial_start)
+        @engine = Engine.new(load_config)
+
         begin
-          @pm.run
+          @engine.run
         ensure
-          begin
-            #@pm.stop(true)  # TODO
-            @pm.join
-          ensure
-            @pm.shutdown
-          end
+          @engine.shutdown(true)
         end
       end
 
@@ -74,34 +65,33 @@ module Fluentd
       return nil
     end
 
-    def restart(immediate)
-      conf = load_config
-
-      new_bus = LabeledMessageBus.new
+    def stop(immediate)
+      @log.info immediate ? "Received immediate stop" : "Received graceful stop"
       begin
-        new_bus.configure(conf)
-
-        if immediate != :_initial_start
-          @pm.stop(immediate)
-          @pm.join
-        end
-        @pm.reset(new_bus, conf)
-
-        @message_bus = new_bus
-        new_bus = nil
-
-      ensure
-        new_bus.shutdown if new_bus
+        @engine.stop(immediate) if @engine
+      rescue
+        @log.error "failed to stop: #{$!}"
+        $!.backtrace.each {|bt| @log.warn "\t#{bt}" }
+        return false
       end
+      return true
     end
 
-    def stop(immediate)
-      @pm.stop(immediate)
+    def restart(immediate)
+      @log.info immediate ? "Received immediate restart" : "Received graceful restart"
+      begin
+        @engine.restart(immediate, load_config)
+      rescue
+        @log.error "failed to restart: #{$!}"
+        $!.backtrace.each {|bt| @log.warn "\t#{bt}" }
+        return false
+      end
+      return true
     end
 
     def logrotated
-      #@log.info "reopen a log file"
-      #@engine.logrotated
+      @log.info "reopen a log file"
+      @engine.logrotated
       @log.reopen!
       return true
     end

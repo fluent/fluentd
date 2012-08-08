@@ -21,7 +21,7 @@ module Fluentd
 
   class ProcessManager
     def initialize
-      @finish_flag = BlockingFlag.new
+      @processor = Processor.new(0)
     end
 
     def reset(agent_group, conf)
@@ -39,16 +39,12 @@ module Fluentd
       @processor = processor
     end
 
-    def run
+    def start
       @processor.start
-      until @finish_flag.set?
-        sleep 1
-      end
     end
 
     def stop(immediate)
       @processor.stop(immediate)
-      @finish_flag.set!
     end
 
     def join
