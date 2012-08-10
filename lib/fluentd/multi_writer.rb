@@ -17,33 +17,27 @@
 #
 module Fluentd
 
-
-  module Collector
-    def open(tag)
+  class MultiWriter
+    def initialize(collector)
+      @writers = {}
+      @collector = collector
     end
 
-    def open_multi
-      if block_given?
-        w = open_multi
-        begin
-          yield w
-        ensure
-          w.close
-        end
-      else
-        return MultiWriter.new(self)
-      end
+    def append(tag, time, record)
+      w = (@writers[tag] ||= @collector.open(tag))
+      w.append(tag, time, record)
     end
 
-    private
-    def ensure_close(writer, block)
-      begin
-        block.yield(writer)
-      ensure
-        writer.close
-      end
+    def chunk(tag, chunk)
+      w = (@writers[tag] ||= @collector.open_stream(tag))
+      w.write(tag, record)
+    end
+
+    def close
+      @writers.values.reverse_each {|w|
+        w.close  # TODO log
+      }
     end
   end
-
 
 end

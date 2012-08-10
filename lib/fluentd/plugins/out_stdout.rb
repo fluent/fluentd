@@ -24,11 +24,8 @@ module Fluentd
       def configure(conf)
       end
 
-      def open
-        return self
-      end
-
-      def close
+      def open(tag)
+        return Writers::SimpleWriter.new(self, tag)
       end
 
       def append(tag, time, record)

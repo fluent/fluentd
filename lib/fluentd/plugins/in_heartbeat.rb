@@ -54,9 +54,9 @@ module Fluentd
       def run
         until @finish_flag.set?
           begin
-            w = stream_source.open
+            w = stream_source.open(@tag)
             begin
-              w.append(@tag, Time.now.to_i, @message)
+              w.append(Time.now.to_i, @message)
             ensure
               w.close
             end

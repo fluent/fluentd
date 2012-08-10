@@ -24,19 +24,19 @@ module Fluentd
       Plugin.register_filter(:copy, self)
 
       class CopyWriter
-        include Collector::Writer
+        include Writer
 
         def initialize(writer)
           @writer = writer
         end
 
-        def append(tag, time, record)
-          @writer.append(tag, time, record)
+        def append(time, record)
+          @writer.append(time, record)
           return time, record
         end
 
-        def write(tag, chunk)
-          @writer.write(tag, chunk)
+        def write(chunk)
+          @writer.write(chunk)
           return chunk
         end
 
@@ -45,8 +45,8 @@ module Fluentd
         end
       end
 
-      def open
-        w = stream_source.open
+      def open(tag)
+        w = stream_source.open(tag)
         return CopyWriter.new(w)
       end
     end

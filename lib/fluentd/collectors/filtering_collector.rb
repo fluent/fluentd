@@ -22,22 +22,22 @@ module Fluentd
       include Collector
 
       class FilteringWriter
-        include Collector::Writer
+        include Writer
 
         def initialize(writers)
           @writers = writers
         end
 
-        def append(tag, time, record)
+        def append(time, record)
           @writers.each {|w|
-            time, record = w.append(tag, time, record)
+            time, record = w.append(time, record)
             break if time == nil
           }
         end
 
-        def write(tag, chunk)
+        def write(chunk)
           @writers.each {|w|
-            chunk = w.write(tag, chunk)
+            chunk = w.write(chunk)
             break if chunk == nil
           }
         end
@@ -53,13 +53,13 @@ module Fluentd
         @collectors = collectors
       end
 
-      def open
-        return ensure_close(open, &proc) if block_given?
+      def open(tag)
+        return ensure_close(open(tag), &proc) if block_given?
 
         writers = []
         begin
           @collectors.each {|c|
-            writers << c.open
+            writers << c.open(tag)
           }
           w = FilteringWriter.new(writers)
           writers = nil

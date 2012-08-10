@@ -18,30 +18,14 @@
 module Fluentd
 
 
-  module Collector
-    def open(tag)
+  module Writer
+    def append(time, record)
     end
 
-    def open_multi
-      if block_given?
-        w = open_multi
-        begin
-          yield w
-        ensure
-          w.close
-        end
-      else
-        return MultiWriter.new(self)
-      end
+    def write(chunk)
     end
 
-    private
-    def ensure_close(writer, block)
-      begin
-        block.yield(writer)
-      ensure
-        writer.close
-      end
+    def close
     end
   end
 

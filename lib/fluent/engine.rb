@@ -29,20 +29,20 @@ module Fluent
       @collector = collector
     end
 
-    def emit(tag, time, record)
-      w = @collector.open
+    def emit(time, record)
+      w = @collector.open(tag)
       begin
-        w.append(tag, time, record)
+        w.append(time, record)
       ensure
         w.close
       end
     end
 
-    def emit_array(tag, array)
-      w = @collector.open
+    def emit_array(array)
+      w = @collector.open(tag)
       begin
         array.each {|time,record|
-          w.append(tag, time, record)
+          w.append(time, record)
         }
       ensure
         w.close
@@ -50,7 +50,7 @@ module Fluent
     end
 
     def emit_stream(tag, es)
-      w = @collector.open
+      w = @collector.open(tag)
       begin
         w.write(es)
       ensure

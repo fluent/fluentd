@@ -21,31 +21,6 @@ module Fluentd
   class MessageBus < AgentGroup
     include Collector
 
-    class MessageBusWriter
-      include Collector::Writer
-
-      def initialize(bus)
-        @writers = {}
-        @bus = bus
-      end
-
-      def append(tag, time, record)
-        w = (@writers[tag] ||= @bus.open_stream(tag))
-        w.append(tag, time, record)
-      end
-
-      def chunk(tag, chunk)
-        w = (@writers[tag] ||= @bus.open_stream(tag))
-        w.write(tag, record)
-      end
-
-      def close
-        @writers.values.reverse_each {|w|
-          w.close  # TODO log
-        }
-      end
-    end
-
     def initialize
       super
       @match_cache = {}
@@ -54,11 +29,6 @@ module Fluentd
     end
 
     attr_accessor :default_collector
-
-    def open
-      return ensure_close(open, &proc) if block_given?
-      MessageBusWriter.new(self)
-    end
 
     def configure(conf)
       conf.elements.select {|e|
@@ -107,7 +77,7 @@ module Fluentd
     end
 
     # override
-    def open_stream(tag)
+    def open(tag, &block)
       collector = @match_cache[tag]
       unless collector
         collector = match(tag) || @default_collector
@@ -115,7 +85,7 @@ module Fluentd
           @match_cache[tag] = collector
         end
       end
-      collector.open
+      collector.open(tag, &block)
     end
 
     private
@@ -194,17 +164,17 @@ module Fluentd
       }
     end
 
-    def open(label=nil)
-      return ensure_close(open, &proc) if block_given?
+    def open(tag, label=nil)
+      return ensure_close(open(tag), &proc) if block_given?
       if label
         if bus = @labels[label]
-          return bus.open
+          return bus.open(tag)
         else
           raise "unknown label: #{label}"  # TODO error
         end
       else
         # default label
-        super()
+        super(tag)
       end
     end
 

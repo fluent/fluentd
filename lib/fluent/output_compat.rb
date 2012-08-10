@@ -17,7 +17,7 @@
 #
 module Fluent
 
-  class OutputBackwardCompatWrapper
+  class OutputBackwardCompatWrapper < Fluentd::Agent
     class Factory
       def initialize(klass)
         @klass = klass
@@ -29,17 +29,18 @@ module Fluent
     end
 
     class OutputBackwardCompatWriter
-      include Fluentd::Collector::Writer
+      include Fluentd::Writer
 
-      def initialize(base)
+      def initialize(base, tag)
         @base = base
+        @tag = tag
       end
 
-      def append(tag, time, record)
-        @base.emit(tag, OneEventStream.new(time, record), NullOutputChain.instance)
+      def append(time, record)
+        @base.emit(@tag, OneEventStream.new(time, record), NullOutputChain.instance)
       end
 
-      def write(tag, chunk)
+      def write(chunk)
         # TODO wrapper
         @base.emit(chunk)
       end
@@ -49,8 +50,8 @@ module Fluent
       @base = base
     end
 
-    def open
-      OutputBackwardCompatWriter.new(@base)
+    def open(tag)
+      OutputBackwardCompatWriter.new(@base, tag)
     end
 
     def start
@@ -61,7 +62,7 @@ module Fluent
     end
 
     def configure(conf)
-      # TODO wrapper
+      # TODO config wrapper
       @base.configure(conf)
     end
 
@@ -70,21 +71,35 @@ module Fluent
     end
   end
 
-  class OutputForwardCompatWrapper < Fluentd::Agent
+  class OutputForwardCompatWrapper
     include Fluentd::StreamSource
 
     def initialize(collector)
       @collector = collector
     end
 
+    def configure(conf)
+      # TODO config wrapper
+      @collector.configure(conf)
+    end
+
     def emit(tag, es, chain)
-      w = @collector.open
+      w = @collector.open(tag)
       begin
-        w.write(tag, es)
+        w.write(es)
       ensure
         w.close
       end
       chain.next
+    end
+
+    def start
+      @collector.start
+    end
+
+    def shutdown
+      @collector.stop
+      @collector.shutdown
     end
   end
 

@@ -16,34 +16,14 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Writers
 
+    here = File.expand_path(File.dirname(__FILE__))
+    {
+      :SimpleWriter => 'writers/simple_writer',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
 
-  module Collector
-    def open(tag)
-    end
-
-    def open_multi
-      if block_given?
-        w = open_multi
-        begin
-          yield w
-        ensure
-          w.close
-        end
-      else
-        return MultiWriter.new(self)
-      end
-    end
-
-    private
-    def ensure_close(writer, block)
-      begin
-        block.yield(writer)
-      ensure
-        writer.close
-      end
-    end
   end
-
-
 end

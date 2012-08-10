@@ -46,13 +46,10 @@ module Fluentd
         @queue = []
       end
 
-      def open
-        @mutex.lock
-        begin
-          self
-        ensure
-          @mutex.unlock
-        end
+      def open(tag)
+        m = @mutex
+        m.lock
+        return Writers::SimpleWriter.new(self, tag) { m.unlock }
       end
 
       def append(tag, time, record)
@@ -63,9 +60,6 @@ module Fluentd
       def write(tag, chunk)
         chunk = (@map[tag] ||= MemoryBufferChunk.new(tag))
         chunk.data << chunk.read
-      end
-
-      def close
       end
 
       def acquire(&block)

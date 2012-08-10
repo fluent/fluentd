@@ -93,8 +93,8 @@ module Fluentd
         }
       end
 
-      def open(&block)
-        @buffer.open(&block)
+      def open(tag, &block)
+        @buffer.open(tag, &block)
       end
 
       #def write(tag, chunk)

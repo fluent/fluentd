@@ -16,34 +16,29 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Writers
 
+    class SimpleWriter
+      include Writer
 
-  module Collector
-    def open(tag)
-    end
+      def initialize(target, tag, &close_block)
+        @target = target
+        @tag = tag
+        @close_block = close_block
+      end
 
-    def open_multi
-      if block_given?
-        w = open_multi
-        begin
-          yield w
-        ensure
-          w.close
-        end
-      else
-        return MultiWriter.new(self)
+      def append(time, record)
+        @target.append(@tag, time, record)
+      end
+
+      def write(chunk)
+        @target.write(@tag, chunk)
+      end
+
+      def close
+        @close_block.call if @close_block
       end
     end
 
-    private
-    def ensure_close(writer, block)
-      begin
-        block.yield(writer)
-      ensure
-        writer.close
-      end
-    end
   end
-
-
 end

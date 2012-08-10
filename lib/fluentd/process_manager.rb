@@ -110,7 +110,7 @@ module Fluentd
         @processor_id = processor_id
       end
 
-      def open
+      def open(tag)
         if Processor::PROCESSOR_ID == @processor_id
           return super
         end

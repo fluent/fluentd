@@ -23,8 +23,8 @@ module Fluentd
 
       Plugin.register_output(:redirect, self)
 
-      def open
-        stream_source.open
+      def open(tag)
+        stream_source.open(tag)
       end
     end
 

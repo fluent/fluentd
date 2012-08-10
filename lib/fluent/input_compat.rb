@@ -17,7 +17,7 @@
 #
 module Fluent
 
-  class InputBackwardCompatWrapper
+  class InputBackwardCompatWrapper < Fluentd::Agent
     class Factory
       def initialize(klass)
         @klass = klass
@@ -41,7 +41,7 @@ module Fluent
     end
 
     def configure(conf)
-      # TODO wrapper
+      # TODO config wrapper
       @base.configure(conf)
     end
 
@@ -49,11 +49,25 @@ module Fluent
     end
   end
 
-  class InputForwardCompatWrapper < Fluentd::Agent
+  class InputForwardCompatWrapper
     include Fluentd::StreamSource
 
     def initialize(source)
       @source = source
+    end
+
+    def configure(conf)
+      # TODO config wrapper
+      @source.configure(conf)
+    end
+
+    def start
+      @source.start
+    end
+
+    def shutdown
+      @source.stop
+      @source.shutdown
     end
   end
 

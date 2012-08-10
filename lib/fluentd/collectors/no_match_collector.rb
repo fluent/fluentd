@@ -21,20 +21,21 @@ module Fluentd
     class NoMatchCollector
       include Collector
 
-      def open(tag)
+      def open(tag, &block)
+        return ensure_close(open(tag), &proc) if block_given?
         # TODO
         #$log.on_trace { $log.trace "no patterns matched", :tag=>tag }
         return NoMatchWriter.new
       end
 
       class NoMatchWriter
-        include Collector::Writer
+        include Writer
 
-        def append(tag, time, record)
+        def append(time, record)
           # TODO
         end
 
-        def write(tag, chunk)
+        def write(chunk)
           # TODO
         end
 

@@ -31,8 +31,8 @@ module Fluentd
         return old
       end
 
-      def open(&block)
-        @instance.open(&block)
+      def open(tag, &block)
+        @instance.open(tag, &block)
       end
     end
 
