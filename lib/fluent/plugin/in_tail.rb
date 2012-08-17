@@ -61,7 +61,7 @@ class TailInput < Input
   def start
     @loop = Coolio::Loop.new
     @tails = @paths.map {|path|
-      pe = @pf ? @pf[path] : NullPositionEntry.instance
+      pe = @pf ? @pf[path] : NullPositionEntry.new
       TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
     }
     @tails.each {|tail|
@@ -114,7 +114,7 @@ class TailInput < Input
     def initialize(path, rotate_wait, pe, &receive_lines)
       @path = path
       @rotate_wait = rotate_wait
-      @pe = pe || NullPositionEntry.instance
+      @pe = pe || NullPositionEntry.new
       @receive_lines = receive_lines
 
       @rotate_queue = []
@@ -158,8 +158,14 @@ class TailInput < Input
         if io = @rotate_queue.first.io
           stat = io.stat
           inode = stat.ino
-          pos = io.pos
-          @pe.update(inode, pos)
+          if inode == @pe.read_inode
+            # seek to the saved position
+            pos = @pe.read_pos
+            io.seek(pos)
+          else
+            pos = io.pos
+            @pe.update(inode, pos)
+          end
           io_handler = IOHandler.new(io, @pe, &@receive_lines)
         else
           io_handler = NullIOHandler.new
@@ -446,17 +452,18 @@ class TailInput < Input
   end
 
   class NullPositionEntry
-    require 'singleton'
-    include Singleton
     def update(ino, pos)
+      @ino = ino
+      @pos = pos
     end
     def update_pos(pos)
+      @pos = pos
     end
     def read_pos
-      0
+      @pos || 0
     end
     def read_inode
-      0
+      @ino || 0
     end
   end
 end
