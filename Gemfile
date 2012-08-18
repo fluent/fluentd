@@ -1,3 +1,4 @@
-source :rubygems
+source 'https://rubygems.org'
 
+# Specify your gem's dependencies in fluentd.gemspec
 gemspec
