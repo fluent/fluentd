@@ -156,6 +156,10 @@ class TailInput < Input
 
       while @rotate_queue.first.ready?
         if io = @rotate_queue.first.io
+          stat = io.stat
+          inode = stat.ino
+          pos = io.pos
+          @pe.update(inode, pos)
           io_handler = IOHandler.new(io, @pe, &@receive_lines)
         else
           io_handler = NullIOHandler.new
