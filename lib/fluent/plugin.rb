@@ -65,6 +65,10 @@ class PluginClass
     nil
   end
 
+  def load_plugin(type, name)
+    try_load_plugin(name, type)
+  end
+
   private
   def load_gem_plugins
     return unless defined? Gem

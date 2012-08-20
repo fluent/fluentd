@@ -24,7 +24,7 @@ begin
     gemspec.test_files = Dir["test/**/*.rb"]
     gemspec.files = Dir["bin/**/*", "lib/**/*", "test/**/*.rb"] +
       %w[fluent.conf VERSION AUTHORS Rakefile COPYING fluentd.gemspec Gemfile]
-    gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem']
+    gemspec.executables = ['fluentd', 'fluent-cat', 'fluent-gem', 'fluent-debug']
     gemspec.required_ruby_version = '~> 1.9.2'
   end
   Jeweler::GemcutterTasks.new

@@ -27,6 +27,8 @@ class EngineClass
     @default_loop = nil
   end
 
+  attr_reader :matches, :sources
+
   def init
     BasicSocket.do_not_reverse_lookup = true
     Plugin.load_plugins
