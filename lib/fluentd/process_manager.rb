@@ -39,6 +39,14 @@ module Fluentd
       @processor = processor
     end
 
+    def run
+      start
+      join
+    end
+
+    def restart
+    end
+
     def start
       @processor.start
     end
@@ -47,12 +55,12 @@ module Fluentd
       @processor.stop(immediate)
     end
 
-    def join
-      @processor.join
+    def shutdown(immediate)
+      @processor.shutdown(immediate)
     end
 
-    def shutdown
-      @processor.shutdown
+    def join
+      @processor.join
     end
 
     private
@@ -96,7 +104,7 @@ module Fluentd
       }
     end
 
-    def shutdown
+    def shutdown(immediate)
       @agents.each {|agent|
         agent.shutdown
       }

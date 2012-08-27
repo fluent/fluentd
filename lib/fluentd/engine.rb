@@ -43,21 +43,19 @@ module Fluentd
 
       restart(:_start, @config)
 
-      @pm.start
-      until @finish_flag.set?
-        # TODO heartbeat, etc.
-        sleep 1
+      begin
+        #@pm.run
+        @pm.start
+        until @finish_flag.set?
+          @finish_flag.wait(1)
+        end
+      ensure
+        @pm.shutdown(true)
       end
-
-      join
-    end
-
-    def join
-      @pm.join
     end
 
     def restart(immediate, config)
-      return nil if @finish_flag.set?
+      return if @finish_flag.set?
 
       @config = config
 
@@ -87,13 +85,8 @@ module Fluentd
       self
     end
 
-    def shutdown(immediate)
-      stop(immediate)
-      join
-    end
-
-    def logrotated
-      #@pm.logrotated
+    def logrotate
+      #@pm.logrotate
     end
   end
 

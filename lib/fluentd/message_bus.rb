@@ -97,6 +97,7 @@ module Fluentd
           collectors << m.collector
           unless m.filter?
             if collectors.size == 1
+              # optimization for this special case
               return collectors[0]
             else
               return Collectors::FilteringCollector.new(collectors)

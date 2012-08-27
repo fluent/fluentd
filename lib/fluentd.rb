@@ -47,6 +47,7 @@ module Fluentd
     :ProcessManager => 'fluentd/process_manager',
     :Processor => 'fluentd/process_manager',
     :Engine => 'fluentd/engine',
+    :Server => 'fluentd/server',
     :Supervisor => 'fluentd/supervisor',
     :BlockingFlag => 'fluentd/util/blocking_flag',
     :DaemonsLogger => 'fluentd/util/daemons_logger',

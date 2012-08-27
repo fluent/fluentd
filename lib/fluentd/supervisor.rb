@@ -37,87 +37,120 @@ module Fluentd
       end
       @config_load_proc = block
 
+      @finish_flag = BlockingFlag.new
+
       # initial logger
       STDERR.sync = true
       @log = DaemonsLogger.new(STDERR)
-
     end
 
-    attr_reader :message_bus
-
     def run
-      @log.info "Fluentd #{VERSION}"
+      config = @config_load_proc.call
+      @child_detach_wait = config['child_detach_wait'] || 10.0
+      @child_restart_wait = config['child_restart_wait'] || 1.0
+      @child_restart_limit = config['child_restart_limit'] || nil
 
-      install_signal_handlers do
-        @engine = Engine.new(load_config)
+      # TODO daemonize
+      @pid = start_server
 
-        begin
-          @engine.run
-        ensure
-          @engine.shutdown(true)
+      install_signal_handlers
+
+      until @finish_flag.set?
+        @finish_flag.wait(1)
+
+        if try_waitpid
+          # child process died unexpectedly; reboot process
+          @pid = reboot_server
         end
       end
 
-      return nil
-    rescue
-      @log.error "#{$!.class}: #{$!}"
-      $!.backtrace.each {|x| @log.warn "\t#{x}" }
-      return nil
+      # check detach
+      if @detach
+        wait_time = Time.now + @child_detach_wait
+
+        while (w = wait_time - Time.now) > 0
+          sleep [1, w].max
+          if try_waitpid
+            break
+          end
+        end
+      end
     end
 
     def stop(immediate)
-      @log.info immediate ? "Received immediate stop" : "Received graceful stop"
-      begin
-        @engine.stop(immediate) if @engine
-      rescue
-        @log.error "failed to stop: #{$!}"
-        $!.backtrace.each {|bt| @log.warn "\t#{bt}" }
-        return false
-      end
-      return true
+      send_signal(immediate ? :TERM : :QUIT)
     end
 
     def restart(immediate)
-      @log.info immediate ? "Received immediate restart" : "Received graceful restart"
-      begin
-        @engine.restart(immediate, load_config)
-      rescue
-        @log.error "failed to restart: #{$!}"
-        $!.backtrace.each {|bt| @log.warn "\t#{bt}" }
-        return false
-      end
-      return true
+      send_signal(immediate ? :HUP : :USR1)
     end
 
-    def logrotated
-      @log.info "reopen a log file"
-      @engine.logrotated
-      @log.reopen!
-      return true
+    def logrotate
+      send_signal(:USR2)
+    end
+
+    def detach
+      send_signal(:INT)
+      @detach = true
+      @finish_flag.set!
     end
 
     private
-    def load_config
-      # TODO error handling
-      conf = @config_load_proc.call
+    def start_server
+      fork do
+        $0 = "fluentd-server"
+        server = Server.new(&@config_load_proc)
+        server.run
+        exit! 0
+      end
+    end
 
-      old_log = @log
-      log = DaemonsLogger.new(conf['log'] || STDERR)
-      old_log.close if old_log
+    def reboot_server
+      restart_limit = @child_restart_limit
 
-      conf['logger'] = log
-      @log = log
+      until @finish_flag.set?
+        @finish_flag.wait(@child_restart_wait)
 
-      return conf
+        begin
+          return start_server
+        rescue
+          # TODO log
+        end
+
+        # TODO child_restart_limit
+      end
+      return nil
+    end
+
+    def try_waitpid
+      begin
+        pid, status = Process.waitpid2(@pid, Process::WNOHANG)
+      rescue Errno::ECHILD
+        pid = 0
+      end
+      if pid
+        @pid = nil
+        return pid
+      else
+        return nil
+      end
+    end
+
+    def send_signal(sig)
+      begin
+        Process.kill(sig, @pid) if @pid
+      rescue Errno::ESRCH, Errno::EPERM
+      end
     end
 
     def install_signal_handlers(&block)
-      sig = SignalQueue.start do |sig|
+      SignalQueue.start do |sig|
         sig.trap :TERM do
           stop(false)
         end
+
         sig.trap :INT do
-          stop(false)
+          detach
         end
 
         sig.trap :QUIT do
@@ -133,17 +166,10 @@ module Fluentd
         end
 
         sig.trap :USR2 do
-          logrotated
+          logrotate
         end
-      end
-
-      begin
-        block.call
-      ensure
-        sig.shutdown
       end
     end
   end
-
 
 end

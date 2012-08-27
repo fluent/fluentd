@@ -1,5 +1,5 @@
 #
-# Fluentd
+# SignalQueue
 #
 # Copyright (C) 2012 FURUHASHI Sadayuki
 #
