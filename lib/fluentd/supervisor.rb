@@ -98,7 +98,7 @@ module Fluentd
     private
     def start_server
       fork do
-        $0 = "fluentd-server"
+        $0 = "fluentd-engine"
         server = Server.new(&@config_load_proc)
         server.run
         exit! 0

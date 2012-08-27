@@ -21,6 +21,7 @@ module Fluentd
 
   class ProcessManager
     def initialize
+      @sm = SocketManager.new
       @processor = Processor.new(0)
     end
 
@@ -44,18 +45,21 @@ module Fluentd
       join
     end
 
-    def restart
-    end
+    #def restart
+    #end
 
     def start
+      @sm.start
       @processor.start
     end
 
     def stop(immediate)
+      @sm.stop
       @processor.stop(immediate)
     end
 
     def shutdown(immediate)
+      @sm.shutdown
       @processor.shutdown(immediate)
     end
 

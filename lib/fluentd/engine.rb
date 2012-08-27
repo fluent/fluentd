@@ -19,11 +19,13 @@ module Fluentd
 
   class Engine
     def initialize(config)
+      @config = config
       @finish_flag = BlockingFlag.new
+
       @pm = ProcessManager.new
+
       @message_bus = nil
       @message_bus_proxy = Collectors::ProxyCollector.new(nil)
-      @config = config
     end
 
     def self.setup!

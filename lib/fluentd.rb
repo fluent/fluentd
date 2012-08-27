@@ -49,6 +49,7 @@ module Fluentd
     :Engine => 'fluentd/engine',
     :Server => 'fluentd/server',
     :Supervisor => 'fluentd/supervisor',
+    :SocketManager => 'fluentd/socket_manager',
     :BlockingFlag => 'fluentd/util/blocking_flag',
     :DaemonsLogger => 'fluentd/util/daemons_logger',
     :SignalQueue => 'fluentd/util/signal_queue',
