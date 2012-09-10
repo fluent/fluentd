@@ -101,8 +101,6 @@ module Fluentd
     end
 
     def new_client
-      # TODO create socket pair
-      # TODO set cloexec
       rec, con = UNIXSocket.pair
       rec.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
       @clients << rec

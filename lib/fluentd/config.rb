@@ -102,10 +102,6 @@ module Fluentd
     end
 
     private
-    class Context
-      # TODO
-    end
-
     class ValueParser
       KEYWORDS = {
         /true/ => true,
@@ -159,7 +155,7 @@ module Fluentd
           return parse_string
         end
 
-        raise ConfigParseError, "expected character at '#{error_sample}'"
+        raise ConfigParseError, "expected character at #{error_sample}"
       end
 
       def parse_array
@@ -181,7 +177,7 @@ module Fluentd
 
           @ss.skip(SPACING)
           unless @ss.skip(COMMA)
-            raise ConfigParseError, "expected ',' or ']' in array at '#{error_sample}'"
+            raise ConfigParseError, "expected ',' or ']' in array at #{error_sample}"
           end
 
           # to allow last ','
@@ -205,7 +201,7 @@ module Fluentd
 
           @ss.skip(SPACING)
           unless @ss.skip(COLON)
-            raise ConfigParseError, "expected ':' in map at '#{error_sample}'"
+            raise ConfigParseError, "expected ':' in map at #{error_sample}"
           end
 
           v = parse_value
@@ -218,7 +214,7 @@ module Fluentd
 
           @ss.skip(SPACING)
           unless @ss.skip(COMMA)
-            raise ConfigParseError, "expected ',' or '}' in map at '#{error_sample}'"
+            raise ConfigParseError, "expected ',' or '}' in map at #{error_sample}"
           end
 
           # to allow last ','
@@ -242,7 +238,7 @@ module Fluentd
           elsif @ss.skip(/\$\{/)
             string << parse_ruby_code
           else
-            raise ConfigParseError, "expected character in quoted string at '#{error_sample}'"
+            raise ConfigParseError, "expected character in quoted string at #{error_sample}"
           end
         end
       end
@@ -263,7 +259,7 @@ module Fluentd
             string << parse_ruby_code
           else
             if string.empty?
-              raise ConfigParseError, "expected string at '#{error_sample}'"
+              raise ConfigParseError, "expected string at #{error_sample}"
             end
             return string
           end
@@ -307,7 +303,7 @@ module Fluentd
         when "b"
           "\b"
         when /[a-zA-Z0-9]/
-          raise ConfigParseError, "expected escape string #{s} at '#{error_sample}'"
+          raise ConfigParseError, "expected escape string #{s} at #{error_sample}"
         else
           c
         end
@@ -335,7 +331,7 @@ module Fluentd
       end
 
       def error_sample
-        @ss.peek(20)
+        "#{@ss.string[[@ss.pos-2,0].max,20].dump}"
       end
     end
 
@@ -343,13 +339,13 @@ module Fluentd
       #SIMPLE_STRING = /(?![\{\[\"\'])[^\r\n\#]*(?=\s*\#(?:\r?\n)*)?/
       SIMPLE_STRING = /[^\r\n\#]*(?=\s*\#(?:\r?\n)*)?/
 
-      def self.read(path, context=Context.new)
+      def self.read(path, context=Object.new)
         path = File.expand_path(path)
         data = File.read(path)
         parse(data, File.basename(path), File.dirname(path), context)
       end
 
-      def self.parse(data, fname, basepath=Dir.pwd, context=Context.new)
+      def self.parse(data, fname, basepath=Dir.pwd, context=Object.new)
         ss = StringScanner.new(data)
         attrs, elems = Parser.new(ss, basepath, fname, context).parse(true)
         Element.new('ROOT', '', attrs, elems)
@@ -433,7 +429,7 @@ module Fluentd
               @ss.pos = pos
               v = try_parse_simple_string
               unless v
-                raise ConfigParseError, "expected \\n or EOF in array at '#{error_sample}'"
+                raise ConfigParseError, "expected \\n or EOF in array at #{error_sample}"
               end
             rescue
               raise e
@@ -442,7 +438,7 @@ module Fluentd
 
           @ss.skip(SPACING)
           unless @ss.eos? || @ss.string[@ss.pos-1] == "\n"
-            raise ConfigParseError, "expected \\n or EOF in array at '#{error_sample}'"
+            raise ConfigParseError, "expected \\n or EOF in array at #{error_sample}"
           end
 
           pos = nil
@@ -457,7 +453,7 @@ module Fluentd
         if s = try_parse_simple_string
           return s
         end
-        raise ConfigParseError, "unexpected character at '#{error_sample}'"
+        raise ConfigParseError, "unexpected character at #{error_sample}"
       end
 
       def try_parse_simple_string
@@ -502,6 +498,20 @@ module Fluentd
         e = ConfigParseError.new("include error #{uri}")
         e.set_backtrace($!.backtrace)
         raise e
+      end
+
+      # override
+      def error_sample
+        pos = @ss.pos
+        ln = 1
+        @ss.string.each_line {|line|
+          ln += 1
+          if line.size < pos
+            pos -= line.size
+          else
+            return "#{@fname} line #{ln},#{pos} (#{super})"
+          end
+        }
       end
     end
   end

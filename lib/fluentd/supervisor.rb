@@ -78,11 +78,11 @@ module Fluentd
     end
 
     def stop(immediate)
-      send_signal(immediate ? :TERM : :QUIT)
+      send_signal(immediate ? :QUIT : :TERM)
     end
 
     def restart(immediate)
-      send_signal(immediate ? :HUP : :USR1)
+      send_signal(immediate ? :USR1 : :HUP)
     end
 
     def logrotate
