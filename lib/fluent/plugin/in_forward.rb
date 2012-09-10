@@ -51,7 +51,8 @@ class ForwardInput < Input
     @loop.watchers.each {|w| w.detach }
     @loop.stop
     @usock.close
-    TCPSocket.open('127.0.0.1', @port) {|sock| }  # FIXME @thread.join blocks without this line
+    listen_address = if @bind == '0.0.0.0' then '127.0.0.1' else @bind end
+    TCPSocket.open(listen_address, @port) {|sock| }  # FIXME @thread.join blocks without this line
     @thread.join
     @lsock.close
   end
