@@ -83,6 +83,10 @@ module Fluentd
         out << "#{indent}</#{@name}>\n"
         out
       end
+
+      def inspect
+        to_s
+      end
     end
 
     def self.evaluate(data)
@@ -115,8 +119,11 @@ module Fluentd
 
       INTEGER = /-?0|-?[1-9][0-9]*/
       FLOAT = /-?(?:0|[1-9][0-9]*)(?:(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)|\.[0-9]+)/
-      MAP_KEY_CHARSET = /[a-zA-Z0-9_]+/
-      SPECIAL_STRING_CHARSET = /[a-zA-Z0-9_\*\.\@]+/
+
+      MAP_KEY_STRING_CHARSET = /[a-zA-Z0-9_]/
+      ELEMENT_ARG_STRING_CHARSET = /[^\<\>]/
+      NONQUOTED_STRING_FIRST_CHARSET = /[a-zA-Z_]/
+      NONQUOTED_STRING_CHARSET = MAP_KEY_STRING_CHARSET
 
       ARRAY_START = /\[/
       MAP_START = /\{/
@@ -125,7 +132,7 @@ module Fluentd
       COMMA = /\,/
       COLON = /\:/
 
-      LINE_END = /(?:[\r\n]|\#[\n]*)+/
+      LINE_END = /(?:\z|(?:[\r\n]|\#[\n]*)+)/
       SPACING = /(?:\s|\#[\n]*)+/
 
       def initialize(ss, ruby_context)
@@ -151,11 +158,13 @@ module Fluentd
           return s.to_f
         elsif s = @ss.scan(INTEGER)
           return s.to_i
-        elsif @ss.skip(/\"/)
+        #elsif @ss.skip(/\"/)
+        #  return parse_quoted_string
+        else
           return parse_string
         end
 
-        raise ConfigParseError, "expected character at #{error_sample}"
+        #raise ConfigParseError, "unexpected character at #{error_sample}"
       end
 
       def parse_array
@@ -191,13 +200,13 @@ module Fluentd
       def parse_map
         @ss.skip(SPACING)
         if @ss.skip(MAP_END)
-          return []
+          return {}
         end
 
         map = {}
 
         while true
-          k = parse_map_key
+          k = parse_map_key_string
 
           @ss.skip(SPACING)
           unless @ss.skip(COLON)
@@ -225,7 +234,7 @@ module Fluentd
         end
       end
 
-      def parse_string
+      def parse_quoted_string
         string = ''
 
         while true
@@ -238,43 +247,65 @@ module Fluentd
           elsif @ss.skip(/\$\{/)
             string << parse_ruby_code
           else
-            raise ConfigParseError, "expected character in quoted string at #{error_sample}"
+            raise ConfigParseError, "unexpected character in quoted string at #{error_sample}"
           end
         end
       end
 
-      def parse_map_key
-        if @ss.skip(/\"/)
-          return parse_string
-        end
-
+      def parse_special_string(charset)
         string = ''
 
         while true
-          if s = @ss.scan(MAP_KEY_CHARSET)
+          if s = @ss.scan(MAP_KEY_STRING_CHARSET)
             string << s
           elsif s = @ss.scan(/\\./)
             string << eval_escape_char(s[1,1])
           elsif @ss.skip(/\$\{/)
             string << parse_ruby_code
           else
-            if string.empty?
-              raise ConfigParseError, "expected string at #{error_sample}"
-            end
             return string
           end
         end
       end
 
-      def parse_special_string
+      def parse_map_key_string
         if @ss.skip(/\"/)
-          return parse_string
+          return parse_quoted_string
         end
 
-        string = ''
+        string = parse_special_string(MAP_KEY_STRING_CHARSET)
+        if string.empty?
+          raise ConfigParseError, "expected map key string at #{error_sample}"
+        end
+
+        string
+      end
+
+      def parse_element_arg_string
+        if @ss.skip(/\"/)
+          return parse_quoted_string
+        end
+
+        string = parse_special_string(ELEMENT_ARG_STRING_CHARSET)
+        if string.empty?
+          raise ConfigParseError, "expected map key string at #{error_sample}"
+        end
+
+        string
+      end
+
+      def parse_string
+        if @ss.skip(/\"/)
+          return parse_quoted_string
+        end
+
+        string = @ss.scan(NONQUOTED_STRING_FIRST_CHARSET)
+        unless string
+          raise ConfigParseError, "expected string at #{error_sample}"
+        end
 
         while true
-          if s = @ss.scan(SPECIAL_STRING_CHARSET)
+          if s = @ss.scan(NONQUOTED_STRING_CHARSET)
             string << s
           elsif s = @ss.scan(/\\./)
             string << eval_escape_char(s[1,1])
@@ -303,7 +334,7 @@ module Fluentd
         when "b"
           "\b"
         when /[a-zA-Z0-9]/
-          raise ConfigParseError, "expected escape string #{c} at #{error_sample}"
+          raise ConfigParseError, "unexpected escape string #{c} at #{error_sample}"
         else
           c
         end
@@ -336,13 +367,14 @@ module Fluentd
       end
 
       def error_sample
-        "#{@ss.string[[@ss.pos-2,0].max,20].dump}"
+        # TODO
+        #"#{@ss.string[[@ss.pos-2,0].max,20].dump}"
+        "#{@ss.string[[@ss.pos,0].max,20].dump}"
       end
     end
 
     class Parser < ValueParser
-      #SIMPLE_STRING = /(?![\{\[\"\'])[^\r\n\#]*(?=\s*\#(?:\r?\n)*)?/
-      SIMPLE_STRING = /[^\r\n\#]*(?=\s*\#(?:\r?\n)*)?/
+      SIMPLE_STRING = /(?:(?![ \t]*#{LINE_END}).)*/
 
       def self.read(path, context=Object.new)
         path = File.expand_path(path)
@@ -352,8 +384,9 @@ module Fluentd
 
       def self.parse(data, fname, basepath=Dir.pwd, context=Object.new)
         ss = StringScanner.new(data)
-        attrs, elems = Parser.new(ss, basepath, fname, context).parse(true)
-        Element.new('ROOT', '', attrs, elems)
+        ps = Parser.new(ss, basepath, fname, context)
+        attrs, elems = ps.parse_element(true, nil)
+        return Element.new('ROOT', '', attrs, elems)
       end
 
       def initialize(ss, basepath, fname, context, line=0)
@@ -363,13 +396,13 @@ module Fluentd
         @fname = fname
       end
 
-      def parse(allow_include, elem_name=nil, attrs={}, elems=[])
+      def parse_element(allow_include, elem_name, attrs={}, elems=[])
         while true
           @ss.skip(SPACING)
           break if @ss.eos?
 
           if @ss.skip(/\<\//)
-            name = parse_map_key
+            name = parse_string
             unless @ss.skip(/[ \t]*\>/)
               raise ConfigParseError, "expected > at #{error_sample}"
             end
@@ -379,20 +412,20 @@ module Fluentd
             break
 
           elsif @ss.skip(/\</)
-            e_name = parse_map_key
+            e_name = parse_string
             unless @ss.skip(/[ \t]*\>/)
               @ss.skip(/[ \t]*/)
-              e_arg = parse_special_string
+              e_arg = parse_element_arg_string
               unless @ss.skip(/[ \t]*\>/)
                 raise ConfigParseError, "expected > at #{error_sample}"
               end
             end
-            e_arg ||= ''  # FIXME
-            e_attrs, e_elems = parse(false, e_name)
+            e_arg ||= ''  # FIXME nil?
+            e_attrs, e_elems = parse_element(false, e_name)
             elems << Element.new(e_name, e_arg, e_attrs, e_elems)
 
           else
-            k = parse_map_key
+            k = parse_string
             if @ss.skip(/[ \t]*:/)
               if @ss.skip(LINE_END)
                 v = nil
@@ -404,7 +437,7 @@ module Fluentd
               if @ss.skip(LINE_END)
                 v = ""
               else
-                v = parse_simple_string
+                v = parse_string_line
               end
             else
               v = ""
@@ -430,20 +463,13 @@ module Fluentd
             v = super
           rescue ConfigParseError => e
             # backward compatibility
-            begin
-              @ss.pos = pos
-              v = try_parse_simple_string
-              unless v
-                raise ConfigParseError, "expected \\n or EOF in array at #{error_sample}"
-              end
-            rescue
-              raise e
-            end
+            @ss.pos = pos
+            v = parse_string_line
           end
 
           @ss.skip(SPACING)
           unless @ss.eos? || @ss.string[@ss.pos-1] == "\n"
-            raise ConfigParseError, "expected \\n or EOF in array at #{error_sample}"
+            raise ConfigParseError, "expected \\n or EOF at #{error_sample}"
           end
 
           pos = nil
@@ -454,21 +480,10 @@ module Fluentd
         end
       end
 
-      def parse_simple_string
-        if s = try_parse_simple_string
-          return s
-        end
-        raise ConfigParseError, "unexpected character at #{error_sample}"
-      end
-
-      def try_parse_simple_string
+      def parse_string_line
         pos = @ss.pos
-        if s = @ss.scan(SIMPLE_STRING)
-          if @ss.skip(LINE_END)
-            return s.rstrip
-          end
-          @ss.pos = pos
-        end
+        s = @ss.scan(SIMPLE_STRING) || ''
+        return s.rstrip
       end
 
       def process_include(attrs, elems, uri)

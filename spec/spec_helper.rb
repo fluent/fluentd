@@ -2,6 +2,10 @@
 require 'fluentd'
 require 'fileutils'
 
+src_root = File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH << File.join(src_root, "lib")
+$LOAD_PATH << src_root
+
 if ENV['SIMPLE_COV']
   require 'simplecov'
   if defined?(SimpleCov::SourceFile)
