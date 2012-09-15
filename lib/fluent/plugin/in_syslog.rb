@@ -22,7 +22,7 @@ class SyslogInput < Input
   Plugin.register_input('syslog', self)
 
   SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
-  SYSLOG_ALL_REGEXP = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* [^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
+  SYSLOG_ALL_REGEXP = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
   TIME_FORMAT = "%b %d %H:%M:%S"
 
   FACILITY_MAP = {
@@ -155,7 +155,7 @@ class SyslogInput < Input
         when "pri"
           pri = value.to_i
         when "time"
-          time = Time.strptime(value, TIME_FORMAT).to_i
+          time = Time.strptime(value.gsub(/ +/, ' '), TIME_FORMAT).to_i
         else
           record[name] = value
         end
