@@ -303,7 +303,7 @@ module Fluentd
         when "b"
           "\b"
         when /[a-zA-Z0-9]/
-          raise ConfigParseError, "expected escape string #{s} at #{error_sample}"
+          raise ConfigParseError, "expected escape string #{c} at #{error_sample}"
         else
           c
         end
@@ -311,13 +311,18 @@ module Fluentd
 
       def parse_ruby_code
         rlex = RubyLex.new
-        src = '"#{'+@ss.rest
+        src = '"#{'+@ss.rest+"\n=end\n}"
         input = StringIO.new(src)
         input.define_singleton_method(:encoding) { external_encoding }
         rlex.set_input(input)
 
         tk = rlex.token
         code = src[3,tk.seek-3]
+
+        if @ss.rest.length < code.length
+          @ss.pos += @ss.rest.length
+          raise ConfigParseError, "expected end of code but $end at #{error_sample}"
+        end
 
         @ss.pos += code.length
 
