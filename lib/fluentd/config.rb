@@ -75,7 +75,9 @@ module Fluentd
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair {|k,v|
-          out << "#{nindent}#{k} #{v}\n"
+          a = {"_"=>k}.to_json[5..-2]
+          b = {"_"=>v}.to_json[5..-2]
+          out << "#{nindent}#{a}: #{b}\n"
         }
         @elements.each {|e|
           out << e.to_s(nest+1)
@@ -132,8 +134,8 @@ module Fluentd
       COMMA = /\,/
       COLON = /\:/
 
-      LINE_END = /(?:\z|(?:[\r\n]|\#[\n]*)+)/
-      SPACING = /(?:\s|\#[\n]*)+/
+      SPACING  =       /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
+      SPACING_LINE_END = /[ \t]*(?:\;|[\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
 
       def initialize(ss, ruby_context)
         require 'irb/ruby-lex'
@@ -158,13 +160,9 @@ module Fluentd
           return s.to_f
         elsif s = @ss.scan(INTEGER)
           return s.to_i
-        #elsif @ss.skip(/\"/)
-        #  return parse_quoted_string
         else
           return parse_string
         end
-
-        #raise ConfigParseError, "unexpected character at #{error_sample}"
       end
 
       def parse_array
@@ -256,7 +254,7 @@ module Fluentd
         string = ''
 
         while true
-          if s = @ss.scan(MAP_KEY_STRING_CHARSET)
+          if s = @ss.scan(charset)
             string << s
           elsif s = @ss.scan(/\\./)
             string << eval_escape_char(s[1,1])
@@ -374,7 +372,7 @@ module Fluentd
     end
 
     class Parser < ValueParser
-      SIMPLE_STRING = /(?:(?![ \t]*#{LINE_END}).)*/
+      SIMPLE_STRING = /(?:(?!#{SPACING_LINE_END}).)*/
 
       def self.read(path, context=Object.new)
         path = File.expand_path(path)
@@ -385,8 +383,7 @@ module Fluentd
       def self.parse(data, fname, basepath=Dir.pwd, context=Object.new)
         ss = StringScanner.new(data)
         ps = Parser.new(ss, basepath, fname, context)
-        attrs, elems = ps.parse_element(true, nil)
-        return Element.new('ROOT', '', attrs, elems)
+        ps.parse_config
       end
 
       def initialize(ss, basepath, fname, context, line=0)
@@ -394,6 +391,18 @@ module Fluentd
         @basepath = basepath
         @line = line
         @fname = fname
+      end
+
+      def parse_config
+        attrs, elems = parse_element(true, nil)
+        root = Element.new('ROOT', '', attrs, elems)
+
+        @ss.skip(SPACING)
+        unless @ss.eos?
+          raise ConfigParseError, "expected EOF at #{error_sample}"
+        end
+
+        return root
       end
 
       def parse_element(allow_include, elem_name, attrs={}, elems=[])
@@ -425,22 +434,22 @@ module Fluentd
             elems << Element.new(e_name, e_arg, e_attrs, e_elems)
 
           else
-            k = parse_string
+            k = parse_map_key_string
             if @ss.skip(/[ \t]*:/)
-              if @ss.skip(LINE_END)
+              if @ss.skip(SPACING_LINE_END)
                 v = nil
               else
                 v = parse_value
               end
             elsif @ss.skip(/[ \t]+/)
               # backward compatibility
-              if @ss.skip(LINE_END)
-                v = ""
-              else
-                v = parse_string_line
-              end
+              v = parse_string_line
             else
               v = ""
+            end
+
+            unless @ss.skip(SPACING_LINE_END)
+              raise ConfigParseError, "expected \\n or ';' at #{error_sample}"
             end
 
             if allow_include && k == 'include'
@@ -467,11 +476,6 @@ module Fluentd
             v = parse_string_line
           end
 
-          @ss.skip(SPACING)
-          unless @ss.eos? || @ss.string[@ss.pos-1] == "\n"
-            raise ConfigParseError, "expected \\n or EOF at #{error_sample}"
-          end
-
           pos = nil
           return v
 
@@ -481,7 +485,6 @@ module Fluentd
       end
 
       def parse_string_line
-        pos = @ss.pos
         s = @ss.scan(SIMPLE_STRING) || ''
         return s.rstrip
       end
