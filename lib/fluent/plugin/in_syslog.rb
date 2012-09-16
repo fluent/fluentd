@@ -189,7 +189,7 @@ class SyslogInput < Input
     end
 
     def on_readable
-      msg, addr = @io.recvfrom_nonblock(1024)
+      msg, addr = @io.recvfrom_nonblock(2048)
       #host = addr[3]
       #port = addr[1]
       #@callback.call(host, port, msg)
