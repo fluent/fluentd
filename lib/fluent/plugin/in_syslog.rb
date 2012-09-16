@@ -22,7 +22,7 @@ class SyslogInput < Input
   Plugin.register_input('syslog', self)
 
   SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
-  SYSLOG_ALL_REGEXP = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* [^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
+  SYSLOG_ALL_REGEXP = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
   TIME_FORMAT = "%b %d %H:%M:%S"
 
   FACILITY_MAP = {
@@ -70,6 +70,7 @@ class SyslogInput < Input
   config_param :port, :integer, :default => 5140
   config_param :bind, :string, :default => '0.0.0.0'
   config_param :tag, :string
+  config_param :msg_size, :integer, :default => 2048
 
   def configure(conf)
     super
@@ -96,7 +97,7 @@ class SyslogInput < Input
     @usock = UDPSocket.new
     @usock.bind(@bind, @port)
 
-    @handler = UdpHandler.new(@usock, callback)
+    @handler = UdpHandler.new(@usock, callback, @msg_size)
     @loop.attach(@handler)
 
     @thread = Thread.new(&method(:run))
@@ -155,7 +156,7 @@ class SyslogInput < Input
         when "pri"
           pri = value.to_i
         when "time"
-          time = Time.strptime(value, TIME_FORMAT).to_i
+          time = Time.strptime(value.gsub(/ +/, ' '), TIME_FORMAT).to_i
         else
           record[name] = value
         end
@@ -182,14 +183,15 @@ class SyslogInput < Input
   end
 
   class UdpHandler < Coolio::IO
-    def initialize(io, callback)
+    def initialize(io, callback, msg_size)
       super(io)
       @io = io
       @callback = callback
+      @msg_size = msg_size
     end
 
     def on_readable
-      msg, addr = @io.recvfrom_nonblock(1024)
+      msg, addr = @io.recvfrom_nonblock(@msg_size)
       #host = addr[3]
       #port = addr[1]
       #@callback.call(host, port, msg)
