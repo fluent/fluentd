@@ -33,7 +33,7 @@ class ForwardOutput < ObjectBufferedOutput
   config_param :recover_wait, :time, :default => 10
   config_param :hard_timeout, :time, :default => 60
   config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
-  config_param :phi_threshold, :integer, :default => 8
+  config_param :phi_threshold, :integer, :default => 16
   attr_reader :nodes
 
   # backward compatibility
