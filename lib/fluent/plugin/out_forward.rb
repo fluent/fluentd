@@ -223,6 +223,11 @@ class ForwardOutput < ObjectBufferedOutput
 
       # writeRawBody(packed_es)
       es.write_to(sock)
+
+      # success of send_data (over tcp) is valid heartbeat signal
+      if node.heartbeat
+        rebuild_weight_array
+      end
     ensure
       sock.close
     end
