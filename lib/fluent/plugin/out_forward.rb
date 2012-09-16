@@ -223,6 +223,8 @@ class ForwardOutput < ObjectBufferedOutput
 
       # writeRawBody(packed_es)
       es.write_to(sock)
+
+      node.heartbeat(false)
     ensure
       sock.close
     end
@@ -379,13 +381,13 @@ class ForwardOutput < ObjectBufferedOutput
       end
     end
 
-    def heartbeat
+    def heartbeat(detect=true)
       now = Time.now.to_f
       @failure.add(now)
       #$log.trace "heartbeat from '#{@name}'", :host=>@host, :port=>@port, :available=>@available, :sample_size=>@failure.sample_size
-      if !@available && @failure.sample_size > @recover_sample_size
-        $log.info "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
+      if detect && !@available && @failure.sample_size > @recover_sample_size
         @available = true
+        $log.info "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
         return true
       else
         return nil
