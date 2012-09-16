@@ -28,6 +28,8 @@ module Fluentd
           @writers = writers
         end
 
+        attr_reader :writers
+
         def append(time, record)
           @writers.each {|w|
             time, record = w.append(time, record)
@@ -52,6 +54,8 @@ module Fluentd
       def initialize(collectors)
         @collectors = collectors
       end
+
+      attr_reader :collectors
 
       def open(tag)
         return ensure_close(open(tag), &proc) if block_given?

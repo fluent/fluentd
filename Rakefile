@@ -21,7 +21,7 @@ require 'yard'
 
 desc 'Generate YARD document'
 YARD::Rake::YardocTask.new(:doc) do |t|
-  # skip lib/fluentd/**/*.rb
+  # skip lib/fluent/**/*.rb
   t.files   = ['lib/fluentd.rb','lib/fluentd/**/*.rb']
   t.options = []
   t.options << '--debug' << '--verbose' if ENV['TRACE']

@@ -464,26 +464,6 @@ module Fluentd
         return attrs, elems
       end
 
-      # override
-      def parse_value
-        begin
-          pos = @ss.pos
-          begin
-            v = super
-          rescue ConfigParseError => e
-            # backward compatibility
-            @ss.pos = pos
-            v = parse_string_line
-          end
-
-          pos = nil
-          return v
-
-        ensure
-          @pos = pos if pos
-        end
-      end
-
       def parse_string_line
         s = @ss.scan(SIMPLE_STRING) || ''
         return s.rstrip

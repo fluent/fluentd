@@ -28,7 +28,7 @@ module Fluentd
       @default_collector = Collectors::NoMatchCollector.new
     end
 
-    attr_accessor :default_collector
+    attr_accessor :default_collector, :matches
 
     def configure(conf)
       conf.elements.select {|e|
@@ -93,7 +93,7 @@ module Fluentd
     def match(tag)
       collectors = []
       @matches.each {|m|
-        if m.pattern.match?(m)
+        if m.pattern.match?(tag)
           collectors << m.collector
           unless m.filter?
             if collectors.size == 1
