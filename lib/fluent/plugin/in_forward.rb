@@ -201,7 +201,7 @@ class ForwardInput < Input
 
   def on_heartbeat_request(host, port, msg)
     #$log.trace "heartbeat request from #{host}:#{port}"
-    @usock.send "", 0, host, port
+    @usock.send "\0", 0, host, port
   end
 end
 

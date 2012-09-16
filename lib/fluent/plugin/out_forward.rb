@@ -256,7 +256,7 @@ class ForwardOutput < ObjectBufferedOutput
       end
       begin
         #$log.trace "sending heartbeat #{n.host}:#{n.port}"
-        @usock.send "", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+        @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
       rescue
         # TODO log
         $log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s
