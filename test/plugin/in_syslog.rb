@@ -9,6 +9,7 @@ class SyslogInputTest < Test::Unit::TestCase
     port 9911
     bind 127.0.0.1
     tag syslog
+    msg_size 4096
   ]
 
   def create_driver(conf=CONFIG)
@@ -19,6 +20,7 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver
     assert_equal 9911, d.instance.port
     assert_equal '127.0.0.1', d.instance.bind
+    assert_equal 4096, d.instance.msg_size
   end
 
   def test_time_format
