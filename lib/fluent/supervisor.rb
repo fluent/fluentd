@@ -267,6 +267,13 @@ class Supervisor
           exit 1
         end
       end
+
+      user_groups = `id -G #{@chuser}`.split.map(&:to_i)
+      if $?.to_i != 0
+        exit 1
+      end
+
+      Process.groups = Process.groups | user_groups
       Process::UID.change_privilege(chuid)
     end
   end
