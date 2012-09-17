@@ -48,7 +48,7 @@ module Fluentd
       begin
         @pm.run
       ensure
-        @pm.stop(true)
+        @pm.stop(false)
         @pm.join
       end
     end

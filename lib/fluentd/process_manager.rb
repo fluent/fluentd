@@ -24,7 +24,6 @@ module Fluentd
 
       @processors = {}
       @exchange_servers = []
-      @finish_flag = BlockingFlag.new
     end
 
     def restart(immediate, agent_group, conf)
@@ -62,7 +61,6 @@ module Fluentd
     end
 
     def stop(immediate)
-      @finish_flag.set!
       @processors.values.each {|pc|
         pc.stop(immediate)
       }
@@ -78,19 +76,25 @@ module Fluentd
     def run
       @sm.start
 
-      # TODO heartbeat
-      until @finish_flag.set?
-        @finish_flag.wait(0.5)
+      while true
+        sleep 0.5  # TODO
 
         has_running_process = false
         @processors.values.each {|pc|
+          # TODO heartbeat
           if pc.try_join(2, 10)  # TODO kill_interval, graceful_kill_limit
             has_running_process = true
           end
         }
 
-        stop(true)
+        unless has_running_process
+          break
+        end
       end
+
+    rescue
+      puts $!
+      $!.backtrace.each {|bt| puts bt }
     end
 
     def fork_processor(pc, &block)

@@ -32,6 +32,7 @@ module Fluentd
       @queue = []
       @mutex = Mutex.new
       @cond = ConditionVariable.new
+      @finished = false
 
       block.call(self) if block
     end
@@ -63,7 +64,8 @@ module Fluentd
     end
 
     def stop
-      enqueue(nil)
+      @finished = true
+      #enqueue(nil)  # causes recursive lock
     end
 
     def shutdown
@@ -72,16 +74,16 @@ module Fluentd
     end
 
     def run
-      finished = false
-      until finished
+      @owner_thread = Thread.current
+      until @finished
         h = nil
         @mutex.synchronize do
           while @queue.empty?
-            @cond.wait(@mutex)
+            @cond.wait(@mutex, 0.5)
           end
           sig = @queue.shift
           if sig == nil
-            finished = true
+            @finished = true
           else
             h = @handlers[sig]
           end
@@ -101,7 +103,7 @@ module Fluentd
 
     private
     def enqueue(sig)
-      if Thread.current == @thread
+      if Thread.current == @owner_thread
         @queue << sig
         if @mutex.locked?
           @cond.signal

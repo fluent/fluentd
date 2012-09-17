@@ -65,7 +65,7 @@ module Fluentd
             puts "error: #{$!}"
             $!.backtrace.each {|bt| puts "  #{bt}" }
           end
-          @finish_flag.wait(1)
+          @finish_flag.wait(0.5)
         end
       end
     end

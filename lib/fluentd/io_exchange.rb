@@ -38,17 +38,17 @@ module Fluentd
 
       def shutdown
         stop
-        if @thread
-          @thread.join
-          @thread = nil
-        end
+        #join
         @client_sockets.each {|c|
           c.close rescue nil
         }
       end
 
       def join
-        @thread.join
+        if @thread
+          @thread.join
+          @thread = nil
+        end
       end
 
       private
@@ -101,8 +101,10 @@ module Fluentd
           }
         end
 
-        #rescue
-        #  # TODO log
+      rescue
+        puts $!
+        $!.backtrace.each {|bt| puts bt }
+        # TODO log
       end
 
       def finished?

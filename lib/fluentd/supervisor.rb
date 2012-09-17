@@ -37,6 +37,8 @@ module Fluentd
       end
       @config_load_proc = block
 
+      @detach = false
+      @finish = false
       @finish_flag = BlockingFlag.new
 
       # initial logger
@@ -56,9 +58,12 @@ module Fluentd
       install_signal_handlers
 
       until @finish_flag.set?
-        @finish_flag.wait(1)
+        @finish_flag.wait(0.5)
 
         if try_waitpid
+          if @finish
+            break
+          end
           # child process died unexpectedly; reboot process
           @pid = reboot_server
         end
@@ -79,6 +84,7 @@ module Fluentd
 
     def stop(immediate)
       send_signal(immediate ? :QUIT : :TERM)
+      @finish = true
     end
 
     def restart(immediate)
@@ -168,6 +174,8 @@ module Fluentd
         sig.trap :USR2 do
           logrotate
         end
+
+        trap :CHLD, "SIG_DFL"
       end
     end
   end

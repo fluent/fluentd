@@ -50,6 +50,7 @@ module Fluentd
     def start
       @pid = @manager.fork_processor(self) do |exchange_clients,smc|
         @local_process = true
+        $0 = "fluentd-processor:#{@processor_id}"
         ChildProcess.run(@agents, @exchange_server, exchange_clients, smc)
         exit 0
       end
@@ -63,12 +64,12 @@ module Fluentd
       end
 
       now = Time.now.to_i
-      @kill_start_time = now
       kill_child(now, nil)
     end
 
     def join
       while @pid
+        p @pid
         sleep 0.5
       end
     end
@@ -86,7 +87,7 @@ module Fluentd
         # TODO? SIGCHLD is trapped in Supervisor#install_signal_handlers
       end
 
-      @log.info "Processor exited pid=#{@pid}"
+      # TODO @log.info "Processor exited pid=#{@pid}"
       @pid = nil
 
       return nil
@@ -107,16 +108,20 @@ module Fluentd
 
       begin
         if @kill_immediate || (graceful_kill_limit && @kill_start_time + graceful_kill_limit < now)
-          @log.debug "sending SIGKILL to pid=#{pid} for immediate stop"
+          # TODO @log.debug "sending SIGKILL to pid=#{pid} for immediate stop"
+          puts "sending SIGKILL to pid=#{pid} for immediate stop"
           Process.kill(:KILL, pid)
         else
-          @log.debug "sending SIGTERM to pid=#{pid} for graceful stop"
+          # TODO @log.debug "sending SIGTERM to pid=#{pid} for graceful stop"
+          puts "sending SIGTERM to pid=#{pid} for graceful stop"
           Process.kill(:TERM, pid)
         end
       rescue Errno::ESRCH, Errno::EPERM
+        puts "killfailed: #{@pid}"
         # TODO log?
       end
       @last_kill_time = now
+      @kill_start_time ||= now
     end
 
     def open_remote_self(local_self, tag)
@@ -154,6 +159,11 @@ module Fluentd
         # TODO start DRb
 
         @exchange_server.join
+
+      rescue
+        puts $!
+        $!.backtrace.each {|bt| puts bt }
+        # TODO log
       end
 
       def stop
@@ -180,7 +190,7 @@ module Fluentd
             stop
           end
 
-          sig.trap :QUIT, 'SIG_DFL'
+          trap :QUIT, 'SIG_DFL'
 
           sig.trap :USR1 do
             stop
@@ -193,6 +203,8 @@ module Fluentd
           sig.trap :USR2 do
             logrotate
           end
+
+          trap :CHLD, "SIG_DFL"
         end
       end
     end

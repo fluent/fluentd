@@ -50,7 +50,7 @@ module Fluentd
           @mutex.synchronize do
             until @finished
               wait = @try_flush.call
-              sleep(wait) if wait > 0
+              @cond.wait(@mutex, wait) if wait > 0
             end
           end
         end
