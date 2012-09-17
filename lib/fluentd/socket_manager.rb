@@ -17,97 +17,32 @@
 #
 module Fluentd
 
-  class SocketManager
+  class SocketManager < IOExchange::Server
     def initialize
-      @finish_flag = BlockingFlag.new
+      super
       @sockets = {}
-      @clients = []
-    end
-
-    def start
-      @thread = Thread.new(&method(:run))
-    end
-
-    def stop
-      @finish_flag.set!
-    end
-
-    def shutdown
-      stop
-      if @thread
-        @thread.join
-        @thread = nil
-      end
-      close
+      self.cloexec_mode = :server
     end
 
     def close
-      clear
-      until @clients.empty?
-        @clients.last.close
-        @clients.pop
-      end
+      clear_sockets
+      super
     end
 
-    def clear
+    def clear_sockets
       @sockets.keys.each {|key|
         @sockets[key].close
         @sockets.delete(key)
       }
     end
 
-    def run
-      until @finish_flag.set?
-        if @clients.empty?
-          @finish_flag.wait(1)
-          next
-        end
-
-        ready_clients, _, _ = IO.select(@clients, nil, nil, 0.5)
-        if ready_clients
-          ready_clients.each {|c|
-            c.fcntl(Fcntl::F_SETFL, File::NONBLOCK)
-            begin
-              data = c.recv
-            rescue Errno::EAGAIN, Errno::EINTR
-              next
-            end
-
-            msg = Marshal.load(data)
-            begin
-              io = lookup(*msg)
-            rescue
-              error = $!
-            end
-
-            c.fcntl(Fcntl::F_SETFL, 0)
-            if io
-              c.send Marshal.dump(io.fileno)
-              c.send_io io
-            else
-              begin
-                data = Marshal.dump(error)
-              rescue
-                data = Marshal.dump(error.to_s)
-              end
-              c.send data
-            end
-          }
-        end
-      end
-
-    #rescue
-    #  # TODO log
-    end
-
     def new_client
-      rec, con = UNIXSocket.pair
-      rec.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
-      @clients << rec
-      return Client.new(con)
+      return Client.new(new_connection)
     end
 
-    def lookup(key, code, params)
+    private
+    def open_io(msg)
+      key, code, params = *msg
       if io = @sockets[key]
         return io
       else
@@ -121,11 +56,7 @@ module Fluentd
       return io
     end
 
-    class Client
-      def initialize(con)
-        @con = con
-      end
-
+    class Client < IOExchange::Client
       def listen_tcp(address, port)
         key = "tcp:#{address}:#{port}"
         listen(key, "TCPServer.listen(params[0], params[1])", [address, port])
@@ -142,22 +73,7 @@ module Fluentd
       end
 
       def listen(key, code, params)
-        @con.send Marshal.dump([key, code, params])
-
-        data = @con.recv
-        msg = Marshal.load(data)
-
-        if msg.is_a?(Integer)
-          # success
-          @con.recv_io
-        else
-          # error
-          raise msg
-        end
-      end
-
-      def close
-        @con.close
+        open_io([key, code, params])
       end
     end
   end
