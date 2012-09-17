@@ -23,6 +23,7 @@ module Fluentd
       Plugin.register_input(:heartbeat, self)
 
       def initialize
+        super
         @mutex = Mutex.new
         @finish_flag = BlockingFlag.new
       end

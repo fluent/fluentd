@@ -47,6 +47,7 @@ module Fluent
     end
 
     def initialize(base)
+      super()
       @base = base
     end
 

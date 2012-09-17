@@ -36,15 +36,21 @@ module Fluentd
       block.call(self) if block
     end
 
-    def trap(sig, &block)
+    def trap(sig, command=nil, &block)
       sig = sig.to_sym
       old = @handlers[sig]
 
-      Kernel.trap(sig) do
-        enqueue(sig)
+      if block
+        Kernel.trap(sig) do
+          enqueue(sig)
+        end
+        @handlers[sig] = block
+
+      else
+        Kernel.trap(sig, command)
+        @handlers.delete(sig)
       end
 
-      @handlers[sig] = block
       old
     end
 

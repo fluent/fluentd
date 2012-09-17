@@ -42,20 +42,20 @@ module Fluentd
           @thread.join
           @thread = nil
         end
-        close
+        @client_sockets.each {|c|
+          c.close rescue nil
+        }
       end
 
-      def close
-        until @client_sockets.empty?
-          @client_sockets.last.close
-          @client_sockets.pop
-        end
+      def join
+        @thread.join
       end
 
+      private
       def run
         until @finish_flag.set?
           if @client_sockets.empty?
-            @finish_flag.wait(1)
+            @finish_flag.wait(0.5)
             next
           end
 
@@ -72,8 +72,8 @@ module Fluentd
             end
 
             if data == nil || data.empty?
-              c.close
               @client_sockets.delete(c)
+              c.close rescue nil
               next
             end
 
@@ -105,7 +105,6 @@ module Fluentd
         #  # TODO log
       end
 
-      private
       def finished?
         return @finish_flag.set?
       end
@@ -115,6 +114,10 @@ module Fluentd
       end
 
       def new_connection
+        if @finish_flag.set?
+          # TODO raise "Already finished"  # TODO
+        end
+
         s1, s2 = UNIXSocket.pair
         case @cloexec_mode
         when :client

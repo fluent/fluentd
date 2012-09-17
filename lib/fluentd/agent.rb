@@ -20,9 +20,13 @@ module Fluentd
 
   class Agent
     def initialize
+      @process_groups = []
     end
 
+    attr_reader :process_groups
+
     def configure(conf)
+      # TODO process_group
     end
 
     def start

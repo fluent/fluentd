@@ -57,6 +57,7 @@ module Fluentd
       end
 
       def initialize
+        super
         @flush_threads = []
         @flush_mutex = Mutex.new
         @flush_ready = true

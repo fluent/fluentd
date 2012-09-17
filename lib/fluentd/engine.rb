@@ -43,16 +43,13 @@ module Fluentd
     def run
       Engine.setup!
 
-      restart(:_start, @config)
+      restart(nil, @config)
 
       begin
-        #@pm.run
-        @pm.start
-        until @finish_flag.set?
-          @finish_flag.wait(1)
-        end
+        @pm.run
       ensure
-        @pm.shutdown(true)
+        @pm.stop(true)
+        @pm.join
       end
     end
 
@@ -65,11 +62,7 @@ module Fluentd
       begin
         new_bus.configure(config)
 
-        if immediate != :_start
-          @pm.stop(immediate)
-          @pm.join
-        end
-        @pm.reset(new_bus, config)
+        @pm.restart(immediate, new_bus, config)
 
         @message_bus = new_bus
         new_bus = nil

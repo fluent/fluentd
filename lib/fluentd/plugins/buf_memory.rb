@@ -41,6 +41,7 @@ module Fluentd
       end
 
       def initialize
+        super
         @mutex = Mutex.new
         @map = {}
         @queue = []
