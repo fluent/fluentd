@@ -37,7 +37,7 @@ module Fluentd
     end
 
     def new_client
-      return Client.new(new_connection)
+      return Client.new(new_connection, connection_mutex)
     end
 
     private

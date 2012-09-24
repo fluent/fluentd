@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
   s.executables = ['fluentd']  #, 'fluent-cat', 'fluent-gem', 'fluent-debug']
 
-  files = `git ls-files`.split("\n")
+  s.files = `git ls-files`.split("\n")
   s.test_files = `git ls-files -- {test,spec}/*`.split("\n")
 
   s.add_development_dependency 'bundler', ['>= 1.0.0']

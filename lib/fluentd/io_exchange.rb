@@ -16,17 +16,41 @@
 #    limitations under the License.
 #
 module Fluentd
+  require 'tempfile'
 
   module IOExchange
+    class IPCMutex
+      def initialize
+        @mutex = Mutex.new
+        @file = Tempfile.new('fluentd-ipc-mutex-')
+        @file.unlink
+      end
+
+      def synchronize(&block)
+        @mutex.lock
+        begin
+          @lock.flock(File::LOCK_EX)
+          begin
+            return block.call
+          ensure
+            @lock.flock(File::LOCK_UN)
+          end
+        ensure
+          @mutex.unlock
+        end
+      end
+    end
 
     class Server
       def initialize
         @finish_flag = BlockingFlag.new
         @client_sockets = []
         @cloexec_mode = nil
+        @connection_mutex = IPCMutex.new
       end
 
       attr_accessor :cloexec_mode
+      attr_reader :connection_mutex
 
       def start
         @thread = Thread.new(&method(:run))
@@ -38,7 +62,7 @@ module Fluentd
 
       def shutdown
         stop
-        #join
+        join
         @client_sockets.each {|c|
           c.close rescue nil
         }
@@ -78,6 +102,7 @@ module Fluentd
             end
 
             msg = Marshal.load(data)
+
             error = nil
             begin
               io = open_io(msg)
@@ -137,22 +162,25 @@ module Fluentd
     end
 
     class Client
-      def initialize(connection)
+      def initialize(connection, connection_mutex)
         @connection = connection
+        @connection_mutex = connection_mutex
       end
 
       def open_io(msg)
-        @connection.send Marshal.dump(msg)
+        @connection_mutex.synchronized do
+          @connection.send Marshal.dump(msg)
 
-        data = @connection.recv
-        msg = Marshal.load(data)
+          data = @connection.recv
+          msg = Marshal.load(data)
 
-        if msg.is_a?(Integer)
-          # success
-          @connection.recv_io
-        else
-          # error
-          raise msg
+          if msg.is_a?(Integer)
+            # success
+            @connection.recv_io
+          else
+            # error
+            raise msg
+          end
         end
       end
 

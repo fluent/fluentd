@@ -74,7 +74,7 @@ module Fluentd
         wait_time = Time.now + @child_detach_wait
 
         while (w = wait_time - Time.now) > 0
-          sleep [1, w].max
+          sleep [0.5, w].min
           if try_waitpid
             break
           end
