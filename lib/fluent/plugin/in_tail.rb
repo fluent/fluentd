@@ -158,7 +158,16 @@ class TailInput < Input
         if io = @rotate_queue.first.io
           stat = io.stat
           inode = stat.ino
-          pos = io.pos
+          if inode == @pe.read_inode
+            # rotated file has the same inode number with the last file.
+            # assuming following situation:
+            #   a) file was once renamed and backed, or
+            #   b) symlink or hardlink to the same file is recreated
+            # in either case, seek to the saved position
+            pos = @pe.read_pos
+          else
+            pos = io.pos
+          end
           @pe.update(inode, pos)
           io_handler = IOHandler.new(io, @pe, &@receive_lines)
         else
