@@ -36,6 +36,16 @@ op.on('-u', '--unix PATH', "use unix socket instead of tcp") {|b|
   unix = b
 }
 
+begin
+  op.parse!(ARGV)
+
+  if ARGV.length != 0
+    usage nil
+  end
+rescue
+  usage $!.to_s
+end
+
 require 'drb/drb'
 
 if unix
@@ -58,7 +68,7 @@ end
 
 include Fluent
 
-puts "Connected."
+puts "Connected to #{uri}."
 puts "Usage:"
 puts "    Engine.match('some.tag').output  : get an output plugin instance"
 puts "    Engine.sources[i]                : get input plugin instances"
