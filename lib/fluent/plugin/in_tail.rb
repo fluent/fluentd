@@ -102,7 +102,11 @@ class TailInput < Input
     }
 
     unless es.empty?
-      Engine.emit_stream(@tag, es)
+      begin
+        Engine.emit_stream(@tag, es)
+      rescue
+        # ignore errors. Engine shows logs and backtraces.
+      end
     end
   end
 
