@@ -1,4 +1,25 @@
 
+Release 0.10.26 - 2012/09/26
+
+* added in_debug_agent plugin and fluent-debug command which enable you to
+  gather internal information of running Fluentd process using interactive shell
+* supervisor: --user commandline argument also inherits secondary groups (id -G)
+* out_forward: supports 'expire_dns_cache' option to set DNS expire time or disable
+  caching. Default behavior is 'never expire' which is same as former versions
+* out_forward: assumes successful data transfer via TCP as a successful
+  heartbeat.
+* out_forward: lazier failure detection: default phi_threshold 8 -> 10
+* in_forward: uses other nodes aggressively if it couldn't send data to the first
+  candidate to not stall during the wait time before detecting failure
+* in_forward: fixed shutdown procedure
+* in_tail: seeks to the saved position if detected log rotation actually
+  didn't rotate the file (meaning inode doesn't change). this change enables
+  cronolog to work with Fluentd.
+* in_tail: fixed a problem that it couldn't recover from uncaught exceptions
+  caused by output plugins
+* fluentd command supports '-q' option to decrease log level
+
+
 Release 0.10.25 - 2012/07/23
 
 * shutdown won't block
