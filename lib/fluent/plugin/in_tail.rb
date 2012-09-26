@@ -61,7 +61,7 @@ class TailInput < Input
   def start
     @loop = Coolio::Loop.new
     @tails = @paths.map {|path|
-      pe = @pf ? @pf[path] : NullPositionEntry.instance
+      pe = @pf ? @pf[path] : MemoryPositionEntry.new
       TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
     }
     @tails.each {|tail|
@@ -114,7 +114,7 @@ class TailInput < Input
     def initialize(path, rotate_wait, pe, &receive_lines)
       @path = path
       @rotate_wait = rotate_wait
-      @pe = pe || NullPositionEntry.instance
+      @pe = pe || MemoryPositionEntry.new
       @receive_lines = receive_lines
 
       @rotate_queue = []
@@ -399,7 +399,7 @@ class TailInput < Input
       @file.write "0000000000000000\t00000000\n"
       @last_pos = @file.pos
 
-      @map[path] = PositionEntry.new(@file, seek)
+      @map[path] = FilePositionEntry.new(@file, seek)
     end
 
     def self.parse(file)
@@ -412,7 +412,7 @@ class TailInput < Input
         pos = m[2].to_i(16)
         ino = m[3].to_i(16)
         seek = file.pos - line.bytesize + path.bytesize + 1
-        map[path] = PositionEntry.new(file, seek)
+        map[path] = FilePositionEntry.new(file, seek)
       }
       new(file, map, file.pos)
     end
@@ -420,7 +420,7 @@ class TailInput < Input
 
   # pos               inode
   # ffffffffffffffff\tffffffff\n
-  class PositionEntry
+  class FilePositionEntry
     POS_SIZE = 16
     INO_OFFSET = 17
     INO_SIZE = 8
@@ -454,18 +454,27 @@ class TailInput < Input
     end
   end
 
-  class NullPositionEntry
-    require 'singleton'
-    include Singleton
+  class MemoryPositionEntry
+    def initialize
+      @pos = 0
+      @inode = 0
+    end
+
     def update(ino, pos)
+      @inode = ino
+      @pos = pos
     end
+
     def update_pos(pos)
+      @pos = pos
     end
+
     def read_pos
-      0
+      @pos
     end
+
     def read_inode
-      0
+      @inode
     end
   end
 end
