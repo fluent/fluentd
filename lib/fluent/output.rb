@@ -333,7 +333,7 @@ class BufferedOutput < Output
       end
 
       if error_count < @retry_limit
-        $log.warn "failed to flush the buffer, retrying.", :error=>e.to_s, :instance=>object_id
+        $log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@next_retry_time)}.", :error=>e.to_s, :instance=>object_id
         $log.warn_backtrace e.backtrace
 
       elsif @secondary
@@ -343,7 +343,7 @@ class BufferedOutput < Output
           $log.warn_backtrace e.backtrace
           retry  # retry immediately
         elsif error_count <= @retry_limit + @secondary_limit
-          $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s, :instance=>object_id
+          $log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@next_retry_time)}.", :error=>e.to_s, :instance=>object_id
           $log.warn_backtrace e.backtrace
         else
           $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
