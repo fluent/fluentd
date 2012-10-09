@@ -120,7 +120,7 @@ class PluginClass
     }.compact
     unless files.empty?
       # prefer newer version
-      require files.sort.last
+      require File.expand_path(files.sort.last)
       return
     end
 
