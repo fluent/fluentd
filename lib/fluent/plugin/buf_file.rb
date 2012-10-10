@@ -19,13 +19,16 @@ module Fluent
 
 
 class FileBufferChunk < BufferChunk
-  def initialize(key, path, mode="a+")
+  def initialize(key, path, unique_id, mode="a+")
     super(key)
     @path = path
+    @unique_id = unique_id
     @file = File.open(@path, mode)
     @file.sync = true
     @size = @file.stat.size
   end
+
+  attr_reader :unique_id
 
   def <<(data)
     @file.write(data)
@@ -103,8 +106,9 @@ class FileBuffer < BasicBuffer
 
   def new_chunk(key)
     encoded_key = encode_key(key)
-    path = make_path(encoded_key, "b")
-    FileBufferChunk.new(key, path)
+    path, tsuffix = make_path(encoded_key, "b")
+    unique_id = tsuffix_to_unique_id(tsuffix)
+    FileBufferChunk.new(key, path, unique_id)
   end
 
   def resume
@@ -116,28 +120,30 @@ class FileBuffer < BasicBuffer
       if m = PATH_MATCH.match(match)
         key = decode_key(m[1])
         bq = m[2]
-        tsuffix = m[3].to_i(16)
+        tsuffix = m[3]
+        timestamp = m[3].to_i(16)
+        unique_id = tsuffix_to_unique_id(tsuffix)
 
         if bq == 'b'
-          chunk = FileBufferChunk.new(key, path, "a+")
-          maps << [tsuffix, chunk]
+          chunk = FileBufferChunk.new(key, path, unique_id, "a+")
+          maps << [timestamp, chunk]
         elsif bq == 'q'
-          chunk = FileBufferChunk.new(key, path, "r")
-          queues << [tsuffix, chunk]
+          chunk = FileBufferChunk.new(key, path, unique_id, "r")
+          queues << [timestamp, chunk]
         end
       end
     }
 
     map = {}
-    maps.sort_by {|(tsuffix,chunk)|
-      tsuffix
-    }.each {|(tsuffix,chunk)|
+    maps.sort_by {|(timestamp,chunk)|
+      timestamp
+    }.each {|(timestamp,chunk)|
       map[chunk.key] = chunk
     }
 
-    queue = queues.sort_by {|(tsuffix,chunk)|
-      tsuffix
-    }.map {|(tsuffix,chunk)|
+    queue = queues.sort_by {|(timestamp,chunk)|
+      timestamp
+    }.map {|(timestamp,chunk)|
       chunk
     }
 
@@ -150,7 +156,8 @@ class FileBuffer < BasicBuffer
 
     m = PATH_MATCH.match(mp)
     encoded_key = m ? m[1] : ""
-    npath = make_path(encoded_key, "q")
+    tsuffix = m[3]
+    npath = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"
 
     chunk.mv(npath)
   end
@@ -166,8 +173,14 @@ class FileBuffer < BasicBuffer
 
   def make_path(encoded_key, bq)
     now = Time.now.utc
-    tsuffix = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff)).to_s(16)
-    "#{@buffer_path_prefix}#{encoded_key}.#{bq}#{tsuffix}#{@buffer_path_suffix}"
+    timestamp = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff))
+    tsuffix = timestamp.to_s(16)
+    path = "#{@buffer_path_prefix}#{encoded_key}.#{bq}#{tsuffix}#{@buffer_path_suffix}"
+    return path, tsuffix
+  end
+
+  def tsuffix_to_unique_id(tsuffix)
+    tsuffix.scan(/../).map {|x| x.to_i(16) }.pack('C*') * 2
   end
 end
 
