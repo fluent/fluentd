@@ -1,4 +1,10 @@
 
+Release 0.10.27 - 2012/10/11
+
+* added BufferChunk#unique_id which is an unique identifier of a buffered chunk
+* BufferedOutput: show 'temporarily failed' message
+
+
 Release 0.10.26 - 2012/09/26
 
 * added in_debug_agent plugin and fluent-debug command which enable you to
