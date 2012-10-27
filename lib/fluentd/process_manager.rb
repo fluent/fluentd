@@ -27,6 +27,8 @@ module Fluentd
     end
 
     def restart(immediate, agent_group, conf)
+      @processor_factory = Processors.new_processor_factory(conf)
+
       agents = agent_group.collect_agents
 
       # send stop signals
@@ -44,13 +46,11 @@ module Fluentd
       @processors = { }
 
       # assign agents to processors
-      agents.each {|agent|
-        assign_process(agent, @processors)
-      }
+      assign_processor_group(agent_group, @processors, ['default'])
 
       # listen exchange servers
       @processors.values.each {|pc|
-        @exchange_servers[pc.processor_id] = pc.listen_exchange_server!
+        @exchange_servers[pc.processor_id] = pc.setup!
       }
 
       @processors.values.each {|pc|
@@ -138,22 +138,29 @@ module Fluentd
     end
 
     private
-    def assign_process(agent, processors)
+    def assign_processor_group(agent_group, processors, default_groups)
+      agent_group.agents.each {|agent|
+        assign_processor(agent, processors, default_groups)
+      }
+
+      groups = agent_group.default_process_groups
+      groups = default_groups if groups.empty?
+
+      agent_group.agent_groups.each {|nested_agent_group|
+        assign_processor_group(nested_agent_group, processors, default_groups)
+      }
+    end
+
+    def assign_processor(agent, processors, default_groups)
       groups = agent.process_groups
-      if groups.empty?
-        groups = ['default']
-      end
-      pcs = groups.map {|pg|
-        pc = processors[pg]
-        unless pc
-          pc = processors[pg] = Processor.new(self, processors.size)
-        end
-        pc
+      groups = default_groups if groups.empty?
+      pcs = groups.map {|name|
+        processors[name] ||= @processor_factory.new(self, processors.size)
       }
       if pcs.size == 1
         assign_single_processor(pcs[0], agent)
       else
-        assign_multiple_processes(pcs, agent)
+        assign_multiple_processors(pcs, agent)
       end
     end
 
@@ -167,7 +174,7 @@ module Fluentd
       end
     end
 
-    def assign_multiple_processes(pcs, agent)
+    def assign_multiple_processors(pcs, agent)
       if agent.is_a?(Collector) && !agent.is_a?(DistributeCollectorProxy)
         agent.extend(DistributeCollectorProxy)
       end
@@ -177,11 +184,6 @@ module Fluentd
       if agent.is_a?(CollectorProxy)
         agent.setup_collector_proxy!(pcs)
       end
-    end
-
-    def connect_to_remote_self(pcid, local_self)
-      # TODO
-      #ObjectSpace._id2ref(local_self.__id__)
     end
 
     module CollectorProxy

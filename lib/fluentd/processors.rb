@@ -16,34 +16,19 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Processors
 
+    here = File.expand_path(File.dirname(__FILE__))
 
-  class Agent
-    def initialize
-      @process_groups = []
+    {
+      :ForkProcessor => 'processors/fork_processor',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
+
+    def self.new_processor_factory(conf)
+      ForkProcessor
     end
 
-    attr_reader :process_groups
-
-    # TODO multi_process?
-
-    def configure(conf)
-      # TODO process_group
-      if gr = conf['process_group']
-        @process_groups = [gr]
-      end
-    end
-
-    def start
-    end
-
-    def stop
-    end
-
-    def shutdown
-    end
   end
-
-
 end
-

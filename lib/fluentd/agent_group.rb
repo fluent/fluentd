@@ -22,9 +22,15 @@ module Fluentd
     def initialize
       @agents = []
       @agent_groups = []
+      @default_process_groups = []
     end
 
     attr_reader :agents, :agent_groups
+    attr_reader :default_process_groups
+
+    def configure(conf)
+      # TODO default_process_group
+    end
 
     def add_agent(agent)
       @agents << agent
@@ -42,10 +48,17 @@ module Fluentd
       }
     end
 
-    def shutdown
-      @agents.each {|agent| agent.shutdown }
-      @agent_groups.each {|group| group.shutdown }
-    end
+    # Processors call Agent#start
+    #def start
+    #  @agents.each {|agent| agent.start }
+    #  @agent_groups.each {|group| group.start }
+    #end
+
+    # Processors call Agent#shutdown
+    #def shutdown
+    #  @agents.each {|agent| agent.shutdown }
+    #  @agent_groups.each {|group| group.shutdown }
+    #end
   end
 
 

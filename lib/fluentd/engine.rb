@@ -29,6 +29,7 @@ module Fluentd
     end
 
     def self.setup!
+      # TODO re-design this method
       return if Fluentd.const_defined?(:Plugin)
 
       plugin = Fluentd.const_set(:Plugin, PluginClass.new)
@@ -59,19 +60,13 @@ module Fluentd
       @config = config
 
       new_bus = LabeledMessageBus.new
-      begin
-        new_bus.configure(config)
+      new_bus.configure(config)
 
-        @pm.restart(immediate, new_bus, config)
+      @pm.restart(immediate, new_bus, config)
 
-        @message_bus = new_bus
-        new_bus = nil
+      @message_bus = new_bus
 
-        @message_bus_proxy.reset(@message_bus)
-
-      ensure
-        new_bus.shutdown if new_bus
-      end
+      @message_bus_proxy.reset(@message_bus)
     end
 
     def stop(immediate)

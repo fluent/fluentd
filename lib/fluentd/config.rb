@@ -134,7 +134,7 @@ module Fluentd
       COMMA = /\,/
       COLON = /\:/
 
-      SPACING  =       /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
+      SPACING =                /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
       SPACING_LINE_END = /[ \t]*(?:\;|[\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
 
       def initialize(ss, ruby_context)
