@@ -11,6 +11,7 @@ conf = <<EOF
   type copy
 
   <match>
+    process_group remote
     type stdout
   </match>
 </filter>
