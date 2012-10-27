@@ -16,20 +16,30 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Processors
+  module Workers
 
-    here = File.expand_path(File.dirname(__FILE__))
+    class MultiProcessWorker
+      def initialize
+        @pm = ProcessManager.new
+      end
 
-    {
-      :ForkProcessor => 'processors/fork_processor',
-      :ForkExchange => 'processors/fork_exchange',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+      def run
+        @pm.run
+      end
 
-    def self.new_processor_factory(conf)
-      ForkProcessor
+      def stop(immediate)
+        @pm.stop(immediate)
+      end
+
+      def join
+        @pm.join
+      end
+
+      def restart(immediate, new_bus, config)
+        @pm.restart(immediate, new_bus, config)
+      end
     end
 
   end
 end
+

@@ -16,7 +16,7 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Processors
+  module ProcessManager
 
     require 'tmpdir'
     require 'socket'
@@ -24,18 +24,15 @@ module Fluentd
     require 'drb/unix'
     require 'fileutils'
 
-    class ForkExchange
-      def initialize(conf, processor_id)
+    class InterProcessExchange
+      def initialize(config, processor_id)
         tmpdir = Dir.tmpdir
         supervisor_pid = Process.pid
         @path = File.join(tmpdir, "fluentd", "processor-#{supervisor_pid}:#{processor_id}")
-        FileUtils.mkdir_p File.dirname(@path)
         @drb_uri = "drbunix:#{@path}"
-        @unix = UNIXServer.new(@path)
       end
 
       def close
-        @unix.close unless @unix.closed?
         File.unlink(@path) rescue nil
       end
 
@@ -45,8 +42,13 @@ module Fluentd
         end
       end
 
-      def run_service
+      def start
+        FileUtils.mkdir_p File.dirname(@path)
+        File.unlink(@path) rescue nil
         @server = DRb::DRbServer.new(@drb_uri, DRbFrontObject.new)
+      end
+
+      def join
         @server.thread.join
       end
 

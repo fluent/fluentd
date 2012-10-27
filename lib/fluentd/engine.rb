@@ -22,7 +22,7 @@ module Fluentd
       @config = config
       @finish_flag = BlockingFlag.new
 
-      @pm = ProcessManager.new
+      @pm = ProcessManager.new(config)
 
       @message_bus = nil
       @message_bus_proxy = Collectors::ProxyCollector.new(nil)

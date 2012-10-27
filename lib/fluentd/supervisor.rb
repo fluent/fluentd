@@ -129,6 +129,8 @@ module Fluentd
     end
 
     def try_waitpid
+      return true unless @pid
+
       begin
         pid, status = Process.waitpid2(@pid, Process::WNOHANG)
       rescue Errno::ECHILD

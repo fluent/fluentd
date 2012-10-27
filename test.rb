@@ -9,6 +9,7 @@ conf = <<EOF
 
 <filter **>
   type copy
+  process_group remotex
 
   <match>
     process_group remote

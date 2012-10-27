@@ -16,9 +16,9 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Processors
+  module ProcessManager
 
-    class ForkProcessor
+    class ChildProcess
       def initialize(manager, processor_id)
         @manager = manager
         @processor_id = processor_id
@@ -36,9 +36,9 @@ module Fluentd
         @agents << agent
       end
 
-      def init_exchange(conf)
-        @local_px = ForkExchange.new(conf, @processor_id)
-        return @local_px
+      def init_exchange(config)
+        @local_ipx = InterProcessExchange.new(config, @processor_id)
+        return @local_ipx
       end
 
       def local_process?
@@ -49,7 +49,8 @@ module Fluentd
         @pid = @manager.fork_processor(self) do |smc|
           @local_process = true
           $0 = "fluentd-processor:#{@processor_id}"
-          ChildProcess.run(@agents, @local_px, smc)
+          puts "running fluentd-processor:#{@processor_id} pid=#{Process.pid}"
+          Main.run(@agents, @local_ipx, smc)
           exit 0
         end
       end
@@ -122,19 +123,18 @@ module Fluentd
       end
 
       def open_remote_self(local_self, tag)
-        # connect DRb
-        @local_px.open_remote_self(local_self, tag)
+        @local_ipx.open_remote_self(local_self, tag)
       end
 
 
-      class ChildProcess
+      class Main
         def self.run(*args)
           new(*args).run
         end
 
-        def initialize(agents, local_px, smc)
+        def initialize(agents, local_ipx, smc)
           @agents = agents
-          @local_px = local_px
+          @local_ipx = local_ipx
           @smc = smc
 
           @started_agents = []
@@ -143,13 +143,16 @@ module Fluentd
         def run
           install_signal_handlers
 
+          @local_ipx.start
+
+          sleep 0.5  # TODO wait other process starts
+
           @agents.each {|agent|
             agent.start
             @started_agents << agent
           }
 
-          # start DRb
-          @local_px.run_service
+          @local_ipx.join
 
         rescue
           puts $!
@@ -164,7 +167,7 @@ module Fluentd
           @agents.each {|agent|
             agent.shutdown
           }
-          @local_px.stop_service
+          @local_ipx.stop_service
         end
 
         def logrotate
