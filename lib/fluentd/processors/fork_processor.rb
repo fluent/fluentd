@@ -17,9 +17,6 @@
 #
 module Fluentd
   module Processors
-    # register drbiunix scheme for DRb
-    here = File.expand_path(File.dirname(__FILE__))
-    require "#{here}/drb_internal_unix_exchange"
 
     class ForkProcessor
       def initialize(manager, processor_id)
@@ -39,13 +36,9 @@ module Fluentd
         @agents << agent
       end
 
-      def setup!
-        @exchange_server = InternalUNIXServer.new
-        #@exchange_server.cloexec_mode = :client
-
-        @exchange_client = @exchange_server.new_client
-
-        return @exchange_server
+      def init_exchange(conf)
+        @local_px = ForkExchange.new(conf, @processor_id)
+        return @local_px
       end
 
       def local_process?
@@ -53,10 +46,10 @@ module Fluentd
       end
 
       def start
-        @pid = @manager.fork_processor(self) do |exchange_clients,smc|
+        @pid = @manager.fork_processor(self) do |smc|
           @local_process = true
           $0 = "fluentd-processor:#{@processor_id}"
-          ChildProcess.run(@agents, @exchange_server, exchange_clients, smc)
+          ChildProcess.run(@agents, @local_px, smc)
           exit 0
         end
       end
@@ -130,15 +123,7 @@ module Fluentd
 
       def open_remote_self(local_self, tag)
         # connect DRb
-        front_object = DRbObject.new_with_uri(DRbInternalUNIXExchange.remote_uri(@exchange_client, @processor_id))
-        front_object.open(local_self.__id__, tag)
-      end
-
-
-      class DRbFrontObject
-        def open(self_id, tag)
-          ObjectSpace._id2ref(self_id)
-        end
+        @local_px.open_remote_self(local_self, tag)
       end
 
 
@@ -147,10 +132,9 @@ module Fluentd
           new(*args).run
         end
 
-        def initialize(agents, exchange_server, exchange_clients, smc)
+        def initialize(agents, local_px, smc)
           @agents = agents
-          @exchange_server = exchange_server
-          @exchange_clients = exchange_clients
+          @local_px = local_px
           @smc = smc
 
           @started_agents = []
@@ -164,20 +148,13 @@ module Fluentd
             @started_agents << agent
           }
 
-          @exchange_server.start
-
           # start DRb
-          DRb.start_service(DRbInternalUNIXExchange.server_uri(@exchange_server, @exchange_clients), DRbFrontObject.new)
-
-          @exchange_server.join
+          @local_px.run_service
 
         rescue
           puts $!
           $!.backtrace.each {|bt| puts bt }
           # TODO log
-
-        ensure
-          @exchange_server.close
         end
 
         def stop
@@ -187,7 +164,7 @@ module Fluentd
           @agents.each {|agent|
             agent.shutdown
           }
-          @exchange_server.stop
+          @local_px.stop_service
         end
 
         def logrotate

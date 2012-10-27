@@ -22,6 +22,7 @@ module Fluentd
 
     {
       :ForkProcessor => 'processors/fork_processor',
+      :ForkExchange => 'processors/fork_exchange',
     }.each_pair {|k,v|
       autoload k, File.join(here, v)
     }

@@ -27,10 +27,8 @@ module Fluentd
 
     def open_io(msg)
       s1, s2 = UNIXSocket.pair
-      p "open_io #{$$}"
       @mutex.synchronize do
         @backlog << s1
-        puts "ok: #{@backlog.inspect} #{@backlog.__id__}"
         @cond.broadcast
       end
       return s2
@@ -39,13 +37,11 @@ module Fluentd
     def accept
       @mutex.synchronize do
         while @backlog.empty?
-          p "accepting... #{$$} #{@backlog.inspect} #{@backlog.__id__}"
           if finished?
             return nil
           end
           @cond.wait(@mutex, 0.5)
         end
-        p @backlog
         return @backlog.shift
       end
     end

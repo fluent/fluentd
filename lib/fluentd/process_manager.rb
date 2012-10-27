@@ -23,7 +23,7 @@ module Fluentd
       @sm.cloexec_mode = :server
 
       @processors = {}
-      @exchange_servers = []
+      @pxs = []
     end
 
     def restart(immediate, agent_group, conf)
@@ -33,14 +33,13 @@ module Fluentd
 
       # send stop signals
       @processors.values.each {|pc| pc.stop(immediate) }
-      @exchange_servers.each {|es| es.stop }
 
       # shutdown running processors
       @processors.values.each {|pc| pc.join(immediate) }
       @processors.clear
 
-      # shutdown exchange servers
-      @exchange_servers.each {|es| es.shutdown }
+      # close exchange servers
+      @pxs.each {|es| es.close }
 
       # initialize new processors
       @processors = { }
@@ -50,7 +49,7 @@ module Fluentd
 
       # listen exchange servers
       @processors.values.each {|pc|
-        @exchange_servers[pc.processor_id] = pc.setup!
+        @pxs[pc.processor_id] = pc.init_exchange(conf)
       }
 
       @processors.values.each {|pc|
@@ -99,24 +98,17 @@ module Fluentd
 
     def fork_processor(pc, &block)
       # open clients for all other remote servers
-      exchange_clients = []
       begin
-        @exchange_servers.each_with_index {|es,pcid|
-          if es && pcid != pc.processor_id
-            exchange_clients[pcid] = es.new_client
-          end
-        }
-
         smc = @sm.new_client
         pid = fork do
           begin
-            # close other servers
-            @exchange_servers.each_with_index {|es,pcid|
-              if es && pcid != pc.processor_id
-                es.close
+            # close other interchange servers
+            @pxs.each_with_index {|px,pcid|
+              if px && pcid != pc.processor_id
+                px.close
               end
             }
-            block.call(exchange_clients, smc)
+            block.call(smc)
           rescue
             # TODO log
             puts $!
@@ -129,8 +121,8 @@ module Fluentd
 
         smc.close
       ensure
-        exchange_clients.each {|ec|
-          ec.close if ec
+        @pxs.each {|px|
+          px.close if px
         }
       end
 
