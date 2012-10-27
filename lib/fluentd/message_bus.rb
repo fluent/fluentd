@@ -21,14 +21,15 @@ module Fluentd
   class MessageBus < AgentGroup
     include Collector
 
-    def initialize
-      super
+    def initialize(parent_bus)
+      super()
+      @parent_bus = parent_bus
       @match_cache = {}
       @matches = []
       @default_collector = Collectors::NoMatchCollector.new
     end
 
-    attr_accessor :default_collector, :matches
+    attr_accessor :parent_bus, :default_collector, :matches
 
     def configure(conf)
       conf.elements.select {|e|
@@ -88,6 +89,10 @@ module Fluentd
       collector.open(tag, &block)
     end
 
+    def open_label(label, tag, &block)
+      @parent_bus.open_label(label, tag, &block)
+    end
+
     private
 
     def match(tag)
@@ -131,7 +136,7 @@ module Fluentd
       add_agent(agent)
 
       if agent.is_a?(StreamSource)
-        bus = MessageBus.new
+        bus = MessageBus.new(self)
         add_agent_group(bus)
 
         bus.configure(e)
@@ -151,7 +156,7 @@ module Fluentd
 
   class LabeledMessageBus < MessageBus
     def initialize
-      super
+      super(nil)
       @labels = {}
     end
 
@@ -165,24 +170,19 @@ module Fluentd
       }
     end
 
-    def open(tag, label=nil)
+    def open_label(label, tag)
       return ensure_close(open(tag), &proc) if block_given?
-      if label
-        if bus = @labels[label]
-          return bus.open(tag)
-        else
-          raise "unknown label: #{label}"  # TODO error
-        end
+      if bus = @labels[label]
+        return bus.open(tag)
       else
-        # default label
-        super(tag)
+        raise "unknown label: #{label}"  # TODO error class
       end
     end
 
     def add_label(e)
       label = e.arg  # TODO validate label
 
-      bus = MessageBus.new
+      bus = MessageBus.new(self)
       bus.configure(e)
 
       @labels[label] = bus
