@@ -29,14 +29,17 @@ module Fluentd
 
       def append(time, record)
         @target.append(@tag, time, record)
+        nil
       end
 
       def write(chunk)
         @target.write(@tag, chunk)
+        nil
       end
 
       def close
         @close_block.call if @close_block
+        nil
       end
     end
 

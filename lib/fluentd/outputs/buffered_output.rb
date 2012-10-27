@@ -104,6 +104,8 @@ module Fluentd
       private
 
       def try_flush
+        # TODO flush_time + flush_ready => flush_ready_time
+        #      flush_ready_time == nil || flush_ready_time < now => flush ok
         if !@flush_ready && @flush_time > (now = Time.now.to_i)
           return
         end

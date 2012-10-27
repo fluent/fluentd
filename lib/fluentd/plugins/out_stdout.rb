@@ -22,6 +22,7 @@ module Fluentd
       Plugin.register_output(:stdout, self)
 
       def configure(conf)
+        super
       end
 
       def open(tag)

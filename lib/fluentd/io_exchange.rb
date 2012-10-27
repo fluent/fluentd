@@ -29,11 +29,11 @@ module Fluentd
       def synchronize(&block)
         @mutex.lock
         begin
-          @lock.flock(File::LOCK_EX)
+          @file.flock(File::LOCK_EX)
           begin
             return block.call
           ensure
-            @lock.flock(File::LOCK_UN)
+            @file.flock(File::LOCK_UN)
           end
         ensure
           @mutex.unlock
@@ -63,6 +63,10 @@ module Fluentd
       def shutdown
         stop
         join
+        close
+      end
+
+      def close
         @client_sockets.each {|c|
           c.close rescue nil
         }
@@ -117,10 +121,10 @@ module Fluentd
               rescue
                 data = Marshal.dump(error.to_s)
               end
-              c.send data
+              c.write data
             else
               # send io
-              c.send Marshal.dump(io.fileno)
+              c.write Marshal.dump(io.fileno)
               c.send_io io
             end
           }
@@ -155,6 +159,8 @@ module Fluentd
           s1.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
           s2.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
         end
+        s1.sync = true
+        s2.sync = true
         #s1.fcntl(Fcntl::F_SETFL, File::NONBLOCK)
         @client_sockets << s1
         return s2
@@ -168,10 +174,10 @@ module Fluentd
       end
 
       def open_io(msg)
-        @connection_mutex.synchronized do
-          @connection.send Marshal.dump(msg)
+        @connection_mutex.synchronize do
+          @connection.write Marshal.dump(msg)
 
-          data = @connection.recv
+          data = @connection.recv(32*1024)
           msg = Marshal.load(data)
 
           if msg.is_a?(Integer)
