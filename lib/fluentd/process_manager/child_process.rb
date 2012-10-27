@@ -135,6 +135,7 @@ module Fluentd
         def initialize(agents, local_ipx, smc)
           @agents = agents
           @local_ipx = local_ipx
+          @finish_flag = BlockingFlag.new
           @smc = smc
 
           @started_agents = []
@@ -143,16 +144,23 @@ module Fluentd
         def run
           install_signal_handlers
 
-          @local_ipx.start
-
-          sleep 0.5  # TODO wait other process starts
+          if @local_ipx
+            @local_ipx.start
+            sleep 0.5  # TODO wait other process starts
+          end
 
           @agents.each {|agent|
             agent.start
             @started_agents << agent
           }
 
-          @local_ipx.join
+          if @local_ipx
+            @local_ipx.join
+          end
+
+          until @finish_flag.set?
+            @finish_flag.wait(0.5)
+          end
 
         rescue
           puts $!
@@ -167,7 +175,12 @@ module Fluentd
           @agents.each {|agent|
             agent.shutdown
           }
-          @local_ipx.stop_service
+
+          if @local_ipx
+            @local_ipx.stop_service
+          end
+
+          @finish_flag.set!
         end
 
         def logrotate

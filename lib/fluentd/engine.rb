@@ -48,6 +48,12 @@ module Fluentd
 
       begin
         @pm.run
+
+      rescue
+        # TODO log
+        puts $!
+        $!.backtrace.each {|bt| puts bt }
+
       ensure
         @pm.stop(false)
         @pm.join

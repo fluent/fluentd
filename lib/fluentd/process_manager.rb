@@ -21,6 +21,7 @@ module Fluentd
 
     {
       :MultiprocessManager => 'process_manager/multiprocess_manager',
+      :SingleprocessManager => 'process_manager/singleprocess_manager',
       :ChildProcess => 'process_manager/child_process',
       :InterProcessExchange => 'process_manager/inter_process_exchange',
     }.each_pair {|k,v|
@@ -28,6 +29,8 @@ module Fluentd
     }
 
     def self.new(config)
+      # TODO config or environment switches implementations
+      #SingleprocessManager.new
       MultiprocessManager.new
     end
 

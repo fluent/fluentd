@@ -28,13 +28,11 @@ module Fluentd
       end
 
       def restart(immediate, agent_group, conf)
-        agents = agent_group.collect_agents
-
         # send stop signals
         @processors.values.each {|pc| pc.stop(immediate) }
 
         # shutdown running processors
-        @processors.values.each {|pc| pc.join(immediate) }
+        @processors.values.each {|pc| pc.join }
         @processors.clear
 
         # close exchange servers
@@ -51,9 +49,8 @@ module Fluentd
           @ipxs[pc.processor_id] = pc.init_exchange(conf)
         }
 
-        @processors.values.each {|pc|
-          pc.start
-        }
+        # start processors
+        @processors.values.each {|pc| pc.start }
 
         nil
       end
@@ -68,32 +65,31 @@ module Fluentd
         @processors.values.each {|pc|
           pc.join
         }
-        @sm.shutdown
       end
 
       def run
         @sm.start
 
-        while true
-          #sleep 0.2  # TODO
+        begin
+          while true
+            #sleep 0.2  # TODO
 
-          has_running_process = false
-          @processors.values.each {|pc|
-            # TODO heartbeat
-            if pc.try_join(2, 10)  # TODO kill_interval, graceful_kill_limit
-              has_running_process = true
+            has_running_process = false
+            @processors.values.each {|pc|
+              # TODO heartbeat
+              if pc.try_join(2, 10)  # TODO kill_interval, graceful_kill_limit
+                has_running_process = true
+              end
+            }
+
+            unless has_running_process
+              break
             end
-          }
-
-          unless has_running_process
-            break
           end
-        end
 
-      rescue
-        # TODO log
-        puts $!
-        $!.backtrace.each {|bt| puts bt }
+        ensure
+          @sm.shutdown
+        end
       end
 
       def fork_processor(pc, &block)

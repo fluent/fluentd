@@ -42,12 +42,6 @@ module Fluentd
       self
     end
 
-    def collect_agents
-      @agent_groups.inject(@agents.dup) {|r,group|
-        r.concat(group.collect_agents)
-      }
-    end
-
     # Processors call Agent#start
     #def start
     #  @agents.each {|agent| agent.start }
