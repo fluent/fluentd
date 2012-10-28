@@ -112,7 +112,6 @@ module Fluentd
           begin
             block.call(hmc, smc)
           rescue
-            # TODO log
             @log.error $!
             @log.warn_backtrace
             raise
