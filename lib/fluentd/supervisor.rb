@@ -51,8 +51,6 @@ module Fluentd
       @child_restart_limit = conf['child_restart_limit'] || nil
     end
 
-    # TODO define setup! to run configure before starting processors
-
     def run
       conf = @config_load_proc.call
       configure(conf)
@@ -108,12 +106,13 @@ module Fluentd
     private
     def start_server
       # TODO supervisor <-> fluentd-engine heartbeat
-      fork do
+      pid = fork do
         $0 = "fluentd-server"
         server = Server.new(&@config_load_proc)
         server.run
         exit! 0
       end
+      return pid
     end
 
     def reboot_server

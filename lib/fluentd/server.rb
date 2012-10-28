@@ -47,11 +47,7 @@ module Fluentd
 
       install_signal_handlers
 
-      #begin
-        @engine.run
-      #ensure
-      #  @engine.shutdown(true)
-      #end
+      @engine.run
 
       return nil
     rescue

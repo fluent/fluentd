@@ -144,10 +144,13 @@ else
   sv = Fluentd::Supervisor.new(&config_load_proc)
 end
 
-#if opts[:daemonize]
-#  sv.setup!
-#  daemonize
-#end
+if pid_path = opts[:daemonize]
+  pid_file = File.open(pid_path, 'w')
+  Process.daemon(true, true)  # nochdir, noclose
+  pid_file.write Process.pid
+  pid_file.close
+  #$0 = "fluentd -c #{opts[:config_path]}"
+end
 
 sv.run
 
