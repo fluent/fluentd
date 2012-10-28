@@ -37,9 +37,14 @@ module Fluentd
         @child_heartbeat_limit = 10
       end
 
-      def restart(immediate, agent_group, conf)
+      def setup!(agent_group, conf)
         configure(conf)
 
+        # assign agents to processors
+        assign_processor_group(agent_group, @processors, ['default'], conf)
+      end
+
+      def restart(immediate, agent_group, conf)
         # send stop signals
         @processors.values.each {|pc| pc.stop(immediate) }
 
@@ -53,16 +58,9 @@ module Fluentd
         # initialize new processors
         @processors = { }
 
-        # assign agents to processors
-        assign_processor_group(agent_group, @processors, ['default'], conf)
+        setup!(agent_group, conf)
 
-        # listen exchange servers
-        @processors.values.each {|pc|
-          @ipxs[pc.processor_id] = pc.init_exchange
-        }
-
-        # start processors
-        @processors.values.each {|pc| pc.start }
+        start_processors
 
         nil
       end
@@ -87,6 +85,7 @@ module Fluentd
 
       def run
         @sm.start
+        start_processors
 
         begin
           while true
@@ -127,6 +126,16 @@ module Fluentd
       end
 
       private
+
+      def start_processors
+        # listen exchange servers
+        @processors.values.each {|pc|
+          @ipxs[pc.processor_id] = pc.init_exchange
+        }
+
+        # start processors
+        @processors.values.each {|pc| pc.start }
+      end
 
       def maintain_processors
         has_running = false

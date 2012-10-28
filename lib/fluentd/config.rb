@@ -91,10 +91,6 @@ module Fluentd
       end
     end
 
-    def self.evaluate(data)
-      parse(data)
-    end
-
     def self.read(path)
       Parser.read(path)
     end

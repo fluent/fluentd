@@ -26,17 +26,19 @@ module Fluentd
         @finish_complete_flag = BlockingFlag.new
       end
 
-      def restart(immediate, agent_group, conf)
-        unless @agents.empty?
-          raise "SimpleProcessManager does not support restart"
-        end
-
+      def setup!(agent_group, conf)
         collect_agents(agent_group, @agents)
 
         @agents.each {|agent|
           agent.start
           @started_agents << agent
         }
+      end
+
+      def restart(immediate, agent_group, conf)
+        unless @agents.empty?
+          raise "SimpleProcessManager does not support restart"
+        end
       end
 
       def run

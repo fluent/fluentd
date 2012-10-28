@@ -42,10 +42,13 @@ module Fluentd
       plugin.load_plugins
     end
 
-    def run
-      Engine.setup!
+    def configure(conf)
+      @conf = conf
+      @log = conf.logger
+    end
 
-      restart(nil, @conf)
+    def run
+      setup!
 
       begin
         @pm.run
@@ -60,11 +63,28 @@ module Fluentd
       end
     end
 
+    def setup!
+      return if @setup
+
+      Engine.setup!
+
+      configure(@conf)
+
+      new_bus = LabeledMessageBus.new
+      new_bus.configure(@conf)
+
+      @pm.setup!(new_bus, @conf)
+
+      @message_bus = new_bus
+      @message_bus_proxy.reset(@message_bus)
+
+      @setup = true
+    end
+
     def restart(immediate, conf)
       return if @finish_flag.set?
 
-      @conf = conf
-      @log = conf.logger
+      configure(conf)
 
       new_bus = LabeledMessageBus.new
       new_bus.configure(conf)
@@ -72,7 +92,6 @@ module Fluentd
       @pm.restart(immediate, new_bus, conf)
 
       @message_bus = new_bus
-
       @message_bus_proxy.reset(@message_bus)
     end
 

@@ -23,7 +23,7 @@ module Fluentd
         if conf.is_a?(Config)
           block = Proc.new { conf }
         else
-          block = Proc.new { Config.evaluate(conf) }
+          block = Proc.new { Config.parse(conf, '(data)') }
         end
       end
       @config_load_proc = block
@@ -32,12 +32,20 @@ module Fluentd
       @log = Logger.new(STDERR)
     end
 
-    def run
-      @log.info "Fluentd #{VERSION}"
-
-      install_signal_handlers
+    def setup!
+      return if @setup
 
       @engine = Engine.new(reload_config)
+      @engine.setup!
+
+      @setup = true
+    end
+
+    def run
+      @log.info "Fluentd #{VERSION}"
+      setup!
+
+      install_signal_handlers
 
       #begin
         @engine.run

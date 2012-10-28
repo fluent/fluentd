@@ -33,7 +33,7 @@ opts = {
   #:setup_path => nil,
   :chuser => nil,
   :chgroup => nil,
-  #:config_check => false,
+  :config_check => false,
   :disable_supervisor => false,
 }
 
@@ -45,9 +45,9 @@ op.on('-c', '--config PATH', "config file path (default: #{Fluentd::DEFAULT_CONF
   opts[:config_path] = s
 }
 
-#op.on('--check', "check configuration file and exit", TrueClass) {|b|
-#  opts[:config_check] = b
-#}
+op.on('--check', "check configuration file and exit", TrueClass) {|b|
+  opts[:config_check] = b
+}
 
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
   opts[:plugin_dirs] << s
@@ -131,18 +131,23 @@ config_load_proc = lambda {
   Fluentd::Config.read(opts[:config_path])
 }
 
-#if opts[:config_check]
-#  sv = Fluentd::Server.new(&config_load_proc)
-#  sv.configure!
-#  puts "ok."
-#  exit 0
-#end
+if opts[:config_check]
+  sv = Fluentd::Server.new(&config_load_proc)
+  sv.setup!
+  puts "ok."
+  exit 0
+end
 
 if opts[:disable_supervisor]
   sv = Fluentd::Server.new(&config_load_proc)
 else
   sv = Fluentd::Supervisor.new(&config_load_proc)
 end
+
+#if opts[:daemonize]
+#  sv.setup!
+#  daemonize
+#end
 
 sv.run
 

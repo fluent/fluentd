@@ -32,7 +32,7 @@ module Fluentd
         if conf.is_a?(Config)
           block = Proc.new { conf }
         else
-          block = Proc.new { Config.evaluate(conf) }
+          block = Proc.new { Config.parse(conf, '(data)') }
         end
       end
       @config_load_proc = block
@@ -50,6 +50,8 @@ module Fluentd
       @child_restart_wait = conf['child_restart_wait'] || 1.0
       @child_restart_limit = conf['child_restart_limit'] || nil
     end
+
+    # TODO define setup! to run configure before starting processors
 
     def run
       conf = @config_load_proc.call
