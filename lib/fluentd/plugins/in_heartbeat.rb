@@ -29,6 +29,8 @@ module Fluentd
       end
 
       def configure(conf)
+        @log = conf.logger
+
         @tag = conf['tag'] || 'heartbeat'
 
         json = conf['message'] || '{"heartbeat":1}'
@@ -62,8 +64,8 @@ module Fluentd
               w.close
             end
           rescue
-            puts "error: #{$!}"
-            $!.backtrace.each {|bt| puts "  #{bt}" }
+            @log.error "emit error: #{$!}"
+            @log.warn_backtrace
           end
           @finish_flag.wait(0.5)
         end

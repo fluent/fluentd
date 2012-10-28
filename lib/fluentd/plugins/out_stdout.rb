@@ -30,7 +30,7 @@ module Fluentd
       end
 
       def append(tag, time, record)
-        print "#{tag}\t#{time}\t#{record.to_json}\n"
+        STDOUT.write "#{tag}\t#{time}\t#{record.to_json}\n"
       end
 
       def write(tag, chunk)

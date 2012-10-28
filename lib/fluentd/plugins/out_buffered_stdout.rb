@@ -27,7 +27,7 @@ module Fluentd
 
       def write(tag, chunk)
         chunk.each {|time,record|
-          print "#{tag}\t#{time}\t#{record.to_json}\n"
+          STDOUT.write "#{tag}\t#{time}\t#{record.to_json}\n"
         }
       end
     end

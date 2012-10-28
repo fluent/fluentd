@@ -131,9 +131,8 @@ module Fluentd
         end
 
       rescue
-        puts $!
-        $!.backtrace.each {|bt| puts bt }
-        # TODO log
+        STDERR.write "#{$!}\n"
+        $!.backtrace.each {|bt| STDERR.write "\t#{bt}\n" }
       end
 
       def finished?

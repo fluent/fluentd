@@ -18,11 +18,12 @@
 module Fluentd
 
   class Engine
-    def initialize(config)
-      @config = config
+    def initialize(conf)
+      @conf = conf
+      @log = conf.logger
       @finish_flag = BlockingFlag.new
 
-      @pm = ProcessManager.new(config)
+      @pm = ProcessManager.new(conf)
 
       @message_bus = nil
       @message_bus_proxy = Collectors::ProxyCollector.new(nil)
@@ -44,15 +45,14 @@ module Fluentd
     def run
       Engine.setup!
 
-      restart(nil, @config)
+      restart(nil, @conf)
 
       begin
         @pm.run
 
       rescue
-        # TODO log
-        puts $!
-        $!.backtrace.each {|bt| puts bt }
+        @log.error $!
+        @log.warn_backtrace
 
       ensure
         @pm.stop(false)
@@ -60,15 +60,16 @@ module Fluentd
       end
     end
 
-    def restart(immediate, config)
+    def restart(immediate, conf)
       return if @finish_flag.set?
 
-      @config = config
+      @conf = conf
+      @log = conf.logger
 
       new_bus = LabeledMessageBus.new
-      new_bus.configure(config)
+      new_bus.configure(conf)
 
-      @pm.restart(immediate, new_bus, config)
+      @pm.restart(immediate, new_bus, conf)
 
       @message_bus = new_bus
 

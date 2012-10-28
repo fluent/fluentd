@@ -107,8 +107,8 @@ module Fluentd
             block.call(hmc, smc)
           rescue
             # TODO log
-            puts $!
-            $!.backtrace.each {|bt| puts bt }
+            @log.error $!
+            @log.warn_backtrace
             raise
           ensure
             exit! 127

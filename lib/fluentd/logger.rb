@@ -33,6 +33,7 @@ module Fluentd
       @level = LEVEL_TRACE
       @caller_trace = true
 
+      @hook = []
       @hook_stdout = false
       @hook_stderr = false
 
@@ -45,28 +46,19 @@ module Fluentd
     attr_accessor :time_format
     attr_accessor :caller_trace
 
-    def hook_stdout!
-      return nil if @io == STDOUT
-      STDOUT.reopen(@io)
-      @hook_stdout = true
-      self
-    end
-
-    def hook_stderr!
-      STDERR.reopen(@io)
-      @hook_stderr = true
-      self
+    def hook_io(target)
+      return nil if @io == target || @hook.include?(target)
+      target.reopen(@io)
+      @hook << target
+      true
     end
 
     def reopen!
       if @path
         @io.reopen(@path)
-        if @hook_stdout
-          STDOUT.reopen(@io)
-        end
-        if @hook_stderr
-          STDERR.reopen(@io)
-        end
+        @hook.each {|target|
+          target.reopen(@io)
+        }
       end
       nil
     end
@@ -108,17 +100,18 @@ module Fluentd
         def #{name}(*args, &block)
           return if @level > #{lv}
           args << block.call if block
-          time, msg = format_message(:#{name}, args)
+          time = Time.now
+          msg = format_message(:#{name}, args)
+          tmsg = time.strftime(@time_format)
           at = caller_trace(1) if @caller_trace
-          write [@color_#{name}, msg, at, @eol].join
+          write [@color_#{name}, tmsg, at, msg, @eol].join
         end
 
         def #{name}_backtrace(backtrace=$!.backtrace)
           return if @level > #{lv}
-          time = Time.now
           at = caller_trace(1) if @caller_trace
           backtrace.each {|msg|
-            write ["  ", msg, at, "\n"].join
+            write ["  ", at, msg, "\n"].join
           }
         end
       MODULE_EVAL
@@ -171,8 +164,7 @@ module Fluentd
     private
 
     def format_message(level_name, args)
-      time = Time.now
-      msg = time.strftime(@time_format)
+      msg = ''
 
       args.each {|a|
         case a
@@ -185,7 +177,7 @@ module Fluentd
         end
       }
 
-      return time, msg
+      return msg
     end
 
     def caller_trace(depth)

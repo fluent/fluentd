@@ -37,7 +37,7 @@ module Fluentd
 
       install_signal_handlers
 
-      @engine = Engine.new(load_config)
+      @engine = Engine.new(reload_config)
 
       #begin
         @engine.run
@@ -67,7 +67,7 @@ module Fluentd
     def restart(immediate)
       @log.info immediate ? "Received immediate restart" : "Received graceful restart"
       begin
-        @engine.restart(immediate, load_config)
+        @engine.restart(immediate, reload_config)
       rescue
         @log.error "failed to restart: #{$!}"
         @log.warn_backtrace
@@ -84,18 +84,29 @@ module Fluentd
     end
 
     private
-    def load_config
+    def reload_config
       # TODO error handling
       conf = @config_load_proc.call
 
+      # setup logger
       old_log = @log
       log = Logger.new(conf['log'] || STDERR)
       old_log.close if old_log
 
-      conf.define_singleton_method(:logger) { log }
+      log.hook_io(STDOUT)
+      log.hook_io(STDERR)
+
+      define_logger(conf, log)
       @log = log
 
       return conf
+    end
+
+    def define_logger(conf, log)
+      conf.define_singleton_method(:logger) { log }
+      conf.elements.each {|e|
+        define_logger(e, log)
+      }
     end
 
     def install_signal_handlers(&block)

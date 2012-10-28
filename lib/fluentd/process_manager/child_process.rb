@@ -22,6 +22,7 @@ module Fluentd
       def initialize(manager, conf, processor_id)
         @manager = manager
         @conf = conf
+        @log = conf.logger
         @processor_id = processor_id
         @agents = []
         @local_process = false
@@ -52,7 +53,7 @@ module Fluentd
         @pid = @manager.fork_processor(self) do |hmc,smc|
           @local_process = true
           $0 = "fluentd-processor:#{@processor_id}"
-          puts "running fluentd-processor:#{@processor_id} pid=#{Process.pid}"
+          @log.info "running fluentd-processor:#{@processor_id} pid=#{Process.pid}"
           m = Main.new(@agents, @local_ipx, hmc, smc)
           m.configure(@conf)
           m.run
@@ -90,7 +91,7 @@ module Fluentd
           # TODO? SIGCHLD is trapped in Supervisor#install_signal_handlers
         end
 
-        # TODO @log.info "Processor exited pid=#{@pid}"
+        @log.info "Processor exited pid=#{@pid} processor=#{@processor_id}"
         @pid = nil
 
         return nil
@@ -104,7 +105,7 @@ module Fluentd
           end
         else
           if now - @last_heartbeat_time > heartbeat_limit
-            puts "heartbeat broke out"
+            @log.fatal "heartbeat broke out process=#{@processor_id}"
             stop(true)
           end
         end
@@ -119,17 +120,14 @@ module Fluentd
 
         begin
           if @kill_immediate || (graceful_kill_limit && @kill_start_time + graceful_kill_limit < now)
-            # TODO @log.debug "sending SIGKILL to pid=#{pid} for immediate stop"
-            puts "sending SIGKILL to pid=#{pid} for immediate stop"
+            @log.info "sending SIGKILL to pid=#{pid} process=#{@processor_id} for immediate stop"
             Process.kill(:KILL, pid)
           else
-            # TODO @log.debug "sending SIGTERM to pid=#{pid} for graceful stop"
-            puts "sending SIGTERM to pid=#{pid} for graceful stop"
+            @log.info "sending SIGTERM to pid=#{pid} process=#{@processor_id} for graceful stop"
             Process.kill(:TERM, pid)
           end
         rescue Errno::ESRCH, Errno::EPERM
-          puts "killfailed: #{@pid}"
-          # TODO log?
+          @log.warn "kill failed pid=#{@pid} process=#{@processor_id}: #{$!}"
         end
       end
 
@@ -152,7 +150,9 @@ module Fluentd
         end
 
         def configure(conf)
-          # TODO
+          @log = conf.logger
+
+          # TODO configure
           @child_heartbeat_interval = 1
         end
 
@@ -178,9 +178,8 @@ module Fluentd
           end
 
         rescue
-          puts $!
-          $!.backtrace.each {|bt| puts bt }
-          # TODO log
+          @log.error $!
+          @log.error_backtrace
         end
 
         def run_parent_heartbeat
@@ -195,14 +194,14 @@ module Fluentd
                 @hmc.heartbeat
               rescue
                 unless @suicide_start_time
-                  puts "Can't reach to the parent process: #{$!}"
+                  @log.fatal "Can't reach to the parent process: #{$!} pid=#{Process.pid}"
                   @suicide_start_time = now
                 end
                 if @suicide_start_time + 60 < now
-                  puts "sending SIGKILL to self for immediate stop"
+                  @log.info "sending SIGKILL to self for immediate stop pid=#{Process.pid}"
                   Process.kill(:KILL, Process.pid)
                 else
-                  puts "sending SIGTERM to self for immediate stop"
+                  @log.info "sending SIGTERM to self for immediate stop pid=#{Process.pid}"
                   Process.kill(:TERM, Process.pid)
                 end
 
@@ -227,7 +226,7 @@ module Fluentd
         end
 
         def logrotate
-          # TODO
+          @log.reopen! if @log
         end
 
         def install_signal_handlers(&block)
