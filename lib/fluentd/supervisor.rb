@@ -55,7 +55,6 @@ module Fluentd
       conf = @config_load_proc.call
       configure(conf)
 
-      # TODO daemonize
       @pid = start_server
 
       install_signal_handlers

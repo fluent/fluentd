@@ -62,6 +62,7 @@ module Fluentd
 
   [
     'fluentd/version',
+    'fluentd/env',
     'fluent',
   ].each {|v|
     require File.join(here, v)
