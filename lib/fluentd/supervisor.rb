@@ -42,8 +42,7 @@ module Fluentd
       @finish_flag = BlockingFlag.new
 
       # initial logger
-      STDERR.sync = true
-      @log = DaemonsLogger.new(STDERR)
+      @log = Logger.new(STDERR)
     end
 
     def configure(conf)

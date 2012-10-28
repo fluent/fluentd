@@ -53,8 +53,8 @@ module Fluentd
     :InternalUNIXServer => 'fluentd/internal_unix_server',
     :SocketManager => 'fluentd/socket_manager',
     :HeartbeatManager => 'fluentd/heartbeat_manager',
+    :Logger => 'fluentd/logger',
     :BlockingFlag => 'fluentd/util/blocking_flag',
-    :DaemonsLogger => 'fluentd/util/daemons_logger',
     :SignalQueue => 'fluentd/util/signal_queue',
   }.each_pair {|k,v|
     autoload k, File.join(here, v)

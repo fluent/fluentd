@@ -29,8 +29,7 @@ module Fluentd
       @config_load_proc = block
 
       # initial logger
-      STDERR.sync = true
-      @log = DaemonsLogger.new(STDERR)
+      @log = Logger.new(STDERR)
     end
 
     def run
@@ -49,7 +48,7 @@ module Fluentd
       return nil
     rescue
       @log.error "#{$!.class}: #{$!}"
-      $!.backtrace.each {|x| @log.warn "\t#{x}" }
+      @log.warn_backtrace
       return nil
     end
 
@@ -59,7 +58,7 @@ module Fluentd
         @engine.stop(immediate) if @engine
       rescue
         @log.error "failed to stop: #{$!}"
-        $!.backtrace.each {|bt| @log.warn "\t#{bt}" }
+        @log.warn_backtrace
         return false
       end
       return true
@@ -71,14 +70,14 @@ module Fluentd
         @engine.restart(immediate, load_config)
       rescue
         @log.error "failed to restart: #{$!}"
-        $!.backtrace.each {|bt| @log.warn "\t#{bt}" }
+        @log.warn_backtrace
         return false
       end
       return true
     end
 
     def logrotate
-      @log.info "reopen a log file"
+      @log.info "reopen log file"
       @engine.logrotate
       @log.reopen!
       return true
@@ -90,10 +89,10 @@ module Fluentd
       conf = @config_load_proc.call
 
       old_log = @log
-      log = DaemonsLogger.new(conf['log'] || STDERR)
+      log = Logger.new(conf['log'] || STDERR)
       old_log.close if old_log
 
-      conf['logger'] = log
+      conf.define_singleton_method(:logger) { log }
       @log = log
 
       return conf
