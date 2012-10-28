@@ -20,6 +20,7 @@ module Fluentd
     here = File.expand_path(File.dirname(__FILE__))
 
     {
+      :SimpleProcessManager => 'process_manager/simple_process_manager',
       :MultiprocessManager => 'process_manager/multiprocess_manager',
       :SingleprocessManager => 'process_manager/singleprocess_manager',
       :ChildProcess => 'process_manager/child_process',
@@ -30,8 +31,9 @@ module Fluentd
 
     def self.new(config)
       # TODO config or environment switches implementations
-      #SingleprocessManager.new
+      #SimpleProcessManager.new
       MultiprocessManager.new
+      #SingleprocessManager.new
     end
 
   end

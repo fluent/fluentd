@@ -79,6 +79,12 @@ module Fluentd
         }
       end
 
+      def logrotate
+        @processors.values.each {|pc|
+          pc.logrotate
+        }
+      end
+
       def run
         @sm.start
 

@@ -29,8 +29,8 @@ module Fluentd
       @message_bus_proxy = Collectors::ProxyCollector.new(nil)
     end
 
+    # TODO re-design this method
     def self.setup!
-      # TODO re-design this method
       return if Fluentd.const_defined?(:Plugin)
 
       plugin = Fluentd.const_set(:Plugin, PluginClass.new)
@@ -83,7 +83,7 @@ module Fluentd
     end
 
     def logrotate
-      #@pm.logrotate
+      @pm.logrotate
     end
   end
 

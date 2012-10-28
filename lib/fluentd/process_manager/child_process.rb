@@ -78,6 +78,12 @@ module Fluentd
         end
       end
 
+      def logrotate
+        if pid = @pid
+          Process.kill(:USR2, pid) rescue nil
+        end
+      end
+
       def try_join(kill_interval, graceful_kill_limit, heartbeat_limit)
         pid = @pid
         return false unless pid
@@ -216,6 +222,8 @@ module Fluentd
           @started_agents.each {|agent|
             agent.stop
           }
+          @started_agents.clear
+
           @agents.each {|agent|
             agent.shutdown
           }
