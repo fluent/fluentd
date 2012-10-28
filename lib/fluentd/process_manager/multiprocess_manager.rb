@@ -86,18 +86,8 @@ module Fluentd
           while true
             @hm.receive(0.5)
 
-            has_running_process = false
-            @processors.values.each {|pc|
-              pc.last_heartbeat_time = @hm.last_heartbeat_time(pc.processor_id) || 0  # use 0 if the child is dead
-
-              if pc.try_join(@child_kill_interval, @child_graceful_kill_limit, @child_heartbeat_limit)
-                has_running_process = true
-              end
-            }
-
-            unless has_running_process
-              break
-            end
+            has_running = maintain_processors
+            break unless has_running
           end
 
         ensure
@@ -132,16 +122,31 @@ module Fluentd
       end
 
       private
-      def assign_processor_group(agent_group, processors, default_groups, conf)
-        agent_group.agents.each {|agent|
-          assign_processor(agent, processors, default_groups, conf)
+
+      def maintain_processors
+        has_running = false
+
+        @processors.values.each {|pc|
+          pc.last_heartbeat_time = @hm.last_heartbeat_time(pc.processor_id) || 0  # use 0 if the child is dead
+
+          if pc.try_join(@child_kill_interval, @child_graceful_kill_limit, @child_heartbeat_limit)
+            has_running = true
+          end
         }
 
+        return has_running
+      end
+
+      def assign_processor_group(agent_group, processors, default_groups, conf)
         groups = agent_group.default_process_groups
         groups = default_groups if groups.empty?
 
+        agent_group.agents.each {|agent|
+          assign_processor(agent, processors, groups, conf)
+        }
+
         agent_group.agent_groups.each {|nested_agent_group|
-          assign_processor_group(nested_agent_group, processors, default_groups, conf)
+          assign_processor_group(nested_agent_group, processors, groups, conf)
         }
       end
 
