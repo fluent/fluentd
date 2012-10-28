@@ -20,17 +20,30 @@ module Fluentd
 
     class SingleprocessManager
       def initialize
+        @hm = HeartbeatManager.new
+        @hm.cloexec_mode = :both
+
         @sm = SocketManager.new
-        @sm.cloexec_mode = :server
-        @processor = ChildProcess.new(self, 0)
+        @sm.cloexec_mode = :both
+      end
+
+      def configure(conf)
+        # TODO
+        @child_kill_interval = 2
+        @child_graceful_kill_limit = 10
+        @child_heartbeat_limit = 10
       end
 
       def restart(immediate, agent_group, conf)
+        configure(conf)
+
         # send stop signals
-        @processor.stop(immediate)
+        @processor.stop(immediate) if @processor
 
         # shutdown running processor
-        @processor.join
+        @processor.join if @processor
+
+        @processor = ChildProcess.new(self, conf, 0)
 
         # assign agents to processor
         assign_processor_group(agent_group, @processor)
@@ -54,7 +67,10 @@ module Fluentd
 
         begin
           while true
-            running = @processor.try_join(2, 10)  # TODO kill_interval, graceful_kill_limit
+            @hm.receive(0.5)
+
+            @processor.last_heartbeat_time = @hm.last_heartbeat_time(0)
+            running = @processor.try_join(@child_kill_interval, @child_graceful_kill_limit, @child_heartbeat_limit)
             break unless running
           end
 
@@ -64,10 +80,15 @@ module Fluentd
       end
 
       def fork_processor(pc, &block)
+        hmc = @hm.new_client(0)
         smc = @sm.new_client
+
         pid = fork do
+          @sm.close
+          @hm.close
+
           begin
-            block.call(smc)
+            block.call(hmc, smc)
           rescue
             # TODO log
             puts $!
@@ -79,6 +100,7 @@ module Fluentd
         end
 
         smc.close
+        hmc.close
 
         pid
       end
