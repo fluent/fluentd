@@ -25,7 +25,7 @@ module Fluentd
     require 'fileutils'
 
     class InterProcessExchange
-      def initialize(config, processor_id)
+      def initialize(processor_id)
         tmpdir = Dir.tmpdir
         supervisor_pid = Process.pid
         @path = File.join(tmpdir, "fluentd", "processor-#{supervisor_pid}:#{processor_id}")

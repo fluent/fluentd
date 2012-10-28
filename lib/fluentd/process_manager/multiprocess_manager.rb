@@ -21,15 +21,25 @@ module Fluentd
     class MultiprocessManager
       def initialize
         @hm = HeartbeatManager.new
+        @hm.cloexec_mode = :both
 
         @sm = SocketManager.new
-        @sm.cloexec_mode = :server
+        @sm.cloexec_mode = :both
 
         @processors = {}
         @ipxs = []
       end
 
+      def configure(conf)
+        # TODO
+        @child_kill_interval = 2
+        @child_graceful_kill_limit = 10
+        @child_heartbeat_limit = 10
+      end
+
       def restart(immediate, agent_group, conf)
+        configure(conf)
+
         # send stop signals
         @processors.values.each {|pc| pc.stop(immediate) }
 
@@ -44,11 +54,11 @@ module Fluentd
         @processors = { }
 
         # assign agents to processors
-        assign_processor_group(agent_group, @processors, ['default'])
+        assign_processor_group(agent_group, @processors, ['default'], conf)
 
         # listen exchange servers
         @processors.values.each {|pc|
-          @ipxs[pc.processor_id] = pc.init_exchange(conf)
+          @ipxs[pc.processor_id] = pc.init_exchange
         }
 
         # start processors
@@ -80,7 +90,7 @@ module Fluentd
             @processors.values.each {|pc|
               pc.last_heartbeat_time = @hm.last_heartbeat_time(pc.processor_id) || 0  # use 0 if the child is dead
 
-              if pc.try_join(2, 10, 10)  # TODO child_kill_interval, child_graceful_kill_limit, child_heartbeat_limit
+              if pc.try_join(@child_kill_interval, @child_graceful_kill_limit, @child_heartbeat_limit)
                 has_running_process = true
               end
             }
@@ -122,24 +132,24 @@ module Fluentd
       end
 
       private
-      def assign_processor_group(agent_group, processors, default_groups)
+      def assign_processor_group(agent_group, processors, default_groups, conf)
         agent_group.agents.each {|agent|
-          assign_processor(agent, processors, default_groups)
+          assign_processor(agent, processors, default_groups, conf)
         }
 
         groups = agent_group.default_process_groups
         groups = default_groups if groups.empty?
 
         agent_group.agent_groups.each {|nested_agent_group|
-          assign_processor_group(nested_agent_group, processors, default_groups)
+          assign_processor_group(nested_agent_group, processors, default_groups, conf)
         }
       end
 
-      def assign_processor(agent, processors, default_groups)
+      def assign_processor(agent, processors, default_groups, conf)
         groups = agent.process_groups
         groups = default_groups if groups.empty?
         pcs = groups.map {|name|
-          processors[name] ||= ChildProcess.new(self, processors.size)
+          processors[name] ||= ChildProcess.new(self, conf, processors.size)
         }
         if pcs.size == 1
           assign_single_processor(pcs[0], agent)

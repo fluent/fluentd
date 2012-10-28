@@ -46,11 +46,15 @@ module Fluentd
       @log = DaemonsLogger.new(STDERR)
     end
 
+    def configure(conf)
+      @child_detach_wait = conf['child_detach_wait'] || 10.0
+      @child_restart_wait = conf['child_restart_wait'] || 1.0
+      @child_restart_limit = conf['child_restart_limit'] || nil
+    end
+
     def run
-      config = @config_load_proc.call
-      @child_detach_wait = config['child_detach_wait'] || 10.0
-      @child_restart_wait = config['child_restart_wait'] || 1.0
-      @child_restart_limit = config['child_restart_limit'] || nil
+      conf = @config_load_proc.call
+      configure(conf)
 
       # TODO daemonize
       @pid = start_server
@@ -103,8 +107,9 @@ module Fluentd
 
     private
     def start_server
+      # TODO supervisor <-> fluentd-engine heartbeat
       fork do
-        $0 = "fluentd-engine"
+        $0 = "fluentd-server"
         server = Server.new(&@config_load_proc)
         server.run
         exit! 0

@@ -19,8 +19,9 @@ module Fluentd
   module ProcessManager
 
     class ChildProcess
-      def initialize(manager, processor_id)
+      def initialize(manager, conf, processor_id)
         @manager = manager
+        @conf = conf
         @processor_id = processor_id
         @agents = []
         @local_process = false
@@ -38,8 +39,8 @@ module Fluentd
         @agents << agent
       end
 
-      def init_exchange(config)
-        @local_ipx = InterProcessExchange.new(config, @processor_id)
+      def init_exchange
+        @local_ipx = InterProcessExchange.new(@processor_id)
         return @local_ipx
       end
 
@@ -52,7 +53,9 @@ module Fluentd
           @local_process = true
           $0 = "fluentd-processor:#{@processor_id}"
           puts "running fluentd-processor:#{@processor_id} pid=#{Process.pid}"
-          Main.run(@agents, @local_ipx, hmc, smc)
+          m = Main.new(@agents, @local_ipx, hmc, smc)
+          m.configure(@conf)
+          m.run
           exit 0
         end
       end
@@ -136,10 +139,6 @@ module Fluentd
 
 
       class Main
-        def self.run(*args)
-          new(*args).run
-        end
-
         def initialize(agents, local_ipx, hmc, smc)
           @agents = agents
           @local_ipx = local_ipx
@@ -152,12 +151,18 @@ module Fluentd
           @started_agents = []
         end
 
+        def configure(conf)
+          # TODO
+          @child_heartbeat_interval = 1
+        end
+
         def run
           install_signal_handlers
 
           if @local_ipx
             @local_ipx.start
-            sleep 0.5  # TODO wait other process starts
+            # TODO FIXME wait other process starts to not cause ENOENT error on InterProcessExchange#open_remote_self
+            sleep 0.5
           end
 
           @agents.each {|agent|
@@ -183,7 +188,7 @@ module Fluentd
             @finish_flag.wait(0.5)
 
             now = Time.now.to_i
-            if @heartbeat_time + 1 < now  # TODO child_heartbeat_interval
+            if @heartbeat_time + @child_heartbeat_interval < now
               @heartbeat_time = now
 
               begin

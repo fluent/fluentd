@@ -21,11 +21,24 @@ module Fluentd
     def initialize
       @rpipes = {}
       @heartbeat_time = {}
+      @cloexec_mode = nil
     end
+
+    attr_accessor :cloexec_mode
 
     def new_client(name)
       rpipe, wpipe = IO.pipe
-      rpipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+
+      case @cloexec_mode
+      when :client
+        wpipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+      when :server
+        rpipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+      when :both
+        rpipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+        wpipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+      end
+
       rpipe.sync = true
       wpipe.sync = true
       @rpipes[rpipe] = name
