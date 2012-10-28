@@ -28,6 +28,9 @@ module Fluentd
 
       #def each(&block)
       #end
+
+      #def read
+      #end
     end
 
   end

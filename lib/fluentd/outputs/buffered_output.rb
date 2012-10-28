@@ -60,21 +60,24 @@ module Fluentd
         super
         @flush_threads = []
         @flush_mutex = Mutex.new
-        @flush_ready = true
+        #@flush_ready = true
         @flush_time = 0
         @flush_interval = 10
         @flush_error_history = []
-        @flush_retry_limit = 10
+        @flush_retry_limit = 11
         @flush_retry_wait = 1
       end
 
       def configure(conf)
         # TODO
         @buffer = Plugins::MemoryBuffer.new
+        @flush_interval = 1
       end
 
       def start
-        @flush_threads << FlushThread.new(method(:try_flush))
+        10.times do
+          @flush_threads << FlushThread.new(method(:try_flush))
+        end
 
         @flush_threads.each {|t|
           t.start
@@ -103,75 +106,126 @@ module Fluentd
 
       private
 
-      def try_flush
-        # TODO flush_time + flush_ready => flush_ready_time
-        #      flush_ready_time == nil || flush_ready_time < now => flush ok
-        if !@flush_ready && @flush_time > (now = Time.now.to_i)
-          return
+      class EnsureMutex
+        def initialize(mutex)
+          @mutex = mutex
+          @locked = false
         end
 
-        @flush_mutex.lock
-        locked_mutex = @flush_mutex
+        def lock
+          @mutex.lock
+          @locked = true
+        end
+
+        def unlock
+          @mutex.unlock
+          @locked = false
+        end
+
+        def ensure_lock
+          lock unless @locked
+        end
+
+        def ensure_unlock
+          unlock if @locked
+        end
+      end
+
+      def try_flush
+        now = Time.now.to_i
+
+        return @flush_time - now if @flush_time > now
+
+        flush_lock = EnsureMutex.new(@flush_mutex)
+        flush_lock.lock
         begin
-          if !@flush_ready && @flush_time > (now || Time.now.to_i)
-            return
+          return @flush_time - now if @flush_time > now
+
+          acquired = false
+          @buffer.acquire {|tag,chunk|
+            acquired = true
+
+            # allow parallel flush only if this trial is not in retrying mode
+            retrying = !@flush_error_history.empty?
+            unless retrying
+              flush_lock.unlock
+            end
+
+            error = flush_chunk(tag, chunk)
+            now = Time.now.to_i
+
+            if error
+              flush_lock.ensure_lock
+              @flush_error_history << error
+              retry_wait = flush_failed
+              @flush_time = now + retry_wait
+            elsif retrying
+              # retry succeeded; locked section
+              #@log.warn "retry succeeded.", :instance=>object_id
+              @flush_error_history.clear
+              @flush_time = now + @flush_interval
+            end
+          }
+
+          unless acquired  # buffer queue is empty
+            # flush_lock is locked
+            @flush_time = now + @flush_interval
           end
 
-          if @buffer.acquire {|tag,chunk|
-              # allow parallel flush only if it's not on retrying mode
-              no_error = @flush_error_history.empty?
-              if no_error
-                @flush_ready = true
-              else
-                @flush_ready = false
-              end
-
-              @flush_mutex.unlock
-              locked_mutex = nil
-
-              error = nil
-              begin
-                write(tag, chunk)
-              rescue => e
-                error = e
-              end
-
-              if error
-                @flush_mutex.lock
-                locked_mutex = @flush_mutex
-
-                if no_error
-                  # first error
-                  @flush_error_history = [e]
-                else
-                  @flush_error_history << e
-                end
-                @flush_ready = false
-                flush_failed(error)
-
-              elsif !no_error
-                # retry succeeded
-                @flush_error_history.clear
-                #@log.warn "retry succeeded.", :instance=>object_id
-                @flush_ready = true
-              end
-            }
-
-          else
-            # buffer queue is empty
-            @flush_ready = false
-          end
-
-          if @flush_ready
-            return 0
-          else
-            wait = next_flush_wait
-            @flush_time = (now ||= Time.now.to_i) + wait
-            return wait
-          end
+          # try next flush soon while buffer is not empty
+          return @flush_time - now
 
         ensure
-          locked_mutex.unlock if locked_mutex
+          flush_lock.ensure_unlock
+        end
+      end
+
+      def flush_chunk(tag, chunk)
+        begin
+          write(tag, chunk)
+          return nil
+        rescue => e
+          return e
+        end
+      end
+
+      def flush_failed
+        # error handling
+        error_count = @flush_error_history.size - 1
+
+        if error_count < @flush_retry_limit
+          #$log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@next_retry_time)}.", :error=>e.to_s, :instance=>object_id
+          #$log.warn_backtrace e.backtrace
+          return calc_retry_wait_time(error_count)
+
+        elsif @secondary
+          if error_count == @flush_retry_limit
+            #$log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+            #$log.warn "retry count exceededs limit. falling back to secondary output."
+            #$log.warn_backtrace e.backtrace
+            return 0  # retry immediately
+
+          elsif error_count <= @flush_retry_limit + @secondary_limit
+            #$log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@next_retry_time)}.", :error=>e.to_s, :instance=>object_id
+            $log.warn_backtrace e.backtrace
+            return calc_retry_wait_time(error_count - @flush_retry_limit - 1)
+
+          else
+            #$log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+            #$log.warn "secondary retry count exceededs limit."
+            $log.warn_backtrace e.backtrace
+            write_abort
+            @flush_error_history.clear
+            return @flush_interval
+          end
+
+        else
+          #$log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+          #$log.warn "retry count exceededs limit."
+          #@log.warn_backtrace e.backtrace
+          write_abort
+          @flush_error_history.clear
+          return @flush_interval
         end
       end
 
@@ -185,55 +239,8 @@ module Fluentd
         end
       end
 
-      def flush_failed(e)
-        error_count = @flush_error_history.size - 1
-
-        if error_count < @flush_retry_limit
-          #$log.warn "failed to flush the buffer, retrying.", :error=>e.to_s, :instance=>object_id
-          #$log.warn_backtrace e.backtrace
-
-        #elsif @secondary
-        #  if error_count == @flush_retry_limit
-        #    $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
-        #    $log.warn "retry count exceededs limit. falling back to secondary output."
-        #    $log.warn_backtrace e.backtrace
-        #    @flush_ready = true  # retry immediately
-        #
-        #  elsif error_count <= @flush_retry_limit + @secondary_limit
-        #    $log.warn "failed to flush the buffer, retrying secondary.", :error=>e.to_s, :instance=>object_id
-        #    $log.warn_backtrace e.backtrace
-        #
-        #  else
-        #    $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
-        #    $log.warn "secondary retry count exceededs limit."
-        #    $log.warn_backtrace e.backtrace
-        #    write_abort
-        #    @flush_error_history.clear
-        #  end
-
-        else
-          #@log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
-          #@log.warn "retry count exceededs limit."
-          #@log.warn_backtrace e.backtrace
-          write_abort
-          @flush_error_history.clear
-        end
-      end
-
-      def next_flush_wait
-        esz = @flush_error_history.size
-        if esz == 0
-          @flush_interval
-        else
-          @flush_retry_wait * (2 ** (esz-1))
-        end
-        # TODO retry pattern
-        #if @flush_error_history.size <= @flush_retry_limit
-        #  @flush_retry_wait * (2 ** (@flush_error_history.size-1))
-        #else
-        #  # secondary retry
-        #  @flush_retry_wait * (2 ** (@flush_error_history.size-2-@flush_retry_limit))
-        #end
+      def calc_retry_wait_time(error_count)
+        @flush_retry_wait * (2 ** error_count)
       end
     end
 

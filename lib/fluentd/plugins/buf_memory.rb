@@ -38,6 +38,10 @@ module Fluentd
           rescue EOFError
           end
         end
+
+        def read
+          @data
+        end
       end
 
       def initialize
