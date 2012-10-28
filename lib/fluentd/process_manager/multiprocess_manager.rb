@@ -20,6 +20,8 @@ module Fluentd
 
     class MultiprocessManager
       def initialize
+        @hm = HeartbeatManager.new
+
         @sm = SocketManager.new
         @sm.cloexec_mode = :server
 
@@ -72,12 +74,13 @@ module Fluentd
 
         begin
           while true
-            #sleep 0.2  # TODO
+            @hm.receive(0.5)
 
             has_running_process = false
             @processors.values.each {|pc|
-              # TODO heartbeat
-              if pc.try_join(2, 10)  # TODO kill_interval, graceful_kill_limit
+              pc.last_heartbeat_time = @hm.last_heartbeat_time(pc.processor_id) || 0  # use 0 if the child is dead
+
+              if pc.try_join(2, 10, 10)  # TODO child_kill_interval, child_graceful_kill_limit, child_heartbeat_limit
                 has_running_process = true
               end
             }
@@ -93,10 +96,15 @@ module Fluentd
       end
 
       def fork_processor(pc, &block)
+        hmc = @hm.new_client(pc.processor_id)
         smc = @sm.new_client
+
         pid = fork do
+          @sm.close
+          @hm.close
+
           begin
-            block.call(smc)
+            block.call(hmc, smc)
           rescue
             # TODO log
             puts $!
@@ -108,6 +116,7 @@ module Fluentd
         end
 
         smc.close
+        hmc.close
 
         pid
       end

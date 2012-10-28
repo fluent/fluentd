@@ -52,6 +52,7 @@ module Fluentd
     :IOExchange => 'fluentd/io_exchange',
     :InternalUNIXServer => 'fluentd/internal_unix_server',
     :SocketManager => 'fluentd/socket_manager',
+    :HeartbeatManager => 'fluentd/heartbeat_manager',
     :BlockingFlag => 'fluentd/util/blocking_flag',
     :DaemonsLogger => 'fluentd/util/daemons_logger',
     :SignalQueue => 'fluentd/util/signal_queue',

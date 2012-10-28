@@ -157,14 +157,14 @@ module Fluentd
             if error
               flush_lock.ensure_lock
               @flush_error_history << error
-              retry_wait = flush_failed
+              retry_wait = flush_failed(error)
               @flush_time = now + retry_wait
             elsif retrying
               # retry succeeded; locked section
               #@log.warn "retry succeeded.", :instance=>object_id
               @flush_error_history.clear
-              @flush_time = now + @flush_interval
             end
+            # leave @flush_time as is to run next try_flush immediately
           }
 
           unless acquired  # buffer queue is empty
@@ -189,7 +189,7 @@ module Fluentd
         end
       end
 
-      def flush_failed
+      def flush_failed(error)
         # error handling
         error_count = @flush_error_history.size - 1
 

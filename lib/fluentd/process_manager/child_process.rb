@@ -25,12 +25,14 @@ module Fluentd
         @agents = []
         @local_process = false
 
+        @last_heartbeat_time = Time.now.to_i
         @kill_start_time = nil
         @last_kill_time = nil
         @kill_immediate = false
       end
 
       attr_reader :processor_id
+      attr_accessor :last_heartbeat_time
 
       def assign_agent(agent)
         @agents << agent
@@ -46,11 +48,11 @@ module Fluentd
       end
 
       def start
-        @pid = @manager.fork_processor(self) do |smc|
+        @pid = @manager.fork_processor(self) do |hmc,smc|
           @local_process = true
           $0 = "fluentd-processor:#{@processor_id}"
           puts "running fluentd-processor:#{@processor_id} pid=#{Process.pid}"
-          Main.run(@agents, @local_ipx, smc)
+          Main.run(@agents, @local_ipx, hmc, smc)
           exit 0
         end
       end
@@ -72,13 +74,13 @@ module Fluentd
         end
       end
 
-      def try_join(kill_interval, graceful_kill_limit)
+      def try_join(kill_interval, graceful_kill_limit, heartbeat_limit)
         pid = @pid
         return false unless pid
 
         begin
           unless Process.waitpid(pid, Process::WNOHANG)
-            maintain_child(kill_interval, graceful_kill_limit)
+            maintain_child(kill_interval, graceful_kill_limit, heartbeat_limit)
             return true
           end
         rescue Errno::ECHILD
@@ -91,11 +93,16 @@ module Fluentd
         return nil
       end
 
-      def maintain_child(kill_interval, graceful_kill_limit)
+      def maintain_child(kill_interval, graceful_kill_limit, heartbeat_limit)
+        now = Time.now.to_i
         if @kill_start_time
-          now = Time.now.to_i
           if @last_kill_time + kill_interval <= now
             kill_child(now, graceful_kill_limit)
+          end
+        else
+          if now - @last_heartbeat_time > heartbeat_limit
+            puts "heartbeat broke out"
+            stop(true)
           end
         end
       end
@@ -103,6 +110,9 @@ module Fluentd
       def kill_child(now, graceful_kill_limit)
         pid = @pid
         return unless pid
+
+        @kill_start_time ||= now
+        @last_kill_time = now
 
         begin
           if @kill_immediate || (graceful_kill_limit && @kill_start_time + graceful_kill_limit < now)
@@ -118,8 +128,6 @@ module Fluentd
           puts "killfailed: #{@pid}"
           # TODO log?
         end
-        @last_kill_time = now
-        @kill_start_time ||= now
       end
 
       def open_remote_self(local_self, tag)
@@ -132,11 +140,14 @@ module Fluentd
           new(*args).run
         end
 
-        def initialize(agents, local_ipx, smc)
+        def initialize(agents, local_ipx, hmc, smc)
           @agents = agents
           @local_ipx = local_ipx
-          @finish_flag = BlockingFlag.new
+          @hmc = hmc
           @smc = smc
+          @finish_flag = BlockingFlag.new
+          @heartbeat_time = Time.now.to_i
+          @suicide_start_time = nil
 
           @started_agents = []
         end
@@ -154,12 +165,11 @@ module Fluentd
             @started_agents << agent
           }
 
+          # send heartbeat messages via SocketManager
+          run_parent_heartbeat
+
           if @local_ipx
             @local_ipx.join
-          end
-
-          until @finish_flag.set?
-            @finish_flag.wait(0.5)
           end
 
         rescue
@@ -168,7 +178,37 @@ module Fluentd
           # TODO log
         end
 
+        def run_parent_heartbeat
+          until @finish_flag.set?
+            @finish_flag.wait(0.5)
+
+            now = Time.now.to_i
+            if @heartbeat_time + 1 < now  # TODO child_heartbeat_interval
+              @heartbeat_time = now
+
+              begin
+                @hmc.heartbeat
+              rescue
+                unless @suicide_start_time
+                  puts "Can't reach to the parent process: #{$!}"
+                  @suicide_start_time = now
+                end
+                if @suicide_start_time + 60 < now
+                  puts "sending SIGKILL to self for immediate stop"
+                  Process.kill(:KILL, Process.pid)
+                else
+                  puts "sending SIGTERM to self for immediate stop"
+                  Process.kill(:TERM, Process.pid)
+                end
+
+              end
+            end
+          end
+        end
+
         def stop
+          @finish_flag.set!
+
           @started_agents.each {|agent|
             agent.stop
           }
@@ -179,8 +219,6 @@ module Fluentd
           if @local_ipx
             @local_ipx.stop_service
           end
-
-          @finish_flag.set!
         end
 
         def logrotate

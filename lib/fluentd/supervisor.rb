@@ -83,8 +83,8 @@ module Fluentd
     end
 
     def stop(immediate)
-      send_signal(immediate ? :QUIT : :TERM)
       @finish = true
+      send_signal(immediate ? :QUIT : :TERM)
     end
 
     def restart(immediate)
@@ -96,9 +96,9 @@ module Fluentd
     end
 
     def detach
-      send_signal(:INT)
       @detach = true
       @finish_flag.set!
+      send_signal(:INT)
     end
 
     private
