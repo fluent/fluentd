@@ -18,11 +18,12 @@
 module Fluentd
 
 
-  class AgentGroup
+  module AgentGroup
     def initialize
       @agents = []
       @agent_groups = []
       @default_process_groups = []
+      super
     end
 
     attr_reader :agents, :agent_groups
@@ -34,12 +35,35 @@ module Fluentd
 
     def add_agent(agent)
       @agents << agent
+      if agent.is_a?(AgentGroup)
+        add_agent_group(agent)
+      end
       self
     end
 
     def add_agent_group(group)
       @agent_groups << group
       self
+    end
+
+    def configure_agent(agent, conf, parent_bus)
+      add_agent(agent)
+
+      if agent.is_a?(StreamSource)
+        bus = MessageBus.new(parent_bus)
+        add_agent_group(bus)
+
+        bus.configure(conf)
+        bus.default_collector = parent_bus
+
+        agent.setup_internal_bus(bus)
+      end
+
+      agent.configure(conf)
+      agent = nil
+
+    ensure
+      agent.shutdown if agent  # TODO
     end
 
     # Processors call Agent#start

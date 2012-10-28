@@ -29,6 +29,8 @@ module Fluentd
       end
 
       def configure(conf)
+        super
+
         @log = conf.logger
 
         @tag = conf['tag'] || 'heartbeat'

@@ -72,6 +72,7 @@ module Fluentd
         # TODO
         @buffer = Plugins::MemoryBuffer.new
         @flush_interval = 1
+        # TODO secondary
       end
 
       def start

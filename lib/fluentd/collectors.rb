@@ -22,8 +22,8 @@ module Fluentd
 
     {
       :ProxyCollector => 'collectors/proxy_collector',
+      :ErrorStreamCollector => 'collectors/error_stream_collector',
       :FilteringCollector => 'collectors/filtering_collector',
-      :MultiStreamCollectorMixin => 'collectors/multi_stream_collector_mixin',
       :NoMatchCollector => 'collectors/no_match_collector',
     }.each_pair {|k,v|
       autoload k, File.join(here, v)

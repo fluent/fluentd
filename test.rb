@@ -5,6 +5,10 @@ conf = <<EOF
   type heartbeat
   tag test.hb
   message {"test":"heartbeat"}
+
+  <error>
+    type buffered_stdout
+  </error>
 </source>
 
 <filter **>
@@ -20,7 +24,7 @@ conf = <<EOF
 <match **>
   type roundrobin
   <store>
-    type stdout
+    type buffered_stdout
   </store>
 </match>
 

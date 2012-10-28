@@ -19,10 +19,24 @@ module Fluentd
 
 
   module StreamSource
+    include AgentGroup
+
     attr_reader :stream_source
 
     def setup_internal_bus(bus)
+      @stream_source_parent = bus
       @stream_source = bus
+    end
+
+    def configure(conf)
+      super
+
+      if error_conf = conf.elements.find {|e| e.name == 'error' }
+        type = error_conf['type'] || 'redirect'
+        @error_stream = Plugin.new_output(type)
+        configure_agent(@error_stream, error_conf, @stream_source_parent)
+        @stream_source = Collectors::ErrorStreamCollector.new(@stream_source_parent, @error_stream)
+      end
     end
   end
 

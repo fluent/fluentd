@@ -170,7 +170,7 @@ module Fluentd
         case a
         when Hash
           a.each_pair {|k,v|
-            msg << "#{k}=#{v.inspect}"
+            msg << " #{k}=#{v.inspect}"
           }
         else
           msg << a.to_s

@@ -75,8 +75,8 @@ module Fluentd
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair {|k,v|
-          a = {"_"=>k}.to_json[5..-2]
-          b = {"_"=>v}.to_json[5..-2]
+          a = ValueParser.nonquoted_string?(k) ? k : {"_"=>k}.to_json[5..-2]
+          b = ValueParser.nonquoted_string?(v) ? v : {"_"=>v}.to_json[5..-2]
           out << "#{nindent}#{a}: #{b}\n"
         }
         @elements.each {|e|
@@ -136,6 +136,10 @@ module Fluentd
 
       SPACING =                /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
       SPACING_LINE_END = /[ \t]*(?:\;|[\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
+
+      def self.nonquoted_string?(v)
+        v.is_a?(String) && v[0] =~ ValueParser::NONQUOTED_STRING_FIRST_CHARSET && v[1..-1] =~ /\A#{ValueParser::NONQUOTED_STRING_CHARSET}*\z/
+      end
 
       def initialize(ss, ruby_context)
         require 'irb/ruby-lex'

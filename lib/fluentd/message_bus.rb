@@ -18,7 +18,8 @@
 module Fluentd
 
 
-  class MessageBus < AgentGroup
+  class MessageBus
+    include AgentGroup
     include Collector
 
     def initialize(parent_bus)
@@ -32,6 +33,8 @@ module Fluentd
     attr_accessor :parent_bus, :default_collector, :matches
 
     def configure(conf)
+      @log = conf.logger
+
       conf.elements.select {|e|
         e.name == 'source' || e.name == 'match' || e.name == 'filter'
       }.each {|e|
@@ -56,23 +59,26 @@ module Fluentd
     end
 
     def add_source(type, e)
-      #$log.info "adding source", :type=>type
+      @log.info "adding source", :type=>type
       agent = Plugin.new_input(type)
-      configure_agent(agent, e)
+      configure_agent(agent, e, self)
+      add_agent(agent)
     end
 
     def add_output(type, pattern, e)
-      #$log.info "adding match", :pattern=>patstr, :type=>type
+      @log.info "adding match", :pattern=>pattern, :type=>type
       agent = Plugin.new_output(type)
-      configure_agent(agent, e)
+      configure_agent(agent, e, self)
+      add_agent(agent)
 
       @matches << Match.new(pattern, agent)
     end
 
     def add_filter(type, pattern, e)
-      #$log.info "adding filter", :pattern=>patstr, :type=>type
+      @log.info "adding filter", :pattern=>pattern, :type=>type
       agent = Plugin.new_filter(type)
-      configure_agent(agent, e)
+      configure_agent(agent, e, self)
+      add_agent(agent)
 
       @matches << FilterMatch.new(pattern, agent)
     end
@@ -130,26 +136,6 @@ module Fluentd
       def filter?
         true
       end
-    end
-
-    def configure_agent(agent, e)
-      add_agent(agent)
-
-      if agent.is_a?(StreamSource)
-        bus = MessageBus.new(self)
-        add_agent_group(bus)
-
-        bus.configure(e)
-        bus.default_collector = self
-
-        agent.setup_internal_bus(bus)
-      end
-
-      agent.configure(e)
-      agent = nil
-
-    ensure
-      agent.shutdown if agent
     end
   end
 
