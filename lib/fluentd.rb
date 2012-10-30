@@ -31,6 +31,7 @@ module Fluentd
     :ConfigError => 'fluentd/errors',
     :ConfigParseError => 'fluentd/errors',
     :Config => 'fluentd/config',
+    :Configurable => 'fluentd/configurable',
     :MatchPattern => 'fluentd/match_pattern',
     :MessageBus => 'fluentd/message_bus',
     :LabeledMessageBus => 'fluentd/message_bus',

@@ -27,6 +27,8 @@ module Fluentd
       new(conf, &block).run
     end
 
+    #include Configurable
+
     def initialize(conf=nil, &block)
       if conf
         if conf.is_a?(Config)

@@ -19,6 +19,8 @@ module Fluentd
 
 
   module AgentGroup
+    include Configurable
+
     def initialize
       @agents = []
       @agent_groups = []

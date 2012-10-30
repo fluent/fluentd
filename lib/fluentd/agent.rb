@@ -19,6 +19,8 @@ module Fluentd
 
 
   class Agent
+    include Configurable
+
     def initialize
       @process_groups = []
     end
