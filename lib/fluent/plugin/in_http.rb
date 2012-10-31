@@ -148,6 +148,8 @@ class HttpInput < Input
 
       @idle = 0
       @km.add(self)
+
+      @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername)
     end
 
     def step_idle
@@ -183,7 +185,9 @@ class HttpInput < Input
       else
         @keep_alive = false
       end
+      @env = {}
       headers.each_pair {|k,v|
+        @env["HTTP_#{k.gsub('-','_').upcase}"] = v
         case k
         when /Expect/i
           expect = v
@@ -225,6 +229,8 @@ class HttpInput < Input
     def on_message_complete
       return if closing?
 
+      @env['REMOTE_ADDR'] = @remote_addr
+
       params = WEBrick::HTTPUtils.parse_query(@parser.query_string)
 
       if @content_type =~ /^application\/x-www-form-urlencoded/
@@ -236,6 +242,9 @@ class HttpInput < Input
         params['json'] = @body
       end
       path_info = @parser.request_path
+
+      params.merge!(@env)
+      @env.clear
 
       code, header, body = *@callback.call(path_info, params)
       body = body.to_s
