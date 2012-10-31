@@ -1,4 +1,10 @@
 
+Release 0.10.28 - 2012/10/30
+
+* in_http: on_request method can get headers as HTTP_* key and remote address
+  as REMOTE_ADDR key of the params argument
+
+
 Release 0.10.27 - 2012/10/11
 
 * added BufferChunk#unique_id which is an unique identifier of a buffered chunk
