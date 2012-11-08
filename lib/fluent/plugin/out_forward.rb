@@ -30,6 +30,15 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   config_param :send_timeout, :time, :default => 60
+  config_param :heartbeat, :default => :udp do |val|
+    if val == 'tcp' or val == 'TCP'
+      :tcp
+    elsif val == 'udp' or val == 'UDP'
+      :udp
+    else
+      rasie ConfigError, "forward output heartbeat type is 'tcp' or 'udp'"
+    end
+  end
   config_param :heartbeat_interval, :time, :default => 1
   config_param :recover_wait, :time, :default => 10
   config_param :hard_timeout, :time, :default => 60
@@ -89,11 +98,12 @@ class ForwardOutput < ObjectBufferedOutput
 
     @loop = Coolio::Loop.new
 
-    # Assume all hosts are same protocol.
-    @usock = SocketUtil.create_udp_socket(@nodes.first.host)
-    @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-    @loop.attach(@hb)
-
+    if @heartbeat == :udp
+      # Assume all hosts are same protocol.
+      @usock = SocketUtil.create_udp_socket(@nodes.first.host)
+      @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
+      @loop.attach(@hb)
+    end
     @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
     @loop.attach(@timer)
 
@@ -105,7 +115,7 @@ class ForwardOutput < ObjectBufferedOutput
     @loop.watchers.each {|w| w.detach }
     @loop.stop
     @thread.join
-    @usock.close
+    @usock.close if @usock
   end
 
   def run
@@ -196,6 +206,21 @@ class ForwardOutput < ObjectBufferedOutput
   # MessagePack FixArray length = 2
   FORWARD_HEADER = [0x92].pack('C')
 
+  FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + MessagePack.pack([])
+  def send_heartbeat_tcp(node)
+    sock = connect(node)
+    begin
+      opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+      opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
+      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+      sock.write FORWARD_TCP_HEARTBEAT_DATA
+      node.heartbeat(true)
+    ensure
+      sock.close
+    end
+  end
+
   def send_data(node, tag, es)
     sock = connect(node)
     begin
@@ -258,8 +283,12 @@ class ForwardOutput < ObjectBufferedOutput
         rebuild_weight_array
       end
       begin
-        #$log.trace "sending heartbeat #{n.host}:#{n.port}"
-        @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+        #$log.trace "sending heartbeat #{n.host}:#{n.port} on #{@heartbeat}"
+        if @heartbeat == :tcp
+          send_heartbeat_tcp(n)
+        else
+          @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+        end
       rescue
         # TODO log
         $log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s
@@ -496,4 +525,3 @@ end
 
 
 end
-
