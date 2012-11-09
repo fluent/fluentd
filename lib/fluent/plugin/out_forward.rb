@@ -31,12 +31,13 @@ class ForwardOutput < ObjectBufferedOutput
 
   config_param :send_timeout, :time, :default => 60
   config_param :heartbeat, :default => :udp do |val|
-    if val == 'tcp' or val == 'TCP'
+    case val.downcase
+    when 'tcp'
       :tcp
-    elsif val == 'udp' or val == 'UDP'
+    when 'udp'
       :udp
     else
-      rasie ConfigError, "forward output heartbeat type is 'tcp' or 'udp'"
+      raise ConfigError, "forward output heartbeat type is 'tcp' or 'udp'"
     end
   end
   config_param :heartbeat_interval, :time, :default => 1
