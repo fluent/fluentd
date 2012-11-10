@@ -207,7 +207,7 @@ class ForwardOutput < ObjectBufferedOutput
   # MessagePack FixArray length = 2
   FORWARD_HEADER = [0x92].pack('C')
 
-  FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + MessagePack.pack([])
+  FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
   def send_heartbeat_tcp(node)
     sock = connect(node)
     begin
