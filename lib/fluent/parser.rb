@@ -35,8 +35,7 @@ class TextParser
     def call(text)
       m = @regexp.match(text)
       unless m
-        $log.debug "pattern not match: #{text}"
-        # TODO?
+        $log.warn "pattern not match: #{text.inspect}"
         return nil, nil
       end
 
@@ -85,7 +84,7 @@ class TextParser
 
       return time, record
     rescue Yajl::ParseError
-      # TODO?
+      $log.warn "pattern not match: #{text.inspect}: #{$!}"
       return nil, nil
     end
   end
@@ -156,7 +155,7 @@ class TextParser
     def call(text)
       m = REGEXP.match(text)
       unless m
-        $log.debug "pattern not match: #{text}"
+        $log.warn "pattern not match: #{text.inspect}"
         return nil, nil
       end
 
