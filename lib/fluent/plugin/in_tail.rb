@@ -98,15 +98,14 @@ class TailInput < Input
     lines.each {|line|
       begin
         line.chomp!  # remove \n
-
-        if @hostname
-          time, record = parse_line(@hostname + " " + line)
-        else
-          time, record = parse_line(line)
-        end
+        time, record = parse_line(line)
 
         if time && record
-          es.add(time, record)
+          if @hostname
+            es.add(time, {"hostname" => @hostname}.merge(record))
+          else
+            es.add(time, record)
+          end
         end
       rescue
         $log.warn line.dump, :error=>$!.to_s
