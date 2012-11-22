@@ -52,7 +52,7 @@ class TailInput < Input
     end
 
     if @hostname_command
-      @hostname = `hostname`.chomp!
+      @hostname = `#{@hostname_command}`.chomp!
     else
       @hostname = nil
     end
