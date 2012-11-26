@@ -30,6 +30,7 @@ class TailInput < Input
   config_param :tag, :string
   config_param :rotate_wait, :time, :default => 5
   config_param :pos_file, :string, :default => nil
+  config_param :hostname_command,  :string,  :default => nil
 
   attr_reader :paths
 
@@ -48,6 +49,12 @@ class TailInput < Input
     else
       $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
       $log.warn "this parameter is highly recommended to save the position to resume tailing."
+    end
+
+    if @hostname_command
+      @hostname = `#{@hostname_command}`.chomp!
+    else
+      @hostname = nil
     end
 
     configure_parser(conf)
@@ -91,9 +98,14 @@ class TailInput < Input
     lines.each {|line|
       begin
         line.chomp!  # remove \n
-        time, record = parse_line(line)
+        time,  record = parse_line(line)
+
         if time && record
-          es.add(time, record)
+          if @hostname
+            es.add(time,  {"hostname" => @hostname}.merge(record))
+          else
+            es.add(time,  record)
+          end
         end
       rescue
         $log.warn line.dump, :error=>$!.to_s
