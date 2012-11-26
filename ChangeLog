@@ -1,4 +1,10 @@
 
+Release 0.10.29 - 2012/11/26
+
+* buf_file: added flush_at_shutdown option to force flush before shuttingdown
+* TextParser shows message in warn level if text doesn't match the pattern
+
+
 Release 0.10.28 - 2012/10/30
 
 * in_http: on_request method can get headers as HTTP_* key and remote address
