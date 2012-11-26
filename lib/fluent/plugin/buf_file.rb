@@ -95,6 +95,12 @@ class FileBuffer < BasicBuffer
       @buffer_path_prefix = @buffer_path+"."
       @buffer_path_suffix = ".log"
     end
+
+    if flush_at_shutdown = conf['flush_at_shutdown']
+      @flush_at_shutdown = true
+    else
+      @flush_at_shutdown = false
+    end
   end
 
   def start
@@ -160,6 +166,18 @@ class FileBuffer < BasicBuffer
     npath = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"
 
     chunk.mv(npath)
+  end
+
+  def before_shutdown(out)
+    if @flush_at_shutdown
+      synchronize do
+        @map.each_key {|key|
+          push(key)
+        }
+        while pop(out)
+        end
+      end
+    end
   end
 
   protected
