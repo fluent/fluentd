@@ -98,7 +98,7 @@ class TailInput < Input
     lines.each {|line|
       begin
         line.chomp!  # remove \n
-        time,  record = parse_line(line)
+        time, record = parse_line(line)
 
         if time && record
           if @hostname
