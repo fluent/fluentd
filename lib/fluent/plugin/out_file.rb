@@ -62,9 +62,6 @@ class FileOutput < TimeSlicedOutput
       conf['buffer_path'] ||= "#{@path}.*"
     end
 
-    # override default buffer_chunk_limit
-    conf['buffer_chunk_limit'] ||= '256m'
-
     super
 
     @timef = TimeFormatter.new(@time_format, @localtime)

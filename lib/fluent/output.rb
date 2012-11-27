@@ -451,6 +451,7 @@ class TimeSlicedOutput < BufferedOutput
   config_param :time_slice_format, :string, :default => '%Y%m%d'
   config_param :time_slice_wait, :time, :default => 10*60
   config_set_default :buffer_type, 'file'  # overwrite default buffer_type
+  config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
   config_set_default :flush_interval, nil
 
   attr_accessor :localtime
