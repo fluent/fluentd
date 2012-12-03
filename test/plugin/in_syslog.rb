@@ -3,6 +3,7 @@ require 'fluent/test'
 class SyslogInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    require 'fluent/plugin/socket_util'
   end
 
   CONFIG = %[
@@ -11,36 +12,46 @@ class SyslogInputTest < Test::Unit::TestCase
     tag syslog
   ]
 
+  IPv6_CONFIG = %[
+    port 9911
+    bind ::1
+    tag syslog
+  ]
+
   def create_driver(conf=CONFIG)
     Fluent::Test::InputTestDriver.new(Fluent::SyslogInput).configure(conf)
   end
 
   def test_configure
-    d = create_driver
-    assert_equal 9911, d.instance.port
-    assert_equal '127.0.0.1', d.instance.bind
+    {'127.0.0.1' => CONFIG, '::1' => IPv6_CONFIG}.each_pair { |k, v|
+      d = create_driver(v)
+      assert_equal 9911, d.instance.port
+      assert_equal k, d.instance.bind
+    }
   end
 
   def test_time_format
-    d = create_driver
+    {'127.0.0.1' => CONFIG, '::1' => IPv6_CONFIG}.each_pair { |k, v|
+      d = create_driver(v)
 
-    tests = [
-      {'msg' => '<6>Sep 11 00:00:00 localhost logger: foo', 'expected' => Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S').to_i},
-      {'msg' => '<6>Sep  1 00:00:00 localhost logger: foo', 'expected' => Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S').to_i},
-    ]
+      tests = [
+        {'msg' => '<6>Sep 11 00:00:00 localhost logger: foo', 'expected' => Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S').to_i},
+        {'msg' => '<6>Sep  1 00:00:00 localhost logger: foo', 'expected' => Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S').to_i},
+      ]
 
-    d.run do
-      u = UDPSocket.new
-      u.connect('127.0.0.1', 9911)
-      tests.each {|test|
-        u.send(test['msg'], 0)
+      d.run do
+        u = Fluent::SocketUtil.create_udp_socket(k)
+        u.connect(k, 9911)
+        tests.each {|test|
+          u.send(test['msg'], 0)
+        }
+        sleep 1
+      end
+
+      emits = d.emits
+      emits.each_index {|i|
+        assert_equal(tests[i]['expected'], emits[i][1])
       }
-      sleep 1
-    end
-
-    emits = d.emits
-    emits.each_index {|i|
-      assert_equal(tests[i]['expected'], emits[i][1])
     }
   end
 

@@ -23,6 +23,7 @@ class ForwardInput < Input
 
   def initialize
     super
+    require 'fluent/plugin/socket_util'
   end
 
   config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
@@ -38,7 +39,7 @@ class ForwardInput < Input
     @lsock = listen
     @loop.attach(@lsock)
 
-    @usock = UDPSocket.new
+    @usock = SocketUtil.create_udp_socket(@bind)
     @usock.bind(@bind, @port)
     @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
     @loop.attach(@hbr)

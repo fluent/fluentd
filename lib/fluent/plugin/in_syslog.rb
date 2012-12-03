@@ -65,6 +65,7 @@ class SyslogInput < Input
 
   def initialize
     super
+    require 'fluent/plugin/socket_util'
   end
 
   config_param :port, :integer, :default => 5140
@@ -93,7 +94,7 @@ class SyslogInput < Input
     @loop = Coolio::Loop.new
 
     $log.debug "listening syslog socket on #{@bind}:#{@port}"
-    @usock = UDPSocket.new
+    @usock = SocketUtil.create_udp_socket(@bind)
     @usock.bind(@bind, @port)
 
     @handler = UdpHandler.new(@usock, callback)

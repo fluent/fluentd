@@ -25,6 +25,7 @@ class ForwardOutput < ObjectBufferedOutput
     super
     require 'socket'
     require 'fileutils'
+    require 'fluent/plugin/socket_util'
     @nodes = []  #=> [Node]
   end
 
@@ -88,7 +89,8 @@ class ForwardOutput < ObjectBufferedOutput
 
     @loop = Coolio::Loop.new
 
-    @usock = UDPSocket.new
+    # Assume all hosts are same protocol.
+    @usock = SocketUtil.create_udp_socket(@nodes.first.host)
     @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
     @loop.attach(@hb)
 
@@ -148,6 +150,7 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   private
+
   def rebuild_weight_array
     standby_nodes, regular_nodes = @nodes.partition {|n|
       n.standby?
