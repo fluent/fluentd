@@ -128,8 +128,8 @@ class ForwardOutput < ObjectBufferedOutput
 
     wlen = @weight_array.length
     wlen.times do
-      node = @weight_array[@rr]
       @rr = (@rr + 1) % wlen
+      node = @weight_array[@rr]
 
       if node.available?
         begin
