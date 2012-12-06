@@ -1,4 +1,16 @@
 
+Release 0.10.30 - 2012/12/06
+
+* Shows configuration file at start time
+* Changed ruby version dependency from ~> 1.9.2 to => 1.9.2 so that it works
+  with ruby-2.0.
+* TimeSlicedOutput: overwrites default value of buffer_chunk_limit to 256m.
+  fluent-plugin-s3 will be affected.
+* TextParser/in_tail: supports 'nginx' preset formats
+* in/out_forward and in_syslog: support IPv6
+* out_forward: fixed a out of bounds bug
+
+
 Release 0.10.29 - 2012/11/26
 
 * buf_file: added flush_at_shutdown option to force flush before shuttingdown
