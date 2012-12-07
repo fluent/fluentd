@@ -89,10 +89,12 @@ class ForwardOutput < ObjectBufferedOutput
 
     @loop = Coolio::Loop.new
 
-    # Assume all hosts are same protocol.
-    @usock = SocketUtil.create_udp_socket(@nodes.first.host)
-    @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-    @loop.attach(@hb)
+    if @heartbeat_type == :udp
+      # Assume all hosts are same protocol.
+      @usock = SocketUtil.create_udp_socket(@nodes.first.host)
+      hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
+      @loop.attach(hb)
+    end
 
     @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
     @loop.attach(@timer)
@@ -105,7 +107,7 @@ class ForwardOutput < ObjectBufferedOutput
     @loop.watchers.each {|w| w.detach }
     @loop.stop
     @thread.join
-    @usock.close
+    @usock.close if @usock
   end
 
   def run
@@ -238,6 +240,30 @@ class ForwardOutput < ObjectBufferedOutput
     TCPSocket.new(node.resolved_host, node.port)
   end
 
+  # TODO future task
+  ## MessagePack nil
+  #FORWARD_TCP_HEARTBEAT_DATA = [0xC0].pack('C')
+
+  def send_heartbeat_tcp(node)
+    sock = connect(node)
+    begin
+      # TODO future task
+      #opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+      #sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+      #opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
+      #sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+      #sock.write FORWARD_TCP_HEARTBEAT_DATA
+      # assume connection success as alive
+      node.heartbeat(true)
+    ensure
+      sock.close
+    end
+  end
+
+  def send_heartbeat_udp(node)
+    @usock.send "\0", 0, Socket.pack_sockaddr_in(node.port, node.resolved_host)
+  end
+
   class HeartbeatRequestTimer < Coolio::TimerWatcher
     def initialize(interval, callback)
       super(interval, true)
@@ -258,8 +284,12 @@ class ForwardOutput < ObjectBufferedOutput
         rebuild_weight_array
       end
       begin
-        #$log.trace "sending heartbeat #{n.host}:#{n.port}"
-        @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+        #$log.trace "sending heartbeat #{n.host}:#{n.port} using #{@heartbeat_type}"
+        if @heartbeat_type == :tcp
+          send_heartbeat_tcp(n)
+        else
+          send_heartbeat_udp(n)
+        end
       rescue
         # TODO log
         $log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s

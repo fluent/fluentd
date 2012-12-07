@@ -28,6 +28,16 @@ class ForwardInput < Input
 
   config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
   config_param :bind, :string, :default => '0.0.0.0'
+  config_param :heartbeat_type, :default => :udp do |val|
+    case val.downcase
+    when 'tcp'
+      :tcp
+    when 'udp'
+      :udp
+    else
+      raise ConfigError, "forward output heartbeat type is 'tcp' or 'udp'"
+    end
+  end
 
   def configure(conf)
     super
@@ -102,6 +112,11 @@ class ForwardInput < Input
   #   3: object record
   # }
   def on_message(msg)
+    if msg == nil
+      # for future TCP heartbeat
+      return
+    end
+
     # TODO format error
     tag = msg[0].to_s
     entries = msg[1]
