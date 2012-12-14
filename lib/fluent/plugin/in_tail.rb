@@ -191,12 +191,22 @@ class TailInput < Input
           stat = io.stat
           fsize = stat.size
           inode = stat.ino
-          if inode == @pe.read_inode
+
+          last_inode = @pe.read_inode
+          if inode == last_inode
             # seek to the saved position
             pos = @pe.read_pos
+          elsif last_inode != 0
+            # this is FilePositionEntry and fluentd once started.
+            # read data from the head of the rotated file.
+            # logs never duplicate because this file is a rotated new file.
+            pos = 0
+            @pe.update(inode, pos)
           else
-            # seek to the end of the file.
-            # logs never duplicate but may be lost if fluentd is down.
+            # this is MemoryPositionEntry or this is the first time fluentd started.
+            # seek to the end of the any files.
+            # logs may duplicate without this seek because it's not sure the file is
+            # existent file or rotated new file.
             pos = fsize
             @pe.update(inode, pos)
           end
