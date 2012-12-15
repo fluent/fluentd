@@ -1,4 +1,5 @@
 require 'fluent/test'
+require 'helper'
 
 class SyslogInputTest < Test::Unit::TestCase
   def setup
@@ -23,7 +24,10 @@ class SyslogInputTest < Test::Unit::TestCase
   end
 
   def test_configure
-    {'127.0.0.1' => CONFIG, '::1' => IPv6_CONFIG}.each_pair { |k, v|
+    configs = {'127.0.0.1' => CONFIG}
+    configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
+
+    configs.each_pair { |k, v|
       d = create_driver(v)
       assert_equal 9911, d.instance.port
       assert_equal k, d.instance.bind
@@ -31,7 +35,10 @@ class SyslogInputTest < Test::Unit::TestCase
   end
 
   def test_time_format
-    {'127.0.0.1' => CONFIG, '::1' => IPv6_CONFIG}.each_pair { |k, v|
+    configs = {'127.0.0.1' => CONFIG}
+    configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
+
+    configs.each_pair { |k, v|
       d = create_driver(v)
 
       tests = [
