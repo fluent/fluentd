@@ -213,7 +213,7 @@ class TextParser
       regexp = regexp_or_proc
       factory = Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
     else
-      factory = Proc.new { regexp_or_proc }
+      factory = regexp_or_proc
     end
 
     TEMPLATE_FACTORIES[name] = factory
