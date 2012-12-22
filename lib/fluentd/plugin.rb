@@ -92,6 +92,22 @@ module Fluentd
   end
 
   class PluginClass
+    def self.load!(conf)
+      ## TODO log?
+      #if Fluentd.const_defined?(:Plugin)
+      #  Fluentd.module_eval { remove_const(:Plugin) }
+      #end
+
+      plugin = Fluentd.const_set(:Plugin, PluginClass.new)
+      begin
+        plugin.load_plugins
+      ensure
+        Fluentd.module_eval { remove_const(:Plugin) }
+      end
+
+      plugin
+    end
+
     def initialize
       @input = PluginRegistry.new(:input, 'fluent/plugin/in_')
       @output = PluginRegistry.new(:output, 'fluent/plugin/out_')

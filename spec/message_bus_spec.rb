@@ -1,8 +1,10 @@
 
 describe Fluentd::MessageBus do
-  let(:bus) { Fluentd::MessageBus.new }
+  let(:root_bus) { Fluentd::LabeledMessageBus.new }
+  let(:bus) { Fluentd::MessageBus.new(root_bus) }
   let(:agent) { Fluentd::Agent.new }
   let(:config) { Fluentd::Config::Element.new('ROOT', '', {}, []) }
+  let(:plugin) { PluginClass.new }
 
   it { bus.default_collector.should be_a_kind_of(
     Fluentd::Collectors::NoMatchCollector) }
@@ -16,7 +18,7 @@ describe Fluentd::MessageBus do
     agent.should_receive(:configure).with(config)
 
     bus
-    ibus = Fluentd::MessageBus.new
+    ibus = Fluentd::MessageBus.new(root_bus)
     Fluentd::MessageBus.should_receive(:new).and_return(ibus)
 
     agent.should_receive(:is_a?).with(Fluentd::StreamSource).and_return(true)
@@ -28,22 +30,19 @@ describe Fluentd::MessageBus do
   end
 
   it 'add_source' do
-    Fluentd::Engine.setup!
-    Fluentd::Plugin.should_receive(:new_input).with(:test).and_return(agent)
+    plugin.should_receive(:new_input).with(:test).and_return(agent)
     bus.should_receive(:configure_agent).with(agent, config)
     bus.add_source(:test, config)
   end
 
   it 'add_output' do
-    Fluentd::Engine.setup!
-    Fluentd::Plugin.should_receive(:new_output).with(:test).and_return(agent)
+    plugin.should_receive(:new_output).with(:test).and_return(agent)
     bus.should_receive(:configure_agent).with(agent, config)
     bus.add_output(:test, '**', config)
   end
 
   it 'add_filter' do
-    Fluentd::Engine.setup!
-    Fluentd::Plugin.should_receive(:new_filter).with(:test).and_return(agent)
+    plugin.should_receive(:new_filter).with(:test).and_return(agent)
     bus.should_receive(:configure_agent).with(agent, config)
     bus.add_filter(:test, '**', config)
   end

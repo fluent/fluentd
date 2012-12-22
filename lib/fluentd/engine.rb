@@ -22,7 +22,7 @@ module Fluentd
 
     def initialize(conf)
       @conf = conf
-      @log = conf.logger
+      @log = conf.log
       @finish_flag = BlockingFlag.new
 
       @pm = ProcessManager.new(conf)
@@ -31,22 +31,15 @@ module Fluentd
       @message_bus_proxy = Collectors::ProxyCollector.new(nil)
     end
 
-    # TODO re-design this method
-    def self.setup!
-      return if Fluentd.const_defined?(:Plugin)
-
-      plugin = Fluentd.const_set(:Plugin, PluginClass.new)
-
-      # backward compatibility
+    # backward compatibility
+    def self.setup_compat!(bus, plugin)
       require 'fluent/load'
-      Fluent::EngineClass.setup!(@message_bus_proxy, plugin)
-
-      plugin.load_plugins
+      Fluent::EngineClass.setup!(bus, plugin)
     end
 
     def configure(conf)
       @conf = conf
-      @log = conf.logger
+      @log = conf.log
     end
 
     def run
@@ -68,7 +61,11 @@ module Fluentd
     def setup!
       return if @setup
 
-      Engine.setup!
+      @plugin = PluginClass.load!(@conf)
+      @conf.context.plugin = @plugin
+
+      Engine.setup_compat!(@message_bus_proxy, @plugin)
+
 
       configure(@conf)
 

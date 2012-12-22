@@ -33,7 +33,7 @@ module Fluentd
     attr_accessor :parent_bus, :default_collector, :matches
 
     def configure(conf)
-      @log = conf.logger
+      @log = conf.log
 
       conf.elements.select {|e|
         e.name == 'source' || e.name == 'match' || e.name == 'filter'
@@ -60,14 +60,14 @@ module Fluentd
 
     def add_source(type, e)
       @log.info "adding source", :type=>type
-      agent = Plugin.new_input(type)
+      agent = e.plugin.new_input(type)
       configure_agent(agent, e, self)
       add_agent(agent)
     end
 
     def add_output(type, pattern, e)
       @log.info "adding match", :pattern=>pattern, :type=>type
-      agent = Plugin.new_output(type)
+      agent = e.plugin.new_output(type)
       configure_agent(agent, e, self)
       add_agent(agent)
 
@@ -76,7 +76,7 @@ module Fluentd
 
     def add_filter(type, pattern, e)
       @log.info "adding filter", :pattern=>pattern, :type=>type
-      agent = Plugin.new_filter(type)
+      agent = e.plugin.new_filter(type)
       configure_agent(agent, e, self)
       add_agent(agent)
 

@@ -91,6 +91,7 @@ module Fluentd
     def reload_config
       # TODO error handling
       conf = @config_load_proc.call
+      ConfigContext.inject!(conf)
 
       # setup logger
       old_log = @log
@@ -100,14 +101,14 @@ module Fluentd
       log.hook_io(STDOUT)
       log.hook_io(STDERR)
 
-      define_logger(conf, log)
       @log = log
+      conf.context.log = log
 
       return conf
     end
 
     def define_logger(conf, log)
-      conf.define_singleton_method(:logger) { log }
+      conf.define_singleton_method(:log) { log }
       conf.elements.each {|e|
         define_logger(e, log)
       }

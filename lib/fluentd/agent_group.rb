@@ -19,7 +19,8 @@ module Fluentd
 
 
   module AgentGroup
-    include Configurable
+    # TODO
+    #include Configurable
 
     def initialize
       @agents = []

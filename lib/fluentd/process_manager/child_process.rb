@@ -22,7 +22,7 @@ module Fluentd
       def initialize(manager, conf, processor_id)
         @manager = manager
         @conf = conf
-        @log = conf.logger
+        @log = conf.log
         @processor_id = processor_id
         @agents = []
         @local_process = false
@@ -156,7 +156,7 @@ module Fluentd
         end
 
         def configure(conf)
-          @log = conf.logger
+          @log = conf.log
 
           # TODO configure
           @child_heartbeat_interval = 1

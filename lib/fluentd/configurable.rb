@@ -109,7 +109,7 @@ module Fluentd
           instance_variable_set(varname, val)
         end
         unless instance_variable_defined?(varname)
-          $log.error "config error in:\n#{conf}"
+          conf.log.error "config error in:\n#{conf}"
           raise ConfigError, "'#{name}' parameter is required"
         end
       }
