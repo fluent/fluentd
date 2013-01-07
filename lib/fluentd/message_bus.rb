@@ -43,7 +43,7 @@ module Fluentd
       @log = conf.log
 
       conf.elements.select {|e|
-        e.name == 'source' || e.name == 'match'
+        e.name == 'source' || e.name == 'match' || e.name == 'filter'
       }.each {|e|
         case e.name
         when 'source'
@@ -55,6 +55,11 @@ module Fluentd
           pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
           type = e['type'] || 'redirect'
           add_match(type, pattern, e)
+
+        when 'filter'
+          pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
+          type = e['type'] || 'redirect'
+          add_filter(type, pattern, e)
         end
       }
     end
@@ -63,7 +68,9 @@ module Fluentd
       @log.info "adding source", :type=>type
       agent = e.plugin.new_input(type)
 
-      configure_agent(agent, e, OffsetMessageBus.new(self, @matches.size))
+      bus = configure_agent(agent, e, self)
+      bus.default_collector = OffsetMessageBus.new(self, @matches.size) if bus
+
       add_agent(agent)
     end
 
@@ -71,9 +78,25 @@ module Fluentd
       @log.info "adding match", :pattern=>pattern, :type=>type
       agent = e.plugin.new_output(type)
 
-      configure_agent(agent, e, OffsetMessageBus.new(self, @matches.size+1))
-      add_agent(agent)
+      bus = configure_agent(agent, e, self)
+      bus.default_collector = Collectors::NoMatchCollector.new if bus
 
+      # TODO check agent.class.is_a?(FilterOutput) and show warning
+
+      add_agent(agent)
+      @matches << Match.new(pattern, agent)
+    end
+
+    def add_filter(type, pattern, e)
+      @log.info "adding filter", :pattern=>pattern, :type=>type
+      agent = e.plugin.new_output(type)
+
+      bus = configure_agent(agent, e, self)
+      bus.default_collector = OffsetMessageBus.new(self, @matches.size+1) if bus
+
+      # TODO check agent.class.is_a?(FilterOutput) and show warning
+
+      add_agent(agent)
       @matches << Match.new(pattern, agent)
     end
 

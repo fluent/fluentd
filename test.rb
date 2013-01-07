@@ -11,7 +11,7 @@ conf = <<EOF
   </error>
 </source>
 
-<match **>
+<filter **>
   type copy
   process_group remotex
 
@@ -19,7 +19,7 @@ conf = <<EOF
     process_group remote
     type stdout
   </match>
-</match>
+</filter>
 
 <match **>
   type roundrobin

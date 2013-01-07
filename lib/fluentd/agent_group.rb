@@ -62,6 +62,8 @@ module Fluentd
       agent.configure(conf)
       agent = nil
 
+      return bus
+
     ensure
       agent.shutdown if agent  # TODO
     end
