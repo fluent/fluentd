@@ -32,11 +32,24 @@ module Fluentd
       super
 
       if error_conf = conf.elements.find {|e| e.name == 'error' }
-        type = error_conf['type'] || 'redirect'
-        @error_stream = conf.plugin.new_output(type)
-        configure_agent(@error_stream, error_conf, @stream_source_parent)
+        error_type = error_conf['type'] || 'redirect'
+        @error_stream = add_output_agent(error_type, error_conf)
         @stream_source = Collectors::ErrorStreamCollector.new(@stream_source_parent, @error_stream)
       end
+    end
+
+    def add_input_agent(type, conf)
+      agent = conf.plugin.new_input(type)
+      configure_agent(agent, conf, @stream_source_parent)
+      add_agent(agent)
+      agent
+    end
+
+    def add_output_agent(type, conf)
+      agent = conf.plugin.new_output(type)
+      configure_agent(agent, conf, @stream_source_parent)
+      add_agent(agent)
+      agent
     end
   end
 

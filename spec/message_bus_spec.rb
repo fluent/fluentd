@@ -35,10 +35,10 @@ describe Fluentd::MessageBus do
     bus.add_source(:test, config)
   end
 
-  it 'add_output' do
+  it 'add_match' do
     plugin.should_receive(:new_output).with(:test).and_return(agent)
     bus.should_receive(:configure_agent).with(agent, config)
-    bus.add_output(:test, '**', config)
+    bus.add_match(:test, '**', config)
   end
 
   it 'add_filter' do

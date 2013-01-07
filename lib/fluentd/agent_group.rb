@@ -50,14 +50,11 @@ module Fluentd
     end
 
     def configure_agent(agent, conf, parent_bus)
-      add_agent(agent)
-
       if agent.is_a?(StreamSource)
         bus = MessageBus.new(parent_bus)
         add_agent_group(bus)
 
         bus.configure(conf)
-        bus.default_collector = parent_bus
 
         agent.setup_internal_bus(bus)
       end

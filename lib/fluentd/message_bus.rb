@@ -17,6 +17,8 @@
 #
 module Fluentd
 
+  require 'delegate'
+
 
   class MessageBus
     include AgentGroup
@@ -25,12 +27,17 @@ module Fluentd
     def initialize(parent_bus)
       super()
       @parent_bus = parent_bus
-      @match_cache = {}
+      @match_cache = []
       @matches = []
-      @default_collector = Collectors::NoMatchCollector.new
+      if parent_bus
+        @default_collector = parent_bus
+      else
+        @default_collector = Collectors::NoMatchCollector.new
+      end
     end
 
-    attr_accessor :parent_bus, :default_collector, :matches
+    attr_reader :parent_bus
+    attr_accessor :default_collector
 
     def configure(conf)
       @log = conf.log
@@ -53,7 +60,7 @@ module Fluentd
         when 'match'
           pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
           type = e['type'] || 'redirect'
-          add_output(type, pattern, e)
+          add_match(type, pattern, e)
         end
       }
     end
@@ -61,14 +68,16 @@ module Fluentd
     def add_source(type, e)
       @log.info "adding source", :type=>type
       agent = e.plugin.new_input(type)
-      configure_agent(agent, e, self)
+
+      configure_agent(agent, e, OffsetMessageBus.new(self, @matches.size))
       add_agent(agent)
     end
 
-    def add_output(type, pattern, e)
+    def add_match(type, pattern, e)
       @log.info "adding match", :pattern=>pattern, :type=>type
       agent = e.plugin.new_output(type)
-      configure_agent(agent, e, self)
+
+      configure_agent(agent, e, OffsetMessageBus.new(self, @matches.size+1))
       add_agent(agent)
 
       @matches << Match.new(pattern, agent)
@@ -77,7 +86,8 @@ module Fluentd
     def add_filter(type, pattern, e)
       @log.info "adding filter", :pattern=>pattern, :type=>type
       agent = e.plugin.new_filter(type)
-      configure_agent(agent, e, self)
+
+      configure_agent(agent, e, OffsetMessageBus.new(self, @matches.size+1))
       add_agent(agent)
 
       @matches << FilterMatch.new(pattern, agent)
@@ -85,11 +95,16 @@ module Fluentd
 
     # override
     def open(tag, &block)
-      collector = @match_cache[tag]
+      open_offset(tag, 0, &block)
+    end
+
+    def open_offset(tag, offset, &block)
+      cache = (@match_cache[offset] ||= {})
+      collector = cache[tag]
       unless collector
-        collector = match(tag) || @default_collector
-        if @match_cache.size < 1024  # TODO size limit
-          @match_cache[tag] = collector
+        collector = match(tag, offset) || @default_collector
+        if cache.size < 1024  # TODO size limit
+          cache[tag] = collector
         end
       end
       collector.open(tag, &block)
@@ -101,9 +116,11 @@ module Fluentd
 
     private
 
-    def match(tag)
+    def match(tag, offset)
       collectors = []
-      @matches.each {|m|
+      @matches.each_with_index {|m,i|
+        next if i < offset
+
         if m.pattern.match?(tag)
           collectors << m.collector
           unless m.filter?
@@ -156,6 +173,7 @@ module Fluentd
       }
     end
 
+    # override
     def open_label(label, tag)
       return ensure_close(open(tag), &proc) if block_given?
       if bus = @labels[label]
@@ -175,6 +193,19 @@ module Fluentd
 
       add_agent_group(bus)
       self
+    end
+  end
+
+
+  class OffsetMessageBus < DelegateClass(MessageBus)
+    def initialize(bus, offset)
+      super(bus)
+      @offset = offset
+    end
+
+    # override
+    def open(tag, &block)
+      open_offset(tag, @offset, &block)
     end
   end
 end

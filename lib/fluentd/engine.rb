@@ -66,7 +66,6 @@ module Fluentd
 
       Engine.setup_compat!(@message_bus_proxy, @plugin)
 
-
       configure(@conf)
 
       new_bus = LabeledMessageBus.new
