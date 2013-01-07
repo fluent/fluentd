@@ -36,6 +36,7 @@ module Fluentd
     :MatchPattern => 'fluentd/match_pattern',
     :MessageBus => 'fluentd/message_bus',
     :LabeledMessageBus => 'fluentd/message_bus',
+    :OffsetMessageBus => 'fluentd/message_bus',
     :Writer => 'fluentd/writer',
     :MultiWriter => 'fluentd/multi_writer',
     :PluginRegistry => 'fluentd/plugin',

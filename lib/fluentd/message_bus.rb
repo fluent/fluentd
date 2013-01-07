@@ -43,19 +43,13 @@ module Fluentd
       @log = conf.log
 
       conf.elements.select {|e|
-        e.name == 'source' || e.name == 'match' || e.name == 'filter'
+        e.name == 'source' || e.name == 'match'
       }.each {|e|
         case e.name
         when 'source'
           type = e['type']
           raise ConfigError, "Missing 'type' parameter" unless type
           add_source(type, e)
-
-        when 'filter'
-          pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
-          type = e['type']
-          raise ConfigError, "Missing 'type' parameter" unless type
-          add_filter(type, pattern, e)
 
         when 'match'
           pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
@@ -83,16 +77,6 @@ module Fluentd
       @matches << Match.new(pattern, agent)
     end
 
-    def add_filter(type, pattern, e)
-      @log.info "adding filter", :pattern=>pattern, :type=>type
-      agent = e.plugin.new_filter(type)
-
-      configure_agent(agent, e, OffsetMessageBus.new(self, @matches.size+1))
-      add_agent(agent)
-
-      @matches << FilterMatch.new(pattern, agent)
-    end
-
     # override
     def open(tag, &block)
       open_offset(tag, 0, &block)
@@ -117,20 +101,10 @@ module Fluentd
     private
 
     def match(tag, offset)
-      collectors = []
       @matches.each_with_index {|m,i|
         next if i < offset
-
         if m.pattern.match?(tag)
-          collectors << m.collector
-          unless m.filter?
-            if collectors.size == 1
-              # optimization for this special case
-              return collectors[0]
-            else
-              return Collectors::FilteringCollector.new(collectors)
-            end
-          end
+          return m.collector
         end
       }
       return nil
@@ -143,16 +117,6 @@ module Fluentd
       end
 
       attr_reader :pattern, :collector
-
-      def filter?
-        false
-      end
-    end
-
-    class FilterMatch < Match
-      def filter?
-        true
-      end
     end
   end
 

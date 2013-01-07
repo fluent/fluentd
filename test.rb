@@ -13,36 +13,24 @@ conf = <<EOF
 
 <match **>
   type copy
+  process_group remotex
 
-  <match **>
+  <match>
+    process_group remote
     type stdout
   </match>
 </match>
 
 <match **>
-  type stdout
+  type roundrobin
+  <store>
+    type buffered_stdout
+  </store>
 </match>
 
-#<filter **>
-#  type copy
-#  process_group remotex
-#
-#  <match>
-#    process_group remote
-#    type stdout
-#  </match>
-#</filter>
-#
-#<match **>
-#  type roundrobin
-#  <store>
-#    type buffered_stdout
-#  </store>
-#</match>
-#
-#<match **>
-#  type buffered_stdout
-#</match>
+<match **>
+  type buffered_stdout
+</match>
 EOF
 
 Fluentd::Supervisor.run do

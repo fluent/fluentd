@@ -111,7 +111,6 @@ module Fluentd
     def initialize
       @input = PluginRegistry.new(:input, 'fluent/plugin/in_')
       @output = PluginRegistry.new(:output, 'fluent/plugin/out_')
-      @filter = PluginRegistry.new(:filter, 'fluent/plugin/fil_')
       @buffer = PluginRegistry.new(:buffer, 'fluent/plugin/buf_')
     end
 
@@ -121,10 +120,6 @@ module Fluentd
 
     def register_output(type, klass)
       @output.register(type, klass)
-    end
-
-    def register_filter(type, klass)
-      @filter.register(type, klass)
     end
 
     def register_buffer(type, klass)
@@ -137,10 +132,6 @@ module Fluentd
 
     def new_output(type)
       @output.lookup(type).new
-    end
-
-    def new_filter(type)
-      @filter.lookup(type).new
     end
 
     def new_buffer(type)
