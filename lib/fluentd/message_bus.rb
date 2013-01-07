@@ -19,6 +19,26 @@ module Fluentd
 
   require 'delegate'
 
+  #
+  # MessageBus forms a tree structure whose root is a LabeledMessageBus:
+  #
+  #
+  # MessageBus           MessageBus
+  #   #parent_bus --+      #parent_bus --+
+  #                 |                    |
+  #                 +--> MessageBus      |
+  # MessageBus      |      #parent_bus --+--> LabeledMessageBus
+  #   #parent_bus --+                    |      #parent_bus == nil
+  #                      MessageBus      |
+  #                        #parent_bus --+
+  #
+  #
+  # * MessageBus is an AgentGroup which manages many agents.
+  # * MessageBus routes written records to one of the agents based on
+  #   records' tags and match rules. (See MessageBus#open method).
+  # * If none of agents match, MessageBus routes the record to #default_collector.
+  # * #default_collector is usually #parent_bus.
+  #
 
   class MessageBus
     include AgentGroup
