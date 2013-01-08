@@ -7,5 +7,15 @@ class Test::Unit::TestCase
   include RR::Adapters::TestUnit
 end
 
-$log = Fluent::Log.new(STDOUT, Fluent::Log::LEVEL_WARN)
+def ipv6_enabled?
+  require 'socket'
 
+  begin
+    TCPServer.open("::1", 0)
+    true
+  rescue
+    false
+  end
+end
+
+$log = Fluent::Log.new(STDOUT, Fluent::Log::LEVEL_WARN)

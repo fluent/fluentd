@@ -65,7 +65,7 @@ class ArrayEventStream < EventStream
   end
 
   def empty?
-    @time_array.empty?
+    @entries.empty?
   end
 
   def each(&block)

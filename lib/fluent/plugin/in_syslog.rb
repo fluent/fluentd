@@ -77,7 +77,6 @@ class SyslogInput < Input
 
     parser = TextParser.new
     if parser.configure(conf, false)
-      parser.use_template('syslog')
       @parser = parser
     else
       @parser = nil
