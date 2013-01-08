@@ -54,6 +54,7 @@ module Fluentd
       else
         @default_collector = Collectors::NoMatchCollector.new
       end
+      @log = Logger.new(STDERR)  # TODO for test
     end
 
     attr_reader :parent_bus
