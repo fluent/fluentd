@@ -23,9 +23,12 @@ class EngineClass
     @matches = []
     @sources = []
     @match_cache = {}
+    @match_cache_keys = []
     @started = []
     @default_loop = nil
   end
+
+  MATCH_CACHE_SIZE = 1024
 
   attr_reader :matches, :sources
 
@@ -106,9 +109,13 @@ class EngineClass
     target = @match_cache[tag]
     unless target
       target = match(tag) || NoMatchMatch.new
-      if @match_cache.size < 1024  # TODO size limit
-        @match_cache[tag] = target
+      # this is not thread-safe but inconsistency doesn't
+      # cause serious problems while locking causes.
+      if @match_cache_keys.size >= MATCH_CACHE_SIZE
+        @match_cache_keys.delete @match_cache_keys.shift
       end
+      @match_cache[tag] = target
+      @match_cache_keys << tag
     end
     target.emit(tag, es)
   rescue
