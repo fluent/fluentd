@@ -154,16 +154,18 @@ module Config
       instance_eval(&block) if block_given?
     end
 
-    def self.parse_file()
+    def self.parse_file(file)
+      config = ::File.read(file)
+      new_from_string config
     end
 
-    def self.new_from_string(config_script)
-      eval "Fluent::Config::Dsl.new {\n" + config_script + "\n}.to_config", TOPLEVEL_BINDING, file, 0
+    def self.new_from_string(config_script, file='(fluent-config-dsl)')
+      eval "Fluent::Config::DSL.new {\n" + config_script + "\n}.element", TOPLEVEL_BINDING, file, 0
     end
 
     def method_missing(method, *args, &block)
       if block_given?
-        arg = args[0] || nil
+        arg = args[0] || ''
 
         inner = DSL.new(&block)
 
@@ -175,6 +177,10 @@ module Config
 
         @attrs[method.to_s] = value.to_s
       end
+    end
+
+    def element
+      Config::Element.new('ROOT', '', @attrs, @elements)
     end
   end
 
@@ -188,8 +194,12 @@ module Config
     end
 
     def self.parse(io, fname, basepath=Dir.pwd)
-      attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
-      Element.new('ROOT', '', attrs, elems)
+      if fname =~ /\.rb$/
+        DSL.parse_file(File.join(basepath, fname))
+      else
+        attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
+        Element.new('ROOT', '', attrs, elems)
+      end
     end
 
     def initialize(basepath, iterator, fname, i=0)
