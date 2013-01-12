@@ -144,6 +144,40 @@ module Config
     end
   end
 
+  class DSL
+    attr_reader :elements, :attrs
+
+    def initialize(&block)
+      @elements = []
+      @attrs = {}
+
+      instance_eval(&block) if block_given?
+    end
+
+    def self.parse_file()
+    end
+
+    def self.new_from_string(config_script)
+      eval "Fluent::Config::Dsl.new {\n" + config_script + "\n}.to_config", TOPLEVEL_BINDING, file, 0
+    end
+
+    def method_missing(method, *args, &block)
+      if block_given?
+        arg = args[0] || nil
+
+        inner = DSL.new(&block)
+
+        @elements << Config::Element.new(
+          method.to_s, arg, inner.attrs, inner.elements
+        )
+      else
+        value = args[0] || nil
+
+        @attrs[method.to_s] = value.to_s
+      end
+    end
+  end
+
   private
   class Parser
     def self.read(path)

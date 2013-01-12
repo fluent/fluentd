@@ -73,5 +73,48 @@ class ConfigTest < Test::Unit::TestCase
       Fluent::Supervisor.new(opts)
     end  
   end
+
+  def test_dsl_elements
+    assert_equal [], new_dsl.elements
+  end
+
+  def test_dsl_arg
+    dsl = new_dsl {
+      match('debug.**') {
+      }
+    }
+
+    assert_equal Config::Element.new('match', 'debug.**', {}, []), dsl.elements[0]
+  end
+
+  def test_dsl_attrs
+    dsl = new_dsl {
+      type :http
+      port 8888
+    }
+
+    assert_equal({"type" => "http", "port" => "8888"}, dsl.attrs)
+  end
+
+  def test_dsl_elements
+    dsl = new_dsl {
+      source {
+        type :forward
+      }
+
+      match('debug.**') {
+        type :stdout
+      }
+    }
+
+    assert_equal [
+      Config::Element.new('source', nil, {"type" => "forward"}, []),
+      Config::Element.new('match', 'debug.**', {"type" => "stdout"}, [])
+    ], dsl.elements
+  end
+
+  def new_dsl(&block)
+    Config::DSL.new(&block)
+  end
 end
 
