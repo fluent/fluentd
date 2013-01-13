@@ -173,9 +173,11 @@ module Config
           method.to_s, arg, inner.attrs, inner.elements
         )
       else
+        key   = method.to_s
         value = args[0] || nil
+        value = value.to_s if ["type", "buffer_type"].include? key
 
-        @attrs[method.to_s] = value.to_s
+        @attrs[key] = value
       end
     end
 
