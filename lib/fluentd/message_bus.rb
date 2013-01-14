@@ -48,6 +48,7 @@ module Fluentd
       super()
       @parent_bus = parent_bus
       @match_cache = []
+      @match_cache_keys = []
       @matches = []
       if parent_bus
         @default_collector = parent_bus
@@ -56,6 +57,8 @@ module Fluentd
       end
       @log = Logger.new(STDERR)  # TODO for test
     end
+
+    MATCH_CACHE_SIZE = 1024
 
     attr_reader :parent_bus
     attr_accessor :default_collector
@@ -131,9 +134,12 @@ module Fluentd
       collector = cache[tag]
       unless collector
         collector = match(tag, offset) || @default_collector
-        if cache.size < 1024  # TODO size limit
-          cache[tag] = collector
+        keys = (@match_cache_keys[offset] ||= [])
+        if keys.size > MATCH_CACHE_SIZE
+          cache.delete keys.shift
         end
+        cache[tag] = collector
+        keys << tag
       end
       collector.open(tag, &block)
     end
