@@ -147,6 +147,14 @@ class TextParser
     end
   end
 
+  class AsisParser
+    def call(text)
+      record = {}
+      record['message'] = text
+      return Engine.now, record
+    end
+  end
+
   class ApacheParser
     include Configurable
 
@@ -205,6 +213,7 @@ class TextParser
     'json' => Proc.new { JSONParser.new },
     'tsv' => Proc.new { TSVParser.new },
     'csv' => Proc.new { CSVParser.new },
+    'asis' => Proc.new { AsisParser.new },
     'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
   }
 
