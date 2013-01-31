@@ -141,19 +141,8 @@ class OutputThread
     }
   end
 
-  if ConditionVariable.new.method(:wait).arity == 1
-    $log.warn "WARNING: Running on Ruby 1.8. Ruby 1.9 is recommended."
-    require 'timeout'
-    def cond_wait(sec)
-      Timeout.timeout(sec) {
-        @cond.wait(@mutex)
-      }
-    rescue Timeout::Error
-    end
-  else
-    def cond_wait(sec)
-      @cond.wait(@mutex, sec)
-    end
+  def cond_wait(sec)
+    @cond.wait(@mutex, sec)
   end
 end
 
