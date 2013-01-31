@@ -91,6 +91,7 @@ class ForwardOutput < ObjectBufferedOutput
 
     # Assume all hosts are same protocol.
     @usock = SocketUtil.create_udp_socket(@nodes.first.host)
+    @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
     @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
     @loop.attach(@hb)
 
@@ -260,6 +261,7 @@ class ForwardOutput < ObjectBufferedOutput
       begin
         #$log.trace "sending heartbeat #{n.host}:#{n.port}"
         @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+      rescue Errno::EAGAIN, Errno::EINTR
       rescue
         # TODO log
         $log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s
@@ -276,8 +278,8 @@ class ForwardOutput < ObjectBufferedOutput
 
     def on_readable
       begin
-        msg, addr = @io.recvfrom_nonblock(1024)
-      rescue Errno::EAGAIN, Erro::EINTR
+        msg, addr = @io.recvfrom(1024)
+      rescue Errno::EAGAIN, Errno::EINTR
         return
       end
       host = addr[3]

@@ -1,5 +1,6 @@
 require 'thread'
 require 'socket'
+require 'fcntl'
 require 'time'
 require 'monitor'
 require 'stringio'

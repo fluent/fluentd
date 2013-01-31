@@ -41,6 +41,7 @@ class ForwardInput < Input
 
     @usock = SocketUtil.create_udp_socket(@bind)
     @usock.bind(@bind, @port)
+    @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
     @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
     @loop.attach(@hbr)
 
@@ -192,8 +193,8 @@ class ForwardInput < Input
 
     def on_readable
       begin
-        msg, addr = @io.recvfrom_nonblock(1024)
-      rescue Errno::EAGAIN, Erro::EINTR
+        msg, addr = @io.recvfrom(1024)
+      rescue Errno::EAGAIN, Errno::EINTR
         return
       end
       host = addr[3]
@@ -206,7 +207,10 @@ class ForwardInput < Input
 
   def on_heartbeat_request(host, port, msg)
     #$log.trace "heartbeat request from #{host}:#{port}"
-    @usock.send "\0", 0, host, port
+    begin
+      @usock.send "\0", 0, host, port
+    rescue Errno::EAGAIN, Errno::EINTR
+    end
   end
 end
 
