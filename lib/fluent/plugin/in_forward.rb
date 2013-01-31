@@ -194,7 +194,7 @@ class ForwardInput < Input
     def on_readable
       begin
         msg, addr = @io.recvfrom(1024)
-      rescue Errno::EAGAIN, Errno::EINTR
+      rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
         return
       end
       host = addr[3]
@@ -209,7 +209,7 @@ class ForwardInput < Input
     #$log.trace "heartbeat request from #{host}:#{port}"
     begin
       @usock.send "\0", 0, host, port
-    rescue Errno::EAGAIN, Errno::EINTR
+    rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
     end
   end
 end
