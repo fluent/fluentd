@@ -103,6 +103,11 @@ class ForwardInput < Input
   #   3: object record
   # }
   def on_message(msg)
+    if msg.nil?
+      # for future TCP heartbeat_request
+      return
+    end
+
     # TODO format error
     tag = msg[0].to_s
     entries = msg[1]
