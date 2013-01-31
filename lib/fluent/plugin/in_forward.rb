@@ -119,13 +119,6 @@ class ForwardInput < Input
 
     elsif entries.class == Array
       # Forward
-
-      if tag == '' && entries.length == 0
-        # "{tag:'',entries:[]}" is TCP heartbeat message: ignored
-        $log.trace "TCP heartbeat message received"
-        return
-      end
-
       es = MultiEventStream.new
       entries.each {|e|
         time = e[0].to_i

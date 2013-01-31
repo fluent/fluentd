@@ -100,7 +100,7 @@ class ForwardOutput < ObjectBufferedOutput
     @loop = Coolio::Loop.new
 
     if @heartbeat_type == :udp
-      # Assume all hosts are same protocol.
+      # assuming all hosts use udp
       @usock = SocketUtil.create_udp_socket(@nodes.first.host)
       @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
       @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
@@ -209,15 +209,16 @@ class ForwardOutput < ObjectBufferedOutput
   # MessagePack FixArray length = 2
   FORWARD_HEADER = [0x92].pack('C')
 
-  FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
+  #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
   def send_heartbeat_tcp(node)
     sock = connect(node)
     begin
       opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
       sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
       opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
-      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
-      sock.write FORWARD_TCP_HEARTBEAT_DATA
+      # don't send any data to not cause a compatibility problem
+      #sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+      #sock.write FORWARD_TCP_HEARTBEAT_DATA
       node.heartbeat(true)
     ensure
       sock.close
