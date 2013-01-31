@@ -275,7 +275,11 @@ class ForwardOutput < ObjectBufferedOutput
     end
 
     def on_readable
-      msg, addr = @io.recvfrom(1024)
+      begin
+        msg, addr = @io.recvfrom_nonblock(1024)
+      rescue Errno::EAGAIN, Erro::EINTR
+        return
+      end
       host = addr[3]
       port = addr[1]
       sockaddr = Socket.pack_sockaddr_in(port, host)
