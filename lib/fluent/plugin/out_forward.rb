@@ -30,14 +30,14 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   config_param :send_timeout, :time, :default => 60
-  config_param :heartbeat, :default => :udp do |val|
+  config_param :heartbeat_type, :default => :udp do |val|
     case val.downcase
     when 'tcp'
       :tcp
     when 'udp'
       :udp
     else
-      raise ConfigError, "forward output heartbeat type is 'tcp' or 'udp'"
+      raise ConfigError, "forward output heartbeat type should be 'tcp' or 'udp'"
     end
   end
   config_param :heartbeat_interval, :time, :default => 1
@@ -99,7 +99,7 @@ class ForwardOutput < ObjectBufferedOutput
 
     @loop = Coolio::Loop.new
 
-    if @heartbeat == :udp
+    if @heartbeat_type == :udp
       # Assume all hosts are same protocol.
       @usock = SocketUtil.create_udp_socket(@nodes.first.host)
       @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
@@ -286,8 +286,8 @@ class ForwardOutput < ObjectBufferedOutput
         rebuild_weight_array
       end
       begin
-        #$log.trace "sending heartbeat #{n.host}:#{n.port} on #{@heartbeat}"
-        if @heartbeat == :tcp
+        #$log.trace "sending heartbeat #{n.host}:#{n.port} on #{@heartbeat_type}"
+        if @heartbeat_type == :tcp
           send_heartbeat_tcp(n)
         else
           @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)

@@ -26,7 +26,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     d = create_driver
     nodes = d.instance.nodes
     assert_equal 51, d.instance.send_timeout
-    assert_equal :udp, d.instance.heartbeat
+    assert_equal :udp, d.instance.heartbeat_type
     assert_equal 1, nodes.length
     node = nodes.first
     assert_equal "test", node.name
@@ -35,7 +35,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_configure_tcp_heartbeat
-    d = create_driver(CONFIG + "\nheartbeat tcp")
-    assert_equal :tcp, d.instance.heartbeat
+    d = create_driver(CONFIG + "\nheartbeat_type tcp")
+    assert_equal :tcp, d.instance.heartbeat_type
   end
 end
