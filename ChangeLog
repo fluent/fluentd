@@ -1,4 +1,12 @@
 
+Release 0.10.31 - 2013/01/31
+
+* out_forward: supports TCP heartbeat
+* in_tail reads rotated files from its head rather than its end when pos_file option is set
+* out_/in_ forward set O_NONBLOCK flag to the UDP heartbeat socket
+* Improved match cache expiration algorithm
+
+
 Release 0.10.30 - 2012/12/06
 
 * Shows configuration file at start time
