@@ -23,7 +23,7 @@ module ParserTest
 
     def test_call
       parser = Fluent::TextParser::LabeledTSVParser.new
-      time, record = parser.call('time:[28/Feb/2013:12:00:00 +0900]	host:192.168.0.1	req:GET /list HTTP/1.1')
+      time, record = parser.call("time:[28/Feb/2013:12:00:00 +0900]\thost:192.168.0.1\treq:GET /list HTTP/1.1")
 
       assert_equal({
         'time' => '[28/Feb/2013:12:00:00 +0900]',
