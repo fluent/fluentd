@@ -136,6 +136,29 @@ class TextParser
     end
   end
 
+  class LabeledTSVParser < ValuesParser
+    config_param :delimiter,       :string, :default => "\t"
+    config_param :label_delimiter, :string, :default =>  ":"
+
+    def configure(conf)
+      conf['keys'] = ''
+      super(conf)
+    end
+
+    def call(text)
+      @keys  = []
+      values = []
+
+      text.split(delimiter).each do |pair|
+        key, value = pair.split(label_delimiter, 2)
+        @keys.push(key)
+        values.push(value)
+      end
+
+      return values_map(values)
+    end
+  end
+
   class CSVParser < ValuesParser
     def initialize
       super
@@ -204,6 +227,7 @@ class TextParser
     'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
     'json' => Proc.new { JSONParser.new },
     'tsv' => Proc.new { TSVParser.new },
+    'ltsv' => Proc.new { LabeledTSVParser.new },
     'csv' => Proc.new { CSVParser.new },
     'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
   }
