@@ -146,8 +146,8 @@ class TextParser
     end
 
     def call(text)
-      @keys ||= []
-      values  = []
+      @keys  = []
+      values = []
 
       text.split(delimiter).each do |pair|
         key, value = pair.split(label_delimiter, 2)
