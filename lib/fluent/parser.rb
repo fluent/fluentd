@@ -89,6 +89,31 @@ class TextParser
     end
   end
 
+  class LabeledTSVParser
+    include Configurable
+
+    config_param :delimiter, :string, :default => "\t"
+    config_param :label_delimiter, :string, :default => ":"
+    config_param :time_key, :string, :default => 'time'
+    config_param :time_format, :string, :default => nil
+
+    def call(text)
+      record = Hash[text.split(@delimiter).map{|p| p.split(@label_delimiter, 2)}]
+
+      if value = record.delete(@time_key)
+        if @time_format
+          time = Time.strptime(value, @time_format).to_i
+        else
+          time = value.to_i
+        end
+      else
+        time = Engine.now
+      end
+
+      return time, record
+    end
+  end
+
   class ValuesParser
     include Configurable
 
@@ -203,6 +228,7 @@ class TextParser
     'apache2' => Proc.new { ApacheParser.new },
     'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
     'json' => Proc.new { JSONParser.new },
+    'ltsv' => Proc.new { LabeledTSVParser.new },
     'tsv' => Proc.new { TSVParser.new },
     'csv' => Proc.new { CSVParser.new },
     'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
