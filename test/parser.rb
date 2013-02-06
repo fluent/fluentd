@@ -3,7 +3,7 @@ require 'fluent/test'
 require 'fluent/parser'
 
 module ParserTest
-  class LabeledTSVParserParserTest < Test::Unit::TestCase
+  class LabeledTSVParserTest < Test::Unit::TestCase
     include Fluent
 
     def test_config_params
