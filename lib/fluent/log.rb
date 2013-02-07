@@ -40,13 +40,15 @@ class Log
   LEVEL_ERROR = 4
   LEVEL_FATAL = 5
 
+  LEVEL_TEXT = %w(trace debug info warn error fatal)
+
   def initialize(out=STDERR, level=LEVEL_TRACE)
     @out = out
     @level = level
     @debug_mode = false
     @self_event = false
     @tag = 'fluent'
-    @time_format = '%Y-%m-%d %H:%M:%S %z: '
+    @time_format = '%Y-%m-%d %H:%M:%S %z '
     enable_color out.tty?
   end
 
@@ -95,7 +97,7 @@ class Log
     return if @level > LEVEL_TRACE
     args << block.call if block
     time, msg = event(:trace, args)
-    puts [@color_trace, caller_line(time, 1), msg, @color_reset].join
+    puts [@color_trace, caller_line(time, 1, LEVEL_TRACE), msg, @color_reset].join
   end
   alias TRACE trace
 
@@ -103,7 +105,7 @@ class Log
     return if @level > LEVEL_TRACE
     time = Time.now
     backtrace.each {|msg|
-      puts ["  ", caller_line(time,4), msg].join
+      puts ["  ", caller_line(time, 4, LEVEL_TRACE), msg].join
     }
     nil
   end
@@ -117,7 +119,7 @@ class Log
     return if @level > LEVEL_DEBUG
     args << block.call if block
     time, msg = event(:debug, args)
-    puts [@color_debug, caller_line(time, 1), msg, @color_reset].join
+    puts [@color_debug, caller_line(time, 1, LEVEL_DEBUG), msg, @color_reset].join
   end
   alias DEBUG debug
 
@@ -125,7 +127,7 @@ class Log
     return if @level > LEVEL_DEBUG
     time = Time.now
     backtrace.each {|msg|
-      puts ["  ", caller_line(time,4), msg].join
+      puts ["  ", caller_line(time, 4, LEVEL_DEBUG), msg].join
     }
     nil
   end
@@ -139,7 +141,7 @@ class Log
     return if @level > LEVEL_INFO
     args << block.call if block
     time, msg = event(:info, args)
-    puts [@color_info, caller_line(time, 1), msg, @color_reset].join
+    puts [@color_info, caller_line(time, 1, LEVEL_INFO), msg, @color_reset].join
   end
   alias INFO info
 
@@ -147,7 +149,7 @@ class Log
     return if @level > LEVEL_INFO
     time = Time.now
     backtrace.each {|msg|
-      puts ["  ", caller_line(time,4), msg].join
+      puts ["  ", caller_line(time, 4, LEVEL_INFO), msg].join
     }
     nil
   end
@@ -161,7 +163,7 @@ class Log
     return if @level > LEVEL_WARN
     args << block.call if block
     time, msg = event(:warn, args)
-    puts [@color_warn, caller_line(time, 1), msg, @color_reset].join
+    puts [@color_warn, caller_line(time, 1, LEVEL_WARN), msg, @color_reset].join
   end
   alias WARN warn
 
@@ -169,7 +171,7 @@ class Log
     return if @level > LEVEL_WARN
     time = Time.now
     backtrace.each {|msg|
-      puts ["  ", caller_line(time,4), msg].join
+      puts ["  ", caller_line(time, 4, LEVEL_WARN), msg].join
     }
     nil
   end
@@ -183,7 +185,7 @@ class Log
     return if @level > LEVEL_ERROR
     args << block.call if block
     time, msg = event(:error, args)
-    puts [@color_error, caller_line(time, 1), msg, @color_reset].join
+    puts [@color_error, caller_line(time, 1, LEVEL_ERROR), msg, @color_reset].join
   end
   alias ERROR error
 
@@ -191,7 +193,7 @@ class Log
     return if @level > LEVEL_ERROR
     time = Time.now
     backtrace.each {|msg|
-      puts ["  ", caller_line(time,4), msg].join
+      puts ["  ", caller_line(time, 4, LEVEL_ERROR), msg].join
     }
     nil
   end
@@ -205,7 +207,7 @@ class Log
     return if @level > LEVEL_FATAL
     args << block.call if block
     time, msg = event(:fatal, args)
-    puts [@color_fatal, caller_line(time, 1), msg, @color_reset].join
+    puts [@color_fatal, caller_line(time, 1, LEVEL_FATAL), msg, @color_reset].join
   end
   alias FATAL fatal
 
@@ -213,7 +215,7 @@ class Log
     return if @level > LEVEL_FATAL
     time = Time.now
     backtrace.each {|msg|
-      puts ["  ", caller_line(time,4), msg].join
+      puts ["  ", caller_line(time, 4, LEVEL_FATAL), msg].join
     }
     nil
   end
@@ -266,17 +268,18 @@ class Log
     return time, message
   end
 
-  def caller_line(time, level)
-    line = caller(level+1)[0]
+  def caller_line(time, depth, level)
+    line = caller(depth+1)[0]
+    log_msg = "#{time.strftime(@time_format)}[#{LEVEL_TEXT[level]}]: "
     if @debug_mode
       if match = /^(.+?):(\d+)(?::in `(.*)')?/.match(line)
         file = match[1].split('/')[-2,2].join('/')
         line = match[2]
         method = match[3]
-        return "#{time.strftime(@time_format)}#{file}:#{line}:#{method}: "
+        return "#{log_msg}#{file}:#{line}:#{method}: "
       end
     end
-    return time.strftime(@time_format)
+    return log_msg
   end
 end
 
