@@ -18,13 +18,21 @@
 module Fluentd
   module Buffers
 
-    here = File.expand_path(File.dirname(__FILE__))
+    class BasicChunk
+      #def read
+      #end
 
-    {
-      :BasicBuffer => 'buffers/basic_buffer',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+      def write_to(io)
+        io.write(read)
+      end
+
+      #def each(&block)
+      #end
+
+      #def read
+      #end
+    end
 
   end
 end
+

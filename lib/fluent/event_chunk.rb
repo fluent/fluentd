@@ -17,7 +17,7 @@
 #
 module Fluent
 
-  class EventStreamChunk < Fluentd::Chunks::BasicChunk
+  class EventStreamChunk < Fluentd::Buffers::BasicChunk
     def read
       @es_chunk_data ||= to_msgpack_stream
     end

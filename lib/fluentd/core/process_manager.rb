@@ -20,7 +20,11 @@ module Fluentd
     here = File.expand_path(File.dirname(__FILE__))
 
     {
+      :IOExchange => 'process_manager/io_exchange',
+      :InternalUNIXServer => 'process_manager/internal_unix_server',
+      :SocketManager => 'process_manager/socket_manager',
       :SimpleProcessManager => 'process_manager/simple_process_manager',
+      :HeartbeatManager => 'process_manager/heartbeat_manager',
       :MultiprocessManager => 'process_manager/multiprocess_manager',
       :SingleprocessManager => 'process_manager/singleprocess_manager',
       :ChildProcess => 'process_manager/child_process',

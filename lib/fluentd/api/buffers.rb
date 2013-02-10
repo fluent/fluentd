@@ -16,28 +16,16 @@
 #    limitations under the License.
 #
 module Fluentd
+  module Buffers
 
-  class MultiWriter
-    def initialize(collector)
-      @writers = {}
-      @collector = collector
-    end
+    here = File.expand_path(File.dirname(__FILE__))
 
-    def append(tag, time, record)
-      w = (@writers[tag] ||= @collector.open(tag))
-      w.append(tag, time, record)
-    end
+    {
+      :BasicBuffer => 'buffers/basic_buffer',
+      :BasicChunk => 'buffers/basic_chunk',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
 
-    def chunk(tag, chunk)
-      w = (@writers[tag] ||= @collector.open_stream(tag))
-      w.write(tag, record)
-    end
-
-    def close
-      @writers.values.reverse_each {|w|
-        w.close  # TODO log
-      }
-    end
   end
-
 end

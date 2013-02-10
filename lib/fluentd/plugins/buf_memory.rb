@@ -19,7 +19,7 @@ module Fluentd
   module Plugins
 
     class MemoryBuffer < Buffers::BasicBuffer
-      class MemoryBufferChunk < Chunks::BasicChunk
+      class MemoryBufferChunk < Buffers::BasicChunk
         def initialize(tag)
           @tag = tag
           @data = ''.force_encoding('ASCII-8BIT')

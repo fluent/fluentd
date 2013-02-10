@@ -16,6 +16,7 @@
 #    limitations under the License.
 #
 module Fluentd
+
   require 'json'
   require 'msgpack'
   require 'thread'
@@ -23,52 +24,13 @@ module Fluentd
 
   here = File.expand_path(File.dirname(__FILE__))
 
-  {
-    :Agent => 'fluentd/agent',
-    :AgentGroup => 'fluentd/agent_group',
-    :Collector => 'fluentd/collector',
-    :Collectors => 'fluentd/collectors',
-    :ConfigError => 'fluentd/errors',
-    :ConfigParseError => 'fluentd/errors',
-    :Config => 'fluentd/config',
-    :ConfigContext => 'fluentd/config_context',
-    :Configurable => 'fluentd/configurable',
-    :MatchPattern => 'fluentd/match_pattern',
-    :MessageBus => 'fluentd/message_bus',
-    :LabeledMessageBus => 'fluentd/message_bus',
-    :OffsetMessageBus => 'fluentd/message_bus',
-    :Writer => 'fluentd/writer',
-    :MultiWriter => 'fluentd/multi_writer',
-    :PluginRegistry => 'fluentd/plugin',
-    :PluginClass => 'fluentd/plugin',
-    :Outputs => 'fluentd/outputs',
-    :Inputs => 'fluentd/inputs',
-    :Chunks => 'fluentd/chunks',
-    :Buffers => 'fluentd/buffers',
-    :Writers => 'fluentd/writers',
-    :StreamSource => 'fluentd/stream_source',
-    :ProcessManager => 'fluentd/process_manager',
-    :Processors => 'fluentd/processors',
-    :Engine => 'fluentd/engine',
-    :Server => 'fluentd/server',
-    :Supervisor => 'fluentd/supervisor',
-    :IOExchange => 'fluentd/io_exchange',
-    :InternalUNIXServer => 'fluentd/internal_unix_server',
-    :SocketManager => 'fluentd/socket_manager',
-    :HeartbeatManager => 'fluentd/heartbeat_manager',
-    :Logger => 'fluentd/logger',
-    :BlockingFlag => 'fluentd/util/blocking_flag',
-    :SignalQueue => 'fluentd/util/signal_queue',
-  }.each_pair {|k,v|
-    autoload k, File.join(here, v)
-  }
-
   [
     'fluentd/version',
-    'fluentd/env',
+    'fluentd/core',
+    'fluentd/api',
     'fluent',
   ].each {|v|
     require File.join(here, v)
   }
-end
 
+end

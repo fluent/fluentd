@@ -16,23 +16,30 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Chunks
 
-    class BasicChunk
-      #def read
-      #end
 
-      def write_to(io)
-        io.write(read)
-      end
-
-      #def each(&block)
-      #end
-
-      #def read
-      #end
+  class MultiWriter
+    def initialize(collector)
+      @writers = {}
+      @collector = collector
     end
 
-  end
-end
+    def append(tag, time, record)
+      w = (@writers[tag] ||= @collector.open(tag))
+      w.append(tag, time, record)
+    end
 
+    def chunk(tag, chunk)
+      w = (@writers[tag] ||= @collector.open_stream(tag))
+      w.write(tag, record)
+    end
+
+    def close
+      @writers.values.reverse_each {|w|
+        w.close  # TODO log
+      }
+    end
+  end
+
+
+end

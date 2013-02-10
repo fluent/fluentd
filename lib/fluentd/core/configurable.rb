@@ -37,6 +37,8 @@ module Fluentd
           end
         }
 
+        type = opts[:type]
+
         if (block && type) || (!block && !type)
           raise ArgumentError, "wrong number of arguments (#{1+args.length} for #{block ? 2 : 3})"
         end
@@ -48,7 +50,8 @@ module Fluentd
         params[name] = [block, opts]
 
         if opts.has_key?(:default)
-          config_set_default(name, opts[:default])
+          # TODO
+          #config_set_default(name, opts[:default])
         end
 
         attr_accessor name

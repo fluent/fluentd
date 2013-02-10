@@ -18,7 +18,7 @@
 module Fluentd
   module Plugins
 
-    class FileBufferChunk < Chunks::BasicChunk
+    class FileBufferChunk < Buffers::BasicChunk
       def initialize(path, unique_id)
         @path = path
         @unique_id = unique_id

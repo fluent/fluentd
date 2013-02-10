@@ -139,7 +139,7 @@ module Fluentd
     end
 
     def load_plugins
-      dir = File.join(File.dirname(__FILE__), 'plugins')
+      dir = File.join(File.dirname(__FILE__), '../plugins')
       load_plugin_dir(dir)
       load_gem_plugins
     end

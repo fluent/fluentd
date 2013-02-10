@@ -16,16 +16,22 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Chunks
 
-    here = File.expand_path(File.dirname(__FILE__))
+  here = File.expand_path(File.dirname(__FILE__))
 
-    {
-      :BasicChunk => 'chunks/basic_chunk',
-      #:OneChunk => 'chunks/one_chunk',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
+  {
+    :Buffers => 'api/buffers',
+    :Collector => 'api/collector',
+    :Collectors => 'api/collectors',
+    :Writer => 'api/writer',
+    :Writers => 'api/writers',
+    :MultiWriter => 'api/multi_writer',
+    :Inputs => 'api/inputs',
+    :Outputs => 'api/outputs',
+    :ConfigError => 'api/errors',
+    :ConfigParseError => 'api/errors',
+  }.each_pair {|k,v|
+    autoload k, File.join(here, v)
+  }
 
-  end
 end
