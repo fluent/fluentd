@@ -24,5 +24,6 @@ Gem::Specification.new do |s|
   s.add_dependency "yajl-ruby", ["~> 1.0"]
   s.add_dependency "http_parser.rb", ["~> 0.5.1"]
   s.add_dependency 'cool.io', ['~> 1.1.0']
-  s.add_dependency 'celluloid-io', ['~> 0.12.0']
+  s.add_dependency 'nio4r', ['~> 0.4.3']
+  s.add_dependency 'timers', ['~> 1.1.0']
 end
