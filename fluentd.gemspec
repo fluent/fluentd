@@ -20,8 +20,9 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rspec', ['>= 2.10.0']
   s.add_development_dependency 'yard', ['~> 0.8']
   s.add_development_dependency 'simplecov', ['~> 0.6.4']
-  s.add_development_dependency 'cool.io', ['~> 1.1.0']
   s.add_dependency 'msgpack', ['~> 0.4.7']
   s.add_dependency "yajl-ruby", ["~> 1.0"]
   s.add_dependency "http_parser.rb", ["~> 0.5.1"]
+  s.add_dependency 'cool.io', ['~> 1.1.0']
+  s.add_dependency 'celluloid-io', ['~> 0.12.0']
 end
