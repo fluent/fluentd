@@ -20,6 +20,8 @@ module Fluentd
   here = File.expand_path(File.dirname(__FILE__))
 
   {
+    :Actor => 'api/actor',
+    :ActorAgentMixin => 'api/actor',
     :Buffers => 'api/buffers',
     :Collector => 'api/collector',
     :Collectors => 'api/collectors',

@@ -110,6 +110,9 @@ module Fluentd
   end
 
   class BasicActor
+    require 'timers'
+    require 'nio'
+
     class IOKey
       def initialize(actor, monitor, io)
         @actor = actor
@@ -148,10 +151,12 @@ module Fluentd
     end
 
     def shutdown
-      unless @selector.closed?
-        @selector.wakeup
-        @selector.close
-      end
+      async {
+        unless @selector.closed?
+          @selector.close
+          @selector.wakeup
+        end
+      }.join
       if @thread
         @thread.join
         @thread = nil
@@ -192,11 +197,7 @@ module Fluentd
     end
 
     def wait_interval
-      t1 = @timers.wait_interval
-      t2 = @selector.wait_interval
-      return t2 if !t1
-      return t1 if !t2
-      return t1 < t2 ? t1 : t2
+      @timers.wait_interval
     end
 
     def watch_readable(io, &block)
@@ -241,7 +242,9 @@ module Fluentd
     end
 
     def async(&block)
-      @async.submit(block)
+      f = @async.submit(block)
+      @selector.wakeup
+      return f
     end
 
     def parallel(&block)
@@ -290,6 +293,26 @@ module Fluentd
 
   class Actor < BasicActor
     include SocketActorMixIn
+  end
+
+
+  module ActorAgentMixin
+    def initialize
+      @actor = Actor.new
+      super
+    end
+
+    attr_reader :actor
+
+    def start
+      super
+      @actor.start
+    end
+
+    def shutdown
+      @actor.shutdown
+      super
+    end
   end
 
 end

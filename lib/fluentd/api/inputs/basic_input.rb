@@ -20,6 +20,7 @@ module Fluentd
 
     class BasicInput < Agent
       include StreamSource
+      include ActorAgentMixin
     end
 
   end
