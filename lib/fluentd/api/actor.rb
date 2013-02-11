@@ -253,7 +253,7 @@ module Fluentd
   end
 
 
-  module SocketActorMixIn
+  module SocketActorMixin
     def create_tcp_thread_server(bind, port, &block)
       listen_tcp(bind, port) {|s|
         begin
@@ -292,7 +292,7 @@ module Fluentd
 
 
   class Actor < BasicActor
-    include SocketActorMixIn
+    include SocketActorMixin
   end
 
 
@@ -309,7 +309,7 @@ module Fluentd
       @actor.start
     end
 
-    def shutdown
+    def stop
       @actor.shutdown
       super
     end

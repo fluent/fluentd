@@ -34,6 +34,7 @@ module Fluentd
 
     def configure(conf)
       # TODO default_process_group
+      super
     end
 
     def add_agent(agent)

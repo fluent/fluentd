@@ -30,10 +30,12 @@ module Fluentd
     # TODO multi_process?
 
     def configure(conf)
+      @log = conf.log
       # TODO process_group
       if gr = conf['process_group']
         @process_groups = [gr]
       end
+      super
     end
 
     def start

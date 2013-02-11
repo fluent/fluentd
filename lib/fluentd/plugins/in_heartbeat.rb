@@ -19,7 +19,6 @@ module Fluentd
   module Builtin
 
     class HeartbeatInput < Inputs::BasicInput
-
       Plugin.register_input(:heartbeat, self)
 
       def initialize
@@ -28,16 +27,8 @@ module Fluentd
         @finish_flag = BlockingFlag.new
       end
 
-      def configure(conf)
-        super
-
-        @log = conf.log
-
-        @tag = conf['tag'] || 'heartbeat'
-
-        json = conf['message'] || '{"heartbeat":1}'
-        @message = JSON.load(json)
-      end
+      config_param :tag, :string
+      config_param :message, :hash
 
       def start
         @thread = Thread.new(&method(:run))

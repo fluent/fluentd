@@ -38,12 +38,11 @@ module Fluentd
         }
 
         type = opts[:type]
-
         if (block && type) || (!block && !type)
           raise ArgumentError, "wrong number of arguments (#{1+args.length} for #{block ? 2 : 3})"
         end
 
-        block ||= ConfigTypes.new_converter(type, opts)
+        block ||= ConfigTypeSchema.new.build(type, opts)
 
         params = config_params_set
         params.delete(name)
@@ -57,25 +56,35 @@ module Fluentd
         attr_accessor name
       end
 
+      def config_set_default(name, defval)
+        name = name.to_sym
+
+        defaults = config_defaults_set
+        defaults.delete(name)
+        defaults[name] = defval
+
+        nil
+      end
+
       def config_params
-        singleton_value(:_config_params)
+        recursive_singleton_hash_merge(:_config_params)
       end
 
       def config_defaults
-        singleton_value(:_config_defaults)
+        recursive_singleton_hash_merge(:_config_defaults)
       end
 
       private
 
       def config_params_set
-        singleton_value_set(:_config_params)
+        singleton_hash_set(:_config_params)
       end
 
       def config_defaults_set
-        singleton_value_set(:_config_defaults)
+        singleton_hash_set(:_config_defaults)
       end
 
-      def singleton_value_set(name)
+      def singleton_hash_set(name)
         if methods(false).include?(name)
           __send__(name)
         else
@@ -85,7 +94,7 @@ module Fluentd
         end
       end
 
-      def singleton_value(name)
+      def recursive_singleton_hash_merge(name)
         val = {}
         ancestors.reverse_each {|c|
           if c.methods(false).include?(name)
@@ -119,40 +128,43 @@ module Fluentd
     end
   end
 
-  module ConfigTypes
+  class ConfigTypeSchema
     # TODO add converters for array<T>, hash<K,V>, any, etc.
-    def self.new_converter(type, opts)
+    def build(type, opts)
+      m = self
       case type
       when :string, nil
-        lambda {|val| convert_string(val, opts) }
+        Proc.new {|val| m.convert_string(val, opts) }
       when :integer
-        lambda {|val| convert_integer(val, opts) }
+        Proc.new {|val| m.convert_integer(val, opts) }
       when :float
-        lambda {|val| convert_float(val, opts) }
+        Proc.new {|val| m.convert_float(val, opts) }
       when :size
-        lambda {|val| convert_size(val, opts) }
+        Proc.new {|val| m.convert_size(val, opts) }
       when :bool
-        lambda {|val| convert_bool(val, opts) }
+        Proc.new {|val| m.convert_bool(val, opts) }
       when :time
-        lambda {|val| convert_time(val, opts) }
+        Proc.new {|val| m.convert_time(val, opts) }
+      when :hash
+        Proc.new {|val| m.convert_hash(val, opts) }
       else
         raise ArgumentError, "unknown config_param type `#{type}'"
       end
     end
 
-    def self.convert_string(val, opts)
+    def convert_string(val, opts)
       val.to_s
     end
 
-    def self.convert_integer(val, opts)
+    def convert_integer(val, opts)
       val.to_i
     end
 
-    def self.convert_float(val, opts)
+    def convert_float(val, opts)
       val.to_i
     end
 
-    def self.convert_size(val, opts)
+    def convert_size(val, opts)
       case str.to_s
       when /([0-9]+)k/i
         $~[1].to_i * 1024
@@ -167,7 +179,7 @@ module Fluentd
       end
     end
 
-    def self.convert_bool(val, opts)
+    def convert_bool(val, opts)
       case str.to_s
       when 'true', 'yes'
         true
@@ -178,7 +190,7 @@ module Fluentd
       end
     end
 
-    def self.convert_time(val, opts)
+    def convert_time(val, opts)
       case str.to_s
       when /([0-9]+)s/
         $~[1].to_i
@@ -190,6 +202,17 @@ module Fluentd
         $~[1].to_i * 24*60*60
       else
         str.to_f
+      end
+    end
+
+    def convert_hash(val, opts)
+      case val
+      when Hash
+        val
+      when String
+        JSON.load(val)
+      else
+        raise ConfigError, "hash required but got #{val.inspect}"
       end
     end
   end
