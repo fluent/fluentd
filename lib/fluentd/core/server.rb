@@ -125,6 +125,7 @@ module Fluentd
         end
 
         sig.trap :QUIT do
+          Supervisor.show_thread_dump
           stop(true)
         end
 

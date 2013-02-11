@@ -105,6 +105,17 @@ module Fluentd
       send_signal(:INT)
     end
 
+    def self.show_thread_dump(dev=STDERR)
+      Thread.list.each {|t|
+        dev.write "Thread:#{t.object_id} status=#{t.status}\n"
+        t.backtrace.each {|bt|
+          dev.write "  #{bt}\n"
+        }
+      }
+      dev.puts ""
+      nil
+    end
+
     private
     def start_server
       # TODO supervisor <-> fluentd-engine heartbeat
@@ -168,6 +179,7 @@ module Fluentd
         end
 
         sig.trap :QUIT do
+          Supervisor.show_thread_dump
           stop(true)
         end
 
