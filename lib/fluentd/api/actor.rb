@@ -158,7 +158,6 @@ module Fluentd
     def shutdown
       unless @selector.closed?
         @selector.close
-        #@selector.wakeup
       end
       if @thread
         @thread.join

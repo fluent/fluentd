@@ -224,6 +224,8 @@ module Fluentd
           }
           @started_agents.clear
 
+          sleep 1  # TODO
+
           @agents.each {|agent|
             agent.shutdown
           }
