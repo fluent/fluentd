@@ -109,10 +109,11 @@ module Fluentd
     end
 
     def self.show_thread_dump(dev=STDERR)
+      puts "Thread dump pid=#{Process.pid}"
       Thread.list.each {|t|
-        dev.write "Thread:#{t.object_id} status=#{t.status}\n"
+        dev.write "  Thread:#{t.object_id} status=#{t.status}\n"
         t.backtrace.each {|bt|
-          dev.write "  #{bt}\n"
+          dev.write "    #{bt}\n"
         }
       }
       dev.puts ""
