@@ -30,8 +30,6 @@ module Fluentd
 
       @handlers = {}
       @queue = []
-      @mutex = Mutex.new
-      @cond = ConditionVariable.new
       @finished = false
 
       block.call(self) if block
@@ -65,7 +63,7 @@ module Fluentd
 
     def stop
       @finished = true
-      enqueue(nil)  # TODO causes recursive lock?
+      self
     end
 
     def shutdown
@@ -76,44 +74,28 @@ module Fluentd
     def run
       @owner_thread = Thread.current
       until @finished
-        h = nil
-        @mutex.synchronize do
-          while @queue.empty?
-            @cond.wait(@mutex, 0.5)
-          end
-          sig = @queue.shift
-          if sig == nil
-            @finished = true
-          else
-            h = @handlers[sig]
-          end
-        end
+        sleep 0.5
 
-        begin
-          h.call if h
-        rescue
-          STDERR.print "#{$!}\n"
-          $!.backtrace.each {|bt|
-            STDERR.print "\t#{bt}\n"
-            STDERR.flush
-          }
+        while sig = @queue.shift
+          h = @handlers[sig]
+          next unless h
+
+          begin
+            h.call
+          rescue
+            STDERR.print "#{$!}\n"
+            $!.backtrace.each {|bt|
+              STDERR.print "\t#{bt}\n"
+              STDERR.flush
+            }
+          end
         end
       end
     end
 
     private
     def enqueue(sig)
-      if Thread.current == @owner_thread
-        @queue << sig
-        if @mutex.locked?
-          @cond.signal
-        end
-      else
-        @mutex.synchronize do
-          @queue << sig
-          @cond.signal
-        end
-      end
+      @queue << sig
     end
   end
 
