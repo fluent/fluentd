@@ -21,47 +21,26 @@ module Fluentd
     class HeartbeatInput < Inputs::BasicInput
       Plugin.register_input(:heartbeat, self)
 
-      def initialize
-        super
-        @mutex = Mutex.new
-        @finish_flag = BlockingFlag.new
-      end
-
       config_param :tag, :string
       config_param :message, :hash
 
       def start
-        @thread = Thread.new(&method(:run))
-      end
-
-      def stop
-        @finish_flag.set!
-        if @thread
-          @thread.join
-          @thread = nil
-        end
-      end
-
-      def shutdown
-        #stop
+        actor.every 0.5, &method(:emit_message)
+        super
       end
 
       private
-      def run
-        until @finish_flag.set?
-          begin
-            w = stream_source.open(@tag)
-            begin
-              w.append(Time.now.to_i, @message)
-            ensure
-              w.close
-            end
-          rescue
-            @log.error "emit error: #{$!}"
-            @log.warn_backtrace
-          end
-          @finish_flag.wait(0.5)
+
+      def emit_message
+        w = stream_source.open(@tag)
+        begin
+          w.append(Time.now.to_i, @message)
+        ensure
+          w.close
         end
+      rescue
+        @log.error "emit error: #{$!}"
+        @log.warn_backtrace
       end
     end
 

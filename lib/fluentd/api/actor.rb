@@ -82,7 +82,12 @@ module Fluentd
     end
 
     def run_once
-      while task = @queue.pop(true)
+      while true
+        begin
+          task = @queue.pop(true)
+        rescue ThreadError
+          break
+        end
         task.call
       end
       nil
@@ -142,7 +147,7 @@ module Fluentd
       @timers = Timers.new
       @selector = NIO::Selector.new
       @async = AsyncExecutor.new
-      @parallel = ThreadExecutor.new
+      @background = ThreadExecutor.new
     end
 
     def start
@@ -151,12 +156,10 @@ module Fluentd
     end
 
     def shutdown
-      async {
-        unless @selector.closed?
-          @selector.close
-          @selector.wakeup
-        end
-      }.join
+      unless @selector.closed?
+        @selector.close
+        #@selector.wakeup
+      end
       if @thread
         @thread.join
         @thread = nil
@@ -168,22 +171,30 @@ module Fluentd
       until @selector.closed?
         run_once
       end
+    rescue
+      # TODO log
+      STDERR.puts $!
+      $!.backtrace.each {|bt|
+        STDERR.puts "  #{bt}"
+      }
     end
 
     def run_once
       set = @selector.select(wait_interval)
 
-      set.each {|monitor|
-        begin
-          monitor.call  # `call` is defined at watch_io method
-        rescue
-          handle_io_error(monitor.io, $!)
-        end
+      if set
+        set.each {|monitor|
+          begin
+            monitor.call  # `call` is defined at watch_io method
+          rescue
+            handle_io_error(monitor.io, $!)
+          end
 
-        if monitor.io.closed?
-          monitor.close
-        end
-      }
+          if monitor.io.closed?
+            monitor.close
+          end
+        }
+      end
 
       @timers.fire
       @async.run_once
@@ -216,7 +227,7 @@ module Fluentd
       return IOKey.new(self, monitor, io)
     end
 
-    def timer(interval_sec, &block)
+    def every(interval_sec, &block)
       timer = @timers.every(interval_sec, &block)
       return TimerKey.new(self, timer)
     end
@@ -247,8 +258,8 @@ module Fluentd
       return f
     end
 
-    def parallel(&block)
-      @parallel.submit(block)
+    def background(&block)
+      @background.submit(block)
     end
   end
 
@@ -258,7 +269,7 @@ module Fluentd
       listen_tcp(bind, port) {|s|
         begin
           io = s.accept_nonblock
-          parallel(io, &block)
+          background(io, &block)
         rescue Errno::EAGAIN, Errno::EINTR
         end
       }
@@ -268,7 +279,7 @@ module Fluentd
       listen_unix(bind, port) {|s|
         begin
           io = s.accept_nonblock
-          parallel(io, &block)
+          background(io, &block)
         rescue Errno::EAGAIN, Errno::EINTR
         end
       }

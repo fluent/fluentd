@@ -36,8 +36,8 @@ module Fluentd
     def self.new(config)
       # TODO config or environment switches implementations
       #SimpleProcessManager.new
-      MultiprocessManager.new
-      #SingleprocessManager.new
+      #MultiprocessManager.new
+      SingleprocessManager.new
     end
 
   end
