@@ -21,10 +21,6 @@ module Fluentd
     class StdoutOutput < Outputs::BasicOutput
       Plugin.register_output(:stdout, self)
 
-      def configure(conf)
-        super
-      end
-
       def open(tag)
         return Writers::SimpleWriter.new(self, tag)
       end

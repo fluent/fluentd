@@ -161,7 +161,7 @@ module Fluentd
     end
 
     def convert_float(val, opts)
-      val.to_i
+      val.to_f
     end
 
     def convert_size(val, opts)

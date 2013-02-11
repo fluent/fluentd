@@ -18,8 +18,6 @@
 module Fluentd
 
   class Engine
-    #include Configurable
-
     def initialize(conf)
       @conf = conf
       @log = conf.log

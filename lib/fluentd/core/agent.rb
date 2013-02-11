@@ -31,10 +31,12 @@ module Fluentd
 
     def configure(conf)
       @log = conf.log
+
       # TODO process_group
       if gr = conf['process_group']
         @process_groups = [gr]
       end
+
       super
     end
 

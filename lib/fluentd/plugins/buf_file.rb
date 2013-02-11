@@ -50,11 +50,10 @@ module Fluentd
         super
       end
 
+      config_param :buffer_path, :string
+
       def configure(conf)
         super
-
-        # TODO Configurable
-        @buffer_path = conf['buffer_path']
 
         @buffer_path_prefix = @buffer_path+"."
         @buffer_path_suffix = ".log"

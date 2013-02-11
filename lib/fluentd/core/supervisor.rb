@@ -27,8 +27,6 @@ module Fluentd
       new(conf, &block).run
     end
 
-    #include Configurable
-
     def initialize(conf=nil, &block)
       if conf
         if conf.is_a?(Config)
@@ -47,10 +45,15 @@ module Fluentd
       @log = Logger.new(STDERR)
     end
 
+    #include Configurable
+
     def configure(conf)
       @child_detach_wait = conf['child_detach_wait'] || 10.0
       @child_restart_wait = conf['child_restart_wait'] || 1.0
       @child_restart_limit = conf['child_restart_limit'] || nil
+      @child_detach_wait = @child_detach_wait.to_f
+      @child_restart_wait = @child_restart_wait.to_f
+      @child_restart_limit = @child_restart_limit.to_f if @child_restart_limit
     end
 
     def run
