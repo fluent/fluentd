@@ -49,8 +49,7 @@ module Fluentd
         params[name] = [block, opts]
 
         if opts.has_key?(:default)
-          # TODO
-          #config_set_default(name, opts[:default])
+          config_set_default(name, opts[:default])
         end
 
         attr_accessor name

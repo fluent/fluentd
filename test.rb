@@ -11,6 +11,10 @@ conf = <<EOF
   </error>
 </source>
 
+<source>
+  type forward
+</source>
+
 <filter **>
   type copy
   process_group remotex

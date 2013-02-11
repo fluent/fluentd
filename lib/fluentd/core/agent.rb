@@ -23,6 +23,7 @@ module Fluentd
 
     def initialize
       @process_groups = []
+      super
     end
 
     attr_reader :process_groups

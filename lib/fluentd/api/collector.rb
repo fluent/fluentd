@@ -35,6 +35,15 @@ module Fluentd
       end
     end
 
+    def append(tag, time, record)
+      w = open
+      begin
+        w.append(tag, time, record)
+      ensure
+        w.close
+      end
+    end
+
     private
     def ensure_close(writer, block)
       begin
