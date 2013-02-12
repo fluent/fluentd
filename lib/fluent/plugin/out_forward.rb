@@ -128,14 +128,6 @@ class ForwardOutput < ObjectBufferedOutput
     $log.error_backtrace
   end
 
-  # override BufferedOutput#emit
-  def emit(tag, es, chain)
-    data = es.to_msgpack_stream
-    if @buffer.emit(tag, data, chain)  # use key = tag
-      submit_flush
-    end
-  end
-
   def write_objects(tag, es)
     error = nil
 
