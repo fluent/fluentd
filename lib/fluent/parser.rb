@@ -141,7 +141,7 @@ class TextParser
     config_param :label_delimiter, :string, :default =>  ":"
 
     def configure(conf)
-      conf['keys'] = ''
+      conf['keys'] = conf['time_key'] || ''
       super(conf)
     end
 
