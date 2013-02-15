@@ -166,5 +166,20 @@ module ParserTest
         'req'  => 'GET /list HTTP/1.1',
       }, record)
     end
+
+    def test_call_with_customized_time_format
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure(
+        'time_key'    => 'time',
+        'time_format' => '[%d/%b/%Y:%H:%M:%S %z]',
+      )
+      time, record = parser.call("time:[28/Feb/2013:12:00:00 +0900]\thost:192.168.0.1\treq:GET /list HTTP/1.1")
+
+      assert_equal({
+        'time' => '[28/Feb/2013:12:00:00 +0900]',
+        'host' => '192.168.0.1',
+        'req'  => 'GET /list HTTP/1.1',
+      }, record)
+    end
   end
 end
