@@ -22,20 +22,25 @@ module Fluent
 class StatusClass
   def initialize
     @entries = {}
+    @mutex = Mutex.new
   end
 
   def register(instance, name, &block)
-    (@entries[instance.object_id] ||= {})[name] = block
+    @mutex.synchronize {
+      (@entries[instance.object_id] ||= {})[name] = block
+    }
     nil
   end
 
   def each(&block)
-    @entries.each {|obj_id,hash|
-      record = {}
-      hash.each_pair {|name,block|
-        record[name] = block.call
+    @mutex.synchronize {
+      @entries.each {|obj_id,hash|
+        record = {}
+        hash.each_pair {|name,block|
+          record[name] = block.call
+        }
+        block.call(record)
       }
-      block.call(record)
     }
   end
 end
