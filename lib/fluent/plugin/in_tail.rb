@@ -459,12 +459,14 @@ class TailInput < Input
 
     def read_inode
       @file.pos = @seek + INO_OFFSET
-      @file.read(8).to_i(16)
+      raw = @file.read(8)
+      raw ? raw.to_i(16) : 0
     end
 
     def read_pos
       @file.pos = @seek
-      @file.read(16).to_i(16)
+      raw = @file.read(16)
+      raw ? raw.to_i(16) : 0
     end
   end
 
