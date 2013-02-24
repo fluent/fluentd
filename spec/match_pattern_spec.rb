@@ -1,3 +1,5 @@
+require 'spec_helper'
+
 include Fluentd
 
 describe MatchPattern do

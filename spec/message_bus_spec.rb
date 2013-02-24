@@ -1,3 +1,4 @@
+require 'spec_helper'
 
 describe Fluentd::MessageBus do
   let(:root_bus) { Fluentd::LabeledMessageBus.new }
