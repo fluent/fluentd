@@ -1,3 +1,4 @@
+require 'spec_helper'
 require "spec/config/helper"
 
 describe Fluentd::Config::Parser do
