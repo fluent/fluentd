@@ -1,4 +1,13 @@
 
+Release 0.10.32 - 2013/03/04
+
+* in_tail: fixed the nil error problem which occurs with pos_file option
+* TextParser/in_tail: supports 'ltsv' (Labeled Tab-Separated Values) format: http://ltsv.org
+* #105: TextParser/in_tail: fixed 'nginx' format
+* #102: show log level in log messages
+* Gemfile: uses https source of rubygems instead of http
+
+
 Release 0.10.31 - 2013/01/31
 
 * out_forward: supports TCP heartbeat
