@@ -12,7 +12,7 @@ begin
     gemspec.homepage = "http://fluentd.org/"
     gemspec.has_rdoc = false
     gemspec.require_paths = ["lib"]
-    gemspec.add_dependency "msgpack", ">= 0.4.4", "!= 0.5.0", "!= 0.5.1", "!= 0.5.2", "!= 0.5.3"
+    gemspec.add_dependency "msgpack", ">= 0.4.4", "!= 0.5.0", "!= 0.5.1", "!= 0.5.2", "!= 0.5.3", "< 0.6.0"
     gemspec.add_dependency "json", ">= 1.4.3"
     gemspec.add_dependency "yajl-ruby", "~> 1.0"
     gemspec.add_dependency "cool.io", "~> 1.1.0"
