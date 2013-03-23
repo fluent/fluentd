@@ -46,7 +46,7 @@ op.on('-c', '--config PATH', "config file path (default: #{Fluent::DEFAULT_CONFI
   opts[:config_path] = s
 }
 
-op.on('-u', '--remote-config URL', "remote config url") {|s|
+op.on('-u', '--remote-config URL', "URL of remote config") {|s|
   opts[:remote_config] = s
 }
 
@@ -82,7 +82,7 @@ op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to
   opts[:inline_config] = s
 }
 
-op.on('-t', '--timeout TIMEOUT', "timeout for load remote config file (default: #{Fluent::DEFAULT_TIMEOUT})") {|s|
+op.on('-t', '--timeout TIMEOUT', "timeout interval when get remote config (default: #{Fluent::DEFAULT_TIMEOUT})") {|s|
   opts[:timeout] = s
 }
 
