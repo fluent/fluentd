@@ -59,6 +59,7 @@ class Supervisor
 
   def initialize(opt)
     @config_path = opt[:config_path]
+    @remote_config = opt[:remote_config]
     @log_path = opt[:log_path]
     @log_level = opt[:log_level]
     @daemonize = opt[:daemonize]
@@ -67,6 +68,7 @@ class Supervisor
     @libs = opt[:libs]
     @plugin_dirs = opt[:plugin_dirs]
     @inline_config = opt[:inline_config]
+    @timeout = opt[:timeout]
 
     @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
     @finished = false
@@ -232,15 +234,33 @@ class Supervisor
   end
 
   def read_config
-    $log.info "reading config file", :path=>@config_path
-    @config_fname = File.basename(@config_path)
-    @config_basedir = File.dirname(@config_path)
-    @config_data = File.read(@config_path)
+    if @remote_config
+      read_remote_config
+    else
+      $log.info "reading config file", :path=>@config_path
+      @config_fname = File.basename(@config_path)
+      @config_basedir = File.dirname(@config_path)
+      @config_data = File.read(@config_path)
+    end
+
     if @inline_config == '-'
       @config_data << "\n" << STDIN.read
     elsif @inline_config
       @config_data << "\n" << @inline_config.gsub("\\n","\n")
     end
+  end
+
+  def read_remote_config
+    $log.info "get remote config from", :url=>@remote_config
+
+    begin
+      data = open(@remote_config, {:read_timeout => @timeout.to_i}).read
+    rescue => e
+      $log.error "#{e} when get remote config from", :url=>@remote_config
+      exit 1
+    end
+
+    @config_data = data
   end
 
   def run_configure
