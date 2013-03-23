@@ -35,6 +35,7 @@ opts = {
   :setup_path => nil,
   :chuser => nil,
   :chgroup => nil,
+  :timeout => Fluent::DEFAULT_TIMEOUT,
 }
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
@@ -43,6 +44,10 @@ op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "insta
 
 op.on('-c', '--config PATH', "config file path (default: #{Fluent::DEFAULT_CONFIG_PATH})") {|s|
   opts[:config_path] = s
+}
+
+op.on('-u', '--remote-config URL', "URL of remote config") {|s|
+  opts[:remote_config] = s
 }
 
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
@@ -75,6 +80,10 @@ op.on('-o', '--log PATH', "log file path") {|s|
 
 op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-fly") {|s|
   opts[:inline_config] = s
+}
+
+op.on('-t', '--timeout TIMEOUT', "timeout interval when get remote config (default: #{Fluent::DEFAULT_TIMEOUT})") {|s|
+  opts[:timeout] = s
 }
 
 
