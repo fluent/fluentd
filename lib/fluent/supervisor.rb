@@ -182,11 +182,11 @@ class Supervisor
       block.call
 
     rescue Fluent::ConfigError
-      $log.error "config error", :file=>@config_path, :error=>$!.to_s
+      $log.error "config error", :file=>(@remote_config || @config_path), :error=>$!.to_s
       $log.debug_backtrace
       unless @log.stdout?
         console = Fluent::Log.new(STDOUT, @log_level).enable_debug
-        console.error "config error", :file=>@config_path, :error=>$!.to_s
+        console.error "config error", :file=>(@remote_config || @config_path), :error=>$!.to_s
         console.debug_backtrace
       end
 
