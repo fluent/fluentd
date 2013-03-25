@@ -65,61 +65,53 @@ class MonitorAgentInput < Input
           return render_json_error(400, "Invalid query string")
         end
       else
-        qs = {}
+        qs = Hash.new {|h,k| [] }
+      end
+
+      opts = {}
+      if s = qs['debug'] and s[0]
+        opts[:with_debug_info] = true
+        opts[:pretty_json] = true
       end
 
       if tags = qs['tag'] and tag = tags[0]
-        if obj = @agent.plugin_info_by_tag(tag)
+        if obj = @agent.plugin_info_by_tag(tag, opts)
           list = [obj]
         else
           list = []
         end
 
       elsif plugin_ids = qs['id'] and plugin_id = plugin_ids[0]
-        if obj = @agent.plugin_info_by_id(plugin_id)
+        if obj = @agent.plugin_info_by_id(plugin_id, opts)
           list = [obj]
         else
           list = []
         end
 
       elsif types = qs['type'] and type = types[0]
-        list = @agent.plugins_info_by_type(type)
+        list = @agent.plugins_info_by_type(type, opts)
 
       else
-        list = @agent.plugins_info_all
+        list = @agent.plugins_info_all(opts)
       end
 
       render_json({
         'plugins' => list
-      })
+      }, opts)
     end
 
-    def render_json(obj)
-      render_json_error(200, obj)
+    def render_json(obj, opts={})
+      render_json_error(200, obj, opts)
     end
 
-    def render_json_error(code, obj)
-      if @agent.debug_mode?
+    def render_json_error(code, obj, opts={})
+      if opts[:pretty_json]
         js = JSON.pretty_generate(obj)
       else
         js = obj.to_json
-        js = JSON.pretty_generate(obj)
       end
       [code, {'Content-Type'=>'application/json'}, js]
     end
-  end
-
-  def configure(conf)
-    if conf['debug']
-      @debug = true
-    else
-      @debug = false
-    end
-    super
-  end
-
-  def debug_mode?
-    @debug
   end
 
   def start
@@ -148,6 +140,7 @@ class MonitorAgentInput < Input
   MONITOR_INFO = {
     'plugin_id' => 'plugin_id',
     'type' => 'config["type"]',
+    'output_plugin' => 'is_a?(::Fluent::Output)',
     'buffer_queue_size' => '@buffer.queue_size',
     'retry_count' => '@error_history.size',
     'config' => 'config',
@@ -175,43 +168,43 @@ class MonitorAgentInput < Input
     array
   end
 
-  def plugins_info_all
+  def plugins_info_all(opts={})
     all_plugins.map {|pe|
-      get_monitor_info(pe)
+      get_monitor_info(pe, opts)
     }
   end
 
-  def plugin_info_by_tag(tag)
+  def plugin_info_by_tag(tag, opts={})
     m = Engine.match(tag)
     if m
       pe = m.output
-      get_monitor_info(pe)
+      get_monitor_info(pe, opts)
     else
       nil
     end
   end
 
-  def plugin_info_by_id(plugin_id)
+  def plugin_info_by_id(plugin_id, opts={})
     found = all_plugins.find {|pe|
       pe.respond_to?(:plugin_id) && pe.plugin_id.to_s == plugin_id
     }
     if found
-      get_monitor_info(pe)
+      get_monitor_info(pe, opts)
     else
       nil
     end
   end
 
-  def plugins_info_by_type(type)
+  def plugins_info_by_type(type, opts={})
     array = all_plugins.select {|pe|
       pe.config['type'] == type rescue nil
     }
     array.map {|pe|
-      get_monitor_info(pe)
+      get_monitor_info(pe, opts)
     }
   end
 
-  def get_monitor_info(pe)
+  def get_monitor_info(pe, opts={})
     obj = {}
     MONITOR_INFO.each_pair {|key,code|
       begin
@@ -220,7 +213,7 @@ class MonitorAgentInput < Input
       end
     }
 
-    if debug_mode?
+    if opts[:with_debug_info]
       # include all instance variables
       iv = {}
       pe.instance_eval do
