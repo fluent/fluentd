@@ -233,6 +233,8 @@ end
 
 
 module Configurable
+  attr_reader :config
+
   def self.included(mod)
     mod.extend(ClassMethods)
   end
@@ -245,6 +247,8 @@ module Configurable
   end
 
   def configure(conf)
+    @config = conf
+
     self.class.config_params.each_pair {|name,(block,opts)|
       varname = :"@#{name}"
       if val = conf[name.to_s]
