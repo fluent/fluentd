@@ -48,6 +48,7 @@ end
 
 class Output
   include Configurable
+  include PluginId
 
   def initialize
     super

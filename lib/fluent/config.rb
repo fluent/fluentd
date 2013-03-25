@@ -360,5 +360,24 @@ module Configurable
 end
 
 
+module PluginId
+  def configure(conf)
+    @id = conf['id']
+    super
+  end
+
+  def require_id
+    unless @id
+      raise ConfigError, "'id' parameter is required"
+    end
+    @id
+  end
+
+  def plugin_id
+    @id ? @id : "object:#{object_id.to_s(16)}"
+  end
+end
+
+
 end
 

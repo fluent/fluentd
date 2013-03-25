@@ -20,20 +20,21 @@ module Fluent
 
 class Input
   include Configurable
+  include PluginId
 
-	def initialize
+  def initialize
     super
-	end
+  end
 
-	def configure(conf)
+  def configure(conf)
     super
-	end
+  end
 
-	def start
-	end
+  def start
+  end
 
-	def shutdown
-	end
+  def shutdown
+  end
 end
 
 
