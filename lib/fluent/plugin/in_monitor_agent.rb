@@ -46,6 +46,7 @@ class MonitorAgentInput < Input
         })
       end
 
+      # set response code, header and body
       res.status = code
       header.each_pair {|k,v|
         res[k] = v
@@ -54,10 +55,11 @@ class MonitorAgentInput < Input
     end
 
     def process_GET(req, res)
-      unless req.path_info == "/api/plugins"
+      unless req.path_info == ""
         return [404, {'Content-Type'=>'text/plain'}, '404 Not found']
       end
 
+      # parse ?=query string
       if req.query_string
         begin
           qs = CGI.parse(req.query_string)
@@ -68,6 +70,8 @@ class MonitorAgentInput < Input
         qs = Hash.new {|h,k| [] }
       end
 
+      # if ?debug=1 is set, set :with_debug_info for get_monitor_info
+      # and :pretty_json for render_json_error
       opts = {}
       if s = qs['debug'] and s[0]
         opts[:with_debug_info] = true
@@ -75,6 +79,7 @@ class MonitorAgentInput < Input
       end
 
       if tags = qs['tag'] and tag = tags[0]
+        # ?tag= to search an output plugin by match pattern
         if obj = @agent.plugin_info_by_tag(tag, opts)
           list = [obj]
         else
@@ -82,6 +87,7 @@ class MonitorAgentInput < Input
         end
 
       elsif plugin_ids = qs['id'] and plugin_id = plugin_ids[0]
+        # ?id= to search a plugin by 'id <plugin_id>' config param
         if obj = @agent.plugin_info_by_id(plugin_id, opts)
           list = [obj]
         else
@@ -89,9 +95,11 @@ class MonitorAgentInput < Input
         end
 
       elsif types = qs['type'] and type = types[0]
+        # ?type= to search plugins by 'type <type>' config param
         list = @agent.plugins_info_by_type(type, opts)
 
       else
+        # otherwise show all plugins
         list = @agent.plugins_info_all(opts)
       end
 
@@ -118,9 +126,10 @@ class MonitorAgentInput < Input
     @srv = WEBrick::HTTPServer.new({
       :BindAddress => @bind,
       :Port => @port,
+      :Logger => WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
       :AccessLog => [],
     })
-    @srv.mount('/', MonitorServlet, self)
+    @srv.mount('/api/plugins', MonitorServlet, self)
     @thread = Thread.new {
       @srv.start
     }
@@ -146,6 +155,22 @@ class MonitorAgentInput < Input
     'config' => 'config',
   }
 
+  def all_plugins
+    array = []
+
+    # get all input plugins
+    array.concat Engine.sources
+
+    # get all output plugins
+    Engine.matches.each {|m|
+      MonitorAgentInput.collect_children(m.output, array)
+    }
+
+    array
+  end
+
+  # get nexted plugins (such as <store> of the copy plugin)
+  # from the plugin `pe` recursively
   def self.collect_children(pe, array=[])
     array << pe
     if pe.is_a?(MultiOutput) && pe.respond_to?(:outputs)
@@ -156,24 +181,8 @@ class MonitorAgentInput < Input
     array
   end
 
-  def all_plugins
-    array = []
-
-    array.concat Engine.sources
-
-    Engine.matches.each {|m|
-      MonitorAgentInput.collect_children(m.output, array)
-    }
-
-    array
-  end
-
-  def plugins_info_all(opts={})
-    all_plugins.map {|pe|
-      get_monitor_info(pe, opts)
-    }
-  end
-
+  # try to match the tag and get the info from the
+  # matched output plugin
   def plugin_info_by_tag(tag, opts={})
     m = Engine.match(tag)
     if m
@@ -184,6 +193,7 @@ class MonitorAgentInput < Input
     end
   end
 
+  # search a plugin by plugin_id
   def plugin_info_by_id(plugin_id, opts={})
     found = all_plugins.find {|pe|
       pe.respond_to?(:plugin_id) && pe.plugin_id.to_s == plugin_id
@@ -195,6 +205,8 @@ class MonitorAgentInput < Input
     end
   end
 
+  # This method returns an array because
+  # multiple plugins could have the same type
   def plugins_info_by_type(type, opts={})
     array = all_plugins.select {|pe|
       pe.config['type'] == type rescue nil
@@ -204,8 +216,17 @@ class MonitorAgentInput < Input
     }
   end
 
+  def plugins_info_all(opts={})
+    all_plugins.map {|pe|
+      get_monitor_info(pe, opts)
+    }
+  end
+
+  # get monitor info from the plugin `pe` and return a hash object
   def get_monitor_info(pe, opts={})
     obj = {}
+
+    # run MONITOR_INFO in plugins' instance context and store the info to obj
     MONITOR_INFO.each_pair {|key,code|
       begin
         obj[key] = pe.instance_eval(code)
@@ -213,12 +234,13 @@ class MonitorAgentInput < Input
       end
     }
 
+    # include all instance variables if :with_debug_info is set
     if opts[:with_debug_info]
-      # include all instance variables
       iv = {}
       pe.instance_eval do
-        instance_variables.each {|k|
-          iv[k.to_s[1..-1]] = instance_variable_get(k)
+        instance_variables.each {|sym|
+          key = sym.to_s[1..-1]  # removes first '@'
+          iv[key] = instance_variable_get(sym)
         }
       end
       obj['instance_variables'] = iv
