@@ -371,12 +371,13 @@ class BufferedOutput < Output
 
   def calc_retry_wait
     # TODO retry pattern
-    if @error_history.size <= @retry_limit
-      @retry_wait * (2 ** (@error_history.size-1))
-    else
-      # secondary retry
-      @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
-    end
+    wait = if @error_history.size <= @retry_limit
+             @retry_wait * (2 ** (@error_history.size-1))
+           else
+             # secondary retry
+             @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
+           end
+    wait + (rand * (wait / 4.0) - (wait / 8.0))
   end
 
   def write_abort
