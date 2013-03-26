@@ -164,6 +164,7 @@ class BufferedOutput < Output
   config_param :retry_limit, :integer, :default => 17
   config_param :retry_wait, :time, :default => 1.0
   config_param :num_threads, :integer, :default => 1
+  config_param :queued_chunk_flush_interval, :time, :default => 1
 
   def configure(conf)
     super
@@ -301,7 +302,7 @@ class BufferedOutput < Output
       end
 
       if has_next
-        return time  # call try_flush soon
+        return Engine.now + @queued_chunk_flush_interval
       else
         return time + 1  # TODO 1
       end
