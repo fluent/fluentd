@@ -37,7 +37,7 @@ class MonitorAgentInput < Input
 
     def do_GET(req, res)
       begin
-        code, header, body = process_GET(req, res)
+        code, header, body = process(req, res)
       rescue
         code, header, body = render_json_error(500, {
           'message '=> 'Internal Server Error',
@@ -54,9 +54,9 @@ class MonitorAgentInput < Input
       res.body = body
     end
 
-    def process_GET(req, res)
+    def build_object(req, res)
       unless req.path_info == ""
-        return [404, {'Content-Type'=>'text/plain'}, '404 Not found']
+        return render_json_error(404, "Not found")
       end
 
       # parse ?=query string
@@ -103,9 +103,7 @@ class MonitorAgentInput < Input
         list = @agent.plugins_info_all(opts)
       end
 
-      render_json({
-        'plugins' => list
-      }, opts)
+      return list, opts
     end
 
     def render_json(obj, opts={})
@@ -122,6 +120,40 @@ class MonitorAgentInput < Input
     end
   end
 
+  class LTSVMonitorServlet < MonitorServlet
+    def process(req, res)
+      list, opts = build_object(req, res)
+      return unless list
+
+      normalized = JSON.parse(list.to_json)
+
+      text = ''
+
+      normalized.map {|hash|
+        row = []
+        hash.each_pair {|k,v|
+          unless v.is_a?(Hash) || v.is_a?(Array)
+            row << "#{k}:#{v}"
+          end
+        }
+        text << row.join("\t") << "\n"
+      }
+
+      [200, {'Content-Type'=>'text/plain'}, text]
+    end
+  end
+
+  class JSONMonitorServlet < MonitorServlet
+    def process(req, res)
+      list, opts = build_object(req, res)
+      return unless list
+
+      render_json({
+        'plugins' => list
+      }, opts)
+    end
+  end
+
   def start
     $log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
     @srv = WEBrick::HTTPServer.new({
@@ -130,7 +162,8 @@ class MonitorAgentInput < Input
       :Logger => WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
       :AccessLog => [],
     })
-    @srv.mount('/api/plugins', MonitorServlet, self)
+    @srv.mount('/api/plugins', LTSVMonitorServlet, self)
+    @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
     @thread = Thread.new {
       @srv.start
     }
@@ -151,7 +184,8 @@ class MonitorAgentInput < Input
     'plugin_id' => 'plugin_id',
     'type' => 'config["type"]',
     'output_plugin' => 'is_a?(::Fluent::Output)',
-    'buffer_queue_size' => '@buffer.queue_size',
+    'buffer_queue_length' => '@buffer.queue_size',
+    'buffer_total_queued_size' => '@buffer.total_queued_chunk_size',
     'retry_count' => '@error_history.size',
     'config' => 'config',
   }

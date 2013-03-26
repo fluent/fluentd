@@ -219,6 +219,17 @@ class BasicBuffer < Buffer
     @queue.size
   end
 
+  def total_queued_chunk_size
+    total = 0
+    @map.each_value {|c|
+      total += c.size
+    }
+    @queue.each {|c|
+      total += c.size
+    }
+    total
+  end
+
   #def new_chunk(key)
   #end
 
