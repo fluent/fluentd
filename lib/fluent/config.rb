@@ -233,6 +233,8 @@ end
 
 
 module Configurable
+  attr_reader :config
+
   def self.included(mod)
     mod.extend(ClassMethods)
   end
@@ -245,6 +247,8 @@ module Configurable
   end
 
   def configure(conf)
+    @config = conf
+
     self.class.config_params.each_pair {|name,(block,opts)|
       varname = :"@#{name}"
       if val = conf[name.to_s]
@@ -352,6 +356,25 @@ module Configurable
       }
       val
     end
+  end
+end
+
+
+module PluginId
+  def configure(conf)
+    @id = conf['id']
+    super
+  end
+
+  def require_id
+    unless @id
+      raise ConfigError, "'id' parameter is required"
+    end
+    @id
+  end
+
+  def plugin_id
+    @id ? @id : "object:#{object_id.to_s(16)}"
   end
 end
 
