@@ -7,7 +7,7 @@ Gem::Specification.new do |gem|
   gem.authors       = ["Sadayuki Furuhashi"]
   gem.email         = ["frsyuki@gmail.com"]
   gem.description   = %q{Fluentd is an event collector system. It is a generalized version of syslogd, which handles JSON objects for its log messages}
-  gem.summary       = %q{Fluent event collector}
+  gem.summary       = %q{Fluentd event collector}
   gem.homepage      = "http://fluentd.org/"
 
   gem.files         = `git ls-files`.split($\)
