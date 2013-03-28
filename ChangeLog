@@ -1,4 +1,17 @@
 
+Release 0.10.33 - 2013/03/28
+
+* add in_monitor_agent
+* switched from jeweler to bundler
+* updated dependency for msgpack from '~> 0.4.4' to '~> 0.4.4 OR ~> 0.5.4'
+* dded PluginId module so that in_monitor_agent can search plugins by id
+* BufferedOutput: added queued_chunk_flush_interval option to insert delay
+time before flushing queued chunks
+* BufferedOutput: randomize retry interval to prevent multiple servers from
+bursting network traffic at the same time
+* Configurable: sets @config instance variable
+
+
 Release 0.10.32 - 2013/03/04
 
 * in_tail: fixed the nil error problem which occurs with pos_file option
