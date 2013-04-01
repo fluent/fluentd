@@ -271,7 +271,7 @@ class TailInput < Input
         @wait = wait
       end
 
-      attr_reader :io
+      attr_reader :io, :wait
 
       def tick
         @wait -= 1
