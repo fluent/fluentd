@@ -38,7 +38,7 @@ class TestDriver
   attr_reader :instance, :config
 
   def configure(str)
-    if str.is_a?(Config)
+    if str.is_a?(Fluent::Config::Element)
       @config = str
     else
       @config = Config.parse(str, "(test)")
