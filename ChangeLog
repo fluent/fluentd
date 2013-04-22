@@ -1,10 +1,10 @@
 
 Release 0.10.33 - 2013/03/28
 
-* add in_monitor_agent
+* added in_monitor_agent
 * switched from jeweler to bundler
 * updated dependency for msgpack from '~> 0.4.4' to '~> 0.4.4 OR ~> 0.5.4'
-* dded PluginId module so that in_monitor_agent can search plugins by id
+* added PluginId module so that in_monitor_agent can search plugins by id
 * BufferedOutput: added queued_chunk_flush_interval option to insert delay
 time before flushing queued chunks
 * BufferedOutput: randomize retry interval to prevent multiple servers from
