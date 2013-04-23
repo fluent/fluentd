@@ -145,7 +145,7 @@ class EngineClass
     begin
       start
 
-      if match?($log.tag)
+      if match?("#{$log.tag}.dummy")
         $log.enable_event
       end
 
