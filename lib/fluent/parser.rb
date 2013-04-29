@@ -114,7 +114,7 @@ class TextParser
       record = Hash[keys.zip(values)]
 
       if @time_key
-        value = record[@time_key]
+        value = record.delete(@time_key)
         if @time_format
           time = Time.strptime(value, @time_format).to_i
         else
