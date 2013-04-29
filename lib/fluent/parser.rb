@@ -139,9 +139,10 @@ class TextParser
   class LabeledTSVParser < ValuesParser
     config_param :delimiter,       :string, :default => "\t"
     config_param :label_delimiter, :string, :default =>  ":"
+    config_param :time_key, :string, :default =>  "time"
 
     def configure(conf)
-      conf['keys'] = conf['time_key'] || ''
+      conf['keys'] = conf['time_key'] || 'time'
       super(conf)
     end
 
