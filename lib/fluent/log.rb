@@ -241,11 +241,11 @@ class Log
   def event(level, args)
     time = Time.now
     message = ''
-    record = {'message'=>message}
+    map = {}
     args.each {|a|
       if a.is_a?(Hash)
         a.each_pair {|k,v|
-          record[k.to_s] = v
+          map[k.to_s] = v
         }
       else
         message << a.to_s
@@ -255,14 +255,14 @@ class Log
     if @self_event
       c = caller
       if c.count(c.shift) <= 0
+        record = map.dup
+        record['message'] = message.dup
         Engine.emit("#{@tag}.#{level}", time.to_i, record)
       end
     end
 
-    record.each_pair {|k,v|
-      if v.object_id != message.object_id
-        message << " #{k}=#{v.inspect}"
-      end
+    map.each_pair {|k,v|
+      message << " #{k}=#{v.inspect}"
     }
 
     return time, message
