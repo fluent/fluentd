@@ -129,6 +129,8 @@ class ForwardOutput < ObjectBufferedOutput
   end
 
   def write_objects(tag, es)
+    return if es.empty?
+
     error = nil
 
     wlen = @weight_array.length
