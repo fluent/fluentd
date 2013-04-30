@@ -151,12 +151,12 @@ module ParserTest
 
     def test_call
       parser = TextParser::LabeledTSVParser.new
-      time, record = parser.call("time:[28/Feb/2013:12:00:00 +0900]\thost:192.168.0.1\treq:GET /list HTTP/1.1")
+      time, record = parser.call("time:2013/02/28 12:00:00\thost:192.168.0.1\treq_id:111")
 
+      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
-        'time' => '[28/Feb/2013:12:00:00 +0900]',
-        'host' => '192.168.0.1',
-        'req'  => 'GET /list HTTP/1.1',
+        'host'   => '192.168.0.1',
+        'req_id' => '111',
       }, record)
     end
 
@@ -166,27 +166,27 @@ module ParserTest
         'delimiter'       => ',',
         'label_delimiter' => '=',
       )
-      time, record = parser.call('time=[28/Feb/2013:12:00:00 +0900],host=192.168.0.1,req=GET /list HTTP/1.1')
+      time, record = parser.call('time=2013/02/28 12:00:00,host=192.168.0.1,req_id=111')
 
+      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
-        'time' => '[28/Feb/2013:12:00:00 +0900]',
-        'host' => '192.168.0.1',
-        'req'  => 'GET /list HTTP/1.1',
+        'host'   => '192.168.0.1',
+        'req_id' => '111',
       }, record)
     end
 
     def test_call_with_customized_time_format
       parser = TextParser::LabeledTSVParser.new
       parser.configure(
-        'time_key'    => 'time',
-        'time_format' => '[%d/%b/%Y:%H:%M:%S %z]',
+        'time_key'    => 'mytime',
+        'time_format' => '%d/%b/%Y:%H:%M:%S %z',
       )
-      time, record = parser.call("time:[28/Feb/2013:12:00:00 +0900]\thost:192.168.0.1\treq:GET /list HTTP/1.1")
+      time, record = parser.call("mytime:28/Feb/2013:12:00:00 +0900\thost:192.168.0.1\treq_id:111")
 
+      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal({
-        'time' => '[28/Feb/2013:12:00:00 +0900]',
-        'host' => '192.168.0.1',
-        'req'  => 'GET /list HTTP/1.1',
+        'host'   => '192.168.0.1',
+        'req_id' => '111',
       }, record)
     end
   end
