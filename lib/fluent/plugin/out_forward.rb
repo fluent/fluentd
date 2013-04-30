@@ -131,6 +131,8 @@ class ForwardOutput < ObjectBufferedOutput
   def write_objects(tag, es)
     error = nil
 
+    return if es.size < 1
+
     wlen = @weight_array.length
     wlen.times do
       @rr = (@rr + 1) % wlen
