@@ -128,8 +128,8 @@ class ForwardOutput < ObjectBufferedOutput
     $log.error_backtrace
   end
 
-  def write_objects(tag, es)
-    return if es.empty?
+  def write_objects(tag, chunk)
+    return if chunk.empty?
 
     error = nil
 
@@ -140,7 +140,7 @@ class ForwardOutput < ObjectBufferedOutput
 
       if node.available?
         begin
-          send_data(node, tag, es)
+          send_data(node, tag, chunk)
           return
         rescue
           # for load balancing during detecting crashed servers
@@ -219,7 +219,7 @@ class ForwardOutput < ObjectBufferedOutput
     end
   end
 
-  def send_data(node, tag, es)
+  def send_data(node, tag, chunk)
     sock = connect(node)
     begin
       opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -235,7 +235,7 @@ class ForwardOutput < ObjectBufferedOutput
       sock.write tag.to_msgpack  # tag
 
       # beginRaw(size)
-      sz = es.size
+      sz = chunk.size
       #if sz < 32
       #  # FixRaw
       #  sock.write [0xa0 | sz].pack('C')
@@ -248,7 +248,7 @@ class ForwardOutput < ObjectBufferedOutput
       #end
 
       # writeRawBody(packed_es)
-      es.write_to(sock)
+      chunk.write_to(sock)
 
       node.heartbeat(false)
     ensure
