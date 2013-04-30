@@ -106,7 +106,7 @@ class TextParser
       end
 
       if @time_format && !@time_key
-        $log.warn "time_format parameter is ignored because time_key parameter is not set"
+        raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
       end
     end
 
