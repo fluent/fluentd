@@ -106,7 +106,7 @@ class TextParser
       end
 
       if @time_format && !@time_key
-        $log.warn "time_format parameter is ignored because time_key parameter is not set"
+        raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
       end
     end
 
@@ -114,7 +114,7 @@ class TextParser
       record = Hash[keys.zip(values)]
 
       if @time_key
-        value = record[@time_key]
+        value = record.delete(@time_key)
         if @time_format
           time = Time.strptime(value, @time_format).to_i
         else
@@ -139,9 +139,10 @@ class TextParser
   class LabeledTSVParser < ValuesParser
     config_param :delimiter,       :string, :default => "\t"
     config_param :label_delimiter, :string, :default =>  ":"
+    config_param :time_key, :string, :default =>  "time"
 
     def configure(conf)
-      conf['keys'] = conf['time_key'] || ''
+      conf['keys'] = conf['time_key'] || 'time'
       super(conf)
     end
 
