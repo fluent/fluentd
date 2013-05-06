@@ -35,7 +35,7 @@ module MixinTest
       mock(Checker).format_check(tagname, @time.to_i, hash)
     end
 
-    def create_driver(include_klass, conf = '')
+    def create_driver(include_klass, conf = '', tag = "test")
       register_output_name = create_register_output_name
       include_klasses = [include_klass].flatten
 
@@ -51,7 +51,7 @@ module MixinTest
         def write(chunk); end
       }
 
-      Fluent::Test::BufferedOutputTestDriver.new(klass) {
+      Fluent::Test::BufferedOutputTestDriver.new(klass, tag) {
       }.configure("type #{register_output_name}" + conf)
     end
   end
@@ -164,6 +164,9 @@ module MixinTest
       format_check({
         'a' => 1
       }, 'tag_prefix.test')
+      format_check({
+        'a' => 2
+      }, 'tag_prefix.test')
 
       d = create_driver(Fluent::HandleTagNameMixin, %[
         add_tag_prefix tag_prefix.
@@ -171,12 +174,16 @@ module MixinTest
       ])
 
       d.emit({'a' => 1})
+      d.emit({'a' => 2})
       d.run
     end
 
     def test_add_tag_suffix
       format_check({
         'a' => 1
+      }, 'test.test_suffix')
+      format_check({
+        'a' => 2
       }, 'test.test_suffix')
 
       d = create_driver(Fluent::HandleTagNameMixin, %[
@@ -185,34 +192,43 @@ module MixinTest
       ])
 
       d.emit({'a' => 1})
+      d.emit({'a' => 2})
       d.run
     end
 
     def test_remove_tag_prefix
       format_check({
         'a' => 1
-      }, 'st')
+      }, 'test')
+      format_check({
+        'a' => 2
+      }, 'test')
 
       d = create_driver(Fluent::HandleTagNameMixin, %[
         remove_tag_prefix te
         include_tag_key true
-      ])
+      ], "tetest")
 
       d.emit({'a' => 1})
+      d.emit({'a' => 2})
       d.run
     end
 
     def test_remove_tag_suffix
       format_check({
         'a' => 1
-      }, 'te')
+      }, 'test')
+      format_check({
+        'a' => 2
+      }, 'test')
 
       d = create_driver(Fluent::HandleTagNameMixin, %[
         remove_tag_suffix st
         include_tag_key true
-      ])
+      ], "testst")
 
       d.emit({'a' => 1})
+      d.emit({'a' => 2})
       d.run
     end
 
