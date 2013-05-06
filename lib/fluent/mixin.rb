@@ -93,7 +93,7 @@ module RecordFilterMixin
   def format_stream(tag, es)
     out = ''
     es.each {|time,record|
-      tag_temp = String.new(tag)
+      tag_temp = tag.dup
       filter_record(tag_temp, time, record)
       out << format(tag_temp, time, record)
     }

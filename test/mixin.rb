@@ -51,7 +51,7 @@ module MixinTest
         def write(chunk); end
       }
 
-      Fluent::Test::BufferedOutputTestDriver.new(klass,tag) {
+      Fluent::Test::BufferedOutputTestDriver.new(klass, tag) {
       }.configure("type #{register_output_name}" + conf)
     end
   end
@@ -207,7 +207,7 @@ module MixinTest
       d = create_driver(Fluent::HandleTagNameMixin, %[
         remove_tag_prefix te
         include_tag_key true
-      ],"tetest")
+      ], "tetest")
 
       d.emit({'a' => 1})
       d.emit({'a' => 2})
@@ -225,7 +225,7 @@ module MixinTest
       d = create_driver(Fluent::HandleTagNameMixin, %[
         remove_tag_suffix st
         include_tag_key true
-      ],"testst")
+      ], "testst")
 
       d.emit({'a' => 1})
       d.emit({'a' => 2})
