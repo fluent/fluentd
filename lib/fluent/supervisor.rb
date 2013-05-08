@@ -90,6 +90,7 @@ class Supervisor
         run_engine
         exit 0
       end
+      $log.error "fluentd main process died unexpectedly. restarting." unless @finished
     end
   end
 
@@ -203,30 +204,50 @@ class Supervisor
 
   def install_supervisor_signal_handlers
     trap :INT do
+      $log.debug "fluentd supervisor process get SIGINT"
       @finished = true
       if pid = @main_pid
-        Process.kill(:INT, pid)
+        # kill processes only still exists
+        unless Process.waitpid(pid, Process::WNOHANG)
+          begin
+            Process.kill(:INT, pid)
+          rescue Errno::ESRCH
+            # ignore processes already died
+          end
+        end
       end
     end
 
     trap :TERM do
+      $log.debug "fluentd supervisor process get SIGTERM"
       @finished = true
       if pid = @main_pid
-        Process.kill(:TERM, pid)
+        # kill processes only still exists
+        unless Process.waitpid(pid, Process::WNOHANG)
+          begin
+            Process.kill(:TERM, pid)
+          rescue Errno::ESRCH
+            # ignore processes already died
+          end
+        end
       end
     end
 
     trap :HUP do
+      $log.debug "fluentd supervisor process get SIGHUP"
       $log.info "restarting"
       if pid = @main_pid
         Process.kill(:TERM, pid)
+        # don't resuce Erro::ESRSH here (invalid status)
       end
     end
 
     trap :USR1 do
+      $log.debug "fluentd supervisor process get SIGUSR1"
       @log.reopen!
       if pid = @main_pid
         Process.kill(:USR1, pid)
+        # don't resuce Erro::ESRSH here (invalid status)
       end
     end
   end
@@ -295,19 +316,34 @@ class Supervisor
   end
 
   def install_main_process_signal_handlers
+    # Strictly speaking, these signal handling is not thread safe.
+    # But enough safe to limit twice call of Fluent::Engine.stop.
+
     trap :INT do
-      Fluent::Engine.stop
+      $log.debug "fluentd main process get SIGINT"
+      unless @finished
+        @finished = true
+        $log.debug "getting start to shutdown main process"
+        Fluent::Engine.stop
+      end
     end
 
     trap :TERM do
-      Fluent::Engine.stop
+      $log.debug "fluentd main process get SIGTERM"
+      unless @finished
+        @finished = true
+        $log.debug "getting start to shutdown main process"
+        Fluent::Engine.stop
+      end
     end
 
     trap :HUP do
       # TODO
+      $log.debug "fluentd main process get SIGHUP"
     end
 
     trap :USR1 do
+      $log.debug "fluentd main process get SIGUSR1"
       $log.info "force flushing buffered events"
       @log.reopen!
       Fluent::Engine.flush!
