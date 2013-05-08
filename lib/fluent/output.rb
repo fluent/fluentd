@@ -324,20 +324,20 @@ class BufferedOutput < Output
       end
 
       if error_count < @retry_limit
-        $log.warn "temporarily failed to flush the buffer.", :next_retry=>Time.at(@next_retry_time), :error=>e.to_s, :instance=>object_id
+        $log.warn "temporarily failed to flush the buffer.", :next_retry=>Time.at(@next_retry_time), :error_class=>e.class.to_s, :error=>e.to_s, :instance=>object_id
         $log.warn_backtrace e.backtrace
 
       elsif @secondary
         if error_count == @retry_limit
-          $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+          $log.warn "failed to flush the buffer.", :error_class=>e.class.to_s, :error=>e.to_s, :instance=>object_id
           $log.warn "retry count exceededs limit. falling back to secondary output."
           $log.warn_backtrace e.backtrace
           retry  # retry immediately
         elsif error_count <= @retry_limit + @secondary_limit
-          $log.warn "failed to flush the buffer, next retry will be with secondary output.", :next_retry=>Time.at(@next_retry_time), :error=>e.to_s, :instance=>object_id
+          $log.warn "failed to flush the buffer, next retry will be with secondary output.", :next_retry=>Time.at(@next_retry_time), :error_class=>e.class.to_s, :error=>e.to_s, :instance=>object_id
           $log.warn_backtrace e.backtrace
         else
-          $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+          $log.warn "failed to flush the buffer.", :error_class=>e.class, :error=>e.to_s, :instance=>object_id
           $log.warn "secondary retry count exceededs limit."
           $log.warn_backtrace e.backtrace
           write_abort
@@ -345,7 +345,7 @@ class BufferedOutput < Output
         end
 
       else
-        $log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+        $log.warn "failed to flush the buffer.", :error_class=>e.class.to_s, :error=>e.to_s, :instance=>object_id
         $log.warn "retry count exceededs limit."
         $log.warn_backtrace e.backtrace
         write_abort
