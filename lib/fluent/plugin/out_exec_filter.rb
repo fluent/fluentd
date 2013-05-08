@@ -71,6 +71,9 @@ class ExecFilterOutput < BufferedOutput
   # nil, 'none' or 0: no respawn, 'inf' or -1: infinite times, positive integer: try to respawn specified times only
   config_param :child_respawn, :string, :default => nil
 
+  # 0: output logs for all of messages to emit
+  config_param :suppress_error_log_interval, :time, :default => 0
+
   config_set_default :flush_interval, 1
 
   def configure(conf)
@@ -166,6 +169,9 @@ class ExecFilterOutput < BufferedOutput
                 else
                   raise ConfigError, "child_respawn option argument invalid: none(or 0), inf(or -1) or positive number"
                 end
+
+    @suppress_error_log_interval ||= 0
+    @next_log_time = Time.now.to_i
   end
 
   def start
@@ -372,8 +378,11 @@ class ExecFilterOutput < BufferedOutput
     Engine.emit(tag, time, record)
 
   rescue
-    $log.error "exec_filter failed to emit", :error=>$!.to_s, :record=>Yajl.dump(record)
-    $log.warn_backtrace $!.backtrace
+    if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time
+      $log.error "exec_filter failed to emit", :error=>$!.to_s, :error_class=>$!.class.to_s, :record=>Yajl.dump(record)
+      $log.warn_backtrace $!.backtrace
+      @next_log_time = Time.now.to_i + @suppress_error_log_interval
+    end
   end
 
   class Parser
