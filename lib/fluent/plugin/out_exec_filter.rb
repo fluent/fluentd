@@ -187,6 +187,10 @@ class ExecFilterOutput < BufferedOutput
 
   def before_shutdown
     super
+    $log.debug "out_exec_filter#before_shutdown called"
+    @children.each {|c|
+      c.finished = true
+    }
     sleep 0.5  # TODO wait time before killing child process
   end
 
@@ -227,12 +231,15 @@ class ExecFilterOutput < BufferedOutput
   end
 
   class ChildProcess
+    attr_accessor :finished
+
     def initialize(parser,respawns=0)
       @pid = nil
       @thread = nil
       @parser = parser
       @respawns = respawns
       @mutex = Mutex.new
+      @finished = nil
     end
 
     def start(command)
