@@ -31,7 +31,6 @@ class StreamInput < Input
     @lsock = listen
     @loop.attach(@lsock)
     @thread = Thread.new(&method(:run))
-    @cached_unpacker = MessagePack::Unpacker.new
   end
 
   def shutdown
@@ -79,7 +78,7 @@ class StreamInput < Input
 
     if entries.class == String
       # PackedForward
-      es = MessagePackEventStream.new(entries, @cached_unpacker)
+      es = MessagePackEventStream.new(entries)
       Engine.emit_stream(tag, es)
 
     elsif entries.class == Array

@@ -51,5 +51,37 @@ class CopyOutputTest < Test::Unit::TestCase
         ], o.events
     }
   end
+
+  def test_msgpack_es_emit_bug
+    d = Fluent::Test::OutputTestDriver.new(Fluent::CopyOutput)
+
+    outputs = %w(p1 p2).map do |pname|
+      p = Fluent::Plugin.new_output('test')
+      p.configure('name' => pname)
+      p.define_singleton_method(:emit) do |tag, es, chain|
+        es.each do |time, record|
+          super(tag, [[time, record]], chain)
+        end
+      end
+      p
+    end
+
+    d.instance.instance_eval { @outputs = outputs }
+
+    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+    packer = MessagePack::Packer.new
+    packer.pack([time, { "a" => 1 }])
+    packer.pack([time, { "a" => 2 }])
+    es = Fluent::MessagePackEventStream.new(packer.to_s)
+
+    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+
+    d.instance.outputs.each { |o|
+      assert_equal [
+        [time, {"a"=>1}],
+        [time, {"a"=>2}],
+      ], o.events
+    }
+  end
 end
 
