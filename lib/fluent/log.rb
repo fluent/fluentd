@@ -257,7 +257,15 @@ class Log
       if c.count(c.shift) <= 0
         record = map.dup
         record['message'] = message.dup
-        Engine.emit("#{@tag}.#{level}", time.to_i, record)
+        ### In signal trap context, 'Engine.emit' cannot get Monitor lock (Thread level lock),
+        ### and ThreadError will be raised
+        begin
+          Engine.emit("#{@tag}.#{level}", time.to_i, record)
+        rescue ThreadError # message: can't be called from trap context
+          # ignore
+        end
+        # TODO: We should check 'GET_THREAD()->interrupt_mask & TRAP_INTERRUPT_MASK'
+        #       for replacement of begin-rescue if any methods exists.
       end
     end
 
