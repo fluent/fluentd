@@ -110,28 +110,54 @@ class MultiEventStream < EventStream
   end
 end
 
+if $use_msgpack_5
 
-class MessagePackEventStream < EventStream
-  def initialize(data)
-    @data = data
+  class MessagePackEventStream < EventStream
+    def initialize(data, cached_unpacker=nil)
+      @data = data
+    end
+
+    def repeatable?
+      true
+    end
+
+    def each(&block)
+      # TODO format check
+      unpacker = MessagePack::Unpacker.new
+      unpacker.feed_each(@data, &block)
+      nil
+    end
+
+    def to_msgpack_stream
+      @data
+    end
   end
 
-  def repeatable?
-    true
+else # for 0.4.x. Will be removed after 0.5.x is stable
+
+  class MessagePackEventStream < EventStream
+    def initialize(data, cached_unpacker=nil)
+      @data = data
+      @unpacker = cached_unpacker || MessagePack::Unpacker.new
+    end
+
+    def repeatable?
+      true
+    end
+
+    def each(&block)
+      @unpacker.reset
+      # TODO format check
+      @unpacker.feed_each(@data, &block)
+      nil
+    end
+
+    def to_msgpack_stream
+      @data
+    end
   end
 
-  def each(&block)
-    # TODO format check
-    unpacker = MessagePack::Unpacker.new
-    unpacker.feed_each(@data, &block)
-    nil
-  end
-
-  def to_msgpack_stream
-    @data
-  end
 end
-
 
 #class IoEventStream < EventStream
 #  def initialize(io, num)

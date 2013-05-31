@@ -46,6 +46,7 @@ class ForwardInput < Input
     @loop.attach(@hbr)
 
     @thread = Thread.new(&method(:run))
+    @cached_unpacker = $use_msgpack_5 ? nil : MessagePack::Unpacker.new
   end
 
   def shutdown
@@ -113,7 +114,7 @@ class ForwardInput < Input
 
     if entries.class == String
       # PackedForward
-      es = MessagePackEventStream.new(entries)
+      es = MessagePackEventStream.new(entries, @cached_unpacker)
       Engine.emit_stream(tag, es)
 
     elsif entries.class == Array
