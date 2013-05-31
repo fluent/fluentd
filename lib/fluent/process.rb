@@ -180,7 +180,6 @@ class DetachProcessManager
 
   def read_event_stream(r, &block)
     u = MessagePack::Unpacker.new(r)
-    cached_unpacker = MessagePack::Unpacker.new
     begin
       #buf = ''
       #map = {}
@@ -195,14 +194,14 @@ class DetachProcessManager
       #  }
       #  unless map.empty?
       #    map.each_pair {|tag,ms|
-      #      es = MessagePackEventStream.new(ms, cached_unpacker)
+      #      es = MessagePackEventStream.new(ms)
       #      block.call(tag, es)
       #    }
       #    map.clear
       #  end
       #end
       u.each {|tag,ms|
-        es = MessagePackEventStream.new(ms, cached_unpacker)
+        es = MessagePackEventStream.new(ms)
         block.call(tag, es)
       }
     rescue EOFError

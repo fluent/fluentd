@@ -3,6 +3,11 @@ require 'fileutils'
 require 'fluent/log'
 require 'rr'
 
+unless defined?(Test::Unit::AssertionFailedError)
+  class Test::Unit::AssertionFailedError < StandardError
+  end
+end
+
 class Test::Unit::TestCase
   include RR::Adapters::TestUnit
 end
