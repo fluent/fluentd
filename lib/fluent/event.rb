@@ -112,9 +112,8 @@ end
 
 
 class MessagePackEventStream < EventStream
-  def initialize(data, cached_unpacker=nil)
+  def initialize(data)
     @data = data
-    @unpacker = cached_unpacker || MessagePack::Unpacker.new
   end
 
   def repeatable?
@@ -122,9 +121,9 @@ class MessagePackEventStream < EventStream
   end
 
   def each(&block)
-    @unpacker.reset
     # TODO format check
-    @unpacker.feed_each(@data, &block)
+    unpacker = MessagePack::Unpacker.new
+    unpacker.feed_each(@data, &block)
     nil
   end
 
