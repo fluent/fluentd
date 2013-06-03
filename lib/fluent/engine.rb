@@ -26,6 +26,9 @@ class EngineClass
     @match_cache_keys = []
     @started = []
     @default_loop = nil
+
+    @suppress_emit_error_log_interval = 0
+    @next_emit_error_log_time = nil
   end
 
   MATCH_CACHE_SIZE = 1024
@@ -40,6 +43,11 @@ class EngineClass
       Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
     end
     self
+  end
+
+  def suppress_interval(interval_time)
+    @suppress_emit_error_log_interval = interval_time
+    @next_emit_error_log_time = Time.now.to_i
   end
 
   def read_config(path)
@@ -119,8 +127,14 @@ class EngineClass
     end
     target.emit(tag, es)
   rescue
-    $log.warn "emit transaction failed ", :error=>$!.to_s
-    $log.warn_backtrace
+    if @suppress_emit_error_log_interval == 0 || now > @next_emit_error_log_time
+      $log.warn "emit transaction failed ", :error=>$!.to_s
+      $log.warn_backtrace
+      # $log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
+      @next_emit_error_log_time = Time.now.to_i + @suppress_emit_error_log_interval
+      # $log.debug "next emit failure log suppressed"
+      # $log.debug "next logged time is #{Time.at(@next_emit_error_log_time)}"
+    end
     raise
   end
 
