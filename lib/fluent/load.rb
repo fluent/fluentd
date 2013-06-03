@@ -13,7 +13,6 @@ require 'msgpack'
 # We will switch to MessagePack 0.5 and deprecate 0.4.
 $use_msgpack_5 = defined?(MessagePack::Packer) ? true : false
 require 'cool.io'
-require 'cool.io/eventmachine'
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'
