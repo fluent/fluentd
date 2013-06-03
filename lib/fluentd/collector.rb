@@ -1,0 +1,47 @@
+#
+# Fluentd
+#
+# Copyright (C) 2011-2013 FURUHASHI Sadayuki
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+module Fluentd
+
+  module Collectors
+    here = File.expand_path(File.dirname(__FILE__))
+
+    {
+      :ErrorNoticeCollector => 'collectors/error_notice_collector',
+      :NoMatchNoticeCollector => 'collectors/no_match_notice_collector',
+      :NullCollector => 'collectors/null_collector',
+      :LabelCollector => 'collectors/label_collector',
+    }.each_pair {|k,v|
+      autoload k, File.join(here, v)
+    }
+  end
+
+  module Collector
+    def emit(tag, time, record)
+      emits(tag, OneEventStream.new(time, record))
+    end
+
+    def emits(tag, es)
+      raise NoMethodError, "#{self.class}#emits(tag, es) is not implemented"
+    end
+
+    def short_circuit
+      self
+    end
+  end
+
+end
