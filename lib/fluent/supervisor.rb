@@ -67,6 +67,7 @@ class Supervisor
     @libs = opt[:libs]
     @plugin_dirs = opt[:plugin_dirs]
     @inline_config = opt[:inline_config]
+    @suppress_interval = opt[:suppress_interval]
 
     @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
     @finished = false
@@ -281,6 +282,9 @@ class Supervisor
   def init_engine
     require 'fluent/load'
     Fluent::Engine.init
+    if @suppress_interval
+      Fluent::Engine.suppress_interval(@suppress_interval)
+    end
 
     @libs.each {|lib|
       require lib

@@ -35,6 +35,7 @@ opts = {
   :setup_path => nil,
   :chuser => nil,
   :chgroup => nil,
+  :suppress_interval => 0,
 }
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
@@ -77,6 +78,9 @@ op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to
   opts[:inline_config] = s
 }
 
+op.on('--emit-error-log-interval SECONDS', "suppress interval seconds of emit error logs") {|s|
+  opts[:suppress_interval] = s.to_i
+}
 
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
