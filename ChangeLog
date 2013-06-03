@@ -1,4 +1,21 @@
 
+Release 0.10.34 - 2013/06/03
+
+* fluentd: supports --emit-error-log-interval to suppress log messages with the
+  same message for a certain seconds
+* BufferedOutput: fixed warning messages so that errors with the same meaning
+  use the same message
+* Log: ignores ThreadError which could happen in signal handler
+* Engine: prevents signal handlers from calling stop() method of plugins twice
+* MessagePackEventStream/in_forward: doesn't cache MessagePack::Unpacker (if
+  it uses msgpack-0.5.5 which doesn't cause performance impact) to not cause
+  problems with out_copy
+* TextParser/in_tail,in_syslog: 'json' format type removes time key from records
+* TextParser/in_tail,in_syslog: raises exception if time_format is set while
+  time_key is not set
+* in_tail: fixed minor bugs
+
+
 Release 0.10.33 - 2013/03/28
 
 * added in_monitor_agent
