@@ -135,10 +135,18 @@ class StreamInput < Input
 
     def on_read_json(data)
       @y << data
+    rescue
+      $log.error "unexpected error", :error=>$!.to_s
+      $log.error_backtrace
+      close
     end
 
     def on_read_msgpack(data)
       @u.feed_each(data, &@on_message)
+    rescue
+      $log.error "unexpected error", :error=>$!.to_s
+      $log.error_backtrace
+      close
     end
 
     def on_close
