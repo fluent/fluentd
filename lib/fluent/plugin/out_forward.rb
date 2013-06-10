@@ -380,7 +380,7 @@ class ForwardOutput < ObjectBufferedOutput
 
     def resolve_dns!
       @sockaddr = Socket.pack_sockaddr_in(@port, @host)
-      port, resolved_host = Socket.unpack_sockaddr_in(sockaddr)
+      port, resolved_host = Socket.unpack_sockaddr_in(@sockaddr)
       return resolved_host
     end
     private :resolve_dns!
