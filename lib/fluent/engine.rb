@@ -173,12 +173,12 @@ class EngineClass
       $log.error "unexpected error", :error=>$!.to_s
       $log.error_backtrace
     ensure
+      $log.info "shutting down fluentd"
       shutdown
     end
   end
 
   def stop
-    $log.info "shutting down fluentd"
     if @default_loop
       @default_loop.stop
       @default_loop = nil
