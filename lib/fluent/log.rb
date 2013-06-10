@@ -256,6 +256,9 @@ class Log
       c = caller
       if c.count(c.shift) <= 0
         record = map.dup
+        record.keys.each {|key|
+          record[key] = record[key].inspect unless record[key].respond_to?(:to_msgpack)
+        }
         record['message'] = message.dup
         ### In signal trap context, 'Engine.emit' cannot get Monitor lock (Thread level lock),
         ### and ThreadError will be raised
