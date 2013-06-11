@@ -42,7 +42,7 @@ class TailInput < Input
     end
 
     if @pos_file
-      @pf_file = File.open(@pos_file, File::RDWR|File::CREAT)
+      @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
       @pf_file.sync = true
       @pf = PositionFile.parse(@pf_file)
     else
