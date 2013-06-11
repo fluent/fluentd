@@ -480,7 +480,7 @@ class ForwardOutput < ObjectBufferedOutput
       mean = (mean_usec.to_f / 1e6) - @heartbeat_interval + 1
 
       # Calculate phi of the phi accrual failure detector
-      t = now - @last
+      t = now - @last - @heartbeat_interval + 1
       phi = PHI_FACTOR * t / mean
 
       return phi
