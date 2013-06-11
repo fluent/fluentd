@@ -50,6 +50,7 @@ class Log
     @tag = 'fluent'
     @time_format = '%Y-%m-%d %H:%M:%S %z '
     enable_color out.tty?
+    @threads_exclude_events = []
   end
 
   attr_accessor :out
@@ -86,6 +87,10 @@ class Log
       @color_reset = ''
     end
     self
+  end
+
+  def disable_events(thread)
+    @threads_exclude_events.push(thread) unless @threads_exclude_events.include?(thread)
   end
 
   def on_trace(&block)
@@ -252,24 +257,13 @@ class Log
       end
     }
 
-    if @self_event
-      c = caller
-      if c.count(c.shift) <= 0
-        record = map.dup
-        record.keys.each {|key|
-          record[key] = record[key].inspect unless record[key].respond_to?(:to_msgpack)
-        }
-        record['message'] = message.dup
-        ### In signal trap context, 'Engine.emit' cannot get Monitor lock (Thread level lock),
-        ### and ThreadError will be raised
-        begin
-          Engine.emit("#{@tag}.#{level}", time.to_i, record)
-        rescue ThreadError # message: can't be called from trap context
-          # ignore
-        end
-        # TODO: We should check 'GET_THREAD()->interrupt_mask & TRAP_INTERRUPT_MASK'
-        #       for replacement of begin-rescue if any methods exists.
-      end
+    unless @threads_exclude_events.include?(Thread.current)
+      record = map.dup
+      record.keys.each {|key|
+        record[key] = record[key].inspect unless record[key].respond_to?(:to_msgpack)
+      }
+      record['message'] = message.dup
+      Engine.push_log_event("#{@tag}.#{level}", time.to_i, record)
     end
 
     map.each_pair {|k,v|
