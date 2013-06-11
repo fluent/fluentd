@@ -23,7 +23,7 @@ class FileBufferChunk < BufferChunk
     super(key)
     @path = path
     @unique_id = unique_id
-    @file = File.open(@path, mode)
+    @file = File.open(@path, mode, DEFAULT_FILE_PERMISSION)
     @file.sync = true
     @size = @file.stat.size
   end

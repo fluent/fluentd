@@ -89,7 +89,7 @@ class FileOutput < TimeSlicedOutput
 
     case @compress
     when nil
-      File.open(path, "a") {|f|
+      File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
         chunk.write_to(f)
       }
     when :gz
