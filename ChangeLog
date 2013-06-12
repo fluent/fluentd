@@ -1,4 +1,13 @@
 
+Release 0.10.35 - 2013/06/12
+
+* Log: emits fluentd's log via background thread
+* Log: use #inspect for non to_msgpack-able object in log event processing
+* FailureDetector/out_forward: fixed wrong phi calculation
+* in_stream: fixed unix domain connection leak when parsing json or msgpack failed
+* buf_file/out_file: sets 0644 permission to each created file for preventing
+  File.umask(0) effect at daemonize mode
+
 Release 0.10.34 - 2013/06/03
 
 * fluentd: supports --emit-error-log-interval to suppress log messages with the
