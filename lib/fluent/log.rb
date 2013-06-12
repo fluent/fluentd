@@ -50,6 +50,7 @@ class Log
     @tag = 'fluent'
     @time_format = '%Y-%m-%d %H:%M:%S %z '
     enable_color out.tty?
+    # TODO: This variable name is unclear so we should change to better name.
     @threads_exclude_events = []
   end
 
@@ -89,6 +90,8 @@ class Log
     self
   end
 
+  # If you want to suppress event emitting in specific thread, please use this method.
+  # Events in passed thread are never emitted.
   def disable_events(thread)
     @threads_exclude_events.push(thread) unless @threads_exclude_events.include?(thread)
   end

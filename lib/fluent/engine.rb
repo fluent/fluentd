@@ -168,6 +168,7 @@ class EngineClass
       break if @log_event_loop_stop
       next if @log_event_queue.empty?
 
+      # NOTE: thead-safe of slice! depends on GVL
       events = @log_event_queue.slice!(0..-1)
       next if events.empty?
 
