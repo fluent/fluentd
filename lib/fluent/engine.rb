@@ -27,11 +27,17 @@ class EngineClass
     @started = []
     @default_loop = nil
 
+    @log_emit_thread = nil
+    @log_event_loop_stop = false
+    @log_event_queue = []
+
     @suppress_emit_error_log_interval = 0
     @next_emit_error_log_time = nil
   end
 
   MATCH_CACHE_SIZE = 1024
+
+  LOG_EMIT_INTERVAL = 0.1
 
   attr_reader :matches, :sources
 
@@ -155,12 +161,33 @@ class EngineClass
     Time.now.to_i
   end
 
+  def log_event_loop
+    $log.disable_events(Thread.current)
+
+    while sleep(LOG_EMIT_INTERVAL)
+      break if @log_event_loop_stop
+      next if @log_event_queue.empty?
+
+      events = @log_event_queue.slice!(0..-1)
+      next if events.empty?
+
+      events.each {|tag,time,record|
+        begin
+          Engine.emit(tag, time, record)
+        rescue
+          $log.error "failed to emit fluentd's log event", :tag => tag, :event => record, :error => $!
+        end
+      }
+    end
+  end
+
   def run
     begin
       start
 
       if match?($log.tag)
         $log.enable_event
+        @log_emit_thread = Thread.new(&method(:log_event_loop))
       end
 
       # for empty loop
@@ -175,6 +202,10 @@ class EngineClass
     ensure
       $log.info "shutting down fluentd"
       shutdown
+      if @log_emit_thread
+        @log_event_loop_stop = true
+        @log_emit_thread.join
+      end
     end
   end
 
@@ -184,6 +215,11 @@ class EngineClass
       @default_loop = nil
     end
     nil
+  end
+
+  def push_log_event(tag, time, record)
+    return if @log_emit_thread.nil?
+    @log_event_queue.push([tag, time, record])
   end
 
   private
