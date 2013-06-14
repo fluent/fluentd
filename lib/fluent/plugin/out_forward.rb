@@ -175,7 +175,7 @@ class ForwardOutput < ObjectBufferedOutput
       standby_nodes.each {|n|
         if n.available?
           regular_nodes << n
-          $log.info "using standby node #{n.host}:#{n.port}", :weight=>n.weight
+          $log.warn "using standby node #{n.host}:#{n.port}", :weight=>n.weight
           lost_weight -= n.weight
           break if lost_weight <= 0
         end
@@ -395,7 +395,7 @@ class ForwardOutput < ObjectBufferedOutput
       end
 
       if @failure.hard_timeout?(now)
-        $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :hard_timeout=>true
+        $log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :hard_timeout=>true
         @available = false
         @resolved_host = nil  # expire cached host
         @failure.clear
@@ -405,7 +405,7 @@ class ForwardOutput < ObjectBufferedOutput
       phi = @failure.phi(now)
       #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
       if phi > @phi_threshold
-        $log.info "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+        $log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
         @available = false
         @resolved_host = nil  # expire cached host
         @failure.clear
@@ -421,7 +421,7 @@ class ForwardOutput < ObjectBufferedOutput
       #$log.trace "heartbeat from '#{@name}'", :host=>@host, :port=>@port, :available=>@available, :sample_size=>@failure.sample_size
       if detect && !@available && @failure.sample_size > @recover_sample_size
         @available = true
-        $log.info "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
+        $log.warn "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
         return true
       else
         return nil
