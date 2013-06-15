@@ -38,6 +38,8 @@ class FileOutput < TimeSlicedOutput
     c
   end
 
+  config_param :symlink_path, :string, :default => nil
+
   def initialize
     require 'zlib'
     require 'time'
@@ -97,12 +99,19 @@ class FileOutput < TimeSlicedOutput
         chunk.write_to(f)
       }
     end
+    create_symlink(path, suffix) if @symlink_path
 
     return path  # for test
   end
 
   def secondary_init(primary)
     # don't warn even if primary.class is not FileOutput
+  end
+
+  private
+
+  def create_symlink(path, suffix)
+    FileUtils.ln_sf(path, "#{@symlink_path}#{suffix}")
   end
 end
 

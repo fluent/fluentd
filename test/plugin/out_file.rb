@@ -9,7 +9,8 @@ class FileOutputTest < Test::Unit::TestCase
     FileUtils.mkdir_p(TMP_DIR)
   end
 
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp"
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp")
+  SYMLINK_PATH = File.expand_path("#{TMP_DIR}/current")
 
   CONFIG = %[
     path #{TMP_DIR}/out_file_test
@@ -77,6 +78,23 @@ class FileOutputTest < Test::Unit::TestCase
 
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._2.log.gz", path
+  end
+
+  def test_write_with_symlink
+    d = create_driver(CONFIG + %[
+      symlink_path #{SYMLINK_PATH}
+    ])
+    symlink_path = "#{SYMLINK_PATH}.gz"
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+
+    # FileOutput#write returns path
+    path = d.run
+    assert File.exists?(symlink_path)
+    assert File.symlink?(symlink_path)
+  ensure
+    FileUtils.rm_rf(symlink_path)
   end
 end
 
