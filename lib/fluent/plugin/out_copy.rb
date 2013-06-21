@@ -16,58 +16,53 @@
 #    limitations under the License.
 #
 module Fluent
+  class CopyOutput < MultiOutput
+    Plugin.register_output('copy', self)
 
-
-class CopyOutput < MultiOutput
-  Plugin.register_output('copy', self)
-
-  def initialize
-    @outputs = []
-  end
-
-  attr_reader :outputs
-
-  def configure(conf)
-    conf.elements.select {|e|
-      e.name == 'store'
-    }.each {|e|
-      type = e['type']
-      unless type
-        raise ConfigError, "Missing 'type' parameter on <store> directive"
-      end
-      $log.debug "adding store type=#{type.dump}"
-
-      output = Plugin.new_output(type)
-      output.configure(e)
-      @outputs << output
-    }
-  end
-
-  def start
-    @outputs.each {|o|
-      o.start
-    }
-  end
-
-  def shutdown
-    @outputs.each {|o|
-      o.shutdown
-    }
-  end
-
-  def emit(tag, es, chain)
-    unless es.repeatable?
-      m = MultiEventStream.new
-      es.each {|time,record|
-        m.add(time, record)
-      }
-      es = m
+    def initialize
+      @outputs = []
     end
-    chain = OutputChain.new(@outputs, tag, es, chain)
-    chain.next
+
+    attr_reader :outputs
+
+    def configure(conf)
+      conf.elements.select {|e|
+        e.name == 'store'
+      }.each {|e|
+        type = e['type']
+        unless type
+          raise ConfigError, "Missing 'type' parameter on <store> directive"
+        end
+        $log.debug "adding store type=#{type.dump}"
+
+        output = Plugin.new_output(type)
+        output.configure(e)
+        @outputs << output
+      }
+    end
+
+    def start
+      @outputs.each {|o|
+        o.start
+      }
+    end
+
+    def shutdown
+      @outputs.each {|o|
+        o.shutdown
+      }
+    end
+
+    def emit(tag, es, chain)
+      unless es.repeatable?
+        m = MultiEventStream.new
+        es.each {|time,record|
+          m.add(time, record)
+        }
+        es = m
+      end
+      chain = OutputChain.new(@outputs, tag, es, chain)
+      chain.next
+    end
   end
 end
-
-
-end
-

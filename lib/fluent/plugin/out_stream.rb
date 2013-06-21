@@ -16,118 +16,111 @@
 #    limitations under the License.
 #
 module Fluent
-
-
-# obsolete
-class StreamOutput < BufferedOutput
-  def initialize
-    require 'socket'
-    require 'fileutils'
-    super
-  end
-
-  config_param :send_timeout, :time, :default => 60
-
-  def configure(conf)
-    super
-  end
-
-  def format_stream(tag, es)
-    # use PackedForward
-    [tag, es.to_msgpack_stream].to_msgpack
-  end
-
-  def write(chunk)
-    sock = connect
-    begin
-      opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-
-      opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
-      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
-
-      chunk.write_to(sock)
-    ensure
-      sock.close
+  # obsolete
+  class StreamOutput < BufferedOutput
+    def initialize
+      require 'socket'
+      require 'fileutils'
+      super
     end
-  end
 
-  def flush_secondary(secondary)
-    unless secondary.is_a?(StreamOutput)
-      secondary = ReformatWriter.new(secondary)
+    config_param :send_timeout, :time, :default => 60
+
+    def configure(conf)
+      super
     end
-    @buffer.pop(secondary)
-  end
 
-  class ReformatWriter
-    def initialize(secondary)
-      @secondary = secondary
+    def format_stream(tag, es)
+      # use PackedForward
+      [tag, es.to_msgpack_stream].to_msgpack
     end
 
     def write(chunk)
-      chain = NullOutputChain.instance
-      chunk.open {|io|
-        # TODO use MessagePackIoEventStream
-        u = MessagePack::Unpacker.new(io)
-        begin
-          u.each {|(tag,entries)|
-            es = MultiEventStream.new
-            entries.each {|o|
-              es.add(o[0], o[1])
+      sock = connect
+      begin
+        opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+
+        opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
+        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+
+        chunk.write_to(sock)
+      ensure
+        sock.close
+      end
+    end
+
+    def flush_secondary(secondary)
+      unless secondary.is_a?(StreamOutput)
+        secondary = ReformatWriter.new(secondary)
+      end
+      @buffer.pop(secondary)
+    end
+
+    class ReformatWriter
+      def initialize(secondary)
+        @secondary = secondary
+      end
+
+      def write(chunk)
+        chain = NullOutputChain.instance
+        chunk.open {|io|
+          # TODO use MessagePackIoEventStream
+          u = MessagePack::Unpacker.new(io)
+          begin
+            u.each {|(tag,entries)|
+              es = MultiEventStream.new
+              entries.each {|o|
+                es.add(o[0], o[1])
+              }
+              @secondary.emit(tag, es, chain)
             }
-            @secondary.emit(tag, es, chain)
-          }
-        rescue EOFError
-        end
-      }
+          rescue EOFError
+          end
+        }
+      end
+    end
+  end
+
+  # obsolete
+  class TcpOutput < StreamOutput
+    Plugin.register_output('tcp', self)
+
+    def initialize
+      super
+      $log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
+      $log.warn "see 'forward' section in http://fluentd.org/doc/plugin.html for the high-availability configuration."
+    end
+
+    config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+    config_param :host, :string
+
+    def configure(conf)
+      super
+    end
+
+    def connect
+      TCPSocket.new(@host, @port)
+    end
+  end
+
+  # obsolete
+  class UnixOutput < StreamOutput
+    Plugin.register_output('unix', self)
+
+    def initialize
+      super
+      $log.warn "'unix' output is obsoleted and will be removed."
+    end
+
+    config_param :path, :string
+
+    def configure(conf)
+      super
+    end
+
+    def connect
+      UNIXSocket.new(@path)
     end
   end
 end
-
-
-# obsolete
-class TcpOutput < StreamOutput
-  Plugin.register_output('tcp', self)
-
-  def initialize
-    super
-    $log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
-    $log.warn "see 'forward' section in http://fluentd.org/doc/plugin.html for the high-availability configuration."
-  end
-
-  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
-  config_param :host, :string
-
-  def configure(conf)
-    super
-  end
-
-  def connect
-    TCPSocket.new(@host, @port)
-  end
-end
-
-
-# obsolete
-class UnixOutput < StreamOutput
-  Plugin.register_output('unix', self)
-
-  def initialize
-    super
-    $log.warn "'unix' output is obsoleted and will be removed."
-  end
-
-  config_param :path, :string
-
-  def configure(conf)
-    super
-  end
-
-  def connect
-    UNIXSocket.new(@path)
-  end
-end
-
-
-end
-

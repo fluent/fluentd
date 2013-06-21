@@ -16,117 +16,113 @@
 #    limitations under the License.
 #
 module Fluent
+  class ExecInput < Input
+    Plugin.register_input('exec', self)
 
-
-class ExecInput < Input
-  Plugin.register_input('exec', self)
-
-  def initialize
-    super
-  end
-
-  config_param :command, :string
-  config_param :keys, :string
-  config_param :tag, :string, :default => nil
-  config_param :tag_key, :string, :default => nil
-  config_param :time_key, :string, :default => nil
-  config_param :time_format, :string, :default => nil
-  config_param :run_interval, :time, :default => nil
-
-  def configure(conf)
-    super
-
-    if localtime = conf['localtime']
-      @localtime = true
-    elsif utc = conf['utc']
-      @localtime = false
+    def initialize
+      super
     end
 
-    if !@tag && !@tag_key
-      raise ConfigError, "'tag' or 'tag_key' option is required on exec input"
-    end
+    config_param :command, :string
+    config_param :keys, :string
+    config_param :tag, :string, :default => nil
+    config_param :tag_key, :string, :default => nil
+    config_param :time_key, :string, :default => nil
+    config_param :time_format, :string, :default => nil
+    config_param :run_interval, :time, :default => nil
 
-    @keys = @keys.split(',')
+    def configure(conf)
+      super
 
-    if @time_key
-      if @time_format
-        f = @time_format
-        @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
-      else
-        @time_parse_proc = Proc.new {|str| str.to_i }
+      if localtime = conf['localtime']
+        @localtime = true
+      elsif utc = conf['utc']
+        @localtime = false
       end
-    end
-  end
 
-  def start
-    if @run_interval
-      @finished = false
-      @thread = Thread.new(&method(:run_periodic))
-    else
-      @io = IO.popen(@command, "r")
-      @pid = @io.pid
-      @thread = Thread.new(&method(:run))
-    end
-  end
-
-  def shutdown
-    if @run_interval
-      @finished = true
-      @thread.join
-    else
-      Process.kill(:TERM, @pid)
-      if @thread.join(60)  # TODO wait time
-        return
+      if !@tag && !@tag_key
+        raise ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
-      Process.kill(:KILL, @pid)
-      @thread.join
-    end
-  end
 
-  def run
-    @io.each_line(&method(:each_line))
-  end
+      @keys = @keys.split(',')
 
-  def run_periodic
-    until @finished
-      sleep @run_interval
-      io = IO.popen(@command, "r")
-      io.each_line(&method(:each_line))
-      Process.waitpid(io.pid)
-    end
-  end
-
-  private
-  def each_line(line)
-    begin
-      line.chomp!
-      vals = line.split("\t")
-
-      tag = @tag
-      time = nil
-      record = {}
-      for i in 0..@keys.length-1
-        key = @keys[i]
-        val = vals[i]
-        if key == @time_key
-          time = @time_parse_proc.call(val)
-        elsif key == @tag_key
-          tag = val
+      if @time_key
+        if @time_format
+          f = @time_format
+          @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
         else
-          record[key] = val
+          @time_parse_proc = Proc.new {|str| str.to_i }
         end
       end
+    end
 
-      if tag
-        time ||= Engine.now
-        Engine.emit(tag, time, record)
+    def start
+      if @run_interval
+        @finished = false
+        @thread = Thread.new(&method(:run_periodic))
+      else
+        @io = IO.popen(@command, "r")
+        @pid = @io.pid
+        @thread = Thread.new(&method(:run))
       end
-    rescue
-      $log.error "exec failed to emit", :error=>$!.to_s, :line=>line
-      $log.warn_backtrace $!.backtrace
+    end
+
+    def shutdown
+      if @run_interval
+        @finished = true
+        @thread.join
+      else
+        Process.kill(:TERM, @pid)
+        if @thread.join(60)  # TODO wait time
+          return
+        end
+        Process.kill(:KILL, @pid)
+        @thread.join
+      end
+    end
+
+    def run
+      @io.each_line(&method(:each_line))
+    end
+
+    def run_periodic
+      until @finished
+        sleep @run_interval
+        io = IO.popen(@command, "r")
+        io.each_line(&method(:each_line))
+        Process.waitpid(io.pid)
+      end
+    end
+
+    private
+    def each_line(line)
+      begin
+        line.chomp!
+        vals = line.split("\t")
+
+        tag = @tag
+        time = nil
+        record = {}
+        for i in 0..@keys.length-1
+          key = @keys[i]
+          val = vals[i]
+          if key == @time_key
+            time = @time_parse_proc.call(val)
+          elsif key == @tag_key
+            tag = val
+          else
+            record[key] = val
+          end
+        end
+
+        if tag
+          time ||= Engine.now
+          Engine.emit(tag, time, record)
+        end
+      rescue
+        $log.error "exec failed to emit", :error=>$!.to_s, :line=>line
+        $log.warn_backtrace $!.backtrace
+      end
     end
   end
-end
-
-
 end

@@ -16,21 +16,16 @@
 #    limitations under the License.
 #
 module Fluent
+  class StdoutOutput < Output
+    Plugin.register_output('stdout', self)
 
+    def emit(tag, es, chain)
+      es.each {|time,record|
+        $log.write "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}\n"
+      }
+      $log.flush
 
-class StdoutOutput < Output
-  Plugin.register_output('stdout', self)
-
-  def emit(tag, es, chain)
-    es.each {|time,record|
-      $log.write "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}\n"
-    }
-    $log.flush
-
-    chain.next
+      chain.next
+    end
   end
 end
-
-
-end
-

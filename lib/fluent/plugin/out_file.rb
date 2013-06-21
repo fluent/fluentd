@@ -16,105 +16,100 @@
 #    limitations under the License.
 #
 module Fluent
+  class FileOutput < TimeSlicedOutput
+    Plugin.register_output('file', self)
 
+    SUPPORTED_COMPRESS = {
+      'gz' => :gz,
+      'gzip' => :gz,
+    }
 
-class FileOutput < TimeSlicedOutput
-  Plugin.register_output('file', self)
+    config_param :path, :string
 
-  SUPPORTED_COMPRESS = {
-    'gz' => :gz,
-    'gzip' => :gz,
-  }
+    config_param :time_format, :string, :default => nil
 
-  config_param :path, :string
-
-  config_param :time_format, :string, :default => nil
-
-  config_param :compress, :default => nil do |val|
-    c = SUPPORTED_COMPRESS[val]
-    unless c
-      raise ConfigError, "Unsupported compression algorithm '#{val}'"
-    end
-    c
-  end
-
-  config_param :symlink_path, :string, :default => nil
-
-  def initialize
-    require 'zlib'
-    require 'time'
-    super
-  end
-
-  def configure(conf)
-    if path = conf['path']
-      @path = path
-    end
-    unless @path
-      raise ConfigError, "'path' parameter is required on file output"
+    config_param :compress, :default => nil do |val|
+      c = SUPPORTED_COMPRESS[val]
+      unless c
+        raise ConfigError, "Unsupported compression algorithm '#{val}'"
+      end
+      c
     end
 
-    if pos = @path.index('*')
-      @path_prefix = @path[0,pos]
-      @path_suffix = @path[pos+1..-1]
-      conf['buffer_path'] ||= "#{@path}"
-    else
-      @path_prefix = @path+"."
-      @path_suffix = ".log"
-      conf['buffer_path'] ||= "#{@path}.*"
+    config_param :symlink_path, :string, :default => nil
+
+    def initialize
+      require 'zlib'
+      require 'time'
+      super
     end
 
-    super
+    def configure(conf)
+      if path = conf['path']
+        @path = path
+      end
+      unless @path
+        raise ConfigError, "'path' parameter is required on file output"
+      end
 
-    @timef = TimeFormatter.new(@time_format, @localtime)
-  end
+      if pos = @path.index('*')
+        @path_prefix = @path[0,pos]
+        @path_suffix = @path[pos+1..-1]
+        conf['buffer_path'] ||= "#{@path}"
+      else
+        @path_prefix = @path+"."
+        @path_suffix = ".log"
+        conf['buffer_path'] ||= "#{@path}.*"
+      end
 
-  def format(tag, time, record)
-    time_str = @timef.format(time)
-    "#{time_str}\t#{tag}\t#{Yajl.dump(record)}\n"
-  end
+      super
 
-  def write(chunk)
-    case @compress
-    when nil
-      suffix = ''
-    when :gz
-      suffix = ".gz"
+      @timef = TimeFormatter.new(@time_format, @localtime)
     end
 
-    i = 0
-    begin
-      path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
-      i += 1
-    end while File.exist?(path)
-    FileUtils.mkdir_p File.dirname(path)
-
-    case @compress
-    when nil
-      File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
-        chunk.write_to(f)
-      }
-    when :gz
-      Zlib::GzipWriter.open(path) {|f|
-        chunk.write_to(f)
-      }
+    def format(tag, time, record)
+      time_str = @timef.format(time)
+      "#{time_str}\t#{tag}\t#{Yajl.dump(record)}\n"
     end
-    create_symlink(path, suffix) if @symlink_path
 
-    return path  # for test
-  end
+    def write(chunk)
+      case @compress
+      when nil
+        suffix = ''
+      when :gz
+        suffix = ".gz"
+      end
 
-  def secondary_init(primary)
-    # don't warn even if primary.class is not FileOutput
-  end
+      i = 0
+      begin
+        path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
+        i += 1
+      end while File.exist?(path)
+      FileUtils.mkdir_p File.dirname(path)
 
-  private
+      case @compress
+      when nil
+        File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
+          chunk.write_to(f)
+        }
+      when :gz
+        Zlib::GzipWriter.open(path) {|f|
+          chunk.write_to(f)
+        }
+      end
+      create_symlink(path, suffix) if @symlink_path
 
-  def create_symlink(path, suffix)
-    FileUtils.ln_sf(path, "#{@symlink_path}#{suffix}")
+      return path  # for test
+    end
+
+    def secondary_init(primary)
+      # don't warn even if primary.class is not FileOutput
+    end
+
+    private
+
+    def create_symlink(path, suffix)
+      FileUtils.ln_sf(path, "#{@symlink_path}#{suffix}")
+    end
   end
 end
-
-
-end
-

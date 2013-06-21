@@ -16,63 +16,59 @@
 #    limitations under the License.
 #
 module Fluent
+  class TestOutput < Output
+    Plugin.register_output('test', self)
 
+    def initialize
+      @emit_streams = []
+      @name = nil
+    end
 
-class TestOutput < Output
-  Plugin.register_output('test', self)
+    attr_reader :emit_streams, :name
 
-  def initialize
-    @emit_streams = []
-    @name = nil
-  end
-
-  attr_reader :emit_streams, :name
-
-  def emits
-    all = []
-    @emit_streams.each {|tag,events|
-      events.each {|time,record|
-        all << [tag, time, record]
+    def emits
+      all = []
+      @emit_streams.each {|tag,events|
+        events.each {|time,record|
+          all << [tag, time, record]
+        }
       }
-    }
-    all
-  end
+      all
+    end
 
-  def events
-    all = []
-    @emit_streams.each {|tag,events|
-      all.concat events
-    }
-    all
-  end
-
-  def records
-    all = []
-    @emit_streams.each {|tag,events|
-      events.each {|time,record|
-        all << record
+    def events
+      all = []
+      @emit_streams.each {|tag,events|
+        all.concat events
       }
-    }
-    all
-  end
+      all
+    end
 
-  def configure(conf)
-    if name = conf['name']
-      @name = name
+    def records
+      all = []
+      @emit_streams.each {|tag,events|
+        events.each {|time,record|
+          all << record
+        }
+      }
+      all
+    end
+
+    def configure(conf)
+      if name = conf['name']
+        @name = name
+      end
+    end
+
+    def start
+    end
+
+    def shutdown
+    end
+
+    def emit(tag, es, chain)
+      chain.next
+      @emit_streams << [tag, es.to_a]
     end
   end
-
-  def start
-  end
-
-  def shutdown
-  end
-
-  def emit(tag, es, chain)
-    chain.next
-    @emit_streams << [tag, es.to_a]
-  end
-end
-
-
 end

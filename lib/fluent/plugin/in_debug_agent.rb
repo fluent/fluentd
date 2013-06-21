@@ -16,42 +16,38 @@
 #    limitations under the License.
 #
 module Fluent
+  class DebugAgentInput < Input
+    Plugin.register_input('debug_agent', self)
 
-
-class DebugAgentInput < Input
-  Plugin.register_input('debug_agent', self)
-
-  def initialize
-    require 'drb/drb'
-    super
-  end
-
-  config_param :bind, :string, :default => '0.0.0.0'
-  config_param :port, :integer, :default => 24230
-  config_param :unix_path, :integer, :default => nil
-  #config_param :unix_mode  # TODO
-  config_param :object, :string, :default => 'Engine'
-
-  def configure(conf)
-    super
-  end
-
-  def start
-    if @unix_path
-      require 'drb/unix'
-      uri = "drbunix:#{@unix_path}"
-    else
-      uri = "druby://#{@bind}:#{@port}"
+    def initialize
+      require 'drb/drb'
+      super
     end
-    $log.info "listening dRuby", :uri => uri, :object => @object
-    obj = eval(@object)
-    @server = DRb::DRbServer.new(uri, obj)
+
+    config_param :bind, :string, :default => '0.0.0.0'
+    config_param :port, :integer, :default => 24230
+    config_param :unix_path, :integer, :default => nil
+    #config_param :unix_mode  # TODO
+    config_param :object, :string, :default => 'Engine'
+
+    def configure(conf)
+      super
+    end
+
+    def start
+      if @unix_path
+        require 'drb/unix'
+        uri = "drbunix:#{@unix_path}"
+      else
+        uri = "druby://#{@bind}:#{@port}"
+      end
+      $log.info "listening dRuby", :uri => uri, :object => @object
+      obj = eval(@object)
+      @server = DRb::DRbServer.new(uri, obj)
+    end
+
+    def shutdown
+      @server.stop_service if @server
+    end
   end
-
-  def shutdown
-    @server.stop_service if @server
-  end
-end
-
-
 end
