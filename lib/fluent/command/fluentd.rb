@@ -46,6 +46,10 @@ op.on('-c', '--config PATH', "config file path (default: #{Fluent::DEFAULT_CONFI
   opts[:config_path] = s
 }
 
+op.on('--dry-run', "Check fluentd setup is correct or not", TrueClass) {|b|
+  opts[:dry_run] = b
+}
+
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
   opts[:plugin_dirs] << s
 }

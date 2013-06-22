@@ -68,6 +68,7 @@ class Supervisor
     @plugin_dirs = opt[:plugin_dirs]
     @inline_config = opt[:inline_config]
     @suppress_interval = opt[:suppress_interval]
+    @dry_run = opt[:dry_run]
 
     @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
     @finished = false
@@ -78,6 +79,7 @@ class Supervisor
     require 'fluent/load'
     @log.init
 
+    dry_run if @dry_run
     start_daemonize if @daemonize
     install_supervisor_signal_handlers
     until @finished
@@ -96,6 +98,19 @@ class Supervisor
   end
 
   private
+
+  def dry_run
+    read_config
+    change_privilege
+    init_engine
+    install_main_process_signal_handlers
+    run_configure
+    exit 0
+  rescue => e
+    $log.error "Dry run failed: #{e}"
+    exit 1
+  end
+
   def start_daemonize
     @wait_daemonize_pipe_r, @wait_daemonize_pipe_w = IO.pipe
 
