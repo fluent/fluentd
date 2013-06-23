@@ -22,7 +22,7 @@ module Fluentd
   # See agent.rb for details.
   #
   # MultiProcessManager is a subclass of ProcessManager that
-  # assigns creates multiple processors.
+  # creates multiple processors. See also multi_process_manager.rb.
   #
   # Processor is an UNIX process managed by ServerEngine. See also server.rb.
   #

@@ -169,7 +169,7 @@ module Fluentd
         if data == nil || data.empty?
           @client_connections.delete(cc)
           cc.close rescue nil
-          next
+          return
         end
 
         msg = Marshal.load(data)

@@ -28,10 +28,10 @@ module Fluentd
   #   MessageRouter routes the events into registered output and/or filter plugins.
   #
   # Output plugin (#add_match):
-  #   MessageRouter creates output plugins and registeres them into MessageRouter.
+  #   MessageRouter creates output plugins and registers them into MessageRouter.
   #
   # Filter plugin (#add_filter):
-  #   MessageRouter creates output plugins and registeres them into MessageRouter.
+  #   MessageRouter creates output plugins and registers them into MessageRouter.
   #   And also sets it up to send events into the internal MessageRouter with offset.
   #
   # MessageRouter routes events into into default_collector if no output plugins matched.
@@ -89,7 +89,7 @@ module Fluentd
     def add_source(type, conf)
       log.info "adding source"#, :type=>type
 
-      agent = conf.plugin.new_input(type)
+      agent = Fluentd.plugin.new_input(type)
       configure_agent(agent, conf)
 
       return agent
@@ -98,7 +98,7 @@ module Fluentd
     def add_match(type, pattern, conf)
       log.info "adding match"#, :pattern=>pattern, :type=>type
 
-      agent = conf.plugin.new_output(type)
+      agent = Fluentd.plugin.new_output(type)
       configure_agent(agent, conf)
 
       @message_router.add_collector(pattern, agent)  # register to MessageRouter
@@ -109,7 +109,7 @@ module Fluentd
     def add_filter(type, pattern, conf)
       log.info "adding filter"#, :pattern=>pattern, :type=>type
 
-      agent = conf.plugin.new_filter(type)
+      agent = Fluentd.plugin.new_filter(type)
       configure_agent_offset(agent, conf)
 
       @message_router.add_collector(pattern, agent)  # register to MessageRouter

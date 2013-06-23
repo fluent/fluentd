@@ -23,7 +23,7 @@ module Fluentd
         @loop.attach ReadableIOWatcher.new(io, callback)
       end
 
-      alias_method :watch_io_readable, :watch_io
+      alias_method :watch_io, :watch_io_readable
 
       def watch_io_writable(io, &callback)
         @loop.attach WritableIOWatcher.new(io, callback)

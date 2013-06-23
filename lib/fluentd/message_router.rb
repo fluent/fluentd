@@ -81,7 +81,7 @@ module Fluentd
 
     def match_offset(offset, tag)
       unless @match_collectors
-        return @default_collector_short_circuit ||= @default_collector.short_circuit
+        return @default_collector_short_circuit ||= @default_collector.short_circuit(tag)
       end
 
       cache = (@match_caches[offset] ||= MatchCache.new)
@@ -92,7 +92,7 @@ module Fluentd
         if collector
           collector = collector.short_circuit(tag)
         else
-          collector = (@default_collector_short_circuit ||= @default_collector.short_circuit)
+          collector = (@default_collector_short_circuit ||= @default_collector.short_circuit(tag))
         end
         cache[tag] = collector
       end

@@ -18,6 +18,8 @@
 module Fluentd
 
   module Actors
+    require 'coolio'
+
     here = File.expand_path(File.dirname(__FILE__))
 
     {

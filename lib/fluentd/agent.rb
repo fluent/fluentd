@@ -34,7 +34,7 @@ module Fluentd
   #
   # The root agent is RootAgent. See also root_agent.rb.
   #
-  # In signle process mode, agents are assigned to one Processor.
+  # In signle process mode, all agents are assigned to one Processor.
   # In multiprocess mode, each agent is assigned to one or more Processor:
   #
   # ProcessManager
@@ -55,6 +55,9 @@ module Fluentd
   #    .               +--> Agent E
   #
   # * Processor assignment considers locality of agents.
+  #
+  # * ProcessManager assigns agents into processors.
+  #   See also process_manager.rb.
   #
 
   class Agent
@@ -89,7 +92,7 @@ module Fluentd
     end
 
     def add_agent(agent)
-      # inherit stats_collector (RootAgent#initialize is the root to set the actual stats_collector)
+      # inherit stats_collector (RootAgent#initialize is the node that sets the actual stats_collector)
       agent.stats_collector = @stats_collector
       @agents << agent
       self

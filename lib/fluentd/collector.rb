@@ -39,7 +39,7 @@ module Fluentd
       raise NoMethodError, "#{self.class}#emits(tag, es) is not implemented"
     end
 
-    def short_circuit
+    def short_circuit(tag)
       self
     end
   end
