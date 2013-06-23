@@ -67,8 +67,8 @@ module Fluentd
       log_agent = add_label_impl(LogMessageLabel, LOG_LABEL,
                      log_label_config, Collectors::NullCollector.new)
 
-      conf.logger.extend(StatsCollectLoggerMixin)
-      conf.logger.init_stats_collect("fluentd", log_agent.collector)
+      Fluentd.logger.extend(StatsCollectLoggerMixin)
+      Fluentd.logger.init_stats_collect("fluentd", log_agent.collector)
 
       nil
     end

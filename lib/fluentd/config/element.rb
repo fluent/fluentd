@@ -54,6 +54,18 @@ module Fluentd
         Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, @used+o.used)
       end
 
+      def each_element(*names, &block)
+        if names.empty?
+          @elements.each(&block)
+        else
+          @elements.each {|e|
+            if names.include?(e.name)
+              block.yield(e)
+            end
+          }
+        end
+      end
+
       def has_key?(key)
         @used << key
         super
@@ -92,7 +104,8 @@ module Fluentd
 
         each_pair {|k,v|
           a = LiteralParser.nonquoted_string?(k) ? k : {"_"=>k}.to_json[5..-2]
-          b = LiteralParser.nonquoted_string?(v) ? v : {"_"=>v}.to_json[5..-2]
+          #b = LiteralParser.nonquoted_string?(v) ? v : {"_"=>v}.to_json[5..-2]
+          b = {"_"=>v}.to_json[5..-2]
           out << "#{nindent}#{a} #{b}\n"
         }
 

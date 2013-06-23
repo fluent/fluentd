@@ -30,7 +30,7 @@ module Fluentd
     end
 
     def configure(conf)
-      @log = conf.logger
+      @log = Fluentd.logger
       @config = conf
 
       self.class.config_params.each_pair {|name,(block,opts)|

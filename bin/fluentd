@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+require 'rubygems' unless defined?(gem)
+here = File.dirname(__FILE__)
+$LOAD_PATH << File.expand_path(File.join(here, '..', 'lib'))
+require 'fluentd/command/fluentd'

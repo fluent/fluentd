@@ -25,6 +25,8 @@ module Fluentd
   require 'json'
   require 'yajl'
 
+  require 'serverengine'
+
   here = File.expand_path(File.dirname(__FILE__))
 
   {
@@ -40,6 +42,7 @@ module Fluentd
     :StatsCollector => 'fluentd/stats_collector',
     :NullStatsCollector => 'fluentd/stats_collector',
     :Server => 'fluentd/server',
+    :Worker => 'fluentd/worker',
     :Logger => 'fluentd/logger',
     :ProcessManager => 'fluentd/process_manager',
     :SocketManager => 'fluentd/socket_manager',

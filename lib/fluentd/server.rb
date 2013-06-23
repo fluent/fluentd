@@ -18,113 +18,212 @@
 module Fluentd
 
   module Server
-    extend Forwardable
-
     DEFAULT_PARAMETERS = {
-      :daemon_process_name => 'fluentd:master',
-      :worker_process_name => 'fluentd:worker %1',
+      #:daemon_process_name => 'fluentd:master',
     }
 
     OVERWRITE_PARAMETERS = {
       :restart_server_process => false,
       :disable_reload => true,  # disables reload and uses restart always
       :logger_class => Logger,  # overwrites logger class
-      :supervisor => false,
+      :worker_type => 'thread',
     }
 
     def self.run(opts={})
-      require 'serverengine'
-
       #
       # ServerEngine calls:
       #
       #   1. Server#initialize
-      #   2. Server#before_run  -> @process_manager.before_run
-      #   3. for each workers:
-      #      3.1. Server::Worker#before_fork  -> Processor#before_fork
-      #      3.2. Server::Worker#run          -> Processor#run
-      #      3.3. Server::Worker#after_start  -> Processor#after_start
-      #   4. Server#stop        -> @process_manager.stop
-      #   5. Server#after_run   -> @process_manager.after_run
+      #   2. Server#before_run
+      #   3. Server::WorkerLauncher#run for each workers
+      #   4. Server#stop
+      #   5. Server#after_run
       #
       # See ServerEngine for details.
       #
-      ServerEngine.create(Server, Server::Worker) do
+      ServerEngine.create(Server, WorkerLauncher) do
         DEFAULT_PARAMETERS.merge(opts).merge(OVERWRITE_PARAMETERS)
       end.run
     end
 
-    def_delegators :@process_manager, :before_run, :after_run, :after_start
-
     def initialize
-      if self.is_a?(ServerEngine::MultiProcessServer)
-        @process_manager = MultiProcessManager.new
-      else
-        @process_manager = ProcessManager.new
-      end
-      @process_manager.logger = logger
-
-      Fluentd.logger = logger
-      Fluentd.plugin = PluginRegistry.new
-      Fluentd.socket_manager_api = @process_manager.socket_manager
-
-      # MultiProcessManager::MultiProcessProcessor#run overwrites Fluentd.socket_manager_api
-
-      super  # will call reload_config
+      super  # calls reload_config
     end
 
     # ServerEngine hook point
     def reload_config
       super
-      configure!
-    end
 
-    def configure!
-      path = config[:config_path]
-      c = Config.read(path)
+      # load fluentd.conf
+      conf = read_config(config[:config_path])
 
-      root_agent = RootAgent.new
+      # <server> section creates a worker instances
+      @server_elements = conf.elements.select {|e| e.name == 'server' }
 
-      # enables c.context.xxx=
-      Config::Context.inject!(c)
-      c.context.log = logger
-      c.context.logger = logger
-      c.context.root_agent = root_agent
-
-      # RootAgent#configure recursively calls Agent#configure
-      root_agent.configure(c)
-
-      # configure ProcessManager
-      @process_manager.configure(c)
-
-      # assign agents to processors
-      @process_manager.assign_processors(root_agent)
-
-      @root_agent = root_agent
-      @processors = @process_manager.processors
-
-      if self.is_a?(ServerEngine::MultiProcessServer)
-        # change number of ServerEngine workers
-        scale_workers(@processors.size)
+      if @server_elements.empty?
+        raise ConfigError, "No <server> elements in the config file"
       end
 
-      # warn unused config parameters
-      c.check_not_used {|key,e|
-        logger.warn "parameter '#{key}' is not used in\n#{e.to_s(nil).strip}"
-      }
+      # set number of ServerEngine server_elements
+      scale_workers(@server_elements.size)
     end
 
-    attr_reader :process_manager, :processors
+    attr_reader :server_elements
 
-    module Worker
-      extend Forwardable
+    # ServerEngine callback
+    def before_run
+    end
 
+    # ServerEngine callback
+    def after_run
+      @socket_manager.close
+    end
+
+    private
+
+    def read_config(path)
+      begin
+        conf = Config.read(path)
+
+        unless conf.elements.find {|e| e.name == 'server' }
+          # TODO backward compatible mode
+          compat_conf = Config::CompatParser.read(path)
+        end
+      rescue => e
+        begin
+          compat_conf = Config::CompatParser.read(path)
+        rescue
+          raise e
+        end
+      end
+
+      if compat_conf
+        compat_conf.name = 'server'
+        logger.warn "Using backward compatible configuration file. Please replace it with following content to not show this message again:\n#{compat_conf.to_s}"
+        conf = Config::Element.new('ROOT', '', {}, [compat_conf])
+      end
+
+      return conf
+    end
+
+    module WorkerLauncher
       def initialize
-        @processor = server.processors[worker_id]
-        @processor.worker_initialize(server.process_manager, worker_id)
+        @server_config = server.config
+        @server_element = server.server_elements[worker_id]
+        @server_element['worker_id'] = worker_id
       end
 
-      def_delegators :@processor, :before_fork, :run, :stop, :reload, :after_start
+      def run
+        begin
+          spawn_process
+        ensure
+          pid, status = Process.waitpid2(@pid) if @pid
+        end
+      end
+
+      def stop
+        if pid = @pid
+          begin
+            Process.kill('TERM', pid)
+          rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+          end
+        end
+      end
+
+      def self.main
+        spawn_data = STDIN.read
+        STDIN.reopen(File::NULL)
+
+        server_config, server_element = SpawnData.restore(spawn_data)
+
+        name = server_element.arg.empty? ? server_element['worker_id'] : server_element.arg
+        $0 = "fluentd:worker #{name}"
+
+        chuser = server_element['process_user'] || server_config[:chuser]
+        chgroup = server_element['process_group'] || server_config[:chgroup]
+        ServerEngine::Daemon.change_privilege(chuser, chgroup)
+
+        w = Worker.new(server_config, server_element)
+        w.install_signal_handlers
+        w.run
+      end
+
+      private
+
+      def spawn_process
+        worker_main = File.expand_path File.join(File.dirname(__FILE__), 'command', 'fluentd-worker.rb')
+
+        env = {'fluentd_worker_process'=>worker_id.to_s}
+        cmdline = [RbConfig.ruby, worker_main]
+
+        options = { }
+        setup_resource_options(options)
+
+        rpipe, wpipe = IO.pipe
+        begin
+          options[:in] = rpipe
+          @pid = Process.spawn(env, *cmdline, options)
+
+          wpipe.write SpawnData.dump([@server_config, @server_element])
+
+        rescue => e
+          logger.error e.to_s
+          logger.error_backtrace e.backtrace
+
+        ensure
+          rpipe.close
+          wpipe.close
+        end
+
+        # TODO wait for configure
+
+        return pid
+      end
+
+      def setup_resource_options(options)
+        @server_config.each_pair {|k,v|
+          if k =~ /^rlimit_/
+            options[k.to_s] = v.to_s
+          end
+        }
+
+        if @server_config[:chumask]
+          options['umask'] = @server_config[:chumask].to_s
+        end
+      end
+
+      class SpawnData
+        def initialize(user_data)
+          @loaded_features = $LOADED_FEATURES
+          @load_path = $LOAD_PATH
+          @debug = $DEBUG
+          @gc_profiler = GC::Profiler.enabled?
+          @user_data = user_data
+        end
+
+        def restore!
+          GC::Profiler.enable if @gc_profiler
+
+          $DEBUG = @debug
+
+          $LOAD_PATH.clear
+          @load_path.each {|path| $LOAD_PATH << path }
+
+          @loaded_features.each {|feature|
+            require feature
+          }
+
+          return @user_data
+        end
+
+        def self.dump(user_data)
+          Marshal.dump(new(user_data))
+        end
+
+        def self.restore(user_data)
+          Marshal.load(user_data).restore!
+        end
+      end
     end
   end
 

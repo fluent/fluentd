@@ -65,30 +65,18 @@ module Fluentd
 
     def initialize
       @agents = []
-      @processors = []
-      @process_groups = []
       @stats_collector = NullStatsCollector.new
       init_configurable
       super
     end
 
-    attr_reader :agents, :processors
-
-    # process_groups are a hint to assign this Agent to a Processor
-    attr_reader :process_groups
+    attr_reader :agents
 
     attr_accessor :stats_collector
     alias_method :stats, :stats_collector
 
-    # TODO multiprocess?
-
     def configure(conf)
       super
-
-      # TODO process_group
-      if gr = conf['process_group']
-        @process_groups = [gr]
-      end
     end
 
     def add_agent(agent)

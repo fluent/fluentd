@@ -35,6 +35,7 @@ module Fluentd
       :ParserModule => 'config/basic_parser',
       :LiteralParser => 'config/literal_parser',
       :Parser => 'config/parser',
+      :CompatParser => 'config/compat_parser',
     }.each_pair {|k,v|
       autoload k, File.join(here, v)
     }

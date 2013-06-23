@@ -87,7 +87,7 @@ module Fluentd
     end
 
     def add_source(type, conf)
-      log.info "adding source"#, :type=>type
+      log.info "adding source", :type=>type
 
       agent = Fluentd.plugin.new_input(type)
       configure_agent(agent, conf)
@@ -96,7 +96,7 @@ module Fluentd
     end
 
     def add_match(type, pattern, conf)
-      log.info "adding match"#, :pattern=>pattern, :type=>type
+      log.info "adding match", :pattern=>pattern, :type=>type
 
       agent = Fluentd.plugin.new_output(type)
       configure_agent(agent, conf)
@@ -107,7 +107,7 @@ module Fluentd
     end
 
     def add_filter(type, pattern, conf)
-      log.info "adding filter"#, :pattern=>pattern, :type=>type
+      log.info "adding filter", :pattern=>pattern, :type=>type
 
       agent = Fluentd.plugin.new_filter(type)
       configure_agent_offset(agent, conf)
