@@ -20,7 +20,7 @@ module Fluentd
 
     module SocketActor
       def create_tcp_thread_server(bind, port, &block)
-        listen_socket = Fluentd.socket_manager_api.listen_tcp(bind, port)
+        listen_socket = listen_tcp(bind, port)
         listen_io(listen_socket) do |io|
           background(io, &callback)
         end
@@ -33,13 +33,25 @@ module Fluentd
         end
       end
 
+      def listen_io(listen_socket, &callback)
+        @loop.attach CallbackListener.new(listen_socket, &callback)
+      end
+
       def create_udp_server(bind, port, &block)
         sock = Fluentd.socket_manager_api.listen_udp(bind, port)
         watch_io(sock, &block)
       end
 
-      def listen_io(listen_socket, &callback)
-        @loop.attach CallbackListener.new(listen_socket, &callback)
+      def listen_tcp(bind, port)
+        Fluentd.socket_manager_api.listen_tcp(bind, port)
+      end
+
+      def listen_unix(path)
+        Fluentd.socket_manager_api.listen_unix(path)
+      end
+
+      def listen_udp(bind, port)
+        Fluentd.socket_manager_api.listen_udp(bind, port)
       end
 
       class CallbackListener < Coolio::Listener

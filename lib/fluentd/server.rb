@@ -64,7 +64,7 @@ module Fluentd
         raise ConfigError, "No <server> elements in the config file"
       end
 
-      # set number of ServerEngine server_elements
+      # set number of ServerEngine workers
       scale_workers(@server_elements.size)
     end
 
@@ -72,12 +72,18 @@ module Fluentd
 
     # ServerEngine callback
     def before_run
+      @socket_server = SocketManager::Server.new
+      @socket_server.start
     end
 
     # ServerEngine callback
     def after_run
-      @socket_manager.close
+      stop(false)
+      join_workers
+      @socket_server.shutdown
     end
+
+    attr_reader :socket_server
 
     private
 
@@ -107,18 +113,31 @@ module Fluentd
     end
 
     module WorkerLauncher
+      SOCKET_MANAGER_FILENO = 3
+
       def initialize
         @server_config = server.config
         @server_element = server.server_elements[worker_id]
-        @server_element['worker_id'] = worker_id
+        @server_element['id'] ||= worker_id
+      end
+
+      def before_fork
+        @monitor = spawn_process
+      rescue => e
+        logger.error e.to_s
+        logger.error_backtrace e.backtrace
+        raise
       end
 
       def run
-        begin
-          spawn_process
-        ensure
-          pid, status = Process.waitpid2(@pid) if @pid
-        end
+        # TODO heartbeat monitoring
+        @monitor
+      rescue => e
+        logger.error e.to_s
+        logger.error_backtrace e.backtrace
+        raise
+      ensure
+        Process.waitpid2(@pid) if @pid
       end
 
       def stop
@@ -136,15 +155,20 @@ module Fluentd
 
         server_config, server_element = SpawnData.restore(spawn_data)
 
-        name = server_element.arg.empty? ? server_element['worker_id'] : server_element.arg
-        $0 = "fluentd:worker #{name}"
+        $0 = "fluentd:worker #{server_element['id']}"
 
         chuser = server_element['process_user'] || server_config[:chuser]
         chgroup = server_element['process_group'] || server_config[:chgroup]
         ServerEngine::Daemon.change_privilege(chuser, chgroup)
 
-        w = Worker.new(server_config, server_element)
+        socket_client = SocketManager::Client.new(SOCKET_MANAGER_FILENO, server_element['id'])
+
+        w = Worker.new(server_config, socket_client)
         w.install_signal_handlers
+        w.configure(server_element)
+
+        socket_client.start_heartbeat
+
         w.run
       end
 
@@ -159,25 +183,38 @@ module Fluentd
         options = { }
         setup_resource_options(options)
 
+        spawn_data = SpawnData.dump([@server_config, @server_element])
+
+        cpipe, monitor = server.socket_server.new_client_pipe
+
         rpipe, wpipe = IO.pipe
         begin
           options[:in] = rpipe
+          options[SOCKET_MANAGER_FILENO] = cpipe
           @pid = Process.spawn(env, *cmdline, options)
 
-          wpipe.write SpawnData.dump([@server_config, @server_element])
+          launch_success = false
+          begin
+            cpipe.close
 
-        rescue => e
-          logger.error e.to_s
-          logger.error_backtrace e.backtrace
+            # TODO wait for configure
+            wpipe.write spawn_data
+
+            launch_success = true
+
+          ensure
+            unless launch_success
+              Process.kill('TERM', @pid)
+              Process.waitpid2(@pid)
+            end
+          end
 
         ensure
           rpipe.close
           wpipe.close
         end
 
-        # TODO wait for configure
-
-        return pid
+        return monitor
       end
 
       def setup_resource_options(options)

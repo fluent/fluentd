@@ -20,32 +20,70 @@ module Fluentd
   class Worker
     include ServerEngine::ConfigLoader
 
-    def initialize(server_config, conf)
-      @conf = conf
-      @worker_id = conf['worker_id']
+    def initialize(server_config, socket_manager_api)
       @stop_flag = ServerEngine::BlockingFlag.new
+      @socket_manager_api = socket_manager_api
       super(server_config)
+      @log = create_logger
     end
 
-    def run
-      @log = create_logger
+    def configure(conf)
+      @server_id = conf['id']
 
       Fluentd.logger = @log
       Fluentd.plugin = PluginRegistry.new
+      Fluentd.socket_manager_api = @socket_manager_api
 
-      @log.info "Starting worker #{@worker_id}"
+      @log.info "Starting worker #{@server_id}"
 
       root_agent = RootAgent.new
-      root_agent.configure(@conf)
+      root_agent.configure(conf)
 
       # warn unused config parameters
-      @conf.check_not_used {|key,e|
+      conf.check_not_used {|key,e|
         @log.warn "parameter '#{key}' is not used in\n#{e.to_s(nil).strip}"
       }
 
-      agents = collect_agents(root_agent)
+      @agents = collect_agents(root_agent)
+    end
 
-      run_agents(agents)
+    def run
+      started_agents = []
+
+      @agents.each {|a|
+        a.start
+        started_agents << a
+      }
+
+      @stop_flag.wait
+      nil
+
+    ensure
+      @log.info "Shutting down worker #{@server_id}"
+
+      # stop first in reversed order
+      started_agents.reverse.map {|a|
+        Thread.new do
+          begin
+            a.stop
+          rescue => e
+            @log.warn "unexpected error while stopping down agent #{a}", :error=>$!.to_s
+            @log.warn_backtrace
+          end
+        end
+      }.each {|t| t.join }
+
+      # shutdown in reversed order
+      started_agents.reverse.map {|a|
+        Thread.new do
+          begin
+            a.shutdown
+          rescue => e
+            @log.warn "unexpected error while shutting down agent #{a}", :error=>$!.to_s
+            @log.warn_backtrace
+          end
+        end
+      }.each {|t| t.join }
     end
 
     def stop
@@ -73,45 +111,6 @@ module Fluentd
       }
       array << agent
       return array
-    end
-
-    def run_agents(agents)
-      started_agents = []
-
-      agents.each {|a|
-        a.start
-        started_agents << a
-      }
-
-      @stop_flag.wait
-      nil
-
-    ensure
-      @log.info "Shutting down worker #{@worker_id}"
-
-      # stop first in reversed order
-      started_agents.reverse.map {|a|
-        Thread.new do
-          begin
-            a.stop
-          rescue => e
-            @log.warn "unexpected error while stopping down agent #{a}", :error=>$!.to_s
-            @log.warn_backtrace
-          end
-        end
-      }.each {|t| t.join }
-
-      # shutdown in reversed order
-      started_agents.reverse.map {|a|
-        Thread.new do
-          begin
-            a.shutdown
-          rescue => e
-            @log.warn "unexpected error while shutting down agent #{a}", :error=>$!.to_s
-            @log.warn_backtrace
-          end
-        end
-      }.each {|t| t.join }
     end
   end
 
