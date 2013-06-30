@@ -191,7 +191,7 @@ module Fluentd
         begin
           options[:in] = rpipe
           options[SOCKET_MANAGER_FILENO] = cpipe
-          @pid = Process.spawn(env, *cmdline, options)
+          @pid = Process.spawn(env, *cmdline, options)  # calls WorkerLauncher.main
 
           launch_success = false
           begin

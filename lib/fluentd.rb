@@ -57,6 +57,8 @@ module Fluentd
     :Actor => 'fluentd/actor',
     :Actors => 'fluentd/actor',
     :ActorAgent => 'fluentd/actor',
+    :BundlerInjection => 'fluentd/bundler_injection',
+    :VERSION => 'fluentd/version',
   }.each_pair {|k,v|
     autoload k, File.join(here, v)
   }
