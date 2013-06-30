@@ -72,6 +72,7 @@ module Fluentd
 
     # ServerEngine callback
     def before_run
+      logger.info "fluentd v#{Fluentd::VERSION}"
       @socket_server = SocketManager::Server.new
       @socket_server.start
     end
@@ -155,7 +156,7 @@ module Fluentd
 
         server_config, server_element = SpawnData.restore(spawn_data)
 
-        $0 = "fluentd:worker #{server_element['id']}"
+        $0 = "#{server_config[:worker_process_name]} #{server_element['id']}"
 
         chuser = server_element['process_user'] || server_config[:chuser]
         chgroup = server_element['process_group'] || server_config[:chgroup]

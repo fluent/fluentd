@@ -15,19 +15,17 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-
 require 'optparse'
-require 'fluentd/version'
 
 LOG_LEVEL_TRACE = -1
 LOG_LEVEL_INFO = 1
 LOG_LEVEL_ERROR = 3
 
 op = OptionParser.new
-op.version = Fluentd::VERSION
 
 default_config_path = ENV['FLUENTD_CONFIG_PATH'] || '/etc/fluentd.conf'
 default_plugin_dir = ENV['FLUENTD_PLUGIN_DIR'] || ['/etc/fluentd/plugin']
+worker_process_name = ENV['FLUENTD_WORKER_PROCESS_NAME'] || 'fluentd:worker'
 
 opts = {
   :config_path => default_config_path,
@@ -39,9 +37,10 @@ opts = {
   :setup_path => nil,
   :chuser => nil,
   :chgroup => nil,
+  :worker_process_name => worker_process_name,
 }
 
-op.on('-s', "--setup [DIR=#{default_config_path}]", "install sample configuration file to the directory") {|s|
+op.on('-s', '--setup [DIR]', "install sample configuration file to the directory (defalut: #{default_config_path})") {|s|
   opts[:setup_path] = s || default_config_path
 }
 
@@ -69,7 +68,7 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path") {|s|
   opts[:gem_install_path] = s
 }
 
-op.on('--use-shared-gems', "Gemfile path", TrueClass) {|b|
+op.on('--use-shared-gems', "Enable gems not installed into gem-path", TrueClass) {|b|
   opts[:use_shared_gems] = b
 }
 
@@ -78,11 +77,11 @@ op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
   opts[:pid_path] = s
 }
 
-op.on('--user USER', "change user") {|s|
+op.on('--user USER', "change user of worker processes") {|s|
   opts[:chuser] = s
 }
 
-op.on('--group GROUP', "change group") {|s|
+op.on('--group GROUP', "change group of worker processes") {|s|
   opts[:chgroup] = s
 }
 
@@ -119,6 +118,12 @@ define_singleton_method(:usage) do |msg|
   exit 1
 end
 
+op.on_tail("--version", "Show version") do
+  require 'fluentd/version'
+  puts "fluentd #{Fluentd::VERSION}"
+  exit
+end
+
 begin
   op.parse!(ARGV)
 
@@ -131,22 +136,29 @@ end
 
 if setup_path = opts[:setup_path]
   require 'fileutils'
+  sample_conf = File.read File.join(File.dirname(__FILE__), "..", "..", "..", "fluentd.conf")
+
+  conf_path = File.join(setup_path, File.basename(default_config_path))
   FileUtils.mkdir_p File.join(setup_path, "plugin")
-  conf_path = File.join(setup_path, "fluentd.conf")
+
   if File.exist?(conf_path)
     puts "#{conf_path} already exists."
-  else
-    File.open(conf_path, "w") {|f|
-      conf = File.read File.join(File.dirname(__FILE__), "..", "..", "..", "fluentd.conf")
-      f.write conf
-    }
-    puts "Installed #{conf_path}."
+    exit 1
   end
+
+  File.open(conf_path, "w") {|f|
+    f.write sample_conf
+  }
+  puts "Installed #{conf_path}."
+  puts "Run following command to start:"
+  puts ""
+  puts "  $ #{$0} -c #{conf_path}"
+  puts ""
   exit 0
 end
 
 if gemfile = opts[:gemfile]
-  require 'fluentd/bundler_injection'
+  require_relative '../bundler_injection'
   Fluentd::BundlerInjection.install(gemfile, opts)
 end
 
