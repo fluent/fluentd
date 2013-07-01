@@ -19,21 +19,30 @@ module Fluentd
 
   #
   # MessageRouter matches a tag of an event with registered patterns and route the event to
-  # the matched collector (See #emits method).
-  # If no patterns match, MessageRouter routes the event to #default_collector.
+  # the matched collector. If no patterns match, MessageRouter routes the event to
+  # #default_collector.
   #
-  # MessageRouter forms a tree structure where the root node is a RootAgent:
+  # Input plugins start matching from the beginning of the matching rules. On the other hand,
+  # filter plugins start matching from the middle:
   #
-  # MessageRouter              MessageRouter
-  #  #default_collector --+     #default_collector --+
-  #                       |                          |
-  #                       +--> MessageRouter         |
-  # MessageRouter         |     #default_collector --+--> RootAgent
-  #  #default_collector --+                          |     #default_collector --> NoMatchCollector
-  #                            MessageRouter         |
-  #                             #default_collector --+
+  #  <source> matches from offset=0:
+  #    [
+  #      0:match  a.**
+  #      1:filter b.**      --> match
+  #      2.match  b.**            |
+  #    ] --- match_patterns       |
+  #                               |
+  #    +--------------------------+
+  #    |
+  #  <filter b.**> matches from offset=2:
+  #    [
+  #      0:match  a.**      --- skip
+  #      1:filter b.**      --- skip
+  #      2.match  b.**      --> match
+  #    ] --- match_patterns
   #
-
+  # See also MessageSource#configure_agent and #configure_agent_offset.
+  #
   class MessageRouter
     include Collector
 
@@ -41,7 +50,7 @@ module Fluentd
       @default_collector = default_collector
       @match_caches = []
       @match_patterns = []
-      @match_collectors = nil
+      @match_collectors = []
     end
 
     attr_accessor :default_collector
@@ -50,7 +59,6 @@ module Fluentd
 
     def add_collector(pattern, collector)
       @match_patterns << pattern
-      @match_collectors ||= []
       @match_collectors << collector
       nil
     end
@@ -80,20 +88,12 @@ module Fluentd
     end
 
     def match_offset(offset, tag)
-      unless @match_collectors
-        return @default_collector_short_circuit ||= @default_collector.short_circuit(tag)
-      end
-
       cache = (@match_caches[offset] ||= MatchCache.new)
       collector = cache[tag]
 
       unless collector
-        collector = find(tag, offset)
-        if collector
-          collector = collector.short_circuit(tag)
-        else
-          collector = (@default_collector_short_circuit ||= @default_collector.short_circuit(tag))
-        end
+        collector = find(tag, offset) || @default_collector
+        collector = collector.short_circuit(tag)
         cache[tag] = collector
       end
 
@@ -101,7 +101,7 @@ module Fluentd
     end
 
     def short_circuit(tag)
-      match(tag).short_circuit(tag)
+      match_offset(0, tag).short_circuit(tag)
     end
 
     def short_circuit_offset(offset, tag)

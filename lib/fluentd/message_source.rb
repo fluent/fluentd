@@ -18,34 +18,56 @@
 module Fluentd
 
   #
-  # MessageSource module provides #collector method to an Agent.
-  # Fluentd::Input includes MessageSource.
+  # MessageSource is a base module of input and filter plugins.
+  # MessageSource has the capability to generates events into fluentd's message router.
   #
-  # MessageSource manages input, output and filter plugins.
+  # MessageSource has:
   #
-  # Input plugin (#add_source):
-  #   MessageSource sets up input plugins to send events into the internal MessageRouter.
-  #   MessageRouter routes the events into registered output and/or filter plugins.
+  #   * a parent MessageSource, which is the default_collector of this MessageSource
+  #   * child MessageSource instances, whose parent is this MessageSource
   #
-  # Output plugin (#add_match):
-  #   MessageRouter creates output plugins and registers them into MessageRouter.
+  #            +---------------+
+  #            | MessageSource |        --- parent MessageSource
+  #            |      ...      |            input, filter plugin or RootAgent
+  #            +---------------+
+  #                    ^
+  #                    | default_collector
+  #                    |
+  #         +--------- | ---------+
+  #        ||    MessageSource    ||
+  #        ||          |          ||   An agent instance
+  #        ||   <MessageRouter>   ||
+  #        ||      /       \      ||
+  #        ||   Agent     Agent   ||   --- <match> or <filter>
+  #         +---------------------+        output or filter plugins
+  #                ^       ^
+  #                |       | default_collector
+  #               /         \
+  #  +-----------/---+   +---\-----------+
+  #  | MessageSource |   | MessageSource |  --- nested <source>
+  #  |      ...      |   |      ...      |      input plugins
+  #  +---------------+   +---------------+
   #
-  # Filter plugin (#add_filter):
-  #   MessageRouter creates output plugins and registers them into MessageRouter.
-  #   And also sets it up to send events into the internal MessageRouter with offset.
+  # When MessageSource generates an event:
   #
-  # MessageRouter routes events into into default_collector if no output plugins matched.
-  # See also message_router.rb.
+  #   1. MessageSource sends it to the internal MessageRouter
+  #   2. The MessageRouter tries to match it with registered output (or filter) plugins
+  #   If no plugins match the event,
+  #   3. it sends the event to default_collector (= parent MessageSource)
+  #      The parent MessageSource does the same thing; tries to match output (or filter)
+  #      plugins in the the internal MessageRouter, or sends it to the default_collector.
+  #
+  # The root node of this routing tree is RootAgent. RootAgent sends the event to
+  # NoMatchNoticeCollector if no output (or filter) plugins match.
   #
   module MessageSource
     include Configurable
 
     # call this method in subclass
     def init_message_source(root_router, default_collector)
+      # root_router always points RootAgent
       @root_router = root_router
-
       @message_router = MessageRouter.new(default_collector)
-
       nil
     end
 
@@ -92,6 +114,8 @@ module Fluentd
       agent = Fluentd.plugin.new_input(type)
       configure_agent(agent, conf)
 
+      # <source> does not match pattern; don't register to MessageRouter
+
       return agent
     end
 
@@ -129,8 +153,8 @@ module Fluentd
 
     def configure_agent_impl(agent, conf, default_collector)
       if agent.is_a?(MessageSource)
-        # nested MessageSource.
-        # inherit @root_router and default_collector (RootAgent#initialize is the root to set @root_router and default_collector)
+        # this agent is a child MessageSource.
+        # setup the default_collector of the agent here
         agent.init_message_source(@root_router, default_collector)
       end
 

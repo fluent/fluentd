@@ -17,6 +17,9 @@
 #
 module Fluentd
 
+  #
+  # Server is the parent process of all worker processes.
+  #
   module Server
     DEFAULT_PARAMETERS = {
       #:daemon_process_name => 'fluentd:master',
@@ -31,7 +34,7 @@ module Fluentd
 
     def self.run(opts={})
       #
-      # ServerEngine calls:
+      # ServerEngine.create calls:
       #
       #   1. Server#initialize
       #   2. Server#before_run
@@ -39,7 +42,13 @@ module Fluentd
       #   4. Server#stop
       #   5. Server#after_run
       #
-      # See ServerEngine for details.
+      # See ServerEngine documents for details:
+      # https://github.com/frsyuki/serverengine
+      #
+      # WorkerLauncher creates Worker instance for each <server> section
+      # in the configuration file.
+      #
+      # WorkerLauncher.main is the entry point of worker processes.
       #
       ServerEngine.create(Server, WorkerLauncher) do
         DEFAULT_PARAMETERS.merge(opts).merge(OVERWRITE_PARAMETERS)
@@ -73,6 +82,7 @@ module Fluentd
     # ServerEngine callback
     def before_run
       logger.info "fluentd v#{Fluentd::VERSION}"
+
       @socket_server = SocketManager::Server.new
       @socket_server.start
     end
@@ -81,6 +91,7 @@ module Fluentd
     def after_run
       stop(false)
       join_workers
+
       @socket_server.shutdown
     end
 
@@ -92,8 +103,8 @@ module Fluentd
       begin
         conf = Config.read(path)
 
+        # use backward compatible mode if <server> section doesn't exist
         unless conf.elements.find {|e| e.name == 'server' }
-          # TODO backward compatible mode
           compat_conf = Config::CompatParser.read(path)
         end
       rescue => e
@@ -117,12 +128,14 @@ module Fluentd
       SOCKET_MANAGER_FILENO = 3
 
       def initialize
-        @server_config = server.config
+        @opts = server.config
         @server_element = server.server_elements[worker_id]
         @server_element['id'] ||= worker_id
       end
 
       def before_fork
+        # spawn process before run, and monitor the spawned process
+        # in the run method
         @monitor = spawn_process
       rescue => e
         logger.error e.to_s
@@ -138,7 +151,9 @@ module Fluentd
         logger.error_backtrace e.backtrace
         raise
       ensure
-        Process.waitpid2(@pid) if @pid
+        if pid = @pid
+          Process.waitpid2(pid)
+        end
       end
 
       def stop
@@ -151,20 +166,24 @@ module Fluentd
       end
 
       def self.main
+        # receives context data from the parent process
         spawn_data = STDIN.read
         STDIN.reopen(File::NULL)
+        opts, server_element = SpawnData.restore(spawn_data)
 
-        server_config, server_element = SpawnData.restore(spawn_data)
+        # set process name
+        $0 = "#{opts[:worker_process_name]} #{server_element['id']}"
 
-        $0 = "#{server_config[:worker_process_name]} #{server_element['id']}"
-
-        chuser = server_element['process_user'] || server_config[:chuser]
-        chgroup = server_element['process_group'] || server_config[:chgroup]
+        # change user and group
+        chuser = server_element['process_user'] || opts[:chuser]
+        chgroup = server_element['process_group'] || opts[:chgroup]
         ServerEngine::Daemon.change_privilege(chuser, chgroup)
 
+        # setup SocketManager used by actors/socket_actor.rb
         socket_client = SocketManager::Client.new(SOCKET_MANAGER_FILENO, server_element['id'])
 
-        w = Worker.new(server_config, socket_client)
+        # initialize worker
+        w = Worker.new(opts, socket_client)
         w.install_signal_handlers
         w.configure(server_element)
 
@@ -176,15 +195,18 @@ module Fluentd
       private
 
       def spawn_process
+        # fluentd/command/fluentd-worker.rb calls WorkerLauncher.main
         worker_main = File.expand_path File.join(File.dirname(__FILE__), 'command', 'fluentd-worker.rb')
 
+        # arguments for Process.spawn
         env = {'fluentd_worker_process'=>worker_id.to_s}
         cmdline = [RbConfig.ruby, worker_main]
 
         options = { }
         setup_resource_options(options)
 
-        spawn_data = SpawnData.dump([@server_config, @server_element])
+        # sends context data to the worker process
+        spawn_data = SpawnData.dump([@opts, @server_element])
 
         cpipe, monitor = server.socket_server.new_client_pipe
 
@@ -192,14 +214,16 @@ module Fluentd
         begin
           options[:in] = rpipe
           options[SOCKET_MANAGER_FILENO] = cpipe
+
+          # spawn here
           @pid = Process.spawn(env, *cmdline, options)  # calls WorkerLauncher.main
 
           launch_success = false
           begin
             cpipe.close
-
-            # TODO wait for configure
             wpipe.write spawn_data
+
+            # TODO wait for completion of Worker#configure
 
             launch_success = true
 
@@ -219,14 +243,14 @@ module Fluentd
       end
 
       def setup_resource_options(options)
-        @server_config.each_pair {|k,v|
+        @opts.each_pair {|k,v|
           if k =~ /^rlimit_/
             options[k.to_s] = v.to_s
           end
         }
 
-        if @server_config[:chumask]
-          options['umask'] = @server_config[:chumask].to_s
+        if @opts[:chumask]
+          options['umask'] = @opts[:chumask].to_s
         end
       end
 

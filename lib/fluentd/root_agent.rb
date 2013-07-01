@@ -18,11 +18,26 @@
 module Fluentd
 
   #
-  # RootAgent is the root node of Agent tree and also the root of MessageSource tree
-  # (See agent.rb and message_source.rb).
+  # Fluentd forms a tree structure:
   #
-  # RootAgent reads config file and creates agents. Then registers them using into
-  # the included MessageSource module.
+  #                    Fluentd::Server
+  #                     /           \
+  #                    /             \
+  #               Worker             Worker      --- for each <server> section
+  #                  |                  |            in fluentd.conf
+  #              RootAgent          RootAgent
+  #                /   \               /  \
+  #         Agent A     Agent B      ...  ...   --- <source>, <match>, <filter> or <label>
+  #           /   \           \
+  #    Agent C     Agent D     ...              --- <source>, <match> or <filter>
+  #
+  # Agent is the base class of <source> (input plugins), <match> (output plugins) and
+  # <filter> (filter plugins).
+  #
+  # Worker is responsible to start/stop/shutdown all nested agents.
+  # RootAgent initializes top-level agents, labels and built-in labels (LOG and ERROR)
+  #
+  # Message routing is implemented in MessageSource module. See also message_source.rb.
   #
   class RootAgent < Agent
     include MessageSource

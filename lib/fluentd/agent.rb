@@ -19,52 +19,13 @@ module Fluentd
 
   #
   # Agent is the base class of input, output and filter plugins.
+  # See root_agent.rb for details.
   #
-  # Agent forms a tree structure:
-  #
-  # Agent A
-  #  #agents --+--> Agent B
-  #            |     #agents --+--> Agent D
-  #            |               |     #agents --> []
-  #            |               |
-  #            |               +--> Agent E
-  #            |                     #agents --> []
-  #            +--> Agent C
-  #                  #agents --> []
-  #
-  # The root agent is RootAgent. See also root_agent.rb.
-  #
-  # In signle process mode, all agents are assigned to one Processor.
-  # In multiprocess mode, each agent is assigned to one or more Processor:
-  #
-  # ProcessManager
-  #  #processors
-  #    |
-  #    +--> Processor 1
-  #    |     #agents --+--> Agent A
-  #    |               |
-  #    |               +--> Agent C
-  #    |
-  #    +--> Processor 2
-  #    |     #agents --+--> Agent A
-  #    |               |
-  #    |               +--> Agent B
-  #    |               |
-  #    .               +--> Agent D
-  #    .               |
-  #    .               +--> Agent E
-  #
-  # * Processor assignment considers locality of agents.
-  #
-  # * ProcessManager assigns agents into processors.
-  #   See also process_manager.rb.
-  #
-
   class Agent
     include Configurable
 
     def initialize
-      @agents = []
+      @agents = []  # child agents
       @stats_collector = NullStatsCollector.new
       init_configurable
       super
@@ -80,7 +41,7 @@ module Fluentd
     end
 
     def add_agent(agent)
-      # inherit stats_collector (RootAgent#initialize is the node that sets the actual stats_collector)
+      # inherits stats_collector
       agent.stats_collector = @stats_collector
       @agents << agent
       self

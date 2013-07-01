@@ -17,25 +17,33 @@
 #
 module Fluentd
 
+  #
+  # Worker corresponds to a <server> section in a configuration file.
+  #
+  # Worker has a RootAgent, and starts/stops all nested agents owned
+  # by the RootAgent.
+  #
   class Worker
     include ServerEngine::ConfigLoader
 
-    def initialize(server_config, socket_manager_api)
+    def initialize(opts, socket_manager_api)
       @stop_flag = ServerEngine::BlockingFlag.new
       @socket_manager_api = socket_manager_api
-      super(server_config)
+      super(opts)
       @log = create_logger
     end
 
     def configure(conf)
       @server_id = conf['id']
 
+      @log.info "Starting worker #{@server_id}"
+
+      # setup process_global_methods.rb
       Fluentd.logger = @log
       Fluentd.plugin = PluginRegistry.new
       Fluentd.socket_manager_api = @socket_manager_api
 
-      @log.info "Starting worker #{@server_id}"
-
+      # Worker has a RootAgent
       root_agent = RootAgent.new
       root_agent.configure(conf)
 
@@ -44,6 +52,7 @@ module Fluentd
         @log.warn "parameter '#{key}' is not used in\n#{e.to_s(nil).strip}"
       }
 
+      # collect all nested agents
       @agents = collect_agents(root_agent)
     end
 
@@ -61,7 +70,7 @@ module Fluentd
     ensure
       @log.info "Shutting down worker #{@server_id}"
 
-      # stop first in reversed order
+      # call Agent#stop in reversed order
       started_agents.reverse.map {|a|
         Thread.new do
           begin
@@ -73,7 +82,7 @@ module Fluentd
         end
       }.each {|t| t.join }
 
-      # shutdown in reversed order
+      # call Agent#shutdown in reversed order
       started_agents.reverse.map {|a|
         Thread.new do
           begin
