@@ -95,8 +95,8 @@ module Config
     Parser.read(path)
   end
 
-  def self.parse(str, fname, basepath=Dir.pwd)
-    Parser.parse(str, fname, basepath)
+  def self.parse(str, fname, basepath=Dir.pwd, encoding=Encoding::UTF_8)
+    Parser.parse(str, fname, basepath, encoding)
   end
 
   def self.new(name='')
@@ -153,20 +153,22 @@ module Config
       }
     end
 
-    def self.parse(io, fname, basepath=Dir.pwd)
-      attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
+    def self.parse(io, fname, basepath=Dir.pwd, encoding=Encoding::UTF_8)
+      attrs, elems = Parser.new(basepath, io.each_line, fname, 0, encoding).parse!(true)
       Element.new('ROOT', '', attrs, elems)
     end
 
-    def initialize(basepath, iterator, fname, i=0)
+    def initialize(basepath, iterator, fname, i=0, encoding=Encoding::UTF_8)
       @basepath = basepath
       @iterator = iterator
       @i = i
       @fname = fname
+      @encoding = encoding
     end
 
     def parse!(allow_include, elem_name=nil, attrs={}, elems=[])
       while line = @iterator.next
+        line.encode!(@encoding)
         @i += 1
         line.lstrip!
         line.gsub!(/\s*(?:\#.*)?$/,'')
