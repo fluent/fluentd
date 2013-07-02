@@ -59,7 +59,6 @@ class Supervisor
 
   def initialize(opt)
     @config_path = opt[:config_path]
-    @encoding = opt[:encoding]
     @log_path = opt[:log_path]
     @log_level = opt[:log_level]
     @daemonize = opt[:daemonize]
@@ -282,7 +281,7 @@ class Supervisor
   end
 
   def run_configure
-    Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir, @encoding)
+    Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir)
   end
 
   def change_privilege

@@ -63,8 +63,8 @@ class EngineClass
     }
   end
 
-  def parse_config(io, fname, basepath=Dir.pwd, encoding=Encoding::UTF_8)
-    conf = Config.parse(io, fname, basepath, encoding)
+  def parse_config(io, fname, basepath=Dir.pwd)
+    conf = Config.parse(io, fname, basepath)
     configure(conf)
     conf.check_not_fetched {|key,e|
       $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."

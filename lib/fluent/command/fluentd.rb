@@ -27,7 +27,6 @@ op.version = Fluent::VERSION
 # default values
 opts = {
   :config_path => Fluent::DEFAULT_CONFIG_PATH,
-  :encoding    => Encoding::UTF_8,
   :plugin_dirs => [Fluent::DEFAULT_PLUGIN_DIR],
   :log_level => Fluent::Log::LEVEL_INFO,
   :log_path => nil,
@@ -45,10 +44,6 @@ op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "insta
 
 op.on('-c', '--config PATH', "config file path (default: #{Fluent::DEFAULT_CONFIG_PATH})") {|s|
   opts[:config_path] = s
-}
-
-op.on('-e', '--encoding ENCODING', "encoding of config file (default: #{Encoding::UTF_8})") {|s|
-  opts[:encoding] = s
 }
 
 op.on('--dry-run', "Check fluentd setup is correct or not", TrueClass) {|b|
