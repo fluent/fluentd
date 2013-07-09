@@ -132,9 +132,9 @@ class EngineClass
       @match_cache_keys << tag
     end
     target.emit(tag, es)
-  rescue
+  rescue => e
     if @suppress_emit_error_log_interval == 0 || now > @next_emit_error_log_time
-      $log.warn "emit transaction failed ", :error=>$!.to_s
+      $log.warn "emit transaction failed ", :error_class=>e.class, :error=>e
       $log.warn_backtrace
       # $log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
       @next_emit_error_log_time = Time.now.to_i + @suppress_emit_error_log_interval
@@ -175,8 +175,8 @@ class EngineClass
       events.each {|tag,time,record|
         begin
           Engine.emit(tag, time, record)
-        rescue
-          $log.error "failed to emit fluentd's log event", :tag => tag, :event => record, :error => $!
+        rescue => e
+          $log.error "failed to emit fluentd's log event", :tag => tag, :event => record, :error_class => e.class, :error => e
         end
       }
     end
@@ -197,8 +197,8 @@ class EngineClass
       # TODO attach async watch for thread pool
       @default_loop.run
 
-    rescue
-      $log.error "unexpected error", :error=>$!.to_s
+    rescue => e
+      $log.error "unexpected error", :error_class=>e.class, :error=>e
       $log.error_backtrace
     ensure
       $log.info "shutting down fluentd"
@@ -240,8 +240,8 @@ class EngineClass
       Thread.new do
         begin
           s.shutdown
-        rescue
-          $log.warn "unexpected error while shutting down", :error=>$!.to_s
+        rescue => e
+          $log.warn "unexpected error while shutting down", :error_class=>e.class, :error=>e
           $log.warn_backtrace
         end
       end
@@ -261,8 +261,8 @@ class EngineClass
         elsif m.is_a?(MultiOutput)
           flush_recursive(m.outputs)
         end
-      rescue
-        $log.debug "error while force flushing", :error=>$!.to_s
+      rescue => e
+        $log.debug "error while force flushing", :error_class=>e.class, :error=>e
         $log.debug_backtrace
       end
     }
