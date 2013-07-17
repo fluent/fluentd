@@ -159,7 +159,11 @@ module Fluent
         while @rotate_queue.first.ready?
           if io = @rotate_queue.first.io
             stat = io.stat
+            if $platformwin == false
             inode = stat.ino
+            else
+            	inode = Win32File.getfileindex(io.path)
+            end
             if inode == @pe.read_inode
               # rotated file has the same inode number with the last file.
               # assuming following situation:
@@ -188,7 +192,11 @@ module Fluent
             # first time
             stat = io.stat
             fsize = stat.size
-            inode = stat.ino
+            if $platformwin == false
+              inode = stat.ino
+            else
+            	inode = Win32File.getfileindex(io.path)
+            end
 
             last_inode = @pe.read_inode
             if inode == last_inode
@@ -301,10 +309,18 @@ module Fluent
 
             begin
               while true
-                if @buffer.empty?
-                  @io.read_nonblock(2048, @buffer)
+                if $platformwin == false
+                  if @buffer.empty?
+                    @io.read_nonblock(2048, @buffer)
+                  else
+                    @buffer << @io.read_nonblock(2048, @iobuf)
+                  end
                 else
-                  @buffer << @io.read_nonblock(2048, @iobuf)
+                  if @buffer.empty?
+                    @io.readpartial(2048, @buffer)
+                  else
+                    @buffer << @io.readpartial(2048, @buffer)
+                  end
                 end
                 while line = @buffer.slice!(/.*?\n/m)
                   lines << line
@@ -363,7 +379,11 @@ module Fluent
           begin
             io = File.open(@path)
             stat = io.stat
-            inode = stat.ino
+            if $platformwin == false
+              inode = stat.ino
+            else
+            	inode = Win32File.getfileindex(io.path)
+            end
             fsize = stat.size
           rescue Errno::ENOENT
             # moved or deleted
@@ -492,4 +512,32 @@ module Fluent
       end
     end
   end
+  #temprary code 
+  require 'Win32API'
+  class Win32File
+    def initialize
+      super
+    end 
+     
+    def Win32File.getfileindex(path)
+      createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i')
+      closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'v')
+      getFileInformation = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i')
+
+      file_handle = createfile.call(path, 0, 0, 0, 3, 0x80, 0 )
+      if file_handle == -1 
+        return 0
+      end
+
+      by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
+      ret = getFileInformation.call(file_handle, by_handle_file_information)
+      closehandle.call(file_handle)
+      if ret == 0
+        return 0 
+      end
+
+      return by_handle_file_information.unpack("I11Q1")[11]
+    end
+  end
+
 end

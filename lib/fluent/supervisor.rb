@@ -17,7 +17,7 @@
 #
 module Fluent
 
-
+$usespawn = 0
 class Supervisor
   class LoggerInitializer
     def initialize(path, level, chuser, chgroup)
@@ -69,7 +69,12 @@ class Supervisor
     @inline_config = opt[:inline_config]
     @suppress_interval = opt[:suppress_interval]
     @dry_run = opt[:dry_run]
+    $usespawn = opt[:usespawn]
 
+    $platformwin = false
+    if RUBY_PLATFORM.downcase =~ /mswin(?!ce)|mingw|cygwin|bccwin/
+      $platformwin = true
+    end
     @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
     @finished = false
     @main_pid = nil
@@ -168,8 +173,24 @@ class Supervisor
     start_time = Time.now
 
     $log.info "starting fluentd-#{Fluent::VERSION}"
+    $log.info "is windows platform : #{$platformwin}"
+
+    if $platformwin == false
     @main_pid = fork do
       main_process(&block)
+    end
+    else
+      if $usespawn == 0 then
+        flunetd_spawn_cmd = "fluentd "
+        $fluentdargv.each{|a|
+          flunetd_spawn_cmd << (a + " ")
+        }
+        flunetd_spawn_cmd << "-u"
+        @main_pid = Process.spawn(flunetd_spawn_cmd)
+      else
+        @main_pid = Process.pid
+	      main_process(&block)
+      end
     end
 
     if @daemonize && @wait_daemonize_pipe_w
@@ -180,7 +201,13 @@ class Supervisor
       @wait_daemonize_pipe_w = nil
     end
 
-    Process.waitpid(@main_pid)
+    if $platform == false
+      Process.waitpid(@main_pid)
+    else
+      if $usespawn == 0
+        Process.waitpid(@main_pid)
+      end
+    end
     @main_pid = nil
     ecode = $?.to_i
 
@@ -249,25 +276,28 @@ class Supervisor
       end
     end
 
-    trap :HUP do
-      $log.debug "fluentd supervisor process get SIGHUP"
-      $log.info "restarting"
-      if pid = @main_pid
-        Process.kill(:TERM, pid)
-        # don't resuce Erro::ESRSH here (invalid status)
+    if $platformwin == false
+      trap :HUP do
+        $log.debug "fluentd supervisor process get SIGHUP"
+        $log.info "restarting"
+        if pid = @main_pid
+          Process.kill(:TERM, pid)
+          # don't resuce Erro::ESRSH here (invalid status)
+        end
       end
     end
 
-    trap :USR1 do
-      $log.debug "fluentd supervisor process get SIGUSR1"
-      @log.reopen!
-      if pid = @main_pid
-        Process.kill(:USR1, pid)
-        # don't resuce Erro::ESRSH here (invalid status)
+    if $platformwin == false
+      trap :USR1 do
+        $log.debug "fluentd supervisor process get SIGUSR1"
+        @log.reopen!
+        if pid = @main_pid
+          Process.kill(:USR1, pid)
+          # don't resuce Erro::ESRSH here (invalid status)
+        end
       end
     end
   end
-
   def read_config
     $log.info "reading config file", :path=>@config_path
     @config_fname = File.basename(@config_path)
@@ -356,16 +386,19 @@ class Supervisor
       end
     end
 
-    trap :HUP do
-      # TODO
-      $log.debug "fluentd main process get SIGHUP"
+    if $platformwin == false
+      trap :HUP do
+        # TODO
+        $log.debug "fluentd main process get SIGHUP"
+      end
     end
-
-    trap :USR1 do
-      $log.debug "fluentd main process get SIGUSR1"
-      $log.info "force flushing buffered events"
-      @log.reopen!
-      Fluent::Engine.flush!
+    if $platformwin == false
+      trap :USR1 do
+        $log.debug "fluentd main process get SIGUSR1"
+        $log.info "force flushing buffered events"
+        @log.reopen!
+        Fluent::Engine.flush!
+      end
     end
   end
 

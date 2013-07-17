@@ -49,7 +49,12 @@ class Log
     @self_event = false
     @tag = 'fluent'
     @time_format = '%Y-%m-%d %H:%M:%S %z '
-    enable_color out.tty?
+    if $platformwin == false
+      enable_color out.tty?
+    else
+      enable_color false
+    end
+
     # TODO: This variable name is unclear so we should change to better name.
     @threads_exclude_events = []
   end
