@@ -21,6 +21,8 @@ require 'fluent/log'
 require 'fluent/env'
 require 'fluent/version'
 
+$fluentdargv = Marshal.load(Marshal.dump(ARGV))
+
 op = OptionParser.new
 op.version = Fluent::VERSION
 
@@ -36,6 +38,7 @@ opts = {
   :chuser => nil,
   :chgroup => nil,
   :suppress_interval => 0,
+  :usespawn => 0,
 }
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
@@ -95,6 +98,12 @@ op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueC
 op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClass) {|b|
   if b
     opts[:log_level] = [opts[:log_level] + 1, Fluent::Log::LEVEL_ERROR].min
+  end
+}
+
+op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (Windows only)", TrueClass) {|b|
+  if b
+	opts[:usespawn] = 1
   end
 }
 
