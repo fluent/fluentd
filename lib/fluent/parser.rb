@@ -95,7 +95,7 @@ class TextParser
     config_param :keys, :string
     config_param :time_key, :string, :default => nil
     config_param :time_format, :string, :default => nil
-    config_param :auto_type_convert, :string, :default => nil
+    config_param :auto_type_convert, :bool, :default => false
 
     def configure(conf)
       super
@@ -109,8 +109,6 @@ class TextParser
       if @time_format && !@time_key
         raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
       end
-
-      @auto_type_convert = Config.bool_value(@auto_type_convert) || false
     end
 
     def values_map(values)
