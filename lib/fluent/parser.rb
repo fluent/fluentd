@@ -133,10 +133,10 @@ class TextParser
 
     def convert_type(record)
       record.each do |index,value|
-        if (Integer(value) rescue false)
-          record[index] = value.to_i
-        elsif (Float(value) rescue false)
-          record[index] = value.to_f
+        if (int_value = Integer(value) rescue false)
+          record[index] = int_value
+        elsif (float_value = Float(value) rescue false)
+          record[index] = float_value
         end
       end
       return record
