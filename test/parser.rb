@@ -189,5 +189,20 @@ module ParserTest
         'req_id' => '111',
       }, record)
     end
+
+    def test_call_with_auto_type_convert
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure(
+        'auto_type_convert' => 'yes',
+      )
+      time, record = parser.call("time:2013/02/28 12:00:00\thost:192.168.0.1\treq_id:111\trequest_time:0.22")
+      
+      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+      assert_equal({
+        'host'   => '192.168.0.1',
+        'req_id' => 111,
+        'request_time' => 0.22,
+      }, record)
+    end
   end
 end
