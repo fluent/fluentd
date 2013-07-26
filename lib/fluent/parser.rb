@@ -130,11 +130,11 @@ class TextParser
     end
 
     def convert_type(record)
-      record.each do |index,value|
+      record.each do |key,value|
         if value == (int_value = value.to_i).to_s
-          record[index] = int_value
+          record[key] = int_value
         elsif value == (float_value = value.to_f).to_s
-          record[index] = float_value
+          record[key] = float_value
         end
       end
       return record
