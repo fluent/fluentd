@@ -1,35 +1,64 @@
-= Fluentd, windows-branch
+= Fluentd
 
-This is a branch version to make work on Windows. Currently not perfect, and you wolud get a lot of error. But anyway work.
-If you have an interest, try it and give us feedback please.
+Fluentd is an event collector system. It is a generalized version of syslogd, which handles JSON objects for its log messages.
 
-We tried on following environments.
+== Architecture
 
-    Windows 7, Apache 2.2 access.log, in_tail and stdout
+Fluentd collects events from various data sources and writes them to files, database or other types of storages:
 
-== gem
-
-You should pack to a gem-package by your self.
-
-== Known issue
-
-=== file-lock
-Windows File lock problem still exists. Fluentd (ruby) opens a target log file without FILE_SHARE_DELETE. So an owner aplcaition having a log file cannot rename or delete that log file.
-
-
-=== deletion of a work file
-
-Same with a file-lock problem. Windows requires to close a file handle before delete it.
-
-
-=== termination of  fluentd
     
-Cannot finish by ctrl+C. Please finish with close button of command prompt.
-
-
-=== daemon(Windows Service)
-
-Not supporeted yet.
+    Web apps  ---+                 +--> file
+                 |                 |
+                 +-->           ---+
+    /var/log  ------>  Fluentd  ------> mail
+                 +-->           ---+
+                 |                 |
+    Apache    ----                 +--> Fluentd
     
 
+Fluent also supports log transfer:
 
+    
+    Web server
+    +---------+
+    | Fluentd -------
+    +---------+|     |
+     +---------+     |
+                     |
+    Proxy server     |    Log server, Amazon S3, HDFS, ...
+    +---------+      +--> +---------+
+    | Fluentd ----------> | Fluentd ||
+    +---------+|     +--> +---------+|
+     +---------+     |     +---------+
+                     |
+    Database server  |
+    +---------+      |
+    | Fluentd ---------> mail
+    +---------+|
+     +---------+
+    
+
+An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time recorded at occurrence of an event. Record is a JSON object.
+
+
+== Quick Start
+
+  $ gem install fluentd
+  $ # install sample configuration file to the directory
+  $ fluentd -s conf
+  $ fluentd -c conf/fluent.conf &
+  $ echo '{"json":"message"}' | fluent-cat debug.test
+
+== Meta
+
+Web site::  http://fluentd.org/
+Documents:: http://docs.fluentd.org/
+Source repository:: http://github.com/fluent
+Discussion:: http://groups.google.com/group/fluentd
+Author:: Sadayuki Furuhashi
+Copyright:: (c) 2011 FURUHASHI Sadayuki
+License:: Apache License, Version 2.0
+
+== Contributors:
+
+Patches contributed by {those people}[https://github.com/fluent/fluentd/contributors].
