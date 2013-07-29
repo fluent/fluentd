@@ -49,7 +49,7 @@ class Log
     @self_event = false
     @tag = 'fluent'
     @time_format = '%Y-%m-%d %H:%M:%S %z '
-    if $platformwin == false
+    unless $platformwin
       enable_color out.tty?
     else
       enable_color false

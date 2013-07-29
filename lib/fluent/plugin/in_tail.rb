@@ -159,10 +159,10 @@ module Fluent
         while @rotate_queue.first.ready?
           if io = @rotate_queue.first.io
             stat = io.stat
-            if $platformwin == false
-            inode = stat.ino
+            unless $platformwin
+              inode = stat.ino
             else
-            	inode = Win32File.getfileindex(io.path)
+              inode = Win32File.getfileindex(io.path)
             end
             if inode == @pe.read_inode
               # rotated file has the same inode number with the last file.
@@ -192,10 +192,10 @@ module Fluent
             # first time
             stat = io.stat
             fsize = stat.size
-            if $platformwin == false
+            unless $platformwin
               inode = stat.ino
             else
-            	inode = Win32File.getfileindex(io.path)
+              inode = Win32File.getfileindex(io.path)
             end
 
             last_inode = @pe.read_inode
@@ -309,7 +309,7 @@ module Fluent
 
             begin
               while true
-                if $platformwin == false
+                unless $platformwin
                   if @buffer.empty?
                     @io.read_nonblock(2048, @buffer)
                   else
@@ -379,10 +379,10 @@ module Fluent
           begin
             io = File.open(@path)
             stat = io.stat
-            if $platformwin == false
+            unless $platformwin
               inode = stat.ino
             else
-            	inode = Win32File.getfileindex(io.path)
+              inode = Win32File.getfileindex(io.path)
             end
             fsize = stat.size
           rescue Errno::ENOENT

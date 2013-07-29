@@ -175,7 +175,7 @@ class Supervisor
     $log.info "starting fluentd-#{Fluent::VERSION}"
     $log.info "is windows platform : #{$platformwin}"
 
-    if $platformwin == false
+    unless $platformwin
     @main_pid = fork do
       main_process(&block)
     end
@@ -201,7 +201,7 @@ class Supervisor
       @wait_daemonize_pipe_w = nil
     end
 
-    if $platform == false
+    unless $platformwin
       Process.waitpid(@main_pid)
     else
       if $usespawn == 0
@@ -276,7 +276,7 @@ class Supervisor
       end
     end
 
-    if $platformwin == false
+    unless $platformwin
       trap :HUP do
         $log.debug "fluentd supervisor process get SIGHUP"
         $log.info "restarting"
@@ -287,7 +287,7 @@ class Supervisor
       end
     end
 
-    if $platformwin == false
+    unless $platformwin
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         @log.reopen!
@@ -386,13 +386,13 @@ class Supervisor
       end
     end
 
-    if $platformwin == false
+    unless $platformwin
       trap :HUP do
         # TODO
         $log.debug "fluentd main process get SIGHUP"
       end
     end
-    if $platformwin == false
+    unless $platformwin
       trap :USR1 do
         $log.debug "fluentd main process get SIGUSR1"
         $log.info "force flushing buffered events"
