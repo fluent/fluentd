@@ -102,9 +102,7 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
 }
 
 op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (Windows only)", TrueClass) {|b|
-  if b
-	opts[:usespawn] = 1
-  end
+  opts[:usespawn] = 1
 }
 
 (class<<self;self;end).module_eval do

@@ -17,7 +17,6 @@
 #
 module Fluent
 
-$usespawn = 0
 class Supervisor
   class LoggerInitializer
     def initialize(path, level, chuser, chgroup)
@@ -69,7 +68,7 @@ class Supervisor
     @inline_config = opt[:inline_config]
     @suppress_interval = opt[:suppress_interval]
     @dry_run = opt[:dry_run]
-    $usespawn = opt[:usespawn]
+    @usespawn = opt[:usespawn]
 
     $platformwin = false
     if RUBY_PLATFORM.downcase =~ /mswin(?!ce)|mingw|cygwin|bccwin/
@@ -176,11 +175,11 @@ class Supervisor
     $log.info "is windows platform : #{$platformwin}"
 
     unless $platformwin
-    @main_pid = fork do
-      main_process(&block)
-    end
+      @main_pid = fork do
+        main_process(&block)
+      end
     else
-      if $usespawn == 0 then
+      if @usespawn == 0
         flunetd_spawn_cmd = "fluentd "
         $fluentdargv.each{|a|
           flunetd_spawn_cmd << (a + " ")
@@ -189,7 +188,7 @@ class Supervisor
         @main_pid = Process.spawn(flunetd_spawn_cmd)
       else
         @main_pid = Process.pid
-	      main_process(&block)
+        main_process(&block)
       end
     end
 
@@ -204,7 +203,7 @@ class Supervisor
     unless $platformwin
       Process.waitpid(@main_pid)
     else
-      if $usespawn == 0
+      if @usespawn == 0
         Process.waitpid(@main_pid)
       end
     end
