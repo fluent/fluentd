@@ -21,7 +21,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency(%q<msgpack>, [">= 0.4.4", "!= 0.5.0", "!= 0.5.1", "!= 0.5.2", "!= 0.5.3", "< 0.6.0"])
   gem.add_runtime_dependency(%q<json>, [">= 1.4.3"])
   gem.add_runtime_dependency(%q<yajl-ruby>, ["~> 1.0"])
-  gem.add_runtime_dependency(%q<cool.io>, ["~> 1.1.0"])
+  gem.add_runtime_dependency(%q<cool.io>, ["~> 1.1.1"])
   gem.add_runtime_dependency(%q<http_parser.rb>, ["~> 0.5.1"])
 
   gem.add_development_dependency(%q<rake>, [">= 0.9.2"])

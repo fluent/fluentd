@@ -32,6 +32,7 @@ module Fluent
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
+    config_param :backlog, :integer, :default => nil
 
     def configure(conf)
       super
@@ -77,6 +78,7 @@ module Fluent
         @km = KeepaliveManager.new(@keepalive_timeout)
         #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
         @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit)
+        @lsock.listen(@backlog) unless @backlog.nil?
 
         @loop = Coolio::Loop.new
         @loop.attach(@km)

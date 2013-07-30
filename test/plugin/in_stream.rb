@@ -134,6 +134,7 @@ class UnixInputTest < Test::Unit::TestCase
 
   CONFIG = %[
     path #{TMP_DIR}/unix
+    backlog 1000
   ]
 
   def create_driver(conf=CONFIG)
@@ -143,6 +144,7 @@ class UnixInputTest < Test::Unit::TestCase
   def test_configure
     d = create_driver
     assert_equal "#{TMP_DIR}/unix", d.instance.path
+    assert_equal 1000, d.instance.backlog
   end
 
   def connect

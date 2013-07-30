@@ -28,6 +28,7 @@ module Fluent
 
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
     config_param :bind, :string, :default => '0.0.0.0'
+    config_param :backlog, :integer, :default => nil
 
     def configure(conf)
       super
@@ -61,7 +62,9 @@ module Fluent
 
     def listen
       $log.info "listening fluent socket on #{@bind}:#{@port}"
-      Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+      s = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+      s.listen(@backlog) unless @backlog.nil?
+      s
     end
 
     #config_param :path, :string, :default => DEFAULT_SOCKET_PATH
