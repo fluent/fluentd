@@ -167,6 +167,7 @@ module Config
 
     def parse!(allow_include, elem_name=nil, attrs={}, elems=[])
       while line = @iterator.next
+        line.force_encoding('UTF-8')
         @i += 1
         line.lstrip!
         line.gsub!(/\s*(?:\#.*)?$/,'')
