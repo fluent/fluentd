@@ -1,7 +1,6 @@
 = Fluentd, windows-branch
 
-This is a branch version to make work on Windows. Currently not perfect, and you wolud get a lot of error. But anyway work.
-If you have an interest, try it and give us feedback please.
+This is a branch version to make fluentd work on Windows! **This is a very preliminary version, and we expect you would run into a lot of errors.** If you have any feedback, please let us know!
 
 We tried on following environments.
 
@@ -9,27 +8,21 @@ We tried on following environments.
 
 == gem
 
-You should pack to a gem-package by your self.
+Not available yet (you need to package this on your own).
 
-== Known issue
+== Known issues
 
-=== file-lock
-Windows File lock problem still exists. Fluentd (ruby) opens a target log file without FILE_SHARE_DELETE. So an owner aplcaition having a log file cannot rename or delete that log file.
-
+=== file lock
+The Windows File lock problem still exists. Fluentd (ruby) opens target log files without FILE_SHARE_DELETE. So, the files being tailed by fluentd should NOT be deleted or (re)moved.
 
 === deletion of a work file
 
-Same with a file-lock problem. Windows requires to close a file handle before delete it.
-
+Same with the file-lock problem. Windows requires you to close the file handle before delete it.
 
 === termination of  fluentd
     
-Cannot finish by ctrl+C. Please finish with close button of command prompt.
-
+It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
 
 === daemon(Windows Service)
 
-Not supporeted yet.
-    
-
-
+Not supported yet.
