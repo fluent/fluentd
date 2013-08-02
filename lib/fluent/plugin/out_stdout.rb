@@ -19,10 +19,28 @@ module Fluent
   class StdoutOutput < Output
     Plugin.register_output('stdout', self)
 
+    config_param :output_type, :default => :json do |val|
+      case val.downcase
+      when 'json'
+        :json
+      when 'hash'
+        :hash
+      else
+        raise ConfigError, "stdout output output_type should be 'json' or 'hash'"
+      end
+    end
+
     def emit(tag, es, chain)
-      es.each {|time,record|
-        $log.write "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}\n"
-      }
+      case @output_type
+      when :hash
+        es.each {|time,record|
+          $log.write "#{Time.at(time).localtime} #{tag}: #{record.to_s}\n"
+        }
+      else # :json
+        es.each {|time,record|
+          $log.write "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}\n"
+        }
+      end
       $log.flush
 
       chain.next
