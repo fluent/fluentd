@@ -14,6 +14,19 @@ class StdoutOutputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
+    assert_equal :json, d.instance.output_type
+  end
+
+  def test_configure_output_type
+    d = create_driver(CONFIG + "\noutput_type json")
+    assert_equal :json, d.instance.output_type
+
+    d = create_driver(CONFIG + "\noutput_type hash")
+    assert_equal :hash, d.instance.output_type
+
+    assert_raise(Fluent::ConfigError) do
+      d = create_driver(CONFIG + "\noutput_type foo")
+    end
   end
 
   # def test_emit
