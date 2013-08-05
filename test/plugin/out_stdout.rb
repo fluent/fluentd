@@ -34,6 +34,9 @@ class StdoutOutputTest < Test::Unit::TestCase
     time = Time.now
     out = capture_log { d.emit({'test' => 'test'}, time) }
     assert_equal "#{time.localtime} test: {\"test\":\"test\"}\n", out
+
+    # NOTE: Float::NAN is not jsonable
+    assert_raise(Yajl::EncodeError) { d.emit({'test' => Float::NAN}, time) }
   end
 
   def test_emit_hash
