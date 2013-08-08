@@ -59,17 +59,19 @@ module Fluentd
         @flush_threads = []
         @flush_mutex = Mutex.new
         @flush_time = 0
-        @flush_interval = 10
         @flush_error_history = []
-        @flush_retry_limit = 11
-        @flush_retry_wait = 1
       end
 
+      config_param :flush_interval, :time, :default => 10
+      config_param :flush_retry_limit, :integer, :default => 11
+      config_param :flush_retry_wait, :time, :default => 1
+      config_param :buffer_type, :string, :default => 'memory'
+
       def configure(conf)
-        # TODO
-        require 'fluentd/plugin/buf_memory'
-        @buffer = Plugin::MemoryBuffer.new
-        @flush_interval = 1
+        super
+
+        @buffer = Fluentd.plugin.new_buffer(@buffer_type)
+        @buffer.configure(conf)
 
         # TODO @secondary
 

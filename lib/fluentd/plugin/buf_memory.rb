@@ -22,6 +22,8 @@ module Fluentd
     require 'fluentd/plugin/buffer'
 
     class MemoryBuffer < Buffer
+      Plugin.register_buffer('memory', self)
+
       include MonitorMixin
 
       def initialize

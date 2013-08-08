@@ -31,6 +31,8 @@ module Fluentd
     end
 
     class Buffer
+      include Configurable
+
       def open(&block)
         raise NoMethodError, "#{self.class}#synchronize(&block) is not implemented"
       end

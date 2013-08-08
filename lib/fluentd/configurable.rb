@@ -161,7 +161,7 @@ module Fluentd
     end
 
     register_type(:size) do |val, opts|
-      case str.to_s
+      case val.to_s
       when /([0-9]+)k/i
         $~[1].to_i * 1024
       when /([0-9]+)m/i
@@ -171,12 +171,12 @@ module Fluentd
       when /([0-9]+)t/i
         $~[1].to_i * (1024**4)
       else
-        str.to_i
+        val.to_i
       end
     end
 
     register_type(:bool) do |val,opts|
-      case str.to_s
+      case val.to_s
       when 'true', 'yes', nil
         true
       when 'false', 'no'
@@ -187,7 +187,7 @@ module Fluentd
     end
 
     register_type(:time) do |val,opts|
-      f = case str.to_s
+      f = case val.to_s
           when /([0-9]+)s/
             $~[1].to_f
           when /([0-9]+)m/
@@ -197,7 +197,7 @@ module Fluentd
           when /([0-9]+)d/
             $~[1].to_f * 24*60*60
           else
-            str.to_f
+            val.to_f
           end
       f
     end
