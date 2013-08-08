@@ -34,11 +34,11 @@ module Fluentd
         def shutdown
           @mutex.synchronize do
             @finished = true
-            if @thread
-              @cond.broadcast
-              @thread.join
-              @thread = nil
-            end
+            @cond.broadcast
+          end
+          if @thread
+            @thread.join
+            @thread = nil
           end
         end
 
@@ -67,7 +67,8 @@ module Fluentd
 
       def configure(conf)
         # TODO
-        @buffer = Plugins::MemoryBuffer.new
+        require 'fluentd/plugin/buf_memory'
+        @buffer = Plugin::MemoryBuffer.new
         @flush_interval = 1
 
         # TODO @secondary
@@ -100,17 +101,15 @@ module Fluentd
         }
       end
 
-      def emit(tag, es)
+      def emit(tag, time, record)
         emits(tag, OneEventStream.new(time, record))
       end
 
       def emits(tag, es)
-        @buffer.open do |a|
+        @buffer.open(nil) do |a|
           es.each {|time,record|
-            data = handle_error(tag, time, record) {
-              format(tag, time, record)
-            }
-            if data
+            handle_error(tag, time, record) do
+              data = format(tag, time, record)
               a.append('', data)
             end
           }

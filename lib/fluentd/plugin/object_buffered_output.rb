@@ -20,16 +20,16 @@ module Fluentd
 
     class ObjectBufferedOutput < BufferedOutput
       def emits(tag, es)
-        @buffer.synchronize do
+        @buffer.open do |a|
           begin
             data = es.to_msgpack_stream
-            @buffer.append(tag, data)
+            a.append(tag, data)
           rescue
             es.each {|time,record|
-              data = Fluentd.handle_error(tag, time, record) {
+              data = handle_error(tag, time, record) {
                 [tag, time, record].to_msgpack
               }
-              @buffer.append(tag, data)
+              a.append(tag, data) if data
             }
           end
         end

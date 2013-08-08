@@ -19,6 +19,7 @@ module Fluentd
   module Plugin
 
     require 'stringio'
+    require 'fluentd/plugin/buffer'
 
     class MemoryBuffer < Buffer
       include MonitorMixin
@@ -27,18 +28,51 @@ module Fluentd
         super
         @map = {}
         @queue = []
+        @records = []
+        @buffer_record_limit = 1024
+        @buffer_chunk_limit = 8*1024*1024
+        @buffer_queue_limit = 512
       end
 
       def open(&block)
-        synchronize do
-          block.call(self)
+        begin
+          yield self
+        ensure
+          flush_records
         end
       end
 
-      def append(tag, data)
-        chunk = (@map[tag] ||= MemoryBufferChunk.new(tag))
-        chunk.data << [time, record].to_msgpack
+      def append(key, data)
+        if data.bytesize > @buffer_record_limit
+          raise BufferRecordLimitError, "buffer record size exceeds limit"
+        end
+        @records << [key, data]
       end
+
+      def flush_records
+        return if @records.empty?
+
+        synchronize do
+          @records.reject! {|key,data|
+            if c = @map[key]
+              if c.size + data.bytesize > @buffer_chunk_limit
+                @queue << c
+                @map.delete(key)
+                c = @map[key] = MemoryBufferChunk.new(key)
+              end
+            else
+              c = @map[key] = MemoryBufferChunk.new(key)
+            end
+            c.data << data
+          }
+
+          if @queue.length > @buffer_queue_limit
+            # TODO check buffer_queue_limit
+          end
+        end
+      end
+
+      private :flush_records
 
       def acquire(&block)
         if @queue.empty?

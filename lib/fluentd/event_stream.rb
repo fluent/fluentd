@@ -17,6 +17,8 @@
 #
 module Fluentd
 
+  require 'msgpack'
+
   module EventStream
     include Enumerable
 
@@ -57,7 +59,7 @@ module Fluentd
     end
 
     def to_msgpack_stream
-      [@time, @record].to_msgpack_stream
+      [@time, @record].to_msgpack
     end
   end
 

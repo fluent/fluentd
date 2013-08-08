@@ -18,6 +18,18 @@
 module Fluentd
   module Plugin
 
+    class BufferError < StandardError
+    end
+
+    class BufferRecordLimitError < BufferError
+    end
+
+    class BufferChunkLimitError < BufferError
+    end
+
+    class BufferQueueLimitError < BufferError
+    end
+
     class Buffer
       def open(&block)
         raise NoMethodError, "#{self.class}#synchronize(&block) is not implemented"

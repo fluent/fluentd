@@ -110,6 +110,9 @@ module Fluentd
       rescue => e
         begin
           compat_conf = Config::CompatParser.read(path)
+          if compat_conf.elements.any? {|e| e.name == 'server' }
+            raise e
+          end
         rescue
           raise e
         end

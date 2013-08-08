@@ -188,18 +188,17 @@ module Fluentd
 
     register_type(:time) do |val,opts|
       f = case str.to_s
-      when /([0-9]+)s/
-        $~[1].to_f
-      when /([0-9]+)m/
-        $~[1].to_f * 60
-      when /([0-9]+)h/
-        $~[1].to_f * 60*60
-      when /([0-9]+)d/
-        $~[1].to_f * 24*60*60
-      else
-        str.to_f
-      end
-      return f.to_i if f.to_i.to_f == f
+          when /([0-9]+)s/
+            $~[1].to_f
+          when /([0-9]+)m/
+            $~[1].to_f * 60
+          when /([0-9]+)h/
+            $~[1].to_f * 60*60
+          when /([0-9]+)d/
+            $~[1].to_f * 24*60*60
+          else
+            str.to_f
+          end
       f
     end
 

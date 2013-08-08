@@ -24,6 +24,8 @@ module Fluentd
       :Input => 'plugin/input',
       :Filter => 'plugin/filter',
       :Output => 'plugin/output',
+      :BufferedOutput => 'plugin/buffered_output',
+      :ObjectBufferedOutput => 'plugin/object_buffered_output',
     }.each_pair {|k,v|
       autoload k, File.join(here, v)
     }

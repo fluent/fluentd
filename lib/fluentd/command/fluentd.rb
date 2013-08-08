@@ -130,8 +130,8 @@ begin
   if ARGV.length != 0
     usage nil
   end
-rescue
-  usage $!.to_s
+rescue => e
+  usage e.to_s
 end
 
 if setup_path = opts[:setup_path]
