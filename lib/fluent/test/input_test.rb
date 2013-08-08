@@ -16,11 +16,20 @@
 #    limitations under the License.
 #
 module Fluent
+require 'fluent/plugin/buf_file'
+
+class FileBuffer
+  def self.clear_buffer_paths
+    @@buffer_paths = {}
+  end
+end
+
 module Test
 
 
 class InputTestDriver < TestDriver
   def initialize(klass, &block)
+    FileBuffer.clear_buffer_paths
     super(klass, &block)
     @emit_streams = []
     @expects = nil
