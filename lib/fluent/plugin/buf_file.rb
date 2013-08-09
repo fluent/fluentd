@@ -75,6 +75,8 @@ module Fluent
   class FileBuffer < BasicBuffer
     Plugin.register_buffer('file', self)
 
+    @@buffer_paths = {}
+
     def initialize
       require 'uri'
       super
@@ -84,6 +86,12 @@ module Fluent
 
     def configure(conf)
       super
+
+      if @@buffer_paths.has_key?(@buffer_path)
+        raise ConfigError, "Other '#{@@buffer_paths[@buffer_path]}' plugin already use same buffer_path: type = #{conf['type']}, buffer_path = #{@buffer_path}"
+      else
+        @@buffer_paths[@buffer_path] = conf['type']
+      end
 
       if pos = @buffer_path.index('*')
         @buffer_path_prefix = @buffer_path[0,pos]
