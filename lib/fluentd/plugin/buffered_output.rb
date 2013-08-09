@@ -56,7 +56,7 @@ module Fluentd
 
       def initialize
         super
-        @flush_threads = []
+        @threads = []
         @flush_mutex = Mutex.new
         @flush_time = 0
         @flush_error_history = []
@@ -65,6 +65,7 @@ module Fluentd
       config_param :flush_interval, :time, :default => 10
       config_param :flush_retry_limit, :integer, :default => 11
       config_param :flush_retry_wait, :time, :default => 1
+      config_param :flush_threads, :integer, :default => 2
       config_param :buffer_type, :string, :default => 'memory'
 
       def configure(conf)
@@ -81,11 +82,11 @@ module Fluentd
       end
 
       def start
-        10.times do
-          @flush_threads << FlushThread.new(method(:try_flush))
+        @flush_threads.times do
+          @threads << FlushThread.new(method(:try_flush))
         end
 
-        @flush_threads.each {|t|
+        @threads.each {|t|
           t.start
         }
 
@@ -98,7 +99,7 @@ module Fluentd
 
       def shutdown
         @buffer.shutdown if @buffer
-        @flush_threads.reverse_each {|t|
+        @threads.reverse_each {|t|
           t.shutdown
         }
       end
@@ -108,7 +109,7 @@ module Fluentd
       end
 
       def emits(tag, es)
-        @buffer.open(nil) do |a|
+        @buffer.open do |a|
           es.each {|time,record|
             handle_error(tag, time, record) do
               data = format(tag, time, record)

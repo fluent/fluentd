@@ -65,6 +65,8 @@ module Fluentd
         rescue
           Fluentd.log.error $!.to_s
           Fluentd.log.error_backtrace
+        ensure
+          sock.close
         end
       end
     end

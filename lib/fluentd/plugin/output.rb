@@ -36,7 +36,8 @@ module Fluentd
 
       def handle_error(tag, time, record, &block)
         block.call
-      rescue
+      rescue => e
+        Fluentd.log.warn "emit error", :error => e
         stats.emit_error(tag, time, record)
         nil
       end
