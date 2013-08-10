@@ -126,7 +126,7 @@ module Fluentd
       def initialize(dev, config={})
         super
         @logdev = DummyLogDevice.new
-        self.level = 'debug'
+        self.level = ::Logger::DEBUG
       end
 
       def logs
