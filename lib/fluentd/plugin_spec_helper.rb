@@ -1,8 +1,12 @@
 require 'logger'
 
 require 'serverengine'
+
 require 'fluentd/worker'
 require 'fluentd/config/parser'
+require 'fluentd/plugin/input'
+require 'fluentd/plugin/output'
+require 'fluentd/plugin/filter'
 
 ::Fluentd.plugin = Fluentd::PluginRegistry.new
 

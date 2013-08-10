@@ -58,5 +58,4 @@ module Fluentd
   require_relative 'plugin/buffered_output'
   require_relative 'plugin/object_buffered_output'
   require_relative 'plugin/time_sliced_output'
-
 end

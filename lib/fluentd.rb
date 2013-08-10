@@ -24,7 +24,6 @@ module Fluentd
   require_relative 'fluentd/config_error'
   require_relative 'fluentd/configurable'
   require_relative 'fluentd/event_collection'
-  require_relative 'fluentd/event_emitter'
   require_relative 'fluentd/event_router'
   require_relative 'fluentd/logger'
   require_relative 'fluentd/match_pattern'
