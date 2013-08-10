@@ -1,15 +1,19 @@
-require "spec/config/helper"
+require "config/helper"
+require "fluentd/config_error"
+require "fluentd/config/basic_parser"
+require "fluentd/config/literal_parser"
+require "fluentd/config/parser"
 
 describe Fluentd::Config::LiteralParser do
   include_context 'config_helper'
 
-  TestContext = Struct.new(:v1, :v2, :v3)
+  TestLiteralParserContext = Struct.new(:v1, :v2, :v3)
 
   let(:v1) { :test }
   let(:v2) { true }
   let(:v3) { nil }
 
-  let(:eval_context) { TestContext.new(v1, v2, v3) }
+  let(:eval_context) { TestLiteralParserContext.new(v1, v2, v3) }
 
   class UnexpectedString < Fluentd::ConfigParseError
   end
