@@ -21,7 +21,7 @@ module Fluentd
     require 'yajl'
 
     class ExceptionOutput < Output
-      Plugin.register_output(:exception, self)
+      Plugin.register_output('exception', self)
 
       def configure(conf)
         super

@@ -19,7 +19,7 @@ module Fluentd
   module Plugin
 
     class CopyFilter < Filter
-      Plugin.register_filter(:copy, self)
+      Plugin.register_filter('copy', self)
 
       def configure(conf)
         super

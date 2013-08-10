@@ -19,7 +19,7 @@ module Fluentd
   module Plugin
 
     class RedirectOutput < Output
-      Plugin.register_output(:redirect, self)
+      Plugin.register_output('redirect', self)
 
       include EventEmitter
 

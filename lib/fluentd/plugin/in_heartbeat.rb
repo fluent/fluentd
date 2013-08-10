@@ -19,7 +19,7 @@ module Fluentd
   module Plugin
 
     class HeartbeatInput < Input
-      Plugin.register_input(:heartbeat, self)
+      Plugin.register_input('heartbeat', self)
 
       #config_param :tag, :string
       #config_param :message, :hash

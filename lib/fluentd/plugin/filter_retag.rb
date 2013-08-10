@@ -19,7 +19,7 @@ module Fluentd
   module Plugin
 
     class RetagFilter < Filter
-      Plugin.register_filter(:retag, self)
+      Plugin.register_filter('retag', self)
 
       def configure(conf)
         super
