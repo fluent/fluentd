@@ -17,6 +17,10 @@
 #
 module Fluentd
 
+  require_relative 'logger'
+  require_relative 'plugin'
+  require_relative 'socket_manager'
+
   # These variables are initialized by
   # WorkerLauncher#configuration
   module ClassMethods
@@ -25,6 +29,12 @@ module Fluentd
     attr_accessor :socket_manager
 
     alias_method :log, :logger
+
+    def setup!(opts={})
+      Fluentd.logger = opts[:logger] || Fluentd::Logger.new(STDOUT)
+      Fluentd.plugin = opts[:plugin] || PluginRegistry.new
+      Fluentd.socket_manager = opts[:socket_manager] || SocketManager::NonManagedAPI
+    end
   end
 
   extend ClassMethods
