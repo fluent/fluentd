@@ -17,6 +17,8 @@
 #
 module Fluentd
 
+  # These variables are initialized by
+  # WorkerLauncher#configuration
   module ClassMethods
     attr_accessor :plugin
     attr_accessor :logger
