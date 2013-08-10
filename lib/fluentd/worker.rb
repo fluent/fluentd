@@ -32,9 +32,9 @@ module Fluentd
   class Worker
     include ServerEngine::ConfigLoader
 
-    def initialize(opts, socket_manager_api)
+    def initialize(opts, socket_manager)
       @stop_flag = ServerEngine::BlockingFlag.new
-      @socket_manager_api = socket_manager_api
+      @socket_manager = socket_manager
       super(opts)
       @log = create_logger
     end
@@ -47,7 +47,7 @@ module Fluentd
       # setup worker_global_methods.rb
       Fluentd.logger = @log
       Fluentd.plugin = PluginRegistry.new
-      Fluentd.socket_manager_api = @socket_manager_api
+      Fluentd.socket_manager = @socket_manager
 
       # Worker has a RootAgent
       root_agent = RootAgent.new

@@ -22,7 +22,7 @@ module Fluentd
   module ClassMethods
     attr_accessor :plugin
     attr_accessor :logger
-    attr_accessor :socket_manager_api
+    attr_accessor :socket_manager
 
     alias_method :log, :logger
   end
