@@ -27,7 +27,9 @@ module Fluentd
     attr_reader :loop
 
     def start
-      @thread = Thread.new(&method(:run))
+      if @loop.has_active_watchers?
+        @thread = Thread.new(&method(:run))
+      end
       nil
     end
 
@@ -42,12 +44,12 @@ module Fluentd
     end
 
     def stop
-      @loop.stop
+      @loop.stop if @thread
       nil
     end
 
     def join
-      @thread.join
+      @thread.join if @thread
       nil
     end
 

@@ -34,3 +34,5 @@ if ENV['GC_STRESS']
   GC.stress = true
 end
 
+Fluentd.setup!
+

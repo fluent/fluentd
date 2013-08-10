@@ -21,8 +21,10 @@ module Fluentd
     require 'stringio'
     require_relative '../config_error'
 
+    BASIC_CHARACTERS = /[a-zA-Z0-9_\/\.\-\+\*\@\=]/
+
     module ParserModule
-      BOUNDARY = /(?!\w)/
+      BOUNDARY = /(?!#{BASIC_CHARACTERS})/
 
       def keyword(string)
         /#{Regexp.escape(string)}#{BOUNDARY}/

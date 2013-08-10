@@ -45,9 +45,7 @@ module Fluentd
       @log.info "Starting worker #{@server_id}"
 
       # setup worker_global_methods.rb
-      Fluentd.logger = @log
-      Fluentd.plugin = PluginRegistry.new
-      Fluentd.socket_manager = @socket_manager
+      Fluentd.setup!(logger: @log, plugin: PluginRegistry.new, socket_manager: @socket_manager)
 
       # Worker has a RootAgent
       root_agent = RootAgent.new

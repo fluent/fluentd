@@ -52,12 +52,12 @@ describe Fluentd::Config::LiteralParser do
     it { '10'.should be_parsed_as(10) }
     it { '-1'.should be_parsed_as(-1) }
     it { '-10'.should be_parsed_as(-10) }
-    it { '01'.should be_parse_error }
-    it { '00'.should be_parse_error }
-    it { '-01'.should be_parse_error }
-    it { '-00'.should be_parse_error }
-    it { '0x61'.should be_parse_error }
-    it { '0a'.should be_parse_error }
+    it { '01'.should be_parsed_as("01") }
+    it { '00'.should be_parsed_as("00") }
+    it { '-01'.should be_parsed_as("-01") }
+    it { '-00'.should be_parsed_as("-00") }
+    it { '0x61'.should be_parsed_as("0x61") }
+    it { '0s'.should be_parsed_as("0s") }
   end
 
   context 'float' do
@@ -68,12 +68,14 @@ describe Fluentd::Config::LiteralParser do
     it { '-1.1'.should be_parsed_as(-1.1) }
     it { '-12e8'.should be_parsed_as(-12e8) }
     it { '-12.1e7'.should be_parsed_as(-12.1e7) }
-    it { '.0'.should be_parse_error }
-    it { '.1'.should be_parse_error }
-    it { '0.'.should be_parse_error }
-    it { '1.'.should be_parse_error }
-    it { '.0a'.should be_parse_error }
-    it { '1.a'.should be_parse_error }
+    it { '1.10'.should be_parsed_as("1.10") }
+    it { '.0'.should be_parsed_as(".0") }
+    it { '.1'.should be_parsed_as(".1") }
+    it { '0.'.should be_parsed_as("0.") }
+    it { '1.'.should be_parsed_as("1.") }
+    it { '.0a'.should be_parsed_as(".0a") }
+    it { '1.a'.should be_parsed_as("1.a") }
+    it { '0@'.should be_parsed_as("0@") }
   end
 
   context 'float keywords' do
@@ -82,7 +84,7 @@ describe Fluentd::Config::LiteralParser do
     it { '-Infinity'.should be_parsed_as(-Float::INFINITY) }
     it { 'NaNX'.should be_parsed_as("NaNX") }
     it { 'InfinityX'.should be_parsed_as("InfinityX") }
-    it { '-InfinityX'.should be_parse_error }
+    it { '-InfinityX'.should be_parsed_as("-InfinityX") }
   end
 
   context 'quoted string' do
@@ -118,20 +120,23 @@ describe Fluentd::Config::LiteralParser do
     it { 'T1'.should be_parsed_as('T1') }
     it { '_2'.should be_parsed_as('_2') }
     it { 't0'.should be_parsed_as('t0') }
-    #it { 't@'.should be_parsed_as('t@') }
-    #it { 't-'.should be_parsed_as('t-') }
-    #it { 't.'.should be_parsed_as('t.') }
+    it { 't@'.should be_parsed_as('t@') }
+    it { 't-'.should be_parsed_as('t-') }
+    it { 't.'.should be_parsed_as('t.') }
+    it { 't+'.should be_parsed_as('t+') }
+    it { 't/'.should be_parsed_as('t/') }
+    it { 't='.should be_parsed_as('t=') }
     #it { 't,'.should be_parsed_as('t,') }
-    it { '0t'.should be_parse_error }
-    it { '@1t'.should be_parse_error }
-    it { '-1t'.should be_parse_error }
-    it { '.1t'.should be_parse_error }
-    it { ',1t'.should be_parse_error }
-    it { '0 '.should be_parse_error }
-    it { '-1 '.should be_parse_error }
-    it { '.t'.should be_parse_error }
-    it { '*t'.should be_parse_error }
-    it { '@t'.should be_parse_error }
+    it { '0t'.should be_parsed_as("0t") }
+    it { '@1t'.should be_parsed_as('@1t') }
+    it { '-1t'.should be_parsed_as('-1t') }
+    it { '.1t'.should be_parsed_as('.1t') }
+    #it { ',1t'.should be_parsed_as(',1t') }
+    it { '.t'.should be_parsed_as('.t') }
+    it { '*t'.should be_parsed_as('*t') }
+    it { '@t'.should be_parsed_as('@t') }
+    it { '0 '.should be_parse_error }  # space
+    it { '-1 '.should be_parse_error }  # space
     it { '$t'.should be_parse_error }
     it { '{t'.should be_parse_error }
     it { '}t'.should be_parse_error }
@@ -140,11 +145,8 @@ describe Fluentd::Config::LiteralParser do
     it { 't:'.should be_parse_error }
     it { 't;'.should be_parse_error }
     it { 't?'.should be_parse_error }
-    it { 't+'.should be_parse_error }
-    it { 't='.should be_parse_error }
     it { 't^'.should be_parse_error }
     it { 't`'.should be_parse_error }
-    it { 't/'.should be_parse_error }
     it { 't~'.should be_parse_error }
     it { 't|'.should be_parse_error }
     it { 't>'.should be_parse_error }
