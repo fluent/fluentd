@@ -288,7 +288,7 @@ module Fluentd
           #@buffer.clear
         rescue
           #Fluentd.log.error "unexpected error while aborting", :error=>$!.to_s
-          $log.error_backtrace
+          Fluentd.log.error_backtrace
         end
       end
 
