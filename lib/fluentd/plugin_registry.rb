@@ -27,8 +27,8 @@ module Fluentd
     def initialize
       @input = Registry.new(:input, 'fluentd/plugin/in_')
       @output = Registry.new(:output, 'fluentd/plugin/out_')
-      @filter = Registry.new(:filter, 'fluentd/plugin/filt_')
-      @buffer = Registry.new(:buffer, 'fluentd/plugin/buf_')
+      @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
+      @buffer = Registry.new(:buffer, 'fluentd/plugin/buffer_')
       require_relative 'plugin'
     end
 
