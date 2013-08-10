@@ -72,7 +72,7 @@ module Fluentd
         if klass = @map[type]
           return klass
         end
-        raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"
+        raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluentd-plugin' to find plugins"
       end
 
       def search(type)
