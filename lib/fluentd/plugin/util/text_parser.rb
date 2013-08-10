@@ -230,13 +230,28 @@ class TextParser
     end
   end
 
+  class NginxParser < RegexpParser
+    REGEXP = /^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
+    TIME_FORMAT = '%d/%b/%Y:%H:%M:%S %z'
+
+    def initialize
+      super(REGEXP)
+    end
+
+    def configure(conf)
+      super
+      @time_format = TIME_FORMAT
+    end
+  end
+
   TEMPLATE_FACTORIES = {
-    'apache' => Proc.new { ApacheParser.new },
+    'apache2' => Proc.new { ApacheParser.new },
     'syslog' => Proc.new { SyslogParser.new },
     'json' => Proc.new { JSONParser.new },
     'tsv' => Proc.new { TSVParser.new },
     'ltsv' => Proc.new { LabeledTSVParser.new },
     'csv' => Proc.new { CSVParser.new },
+    'nginx' => Proc.new { NginxParser.new },
   }
 
   def self.register_template(name, regexp_or_proc, time_format=nil)

@@ -1,3 +1,4 @@
+require 'fluentd/plugin_spec_helper'
 require 'fluentd/plugin/util/text_parser'
 require 'time'
 
@@ -126,6 +127,40 @@ describe Fluentd::Plugin::Util::TextParser do
                             'host'   => '192.168.0.1',
                             'req_id' => '111',
                           })
+    end
+  end
+
+  context Fluentd::Plugin::Util::TextParser::NginxParser do
+    str_time = '28/Feb/2013:12:00:00 +0900'
+    expected_time = Time.strptime(str_time, '%d/%b/%Y:%H:%M:%S %z').to_i
+    expected = {
+      'remote'  => '127.0.0.1',
+      'host'    => '192.168.0.1',
+      'user'    => '-',
+      'method'  => 'GET',
+      'path'    => '/',
+      'code'    => '200',
+      'size'    => '777',
+      'referer' => '-',
+      'agent'   => 'Opera/12.0'
+    }
+
+    before :each do
+      @parser = Fluentd::Plugin::Util::TextParser::TEMPLATE_FACTORIES['nginx'].call
+      @parser.init_configurable
+      @parser.configure({})
+    end
+
+    it "can parses nginx log" do
+      time, record = @parser.call(%Q{127.0.0.1 192.168.0.1 - [#{str_time}] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"})
+      expect(time).to eq expected_time
+      expect(record).to eq(expected)
+    end
+
+    it "can parses nginx with empty included path" do
+      time, record = @parser.call(%Q{127.0.0.1 192.168.0.1 - [#{str_time}] "GET /a[ ]b HTTP/1.1" 200 777 "-" "Opera/12.0"})
+      expect(time).to eq expected_time
+      expect(record).to eq(expected.merge('path' => '/a[ ]b'))
     end
   end
 end
