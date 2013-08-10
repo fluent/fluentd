@@ -19,6 +19,7 @@ module Fluentd
 module Plugin
 module Util
 
+require 'fluentd/configurable'
 require 'yajl'
 
 class TextParser
