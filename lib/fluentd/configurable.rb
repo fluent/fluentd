@@ -33,7 +33,7 @@ module Fluentd
     end
 
     def configure(conf)
-      @log = Fluentd.logger
+      @log ||= Fluentd.logger
       @config = conf
 
       self.class.config_params.each_pair {|name,(block,opts)|
@@ -51,7 +51,7 @@ module Fluentd
 
     attr_reader :config
 
-    attr_reader :log
+    attr_accessor :log
     alias_method :logger, :log
 
     CONFIG_TYPES = {}
