@@ -24,7 +24,7 @@ module Fluentd
       end
 
       def after(sec, &callback)
-        @loop.attach CallbackTimerWatcher.new(interval_sec, false, &callback)
+        @loop.attach CallbackTimerWatcher.new(sec, false, &callback)
       end
 
       class CallbackTimerWatcher < Coolio::TimerWatcher
