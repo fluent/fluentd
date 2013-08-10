@@ -24,7 +24,7 @@ module Fluentd
   require_relative 'plugin_registry'
 
   #
-  # Worker corresponds to a <server> section in a configuration file.
+  # Worker corresponds to a <worker> section in a configuration file.
   #
   # Worker has a RootAgent, and starts/stops all nested agents owned
   # by the RootAgent.
