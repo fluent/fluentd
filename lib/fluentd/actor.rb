@@ -44,7 +44,7 @@ module Fluentd
     end
 
     def stop
-      @loop.stop
+      @loop.stop if @thread
       nil
     end
 
