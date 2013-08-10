@@ -31,9 +31,6 @@ module Fluentd
         @map = {}
         @queue = []
         @records = []
-        @buffer_record_limit = 1024
-        @buffer_chunk_limit = 8*1024*1024
-        @buffer_queue_limit = 512
       end
 
       def open(&block)

@@ -37,21 +37,19 @@ module Fluentd
         @loop.attach CallbackListener.new(listen_socket, &callback)
       end
 
-      def create_udp_server(bind, port, &block)
-        sock = Fluentd.socket_manager.listen_udp(bind, port)
-        watch_io(sock, &block)
+      def listen_tcp(bind, port, &block)
+        socket = Fluentd.socket_manager.listen_tcp(bind, port)
+        listen_io(socket, &block)
       end
 
-      def listen_tcp(bind, port)
-        Fluentd.socket_manager.listen_tcp(bind, port)
+      def listen_unix(path, &block)
+        socket = Fluentd.socket_manager.listen_unix(path)
+        listen_io(socket, &block)
       end
 
-      def listen_unix(path)
-        Fluentd.socket_manager.listen_unix(path)
-      end
-
-      def listen_udp(bind, port)
-        Fluentd.socket_manager.listen_udp(bind, port)
+      def listen_udp(bind, port, &block)
+        socket = Fluentd.socket_manager.listen_udp(bind, port)
+        watch_io(socket, &block)
       end
 
       class CallbackListener < Coolio::Listener

@@ -23,17 +23,18 @@ module Fluentd
   module SocketManager
     module API
       def listen_tcp(bind, port)
-        open_io("TCPServer.new(params[0], params[1])", [bind, port])
+        io = open_io("TCPServer.new(params[0], params[1])", [bind, port])
+        TCPServer.for_
       end
 
       def listen_udp(bind, port)
         code = <<EOF
-if IPAddr.new(IPSocket.getaddress(host)).ipv4?
+if IPAddr.new(IPSocket.getaddress(params[0])).ipv4?
   s = UDPSocket.new
 else
   s = UDPSocket.new(Socket::AF_INET6)
 end
-s.bind(params[0])
+s.bind(params[0], params[1])
 s
 EOF
         open_io(code, [bind, port])
