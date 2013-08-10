@@ -23,29 +23,4 @@ module Fluentd
   class ConfigParseError < ConfigError
   end
 
-  module Config
-    require 'strscan'
-
-    here = File.expand_path(File.dirname(__FILE__))
-
-    {
-      :Context => 'config/context',
-      :Element => 'config/element',
-      :BasicParser => 'config/basic_parser',
-      :ParserModule => 'config/basic_parser',
-      :LiteralParser => 'config/literal_parser',
-      :Parser => 'config/parser',
-      :CompatParser => 'config/compat_parser',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
-
-    module ClassMethods
-      extend Forwardable
-      def_delegators :'Fluentd::Config::Parser', :read, :parse
-    end
-
-    extend ClassMethods
-  end
-
 end

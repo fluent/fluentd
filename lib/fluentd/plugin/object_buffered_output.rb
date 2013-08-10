@@ -18,6 +18,8 @@
 module Fluentd
   module Plugin
 
+    require_relative '../event_collection'
+
     class ObjectBufferedOutput < BufferedOutput
       def emits(tag, es)
         @buffer.open do |a|
@@ -36,7 +38,7 @@ module Fluentd
       end
 
       def write(chunk)
-        chunk.extend(StreamMixin)
+        chunk.extend(CollectionMixin)
         write_objects(chunk.key, chunk)
       end
 
@@ -44,8 +46,8 @@ module Fluentd
         raise NoMethodError, "#{self.class}#write_objects(tag, chunk) is not implemented"
       end
 
-      module StreamMixin
-        include EventStream
+      module CollectionMixin
+        include EventCollection
 
         def destructive_repeatable?
           true

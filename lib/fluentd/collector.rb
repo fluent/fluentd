@@ -32,7 +32,7 @@ module Fluentd
 
   module Collector
     def emit(tag, time, record)
-      emits(tag, OneEventStream.new(time, record))
+      emits(tag, SingleEventCollection.new(time, record))
     end
 
     def emits(tag, es)

@@ -18,6 +18,8 @@
 module Fluentd
 
   require 'logger'
+  require 'serverengine'
+  require 'forwardable'
 
   class Logger
     def initialize(dev, config={})

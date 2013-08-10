@@ -23,7 +23,7 @@ module Fluentd
     end
 
     def emit_error(tag, time, record)
-      emits_error(tag, OneEventStream.new(time, record))
+      emits_error(tag, SingleEventCollection.new(time, record))
     end
 
     def emits_error(tag, es)
@@ -33,7 +33,7 @@ module Fluentd
     end
 
     def emit_log(tag, time, record)
-      emits_log(tag, OneEventStream.new(time, record))
+      emits_log(tag, SingleEventCollection.new(time, record))
     end
 
     def emits_log(tag, es)
@@ -41,19 +41,19 @@ module Fluentd
     rescue
       # TODO log
     end
-  end
 
-  class NullStatsCollector
-    def emit_error(tag, time, record)
-    end
+    class NullCollector
+      def emit_error(tag, time, record)
+      end
 
-    def emits_error(tag, es)
-    end
+      def emits_error(tag, es)
+      end
 
-    def emit_log(tag, time, record)
-    end
+      def emit_log(tag, time, record)
+      end
 
-    def emits_log(tag, es)
+      def emits_log(tag, es)
+      end
     end
   end
 

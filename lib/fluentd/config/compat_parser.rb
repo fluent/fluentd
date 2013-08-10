@@ -18,6 +18,9 @@
 module Fluentd
   module Config
 
+    require_relative 'element'
+    require_relative '../config_error'
+
     class CompatParser
       def self.read(path)
         path = File.expand_path(path)
@@ -43,27 +46,27 @@ module Fluentd
           @i += 1
           line.lstrip!
           line.gsub!(/\s*(?:\#.*)?$/,'')
-            if line.empty?
-              next
-            elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
-              e_name = m[1]
-              e_arg = m[2] || ""
-              e_attrs, e_elems = parse!(false, e_name)
-              elems << Element.new(e_name, e_arg, e_attrs, e_elems)
-            elsif line == "</#{elem_name}>"
-              break
-            elsif m = /^([a-zA-Z0-9_]+)\s*(.*)$/.match(line)
-              key = m[1]
-              value = m[2]
-              if allow_include && key == 'include'
-                process_include(attrs, elems, value)
-              else
-                attrs[key] = value
-              end
-              next
+          if line.empty?
+            next
+          elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
+            e_name = m[1]
+            e_arg = m[2] || ""
+            e_attrs, e_elems = parse!(false, e_name)
+            elems << Element.new(e_name, e_arg, e_attrs, e_elems)
+          elsif line == "</#{elem_name}>"
+            break
+          elsif m = /^([a-zA-Z0-9_]+)\s*(.*)$/.match(line)
+            key = m[1]
+            value = m[2]
+            if allow_include && key == 'include'
+              process_include(attrs, elems, value)
             else
-              raise ConfigParseError, "parse error at #{@fname} line #{@i}"
+              attrs[key] = value
             end
+            next
+          else
+            raise ConfigParseError, "parse error at #{@fname} line #{@i}"
+          end
         end
 
         return attrs, elems

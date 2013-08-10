@@ -17,11 +17,10 @@
 #
 module Fluentd
 
+  require 'socket'
+  require 'fcntl'
+
   module SocketManager
-
-    require 'socket'
-    require 'fcntl'
-
     class Client
       include SocketManager::API
 
@@ -222,6 +221,23 @@ module Fluentd
           return io
         end
       end
+
+      class HeartbeatMonitor
+        def initialize
+          @last_time = nil
+        end
+
+        attr_reader :last_time
+
+        def update
+          @last_time = Time.now
+        end
+
+        def check
+          # TODO
+        end
+      end
     end
+
   end
 end

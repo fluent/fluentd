@@ -18,6 +18,8 @@
 module Fluentd
   module Actors
 
+    require_relative 'future'
+
     module BackgroundActor
       def initialize
         super

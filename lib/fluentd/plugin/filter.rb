@@ -18,9 +18,12 @@
 module Fluentd
   module Plugin
 
+    require_relative 'output'
+    require_relative '../event_emitter'
+
     class Filter < Output
       # provides #collector
-      include MessageSource
+      include EventEmitter
     end
 
   end

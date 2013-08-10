@@ -17,6 +17,9 @@
 #
 module Fluentd
 
+  require 'json'
+  require_relative 'config_error'
+
   module Configurable
     def init_configurable
       self.class.config_defaults.each_pair {|name,defval|
@@ -41,7 +44,7 @@ module Fluentd
         end
         unless instance_variable_defined?(varname)
           @log.error "config error in:\n#{conf}"
-          raise ConfigError, "'#{name}' parameter is required"
+          raise ConfigError, "'#{name}' parameter is required"  # TODO config error
         end
       }
     end

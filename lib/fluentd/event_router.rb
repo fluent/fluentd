@@ -17,9 +17,11 @@
 #
 module Fluentd
 
+  require_relative 'collector'
+
   #
-  # MessageRouter matches a tag of an event with registered patterns and route the event to
-  # the matched collector. If no patterns match, MessageRouter routes the event to
+  # EventRouter matches a tag of an event with registered patterns and route the event to
+  # the matched collector. If no patterns match, EventRouter routes the event to
   # #default_collector.
   #
   # Input plugins start matching from the beginning of the matching rules. On the other hand,
@@ -41,9 +43,9 @@ module Fluentd
   #      2.match  b.**      --> match
   #    ] --- match_patterns
   #
-  # See also MessageSource#configure_agent and #configure_agent_offset.
+  # See also EventEmitter#configure_agent and #configure_agent_with_offset.
   #
-  class MessageRouter
+  class EventRouter
     include Collector
 
     def initialize(default_collector)
@@ -85,6 +87,20 @@ module Fluentd
 
     def match(tag)
       match_offset(0, tag)
+    end
+
+    class MatchCache < Hash
+      def initialize
+        super
+        @keys = []
+      end
+
+      def []=(key, value)
+        if @keys.size >= MATCH_CACHE_SIZE
+          delete @keys.shift
+        end
+        super(key, value)
+      end
     end
 
     def match_offset(offset, tag)
@@ -139,20 +155,6 @@ module Fluentd
         end
       }
       return nil
-    end
-
-    class MatchCache < Hash
-      def initialize
-        super
-        @keys = []
-      end
-
-      def []=(key, value)
-        if @keys.size >= MATCH_CACHE_SIZE
-          delete @keys.shift
-        end
-        super(key, value)
-      end
     end
   end
 

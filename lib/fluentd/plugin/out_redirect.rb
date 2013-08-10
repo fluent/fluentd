@@ -21,7 +21,7 @@ module Fluentd
     class RedirectOutput < Output
       Plugin.register_output(:redirect, self)
 
-      include MessageSource
+      include EventEmitter
 
       def configure(conf)
         super
@@ -29,7 +29,7 @@ module Fluentd
         @label = conf['label']
         @tag = conf['tag']
 
-        # MessageSource#label_redirect
+        # EventEmitter#label_redirect
         label_redirect(@label)
       end
 

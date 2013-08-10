@@ -17,6 +17,12 @@
 #
 module Fluentd
 
+  require 'sigdump'
+
+  require_relative 'worker_global_methods'
+  require_relative 'root_agent'
+  require_relative 'plugin_registry'
+
   #
   # Worker corresponds to a <server> section in a configuration file.
   #
@@ -38,7 +44,7 @@ module Fluentd
 
       @log.info "Starting worker #{@server_id}"
 
-      # setup process_global_methods.rb
+      # setup worker_global_methods.rb
       Fluentd.logger = @log
       Fluentd.plugin = PluginRegistry.new
       Fluentd.socket_manager_api = @socket_manager_api
@@ -52,8 +58,8 @@ module Fluentd
         @log.warn "parameter '#{key}' is not used in\n#{e.to_s(nil).strip}"
       }
 
-      # collect all nested agents
-      @agents = collect_agents(root_agent)
+      # gather all nested agents recursively
+      @agents = gather_agents(root_agent)
     end
 
     def run
@@ -114,9 +120,9 @@ module Fluentd
 
     private
 
-    def collect_agents(agent, array=[])
+    def gather_agents(agent, array=[])
       agent.agents.each {|a|
-        collect_agents(a, array)
+        gather_agents(a, array)
       }
       array << agent
       return array

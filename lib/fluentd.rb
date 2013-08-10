@@ -17,56 +17,26 @@
 #
 module Fluentd
 
-  require 'fileutils'
-  require 'tempfile'
-  require 'tmpdir'
-  require 'forwardable'
-
-  require 'json'
-  require 'yajl'
-
-  require 'serverengine'
-
-  here = File.expand_path(File.dirname(__FILE__))
-
-  {
-    :Collector => 'fluentd/collector',
-    :Collectors => 'fluentd/collector',
-    :Agent => 'fluentd/agent',
-    :RootAgent => 'fluentd/root_agent',
-    :MessageRouter => 'fluentd/message_router',
-    :MessageSource => 'fluentd/message_source',
-    :MatchPattern => 'fluentd/match_pattern',
-    :Config => 'fluentd/config',
-    :Configurable => 'fluentd/configurable',
-    :StatsCollector => 'fluentd/stats_collector',
-    :NullStatsCollector => 'fluentd/stats_collector',
-    :Server => 'fluentd/server',
-    :Worker => 'fluentd/worker',
-    :Logger => 'fluentd/logger',
-    :ProcessManager => 'fluentd/process_manager',
-    :SocketManager => 'fluentd/socket_manager',
-    :EventStream => 'fluentd/event_stream',
-    :OneEventStream => 'fluentd/event_stream',
-    :MultiEventStream => 'fluentd/event_stream',
-    :MessagePackEventStream => 'fluentd/event_stream',
-    :MultiProcessManager => 'fluentd/multi_process_manager',
-    :InterProcessExchange => 'fluentd/multi_process_manager',
-    :Plugin => 'fluentd/plugin',
-    :PluginRegistry => 'fluentd/plugin',
-    :Actor => 'fluentd/actor',
-    :Actors => 'fluentd/actor',
-    :ActorAgent => 'fluentd/actor',
-    :BundlerInjection => 'fluentd/bundler_injection',
-    :VERSION => 'fluentd/version',
-  }.each_pair {|k,v|
-    autoload k, File.join(here, v)
-  }
-
-  [
-    'fluentd/process_global_methods',
-  ].each {|v|
-    require File.join(here, v)
-  }
+  require_relative 'fluentd/actor'
+  require_relative 'fluentd/agent'
+  require_relative 'fluentd/bundler_injection'
+  require_relative 'fluentd/collector'
+  require_relative 'fluentd/config_error'
+  require_relative 'fluentd/configurable'
+  require_relative 'fluentd/event_collection'
+  require_relative 'fluentd/event_emitter'
+  require_relative 'fluentd/event_router'
+  require_relative 'fluentd/logger'
+  require_relative 'fluentd/match_pattern'
+  require_relative 'fluentd/plugin'
+  require_relative 'fluentd/plugin_registry'
+  require_relative 'fluentd/root_agent'
+  require_relative 'fluentd/server'
+  require_relative 'fluentd/socket_manager'
+  require_relative 'fluentd/stats_collector'
+  require_relative 'fluentd/version'
+  require_relative 'fluentd/worker'
+  require_relative 'fluentd/worker_global_methods'
+  require_relative 'fluentd/worker_launcher'
 
 end

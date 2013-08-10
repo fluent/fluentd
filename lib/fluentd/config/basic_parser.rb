@@ -19,6 +19,7 @@ module Fluentd
   module Config
 
     require 'stringio'
+    require_relative '../config_error'
 
     module ParserModule
       BOUNDARY = /(?!\w)/

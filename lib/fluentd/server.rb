@@ -17,6 +17,15 @@
 #
 module Fluentd
 
+  require 'serverengine'
+
+  require_relative 'worker_launcher'
+  require_relative 'socket_manager'
+  require_relative 'version'
+  require_relative 'config/parser'
+  require_relative 'config/compat_parser'
+  require_relative 'logger'
+
   #
   # Server is the parent process of all worker processes.
   #
@@ -28,7 +37,7 @@ module Fluentd
     OVERWRITE_PARAMETERS = {
       :restart_server_process => false,
       :disable_reload => true,  # disables reload and uses restart always
-      :logger_class => Logger,  # overwrites logger class
+      :logger_class => Fluentd::Logger,  # overwrites logger class
       :worker_type => 'thread',
     }
 
@@ -66,23 +75,25 @@ module Fluentd
       # load fluentd.conf
       conf = read_config(config[:config_path])
 
-      # <server> section creates a worker instances
-      @server_elements = conf.elements.select {|e| e.name == 'server' }
+      # <worker> section creates a worker instances
+      @worker_elements = conf.elements.select {|e| e.name == 'worker' }
 
-      if @server_elements.empty?
-        raise ConfigError, "No <server> elements in the config file"
+      if @worker_elements.empty?
+        raise ConfigError, "No <worker> elements in the config file"
       end
 
-      # set number of ServerEngine workers
-      scale_workers(@server_elements.size)
+      # set number of ServerEngine workers using
+      # ServerEngine::Server#scale_workers method
+      scale_workers(@worker_elements.size)
     end
 
-    attr_reader :server_elements
+    attr_reader :worker_elements
 
     # ServerEngine callback
     def before_run
       logger.info "fluentd v#{Fluentd::VERSION}"
 
+      # initializes socket manager server
       @socket_server = SocketManager::Server.new
       @socket_server.start
     end
@@ -99,18 +110,22 @@ module Fluentd
 
     private
 
+    # read configuration file
     def read_config(path)
       begin
-        conf = Config.read(path)
+        # try to use v11 mode first
+        conf = Config::Parser.read(path)
 
-        # use backward compatible mode if <server> section doesn't exist
-        unless conf.elements.find {|e| e.name == 'server' }
+        # use backward compatible mode if <worker> section doesn't exist
+        unless conf.elements.find {|e| e.name == 'worker' }
           compat_conf = Config::CompatParser.read(path)
         end
+
       rescue => e
+        # falling back to compatible mode
         begin
           compat_conf = Config::CompatParser.read(path)
-          if compat_conf.elements.any? {|e| e.name == 'server' }
+          if compat_conf.elements.any? {|e| e.name == 'worker' }
             raise e
           end
         rescue
@@ -119,176 +134,13 @@ module Fluentd
       end
 
       if compat_conf
-        compat_conf.name = 'server'
+        # generates root <worker> section for v10 compat configuration
+        compat_conf.name = 'worker'
         logger.warn "Using backward compatible configuration file. Please replace it with following content to not show this message again:\n#{compat_conf.to_s}"
         conf = Config::Element.new('ROOT', '', {}, [compat_conf])
       end
 
       return conf
-    end
-
-    module WorkerLauncher
-      SOCKET_MANAGER_FILENO = 3
-
-      def initialize
-        @opts = server.config
-        @server_element = server.server_elements[worker_id]
-        @server_element['id'] ||= worker_id
-      end
-
-      def before_fork
-        # spawn process before run, and monitor the spawned process
-        # in the run method
-        @monitor = spawn_process
-      rescue => e
-        logger.error e.to_s
-        logger.error_backtrace e.backtrace
-        raise
-      end
-
-      def run
-        # TODO heartbeat monitoring
-        @monitor
-      rescue => e
-        logger.error e.to_s
-        logger.error_backtrace e.backtrace
-        raise
-      ensure
-        if pid = @pid
-          Process.waitpid2(pid)
-        end
-      end
-
-      def stop
-        if pid = @pid
-          begin
-            Process.kill('TERM', pid)
-          rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-          end
-        end
-      end
-
-      def self.main
-        # receives context data from the parent process
-        spawn_data = STDIN.read
-        STDIN.reopen(File::NULL)
-        opts, server_element = SpawnData.restore(spawn_data)
-
-        # set process name
-        $0 = "#{opts[:worker_process_name]} #{server_element['id']}"
-
-        # change user and group
-        chuser = server_element['process_user'] || opts[:chuser]
-        chgroup = server_element['process_group'] || opts[:chgroup]
-        ServerEngine::Daemon.change_privilege(chuser, chgroup)
-
-        # setup SocketManager used by actors/socket_actor.rb
-        socket_client = SocketManager::Client.new(SOCKET_MANAGER_FILENO, server_element['id'])
-
-        # initialize worker
-        w = Worker.new(opts, socket_client)
-        w.install_signal_handlers
-        w.configure(server_element)
-
-        socket_client.start_heartbeat
-
-        w.run
-      end
-
-      private
-
-      def spawn_process
-        # fluentd/command/fluentd-worker.rb calls WorkerLauncher.main
-        worker_main = File.expand_path File.join(File.dirname(__FILE__), 'command', 'fluentd-worker.rb')
-
-        # arguments for Process.spawn
-        env = {'fluentd_worker_process'=>worker_id.to_s}
-        cmdline = [RbConfig.ruby, worker_main]
-
-        options = { }
-        setup_resource_options(options)
-
-        # sends context data to the worker process
-        spawn_data = SpawnData.dump([@opts, @server_element])
-
-        cpipe, monitor = server.socket_server.new_client_pipe
-
-        rpipe, wpipe = IO.pipe
-        begin
-          options[:in] = rpipe
-          options[SOCKET_MANAGER_FILENO] = cpipe
-
-          # spawn here
-          @pid = Process.spawn(env, *cmdline, options)  # calls WorkerLauncher.main
-
-          launch_success = false
-          begin
-            cpipe.close
-            wpipe.write spawn_data
-
-            # TODO wait for completion of Worker#configure
-
-            launch_success = true
-
-          ensure
-            unless launch_success
-              Process.kill('TERM', @pid)
-              Process.waitpid2(@pid)
-            end
-          end
-
-        ensure
-          rpipe.close
-          wpipe.close
-        end
-
-        return monitor
-      end
-
-      def setup_resource_options(options)
-        @opts.each_pair {|k,v|
-          if k =~ /^rlimit_/
-            options[k.to_s] = v.to_s
-          end
-        }
-
-        if @opts[:chumask]
-          options['umask'] = @opts[:chumask].to_s
-        end
-      end
-
-      class SpawnData
-        def initialize(user_data)
-          @loaded_features = $LOADED_FEATURES
-          @load_path = $LOAD_PATH
-          @debug = $DEBUG
-          @gc_profiler = GC::Profiler.enabled?
-          @user_data = user_data
-        end
-
-        def restore!
-          GC::Profiler.enable if @gc_profiler
-
-          $DEBUG = @debug
-
-          $LOAD_PATH.clear
-          @load_path.each {|path| $LOAD_PATH << path }
-
-          @loaded_features.each {|feature|
-            require feature
-          }
-
-          return @user_data
-        end
-
-        def self.dump(user_data)
-          Marshal.dump(new(user_data))
-        end
-
-        def self.restore(user_data)
-          Marshal.load(user_data).restore!
-        end
-      end
     end
   end
 

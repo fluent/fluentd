@@ -17,6 +17,14 @@
 #
 module Fluentd
 
+  require 'delegate'  # SimpleDelegator
+
+  require_relative 'agent'
+  require_relative 'event_emitter'
+  require_relative 'collectors/null_collector'
+  require_relative 'collectors/no_match_notice_collector'
+  require_relative 'stats_collector'  # TODO file/class name
+
   #
   # Fluentd forms a tree structure:
   #
@@ -37,10 +45,10 @@ module Fluentd
   # Worker is responsible to start/stop/shutdown all nested agents.
   # RootAgent initializes top-level agents, labels and built-in labels (LOG and ERROR)
   #
-  # Message routing is implemented in MessageSource module. See also message_source.rb.
+  # Message routing is implemented in EventEmitter module. See also message_source.rb.
   #
   class RootAgent < Agent
-    include MessageSource
+    include EventEmitter
 
     LOG_LABEL = "LOG".freeze
     ERROR_LABEL = "ERROR".freeze
@@ -50,7 +58,7 @@ module Fluentd
 
       @labels = {}
 
-      # init MessageSource
+      # init EventEmitter
       init_message_source(self, Collectors::NoMatchNoticeCollector.new)
 
       # set Agent#stats_collector
@@ -76,12 +84,13 @@ module Fluentd
         end
       }
 
-      add_label_impl(ErrorMessageLabel, ERROR_LABEL,
+      add_label_impl(ErrorEventLabel, ERROR_LABEL,
                      error_label_config, Collectors::ErrorNoticeCollector.new)
 
       log_agent = add_label_impl(LogMessageLabel, LOG_LABEL,
                      log_label_config, Collectors::NullCollector.new)
 
+      # hooks error logs to send them to the LogMessageLabel
       Fluentd.logger.extend(StatsCollectLoggerMixin)
       Fluentd.logger.init_stats_collect("fluentd", log_agent.collector)
 
@@ -125,10 +134,10 @@ module Fluentd
     end
 
     class Label < Agent
-      include MessageSource
+      include EventEmitter
     end
 
-    class ErrorMessageLabel < Label
+    class ErrorEventLabel < Label
       def init_stats_source(stats_collector)
         # prevent infinite loop
         c = SimpleDelegator.new(stats_collector)
@@ -154,6 +163,7 @@ module Fluentd
         super(c)
       end
 
+      # prevents infinite loop
       module NoStatsLoggerMixin
         def collect_stats(level, message, record, time)
         end

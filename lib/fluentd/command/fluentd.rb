@@ -162,6 +162,6 @@ if gemfile = opts[:gemfile]
   Fluentd::BundlerInjection.install(gemfile, opts)
 end
 
-require 'fluentd'
+require 'fluentd/server'
 Fluentd::Server.run(opts)
 

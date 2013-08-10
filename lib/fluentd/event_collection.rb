@@ -19,7 +19,7 @@ module Fluentd
 
   require 'msgpack'
 
-  module EventStream
+  module EventCollection
     include Enumerable
 
     def repeatable?
@@ -42,7 +42,7 @@ module Fluentd
     end
   end
 
-  class OneEventStream
+  class SingleEventCollection
     include Enumerable
 
     def initialize(time, record)
@@ -63,8 +63,8 @@ module Fluentd
     end
   end
 
-  class MultiEventStream
-    include EventStream
+  class MultiEventCollection
+    include EventCollection
 
     def initialize
       @time_array = []
@@ -94,8 +94,8 @@ module Fluentd
     end
   end
 
-  class MessagePackEventStream
-    include EventStream
+  class MessagePackEventCollection
+    include EventCollection
 
     def initialize(data)
       @data = data

@@ -18,6 +18,8 @@
 module Fluentd
   module Plugin
 
+    require 'yajl'
+
     class StdoutOutput < Output
       Plugin.register_output('stdout', self)
 

@@ -15,10 +15,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-autoload :RubyLex, 'irb/ruby-lex'
-
 module Fluentd
   module Config
+
+    require 'stringio'
+    require_relative 'basic_parser'
+
+    require 'irb/ruby-lex'  # RubyLex
 
     class LiteralParser < BasicParser
       def_keyword :k_true, "true"

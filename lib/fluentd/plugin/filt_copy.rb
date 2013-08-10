@@ -1,7 +1,7 @@
 #
 # Fluentd
 #
-# Copyright (C) 2011-2013 FURUHASHI Sadayuki
+# Copyright (C) 2011-2012 FURUHASHI Sadayuki
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -16,24 +16,24 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Collectors
+  module Plugin
 
-    class LabelCollector
-      include Collector
+    class CopyFilter < Filter
+      Plugin.register_filter(:copy, self)
 
-      def initialize(root_router, label)
-        @root_router = root_router
-        @label = label
+      def configure(conf)
+        super
+      end
+
+      def emit(tag, time, record)
+        collector.emit(tag, time, record)
       end
 
       def emits(tag, es)
-        @root_router.emits_label(@label, tag, es)
-      end
-
-      def short_circuit(tag)
-        @root_router.short_circuit_label(@label, tag)
+        collector.emits(tag, es)
       end
     end
 
   end
 end
+

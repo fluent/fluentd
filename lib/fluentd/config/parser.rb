@@ -18,6 +18,12 @@
 module Fluentd
   module Config
 
+    require 'strscan'
+
+    require_relative 'literal_parser'
+    require_relative 'element'
+    require_relative '../config_error'
+
     class Parser < LiteralParser
       def initialize(strscan, include_basepath, fname, eval_context)
         super(strscan)

@@ -17,22 +17,7 @@
 #
 module Fluentd
 
-  module Actors
-    require 'coolio'
-
-    here = File.expand_path(File.dirname(__FILE__))
-
-    {
-      :Future => 'actors/future',
-      :BackgroundActor => 'actors/background_actor',
-      :TimerActor => 'actors/timer_actor',
-      :IOActor => 'actors/io_actor',
-      :SocketActor => 'actors/socket_actor',
-      #:AsyncActor => 'actors/async_actor',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
-  end
+  require 'coolio'
 
   class Actor
     def initialize
@@ -66,29 +51,40 @@ module Fluentd
       nil
     end
 
+    require_relative 'actors/background_actor'
     include Actors::BackgroundActor
+
+    require_relative 'actors/timer_actor'
     include Actors::TimerActor
+
+    require_relative 'actors/io_actor'
     include Actors::IOActor
+
+    require_relative 'actors/socket_actor'
     include Actors::SocketActor
-  end
 
-  module ActorAgent
-    def initialize
-      @actor = Actor.new
-      super
-    end
+    # TODO not implemented yet
+    #require_relative 'actors/async_actor'
+    #include Actors::AsyncActor
 
-    attr_reader :actor
+    module AgentMixin
+      def initialize
+        @actor = Actor.new
+        super
+      end
 
-    def start
-      super
-      @actor.start
-    end
+      attr_reader :actor
 
-    def stop
-      @actor.stop
-      @actor.join
-      super
+      def start
+        super
+        @actor.start
+      end
+
+      def stop
+        @actor.stop
+        @actor.join
+        super
+      end
     end
   end
 

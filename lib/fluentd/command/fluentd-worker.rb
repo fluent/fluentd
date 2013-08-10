@@ -15,5 +15,5 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-require_relative '../../fluentd'
-Fluentd::Server::WorkerLauncher.main
+require_relative '../worker_launcher'
+Fluentd::WorkerLauncher.main

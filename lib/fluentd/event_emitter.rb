@@ -17,26 +17,33 @@
 #
 module Fluentd
 
+  require_relative 'configurable'
+  require_relative 'config_error'
+  require_relative 'event_router'
+  require_relative 'match_pattern'
+  require_relative 'worker_global_methods'  # Fluentd.plugin
+  require_relative 'collectors/label_redirect_collector'
+
   #
-  # MessageSource is a base module of input and filter plugins.
-  # MessageSource has the capability to generates events into fluentd's message router.
+  # EventEmitter is a base module of input and filter plugins.
+  # EventEmitter has the capability to generates events into fluentd's message router.
   #
-  # MessageSource has:
+  # EventEmitter has:
   #
-  #   * a parent MessageSource, which is the default_collector of this MessageSource
-  #   * child MessageSource instances, whose parent is this MessageSource
+  #   * a parent EventEmitter, which is the default_collector of this EventEmitter
+  #   * nested EventEmitter instances, whose parent is this EventEmitter
   #
   #            +---------------+
-  #            | MessageSource |        --- parent MessageSource
+  #            | EventEmitter |        --- parent EventEmitter
   #            |      ...      |            input, filter plugin or RootAgent
   #            +---------------+
   #                    ^
   #                    | default_collector
   #                    |
   #         +--------- | ---------+
-  #        ||    MessageSource    ||
+  #        ||    EventEmitter    ||
   #        ||          |          ||   An agent instance
-  #        ||   <MessageRouter>   ||
+  #        ||   <EventRouter>   ||
   #        ||      /       \      ||
   #        ||   Agent     Agent   ||   --- <match> or <filter>
   #         +---------------------+        output or filter plugins
@@ -44,41 +51,40 @@ module Fluentd
   #                |       | default_collector
   #               /         \
   #  +-----------/---+   +---\-----------+
-  #  | MessageSource |   | MessageSource |  --- nested <source>
+  #  | EventEmitter |   | EventEmitter |  --- nested <source>
   #  |      ...      |   |      ...      |      input plugins
   #  +---------------+   +---------------+
   #
-  # When MessageSource generates an event:
+  # When EventEmitter generates an event:
   #
-  #   1. MessageSource sends it to the internal MessageRouter
-  #   2. The MessageRouter tries to match it with registered output (or filter) plugins
+  #   1. EventEmitter sends it to the internal EventRouter
+  #   2. The EventRouter tries to match it with registered output (or filter) plugins
   #   If no plugins match the event,
-  #   3. it sends the event to default_collector (= parent MessageSource)
-  #      The parent MessageSource does the same thing; tries to match output (or filter)
-  #      plugins in the the internal MessageRouter, or sends it to the default_collector.
+  #   3. it sends the event to default_collector (= parent EventEmitter)
+  #      The parent EventEmitter does the same thing; tries to match output (or filter)
+  #      plugins in the the internal EventRouter, or sends it to the default_collector.
   #
   # The root node of this routing tree is RootAgent. RootAgent sends the event to
   # NoMatchNoticeCollector if no output (or filter) plugins match.
   #
-  module MessageSource
+  module EventEmitter
     include Configurable
 
     # call this method in subclass
-    def init_message_source(root_router, default_collector)
-      # root_router always points RootAgent
-      @root_router = root_router
-      @message_router = MessageRouter.new(default_collector)
+    def init_message_source(root_agent, default_collector)
+      @root_agent = root_agent
+      @event_router = EventRouter.new(default_collector)
       nil
     end
 
     # message source API
     def collector
-      @message_router
+      @event_router
     end
 
-    # routes events into a label instead of the internal MessageRouter
+    # routes events into a label instead of the internal EventRouter
     def label_redirect(label)
-      @message_router.default_collector = Collectors::LabelCollector.new(@root_router, label)
+      @event_router.default_collector = Collectors::LabelRedirectCollector.new(@root_agent, label)
       nil
     end
 
@@ -114,7 +120,7 @@ module Fluentd
       agent = Fluentd.plugin.new_input(type)
       configure_agent(agent, conf)
 
-      # <source> does not match pattern; don't register to MessageRouter
+      # <source> does not match pattern; don't register to EventRouter
 
       return agent
     end
@@ -125,7 +131,7 @@ module Fluentd
       agent = Fluentd.plugin.new_output(type)
       configure_agent(agent, conf)
 
-      @message_router.add_collector(pattern, agent)  # register to MessageRouter
+      @event_router.add_collector(pattern, agent)  # register to EventRouter
 
       return agent
     end
@@ -134,28 +140,28 @@ module Fluentd
       log.info "adding filter", :pattern=>pattern, :type=>type
 
       agent = Fluentd.plugin.new_filter(type)
-      configure_agent_offset(agent, conf)
+      configure_agent_with_offset(agent, conf)
 
-      @message_router.add_collector(pattern, agent)  # register to MessageRouter
+      @event_router.add_collector(pattern, agent)  # register to EventRouter
 
       return agent
     end
 
     private
 
-    def configure_agent_offset(agent, conf)
-      configure_agent_impl(agent, conf, @message_router.current_offset)
+    def configure_agent_with_offset(agent, conf)
+      configure_agent_impl(agent, conf, @event_router.current_offset)
     end
 
     def configure_agent(agent, conf)
-      configure_agent_impl(agent, conf, @message_router)
+      configure_agent_impl(agent, conf, @event_router)
     end
 
     def configure_agent_impl(agent, conf, default_collector)
-      if agent.is_a?(MessageSource)
-        # this agent is a child MessageSource.
+      if agent.is_a?(EventEmitter)
+        # this agent is a nested EventEmitter.
         # setup the default_collector of the agent here
-        agent.init_message_source(@root_router, default_collector)
+        agent.init_message_source(@root_agent, default_collector)
       end
 
       agent.configure(conf)

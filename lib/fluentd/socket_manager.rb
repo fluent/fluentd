@@ -44,22 +44,6 @@ module Fluentd
         eval(code)
       end
     end
-
-    class HeartbeatMonitor
-      def initialize
-        @last_time = nil
-      end
-
-      attr_reader :last_time
-
-      def update
-        @last_time = Time.now
-      end
-
-      def check
-        # TODO
-      end
-    end
   end
 
 end
