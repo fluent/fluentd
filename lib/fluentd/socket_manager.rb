@@ -24,7 +24,7 @@ module Fluentd
     module API
       def listen_tcp(bind, port)
         io = open_io("TCPServer.new(params[0], params[1])", [bind, port])
-        TCPServer.for_
+        # TODO create Socket
       end
 
       def listen_udp(bind, port)
