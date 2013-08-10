@@ -76,13 +76,18 @@ module Fluentd
 
       private :flush_records
 
-      def acquire(&block)
-        if @queue.empty?
-          # FIXME
-          chunk = @map.delete(@map.keys.first)
-        else
-          chunk = @queue.pop
+      def keys
+        @map.keys
+      end
+
+      def enqueue_chunk(key)
+        if c = @map.delete(key)
+          @queue << c
         end
+      end
+
+      def acquire(&block)
+        chunk = @queue.pop
         if chunk
           begin
             yield chunk

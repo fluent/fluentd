@@ -20,8 +20,8 @@ module Fluentd
 
     class BufferedOutput < Output
       class FlushThread
-        def initialize(try_flush_proc)
-          @try_flush_proc = try_flush_proc
+        def initialize(try_flush)
+          @try_flush = try_flush
           @mutex = Mutex.new
           @cond = ConditionVariable.new
           @finished = false
@@ -47,7 +47,7 @@ module Fluentd
         def run
           @mutex.synchronize do
             until @finished
-              wait = @try_flush_proc.call
+              wait = @try_flush.call
               @cond.wait(@mutex, wait) if wait > 0
             end
           end
@@ -113,11 +113,16 @@ module Fluentd
           es.each {|time,record|
             handle_error(tag, time, record) do
               data = format(tag, time, record)
-              a.append('', data)
+              key = buffer_key(tag, time, record)
+              a.append(key, data)
             end
           }
         end
         nil
+      end
+
+      def buffer_key(tag, time, record)
+        ''
       end
 
       def format(tag, time, record)
@@ -155,6 +160,11 @@ module Fluentd
         end
       end
 
+      def acquire_chunk(&block)
+        @buffer.enqueue_chunk(@buffer.keys.first)
+        @buffer.acquire(&block)
+      end
+
       def try_flush
         now = Time.now.to_i
 
@@ -166,7 +176,7 @@ module Fluentd
           return @flush_time - now if @flush_time > now
 
           acquired = false
-          @buffer.acquire {|chunk|
+          acquire_chunk {|chunk|
             acquired = true
 
             retry_count = @flush_error_history.size
@@ -237,35 +247,35 @@ module Fluentd
         retry_count = @flush_error_history.size - 1
 
         if retry_count < @flush_retry_limit
-          Fluentd.log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@next_retry_time)}.", :error=>e.to_s, :instance=>object_id
-          Fluentd.log.warn_backtrace e.backtrace
+          Fluentd.log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
+          Fluentd.log.warn_backtrace error.backtrace
           return calc_retry_wait_time(retry_count)
 
         elsif @secondary
           if retry_count == @flush_retry_limit
-            Fluentd.log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+            Fluentd.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
             Fluentd.log.warn "retry count exceededs limit. falling back to secondary output."
-            Fluentd.log.warn_backtrace e.backtrace
+            Fluentd.log.warn_backtrace error.backtrace
             return 0  # retry immediately
 
           elsif retry_count <= @flush_retry_limit + @secondary_limit
-            Fluentd.log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@next_retry_time)}.", :error=>e.to_s, :instance=>object_id
-            Fluentd.log.warn_backtrace e.backtrace
+            Fluentd.log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
+            Fluentd.log.warn_backtrace error.backtrace
             return calc_retry_wait_time(retry_count - @flush_retry_limit - 1)
 
           else
-            Fluentd.log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+            Fluentd.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
             Fluentd.log.warn "secondary retry count exceededs limit."
-            Fluentd.log.warn_backtrace e.backtrace
+            Fluentd.log.warn_backtrace error.backtrace
             write_abort
             @flush_error_history.clear
             return @flush_interval
           end
 
         else
-          Fluentd.log.warn "failed to flush the buffer.", :error=>e.to_s, :instance=>object_id
+          Fluentd.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
           Fluentd.log.warn "retry count exceededs limit."
-          #@log.warn_backtrace e.backtrace
+          #@log.warn_backtrace error.backtrace
           write_abort
           @flush_error_history.clear
           return @flush_interval
