@@ -1,3 +1,4 @@
+require "json"
 require "config/helper"
 require "fluentd/config.rb"
 require "fluentd/config/basic_parser"
