@@ -18,7 +18,6 @@
 module Fluentd
 
   require_relative 'logger'
-  require_relative 'plugin'
   require_relative 'socket_manager'
 
   # These variables are initialized by
