@@ -46,13 +46,13 @@ module Fluentd
       STRING_EMBEDDED_CODE_START = /\$\{/
       EMBEDDED_CODE_END = /(?:\s|\#.*?)*\}/
 
-      NONQUOTED_STRING_CHARSET = /[a-zA-Z0-9_]/
-      NONQUOTED_STRING_FIRST_CHARSET = /[a-zA-Z_]/
+      NONQUOTED_STRING_CHARSET = BASIC_CHARACTERS
+      NONQUOTED_STRING_FIRST_CHARSET = BASIC_CHARACTERS
 
       MAP_KEY_STRING_CHARSET = NONQUOTED_STRING_CHARSET
 
-      def_token :tok_integer, /-?0|-?[1-9][0-9]*/
-      def_token :tok_float, /-?(?:0|[1-9][0-9]*)(?:(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)|\.[0-9]+)/
+      def_token :tok_integer, /-?(?:0|-?[1-9][0-9]*)/
+      def_token :tok_float, /-?(?:0|[1-9][0-9]*)(?:(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)|\.[0-9]*[1-9])/
 
       def parse_literal
         spacing
