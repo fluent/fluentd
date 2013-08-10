@@ -18,6 +18,7 @@
 module Fluentd
 
   require 'socket'
+  require 'ipaddr'
 
   module SocketManager
     module API
@@ -26,7 +27,16 @@ module Fluentd
       end
 
       def listen_udp(bind, port)
-        open_io("UDPServer.new(params[0], params[1])", [bind, port])
+        code = <<EOF
+if IPAddr.new(IPSocket.getaddress(host)).ipv4?
+  s = UDPSocket.new
+else
+  s = UDPSocket.new(Socket::AF_INET6)
+end
+s.bind(params[0])
+s
+EOF
+        open_io(code, [bind, port])
       end
 
       def listen_unix(path)
