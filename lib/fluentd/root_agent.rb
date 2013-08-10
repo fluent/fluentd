@@ -59,7 +59,7 @@ module Fluentd
       @labels = {}
 
       # init EventEmitter
-      init_message_source(self, Collectors::NoMatchNoticeCollector.new)
+      init_event_emitter(self, Collectors::NoMatchNoticeCollector.new)
 
       # set Agent#stats_collector
       self.stats_collector = StatsCollector.new(self)
@@ -125,7 +125,7 @@ module Fluentd
 
     def add_label_impl(klass, label, e, default_collector)
       agent = klass.new
-      agent.init_message_source(self, default_collector)
+      agent.init_event_emitter(self, default_collector)
 
       agent.configure(e)
       add_agent(agent)  # Agent#add_agent

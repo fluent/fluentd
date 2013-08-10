@@ -33,17 +33,17 @@ module Fluentd
   #   * a parent EventEmitter, which is the default_collector of this EventEmitter
   #   * nested EventEmitter instances, whose parent is this EventEmitter
   #
-  #            +---------------+
-  #            | EventEmitter |        --- parent EventEmitter
-  #            |      ...      |            input, filter plugin or RootAgent
-  #            +---------------+
+  #             +--------------+
+  #             | EventEmitter |       --- parent EventEmitter
+  #             |     ...      |           input, filter plugin or RootAgent
+  #             +--------------+
   #                    ^
   #                    | default_collector
   #                    |
   #         +--------- | ---------+
-  #        ||    EventEmitter    ||
+  #        ||     EventEmitter    ||
   #        ||          |          ||   An agent instance
-  #        ||   <EventRouter>   ||
+  #        ||    <EventRouter>    ||
   #        ||      /       \      ||
   #        ||   Agent     Agent   ||   --- <match> or <filter>
   #         +---------------------+        output or filter plugins
@@ -71,7 +71,7 @@ module Fluentd
     include Configurable
 
     # call this method in subclass
-    def init_message_source(root_agent, default_collector)
+    def init_event_emitter(root_agent, default_collector)
       @root_agent = root_agent
       @event_router = EventRouter.new(default_collector)
       nil
@@ -161,7 +161,7 @@ module Fluentd
       if agent.is_a?(EventEmitter)
         # this agent is a nested EventEmitter.
         # setup the default_collector of the agent here
-        agent.init_message_source(@root_agent, default_collector)
+        agent.init_event_emitter(@root_agent, default_collector)
       end
 
       agent.configure(conf)
