@@ -35,6 +35,10 @@ module Fluentd
     class Buffer
       include Configurable
 
+      config_param :buffer_record_limit, :size, :default => 1024
+      config_param :buffer_chunk_limit, :size, :default => 8*1024*1024
+      config_param :buffer_queue_limit, :integer, :default => 512
+
       def initialize
         init_configurable  # initialize Configurable
       end
