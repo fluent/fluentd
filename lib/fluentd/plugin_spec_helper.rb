@@ -39,6 +39,10 @@ module Fluentd
         @instance.emit(tag, time, record)
       end
 
+      def pitches(tag, es)
+        @instance.emits(tag, es)
+      end
+
       class BatchPitcher
         def initialize(parent, tag, time)
           @parent = parent
@@ -47,6 +51,10 @@ module Fluentd
         end
         def pitch(record)
           @parent.pitch(@tag, @time, record)
+        end
+
+        def pitches(es)
+          @parent.pitches(@tag, es)
         end
       end
 
