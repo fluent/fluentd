@@ -11,7 +11,6 @@ module Fluentd
         def self.parse(source, source_path="config.rb")
           DSLElement.new('ROOT', nil).instance_eval(source, source_path).__config_element
         end
-
       end
 
       class DSLElement
