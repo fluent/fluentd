@@ -40,17 +40,17 @@ module Fluentd
       end
 
       class BatchPitcher
-        def initialize(parent, tag, time)
+        def initialize(parent, tag, time=Time.now.to_i)
           @parent = parent
           @tag = tag
           @time = time
         end
-        def pitch(record)
-          @parent.pitch(@tag, @time, record)
+        def pitch(record, time=nil)
+          @parent.pitch(@tag, time ? time : @time, record)
         end
       end
 
-      def with(tag, time)
+      def with(tag, time=Time.now.to_i)
         raise ArgumentError unless block_given?
         yield BatchPitcher.new(self, tag, time)
       end
