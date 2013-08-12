@@ -112,6 +112,10 @@ module Fluentd
 
     # read configuration file
     def read_config(path)
+      if path =~ /\.rb$/
+        return Config::DSL::DSLParser.read(path)
+      end
+
       begin
         # try to use v11 mode first
         conf = Config::Parser.read(path)
