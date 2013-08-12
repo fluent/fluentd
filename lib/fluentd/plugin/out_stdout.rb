@@ -44,7 +44,7 @@ module Fluentd
       end
 
       def emit(tag, time, record)
-        STDOUT.write "#{Time.at(time).localtime} #{tag}: #{@output_proc.call(record)}\n"
+        $stdout.write "#{Time.at(time).localtime} #{tag}: #{@output_proc.call(record)}\n"
       end
     end
 
