@@ -28,16 +28,22 @@ module Fluentd
           Fluentd::Config::Element.new(@name, @arg, @attrs, @elements)
         end
 
-        def method_missing(name, *args)
+        def method_missing(name, *args, &block)
           raise ArgumentError, "Configuration DSL Syntax Error: only one argument allowed" if args.size > 1
           value = args.first
-          @attrs[name.to_s] = value.is_a?(Symbol) ? value.to_s : value
+          if block
+            element = DSLElement.new(name.to_s, value)
+            element.instance_exec(&block)
+            @elements.push(element.__config_element)
+          else
+            @attrs[name.to_s] = value.is_a?(Symbol) ? value.to_s : value
+          end
           self
         end
 
         def __element(name, arg, block)
           raise ArgumentError, "#{name} block must be specified" if block.nil?
-          element = DSLElement.new(name, arg)
+          element = DSLElement.new(name.to_s, arg)
           element.instance_exec(&block)
           @elements.push(element.__config_element)
           self
