@@ -61,20 +61,12 @@ source {
 describe Fluentd::Config::DSL::DSLParser do
   include_context 'config_helper'
 
-  def parse_dsl(text)
-    Fluentd::Config::DSL::DSLParser.parse(text)
-  end
-
-  def e(name, arg='', attrs={}, elements=[])
-    Fluentd::Config::Element.new(name, arg, attrs, elements)
-  end
-
   context 'with worker tag on top level' do
     root = nil
 
     describe '.parse' do
       it 'makes root element' do
-        root = parse_dsl(DSL_CONFIG_EXAMPLE)
+        root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_EXAMPLE, 'dsl_config.rb')
 
         expect(root.name).to eql('ROOT')
         expect(root.arg).to be_nil
@@ -136,7 +128,7 @@ describe Fluentd::Config::DSL::DSLParser do
 
     describe '.parse' do
       it 'makes root element' do
-        root = parse_dsl(DSL_CONFIG_EXAMPLE_WITHOUT_WORKER)
+        root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_EXAMPLE_WITHOUT_WORKER, 'dsl_config_without_worker.rb')
 
         expect(root.name).to eql('ROOT')
         expect(root.arg).to be_nil
