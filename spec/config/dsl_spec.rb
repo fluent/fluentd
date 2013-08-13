@@ -47,6 +47,10 @@ source {
   type :tail
   path "/var/log/httpd/access.part.log"
 
+  element {
+    name "foo"
+  }
+
   match ('{foo,bar}.**') {
     type "file"
     path "/var/log/httpd/access.full.log"
