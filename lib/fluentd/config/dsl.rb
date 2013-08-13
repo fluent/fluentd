@@ -14,8 +14,6 @@ module Fluentd
       end
 
       class DSLElement < BasicObject
-        attr_accessor :name, :arg, :attrs, :elements
-
         def initialize(name, arg)
           @name = name
           @arg = arg
