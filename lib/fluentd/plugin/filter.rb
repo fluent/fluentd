@@ -24,6 +24,9 @@ module Fluentd
     class Filter < Output
       # provides #collector
       include EventEmitter
+
+      # provides #actor
+      include Actor::AgentMixin
     end
 
   end
