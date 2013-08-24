@@ -24,7 +24,7 @@ module Fluentd
         ipaddr = IPSocket.getaddress(name)
         return ipaddr if ipv4? && IPAddr.new(ipaddr).ipv4? || ipv6? && IPAddr.new(ipaddr).ipv6?
       rescue SocketError => e
-        raise unless e.message.start_with?('getaddrinfo: nodename nor servname provided, or not known')
+        # ignore
       end
 
       t = ipv6? ? Resolv::DNS::Resource::IN::AAAA : Resolv::DNS::Resource::IN::A
