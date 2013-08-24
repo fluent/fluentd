@@ -64,7 +64,11 @@ class EngineClass
   end
 
   def parse_config(io, fname, basepath=Dir.pwd)
-    conf = Config.parse(io, fname, basepath)
+    conf = if fname =~ /\.rb$/
+             Config::DSL::DSLParser.parse(io, fname)
+           else
+             Config.parse(io, fname, basepath)
+           end
     configure(conf)
     conf.check_not_fetched {|key,e|
       $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
