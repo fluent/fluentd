@@ -95,6 +95,7 @@ class TextParser
     config_param :keys, :string
     config_param :time_key, :string, :default => nil
     config_param :time_format, :string, :default => nil
+    config_param :auto_type_convert, :bool, :default => false
 
     def configure(conf)
       super
@@ -112,6 +113,7 @@ class TextParser
 
     def values_map(values)
       record = Hash[keys.zip(values)]
+      record = convert_type(record) if @auto_type_convert
 
       if @time_key
         value = record.delete(@time_key)
@@ -125,6 +127,17 @@ class TextParser
       end
 
       return time, record
+    end
+
+    def convert_type(record)
+      record.each do |key,value|
+        if value == (int_value = value.to_i).to_s
+          record[key] = int_value
+        elsif value == (float_value = value.to_f).to_s
+          record[key] = float_value
+        end
+      end
+      return record
     end
   end
 
