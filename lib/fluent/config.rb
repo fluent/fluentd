@@ -144,6 +144,48 @@ module Config
     end
   end
 
+  class DSL
+    attr_reader :elements, :attrs
+
+    def initialize(&block)
+      @elements = []
+      @attrs = {}
+
+      instance_eval(&block) if block_given?
+    end
+
+    def self.parse_file(file)
+      config = ::File.read(file)
+      new_from_string config
+    end
+
+    def self.new_from_string(config_script, file='(fluent-config-dsl)')
+      eval "Fluent::Config::DSL.new {\n" + config_script + "\n}.element", TOPLEVEL_BINDING, file, 0
+    end
+
+    def method_missing(method, *args, &block)
+      if block_given?
+        arg = args[0] || ''
+
+        inner = DSL.new(&block)
+
+        @elements << Config::Element.new(
+          method.to_s, arg, inner.attrs, inner.elements
+        )
+      else
+        key   = method.to_s
+        value = args[0] || nil
+        value = value.to_s if ["type", "buffer_type"].include? key
+
+        @attrs[key] = value
+      end
+    end
+
+    def element
+      Config::Element.new('ROOT', '', @attrs, @elements)
+    end
+  end
+
   private
   class Parser
     def self.read(path)
@@ -154,8 +196,12 @@ module Config
     end
 
     def self.parse(io, fname, basepath=Dir.pwd)
-      attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
-      Element.new('ROOT', '', attrs, elems)
+      if fname =~ /\.rb$/
+        DSL.parse_file(File.join(basepath, fname))
+      else
+        attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
+        Element.new('ROOT', '', attrs, elems)
+      end
     end
 
     def initialize(basepath, iterator, fname, i=0)
