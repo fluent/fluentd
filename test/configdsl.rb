@@ -44,7 +44,7 @@ match('test.**') {
 
     e0 = root.elements[0]
     assert_equal 'source', e0.name
-    assert_nil e0.arg
+    assert_equal '', e0.arg
     assert_equal 'forward', e0['type']
     assert_equal '24224', e0['port']
 
