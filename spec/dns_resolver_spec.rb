@@ -22,7 +22,7 @@ describe Fluentd::DNSResolver do
                  nil # ignore
                end
         if addr
-          expect(IPAddr.new().ipv4?).to be_true
+          expect(IPAddr.new(addr).ipv4?).to be_true
         else
           expect(addr).to be_nil # IPv4 not ready environment
         end
