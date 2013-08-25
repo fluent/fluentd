@@ -9,7 +9,7 @@ module Fluentd
         end
 
         def self.parse(source, source_path="config.rb")
-          DSLElement.new('ROOT', nil).instance_eval(source, source_path).__to_config_element
+          DSLElement.new('ROOT', nil).__eval(source,source_path).__to_config_element
         end
       end
 
@@ -23,6 +23,11 @@ module Fluentd
 
         def __to_config_element
           Config::Element.new(@name, @arg, @attrs, @elements)
+        end
+
+        def __eval(source, source_path)
+          instance_eval(source, source_path)
+          self
         end
 
         def method_missing(name, *args, &block)

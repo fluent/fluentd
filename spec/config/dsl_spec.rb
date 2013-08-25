@@ -58,6 +58,12 @@ source {
 }
 ]
 
+DSL_CONFIG_RETURNS_NON_ELEMENT = %q[
+worker {
+}
+[]
+]
+
 describe Fluentd::Config::DSL::DSLParser do
   include_context 'config_helper'
 
@@ -139,6 +145,15 @@ describe Fluentd::Config::DSL::DSLParser do
         expect(root.elements.size).to eql(1)
         expect(root.elements.first.name).to eql('source')
         expect(root.elements.find{|e| e.name == 'worker'}).to be_false
+      end
+    end
+  end
+
+  context 'with configuration that returns non element on top' do
+    describe '.parse' do
+      it 'does not crash' do
+        root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_RETURNS_NON_ELEMENT, 'dsl_config_returns_non_element.rb')
+        
       end
     end
   end
