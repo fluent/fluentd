@@ -36,6 +36,10 @@ match('test.**') {
 }
 ]
 
+  TEST_DSL_CONFIG2 = %q[
+v = [0, 1, 2]
+]
+
   def test_parse
     root = Fluent::Config::DSL::DSLParser.parse(TEST_DSL_CONFIG1)
 
@@ -62,5 +66,12 @@ match('test.**') {
     assert_equal 'server', e1s1.name
     assert_equal 'host1.example.com', e1s1['host']
     assert_equal '24224', e1s1['port']
+  end
+
+  def test_parse2
+    root = Fluent::Config::DSL::DSLParser.parse(TEST_DSL_CONFIG2)
+
+    assert_equal 0, root.keys.size
+    assert_equal 0, root.elements.size
   end
 end

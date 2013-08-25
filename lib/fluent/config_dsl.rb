@@ -11,7 +11,7 @@ module Fluent
         end
 
         def self.parse(source, source_path="config.rb")
-          DSLElement.new('ROOT', nil).instance_eval(source, source_path).__to_config_element
+          DSLElement.new('ROOT', nil).__eval(source, source_path).__to_config_element
         end
       end
 
@@ -21,6 +21,11 @@ module Fluent
           @arg = arg || ''
           @attrs = {}
           @elements = []
+        end
+
+        def __eval(source, source_path)
+          instance_eval(source, source_path)
+          self
         end
 
         def __to_config_element
