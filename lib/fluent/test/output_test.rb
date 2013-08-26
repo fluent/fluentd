@@ -16,131 +16,128 @@
 #    limitations under the License.
 #
 module Fluent
-module Test
-
-
-class TestOutputChain
-  def initialize
-    @called = 0
-  end
-
-  def next
-    @called += 1
-  end
-
-  attr_reader :called
-end
-
-
-class OutputTestDriver < InputTestDriver
-  def initialize(klass, tag='test', &block)
-    super(klass, &block)
-    @tag = tag
-  end
-
-  attr_accessor :tag
-
-  def emit(record, time=Time.now)
-    es = OneEventStream.new(time.to_i, record)
-    chain = TestOutputChain.new
-    @instance.emit(@tag, es, chain)
-    assert_equal 1, chain.called
-  end
-end
-
-
-class BufferedOutputTestDriver < InputTestDriver
-  def initialize(klass, tag='test', &block)
-    super(klass, &block)
-    @entries = []
-    @expected_buffer = nil
-    @tag = tag
-  end
-
-  attr_accessor :tag
-
-  def emit(record, time=Time.now)
-    @entries << [time.to_i, record]
-    self
-  end
-
-  def expect_format(str)
-    (@expected_buffer ||= '') << str
-  end
-
-  def run(&block)
-    result = nil
-    super {
-      es = ArrayEventStream.new(@entries)
-      buffer = @instance.format_stream(@tag, es)
-
-      block.call if block
-
-      if @expected_buffer
-        assert_equal(@expected_buffer, buffer)
+  module Test
+    class TestOutputChain
+      def initialize
+        @called = 0
       end
 
-      chunk = MemoryBufferChunk.new('', buffer)
-      result = @instance.write(chunk)
-    }
-    result
-  end
-end
-
-class TimeSlicedOutputTestDriver < InputTestDriver
-  def initialize(klass, tag='test', &block)
-    super(klass, &block)
-    @entries = {}
-    @expected_buffer = nil
-    @tag = tag
-  end
-
-  attr_accessor :tag
-
-  def emit(record, time=Time.now)
-    slicer = @instance.instance_eval{@time_slicer}
-    key = slicer.call(time.to_i)
-    @entries[key] = [] unless @entries.has_key?(key)
-    @entries[key] << [time.to_i, record]
-    self
-  end
-
-  def expect_format(str)
-    (@expected_buffer ||= '') << str
-  end
-
-  def run(&block)
-    result = []
-    super {
-      buffer = ''
-      @entries.keys.each {|key|
-        es = ArrayEventStream.new(@entries[key])
-        @instance.emit(@tag, es, NullOutputChain.instance)
-        buffer << @instance.format_stream(@tag, es)
-      }
-
-      block.call if block
-
-      if @expected_buffer
-        assert_equal(@expected_buffer, buffer)
+      def next
+        @called += 1
       end
 
-      chunks = @instance.instance_eval {
-        @buffer.instance_eval {
-          chunks = []
-          @map.keys.each {|key|
-            chunks.push(@map.delete(key))
-          }
-          chunks
+      attr_reader :called
+    end
+
+
+    class OutputTestDriver < InputTestDriver
+      def initialize(klass, tag='test', &block)
+        super(klass, &block)
+        @tag = tag
+      end
+
+      attr_accessor :tag
+
+      def emit(record, time=Time.now)
+        es = OneEventStream.new(time.to_i, record)
+        chain = TestOutputChain.new
+        @instance.emit(@tag, es, chain)
+        assert_equal 1, chain.called
+      end
+    end
+
+
+    class BufferedOutputTestDriver < InputTestDriver
+      def initialize(klass, tag='test', &block)
+        super(klass, &block)
+        @entries = []
+        @expected_buffer = nil
+        @tag = tag
+      end
+
+      attr_accessor :tag
+
+      def emit(record, time=Time.now)
+        @entries << [time.to_i, record]
+        self
+      end
+
+      def expect_format(str)
+        (@expected_buffer ||= '') << str
+      end
+
+      def run(&block)
+        result = nil
+        super {
+          es = ArrayEventStream.new(@entries)
+          buffer = @instance.format_stream(@tag, es)
+
+          block.call if block
+
+          if @expected_buffer
+            assert_equal(@expected_buffer, buffer)
+          end
+
+          chunk = MemoryBufferChunk.new('', buffer)
+          result = @instance.write(chunk)
         }
-      }
-      chunks.each { |chunk|
-        result.push(@instance.write(chunk))
-      }
-    }
-    result
-  end
-end
+        result
+      end
+    end
 
-end
+    class TimeSlicedOutputTestDriver < InputTestDriver
+      def initialize(klass, tag='test', &block)
+        super(klass, &block)
+        @entries = {}
+        @expected_buffer = nil
+        @tag = tag
+      end
+
+      attr_accessor :tag
+
+      def emit(record, time=Time.now)
+        slicer = @instance.instance_eval{@time_slicer}
+        key = slicer.call(time.to_i)
+        @entries[key] = [] unless @entries.has_key?(key)
+        @entries[key] << [time.to_i, record]
+        self
+      end
+
+      def expect_format(str)
+        (@expected_buffer ||= '') << str
+      end
+
+      def run(&block)
+        result = []
+        super {
+          buffer = ''
+          @entries.keys.each {|key|
+            es = ArrayEventStream.new(@entries[key])
+            @instance.emit(@tag, es, NullOutputChain.instance)
+            buffer << @instance.format_stream(@tag, es)
+          }
+
+          block.call if block
+
+          if @expected_buffer
+            assert_equal(@expected_buffer, buffer)
+          end
+
+          chunks = @instance.instance_eval {
+            @buffer.instance_eval {
+              chunks = []
+              @map.keys.each {|key|
+                chunks.push(@map.delete(key))
+              }
+              chunks
+            }
+          }
+          chunks.each { |chunk|
+            result.push(@instance.write(chunk))
+          }
+        }
+        result
+      end
+    end
+  end
 end

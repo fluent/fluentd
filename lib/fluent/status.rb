@@ -16,39 +16,34 @@
 #    limitations under the License.
 #
 module Fluent
+  class StatusClass
+    def initialize
+      @entries = {}
+      @mutex = Mutex.new
+    end
 
-
-
-class StatusClass
-  def initialize
-    @entries = {}
-    @mutex = Mutex.new
-  end
-
-  def register(instance, name, &block)
-    @mutex.synchronize {
-      (@entries[instance.object_id] ||= {})[name] = block
-    }
-    nil
-  end
-
-  def each(&block)
-    @mutex.synchronize {
-      @entries.each {|obj_id,hash|
-        record = {}
-        hash.each_pair {|name,block|
-          record[name] = block.call
-        }
-        block.call(record)
+    def register(instance, name, &block)
+      @mutex.synchronize {
+        (@entries[instance.object_id] ||= {})[name] = block
       }
-    }
+      nil
+    end
+
+    def each(&block)
+      @mutex.synchronize {
+        @entries.each {|obj_id,hash|
+          record = {}
+          hash.each_pair {|name,block|
+            record[name] = block.call
+          }
+          block.call(record)
+        }
+      }
+    end
   end
-end
 
-# Don't use this class from plugins.
-# The interface may be changed
-Status = StatusClass.new
-
-
+  # Don't use this class from plugins.
+  # The interface may be changed
+  Status = StatusClass.new
 end
 

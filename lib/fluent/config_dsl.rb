@@ -46,8 +46,13 @@ module Fluent
           self
         end
 
-        def source(&block); __element('source', nil, block); end
-        def match(*args, &block);  __need_arg('match',  args); __element('match',  args.first, block); end
+        def source(&block)
+          __element('source', nil, block)
+        end
+
+        def match(*args, &block)
+          __need_arg('match',  args); __element('match',  args.first, block)
+        end
 
         private
 
