@@ -390,6 +390,7 @@ module Fluent
       end
     end
 
+    # TODO: Merged with Fluent::ExecUtil
     class Parser
       def initialize(on_message)
         @on_message = on_message
