@@ -16,9 +16,7 @@
 #    limitations under the License.
 #
 module Fluent
-  require 'fluent/plugin/buf_file'
-
-  class FileBuffer
+  class FileBuffer < BasicBuffer
     def self.clear_buffer_paths
       @@buffer_paths = {}
     end
