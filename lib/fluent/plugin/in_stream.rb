@@ -84,18 +84,21 @@ module Fluent
         # Forward
         es = MultiEventStream.new
         entries.each {|e|
+          record = e[1]
+          next if record.nil?
           time = e[0].to_i
           time = (now ||= Engine.now) if time == 0
-          record = e[1]
           es.add(time, record)
         }
         Engine.emit_stream(tag, es)
 
       else
         # Message
+        record = msg[2]
+        return if record.nil?
+
         time = msg[1]
         time = Engine.now if time == 0
-        record = msg[2]
         Engine.emit(tag, time, record)
       end
     end

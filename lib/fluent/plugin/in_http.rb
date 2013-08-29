@@ -117,6 +117,11 @@ module Fluent
           raise "'json' or 'msgpack' parameter is required"
         end
 
+        # Skip nil record
+        if record.nil?
+          return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+        end
+
         time = params['time']
         time = time.to_i
         if time == 0

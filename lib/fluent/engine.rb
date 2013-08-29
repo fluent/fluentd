@@ -114,7 +114,9 @@ module Fluent
     end
 
     def emit(tag, time, record)
-      emit_stream tag, OneEventStream.new(time, record)
+      unless record.nil?
+        emit_stream tag, OneEventStream.new(time, record)
+      end
     end
 
     def emit_array(tag, array)
