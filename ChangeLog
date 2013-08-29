@@ -1,3 +1,11 @@
+Release 0.10.37 - 2013/08/29
+
+* in_exec: Add format option to support tsv, json and msgpack. Default is tsv
+* out_stdout: Add output_type to print non-jsonable object
+* Engine: Skip nil record in emit
+* Check buffere_path duplication across buffer configurations.
+* Add experimental DSL to configuration format
+
 Release 0.10.36 - 2013/07/31
 
 * Log: add class name on each error logs
