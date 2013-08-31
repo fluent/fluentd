@@ -30,7 +30,8 @@ module Fluent
         return @chain.next
       end
       @offset += 1
-      result = @array[@offset-1].emit(@tag, @es, self)
+      es = @array.length > @offset ? @es.dup : @es
+      result = @array[@offset-1].emit(@tag, es, self)
       result
     end
   end

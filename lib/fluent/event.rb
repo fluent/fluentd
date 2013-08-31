@@ -85,6 +85,14 @@ module Fluent
       @record_array = []
     end
 
+    def dup
+      es = MultiEventStream.new
+      @time_array.zip(@record_array).each { |time, record|
+        es.add(time, record.dup)
+      }
+      es
+    end
+
     def add(time, record)
       @time_array << time
       @record_array << record
