@@ -1,4 +1,6 @@
 require 'fluent/config_dsl'
+require 'fluent/test'
+require 'helper'
 
 class ConfigDSLTest < Test::Unit::TestCase
   # TEST_CONFIG1 = %[

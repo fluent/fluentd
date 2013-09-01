@@ -7,14 +7,15 @@ class SyslogInputTest < Test::Unit::TestCase
     require 'fluent/plugin/socket_util'
   end
 
+  PORT = unused_port
   CONFIG = %[
-    port 9911
+    port #{PORT}
     bind 127.0.0.1
     tag syslog
   ]
 
   IPv6_CONFIG = %[
-    port 9911
+    port #{PORT}
     bind ::1
     tag syslog
   ]
@@ -29,7 +30,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
     configs.each_pair { |k, v|
       d = create_driver(v)
-      assert_equal 9911, d.instance.port
+      assert_equal PORT, d.instance.port
       assert_equal k, d.instance.bind
     }
   end
@@ -48,7 +49,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
       d.run do
         u = Fluent::SocketUtil.create_udp_socket(k)
-        u.connect(k, 9911)
+        u.connect(k, PORT)
         tests.each {|test|
           u.send(test['msg'], 0)
         }
@@ -72,7 +73,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
     d.run do
       u = UDPSocket.new
-      u.connect('127.0.0.1', 9911)
+      u.connect('127.0.0.1', PORT)
       tests.each {|test|
         u.send(test['msg'], 0)
       }

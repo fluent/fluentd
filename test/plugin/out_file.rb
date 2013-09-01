@@ -9,7 +9,7 @@ class FileOutputTest < Test::Unit::TestCase
     FileUtils.mkdir_p(TMP_DIR)
   end
 
-  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp")
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/out_file#{ENV['TEST_ENV_NUMBER']}")
   SYMLINK_PATH = File.expand_path("#{TMP_DIR}/current")
 
   CONFIG = %[

@@ -1,4 +1,5 @@
 require 'fluent/test'
+require 'helper'
 
 module StreamOutputTest
   def setup
@@ -33,8 +34,9 @@ end
 class TcpOutputTest < Test::Unit::TestCase
   include StreamOutputTest
 
+  PORT = unused_port
   CONFIG = %[
-    port 13999
+    port #{PORT}
     host 127.0.0.1
     send_timeout 51
   ]
@@ -45,7 +47,7 @@ class TcpOutputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert_equal 13999, d.instance.port
+    assert_equal PORT, d.instance.port
     assert_equal '127.0.0.1', d.instance.host
     assert_equal 51, d.instance.send_timeout
   end
@@ -54,8 +56,7 @@ end
 class UnixOutputTest < Test::Unit::TestCase
   include StreamOutputTest
 
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp"
-
+  TMP_DIR = File.dirname(__FILE__) + "/../tmp/out_unix#{ENV['TEST_ENV_NUMBER']}"
   CONFIG = %[
     path #{TMP_DIR}/unix
     send_timeout 52

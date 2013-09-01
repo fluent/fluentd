@@ -7,7 +7,7 @@ require 'fileutils'
 class ConfigTest < Test::Unit::TestCase
   include Fluent
 
-  TMP_DIR = File.dirname(__FILE__) + "/tmp"
+  TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
 
   def prepare_config
     write_config "#{TMP_DIR}/config_test_1.conf", %[

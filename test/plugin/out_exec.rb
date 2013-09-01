@@ -8,7 +8,7 @@ class ExecOutputTest < Test::Unit::TestCase
     FileUtils.mkdir_p(TMP_DIR)
   end
 
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp"
+  TMP_DIR = File.dirname(__FILE__) + "/../tmp/out_exec#{ENV['TEST_ENV_NUMBER']}"
 
   CONFIG = %[
     buffer_path #{TMP_DIR}/buffer
