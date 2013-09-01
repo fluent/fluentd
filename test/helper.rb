@@ -8,10 +8,6 @@ unless defined?(Test::Unit::AssertionFailedError)
   end
 end
 
-class Test::Unit::TestCase
-  include RR::Adapters::TestUnit
-end
-
 def ipv6_enabled?
   require 'socket'
 
