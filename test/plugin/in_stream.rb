@@ -1,4 +1,5 @@
 require 'fluent/test'
+require 'helper'
 
 module StreamInputTest
   def setup
@@ -132,7 +133,6 @@ class UnixInputTest < Test::Unit::TestCase
   include StreamInputTest
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/in_unix#{ENV['TEST_ENV_NUMBER']}"
-
   CONFIG = %[
     path #{TMP_DIR}/unix
     backlog 1000
