@@ -17,13 +17,14 @@
 #
 module Fluent
   class FileBufferChunk < BufferChunk
-    def initialize(key, path, unique_id, mode="a+")
+    def initialize(key, path, unique_id, mode="a+", symlink_path = nil)
       super(key)
       @path = path
       @unique_id = unique_id
       @file = File.open(@path, mode, DEFAULT_FILE_PERMISSION)
       @file.sync = true
       @size = @file.stat.size
+      FileUtils.ln_sf(@path, symlink_path) if symlink_path
     end
 
     attr_reader :unique_id
@@ -83,6 +84,7 @@ module Fluent
     end
 
     config_param :buffer_path, :string
+    config_param :buffer_symlink_path, :string, :default => nil
 
     def configure(conf)
       super
@@ -119,7 +121,7 @@ module Fluent
       encoded_key = encode_key(key)
       path, tsuffix = make_path(encoded_key, "b")
       unique_id = tsuffix_to_unique_id(tsuffix)
-      FileBufferChunk.new(key, path, unique_id)
+      FileBufferChunk.new(key, path, unique_id, "a+", @buffer_symlink_path)
     end
 
     def resume
