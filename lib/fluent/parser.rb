@@ -169,6 +169,18 @@ module Fluent
       end
     end
 
+    class RawParser
+      include Configurable
+
+      config_param :message_key, :string, :default => 'message'
+
+      def call(text)
+        record = {}
+        record[@message_key] = text
+        return Engine.now, record
+      end
+    end
+
     class ApacheParser
       include Configurable
 
@@ -229,6 +241,7 @@ module Fluent
       'ltsv' => Proc.new { LabeledTSVParser.new },
       'csv' => Proc.new { CSVParser.new },
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
+      'raw' => Proc.new { RawParser.new },
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
