@@ -64,6 +64,18 @@ worker {
 []
 ]
 
+DSL_CONFIG_WRONG_SYNTAX1 = %q[
+match
+]
+DSL_CONFIG_WRONG_SYNTAX2 = %q[
+match('aa','bb'){
+  type :null
+}
+]
+DSL_CONFIG_WRONG_SYNTAX3 = %q[
+match('aa','bb')
+]
+
 describe Fluentd::Config::DSL::DSLParser do
   include_context 'config_helper'
 
@@ -153,7 +165,16 @@ describe Fluentd::Config::DSL::DSLParser do
     describe '.parse' do
       it 'does not crash' do
         root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_RETURNS_NON_ELEMENT, 'dsl_config_returns_non_element.rb')
-        
+      end
+    end
+  end
+
+  context 'with configuration with wrong arguments for specific elements' do
+    describe '.parse' do
+      it 'raises ArgumentError correctly' do
+        expect{ Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_WRONG_SYNTAX1, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
+        expect{ Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_WRONG_SYNTAX2, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
+        expect{ Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_WRONG_SYNTAX3, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
       end
     end
   end

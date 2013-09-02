@@ -31,7 +31,7 @@ module Fluentd
         end
 
         def method_missing(name, *args, &block)
-          raise ArgumentError, "Configuration DSL Syntax Error: only one argument allowed" if args.size > 1
+          ::Kernel.raise ::ArgumentError, "Configuration DSL Syntax Error: only one argument allowed" if args.size > 1
           value = args.first
           if block
             element = DSLElement.new(name.to_s, value)
@@ -52,7 +52,7 @@ module Fluentd
         private
 
         def __element(name, arg, block)
-          raise ArgumentError, "#{name} block must be specified" if block.nil?
+          ::Kernel.raise ::ArgumentError, "#{name} block must be specified" if block.nil?
           element = DSLElement.new(name.to_s, arg)
           element.instance_exec(&block)
           @elements.push(element.__to_config_element)
@@ -60,7 +60,7 @@ module Fluentd
         end
 
         def __need_arg(name, args)
-          raise ArgumentError, "#{name} block requires arguments for match pattern" if args.nil? || args.size != 1
+          ::Kernel.raise ::ArgumentError, "#{name} block requires arguments for match pattern" if args.nil? || args.size != 1
           true
         end
       end
