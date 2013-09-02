@@ -42,6 +42,20 @@ match('test.**') {
 v = [0, 1, 2]
 ]
 
+  TEST_DSL_CONFIG3 = %q[
+match
+]
+
+  TEST_DSL_CONFIG4 = %q[
+match('aa', 'bb'){
+  type :null
+}
+]
+
+  TEST_DSL_CONFIG5 = %q[
+match('aa')
+]
+
   def test_parse
     root = Fluent::Config::DSL::DSLParser.parse(TEST_DSL_CONFIG1)
 
@@ -75,5 +89,19 @@ v = [0, 1, 2]
 
     assert_equal 0, root.keys.size
     assert_equal 0, root.elements.size
+  end
+
+  def test_config_error
+    assert_raise(ArgumentError) {
+      Fluent::Config::DSL::DSLParser.parse(TEST_DSL_CONFIG3)
+    }
+
+    assert_raise(ArgumentError) {
+      Fluent::Config::DSL::DSLParser.parse(TEST_DSL_CONFIG4)
+    }
+
+    assert_raise(ArgumentError) {
+      Fluent::Config::DSL::DSLParser.parse(TEST_DSL_CONFIG5)
+    }
   end
 end
