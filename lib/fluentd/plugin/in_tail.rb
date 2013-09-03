@@ -220,7 +220,7 @@ module Fluentd
             last_io = @rotate_queue.empty? ? @io_handler.io : @rotate_queue.last.io
             if last_io == nil
               Fluentd.log.info "detected rotation of #{@path}"
-              # rotate imeediately if previous file is nil
+              # rotate immediately if previous file is nil
               wait = 0
             else
               Fluentd.log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
