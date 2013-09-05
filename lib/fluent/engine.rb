@@ -74,7 +74,7 @@ module Fluent
     end
 
     def configure(conf)
-      $log.info "using configuration file: #{conf.to_s.rstrip}"
+      $log.debug "using configuration file: #{conf.to_s.rstrip}"
 
       conf.elements.select {|e|
         e.name == 'source'
