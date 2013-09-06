@@ -98,6 +98,10 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
   end
 }
 
+op.on('--dump-config-as-info', "dump config at the log level of INFO", TrueClass) {|b|
+  opts[:dump_config_as_info] = b
+}
+
 (class<<self;self;end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s

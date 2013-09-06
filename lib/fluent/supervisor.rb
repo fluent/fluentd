@@ -67,6 +67,7 @@ module Fluent
       @inline_config = opt[:inline_config]
       @suppress_interval = opt[:suppress_interval]
       @dry_run = opt[:dry_run]
+      @dump_config_as_info = opt[:dump_config_as_info]
 
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
       @finished = false
@@ -319,6 +320,8 @@ module Fluent
       if @suppress_interval
         Fluent::Engine.suppress_interval(@suppress_interval)
       end
+
+      Fluent::Engine.dump_config_as_info = @dump_config_as_info
 
       @libs.each {|lib|
         require lib
