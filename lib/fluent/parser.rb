@@ -169,7 +169,7 @@ module Fluent
       end
     end
 
-    class RawParser
+    class NoneParser
       include Configurable
 
       config_param :message_key, :string, :default => 'message'
@@ -241,7 +241,7 @@ module Fluent
       'ltsv' => Proc.new { LabeledTSVParser.new },
       'csv' => Proc.new { CSVParser.new },
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
-      'raw' => Proc.new { RawParser.new },
+      'none' => Proc.new { NoneParser.new },
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)

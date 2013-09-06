@@ -191,11 +191,11 @@ module ParserTest
     end
   end
 
-  class RawParserTest < ::Test::Unit::TestCase
+  class NoneParserTest < ::Test::Unit::TestCase
     include ParserTest
 
     def test_config_params
-      parser = TextParser::RawParser.new
+      parser = TextParser::NoneParser.new
       assert_equal "message", parser.message_key
 
       parser.configure('message_key' => 'foobar')
@@ -203,14 +203,14 @@ module ParserTest
     end
 
     def test_call
-      parser = TextParser::TEMPLATE_FACTORIES['raw'].call
+      parser = TextParser::TEMPLATE_FACTORIES['none'].call
       time, record = parser.call('log message!')
 
       assert_equal({'message' => 'log message!'}, record)
     end
 
     def test_call_with_message_key
-      parser = TextParser::RawParser.new
+      parser = TextParser::NoneParser.new
       parser.configure('message_key' => 'foobar')
       time, record = parser.call('log message!')
 
