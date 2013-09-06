@@ -23,6 +23,7 @@ module Fluentd
   require_relative 'socket_manager'
   require_relative 'version'
   require_relative 'config/parser'
+  require_relative 'config/dsl'
   require_relative 'config/compat_parser'
   require_relative 'logger'
 
