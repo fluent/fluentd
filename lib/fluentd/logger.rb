@@ -36,6 +36,10 @@ module Fluentd
       @level = LEVEL_DEBUG
     end
 
+    def path=(path)
+      @dl.path = path
+    end
+
     attr_accessor :tag
     attr_accessor :time_format
 
