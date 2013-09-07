@@ -363,7 +363,17 @@ module Fluent
         $log.debug "fluentd main process get SIGUSR1"
         $log.info "force flushing buffered events"
         @log.reopen!
-        Fluent::Engine.flush!
+
+        # Creating new thread due to mutex can't lock
+        # in main thread during trap context
+        Thread.new {
+          begin
+            Fluent::Engine.flush!
+            $log.debug "flushing thread: flushed"
+          rescue Exception => e
+            $log.warn "flushing thread error: #{e}"
+          end
+        }.run
       end
     end
 
