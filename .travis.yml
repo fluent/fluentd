@@ -11,3 +11,7 @@ branches:
     - v11
 
 script: bundle exec rake
+
+matrix:
+  allow_failures:
+    - rvm: rbx-19mode
