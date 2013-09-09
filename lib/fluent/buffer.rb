@@ -272,13 +272,17 @@ module Fluent
           write_chunk(chunk, out)
         end
 
-        @queue.delete_if {|c|
-          c.object_id == chunk.object_id
-        }
+        empty = false
+        @queue.synchronize do
+          @queue.delete_if {|c|
+            c.object_id == chunk.object_id
+          }
+          empty = @queue.empty?
+        end
 
         chunk.purge
 
-        return !@queue.empty?
+        return !empty
       ensure
         chunk.mon_exit
       end
