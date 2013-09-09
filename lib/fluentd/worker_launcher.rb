@@ -172,7 +172,7 @@ module Fluentd
         $LOAD_PATH.clear
         @load_path.each {|path| $LOAD_PATH << path }
 
-        @loaded_features.each {|feature|
+        @loaded_features.sort.each {|feature|
           require feature
         }
 
