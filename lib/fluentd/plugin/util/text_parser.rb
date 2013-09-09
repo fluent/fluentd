@@ -168,6 +168,18 @@ module Fluentd
           end
         end
 
+        class NoneParser
+          include Configurable
+
+          config_param :message_key, :string, :default => 'message'
+
+          def call(text)
+            record = {}
+            record[@message_key] = text
+            return Time.now.to_i, record
+          end
+        end
+
         class ApacheParser
           include Configurable
 
@@ -255,6 +267,7 @@ module Fluentd
           'ltsv' => Proc.new { LabeledTSVParser.new },
           'csv' => Proc.new { CSVParser.new },
           'nginx' => Proc.new { NginxParser.new },
+          'none' => Proc.new { NoneParser.new },
         }
 
         def self.register_template(name, regexp_or_proc, time_format=nil)
