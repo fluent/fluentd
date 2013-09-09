@@ -43,8 +43,7 @@ module Fluent
     end
 
     def dup
-      es = OneEventStream.new(@time, @record.dup)
-      es
+      OneEventStream.new(@time, @record.dup)
     end
 
     def repeatable?
@@ -65,8 +64,7 @@ module Fluent
 
     def dup
       entries = @entries.map(:dup)
-      es = ArrayEventStream.new(entries)
-      es
+      ArrayEventStream.new(entries)
     end
 
     def repeatable?
