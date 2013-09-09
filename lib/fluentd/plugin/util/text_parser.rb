@@ -60,6 +60,8 @@ module Fluentd
               end
             }
 
+            time ||= Time.now.to_i
+
             return time, record
           end
         end
@@ -79,6 +81,8 @@ module Fluentd
               else
                 time = value.to_i
               end
+            else
+              time = Time.now.to_i
             end
 
             return time, record
@@ -112,13 +116,14 @@ module Fluentd
           def values_map(values)
             record = Hash[keys.zip(values)]
 
-            if @time_key
-              value = record.delete(@time_key)
+            if @time_key and (value = record.delete(@time_key))
               if @time_format
                 time = Time.strptime(value, @time_format).to_i
               else
                 time = Time.parse(value).to_i
               end
+            else
+              time = Time.now.to_i
             end
 
             return time, record
