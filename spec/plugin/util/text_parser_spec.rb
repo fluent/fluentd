@@ -130,6 +130,27 @@ describe Fluentd::Plugin::Util::TextParser do
     end
   end
 
+  context Fluentd::Plugin::Util::TextParser::NoneParser do
+    before :each do
+      @parser = Fluentd::Plugin::Util::TextParser::TEMPLATE_FACTORIES['none'].call
+      @parser.init_configurable
+      @parser.configure({})
+    end
+
+    it "can parse a message" do
+      time, record = @parser.call('log message!')
+
+      expect(record).to eq({'message' => 'log message!'})
+    end
+
+    it "can parse a message with `message_key` option" do
+      @parser.configure('message_key' => 'foobar')
+      time, record = @parser.call('log message!')
+
+      expect(record).to eq({'foobar' => 'log message!'})
+    end
+  end
+
   context Fluentd::Plugin::Util::TextParser::NginxParser do
     str_time = '28/Feb/2013:12:00:00 +0900'
     expected_time = Time.strptime(str_time, '%d/%b/%Y:%H:%M:%S %z').to_i
