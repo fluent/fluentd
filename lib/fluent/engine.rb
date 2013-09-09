@@ -63,7 +63,7 @@ module Fluent
 
     def parse_config(io, fname, basepath=Dir.pwd)
       conf = if fname =~ /\.rb$/
-               Config::DSL::DSLParser.parse(io, fname)
+               Config::DSL::Parser.parse(io, fname)
              else
                Config.parse(io, fname, basepath)
              end
