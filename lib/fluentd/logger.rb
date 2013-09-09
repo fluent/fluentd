@@ -41,7 +41,7 @@ module Fluentd
 
     extend Forwardable
 
-    def_delegators :@dl, :hook_stdout!, :hook_stderr!, :reopen!, :reopen, :close, :<<
+    def_delegators :@dl, :hook_stdout!, :hook_stderr!, :reopen!, :reopen, :close, :<<, :path=
 
     module TTYColor
       RESET   = "\033]R"
