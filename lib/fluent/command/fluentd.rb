@@ -98,8 +98,8 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
   end
 }
 
-op.on('--dump-config-as-info', "dump config at the log level of INFO", TrueClass) {|b|
-  opts[:dump_config_as_info] = b
+op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
+  opts[:suppress_config_dump] = b
 }
 
 (class<<self;self;end).module_eval do

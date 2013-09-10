@@ -32,7 +32,7 @@ module Fluent
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
 
-      @dump_config_as_info = false
+      @suppress_config_dump = false
     end
 
     MATCH_CACHE_SIZE = 1024
@@ -56,8 +56,8 @@ module Fluent
       @next_emit_error_log_time = Time.now.to_i
     end
 
-    def dump_config_as_info=(flag)
-      @dump_config_as_info = flag
+    def suppress_config_dump=(flag)
+      @suppress_config_dump = flag
     end
 
     def read_config(path)
@@ -80,8 +80,9 @@ module Fluent
     end
 
     def configure(conf)
-      logging_method = @dump_config_as_info ? :info : :debug
-      $log.send(logging_method, "using configuration file: #{conf.to_s.rstrip}")
+      unless @suppress_config_dump
+        $log.info "using configuration file: #{conf.to_s.rstrip}"
+      end
 
       conf.elements.select {|e|
         e.name == 'source'
