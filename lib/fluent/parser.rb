@@ -31,8 +31,8 @@ module Fluent
       end
 
       def call(text)
-        m = @regexp.match(text)
-        unless m
+        match_data = @regexp.match(text)
+        unless match_data
           $log.warn "pattern not match: #{text.inspect}"
           return nil, nil
         end
@@ -40,8 +40,8 @@ module Fluent
         time = nil
         record = {}
 
-        m.names.each {|name|
-          if value = m[name]
+        match_data.names.each {|name|
+          if value = match_data[name]
             case name
             when "time"
               if @time_format
@@ -187,34 +187,34 @@ module Fluent
       REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
 
       def call(text)
-        m = REGEXP.match(text)
-        unless m
+        match_data = REGEXP.match(text)
+        unless match_data
           $log.warn "pattern not match: #{text.inspect}"
           return nil, nil
         end
 
-        host = m['host']
+        host = match_data['host']
         host = (host == '-') ? nil : host
 
-        user = m['user']
+        user = match_data['user']
         user = (user == '-') ? nil : user
 
-        time = m['time']
+        time = match_data['time']
         time = Time.strptime(time, "%d/%b/%Y:%H:%M:%S %z").to_i
 
-        method = m['method']
-        path = m['path']
+        method = match_data['method']
+        path = match_data['path']
 
-        code = m['code'].to_i
+        code = match_data['code'].to_i
         code = nil if code == 0
 
-        size = m['size']
+        size = match_data['size']
         size = (size == '-') ? nil : size.to_i
 
-        referer = m['referer']
+        referer = match_data['referer']
         referer = (referer == '-') ? nil : referer
 
-        agent = m['agent']
+        agent = match_data['agent']
         agent = (agent == '-') ? nil : agent
 
         record = {
