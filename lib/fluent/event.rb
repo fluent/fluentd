@@ -42,6 +42,10 @@ module Fluent
       @record = record
     end
 
+    def dup
+      OneEventStream.new(@time, @record.dup)
+    end
+
     def repeatable?
       true
     end
@@ -56,6 +60,11 @@ module Fluent
   class ArrayEventStream < EventStream
     def initialize(entries)
       @entries = entries
+    end
+
+    def dup
+      entries = @entries.map(:dup)
+      ArrayEventStream.new(entries)
     end
 
     def repeatable?
@@ -83,6 +92,14 @@ module Fluent
     def initialize
       @time_array = []
       @record_array = []
+    end
+
+    def dup
+      es = MultiEventStream.new
+      @time_array.zip(@record_array).each { |time, record|
+        es.add(time, record.dup)
+      }
+      es
     end
 
     def add(time, record)
