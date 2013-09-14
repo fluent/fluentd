@@ -86,7 +86,8 @@ module Fluentd
           begin
             line.chomp!  # remove \n
             time, record = parse_line(line)
-            if time && record
+            time ||= Time.now.to_i
+            if record
               es.add(time, record)
             end
           rescue => e
