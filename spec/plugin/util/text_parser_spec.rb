@@ -3,35 +3,6 @@ require 'fluentd/plugin/util/text_parser'
 require 'time'
 
 describe Fluentd::Plugin::Util::TextParser do
-  context Fluentd::Plugin::Util::TextParser::RegexpParser do
-    str_time = '28/Feb/2013:12:00:00 +0900'
-    expected_time = Time.strptime(str_time, '%d/%b/%Y:%H:%M:%S %z').to_i
-
-    before :each do
-      @parser = Fluentd::Plugin::Util::TextParser::RegexpParser.new(/^\[(?<time>[^\]]*)\] (?<message>.*)$/)
-      @parser.init_configurable
-      @parser.configure({})
-    end
-
-    it 'can parse log' do
-      @parser.configure({'time_format' => "%d/%b/%Y:%H:%M:%S %z"})
-      time, record = @parser.call("[#{str_time}] foobar")
-
-      expect(time).to eq expected_time
-      expect(record).to eq({'message' => 'foobar'})
-    end
-
-    it 'can parse log without time' do
-      @parser = Fluentd::Plugin::Util::TextParser::RegexpParser.new(/^(?<message>.*)$/)
-      @parser.init_configurable
-      @parser.configure({})
-      time, record = @parser.call('foobar')
-
-      expect(time).not_to be_nil
-      expect(record).to eq({'message' => 'foobar'})
-    end
-  end
-
   context Fluentd::Plugin::Util::TextParser::ApacheParser do
     str_time = '28/Feb/2013:12:00:00 +0900'
     expected_time = Time.strptime(str_time, '%d/%b/%Y:%H:%M:%S %z').to_i
@@ -90,19 +61,9 @@ describe Fluentd::Plugin::Util::TextParser do
       @parser.configure({})
     end
 
-    it "can parse json" do
+    it "can parses json" do
       time, record = @parser.call('{"time":1362020400,"host":"192.168.0.1","size":777,"method":"PUT"}')
       expect(time).to eq expected_time
-      expect(record).to eq({
-                            'host'   => '192.168.0.1',
-                            'size'   => 777,
-                            'method' => 'PUT',
-                          })
-    end
-
-    it "can parse json without time" do
-      time, record = @parser.call('{"host":"192.168.0.1","size":777,"method":"PUT"}')
-      expect(time).not_to be_nil
       expect(record).to eq({
                             'host'   => '192.168.0.1',
                             'size'   => 777,
@@ -126,18 +87,9 @@ describe Fluentd::Plugin::Util::TextParser do
       expect(@parser.label_delimiter).to eq ":"
     end
 
-    it "can parse ltsv" do
+    it "can parses ltsv" do
       time, record = @parser.call("time:#{str_time}\thost:192.168.0.1\treq_id:111")
       expect(time).to eq expected_time
-      expect(record).to eq({
-                            'host'   => '192.168.0.1',
-                            'req_id' => '111',
-                          })
-    end
-
-    it "can parse ltsv without time" do
-      time, record = @parser.call("host:192.168.0.1\treq_id:111")
-      expect(time).not_to be_nil
       expect(record).to eq({
                             'host'   => '192.168.0.1',
                             'req_id' => '111',
