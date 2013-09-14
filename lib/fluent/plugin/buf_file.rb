@@ -84,7 +84,8 @@ module Fluent
     end
 
     config_param :buffer_path, :string
-    config_param :buffer_symlink_path, :string, :default => nil
+
+    attr_accessor :symlink_path
 
     def configure(conf)
       super
@@ -121,7 +122,7 @@ module Fluent
       encoded_key = encode_key(key)
       path, tsuffix = make_path(encoded_key, "b")
       unique_id = tsuffix_to_unique_id(tsuffix)
-      FileBufferChunk.new(key, path, unique_id, "a+", @buffer_symlink_path)
+      FileBufferChunk.new(key, path, unique_id, "a+", @symlink_path)
     end
 
     def resume

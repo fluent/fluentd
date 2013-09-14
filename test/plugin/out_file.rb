@@ -81,20 +81,32 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_symlink
-    d = create_driver(CONFIG + %[
+    conf = CONFIG + %[
       symlink_path #{SYMLINK_PATH}
-    ])
-    symlink_path = "#{SYMLINK_PATH}.gz"
+    ]
+    symlink_path = "#{SYMLINK_PATH}"
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
+    Fluent::FileBuffer.clear_buffer_paths
+    d = Fluent::Test::TestDriver.new(Fluent::FileOutput).configure(conf)
 
-    # FileOutput#write returns path
-    path = d.run
-    assert File.exists?(symlink_path)
-    assert File.symlink?(symlink_path)
-  ensure
-    FileUtils.rm_rf(symlink_path)
+    begin
+      d.instance.start
+      10.times { sleep 0.05 }
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      es = Fluent::OneEventStream.new(time, {"a"=>1})
+      d.instance.emit('tag', es, Fluent::NullOutputChain.instance)
+
+      assert File.exists?(symlink_path)
+      assert File.symlink?(symlink_path)
+
+      d.instance.enqueue_buffer
+
+      assert !File.exists?(symlink_path)
+      assert File.symlink?(symlink_path)
+    ensure
+      d.instance.shutdown
+      FileUtils.rm_rf(symlink_path)
+    end
   end
 end
 
