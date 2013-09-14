@@ -60,8 +60,6 @@ module Fluentd
               end
             }
 
-            time ||= Time.now.to_i
-
             return time, record
           end
         end
