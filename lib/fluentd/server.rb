@@ -114,7 +114,7 @@ module Fluentd
     # read configuration file
     def read_config(path)
       if path =~ /\.rb$/
-        return Config::DSL::DSLParser.read(path)
+        return Config::DSL::Parser.read(path)
       end
 
       begin

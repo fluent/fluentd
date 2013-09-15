@@ -76,7 +76,7 @@ DSL_CONFIG_WRONG_SYNTAX3 = %q[
 match('aa','bb')
 ]
 
-describe Fluentd::Config::DSL::DSLParser do
+describe Fluentd::Config::DSL::Parser do
   include_context 'config_helper'
 
   context 'with worker tag on top level' do
@@ -84,7 +84,7 @@ describe Fluentd::Config::DSL::DSLParser do
 
     describe '.parse' do
       it 'makes root element' do
-        root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_EXAMPLE, 'dsl_config.rb')
+        root = Fluentd::Config::DSL::Parser.parse(DSL_CONFIG_EXAMPLE, 'dsl_config.rb')
 
         expect(root.name).to eql('ROOT')
         expect(root.arg).to be_nil
@@ -146,7 +146,7 @@ describe Fluentd::Config::DSL::DSLParser do
 
     describe '.parse' do
       it 'makes root element' do
-        root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_EXAMPLE_WITHOUT_WORKER, 'dsl_config_without_worker.rb')
+        root = Fluentd::Config::DSL::Parser.parse(DSL_CONFIG_EXAMPLE_WITHOUT_WORKER, 'dsl_config_without_worker.rb')
 
         expect(root.name).to eql('ROOT')
         expect(root.arg).to be_nil
@@ -164,7 +164,7 @@ describe Fluentd::Config::DSL::DSLParser do
   context 'with configuration that returns non element on top' do
     describe '.parse' do
       it 'does not crash' do
-        root = Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_RETURNS_NON_ELEMENT, 'dsl_config_returns_non_element.rb')
+        root = Fluentd::Config::DSL::Parser.parse(DSL_CONFIG_RETURNS_NON_ELEMENT, 'dsl_config_returns_non_element.rb')
       end
     end
   end
@@ -172,9 +172,9 @@ describe Fluentd::Config::DSL::DSLParser do
   context 'with configuration with wrong arguments for specific elements' do
     describe '.parse' do
       it 'raises ArgumentError correctly' do
-        expect{ Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_WRONG_SYNTAX1, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
-        expect{ Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_WRONG_SYNTAX2, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
-        expect{ Fluentd::Config::DSL::DSLParser.parse(DSL_CONFIG_WRONG_SYNTAX3, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
+        expect{ Fluentd::Config::DSL::Parser.parse(DSL_CONFIG_WRONG_SYNTAX1, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
+        expect{ Fluentd::Config::DSL::Parser.parse(DSL_CONFIG_WRONG_SYNTAX2, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
+        expect{ Fluentd::Config::DSL::Parser.parse(DSL_CONFIG_WRONG_SYNTAX3, 'dsl_config_wrong_syntax1') }.to raise_error(ArgumentError)
       end
     end
   end
