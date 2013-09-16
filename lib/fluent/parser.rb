@@ -90,6 +90,40 @@ module Fluent
     class ValuesParser
       include Configurable
 
+      class TimeParser
+        def initialize(time_format)
+          @cache1_key = nil
+          @cache1_time = nil
+          @cache2_key = nil
+          @cache2_time = nil
+          @parser =
+            if time_format
+              Proc.new {|value| Time.strptime(value, time_format) }
+            else
+              Time.method(:parse)
+            end
+        end
+
+        def parse(value)
+          unless value.is_a?(String)
+            # TODO error?
+            return @parser.call(value)
+          end
+
+          if @cache1_key == value
+            return @cache1_time
+          elsif @cache2_key == value
+            return @cache2_time
+          else
+            time = @parser.call(value)
+            @cache1_key = @cache2_key
+            @cache1_time = @cache2_time
+            @cache2_key = value
+            return @cache2_time = time
+          end
+        end
+      end
+
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
@@ -106,6 +140,9 @@ module Fluent
         if @time_format && !@time_key
           raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
         end
+
+        @time_parser = TimeParser.new(@time_format)
+        @mutex = Mutex.new
       end
 
       def values_map(values)
@@ -113,11 +150,7 @@ module Fluent
 
         if @time_key
           value = record.delete(@time_key)
-          if @time_format
-            time = Time.strptime(value, @time_format).to_i
-          else
-            time = Time.parse(value).to_i
-          end
+          time = @mutex.synchronize { @time_parser.parse(value) }
         else
           time = Engine.now
         end
