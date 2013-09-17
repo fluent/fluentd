@@ -115,7 +115,7 @@ module Fluent
           elsif @cache2_key == value
             return @cache2_time
           else
-            time = @parser.call(value)
+            time = @parser.call(value).to_i
             @cache1_key = @cache2_key
             @cache1_time = @cache2_time
             @cache2_key = value
