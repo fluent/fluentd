@@ -151,6 +151,7 @@ module ParserTest
 
     def test_call
       parser = TextParser::LabeledTSVParser.new
+      parser.configure({})
       time, record = parser.call("time:2013/02/28 12:00:00\thost:192.168.0.1\treq_id:111")
 
       assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
