@@ -9,7 +9,25 @@ module ParserTest
     if format
       Time.strptime(str_time, format).to_i
     else
-      Time.parse(str_time)
+      Time.parse(str_time).to_i
+    end
+  end
+
+  class TimeParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def test_call_with_parse
+      parser = TextParser::TimeParser.new(nil)
+
+      time = str2time('2013-09-18 12:00:00 +0900')
+      assert_equal(time, parser.parse('2013-09-18 12:00:00 +0900'))
+    end
+
+    def test_call_with_strptime
+      parser = TextParser::TimeParser.new('%d/%b/%Y:%H:%M:%S %z')
+
+      time = str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z')
+      assert_equal(time, parser.parse('28/Feb/2013:12:00:00 +0900'))
     end
   end
 

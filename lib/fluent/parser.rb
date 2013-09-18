@@ -17,6 +17,41 @@
 #
 module Fluent
   class TextParser
+    class TimeParser
+      def initialize(time_format)
+        @cache1_key = nil
+        @cache1_time = nil
+        @cache2_key = nil
+        @cache2_time = nil
+        @parser =
+          if time_format
+            Proc.new { |value| Time.strptime(value, time_format) }
+          else
+            Time.method(:parse)
+          end
+      end
+
+      def parse(value)
+        unless value.is_a?(String)
+          # TODO error?
+          return @parser.call(value)
+        end
+
+        if @cache1_key == value
+          return @cache1_time
+        elsif @cache2_key == value
+          return @cache2_time
+        else
+          time = @parser.call(value).to_i
+          @cache1_key = @cache2_key
+          @cache1_time = @cache2_time
+          @cache2_key = value
+          @cache2_time = time
+          return time
+        end
+      end
+    end
+
     class RegexpParser
       include Configurable
 
@@ -28,6 +63,9 @@ module Fluent
         unless conf.empty?
           configure(conf)
         end
+
+        @time_parser = TimeParser.new(@time_format)
+        @mutex = Mutex.new
       end
 
       def call(text)
@@ -44,11 +82,7 @@ module Fluent
           if value = m[name]
             case name
             when "time"
-              if @time_format
-                time = Time.strptime(value, @time_format).to_i
-              else
-                time = Time.parse(value).to_i
-              end
+              time = @mutex.synchronize { @time_parser.parse(value) }
             else
               record[name] = value
             end
@@ -67,12 +101,21 @@ module Fluent
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
 
+      def configure(conf)
+        super
+
+        unless @time_format.nil?
+          @time_parser = TimeParser.new(@time_format)
+          @mutex = Mutex.new
+        end
+      end
+
       def call(text)
         record = Yajl.load(text)
 
         if value = record.delete(@time_key)
           if @time_format
-            time = Time.strptime(value, @time_format).to_i
+            time = @mutex.synchronize { @time_parser.parse(value) }
           else
             time = value.to_i
           end
@@ -89,40 +132,6 @@ module Fluent
 
     class ValuesParser
       include Configurable
-
-      class TimeParser
-        def initialize(time_format)
-          @cache1_key = nil
-          @cache1_time = nil
-          @cache2_key = nil
-          @cache2_time = nil
-          @parser =
-            if time_format
-              Proc.new {|value| Time.strptime(value, time_format) }
-            else
-              Time.method(:parse)
-            end
-        end
-
-        def parse(value)
-          unless value.is_a?(String)
-            # TODO error?
-            return @parser.call(value)
-          end
-
-          if @cache1_key == value
-            return @cache1_time
-          elsif @cache2_key == value
-            return @cache2_time
-          else
-            time = @parser.call(value).to_i
-            @cache1_key = @cache2_key
-            @cache1_time = @cache2_time
-            @cache2_key = value
-            return @cache2_time = time
-          end
-        end
-      end
 
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
@@ -219,6 +228,11 @@ module Fluent
 
       REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
 
+      def initialize
+        @time_parser = TimeParser.new("%d/%b/%Y:%H:%M:%S %z")
+        @mutex = Mutex.new
+      end
+
       def call(text)
         m = REGEXP.match(text)
         unless m
@@ -233,7 +247,7 @@ module Fluent
         user = (user == '-') ? nil : user
 
         time = m['time']
-        time = Time.strptime(time, "%d/%b/%Y:%H:%M:%S %z").to_i
+        time = @mutex.synchronize { @time_parser.parse(time) }
 
         method = m['method']
         path = m['path']
