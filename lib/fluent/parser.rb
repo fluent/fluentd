@@ -33,8 +33,7 @@ module Fluent
 
       def parse(value)
         unless value.is_a?(String)
-          # TODO error?
-          return @parser.call(value)
+          raise ArgumentError, "Value must be string: #{value}"
         end
 
         if @cache1_key == value

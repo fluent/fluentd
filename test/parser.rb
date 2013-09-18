@@ -29,6 +29,16 @@ module ParserTest
       time = str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z')
       assert_equal(time, parser.parse('28/Feb/2013:12:00:00 +0900'))
     end
+
+    def test_call_with_invalid_argument
+      parser = TextParser::TimeParser.new(nil)
+
+      [[], {}, nil, true, 10000].each { |v|
+        assert_raise ArgumentError do
+          parser.parse(v)
+        end
+      }
+    end
   end
 
   class ApacheParserTest < ::Test::Unit::TestCase
