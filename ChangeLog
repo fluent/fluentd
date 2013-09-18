@@ -6,6 +6,7 @@ Release 0.10.39 - 2013/09/18
 * in_tail/parser: Improve performance using parsed time caching
 * Engine: Fix signal related exception in trap context at Ruby 2.0
 * buffer: Fix race condition when remove flushed chunk
+* add --suppress-config-dump option to disable dump configuration at start
 
 Release 0.10.38 - 2013/08/29
 
