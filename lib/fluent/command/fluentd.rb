@@ -98,6 +98,10 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
   end
 }
 
+op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
+  opts[:suppress_config_dump] = b
+}
+
 (class<<self;self;end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
