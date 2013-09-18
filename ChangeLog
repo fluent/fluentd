@@ -1,3 +1,12 @@
+Release 0.10.39 - 2013/09/18
+
+* out_file: Improve symlink handling with buf_file
+* out_copy: Add deep_copy parameter for actual record copy
+* in_tail/parser: Add none format for supporting non-parse tailing like fluent-agent-lite
+* in_tail/parser: Improve performance using parsed time caching
+* Engine: Fix signal related exception in trap context at Ruby 2.0
+* buffer: Fix race condition when remove flushed chunk
+
 Release 0.10.38 - 2013/08/29
 
 * Fix require related problem in running test
