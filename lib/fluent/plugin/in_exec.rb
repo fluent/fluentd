@@ -111,10 +111,15 @@ module Fluent
 
     def run_periodic
       until @finished
-        sleep @run_interval
-        io = IO.popen(@command, "r")
-        @parser.call(io)
-        Process.waitpid(io.pid)
+        begin
+          sleep @run_interval
+          io = IO.popen(@command, "r")
+          @parser.call(io)
+          Process.waitpid(io.pid)
+        rescue
+          $log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
+          $log.warn_backtrace $!.backtrace
+        end
       end
     end
 
