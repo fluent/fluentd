@@ -327,7 +327,7 @@ module Fluent
           raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
         end
 
-        @parser = RegexpParser.new(regexp)
+        @parser = RegexpParser.new(regexp, conf)
 
       else
         # built-in template
