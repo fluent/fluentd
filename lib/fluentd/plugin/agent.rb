@@ -18,17 +18,28 @@
 module Fluentd
   module Plugin
 
-    require_relative 'agent'
-    require_relative '../event_emitter'
-    require_relative '../actor'
+    require_relative '../agent'
 
-    class Input < Agent
-      # provides #collector
-      include EventEmitter
+    class Agent < Fluentd::Agent
+      def initialize
+        super
+      end
 
-      # provides #actor
-      include Actor::AgentMixin
+      config_param :log_level, :string, :default => nil
+
+      def configure(conf)
+        super
+
+        if conf['log_level']
+          @log = logger.dup # logger is initialized at configurable.rb
+          begin
+            @log.level = conf['log_level'] # reuse error handling of Fluentd::Logger
+          rescue ArgumentError => e
+            raise ConfigError, "log_level should be 'fatal', 'error', 'warn', 'info', or 'debug'"
+          end
+        end
+      end
     end
-
   end
 end
+

@@ -18,7 +18,7 @@
 module Fluentd
   module Plugin
 
-    require_relative '../agent'
+    require_relative 'agent'
     require_relative '../collector'
     require_relative '../actor'
     require_relative '../worker_global_methods'

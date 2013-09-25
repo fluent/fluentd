@@ -17,7 +17,7 @@ module Fluentd
 
       def initialize(plugin_klass, conf)
         plugin = plugin_klass.new
-        unless plugin.is_a?(Fluentd::Plugin::Input) || plugin.is_a?(Fluentd::Plugin::Filter) || plugin.is_a?(Fluentd::Plugin::Output)
+        unless plugin.is_a?(Fluentd::Plugin::Agent)
           raise ArgumentError, "unknown class as plugin #{plugin.class}"
         end
 
@@ -138,7 +138,36 @@ module Fluentd
       def initialize(dev, config={})
         super
         @logdev = DummyLogDevice.new
-        self.level = ::Logger::DEBUG
+        self.sev_threshold = LEVEL_DEBUG
+      end
+
+      LEVEL_FATAL = ::Logger::FATAL
+      LEVEL_ERROR = ::Logger::ERROR
+      LEVEL_WARN  = ::Logger::WARN
+      LEVEL_INFO  = ::Logger::INFO
+      LEVEL_DEBUG = ::Logger::DEBUG
+      LEVEL_TRACE = -1
+
+      # Need the same thing with Fluentd::Loggger. Let me override ::Logger
+      def level=(expr)
+        case expr.to_s
+        when 'fatal', LEVEL_FATAL.to_s
+          @level = LEVEL_FATAL
+        when 'error', LEVEL_ERROR.to_s
+          @level = LEVEL_ERROR
+        when 'warn', LEVEL_WARN.to_s
+          @level = LEVEL_WARN
+        when 'info', LEVEL_INFO.to_s
+          @level = LEVEL_INFO
+        when 'debug', LEVEL_DEBUG.to_s
+          @level = LEVEL_DEBUG
+        when 'trace', LEVEL_TRACE.to_s
+          @level = LEVEL_TRACE
+        else
+          raise ArgumentError, "invalid log level: #{expr}"
+        end
+
+        self.sev_threshold = @level
       end
 
       def logs
