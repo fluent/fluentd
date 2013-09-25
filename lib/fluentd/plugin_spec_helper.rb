@@ -17,7 +17,7 @@ module Fluentd
 
       def initialize(plugin_klass, conf)
         plugin = plugin_klass.new
-        unless plugin.is_a?(Fluentd::Plugin::Agent)
+        unless plugin.is_a?(Fluentd::Plugin::Input) || plugin.is_a?(Fluentd::Plugin::Filter) || plugin.is_a?(Fluentd::Plugin::Output)
           raise ArgumentError, "unknown class as plugin #{plugin.class}"
         end
 

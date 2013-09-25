@@ -18,14 +18,10 @@
 module Fluentd
   module Plugin
 
-    require_relative '../agent'
-
-    class Agent < Fluentd::Agent
-      def initialize
-        super
+    module LoggerMixin
+      def self.included(klass)
+        klass.config_param :log_level, :string, :default => nil
       end
-
-      config_param :log_level, :string, :default => nil
 
       def configure(conf)
         super
@@ -35,11 +31,12 @@ module Fluentd
           begin
             @log.level = conf['log_level'] # reuse error handling of Fluentd::Logger
           rescue ArgumentError => e
-            raise ConfigError, "log_level should be 'fatal', 'error', 'warn', 'info', or 'debug'"
+            raise ConfigError, "log_level should be 'fatal', 'error', 'warn', 'info', 'debug', or 'trace'"
           end
         end
       end
     end
+
   end
 end
 

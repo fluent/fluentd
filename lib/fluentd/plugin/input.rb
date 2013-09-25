@@ -18,9 +18,10 @@
 module Fluentd
   module Plugin
 
-    require_relative 'agent'
+    require_relative '../agent'
     require_relative '../event_emitter'
     require_relative '../actor'
+    require_relative 'mixin_logger'
 
     class Input < Agent
       # provides #collector
@@ -28,6 +29,9 @@ module Fluentd
 
       # provides #actor
       include Actor::AgentMixin
+
+      # provides config_param :log_level
+      include LoggerMixin
     end
 
   end

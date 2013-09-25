@@ -51,7 +51,6 @@ module Fluentd
   # loads base classes of plugins
   require_relative 'event_collection'
   require_relative 'config_error'
-  require_relative 'plugin/agent'
   require_relative 'plugin/output'
   require_relative 'plugin/input'
   require_relative 'plugin/filter'

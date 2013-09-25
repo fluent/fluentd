@@ -18,10 +18,11 @@
 module Fluentd
   module Plugin
 
-    require_relative 'agent'
+    require_relative '../agent'
     require_relative '../collector'
     require_relative '../actor'
     require_relative '../worker_global_methods'
+    require_relative 'mixin_logger'
 
     class Output < Agent
       # provides #emit, #emits
@@ -29,6 +30,9 @@ module Fluentd
 
       # provides #actor
       include Actor::AgentMixin
+
+      # provides config_param :log_level
+      include LoggerMixin
 
       ###TODO: These definition of #emit and #emits conflict with collector.rb
       def emit(tag, time, record)

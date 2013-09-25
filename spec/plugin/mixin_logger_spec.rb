@@ -1,18 +1,18 @@
 require 'fluentd/plugin_spec_helper'
-require 'fluentd/plugin/agent'
+require 'fluentd/plugin/mixin_logger'
 
 include Fluentd::PluginSpecHelper
 
-describe Fluentd::Plugin::Agent do
+describe Fluentd::Plugin::LoggerMixin do
   let(:default_config) {
     %[]
   }
 
   def create_driver(conf = default_config)
-    generate_driver(Fluentd::Plugin::Agent, conf)
+    generate_driver(Fluentd::Plugin::Input, conf)
   end
 
-  it 'test default config' do
+  it 'test default configuration' do
     d = create_driver
     expect(d.instance.logger.level).to eql(Fluentd::Logger::LEVEL_DEBUG)
   end
@@ -46,4 +46,14 @@ describe Fluentd::Plugin::Agent do
 
     expect { create_driver(default_config + "\nlog_level foo") }.to raise_error(Fluentd::ConfigError)
   end
+
+  it 'test mixin' do
+    d = generate_driver(Fluentd::Plugin::Input, "log_level fatal")
+    expect(d.instance.logger.level).to eql(Fluentd::Logger::LEVEL_FATAL)
+    d = generate_driver(Fluentd::Plugin::Output, "log_level fatal")
+    expect(d.instance.logger.level).to eql(Fluentd::Logger::LEVEL_FATAL)
+    d = generate_driver(Fluentd::Plugin::Filter, "log_level fatal")
+    expect(d.instance.logger.level).to eql(Fluentd::Logger::LEVEL_FATAL)
+  end
+
 end
