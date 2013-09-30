@@ -46,6 +46,9 @@ class ConfigTest < Test::Unit::TestCase
     ]
     write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
       k9 embeded
+      <elem3 name>
+        nested nested_value
+      </elem3>
     ]
 
   end
@@ -68,8 +71,12 @@ class ConfigTest < Test::Unit::TestCase
 
     elem2 = c.elements.find { |e| e.name == 'elem2' }
     assert_not_nil elem2
-    assert_equal   'name',    elem2.arg
-    assert_equal   'embeded', elem2['k9']
+    assert_equal   'name',         elem2.arg
+    assert_equal   'embeded',      elem2['k9']
+
+    elem3 = elem2.elements.find { |e| e.name == 'elem3' }
+    assert_not_nil elem3
+    assert_equal   'nested value', elem3['nested']
   end
 
   def write_config(path, data)
@@ -88,4 +95,5 @@ class ConfigTest < Test::Unit::TestCase
     end  
   end
 end
+
 
