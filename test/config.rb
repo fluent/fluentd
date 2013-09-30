@@ -39,6 +39,14 @@ class ConfigTest < Test::Unit::TestCase
     write_config "#{TMP_DIR}/config.d/config_test_7.conf", %[
       k7 wildcard_include_2
     ]
+    write_config "#{TMP_DIR}/config.d/config_test_8.conf", %[
+      <elem2 name>
+        embed ../dir/config_test_9.conf
+      </elem2>
+    ]
+    write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
+      k9 embeded
+    ]
 
   end
 
@@ -55,7 +63,9 @@ class ConfigTest < Test::Unit::TestCase
     assert_equal 'elem', c.elements.first.name
     assert_equal 'name', c.elements.first.arg
     assert_equal 'normal_parameter', c.elements.first['include']
-    
+    assert_equal 'elem2', c.elements[1].name
+    assert_equal 'name', c.elements[1].arg
+    assert_equal 'embeded', c.elements[1]['k9']
   end
 
   def write_config(path, data)
