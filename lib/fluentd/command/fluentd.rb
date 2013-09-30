@@ -38,6 +38,7 @@ opts = {
   :chuser => nil,
   :chgroup => nil,
   :worker_process_name => worker_process_name,
+  :suppress_config_dump => false,
 }
 
 op.on('-s', '--setup [DIR]', "install sample configuration file to the directory (defalut: #{default_config_path})") {|s|
@@ -93,6 +94,10 @@ op.on('-o', '--log PATH', "log file path") {|s|
 #op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-fly") {|s|
 #  opts[:inline_config] = s
 #}
+
+op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
+  opts[:suppress_config_dump] = b
+}
 
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b

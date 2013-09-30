@@ -82,6 +82,10 @@ module Fluentd
       if @worker_elements.empty?
         raise ConfigError, "No <worker> elements in the config file"
       end
+      # unless suppress_config_dump
+      unless config[:suppress_config_dump]
+        logger.info "starting with configuration:\n#{conf.to_s}"
+      end
 
       # set number of ServerEngine workers using
       # ServerEngine::Server#scale_workers method
