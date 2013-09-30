@@ -63,13 +63,11 @@ class ConfigTest < Test::Unit::TestCase
 
     elem1 = c.elements.find { |e| e.name == 'elem1' }
     assert_not_nil elem1
-    assert_equal   'elem1',            elem1.name
     assert_equal   'name',             elem1.arg
     assert_equal   'normal_parameter', elem1['include']
 
     elem2 = c.elements.find { |e| e.name == 'elem2' }
     assert_not_nil elem2
-    assert_equal   'elem2',   elem2.name
     assert_equal   'name',    elem2.arg
     assert_equal   'embeded', elem2['k9']
   end
