@@ -61,15 +61,15 @@ op.on('-r NAME', "load library") {|s|
   opts[:libs] << s
 }
 
-op.on('-g', '--gemfile GEMFILE', "Gemfile path") {|s|
+op.on('-g', '--gemfile GEMFILE', "gemfile path") {|s|
   opts[:gemfile] = s
 }
 
-op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path") {|s|
+op.on('-G', '--gem-path GEM_INSTALL_PATH', "gemfile install path") {|s|
   opts[:gem_install_path] = s
 }
 
-op.on('--use-shared-gems', "Enable gems not installed into gem-path", TrueClass) {|b|
+op.on('--use-shared-gems', "enable gems not installed into gem-path", TrueClass) {|b|
   opts[:use_shared_gems] = b
 }
 
@@ -123,7 +123,7 @@ define_singleton_method(:usage) do |msg|
   exit 1
 end
 
-op.on_tail("--version", "Show version") do
+op.on_tail("--version", "show version") do
   require 'fluentd/version'
   puts "fluentd #{Fluentd::VERSION}"
   exit
