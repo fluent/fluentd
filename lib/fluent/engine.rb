@@ -80,6 +80,11 @@ module Fluent
     end
 
     def configure(conf)
+      # plugins / configuration dumps
+      Gem::Specification.find_all.select{|x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/}.each do |spec|
+        $log.info "gem '#{spec.name}' version '#{spec.version}'"
+      end
+
       unless @suppress_config_dump
         $log.info "using configuration file: #{conf.to_s.rstrip}"
       end
