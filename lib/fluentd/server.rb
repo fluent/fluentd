@@ -82,7 +82,12 @@ module Fluentd
       if @worker_elements.empty?
         raise ConfigError, "No <worker> elements in the config file"
       end
-      # unless suppress_config_dump
+
+      # plugins / configuration dumps
+      gemspecs = Gem.find_files('fluentd-*/fluentd-*.gemspec')
+      Gem::Specification.find_all.select{|x| x.name =~ /^fluentd(-(plugin|mixin)-.*)?$/}.each do |spec|
+        logger.info "gem '#{spec.name}' version '#{spec.version}'"
+      end
       unless config[:suppress_config_dump]
         logger.info "starting with configuration:\n#{conf.to_s}"
       end
