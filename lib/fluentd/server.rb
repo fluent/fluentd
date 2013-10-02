@@ -84,7 +84,6 @@ module Fluentd
       end
 
       # plugins / configuration dumps
-      gemspecs = Gem.find_files('fluentd-*/fluentd-*.gemspec')
       Gem::Specification.find_all.select{|x| x.name =~ /^fluentd(-(plugin|mixin)-.*)?$/}.each do |spec|
         logger.info "gem '#{spec.name}' version '#{spec.version}'"
       end
