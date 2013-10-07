@@ -96,11 +96,18 @@ module Fluent
         @finished = true
         @thread.join
       else
-        Process.kill(:TERM, @pid)
+        begin
+          Process.kill(:TERM, @pid)
+        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+        end
         if @thread.join(60)  # TODO wait time
           return
         end
-        Process.kill(:KILL, @pid)
+
+        begin
+          Process.kill(:KILL, @pid)
+        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+        end
         @thread.join
       end
     end
