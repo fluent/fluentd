@@ -104,6 +104,8 @@ module Fluent
       args << block.call if block
       time, msg = event(:trace, args)
       puts [@color_trace, caller_line(time, 1, LEVEL_TRACE), msg, @color_reset].join
+    rescue
+      # logger should not raise an exception. This rescue prevents unexpected behaviour.
     end
     alias TRACE trace
 
@@ -126,6 +128,7 @@ module Fluent
       args << block.call if block
       time, msg = event(:debug, args)
       puts [@color_debug, caller_line(time, 1, LEVEL_DEBUG), msg, @color_reset].join
+    rescue
     end
     alias DEBUG debug
 
@@ -148,6 +151,7 @@ module Fluent
       args << block.call if block
       time, msg = event(:info, args)
       puts [@color_info, caller_line(time, 1, LEVEL_INFO), msg, @color_reset].join
+    rescue
     end
     alias INFO info
 
@@ -170,6 +174,7 @@ module Fluent
       args << block.call if block
       time, msg = event(:warn, args)
       puts [@color_warn, caller_line(time, 1, LEVEL_WARN), msg, @color_reset].join
+    rescue
     end
     alias WARN warn
 
@@ -192,6 +197,7 @@ module Fluent
       args << block.call if block
       time, msg = event(:error, args)
       puts [@color_error, caller_line(time, 1, LEVEL_ERROR), msg, @color_reset].join
+    rescue
     end
     alias ERROR error
 
@@ -214,6 +220,7 @@ module Fluent
       args << block.call if block
       time, msg = event(:fatal, args)
       puts [@color_fatal, caller_line(time, 1, LEVEL_FATAL), msg, @color_reset].join
+    rescue
     end
     alias FATAL fatal
 
