@@ -358,7 +358,6 @@ class TailInput < Input
         @inode = nil
         @fsize = -1  # first
         @on_rotate = on_rotate
-        @path = path
       end
 
       def on_notify
