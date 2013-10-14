@@ -24,8 +24,13 @@ module Fluentd
     require_relative '../worker_global_methods'
 
     class Output < Agent
+      # provides #emit, #emits
       include Collector
 
+      # provides #actor
+      include Actor::AgentMixin
+
+      ###TODO: These definition of #emit and #emits conflict with collector.rb
       def emit(tag, time, record)
         raise NoMethodError, "#{self.class}#emit(tag, time, record) is not implemented"
       end

@@ -91,10 +91,12 @@ module Fluentd
         }
 
         @buffer.start
+        super
       end
 
       def stop
         @buffer.stop if @buffer
+        super
       end
 
       def shutdown
@@ -102,6 +104,7 @@ module Fluentd
         @threads.reverse_each {|t|
           t.shutdown
         }
+        super
       end
 
       def emit(tag, time, record)
