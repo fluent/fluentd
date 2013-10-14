@@ -21,6 +21,17 @@ require_relative '../dns_resolver'
 module Fluentd
   module Plugin
     class ForwardOutput < ObjectBufferedOutput
+      #TODO: logs on attach/detach nodes
+      #TODO: check working of buffers and its re-flushing during/after all nodes detachment
+      #TODO: tests for tcp heartbeating
+      #TODO: tests for tcp keepalive connections
+      #TODO: fix dns resolve expiration
+      #TODO: error classes
+      #TODO: rescue each Errno::EXXX on #send_data and #send_tcp_heartbeat
+      #TODO: proper error class for heartbeat ack packets from unknown nodes
+
+      #TODO: performance tests
+
       NODE_STATUS_WATCH_INTERVAL = 1
 
       KEEPALIVE_EXPIRED_WATCH_INTERVAL = 1
@@ -141,7 +152,7 @@ module Fluentd
         if error
           raise error
         else
-          raise "no nodes are available"
+          raise "no nodes are available" #TODO: error class
         end
       end
 
@@ -261,7 +272,7 @@ module Fluentd
           unless @heartbeat_type == :none
             actor.every(@heartbeat_interval) do
               next unless @running
-              Fluentd.log.warn "sending heartbeat..."
+              log.trace "sending heartbeat..."
               send_heartbeat
             end
           end
@@ -321,7 +332,7 @@ module Fluentd
         end
 
         def address
-          # 0 means disalbe cache, nil means cache infinitely
+          # @ipaddre_expires:  0 means to disable cache, nil means to cache infinitely
           return @ipaddr if @ipaddr && (@ipaddr_expires.nil? || Time.now < @ipaddr_expires)
 
           @ipaddr = DNSResolver.new(@proto).resolve(@host)
@@ -433,6 +444,7 @@ module Fluentd
 
         # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
         def send_tcp_heartbeat
+          log.trace "sending tcp heartbeat"
           begin
             connect(:new_sock => true) do |conn|
               opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -451,6 +463,7 @@ module Fluentd
         end
 
         def send_udp_heartbeat
+          log.trace "sending udp heartbeat"
           begin
             @usock.send "\0", 0, self.address, @port
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
@@ -458,20 +471,20 @@ module Fluentd
           end
         end
 
-        def on_udp_heartbeat_readable(sock)
-          Fluentd.log.warn "reading udp heartbeat"
+        def on_udp_heartbeat_readable(io_watcher) # we want @usock
+          log.trace "reading udp heartbeat"
 
           begin
-            msg, addr = sock.recvfrom(1024)
+            msg, addr = @usock.recvfrom(1024)
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
             return
           end
 
           ipaddr,port = addr[3],addr[1]
           if ipaddr != self.address || port != @port
-            raise RuntimeError, "WTF" #TODO: fix
+            raise "udp ack heartbeat packet from unknown node #{ipaddr}:#{port}"
           end
-          node.update!
+          @state.update!
         end
 
         class StateMachine
