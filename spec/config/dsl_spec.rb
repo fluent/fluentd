@@ -178,4 +178,62 @@ describe Fluentd::Config::DSL::Parser do
       end
     end
   end
+
+  context 'with ruby keyword, that provides ruby Kernel module features' do
+    describe '.parse' do
+      it 'can get result of Kernel.open() by ruby.open()' do
+        uname_string = `uname -a`
+        root = Fluentd::Config::DSL::Parser.parse(<<DSL)
+worker {
+  uname_str = ruby.open('|uname -a'){|out| out.read}
+  source {
+    uname uname_str
+  }
+}
+DSL
+        worker = root.elements.first
+        expect(worker.name).to eql('worker')
+        source = worker.elements.first
+        expect(source.name).to eql('source')
+        expect(source.keys.size).to eql(1)
+        expect(source['uname']).to eql(uname_string)
+      end
+
+      it 'accepts ruby keyword with block, which allow to use methods included from ::Kernel' do
+        root = Fluentd::Config::DSL::Parser.parse(<<DSL)
+worker {
+  ruby_version = ruby {
+    require 'erb'
+    ERB.new('<%= RUBY_VERSION %> from erb').result
+  }
+  source {
+    version ruby_version
+  }
+}
+DSL
+        worker = root.elements.first
+        expect(worker.name).to eql('worker')
+        source = worker.elements.first
+        expect(source.name).to eql('source')
+        expect(source.keys.size).to eql(1)
+        expect(source['version']).to eql("#{RUBY_VERSION} from erb")
+      end
+
+      it 'raises NoMethodError when configuration DSL elements are written in ruby block' do
+        conf = <<DSL
+worker {
+  ruby {
+    source {
+      type "tail"
+    }
+  }
+  source {
+    uname uname_str
+  }
+}
+DSL
+        expect{ Fluentd::Config::DSL::Parser.parse(conf) }.to raise_error(NoMethodError)
+      end
+    end
+  end
 end

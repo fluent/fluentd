@@ -83,6 +83,24 @@ module Fluentd
             @proxy.add_element(name, args.first, block)
           end
         end
+
+        def self.const_missing(name)
+          return ::Kernel.const_get(name) if ::Kernel.const_defined?(name)
+
+          if name.to_s =~ /^Fluentd::Config::DSL::Element::(.*)$/
+            name = "#{$1}".to_sym
+            return ::Kernel.const_get(name) if ::Kernel.const_defined?(name)
+          end
+          ::Kernel.eval("#{name}")
+        end
+
+        def ruby(&block)
+          if block
+            @proxy.instance_exec(&block)
+          else
+            ::Kernel
+          end
+        end
       end
     end
   end
