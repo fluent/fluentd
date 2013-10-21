@@ -25,7 +25,7 @@ module Fluentd
     def initialize(dev, config={})
       @dl = ServerEngine::DaemonLogger.new(dev, config)
 
-      io = @dl.instance_eval { @io }
+      io = @dl.instance_eval { @logdev }
       if io.tty?
         enable_color
       end
