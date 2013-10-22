@@ -18,21 +18,25 @@
 module Fluentd
   module Plugin
 
-    require_relative '../agent'
-    require_relative '../event_emitter'
-    require_relative '../actor'
-    require_relative 'mixin_logger'
+    module LoggerMixin
+      def self.included(klass)
+        klass.config_param :log_level, :string, :default => nil
+      end
 
-    class Input < Agent
-      # provides #collector
-      include EventEmitter
+      def configure(conf)
+        super
 
-      # provides #actor
-      include Actor::AgentMixin
-
-      # provides config_param :log_level
-      include LoggerMixin
+        if conf['log_level']
+          @log = logger.dup # logger is initialized at configurable.rb
+          begin
+            @log.level = conf['log_level'] # reuse error handling of Fluentd::Logger
+          rescue ArgumentError => e
+            raise ConfigError, "log_level should be 'fatal', 'error', 'warn', 'info', 'debug', or 'trace'"
+          end
+        end
+      end
     end
 
   end
 end
+
