@@ -100,7 +100,7 @@ module Fluentd
 
       def #{name}_backtrace(backtrace=$!.backtrace)
         return if @level > #{level-1}
-        add_backtrace(#{level}, backtrace, caller(1))
+        add_backtrace(#{level}, Time.now, backtrace, caller(1))
       end
       CODE
     end
