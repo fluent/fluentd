@@ -127,7 +127,7 @@ module Fluentd
 
         # prefer LOAD_PATH than gems
         files = $LOAD_PATH.map {|lp|
-          lpath = File.join(lp, "#{path}.rb")
+          lpath = File.expand_path(File.join(lp, "#{path}.rb"))
           File.exist?(lpath) ? lpath : nil
         }.compact
         unless files.empty?
@@ -165,6 +165,13 @@ module Fluentd
               break
             end
           }
+        end
+
+        # search built-in plugins
+        lpath = File.expand_path(File.join(File.dirname(__FILE__), '..', "#{path}.rb"))
+        if File.exist?(lpath)
+          require lpath
+          return
         end
       end
     end

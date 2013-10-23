@@ -32,11 +32,10 @@ module Fluentd
   class Worker
     include ServerEngine::ConfigLoader
 
-    def initialize(opts, socket_manager)
+    def initialize(options)
       @stop_flag = ServerEngine::BlockingFlag.new
-      @socket_manager = socket_manager
-      super(opts)
-      @log = create_logger
+      super(options)  # initialize ServerEngine::ConfigLoader
+      @log = create_logger  # ServerEngine::ConfigLoader#create_logger
     end
 
     def configure(conf)
@@ -45,7 +44,7 @@ module Fluentd
       @log.info "Starting worker #{@server_id}"
 
       # setup worker_global_methods.rb
-      Fluentd.setup!(logger: @log, plugin: PluginRegistry.new, socket_manager: @socket_manager)
+      Fluentd.setup!(logger: @log, plugin: PluginRegistry.new)
 
       # Worker has a RootAgent
       root_agent = RootAgent.new
@@ -101,19 +100,6 @@ module Fluentd
 
     def stop
       @stop_flag.set!
-    end
-
-    def install_signal_handlers
-      w = self
-      ServerEngine::SignalThread.new do |st|
-        st.trap(ServerEngine::Daemon::Signals::GRACEFUL_STOP) { w.stop }
-        st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_STOP, 'SIG_DFL')
-        st.trap(ServerEngine::Daemon::Signals::GRACEFUL_RESTART) { w.stop }
-        st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_RESTART, 'SIG_DFL')
-        st.trap(ServerEngine::Daemon::Signals::RELOAD) { Fluentd.logger.reopen! }
-        st.trap(ServerEngine::Daemon::Signals::DETACH) { w.stop }
-        st.trap(ServerEngine::Daemon::Signals::DUMP) { Sigdump.dump }
-      end
     end
 
     private

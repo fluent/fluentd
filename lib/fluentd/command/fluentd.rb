@@ -30,6 +30,7 @@ worker_process_name = ENV['FLUENTD_WORKER_PROCESS_NAME'] || 'fluentd:worker'
 opts = {
   :config_path => default_config_path,
   :plugin_dirs => default_plugin_dir,
+  :load_path => [],
   :log_level => LOG_LEVEL_INFO,
   :log => nil,
   :daemonize => false,
@@ -54,7 +55,7 @@ op.on('-p', '--plugin DIR', "add plugin directory") {|s|
 }
 
 op.on('-I PATH', "add library path") {|s|
-  $LOAD_PATH << s
+  opts[:load_path] << s
 }
 
 op.on('-r NAME', "load library") {|s|

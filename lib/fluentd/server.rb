@@ -18,7 +18,9 @@
 module Fluentd
 
   require 'serverengine'
+  require 'drb'
 
+  require_relative 'engine'
   require_relative 'worker_launcher'
   require_relative 'socket_manager'
   require_relative 'version'
@@ -39,10 +41,10 @@ module Fluentd
       :restart_server_process => false,
       :disable_reload => true,  # disables reload and uses restart always
       :logger_class => Fluentd::Logger,  # overwrites logger class
-      :worker_type => 'thread',
+      :worker_type => 'thread',  # thread for each worker process
     }
 
-    def self.run(opts={})
+    def self.run(options={})
       #
       # ServerEngine.create calls:
       #
@@ -61,66 +63,83 @@ module Fluentd
       # WorkerLauncher.main is the entry point of worker processes.
       #
       ServerEngine.create(Server, WorkerLauncher) do
-        DEFAULT_PARAMETERS.merge(opts).merge(OVERWRITE_PARAMETERS)
+        DEFAULT_PARAMETERS.merge(options).merge(OVERWRITE_PARAMETERS)
       end.run
     end
 
     def initialize
-      super  # calls reload_config
+      greeting_logs
+
+      Engine.shared_data = {}
+      Engine.shared_data['fluentd_options'] = config
+
+      super  # ServerEngine::Server#initialize calls reload_config
     end
+
+    attr_reader :worker_elements
+
+    attr_reader :socket_server
 
     # ServerEngine hook point
     def reload_config
       super
 
       # load fluentd.conf
-      conf = read_config(config[:config_path])
+      conf = Server.read_config(config[:config_path])
+      unless config[:suppress_config_dump]
+        logger.info "Configuration:\n#{conf.to_s}"
+      end
 
       # <worker> section creates a worker instances
-      @worker_elements = conf.elements.select {|e| e.name == 'worker' }
+      worker_elements = conf.elements.select {|e| e.name == 'worker' }
 
-      if @worker_elements.empty?
+      if worker_elements.empty?
         raise ConfigError, "No <worker> elements in the config file"
       end
 
-      # plugins / configuration dumps
-      Gem::Specification.find_all.select{|x| x.name =~ /^fluentd(-(plugin|mixin)-.*)?$/}.each do |spec|
-        logger.info "gem '#{spec.name}' version '#{spec.version}'"
-      end
-      unless config[:suppress_config_dump]
-        logger.info "starting with configuration:\n#{conf.to_s}"
-      end
+      Engine.shared_data['fluentd_config'] = conf
 
       # set number of ServerEngine workers using
       # ServerEngine::Server#scale_workers method
-      scale_workers(@worker_elements.size)
+      scale_workers(worker_elements.size)
     end
-
-    attr_reader :worker_elements
 
     # ServerEngine callback
     def before_run
-      logger.info "fluentd v#{Fluentd::VERSION}"
+      # start DRb primary server
+      DRb.start_service(nil, Engine)
 
       # initializes socket manager server
       @socket_server = SocketManager::Server.new
       @socket_server.start
     end
 
+    # used by WorkerLauncher#initialize
+    def drb_uri
+      DRb.uri
+    end
+
     # ServerEngine callback
     def after_run
       stop(false)
-      join_workers
+      join_workers  # ServerEngine::MultiWorkerServer#join_workers
 
       @socket_server.shutdown
     end
 
-    attr_reader :socket_server
-
     private
 
+    def greeting_logs
+      logger.info "fluentd v#{Fluentd::VERSION}"
+
+      # plugins / configuration dumps
+      Gem::Specification.find_all.select{|x| x.name =~ /^fluentd(-(plugin|mixin)-.*)?$/}.each do |spec|
+        logger.info "gem '#{spec.name}' version '#{spec.version}'"
+      end
+    end
+
     # read configuration file
-    def read_config(path)
+    def self.read_config(path)
       if path =~ /\.rb$/
         return Config::DSL::Parser.read(path)
       end
