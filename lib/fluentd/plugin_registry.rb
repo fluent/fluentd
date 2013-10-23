@@ -48,16 +48,22 @@ module Fluentd
       @buffer.register(type, klass)
     end
 
-    def new_input(type)
-      @input.lookup(type).new
+    def new_input(parent_agent, type)
+      a = @input.lookup(type).new
+      a.parent_agent = parent_agent
+      return a
     end
 
-    def new_output(type)
-      @output.lookup(type).new
+    def new_output(parent_agent, type)
+      a = @output.lookup(type).new
+      a.parent_agent = parent_agent
+      return a
     end
 
-    def new_filter(type)
-      @filter.lookup(type).new
+    def new_filter(parent_agent, type)
+      a = @filter.lookup(type).new
+      a.parent_agent = parent_agent
+      return a
     end
 
     def new_buffer(type)

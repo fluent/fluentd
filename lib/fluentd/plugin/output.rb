@@ -48,7 +48,7 @@ module Fluentd
         block.call
       rescue => e
         Engine.log.warn "emit error", :error => e
-        Engine.root_agent.emit_error(tag, time, record)
+        @root_agent.emit_error(tag, time, record)
         nil
       end
     end

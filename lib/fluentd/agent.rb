@@ -35,13 +35,18 @@ module Fluentd
     # nested agents
     attr_reader :agents
 
-    def configure(conf)
-      super
+    attr_reader :parent_agent
+
+    attr_reader :root_agent
+
+    def parent_agent=(parent)
+      @root_agent = parent.root_agent
+      parent._add_agent(self)
+      @parent_agent = parent
     end
 
-    def add_agent(agent)
-      @agents << agent
-      self
+    def configure(conf)
+      super
     end
 
     def start
@@ -51,6 +56,11 @@ module Fluentd
     end
 
     def shutdown
+    end
+
+    def _add_agent(agent)
+      @agents << agent
+      self
     end
   end
 

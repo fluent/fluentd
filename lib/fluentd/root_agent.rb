@@ -60,18 +60,11 @@ module Fluentd
       @error_label = Collectors::NullCollector.new
       @log_label = Collectors::NullCollector.new
 
+      # overwrite Agent#root_agent
+      @root_agent = self
+
       # init EventEmitter
       init_event_emitter(self, Collectors::NoMatchNoticeCollector.new)
-    end
-
-    def emit_error(tag, time, record)
-      @error_label.collector.emit(tag, time, record)
-    end
-
-    def emit_log(time, message, record)
-      record = record.dup
-      record['message'] = message
-      @log_label.collector.emit("fluentd", time, record)
     end
 
     def configure(conf)
@@ -101,15 +94,30 @@ module Fluentd
 
       # override Fluentd::Logger#add_event
       Engine.log.extend(EventCollectLoggerMixin)
+      Engine.log.root_agent = self
 
       nil
     end
 
     module EventCollectLoggerMixin
       def add_event(level, time, message, record, caller_stack)
-        Engine.root_agent.emit_log(time.to_i, message, record)
+        @root_agent.emit_log(time.to_i, message, record)
         super
       end
+
+      attr_writer :root_agent
+    end
+
+    # root_router api
+    def emit_error(tag, time, record)
+      @error_label.collector.emit(tag, time, record)
+    end
+
+    # root_router api
+    def emit_log(time, message, record)
+      record = record.dup
+      record['message'] = message
+      @log_label.collector.emit("fluentd", time, record)
     end
 
     # root_router api
@@ -144,10 +152,10 @@ module Fluentd
 
     def add_label_impl(klass, label, e, default_collector)
       agent = klass.new
+      agent.parent_agent = self
       agent.init_event_emitter(self, default_collector)
 
       agent.configure(e)
-      add_agent(agent)  # Agent#add_agent
 
       @labels[label] = agent
     end
