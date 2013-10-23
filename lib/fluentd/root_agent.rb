@@ -17,11 +17,9 @@
 #
 module Fluentd
 
-  require 'delegate'  # SimpleDelegator
+  require 'delegate'
 
   require_relative 'agent'
-  require_relative 'agent'
-  require_relative 'collectors/null_collector'
   require_relative 'collectors/no_match_notice_collector'
 
   #
@@ -53,14 +51,17 @@ module Fluentd
     def initialize
       super
 
+      # overwrite Agent#root_agent and #parent_agent
+      @root_agent = self
+      @parent_agent = nil
+
       @labels = {}
 
       @error_label = Collectors::NullCollector.new
       @log_label = Collectors::NullCollector.new
 
-      # overwrite Agent#root_agent
-      @root_agent = self
-
+      # if an event doesn't even match top-level patterns,
+      # NoMatchNoticeCollector shows warnings.
       self.default_collector = Collectors::NoMatchNoticeCollector.new
     end
 
@@ -83,10 +84,10 @@ module Fluentd
         end
       }
 
-      @error_label = add_label_impl(ERROR_LABEL,
+      @error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWithoutErrorLabel.new(self),
                      error_label_config, Collectors::ErrorNoticeCollector.new)
 
-      @log_label = add_label_impl(LOG_LABEL,
+      @log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogLabel.new(self),
                      log_label_config, Collectors::NullCollector.new)
 
       # override Fluentd::Logger#add_event
@@ -118,42 +119,54 @@ module Fluentd
     end
 
     # root_router api
-    def emits_label(label, tag, es)
-      if label = @labels[label]
+    def emits_label(label_name, tag, es)
+      if label = @labels[label_name]
         return label.collector.emits(tag, es)
       else
         collector.emits(tag, es)
       end
     end
 
-    def short_circuit_label(label, tag)
-      if label = @labels[label]
+    def short_circuit_label(label_name, tag)
+      if label = @labels[label_name]
         return label.collector.short_circuit(tag)
       else
         collector.short_circuit(tag)
       end
     end
 
-    def add_label(label, e)
+    def add_label(name, e)
       # TODO validate label name
 
-      add_label_impl(label, e, Collectors::NoMatchNoticeCollector.new)
+      add_label_impl(name, self, e, Collectors::NoMatchNoticeCollector.new)
       self
     end
 
     class Label < Agent
     end
 
+    class RootAgentProxyWithoutErrorLabel < SimpleDelegator
+      def emit_error(tag, time, record)
+        # do nothing to not cause infinite loop
+      end
+    end
+
+    class RootAgentProxyWithoutLogLabel < SimpleDelegator
+      def emit_log(time, message, record)
+        # do nothing to not cause infinite loop
+      end
+    end
+
     private
 
-    def add_label_impl(label, e, default_collector)
+    def add_label_impl(name, self_or_proxy, e, default_collector)
       agent = Label.new
-      agent.parent_agent = self
+      agent.parent_agent = self_or_proxy
       agent.default_collector = default_collector
 
       agent.configure(e)
 
-      @labels[label] = agent
+      @labels[name] = agent
     end
 
   end

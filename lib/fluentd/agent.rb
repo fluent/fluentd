@@ -21,6 +21,7 @@ module Fluentd
   require_relative 'event_router'
   require_relative 'engine'
   require_relative 'match_pattern'
+  require_relative 'collectors/null_collector'
 
   #
   # Agent is a base module of input and filter plugins.

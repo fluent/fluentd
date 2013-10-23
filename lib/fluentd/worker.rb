@@ -55,6 +55,7 @@ module Fluentd
 
       # gather all nested agents recursively
       @agents = gather_agents(root_agent)
+
       Engine.root_agent = root_agent
     end
 
