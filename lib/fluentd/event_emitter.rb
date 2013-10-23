@@ -21,7 +21,7 @@ module Fluentd
   require_relative 'config_error'
   require_relative 'event_router'
   require_relative 'match_pattern'
-  require_relative 'worker_global_methods'  # Fluentd.plugin
+  require_relative 'engine'
   require_relative 'collectors/label_redirect_collector'
 
   #
@@ -117,7 +117,7 @@ module Fluentd
     def add_source(type, conf)
       log.info "adding source", :type=>type
 
-      agent = Fluentd.plugin.new_input(type)
+      agent = Engine.plugins.new_input(type)
       configure_agent(agent, conf)
 
       # <source> does not match pattern; don't register to EventRouter
@@ -128,7 +128,7 @@ module Fluentd
     def add_match(type, pattern, conf)
       log.info "adding match", :pattern=>pattern, :type=>type
 
-      agent = Fluentd.plugin.new_output(type)
+      agent = Engine.plugins.new_output(type)
       configure_agent(agent, conf)
 
       @event_router.add_collector(pattern, agent)  # register to EventRouter
@@ -139,7 +139,7 @@ module Fluentd
     def add_filter(type, pattern, conf)
       log.info "adding filter", :pattern=>pattern, :type=>type
 
-      agent = Fluentd.plugin.new_filter(type)
+      agent = Engine.plugins.new_filter(type)
       configure_agent_with_offset(agent, conf)
 
       @event_router.add_collector(pattern, agent)  # register to EventRouter

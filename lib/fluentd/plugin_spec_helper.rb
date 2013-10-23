@@ -7,8 +7,9 @@ require 'fluentd/config/parser'
 require 'fluentd/plugin/input'
 require 'fluentd/plugin/output'
 require 'fluentd/plugin/filter'
+require 'fluentd/engine'
 
-::Fluentd.plugin = Fluentd::PluginRegistry.new
+Fluentd::Engine.plugins = Fluentd::PluginRegistry.new
 
 module Fluentd
   module PluginSpecHelper

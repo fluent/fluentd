@@ -20,6 +20,7 @@ module Fluentd
 
     require_relative 'output'
     require_relative '../event_emitter'
+    require_relative '../engine'
 
     class Filter < Output
       # provides #collector

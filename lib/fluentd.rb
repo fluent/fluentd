@@ -18,8 +18,8 @@
 module Fluentd
 
   require_relative 'fluentd/actor'
+  require_relative 'fluentd/engine'
   require_relative 'fluentd/agent'
-  require_relative 'fluentd/bundler_injection'
   require_relative 'fluentd/collector'
   require_relative 'fluentd/config_error'
   require_relative 'fluentd/configurable'
@@ -35,7 +35,7 @@ module Fluentd
   require_relative 'fluentd/stats_collector'
   require_relative 'fluentd/version'
   require_relative 'fluentd/worker'
-  require_relative 'fluentd/worker_global_methods'
+  require_relative 'fluentd/engine'
   require_relative 'fluentd/worker_launcher'
 
 end

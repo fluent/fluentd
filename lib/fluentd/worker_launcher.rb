@@ -104,6 +104,9 @@ module Fluentd
         $LOAD_PATH << path
       }
 
+      # TODO
+      Engine.sockets = SocketManager::NonManagedAPI.new
+
       # initialize worker instance
       worker = Worker.new(options)
       install_signal_handlers(worker)
@@ -142,7 +145,7 @@ module Fluentd
         st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_STOP, 'SIG_DFL')
         st.trap(ServerEngine::Daemon::Signals::GRACEFUL_RESTART) { worker.stop }
         st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_RESTART, 'SIG_DFL')
-        st.trap(ServerEngine::Daemon::Signals::RELOAD) { Fluentd.logger.reopen! }
+        st.trap(ServerEngine::Daemon::Signals::RELOAD) { Engine.logger.reopen! }
         st.trap(ServerEngine::Daemon::Signals::DETACH) { worker.stop }
         st.trap(ServerEngine::Daemon::Signals::DUMP) { Sigdump.dump }
       end

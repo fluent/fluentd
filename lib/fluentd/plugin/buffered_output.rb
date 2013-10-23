@@ -71,7 +71,7 @@ module Fluentd
       def configure(conf)
         super
 
-        @buffer = Fluentd.plugin.new_buffer(@buffer_type)
+        @buffer = Engine.plugins.new_buffer(@buffer_type)
         @buffer.configure(conf)
 
         # TODO @secondary
@@ -250,34 +250,34 @@ module Fluentd
         retry_count = @flush_error_history.size - 1
 
         if retry_count < @flush_retry_limit
-          Fluentd.log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
-          Fluentd.log.warn_backtrace error.backtrace
+          Engine.log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
+          Engine.log.warn_backtrace error.backtrace
           return calc_retry_wait_time(retry_count)
 
         elsif @secondary
           if retry_count == @flush_retry_limit
-            Fluentd.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
-            Fluentd.log.warn "retry count exceededs limit. falling back to secondary output."
-            Fluentd.log.warn_backtrace error.backtrace
+            Engine.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
+            Engine.log.warn "retry count exceededs limit. falling back to secondary output."
+            Engine.log.warn_backtrace error.backtrace
             return 0  # retry immediately
 
           elsif retry_count <= @flush_retry_limit + @secondary_limit
-            Fluentd.log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
-            Fluentd.log.warn_backtrace error.backtrace
+            Engine.log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
+            Engine.log.warn_backtrace error.backtrace
             return calc_retry_wait_time(retry_count - @flush_retry_limit - 1)
 
           else
-            Fluentd.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
-            Fluentd.log.warn "secondary retry count exceededs limit."
-            Fluentd.log.warn_backtrace error.backtrace
+            Engine.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
+            Engine.log.warn "secondary retry count exceededs limit."
+            Engine.log.warn_backtrace error.backtrace
             write_abort
             @flush_error_history.clear
             return @flush_interval
           end
 
         else
-          Fluentd.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
-          Fluentd.log.warn "retry count exceededs limit."
+          Engine.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
+          Engine.log.warn "retry count exceededs limit."
           #@log.warn_backtrace error.backtrace
           write_abort
           @flush_error_history.clear
@@ -286,12 +286,12 @@ module Fluentd
       end
 
       def write_abort
-        Fluentd.log.error "throwing away old logs."
+        Engine.log.error "throwing away old logs."
         begin
           #@buffer.clear
         rescue
-          #Fluentd.log.error "unexpected error while aborting", :error=>$!.to_s
-          Fluentd.log.error_backtrace
+          #Engine.log.error "unexpected error while aborting", :error=>$!.to_s
+          Engine.log.error_backtrace
         end
       end
 

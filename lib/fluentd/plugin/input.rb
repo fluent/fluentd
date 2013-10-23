@@ -18,6 +18,7 @@
 module Fluentd
   module Plugin
 
+    require_relative '../engine'
     require_relative '../agent'
     require_relative '../event_emitter'
     require_relative '../actor'

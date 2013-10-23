@@ -17,7 +17,7 @@
 #
 module Fluentd
 
-  require_relative 'worker_global_methods'
+  require_relative 'engine'
   require_relative 'configurable'
 
   #
@@ -34,10 +34,8 @@ module Fluentd
     module ClassMethods
       extend Forwardable
 
-      # delegates methods to Fluentd.plugin defined in worker_global_methods.rb.
-      # worker_global_methods is initialized by Worker#configure
-
-      def_delegators 'Fluentd.plugin',
+      # delegates methods to Engine.plugins
+      def_delegators 'Fluentd::Engine.plugins',
         :register_input, :register_output, :register_filter, :register_buffer,
         :new_input, :new_output, :new_filter, :new_buffer
 

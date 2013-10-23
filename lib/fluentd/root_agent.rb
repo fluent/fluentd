@@ -91,8 +91,8 @@ module Fluentd
                      log_label_config, Collectors::NullCollector.new)
 
       # hooks error logs to send them to the LogMessageLabel
-      Fluentd.logger.extend(StatsCollectLoggerMixin)
-      Fluentd.logger.init_stats_collect("fluentd", log_agent.collector)
+      Engine.log.extend(StatsCollectLoggerMixin)
+      Engine.log.init_stats_collect("fluentd", log_agent.collector)
 
       nil
     end

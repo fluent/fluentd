@@ -89,7 +89,7 @@ module Fluentd
           load plugin
         rescue ::Exception => e
           msg = "#{plugin.inspect}: #{e.message} (#{e.class})"
-          Fluentd.logger.warn "Error loading Fluent plugin #{msg}"  # TODO log
+          Engine.log.warn "Error loading Fluent plugin #{msg}"  # TODO log
         end
       }
     end
@@ -106,7 +106,7 @@ module Fluentd
 
       def register(type, klass)
         type = type.to_sym
-        #Fluentd.logger.trace { "registered #{@kind} plugin '#{type}'" }
+        #Engine.log.trace { "registered #{@kind} plugin '#{type}'" }
         @map[type] = klass
       end
 

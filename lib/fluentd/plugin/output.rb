@@ -21,7 +21,7 @@ module Fluentd
     require_relative '../agent'
     require_relative '../collector'
     require_relative '../actor'
-    require_relative '../worker_global_methods'
+    require_relative '../engine'
 
     class Output < Agent
       # provides #emit, #emits
@@ -47,7 +47,7 @@ module Fluentd
       def handle_error(tag, time, record, &block)
         block.call
       rescue => e
-        Fluentd.log.warn "emit error", :error => e
+        Engine.log.warn "emit error", :error => e
         stats.emit_error(tag, time, record)
         nil
       end

@@ -36,7 +36,7 @@ module Fluentd
         if @status_log_interval
           actor.every(@status_log_interval) do
             next unless @running
-            Fluentd.log.info "output records: #{@logs}"
+            Engine.log.info "output records: #{@logs}"
           end
         end
 

@@ -1,4 +1,3 @@
-require 'fluentd/worker_global_methods'
 require 'fluentd/plugin/util/text_parser'
 require 'time'
 

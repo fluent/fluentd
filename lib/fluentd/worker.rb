@@ -19,7 +19,7 @@ module Fluentd
 
   require 'sigdump'
 
-  require_relative 'worker_global_methods'
+  require_relative 'engine'
   require_relative 'root_agent'
   require_relative 'plugin_registry'
 
@@ -36,15 +36,13 @@ module Fluentd
       @stop_flag = ServerEngine::BlockingFlag.new
       super(options)  # initialize ServerEngine::ConfigLoader
       @log = create_logger  # ServerEngine::ConfigLoader#create_logger
+
+      Engine.plugins = PluginRegistry.new
+      Engine.logger = @log
     end
 
     def configure(conf)
-      @server_id = conf['id']
-
-      @log.info "Starting worker #{@server_id}"
-
-      # setup worker_global_methods.rb
-      Fluentd.setup!(logger: @log, plugin: PluginRegistry.new)
+      @worker_id = conf['id']
 
       # Worker has a RootAgent
       root_agent = RootAgent.new
@@ -71,7 +69,7 @@ module Fluentd
       nil
 
     ensure
-      @log.info "Shutting down worker #{@server_id}"
+      @log.info "Shutting down worker #{@worker_id}"
 
       # call Agent#stop in reversed order
       started_agents.reverse.map {|a|

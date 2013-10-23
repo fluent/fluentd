@@ -19,14 +19,11 @@ module Fluentd
 
   class Engine
     module ClassMethods
-      # Rinda::TupleSpace initialized at Server#before_run
-      attr_accessor :tuples
-
-      # Fluentd::Logger instance
+      # Fluentd::Logger initialized by Worker#initialize
       attr_accessor :logger
       alias_method :log, :logger
 
-      # PluginRegistry instance
+      # PluginRegistry initialized by Worker#initialize
       attr_accessor :plugins
 
       # SocketManager instance
@@ -40,6 +37,13 @@ module Fluentd
 
       def now
         Time.now
+      end
+
+      def setup_defaults!
+        logger ||= Logger.new(STDERR)
+        plugins ||= PluginRegistry.new
+        sockets ||= SocketManager::NonManagedAPI.new
+        shared_data ||= {}
       end
     end
 

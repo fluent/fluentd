@@ -54,8 +54,8 @@ module Fluentd
           # close io on error
           close
           detach
-          Fluentd.log.error $!.to_s
-          Fluentd.log.error_backtrace
+          Engine.log.error $!.to_s
+          Engine.log.error_backtrace
         end
       end
     end

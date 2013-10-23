@@ -49,8 +49,8 @@ module Fluentd
           @pf_file.sync = true
           @pf = PositionFile.parse(@pf_file)
         else
-          Fluentd.log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
-          Fluentd.log.warn "this parameter is highly recommended to save the position to resume tailing."
+          Engine.log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
+          Engine.log.warn "this parameter is highly recommended to save the position to resume tailing."
         end
 
         configure_parser(conf)
@@ -91,8 +91,8 @@ module Fluentd
               es.add(time, record)
             end
           rescue => e
-            Fluentd.log.warn line.dump, :error => e.to_s
-            Fluentd.log.debug_backtrace
+            Engine.log.warn line.dump, :error => e.to_s
+            Engine.log.debug_backtrace
           end
         }
 
@@ -220,11 +220,11 @@ module Fluentd
             end
             last_io = @rotate_queue.empty? ? @io_handler.io : @rotate_queue.last.io
             if last_io == nil
-              Fluentd.log.info "detected rotation of #{@path}"
+              Engine.log.info "detected rotation of #{@path}"
               # rotate immediately if previous file is nil
               wait = 0
             else
-              Fluentd.log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
+              Engine.log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
               wait = @rotate_wait
               wait -= @rotate_queue.first.wait unless @rotate_queue.empty?
             end
@@ -244,8 +244,8 @@ module Fluentd
                 @callback.call
               rescue => e
                 # TODO log?
-                Fluentd.log.error e.to_s
-                Fluentd.log.error_backtrace
+                Engine.log.error e.to_s
+                Engine.log.error_backtrace
               end
             end
           end
@@ -307,7 +307,7 @@ module Fluentd
 
         class IOHandler
           def initialize(io, pe, &receive_lines)
-            Fluentd.log.info "following tail of #{io.path}"
+            Engine.log.info "following tail of #{io.path}"
             @io = io
             @pe = pe
             @receive_lines = receive_lines
@@ -349,8 +349,8 @@ module Fluentd
             end while read_more
 
           rescue => e
-            Fluentd.log.error e.to_s
-            Fluentd.log.error_backtrace
+            Engine.log.error e.to_s
+            Engine.log.error_backtrace
             close
           end
 
@@ -408,8 +408,8 @@ module Fluentd
             end
 
           rescue => e
-            Fluentd.log.error e.to_s
-            Fluentd.log.error_backtrace
+            Engine.log.error e.to_s
+            Engine.log.error_backtrace
           end
         end
       end
