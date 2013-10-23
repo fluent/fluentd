@@ -32,7 +32,6 @@ module Fluentd
   require_relative 'fluentd/root_agent'
   require_relative 'fluentd/server'
   require_relative 'fluentd/socket_manager'
-  require_relative 'fluentd/stats_collector'
   require_relative 'fluentd/version'
   require_relative 'fluentd/worker'
   require_relative 'fluentd/engine'

@@ -23,7 +23,6 @@ module Fluentd
   require_relative 'event_emitter'
   require_relative 'collectors/null_collector'
   require_relative 'collectors/no_match_notice_collector'
-  require_relative 'stats_collector'  # TODO file/class name
 
   #
   # Fluentd forms a tree structure:
@@ -58,11 +57,21 @@ module Fluentd
 
       @labels = {}
 
+      @error_label = Collectors::NullCollector.new
+      @log_label = Collectors::NullCollector.new
+
       # init EventEmitter
       init_event_emitter(self, Collectors::NoMatchNoticeCollector.new)
+    end
 
-      # set Agent#stats_collector
-      self.stats_collector = StatsCollector.new(self)
+    def emit_error(tag, time, record)
+      @error_label.collector.emit(tag, time, record)
+    end
+
+    def emit_log(time, message, record)
+      record = record.dup
+      record['message'] = message
+      @log_label.collector.emit("fluentd", time, record)
     end
 
     def configure(conf)
@@ -84,17 +93,23 @@ module Fluentd
         end
       }
 
-      add_label_impl(ErrorEventLabel, ERROR_LABEL,
+      @error_label = add_label_impl(Label, ERROR_LABEL,
                      error_label_config, Collectors::ErrorNoticeCollector.new)
 
-      log_agent = add_label_impl(LogMessageLabel, LOG_LABEL,
+      @log_label = add_label_impl(Label, LOG_LABEL,
                      log_label_config, Collectors::NullCollector.new)
 
-      # hooks error logs to send them to the LogMessageLabel
-      Engine.log.extend(StatsCollectLoggerMixin)
-      Engine.log.init_stats_collect("fluentd", log_agent.collector)
+      # override Fluentd::Logger#add_event
+      Engine.log.extend(EventCollectLoggerMixin)
 
       nil
+    end
+
+    module EventCollectLoggerMixin
+      def add_event(level, time, message, record, caller_stack)
+        Engine.root_agent.emit_log(time.to_i, message, record)
+        super
+      end
     end
 
     # root_router api
@@ -121,6 +136,10 @@ module Fluentd
       self
     end
 
+    class Label < Agent
+      include EventEmitter
+    end
+
     private
 
     def add_label_impl(klass, label, e, default_collector)
@@ -133,55 +152,5 @@ module Fluentd
       @labels[label] = agent
     end
 
-    class Label < Agent
-      include EventEmitter
-    end
-
-    class ErrorEventLabel < Label
-      def init_stats_source(stats_collector)
-        # prevent infinite loop
-        c = SimpleDelegator.new(stats_collector)
-        c.extend(NoErrorStatsCollectorMixin)
-        super(c)
-      end
-
-      module NoErrorStatsCollectorMixin
-        def emit_error(tag, time, record)
-          # do nothing
-        end
-        def emits_error(tag, es)
-          # do nothing
-        end
-      end
-    end
-
-    class LogMessageLabel < Label
-      def configure(conf)
-        # prevent infinite loop
-        c = SimpleDelegator.new(conf)
-        c.extend(NoStatsLoggerMixin)
-        super(c)
-      end
-
-      # prevents infinite loop
-      module NoStatsLoggerMixin
-        def collect_stats(level, message, record, time)
-        end
-      end
-    end
-
-    module StatsCollectLoggerMixin
-      def init_stats_collect(tag, collector)
-        @tag = tag
-        @collector = collector
-      end
-
-      def collect_stats(level, message, record, time)
-        record['message'] = message
-        tag = "#{@tag}.#{level}"
-        @collector.emit(tag, time.to_i, record)
-      end
-    end
   end
-
 end

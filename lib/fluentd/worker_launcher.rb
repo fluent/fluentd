@@ -42,23 +42,28 @@ module Fluentd
       super
     end
 
-    # ServerEngine callback
-    def before_fork
-      # first attempt should not restart worker automatically to
-      # notice users errors.
-      run_worker
-
-      # check worker became ready to run at least once
-      unless Engine.shared_data["fluentd_worker_#{worker_id}_configured"]
-        raise "Worker configuration failed"
-      end
-    end
+    # TODO
+    ## ServerEngine callback
+    #def before_fork
+    #  # first attempt should not restart worker automatically to
+    #  # notice users errors.
+    #  run_worker
+    #
+    #  # check worker became ready to run at least once
+    #  unless Engine.shared_data["fluentd_worker_#{worker_id}_configured"]
+    #    raise "Worker configuration failed"
+    #  end
+    #end
 
     # ServerEngine callback
     def run
+      first = true
       until @stop_flag.set?
+        unless first
+          logger.info "Worker #{worker_id} exited unexpectedly. Restarting."
+          first = false
+        end
         run_worker
-        logger.info "Worker #{worker_id} exited unexpectedly. Restarting."
       end
     rescue
       logger.error e.to_s

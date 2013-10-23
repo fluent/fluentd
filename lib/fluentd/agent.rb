@@ -18,7 +18,6 @@
 module Fluentd
 
   require_relative 'configurable'
-  require_relative 'stats_collector'  # TODO file/class name
 
   #
   # Agent is the base class of input, output and filter plugins.
@@ -29,7 +28,6 @@ module Fluentd
 
     def initialize
       @agents = []
-      @stats_collector = StatsCollector::NullCollector.new
       init_configurable  # initialize Configurable
       super
     end
@@ -37,16 +35,11 @@ module Fluentd
     # nested agents
     attr_reader :agents
 
-    attr_accessor :stats_collector
-    alias_method :stats, :stats_collector
-
     def configure(conf)
       super
     end
 
     def add_agent(agent)
-      # inherits stats_collector
-      agent.stats_collector = @stats_collector
       @agents << agent
       self
     end

@@ -26,10 +26,10 @@ module Fluentd
       # PluginRegistry initialized by Worker#initialize
       attr_accessor :plugins
 
-      # SocketManager instance
+      # SocketManager initialize by WorkerLauncher.main
       attr_accessor :sockets
 
-      # RootAgent instance
+      # RootAgent initialize by Worker#configure
       attr_accessor :root_agent
 
       # Globally shared data initialized by Server#initialize

@@ -95,7 +95,7 @@ module Fluentd
 
         message << block.call if block
 
-        add_event(#{level}, message, record, caller(1))
+        add_event(#{level}, Time.now, message, record, caller(1))
       end
 
       def #{name}_backtrace(backtrace=$!.backtrace)
@@ -107,15 +107,12 @@ module Fluentd
 
     private
 
-    def add_event(level, message, record, caller_stack)
-      time = Time.now
+    def add_event(level, time, message, record, caller_stack)
       self << format_event(level, time, message, record, caller_stack)
       nil
     end
 
-    def add_backtrace(level, backtrace, caller_stack)
-      time = Time.now
-
+    def add_backtrace(level, time, backtrace, caller_stack)
       backtrace.each {|message|
         self << format_event(level, time, "  #{message}", nil, caller_stack)
       }
