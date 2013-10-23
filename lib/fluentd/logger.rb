@@ -21,171 +21,120 @@ module Fluentd
   require 'serverengine'
   require 'forwardable'
 
-  class Logger
-    def initialize(dev, config={})
-      @dl = ServerEngine::DaemonLogger.new(dev, config)
+  class Logger < ServerEngine::DaemonLogger
+    def initialize(logdev, config={})
+      super
 
-      io = @dl.instance_eval { @logdev }
-      if io.tty?
-        enable_color
-      end
-
-      @debug_mode = true
+      @enable_filename = true
       @time_format = '%Y-%m-%d %H:%M:%S %z '
-      @tag = 'fluent'
-      @level = LEVEL_DEBUG
+
+      self.enable_color = logdev.respond_to?(:tty?) && logdev.tty?
     end
 
-    attr_accessor :tag
     attr_accessor :time_format
 
-    extend Forwardable
+    attr_accessor :enable_filename
 
-    def_delegators :@dl, :hook_stdout!, :hook_stderr!, :reopen!, :reopen, :close, :<<, :path=
-
-    module TTYColor
-      RESET   = "\033]R"
-      CRE     = "\033[K"
-      CLEAR   = "\033c"
-      NORMAL  = "\033[0;39m"
-      RED     = "\033[1;31m"
-      GREEN   = "\033[1;32m"
-      YELLOW  = "\033[1;33m"
-      BLUE    = "\033[1;34m"
-      MAGENTA = "\033[1;35m"
-      CYAN    = "\033[1;36m"
-      WHITE   = "\033[1;37m"
-    end
-
-    LEVEL_FATAL = ::Logger::FATAL
-    LEVEL_ERROR = ::Logger::ERROR
-    LEVEL_WARN  = ::Logger::WARN
-    LEVEL_INFO  = ::Logger::INFO
-    LEVEL_DEBUG = ::Logger::DEBUG
-    LEVEL_TRACE = -1
-
-    def level=(expr)
-      case expr.to_s
-      when 'fatal', LEVEL_FATAL.to_s
-        @level = LEVEL_FATAL
-      when 'error', LEVEL_ERROR.to_s
-        @level = LEVEL_ERROR
-      when 'warn', LEVEL_WARN.to_s
-        @level = LEVEL_WARN
-      when 'info', LEVEL_INFO.to_s
-        @level = LEVEL_INFO
-      when 'debug', LEVEL_DEBUG.to_s
-        @level = LEVEL_DEBUG
-      when 'trace', LEVEL_TRACE.to_s
-        @level = LEVEL_TRACE
+    def enable_color=(bool)
+      if bool
+        @level_colors = LEVEL_COLORS
+        @reset_color = TTY_NORMAL
       else
-        raise ArgumentError, "invalid log level: #{expr}"
-      end
-
-      @level
-    end
-
-    def enable_color(b=true)
-      if b
-        @color_trace = TTYColor::BLUE
-        @color_debug = TTYColor::WHITE
-        @color_info  = TTYColor::GREEN
-        @color_warn  = TTYColor::YELLOW
-        @color_error = TTYColor::MAGENTA
-        @color_fatal = TTYColor::RED
-        @color_reset = TTYColor::NORMAL
-      else
-        @color_trace = ''
-        @color_debug = ''
-        @color_info  = ''
-        @color_warn  = ''
-        @color_error = ''
-        @color_fatal = ''
-        @color_reset = ''
+        @level_colors = []
+        @reset_color = nil
       end
       self
     end
 
-    %w[fatal error warn info debug trace].each do |level|
-      eval <<-CODE
-      def #{level}?
-        @level <= LEVEL_#{level.upcase}
-      end
+    def enable_color(bool)
+      @reset_color != nil
+    end
 
-      def on_#{level}(&block)
-        return if @level > LEVEL_#{level.upcase}
+    TTY_RESET   = "\033]R"
+    TTY_CRE     = "\033[K"
+    TTY_CLEAR   = "\033c"
+    TTY_NORMAL  = "\033[0;39m"
+    TTY_RED     = "\033[1;31m"
+    TTY_GREEN   = "\033[1;32m"
+    TTY_YELLOW  = "\033[1;33m"
+    TTY_BLUE    = "\033[1;34m"
+    TTY_MAGENTA = "\033[1;35m"
+    TTY_CYAN    = "\033[1;36m"
+    TTY_WHITE   = "\033[1;37m"
+
+    LEVEL_NAMES  = %w[trace     debug      info       warn        error        fatal]
+    LEVEL_COLORS =   [TTY_BLUE, TTY_WHITE, TTY_GREEN, TTY_YELLOW, TTY_MAGENTA, TTY_RED]
+
+    #
+    # 1) override logging methods to support structured events
+    # 2) add on_{level}(&block) methods
+    # 3) add {level}_backtrace(backtrace=$!.backtrace) methods
+    #
+    %w[trace debug info warn error fatal].each_with_index do |name,level|
+      eval <<-CODE
+      def on_#{name}(&block)
+        return if @level > #{level-1}
         block.call if block
       end
 
-      def #{level}(*args, &block)
-        return if @level > LEVEL_#{level.upcase}
-        add_event('#{level}', @color_#{level}, args, block)
+      def #{name}(*args, &block)
+        return if @level > #{level-1}
+
+        message = ''
+
+        record = {}
+        args.each {|a|
+          if a.is_a?(Hash)
+            a.each_pair {|k,v|
+              record[k.to_s] = v
+            }
+          else
+            message << a.to_s
+          end
+        }
+
+        message << block.call if block
+
+        add_event(#{level}, message, record, caller(1))
       end
 
-      def #{level}_backtrace(backtrace=$!.backtrace)
-        return if @level > LEVEL_#{level.upcase}
-        add_backtrace('#{level}', backtrace)
+      def #{name}_backtrace(backtrace=$!.backtrace)
+        return if @level > #{level-1}
+        add_backtrace(#{level}, backtrace, caller(1))
       end
       CODE
     end
 
     private
-    def add_event(level, color, args, block)
-      message = ''
 
-      record = {}
-      args.each {|a|
-        if a.is_a?(Hash)
-          a.each_pair {|k,v|
-            record[k.to_s] = v
-          }
-        else
-          message << a.to_s
-        end
-      }
-
-      message << block.call if block
-
-      record.each_pair {|k,v|
-        message << " #{k}=#{v.inspect}"
-      }
-
+    def add_event(level, message, record, caller_stack)
       time = Time.now
-      self << format(2, time, level, color, message, @color_reset)
-
-      collect_stats(level, message, record, time)
-
+      self << format_event(level, time, message, record, caller_stack)
       nil
     end
 
-    def add_backtrace(level, backtrace)
+    def add_backtrace(level, backtrace, caller_stack)
       time = Time.now
 
       backtrace.each {|message|
-        self << format(5, time, level, '  ', message, nil)
+        self << format_event(level, time, "  #{message}", nil, caller_stack)
       }
 
       nil
     end
 
-    def format(stack_depth, time, level, prefix, message, suffix)
+    def format_event(level, time, message, record, caller_stack)
       time_str = time.strftime(@time_format)
 
-      if @debug_mode
-        at_line = caller(stack_depth+1)[0]
-        if match = /^(.+?):(\d+)(?::in `(.*)')?/.match(at_line)
-          file = match[1].split('/')[-2,2].join('/')
-          line = match[2]
-          method = match[3]
-          return "#{prefix}#{time_str}[#{level}]: #{file}:#{line}:#{method}: #{message}#{suffix}\n"
-        end
+      if @enable_filename && m = /^(.+?):(\d+)(?::in `(.*)')?/.match(caller_stack.first || '')
+        dir_fname = m[1].split('/')[-2,2]
+        file = dir_fname ? dir_fname.join('/') : m[1]
+        line = m[2]
+        method = m[3]
+        return "#{@level_colors[level]}#{time_str}[#{LEVEL_NAMES[level]}]: #{file}:#{line}:#{method}: #{message}#{@reset_color}\n"
+      else
+        return "#{@level_colors[level]}#{time_str}[#{LEVEL_NAMES[level]}]: #{message}#{@reset_color}\n"
       end
-
-      return "#{prefix}#{time_str}[#{level}]: #{message}#{suffix}\n"
-    end
-
-    def collect_stats(level, message, record, time)
-      # See RootAgent::StatsCollectLoggerMixin
     end
   end
 
