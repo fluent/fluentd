@@ -20,7 +20,7 @@ module Fluentd
   require 'delegate'  # SimpleDelegator
 
   require_relative 'agent'
-  require_relative 'emitter_agent'
+  require_relative 'agent'
   require_relative 'collectors/null_collector'
   require_relative 'collectors/no_match_notice_collector'
 
@@ -44,9 +44,9 @@ module Fluentd
   # Worker is responsible to start/stop/shutdown all nested agents.
   # RootAgent initializes top-level agents, labels and built-in labels (LOG and ERROR)
   #
-  # Message routing is implemented in EmitterAgent module. See also message_source.rb.
+  # Message routing is implemented in Agent class. See also agent.rb.
   #
-  class RootAgent < EmitterAgent
+  class RootAgent < Agent
     LOG_LABEL = "LOG".freeze
     ERROR_LABEL = "ERROR".freeze
 
@@ -141,7 +141,7 @@ module Fluentd
       self
     end
 
-    class Label < EmitterAgent
+    class Label < Agent
     end
 
     private

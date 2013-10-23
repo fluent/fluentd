@@ -43,8 +43,6 @@ module Fluentd
   #      2.match  b.**      --> match
   #    ] --- match_patterns
   #
-  # See also EmitterAgent#configure_agent and #configure_agent_with_offset.
-  #
   class EventRouter
     include Collector
 

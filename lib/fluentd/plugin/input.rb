@@ -18,11 +18,11 @@
 module Fluentd
   module Plugin
 
-    require_relative '../emitter_agent'
+    require_relative '../agent'
     require_relative '../actor'
     require_relative '../engine'
 
-    class Input < EmitterAgent
+    class Input < Agent
       # provides #actor
       include Actor::AgentMixin
     end
