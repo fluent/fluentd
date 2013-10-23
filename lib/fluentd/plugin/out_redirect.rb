@@ -18,10 +18,10 @@
 module Fluentd
   module Plugin
 
+    require_relative '../collectors/label_redirect_collector'
+
     class RedirectOutput < Output
       Plugin.register_output('redirect', self)
-
-      include EventEmitter
 
       def configure(conf)
         super
@@ -29,8 +29,7 @@ module Fluentd
         @label = conf['label']
         @tag = conf['tag']
 
-        # EventEmitter#label_redirect
-        label_redirect(@label)
+        self.default_collector = Collectors::LabelRedirectCollector.new(root_agent, @label)
       end
 
       def emit(tag, time, record)

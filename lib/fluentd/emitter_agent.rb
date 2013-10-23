@@ -21,27 +21,28 @@ module Fluentd
   require_relative 'config_error'
   require_relative 'event_router'
   require_relative 'match_pattern'
+  require_relative 'agent'
   require_relative 'engine'
   require_relative 'collectors/label_redirect_collector'
 
   #
-  # EventEmitter is a base module of input and filter plugins.
-  # EventEmitter has the capability to generates events into fluentd's message router.
+  # EmitterAgent is a base module of input and filter plugins.
+  # EmitterAgent has the capability to generates events into fluentd's message router.
   #
-  # EventEmitter has:
+  # EmitterAgent has:
   #
-  #   * a parent EventEmitter, which is the default_collector of this EventEmitter
-  #   * nested EventEmitter instances, whose parent is this EventEmitter
+  #   * a parent EmitterAgent, which is the default_collector of this EmitterAgent
+  #   * nested EmitterAgent instances, whose parent is this EmitterAgent
   #
   #             +--------------+
-  #             | EventEmitter |       --- parent EventEmitter
+  #             | EmitterAgent |       --- parent EmitterAgent
   #             |     ...      |           input, filter plugin or RootAgent
   #             +--------------+
   #                    ^
   #                    | default_collector
   #                    |
   #         +--------- | ---------+
-  #        ||     EventEmitter    ||
+  #        ||     EmitterAgent    ||
   #        ||          |          ||   An agent instance
   #        ||    <EventRouter>    ||
   #        ||      /       \      ||
@@ -51,30 +52,26 @@ module Fluentd
   #                |       | default_collector
   #               /         \
   #  +-----------/---+   +---\-----------+
-  #  | EventEmitter |   | EventEmitter |  --- nested <source>
+  #  | EmitterAgent  |   | EmitterAgent  |  --- nested <source>
   #  |      ...      |   |      ...      |      input plugins
   #  +---------------+   +---------------+
   #
-  # When EventEmitter generates an event:
+  # When EmitterAgent generates an event:
   #
-  #   1. EventEmitter sends it to the internal EventRouter
+  #   1. EmitterAgent sends it to the internal EventRouter
   #   2. The EventRouter tries to match it with registered output (or filter) plugins
   #   If no plugins match the event,
-  #   3. it sends the event to default_collector (= parent EventEmitter)
-  #      The parent EventEmitter does the same thing; tries to match output (or filter)
+  #   3. it sends the event to default_collector (= parent EmitterAgent)
+  #      The parent EmitterAgent does the same thing; tries to match output (or filter)
   #      plugins in the the internal EventRouter, or sends it to the default_collector.
   #
   # The root node of this routing tree is RootAgent. RootAgent sends the event to
   # NoMatchNoticeCollector if no output (or filter) plugins match.
   #
-  module EventEmitter
-    include Configurable
-
-    # call this method in subclass
-    def init_event_emitter(root_agent, default_collector)
-      @root_agent = root_agent
-      @event_router = EventRouter.new(default_collector)
-      nil
+  class EmitterAgent < Agent
+    def initialize
+      super
+      @event_router = EventRouter.new(Collectors::NullCollector.new)
     end
 
     # message source API
@@ -82,10 +79,8 @@ module Fluentd
       @event_router
     end
 
-    # routes events into a label instead of the internal EventRouter
-    def label_redirect(label)
-      @event_router.default_collector = Collectors::LabelRedirectCollector.new(@root_agent, label)
-      nil
+    def default_collector=(collector)
+      @event_router.default_collector = collector
     end
 
     # override Agent#configure
@@ -118,7 +113,8 @@ module Fluentd
       log.info "adding source", :type=>type
 
       agent = Engine.plugins.new_input(self, type)
-      configure_agent(agent, conf)
+      agent.configure(conf)
+      agent.default_collector = @event_router
 
       # <source> does not match pattern; don't register to EventRouter
 
@@ -129,7 +125,8 @@ module Fluentd
       log.info "adding match", :pattern=>pattern, :type=>type
 
       agent = Engine.plugins.new_output(self, type)
-      configure_agent(agent, conf)
+      agent.configure(conf)
+      agent.default_collector = @event_router
 
       @event_router.add_collector(pattern, agent)  # register to EventRouter
 
@@ -140,31 +137,12 @@ module Fluentd
       log.info "adding filter", :pattern=>pattern, :type=>type
 
       agent = Engine.plugins.new_filter(self, type)
-      configure_agent_with_offset(agent, conf)
+      agent.configure(conf)
+      agent.default_collector = @event_router.current_offset
 
       @event_router.add_collector(pattern, agent)  # register to EventRouter
 
       return agent
-    end
-
-    private
-
-    def configure_agent_with_offset(agent, conf)
-      configure_agent_impl(agent, conf, @event_router.current_offset)
-    end
-
-    def configure_agent(agent, conf)
-      configure_agent_impl(agent, conf, @event_router)
-    end
-
-    def configure_agent_impl(agent, conf, default_collector)
-      if agent.is_a?(EventEmitter)
-        # this agent is a nested EventEmitter.
-        # setup the default_collector of the agent here
-        agent.init_event_emitter(@root_agent, default_collector)
-      end
-
-      agent.configure(conf)
     end
   end
 end

@@ -20,7 +20,7 @@ module Fluentd
   require 'delegate'  # SimpleDelegator
 
   require_relative 'agent'
-  require_relative 'event_emitter'
+  require_relative 'emitter_agent'
   require_relative 'collectors/null_collector'
   require_relative 'collectors/no_match_notice_collector'
 
@@ -44,11 +44,9 @@ module Fluentd
   # Worker is responsible to start/stop/shutdown all nested agents.
   # RootAgent initializes top-level agents, labels and built-in labels (LOG and ERROR)
   #
-  # Message routing is implemented in EventEmitter module. See also message_source.rb.
+  # Message routing is implemented in EmitterAgent module. See also message_source.rb.
   #
-  class RootAgent < Agent
-    include EventEmitter
-
+  class RootAgent < EmitterAgent
     LOG_LABEL = "LOG".freeze
     ERROR_LABEL = "ERROR".freeze
 
@@ -63,8 +61,7 @@ module Fluentd
       # overwrite Agent#root_agent
       @root_agent = self
 
-      # init EventEmitter
-      init_event_emitter(self, Collectors::NoMatchNoticeCollector.new)
+      self.default_collector = Collectors::NoMatchNoticeCollector.new
     end
 
     def configure(conf)
@@ -86,10 +83,10 @@ module Fluentd
         end
       }
 
-      @error_label = add_label_impl(Label, ERROR_LABEL,
+      @error_label = add_label_impl(ERROR_LABEL,
                      error_label_config, Collectors::ErrorNoticeCollector.new)
 
-      @log_label = add_label_impl(Label, LOG_LABEL,
+      @log_label = add_label_impl(LOG_LABEL,
                      log_label_config, Collectors::NullCollector.new)
 
       # override Fluentd::Logger#add_event
@@ -125,7 +122,7 @@ module Fluentd
       if label = @labels[label]
         return label.collector.emits(tag, es)
       else
-        @default_collector.emits(tag, es)  # NoMatchNoticeCollector
+        collector.emits(tag, es)
       end
     end
 
@@ -133,27 +130,26 @@ module Fluentd
       if label = @labels[label]
         return label.collector.short_circuit(tag)
       else
-        @default_collector.short_circuit(tag)
+        collector.short_circuit(tag)
       end
     end
 
     def add_label(label, e)
       # TODO validate label name
 
-      add_label_impl(Label, label, e, Collectors::NoMatchNoticeCollector.new)
+      add_label_impl(label, e, Collectors::NoMatchNoticeCollector.new)
       self
     end
 
-    class Label < Agent
-      include EventEmitter
+    class Label < EmitterAgent
     end
 
     private
 
-    def add_label_impl(klass, label, e, default_collector)
-      agent = klass.new
+    def add_label_impl(label, e, default_collector)
+      agent = Label.new
       agent.parent_agent = self
-      agent.init_event_emitter(self, default_collector)
+      agent.default_collector = default_collector
 
       agent.configure(e)
 

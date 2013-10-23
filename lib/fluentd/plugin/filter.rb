@@ -19,13 +19,9 @@ module Fluentd
   module Plugin
 
     require_relative 'output'
-    require_relative '../event_emitter'
     require_relative '../engine'
 
     class Filter < Output
-      # provides #collector
-      include EventEmitter
-
       # provides #actor
       include Actor::AgentMixin
     end

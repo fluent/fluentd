@@ -18,13 +18,12 @@
 module Fluentd
   module Plugin
 
-    require_relative '../agent'
+    require_relative '../emitter_agent'
     require_relative '../collector'
     require_relative '../actor'
     require_relative '../engine'
 
-    class Output < Agent
-      # provides #emit, #emits
+    class Output < EmitterAgent
       include Collector
 
       # provides #actor
