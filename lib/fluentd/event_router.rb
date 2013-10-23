@@ -57,7 +57,7 @@ module Fluentd
 
     MATCH_CACHE_SIZE = 1024
 
-    def add_collector(pattern, collector)
+    def add_pattern(pattern, collector)
       @match_patterns << pattern
       @match_collectors << collector
       nil

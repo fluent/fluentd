@@ -51,18 +51,21 @@ module Fluentd
     def new_input(parent_agent, type)
       a = @input.lookup(type).new
       a.parent_agent = parent_agent
+      a.default_collector = parent_agent.collector
       return a
     end
 
     def new_output(parent_agent, type)
       a = @output.lookup(type).new
       a.parent_agent = parent_agent
+      a.default_collector = parent_agent.collector
       return a
     end
 
     def new_filter(parent_agent, type)
       a = @filter.lookup(type).new
       a.parent_agent = parent_agent
+      a.default_collector = parent_agent.collector
       return a
     end
 

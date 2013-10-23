@@ -84,9 +84,6 @@ module Fluentd
 
       agent = Engine.plugins.new_input(self, type)
       agent.configure(conf)
-      agent.default_collector = @event_router
-
-      # <source> does not match pattern; don't register to EventRouter
 
       return agent
     end
@@ -96,9 +93,8 @@ module Fluentd
 
       agent = Engine.plugins.new_output(self, type)
       agent.configure(conf)
-      agent.default_collector = @event_router
 
-      @event_router.add_collector(pattern, agent)  # register to EventRouter
+      @event_router.add_pattern(pattern, agent)
 
       return agent
     end
@@ -107,10 +103,13 @@ module Fluentd
       log.info "adding filter", :pattern=>pattern, :type=>type
 
       agent = Engine.plugins.new_filter(self, type)
-      agent.configure(conf)
+
+      # overwrite default_collector
       agent.default_collector = @event_router.current_offset
 
-      @event_router.add_collector(pattern, agent)  # register to EventRouter
+      agent.configure(conf)
+
+      @event_router.add_pattern(pattern, agent)
 
       return agent
     end
