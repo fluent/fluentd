@@ -23,7 +23,6 @@ module Fluentd
   require 'fluentd/label'
   require 'fluentd/collectors/null_collector'
   require 'fluentd/collectors/no_match_notice_collector'
-  require 'fluentd/collectors/error_notice_collector'
 
   #
   # Fluentd forms a tree structure to manage plugins:
@@ -71,9 +70,7 @@ module Fluentd
       # internal log stream collector
       @log_collector = Collectors::NullCollector.new
 
-      # if an event doesn't even match top-level patterns,
-      # NoMatchNoticeCollector shows warnings.
-      self.default_collector = Collectors::NoMatchNoticeCollector.new
+      self.default_collector = Collectors::NullCollector.new
     end
 
     def configure(conf)
@@ -98,14 +95,14 @@ module Fluentd
 
       # initialize built-in ERROR label
       error_label_config ||= conf.new_element("label", ERROR_LABEL)
-      error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWIthoutErrorCollector.new(self),
-                     error_label_config, Collectors::ErrorNoticeCollector.new)
+      error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWIthoutErrorCollector.new(self), error_label_config)
+      error_label.default_collector = Collectors::NullCollector.new
       @error_collector = error_label.collector  # overwrite @error_collector
 
       # initialize built-in LOG label
       log_label_config ||= conf.new_element("label", LOG_LABEL)
-      log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogCollector.new(self),
-                     log_label_config, Collectors::NullCollector.new)
+      log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogCollector.new(self), log_label_config)
+      log_label.default_collector = Collectors::NullCollector.new
       @log_collector = log_label.collector  # overwrite @log_collector
 
       nil
@@ -114,7 +111,9 @@ module Fluentd
     def add_label(name, e)
       # TODO validate label name
 
-      add_label_impl(name, self, e, Collectors::NoMatchNoticeCollector.new)
+      # if an event doesn't even match top-level patterns,
+      # NoMatchNoticeCollector shows warnings.
+      add_label_impl(name, self, e, NoMatchNoticeCollector.new)
       self
     end
 
@@ -160,15 +159,18 @@ module Fluentd
 
     private
 
-    def add_label_impl(name, self_or_proxy, e, default_collector)
-      agent = Label.new
-      agent.parent_agent = self_or_proxy
-      agent.default_collector = default_collector
+    def add_label_impl(name, self_or_proxy, e)
+      label = Label.new
+      label.parent_agent = self_or_proxy
 
-      agent.configure(e)
+      # if an event doesn't even match top-level patterns,
+      # NoMatchNoticeCollector shows warnings.
+      label.default_collector = Collectors::NoMatchNoticeCollector.new(label.logger)
 
-      @labels[name] = agent
+      label.configure(e)
+
+      @labels[name] = label
     end
-
   end
+
 end

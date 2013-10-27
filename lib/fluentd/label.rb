@@ -18,6 +18,7 @@
 module Fluentd
 
   require 'fluentd/agent'
+  require 'fluentd/collector'
 
   #
   # Label is an Agent with nested <source> elements.

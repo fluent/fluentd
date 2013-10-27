@@ -21,8 +21,33 @@ module Fluentd
     class NoMatchNoticeCollector
       include Collector
 
+      def initialize(logger)
+        @logger = logger
+      end
+
+      def emit(tag, time, record)
+        notice(tag)
+      end
+
       def emits(tag, es)
-        # TODO log
+        notice(tag)
+      end
+
+      def notice(tag)
+        # TODO use time instead of num of records
+        c = (@count += 1)
+        if c < 512
+          if Math.log(c) / Math.log(2) % 1.0 == 0
+            @logger.warn "no patterns matched", :tag=>tag
+            return
+          end
+        else
+          if c % 512 == 0
+            @logger.warn "no patterns matched", :tag=>tag
+            return
+          end
+        end
+        @logger.on_trace { @logger.trace "no patterns matched", :tag=>tag }
       end
     end
 
