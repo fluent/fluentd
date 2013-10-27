@@ -20,6 +20,7 @@ module Fluentd
   require 'fluentd/configurable'
   require 'fluentd/event_router'
   require 'fluentd/engine'
+  require 'fluentd/agent_logger'
   require 'fluentd/match_pattern'
   require 'fluentd/collectors/null_collector'
 
@@ -51,7 +52,14 @@ module Fluentd
       super
 
       @event_router = EventRouter.new(Collectors::NullCollector.new)
+
+      # See 'fluentd/agent_logger.rb' about AgentLogger.
+      @logger = AgentLogger.new(Engine.logger)
     end
+
+    attr_accessor :logger
+    alias_method :log, :logger
+    alias_method :log=, :logger=
 
     def collector
       @event_router
@@ -136,6 +144,7 @@ module Fluentd
     # called by PluginRegistry
     def parent_agent=(parent)
       @root_agent = parent.root_agent
+      @logger.root_agent = @root_agent
       parent._add_agent(self)
       @parent_agent = parent
     end

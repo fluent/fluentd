@@ -65,11 +65,11 @@ module Fluentd
 
       @labels = {}
 
-      # built-in label for error stream
-      @error_label = Collectors::NullCollector.new
+      # error stream collector
+      @error_collector = Collectors::NullCollector.new
 
-      # built-in label for logging stream
-      @log_label = Collectors::NullCollector.new
+      # internal log stream collector
+      @log_collector = Collectors::NullCollector.new
 
       # if an event doesn't even match top-level patterns,
       # NoMatchNoticeCollector shows warnings.
@@ -98,17 +98,15 @@ module Fluentd
 
       # initialize built-in ERROR label
       error_label_config ||= conf.new_element("label", ERROR_LABEL)
-      @error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWithoutErrorLabel.new(self),
+      error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWIthoutErrorCollector.new(self),
                      error_label_config, Collectors::ErrorNoticeCollector.new)
+      @error_collector = error_label.collector  # overwrite @error_collector
 
       # initialize built-in LOG label
       log_label_config ||= conf.new_element("label", LOG_LABEL)
-      @log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogLabel.new(self),
+      log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogCollector.new(self),
                      log_label_config, Collectors::NullCollector.new)
-
-      # override Fluentd::Logger#add_event to send logs to LOG label
-      Engine.log.extend(EventCollectLoggerMixin)
-      Engine.log.root_agent = self
+      @log_collector = log_label.collector  # overwrite @log_collector
 
       nil
     end
@@ -130,22 +128,17 @@ module Fluentd
       end
     end
 
-    module EventCollectLoggerMixin
-      attr_writer :root_agent
-      def add_event(level, time, message, record, caller_stack)
-        @root_agent.emit_log(time.to_i, message, record)
-        super
-      end
-    end
-
     # root_router api
     def emit_log(time, message, record)
       record = record.dup
       record['message'] = message
-      @log_label.collector.emit("fluentd", time, record)
+      @log_collector.emit("fluentd", time, record)
     end
 
-    class RootAgentProxyWithoutLogLabel < SimpleDelegator
+    # Agents nested in <label LOG> element use RootAgent wrapped by
+    # this RootAgentProxyWithoutLogCollector. Thus those elements don't
+    # send logs to @log_collector recursively.
+    class RootAgentProxyWithoutLogCollector < SimpleDelegator
       def emit_log(time, message, record)
         # do nothing to not cause infinite loop
       end
@@ -153,10 +146,13 @@ module Fluentd
 
     # root_router api
     def emit_error(tag, time, record)
-      @error_label.collector.emit(tag, time, record)
+      @error_collector.emit(tag, time, record)
     end
 
-    class RootAgentProxyWithoutErrorLabel < SimpleDelegator
+    # Agents nested in <label ERROR> element use RootAgent wrapped by
+    # this RootAgentProxyWIthoutErrorCollector. Thus those elements don't
+    # send logs to @error_collector recursively.
+    class RootAgentProxyWIthoutErrorCollector < SimpleDelegator
       def emit_error(tag, time, record)
         # do nothing to not cause infinite loop
       end

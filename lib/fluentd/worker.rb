@@ -21,6 +21,7 @@ module Fluentd
 
   require 'fluentd/engine'
   require 'fluentd/root_agent'
+  require 'fluentd/agent_logger'
   require 'fluentd/plugin_registry'
 
   #
@@ -40,10 +41,16 @@ module Fluentd
     def initialize(options)
       @stop_flag = ServerEngine::BlockingFlag.new
       super(options)  # initialize ServerEngine::ConfigLoader
-      @log = create_logger  # ServerEngine::ConfigLoader#create_logger
+
+      # ServerEngine::ConfigLoader#create_logger creates Fluentd::Logger.
+      logger = create_logger
+
+      # Worker uses AgentLogger so that Worker can send internal logs
+      # to <match> elements.
+      @log = AgentLogger.new(logger)
 
       # initialize Engine
-      Engine.logger = @log
+      Engine.logger = logger
       Engine.plugins = PluginRegistry.new
       Engine.sockets = SocketManager::NonManagedAPI.new
       # TODO socket manager is not used yet
@@ -77,11 +84,17 @@ module Fluentd
         started_agents << a
       }
 
+      # start sending Worker's internal logs to root_agent
+      @log.root_agent = Engine.root_agent
+
       @stop_flag.wait
       nil
 
     ensure
       @log.info "Shutting down worker #{@worker_id}"
+
+      # stop sending Worker's internal logs to root_agent
+      @log.root_agent = nil
 
       # call Agent#stop in reversed order
       started_agents.reverse.map {|a|

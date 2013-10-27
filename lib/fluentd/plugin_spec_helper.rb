@@ -5,7 +5,7 @@ require 'fluentd/plugin/input'
 require 'fluentd/plugin/output'
 require 'fluentd/plugin/filter'
 
-Engine.setup_test_environment!
+Fluentd::Engine.setup_test_environment!
 
 module Fluentd
   module PluginSpecHelper

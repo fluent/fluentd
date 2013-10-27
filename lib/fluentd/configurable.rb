@@ -33,7 +33,6 @@ module Fluentd
     end
 
     def configure(conf)
-      @log ||= Engine.logger
       @config = conf
 
       self.class.config_params.each_pair {|name,(block,opts)|
@@ -43,16 +42,13 @@ module Fluentd
           instance_variable_set(varname, val)
         end
         unless instance_variable_defined?(varname)
-          @log.error "config error in:\n#{conf}"
+          Engine.logger.error "config error in:\n#{conf}"
           raise ConfigError, "'#{name}' parameter is required"  # TODO config error
         end
       }
     end
 
     attr_reader :config
-
-    attr_accessor :log
-    alias_method :logger, :log
 
     CONFIG_TYPES = {}
 

@@ -17,9 +17,7 @@
 #
 module Fluentd
 
-  require 'logger'
   require 'serverengine'
-  require 'forwardable'
 
   class Logger < ServerEngine::DaemonLogger
     def initialize(logdev, config={})
@@ -46,7 +44,7 @@ module Fluentd
       self
     end
 
-    def enable_color(bool)
+    def enable_color
       @reset_color != nil
     end
 
