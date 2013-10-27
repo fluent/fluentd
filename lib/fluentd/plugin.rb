@@ -17,8 +17,8 @@
 #
 module Fluentd
 
-  require_relative 'engine'
-  require_relative 'configurable'
+  require 'fluentd/engine'
+  require 'fluentd/configurable'
 
   #
   # Plugin provides Plugin.register_XXX where XXX is one of:
@@ -47,13 +47,13 @@ module Fluentd
   end
 
   # loads base classes of plugins
-  require_relative 'event_collection'
-  require_relative 'config_error'
-  require_relative 'plugin/output'
-  require_relative 'plugin/input'
-  require_relative 'plugin/filter'
-  require_relative 'plugin/buffer'
-  require_relative 'plugin/buffered_output'
-  require_relative 'plugin/object_buffered_output'
-  require_relative 'plugin/time_sliced_output'
+  require 'fluentd/event_collection'
+  require 'fluentd/config_error'
+  require 'fluentd/plugin/output'
+  require 'fluentd/plugin/input'
+  require 'fluentd/plugin/filter'
+  require 'fluentd/plugin/buffer'
+  require 'fluentd/plugin/buffered_output'
+  require 'fluentd/plugin/object_buffered_output'
+  require 'fluentd/plugin/time_sliced_output'
 end

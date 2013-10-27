@@ -17,19 +17,30 @@
 #
 module Fluentd
 
-  require_relative 'configurable'
-  require_relative 'event_router'
-  require_relative 'engine'
-  require_relative 'match_pattern'
-  require_relative 'collectors/null_collector'
+  require 'fluentd/configurable'
+  require 'fluentd/event_router'
+  require 'fluentd/engine'
+  require 'fluentd/match_pattern'
+  require 'fluentd/collectors/null_collector'
 
   #
-  # Agent is a base module of input and filter plugins.
+  # Agent is the base class of Label, input, output and filter plugins.
+  #
   # Agent has:
   #
-  #   * A parent Agent, eventually reaches the root agent
+  #   * A parent Agent, eventually reaches the RootAgent
   #   * Nested Agent instances, whose parent is this Agent
-  #   * A EventRouter provided through `collector` attribute to route events
+  #
+  # Agent can:
+  #
+  #   * send events to other OutputAgents
+  #   * forward events to other OutputAgents (through EventRouter)
+  #
+  # Agent can't receive events (because Agent is not Collector).
+  # EventRouter and OutputAgents are Collector and can receive events.
+  #
+  # NextStep: 'fluentd/event_router.rb'
+  # NextStep: 'fluentd/label.rb'
   #
   class Agent
     include Configurable
@@ -38,6 +49,7 @@ module Fluentd
       @agents = []
       init_configurable  # initialize Configurable
       super
+
       @event_router = EventRouter.new(Collectors::NullCollector.new)
     end
 
@@ -52,20 +64,17 @@ module Fluentd
     # nested agents
     attr_reader :agents
 
+    # RootAgent
     attr_reader :root_agent
 
     def configure(conf)
       super
 
+      # initialize <match> and <filter> elements
       conf.elements.select {|e|
-        e.name == 'source' || e.name == 'match' || e.name == 'filter'
+        e.name == 'match' || e.name == 'filter'
       }.each {|e|
         case e.name
-        when 'source'
-          type = e['type']
-          raise ConfigError, "Missing 'type' parameter" unless type
-          add_source(type, e)
-
         when 'match'
           pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
           type = e['type'] || 'redirect'
@@ -77,56 +86,54 @@ module Fluentd
           add_filter(type, pattern, e)
         end
       }
-    end
 
-    def add_source(type, conf)
-      log.info "adding source", :type=>type
-
-      agent = Engine.plugins.new_input(self, type)
-      agent.configure(conf)
-
-      return agent
+      # <source> is initialized by Label because <source> can't
+      # be nested.
     end
 
     def add_match(type, pattern, conf)
-      log.info "adding match", :pattern=>pattern, :type=>type
+      log.info "adding match", pattern: pattern, type: type
 
-      agent = Engine.plugins.new_output(self, type)
-      agent.configure(conf)
+      # PluginRegistry#new_output adds the created Output to @agents
+      # (because Output is an Agent).
+      output = Engine.plugins.new_output(self, type)
+      output.configure(conf)
 
-      @event_router.add_pattern(pattern, agent)
+      @event_router.add_pattern(pattern, output)
 
-      return agent
+      return output
     end
 
     def add_filter(type, pattern, conf)
-      log.info "adding filter", :pattern=>pattern, :type=>type
+      log.info "adding filter", pattern: pattern, type: type
 
-      agent = Engine.plugins.new_filter(self, type)
+      # PluginRegistry#new_filter adds the created Filter to @agents
+      # (because Filter is an Agent).
+      filter = Engine.plugins.new_filter(self, type)
 
-      # overwrite default_collector
-      agent.default_collector = @event_router.current_offset
+      # overwrite default_collector to the offset, instead of the head
+      filter.default_collector = @event_router.current_offset
 
-      agent.configure(conf)
+      filter.configure(conf)
 
-      @event_router.add_pattern(pattern, agent)
+      @event_router.add_pattern(pattern, filter)
 
-      return agent
+      return filter
     end
 
     def start
-      # plugin API
+      # agent API called by Worker
     end
 
     def stop
-      # plugin API
+      # agent API called by Worker
     end
 
     def shutdown
-      # plugin API
+      # agent API called by Worker
     end
 
-    # internal use
+    # called by PluginRegistry
     def parent_agent=(parent)
       @root_agent = parent.root_agent
       parent._add_agent(self)

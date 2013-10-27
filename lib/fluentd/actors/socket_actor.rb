@@ -60,9 +60,9 @@ module Fluentd
 
         def on_connection(socket)
           @callback.call(socket)
-        rescue
-          Engine.log.error $!.to_s
-          Engine.log.error_backtrace
+        rescue => e
+          Engine.log.error e.to_s
+          Engine.log.error_backtrace e.backtrace
         ensure
           sock.close
         end

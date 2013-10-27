@@ -19,32 +19,40 @@ module Fluentd
 
   require 'delegate'
 
-  require_relative 'agent'
-  require_relative 'collectors/no_match_notice_collector'
+  require 'fluentd/agent'
+  require 'fluentd/label'
+  require 'fluentd/collectors/null_collector'
+  require 'fluentd/collectors/no_match_notice_collector'
+  require 'fluentd/collectors/error_notice_collector'
 
   #
-  # Fluentd forms a tree structure:
+  # Fluentd forms a tree structure to manage plugins:
   #
-  #                    Fluentd::Server
-  #                     /           \
-  #                    /             \
-  #               Worker             Worker      --- for each <server> section
-  #                  |                  |            in fluentd.conf
-  #              RootAgent          RootAgent
-  #                /   \               /  \
-  #         Agent A     Agent B      ...  ...   --- <source>, <match>, <filter> or <label>
-  #           /   \           \
-  #    Agent C     Agent D     ...              --- <source>, <match> or <filter>
+  #                      RootAgent
+  #                          |
+  #             +------------+-------------+
+  #             |            |             |
+  #          <label>      <label>       <source>
+  #             |                         |
+  #        +----+----+             +----+----+
+  #        |         |             |         |
+  #     <source>  <match>      <match>    <match>
+  #                  |                       |
+  #             +---------+               <match>
+  #             |         |
+  #          <match>   <match>
   #
-  # Agent is the base class of <source> (input plugins), <match> (output plugins) and
-  # <filter> (filter plugins).
+  # Relation:
+  # * RootAgent ---> <source>, <match>, <filter>, <label>
+  # * <label>   ---> <source>, <match>, <filter>
+  # * <source>, <match>, <filter> ---> <match>, <filter>
   #
-  # Worker is responsible to start/stop/shutdown all nested agents.
-  # RootAgent initializes top-level agents, labels and built-in labels (LOG and ERROR)
+  # Base class of RootAgent, <label>, <source>, <match> and <filter>
+  # is Agent.
   #
-  # Message routing is implemented in Agent class. See also agent.rb.
+  # Next step: `fluentd/agent.rb`
   #
-  class RootAgent < Agent
+  class RootAgent < Label
     LOG_LABEL = "LOG".freeze
     ERROR_LABEL = "ERROR".freeze
 
@@ -57,7 +65,10 @@ module Fluentd
 
       @labels = {}
 
+      # built-in label for error stream
       @error_label = Collectors::NullCollector.new
+
+      # built-in label for logging stream
       @log_label = Collectors::NullCollector.new
 
       # if an event doesn't even match top-level patterns,
@@ -68,9 +79,10 @@ module Fluentd
     def configure(conf)
       super
 
-      error_label_config = conf.new_element("label", ERROR_LABEL)
-      log_label_config = conf.new_element("label", LOG_LABEL)
+      error_label_config = nil
+      log_label_config = nil
 
+      # initialize <label> elements
       conf.elements.select {|e|
         e.name == 'label'
       }.each {|e|
@@ -84,55 +96,21 @@ module Fluentd
         end
       }
 
+      # initialize built-in ERROR label
+      error_label_config ||= conf.new_element("label", ERROR_LABEL)
       @error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWithoutErrorLabel.new(self),
                      error_label_config, Collectors::ErrorNoticeCollector.new)
 
+      # initialize built-in LOG label
+      log_label_config ||= conf.new_element("label", LOG_LABEL)
       @log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogLabel.new(self),
                      log_label_config, Collectors::NullCollector.new)
 
-      # override Fluentd::Logger#add_event
+      # override Fluentd::Logger#add_event to send logs to LOG label
       Engine.log.extend(EventCollectLoggerMixin)
       Engine.log.root_agent = self
 
       nil
-    end
-
-    module EventCollectLoggerMixin
-      def add_event(level, time, message, record, caller_stack)
-        @root_agent.emit_log(time.to_i, message, record)
-        super
-      end
-
-      attr_writer :root_agent
-    end
-
-    # root_router api
-    def emit_error(tag, time, record)
-      @error_label.collector.emit(tag, time, record)
-    end
-
-    # root_router api
-    def emit_log(time, message, record)
-      record = record.dup
-      record['message'] = message
-      @log_label.collector.emit("fluentd", time, record)
-    end
-
-    # root_router api
-    def emits_label(label_name, tag, es)
-      if label = @labels[label_name]
-        return label.collector.emits(tag, es)
-      else
-        collector.emits(tag, es)
-      end
-    end
-
-    def short_circuit_label(label_name, tag)
-      if label = @labels[label_name]
-        return label.collector.short_circuit(tag)
-      else
-        collector.short_circuit(tag)
-      end
     end
 
     def add_label(name, e)
@@ -142,17 +120,44 @@ module Fluentd
       self
     end
 
-    class Label < Agent
+    # root_router api used by
+    # 'fluentd/collectors/label_redirect_collector.rb'
+    def match_label(label_name, tag)
+      if label = @labels[label_name]
+        return label.collector.match(tag)
+      else
+        collector.match(tag)
+      end
     end
 
-    class RootAgentProxyWithoutErrorLabel < SimpleDelegator
-      def emit_error(tag, time, record)
-        # do nothing to not cause infinite loop
+    module EventCollectLoggerMixin
+      attr_writer :root_agent
+      def add_event(level, time, message, record, caller_stack)
+        @root_agent.emit_log(time.to_i, message, record)
+        super
       end
+    end
+
+    # root_router api
+    def emit_log(time, message, record)
+      record = record.dup
+      record['message'] = message
+      @log_label.collector.emit("fluentd", time, record)
     end
 
     class RootAgentProxyWithoutLogLabel < SimpleDelegator
       def emit_log(time, message, record)
+        # do nothing to not cause infinite loop
+      end
+    end
+
+    # root_router api
+    def emit_error(tag, time, record)
+      @error_label.collector.emit(tag, time, record)
+    end
+
+    class RootAgentProxyWithoutErrorLabel < SimpleDelegator
+      def emit_error(tag, time, record)
         # do nothing to not cause infinite loop
       end
     end

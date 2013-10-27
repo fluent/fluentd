@@ -18,18 +18,23 @@
 module Fluentd
   module Plugin
 
-    require_relative '../agent'
-    require_relative '../collector'
-    require_relative '../actor'
-    require_relative '../engine'
+    require 'fluentd/agent'
+    require 'fluentd/collector'
+    require 'fluentd/actor'
+    require 'fluentd/engine'
 
+    #
+    # Output is an Agent implementing Collector interface.
+    # You need to implement #emit(tag, time, record) at least to satisfy
+    # the requirements of Collector interface.
+    #
     class Output < Agent
       include Collector
 
       # provides #actor
       include Actor::AgentMixin
 
-      ###TODO: These definition of #emit and #emits conflict with collector.rb
+      # must be implemented in the extending class
       def emit(tag, time, record)
         raise NoMethodError, "#{self.class}#emit(tag, time, record) is not implemented"
       end

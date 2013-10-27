@@ -36,18 +36,17 @@ module Fluentd
     end
   end
 
-  ## TODO
-  #class RegexMatchPattern < MatchPattern
-  #  def initialize(regex)
-  #    @regex = regex
-  #  end
-  #
-  #  def match?(str)
-  #    @regex.match(str) != nil
-  #  end
-  #end
+  class RegexMatchPattern < MatchPattern
+    def initialize(regex)
+      @regex = regex
+    end
 
-  class GlobMatchPattern < MatchPattern
+    def match?(str)
+      @regex.match(str) != nil
+    end
+  end
+
+  class GlobMatchPattern < RegexMatchPattern
     def initialize(pat)
       stack = []
       regex = ['']
@@ -137,11 +136,7 @@ module Fluentd
         regex.last << Regexp.union(*stack.pop).to_s
       end
 
-      @regex = Regexp.new("\\A"+regex.last+"\\Z")
-    end
-
-    def match?(str)
-      @regex.match(str) != nil
+      super(Regexp.new("\\A"+regex.last+"\\Z"))
     end
   end
 

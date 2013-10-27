@@ -19,7 +19,7 @@ module Fluentd
   module Config
 
     require 'stringio'
-    require_relative 'basic_parser'
+    require 'fluentd/config/basic_parser'
 
     require 'irb/ruby-lex'  # RubyLex
 

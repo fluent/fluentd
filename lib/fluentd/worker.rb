@@ -19,15 +19,20 @@ module Fluentd
 
   require 'sigdump'
 
-  require_relative 'engine'
-  require_relative 'root_agent'
-  require_relative 'plugin_registry'
+  require 'fluentd/engine'
+  require 'fluentd/root_agent'
+  require 'fluentd/plugin_registry'
 
   #
-  # Worker corresponds to a <worker> section in a configuration file.
+  # Worker corresponds to a <worker> element in a configuration file.
   #
-  # Worker has a RootAgent, and starts/stops all nested agents owned
-  # by the RootAgent.
+  # Worker is resonsible to:
+  #
+  # 1) configure RootAgent
+  # 2) collect all agents from the RootAgent
+  # 3) start, stop, and monitor agents
+  #
+  # NextStep: 'fluentd/root_agent.rb'
   #
   class Worker
     include ServerEngine::ConfigLoader
@@ -37,8 +42,11 @@ module Fluentd
       super(options)  # initialize ServerEngine::ConfigLoader
       @log = create_logger  # ServerEngine::ConfigLoader#create_logger
 
+      # initialize Engine
       Engine.plugins = PluginRegistry.new
       Engine.logger = @log
+      Engine.sockets = SocketManager::NonManagedAPI.new
+      # TODO socket manager is not used yet
     end
 
     def configure(conf)
@@ -53,8 +61,8 @@ module Fluentd
         @log.warn "parameter '#{key}' is not used in\n#{e.to_s(nil).strip}"
       }
 
-      # gather all nested agents recursively
-      @agents = gather_agents(root_agent)
+      # collect all agents recursively
+      @agents = collect_agents(root_agent)
 
       Engine.root_agent = root_agent
     end
@@ -79,7 +87,7 @@ module Fluentd
           begin
             a.stop
           rescue => e
-            @log.warn "unexpected error while stopping down agent #{a}", :error=>$!.to_s
+            @log.warn "unexpected error while stopping down agent #{a}", error: e.to_s
             @log.warn_backtrace
           end
         end
@@ -91,7 +99,7 @@ module Fluentd
           begin
             a.shutdown
           rescue => e
-            @log.warn "unexpected error while shutting down agent #{a}", :error=>$!.to_s
+            @log.warn "unexpected error while shutting down agent #{a}", error: e.to_s
             @log.warn_backtrace
           end
         end
@@ -104,9 +112,9 @@ module Fluentd
 
     private
 
-    def gather_agents(agent, array=[])
+    def collect_agents(agent, array=[])
       agent.agents.each {|a|
-        gather_agents(a, array)
+        collect_agents(a, array)
       }
       array << agent
       return array

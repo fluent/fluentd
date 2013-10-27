@@ -17,31 +17,36 @@
 #
 module Fluentd
 
-  require_relative 'collector'
+  require 'fluentd/collector'
 
   #
-  # EventRouter matches a tag of an event with registered patterns and route the event to
-  # the matched collector. If no patterns match, EventRouter routes the event to
-  # #default_collector.
+  # EventRouter is responsible to route events to a collector.
   #
-  # Input plugins start matching from the beginning of the matching rules. On the other hand,
-  # filter plugins start matching from the middle:
+  # It has a list of MatchPattern and Collector pairs:
   #
-  #  <source> matches from offset=0:
-  #    [
-  #      0:match  a.**
-  #      1:filter b.**      --> match
-  #      2.match  b.**            |
-  #    ] --- match_patterns       |
-  #                               |
-  #    +--------------------------+
-  #    |
-  #  <filter b.**> matches from offset=2:
-  #    [
-  #      0:match  a.**      --- skip
-  #      1:filter b.**      --- skip
-  #      2.match  b.**      --> match
-  #    ] --- match_patterns
+  #  +----------------+     +-----------------+
+  #  |  MatchPattern  |     |    Collector    |
+  #  +----------------+     +-----------------+
+  #  |   access.**  ---------> type forward   |
+  #  |     logs.**  ---------> type copy      |
+  #  |  archive.**  ---------> type s3        |
+  #  +----------------+     +-----------------+
+  #
+  # EventRouter does:
+  #
+  # 1) receive an event at `#emit` method
+  # 2) match the event's tag with the MatchPatterns
+  # 3) forward the event to the corresponding Collector
+  #
+  # Collector is either of Output, Filter, built-in collectors, (such as
+  # fluentd/collectors/no_match_notice_collector.rb), or other EventRouter.
+  #
+  # If the destination is EventRouter, the EventRouter re-forwards the event
+  # to another Collector. Eventually, the event reaches Output, Filter or
+  # built-in collectors.
+  #
+  # NextStep: 'fluentd/plugin/output.rb'
+  # NextStep: 'fluentd/plugin/input.rb'
   #
   class EventRouter
     include Collector
@@ -57,69 +62,30 @@ module Fluentd
 
     MATCH_CACHE_SIZE = 1024
 
+    # called by Agent to add new MatchPatterns and Collector
     def add_pattern(pattern, collector)
       @match_patterns << pattern
       @match_collectors << collector
       nil
     end
 
-    def current_offset
-      Offset.new(self, @match_patterns.size+1)
-    end
-
+    # override Collector#emit for efficiency
     def emit(tag, time, record)
       match_offset(0, tag).emit(tag, time, record)
     end
 
+    # override Collector#emits
     def emits(tag, es)
       match_offset(0, tag).emits(tag, es)
     end
 
-    def emit_offset(offset, tag, time, record)
-      match_offset(tag, offset).emit(tag, time, record)
-    end
-
-    def emits_offset(offset, tag, es)
-      match_offset(offset, tag).emits(tag, es)
-    end
-
+    # override Collector#match
     def match(tag)
       match_offset(0, tag)
     end
 
-    class MatchCache < Hash
-      def initialize
-        super
-        @keys = []
-      end
-
-      def []=(key, value)
-        if @keys.size >= MATCH_CACHE_SIZE
-          delete @keys.shift
-        end
-        super(key, value)
-      end
-    end
-
-    def match_offset(offset, tag)
-      cache = (@match_caches[offset] ||= MatchCache.new)
-      collector = cache[tag]
-
-      unless collector
-        collector = find(tag, offset) || @default_collector
-        collector = collector.short_circuit(tag)
-        cache[tag] = collector
-      end
-
-      return collector
-    end
-
-    def short_circuit(tag)
-      match_offset(0, tag).short_circuit(tag)
-    end
-
-    def short_circuit_offset(offset, tag)
-      match_offset(offset, tag).short_circuit(tag)
+    def current_offset
+      Offset.new(self, @match_patterns.size+1)
     end
 
     class Offset
@@ -138,8 +104,43 @@ module Fluentd
         @router.emits_offset(@offset, tag, es)
       end
 
-      def short_circuit(tag)
-        @router.short_circuit_offset(@offset, tag)
+      def match(tag)
+        @router.match_offset(@offset, tag)
+      end
+    end
+
+    def emit_offset(offset, tag, time, record)
+      match_offset(tag, offset).emit(tag, time, record)
+    end
+
+    def emits_offset(offset, tag, es)
+      match_offset(offset, tag).emits(tag, es)
+    end
+
+    def match_offset(offset, tag)
+      cache = (@match_caches[offset] ||= MatchCache.new)
+      collector = cache[tag]
+
+      unless collector
+        collector = find(tag, offset) || @default_collector
+        collector = collector.match(tag)
+        cache[tag] = collector
+      end
+
+      return collector
+    end
+
+    class MatchCache < Hash
+      def initialize
+        super
+        @keys = []
+      end
+
+      def []=(key, value)
+        if @keys.size >= MATCH_CACHE_SIZE
+          delete @keys.shift
+        end
+        super(key, value)
       end
     end
 

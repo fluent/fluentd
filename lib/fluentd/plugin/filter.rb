@@ -18,8 +18,8 @@
 module Fluentd
   module Plugin
 
-    require_relative 'output'
-    require_relative '../engine'
+    require 'fluentd/plugin/output'
+    require 'fluentd/engine'
 
     class Filter < Output
       # provides #actor

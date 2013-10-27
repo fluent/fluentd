@@ -15,8 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-require_relative './object_buffered_output'
-require_relative '../dns_resolver'
+require 'fluentd/plugin/object_buffered_output'
+require 'fluentd/dns_resolver'
 
 module Fluentd
   module Plugin

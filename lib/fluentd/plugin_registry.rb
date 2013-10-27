@@ -17,7 +17,7 @@
 #
 module Fluentd
 
-  require_relative 'config_error'
+  require 'fluentd/config_error'
 
   #
   # PluginRegistry searches & loads plugins and manages
@@ -29,7 +29,7 @@ module Fluentd
       @output = Registry.new(:output, 'fluentd/plugin/out_')
       @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
       @buffer = Registry.new(:buffer, 'fluentd/plugin/buffer_')
-      require_relative 'plugin'
+      require 'fluentd/plugin'
     end
 
     def register_input(type, klass)

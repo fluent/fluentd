@@ -26,7 +26,7 @@ module Fluentd
       # PluginRegistry initialized by Worker#initialize
       attr_accessor :plugins
 
-      # SocketManager initialize by WorkerLauncher.main
+      # SocketManager initialize by Worker#initialize
       attr_accessor :sockets
 
       # RootAgent initialize by Worker#configure

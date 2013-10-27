@@ -20,18 +20,32 @@ module Fluentd
   require 'serverengine'
   require 'drb'
 
-  require_relative 'engine'
-  require_relative 'worker'
-  require_relative 'socket_manager'
-  require_relative 'server'
+  require 'fluentd/engine'
+  require 'fluentd/worker'
+  require 'fluentd/socket_manager'
+  require 'fluentd/server'
 
+  #
+  # WorkerLauncher creates, monitor, and restart worker processes.
+  #
+  # ServerEngine ---> WorkerLauncher#run
+  #              ---> spawn("ruby lib/fluentd/command/fluentd-worker.rb")
+  #              ---> WorkerLauncher.main
+  #
+  # To support windows environment, it doesn't use fork(). Instead, it starts
+  # new process using 'fluentd/command/fluentd-worker.rb' and it calls
+  # `WorkerLauncher.main`:
+  #
+  # Next step: `Worker#run` in 'fluentd/worker.rb'
+  #
   module WorkerLauncher
     def initialize
       @pm = ServerEngine::ProcessManager.new
 
       @stop_flag = ServerEngine::BlockingFlag.new
 
-      # ruby command/fluentd-worker $(drb_uri)
+      # command line to start the new process:
+      #   $ ruby fluentd/command/fluentd-worker.rb $(drb_uri)
       @cmdline = [
         RbConfig.ruby,
         File.expand_path(File.join(File.dirname(__FILE__), 'command', 'fluentd-worker.rb')),
@@ -42,7 +56,7 @@ module Fluentd
       super
     end
 
-    # TODO
+    # TODO before_fork can't do blocking operation
     ## ServerEngine callback
     #def before_fork
     #  # first attempt should not restart worker automatically to
@@ -62,6 +76,8 @@ module Fluentd
         unless first
           logger.info "Worker #{worker_id} exited unexpectedly. Restarting."
           first = false
+          # TODO stop Server by calling Server#stop_by_config_error
+          # if first==true and worker failed to configure. maybe it needs TupleSpace
         end
         run_worker
       end
@@ -97,20 +113,17 @@ module Fluentd
       worker_id = ARGV[0].to_i
       drb_uri = ARGV[1]
 
-      # Get config from the parent process
+      # Get config from the parent process.
       # See also Server#before_run
       parent_engine = DRb::DRbObject.new_with_uri(drb_uri)
 
       Engine.shared_data = parent_engine.shared_data
-
       options = Engine.shared_data['fluentd_options']
 
+      # add :load_path set by cmdline
       options[:load_path].each {|path|
         $LOAD_PATH << path
       }
-
-      # TODO
-      Engine.sockets = SocketManager::NonManagedAPI.new
 
       # initialize worker instance
       worker = Worker.new(options)
@@ -139,6 +152,7 @@ module Fluentd
       worker.configure(worker_element)
 
       # this worker is ready to run
+      # TODO apparently this is not passed to the parent process
       Engine.shared_data["fluentd_worker_#{worker_id}_configured"] = true
 
       worker.run

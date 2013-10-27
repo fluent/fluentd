@@ -18,7 +18,7 @@
 module Fluentd
 
   require 'json'
-  require_relative 'config_error'
+  require 'fluentd/config_error'
 
   module Configurable
     def init_configurable

@@ -18,8 +18,8 @@
 module Fluentd
   module Config
 
-    require_relative 'element'
-    require_relative '../config_error'
+    require 'fluentd/config/element'
+    require 'fluentd/config_error'
 
     class CompatParser
       def self.read(path)

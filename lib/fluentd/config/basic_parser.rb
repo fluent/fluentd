@@ -19,7 +19,7 @@ module Fluentd
   module Config
 
     require 'stringio'
-    require_relative '../config_error'
+    require 'fluentd/config_error'
 
     BASIC_CHARACTERS = /[a-zA-Z0-9_\/\.\-\+\*\@\=]/
 

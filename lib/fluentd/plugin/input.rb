@@ -18,9 +18,9 @@
 module Fluentd
   module Plugin
 
-    require_relative '../agent'
-    require_relative '../actor'
-    require_relative '../engine'
+    require 'fluentd/agent'
+    require 'fluentd/actor'
+    require 'fluentd/engine'
 
     class Input < Agent
       # provides #actor

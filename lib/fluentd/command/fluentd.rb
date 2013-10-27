@@ -28,18 +28,18 @@ default_plugin_dir = ENV['FLUENTD_PLUGIN_DIR'] || ['/etc/fluentd/plugin']
 worker_process_name = ENV['FLUENTD_WORKER_PROCESS_NAME'] || 'fluentd:worker'
 
 opts = {
-  :config_path => default_config_path,
-  :plugin_dirs => default_plugin_dir,
-  :load_path => [],
-  :log_level => LOG_LEVEL_INFO,
-  :log => nil,
-  :daemonize => false,
-  :libs => [],
-  :setup_path => nil,
-  :chuser => nil,
-  :chgroup => nil,
-  :worker_process_name => worker_process_name,
-  :suppress_config_dump => false,
+  config_path: default_config_path,
+  plugin_dirs: default_plugin_dir,
+  load_path: [],
+  log_level: LOG_LEVEL_INFO,
+  log: nil,
+  daemonize: false,
+  libs: [],
+  setup_path: nil,
+  chuser: nil,
+  chgroup: nil,
+  worker_process_name: worker_process_name,
+  suppress_config_dump: false,
 }
 
 op.on('-s', '--setup [DIR]', "install sample configuration file to the directory (defalut: #{default_config_path})") {|s|
@@ -183,6 +183,8 @@ end
 ##
 ## Start server
 #
+# add library root to the head of $LOAD_PATH to prioritize bundler
+$LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '../..'))
 require 'fluentd/server'
 Fluentd::Server.run(opts)
 

@@ -27,11 +27,11 @@ module Fluentd
       end
 
       def emits(tag, es)
-        @root_agent.emits_label(@label, tag, es)
+        @root_agent.match_label(@label, tag).emits(tag, es)
       end
 
-      def short_circuit(tag)
-        @root_agent.short_circuit_label(@label, tag)
+      def match(tag)
+        @root_agent.match_label(@label, tag)
       end
     end
 
