@@ -29,7 +29,7 @@ module Fluentd
       @output = Registry.new(:output, 'fluentd/plugin/out_')
       @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
       @buffer = Registry.new(:buffer, 'fluentd/plugin/buffer_')
-      require 'fluentd/plugin'
+      @type = Registry.new(:type, 'fluentd/plugin/type_')
     end
 
     def register_input(type, klass)
@@ -46,6 +46,11 @@ module Fluentd
 
     def register_buffer(type, klass)
       @buffer.register(type, klass)
+    end
+
+    def register_type(type, callable=nil, &block)
+      callable ||= block
+      @type.register(type, callable)
     end
 
     def new_input(parent_agent, type)
@@ -73,8 +78,13 @@ module Fluentd
       @buffer.lookup(type).new
     end
 
-    def self.load_standard_plugins
-      dir = File.join(File.dirname(__FILE__), '../plugin')
+    def lookup_type(type)
+      @type.lookup(type)
+    end
+
+    # called by Worker
+    def self.load_built_in_plugins
+      dir = File.join(File.dirname(__FILE__), 'plugin')
       load_plugin_dir(dir)
       load_gem_plugins
     end
@@ -82,7 +92,7 @@ module Fluentd
     def self.load_plugin_dir(dir)
       dir = File.expand_path(dir)
       Dir.entries(dir).sort.each {|fname|
-        if fname =~ /\.rb$/
+        if fname =~ /(?:in|out|filter|type|)_.*\.rb$/
           require File.join(dir, fname)
         end
       }
@@ -113,20 +123,20 @@ module Fluentd
 
       attr_reader :kind
 
-      def register(type, klass)
+      def register(type, value)
         type = type.to_sym
         #Engine.log.trace { "registered #{@kind} plugin '#{type}'" }
-        @map[type] = klass
+        @map[type] = value
       end
 
       def lookup(type)
         type = type.to_sym
-        if klass = @map[type]
-          return klass
+        if value = @map[type]
+          return value
         end
         search(type)
-        if klass = @map[type]
-          return klass
+        if value = @map[type]
+          return value
         end
         raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluentd-plugin' to find plugins"  # TODO error class
       end
@@ -174,13 +184,6 @@ module Fluentd
               break
             end
           }
-        end
-
-        # search built-in plugins
-        lpath = File.expand_path(File.join(File.dirname(__FILE__), '..', "#{path}.rb"))
-        if File.exist?(lpath)
-          require lpath
-          return
         end
       end
     end

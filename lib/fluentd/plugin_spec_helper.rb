@@ -1,15 +1,11 @@
 require 'logger'
-
-require 'serverengine'
-
-require 'fluentd/worker'
+require 'fluentd/engine'
 require 'fluentd/config/parser'
 require 'fluentd/plugin/input'
 require 'fluentd/plugin/output'
 require 'fluentd/plugin/filter'
-require 'fluentd/engine'
 
-Fluentd::Engine.plugins = Fluentd::PluginRegistry.new
+Engine.setup_test_environment!
 
 module Fluentd
   module PluginSpecHelper

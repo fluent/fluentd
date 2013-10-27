@@ -39,11 +39,25 @@ module Fluentd
         Time.now
       end
 
-      def setup_defaults!
-        logger ||= Logger.new(STDERR)
-        plugins ||= PluginRegistry.new
-        sockets ||= SocketManager::NonManagedAPI.new
-        shared_data ||= {}
+      def setup_test_environment!
+        Engine.logger ||= Logger.new(STDERR)
+        Engine.plugins ||= PluginRegistry.new
+        Engine.sockets ||= SocketManager::NonManagedAPI.new
+        Engine.shared_data ||= {}
+        Engine.load_plugin_api!
+      end
+
+      def load_plugin_api!
+        require 'fluentd/plugin'
+        require 'fluentd/event_collection'
+        require 'fluentd/plugin/type_builtin'
+        require 'fluentd/plugin/input'
+        require 'fluentd/plugin/output'
+        require 'fluentd/plugin/buffer'
+        require 'fluentd/plugin/buffered_output'
+        require 'fluentd/plugin/object_buffered_output'
+        require 'fluentd/plugin/time_sliced_output'
+        require 'fluentd/plugin/filter'
       end
     end
 

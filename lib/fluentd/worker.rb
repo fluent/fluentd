@@ -43,10 +43,12 @@ module Fluentd
       @log = create_logger  # ServerEngine::ConfigLoader#create_logger
 
       # initialize Engine
-      Engine.plugins = PluginRegistry.new
       Engine.logger = @log
+      Engine.plugins = PluginRegistry.new
       Engine.sockets = SocketManager::NonManagedAPI.new
       # TODO socket manager is not used yet
+
+      Engine.load_plugin_api!
     end
 
     def configure(conf)

@@ -80,8 +80,10 @@ module Fluentd
           raise ArgumentError, "wrong number of arguments (#{1+args.length} for #{block ? 2 : 3})"
         end
 
-        block ||= CONFIG_TYPES[type]
-        unless block
+        begin
+          block ||= Plugin.lookup_type(type)
+        rescue ConfigError
+          # override error message
           raise ArgumentError, "unknown config_param type `#{type}'"
         end
 
@@ -146,75 +148,6 @@ module Fluentd
     end
 
     extend ClassMethods
-
-    register_type(:any) do |val,opts|
-      val
-    end
-
-    register_type(:string) do |val,opts|
-      val.to_s
-    end
-
-    register_type(:integer) do |val,opts|
-      val.to_i
-    end
-
-    register_type(:float) do |val,opts|
-      val.to_f
-    end
-
-    register_type(:size) do |val, opts|
-      case val.to_s
-      when /([0-9]+)k/i
-        $~[1].to_i * 1024
-      when /([0-9]+)m/i
-        $~[1].to_i * (1024**2)
-      when /([0-9]+)g/i
-        $~[1].to_i * (1024**3)
-      when /([0-9]+)t/i
-        $~[1].to_i * (1024**4)
-      else
-        val.to_i
-      end
-    end
-
-    register_type(:bool) do |val,opts|
-      case val.to_s
-      when 'true', 'yes', nil
-        true
-      when 'false', 'no'
-        false
-      else
-        nil
-      end
-    end
-
-    register_type(:time) do |val,opts|
-      f = case val.to_s
-          when /([0-9]+)s/
-            $~[1].to_f
-          when /([0-9]+)m/
-            $~[1].to_f * 60
-          when /([0-9]+)h/
-            $~[1].to_f * 60*60
-          when /([0-9]+)d/
-            $~[1].to_f * 24*60*60
-          else
-            val.to_f
-          end
-      f
-    end
-
-    register_type(:hash) do |val,opts|
-      case val
-      when Hash
-        val
-      when String
-        JSON.load(val)
-      else
-        raise ConfigError, "hash required but got #{val.inspect}"
-      end
-    end
   end
 
 end

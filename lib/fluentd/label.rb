@@ -53,7 +53,7 @@ module Fluentd
     end
 
     def add_source(type, conf)
-      log.info "adding source", :type=>type
+      log.info "adding source", type: type
 
       # PluginRegistry#new_input overwrites default_collector of
       # the created Input to @event_router of this Label

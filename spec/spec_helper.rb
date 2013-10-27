@@ -34,5 +34,5 @@ if ENV['GC_STRESS']
   GC.stress = true
 end
 
-Fluentd::Engine.setup_defaults!
+Fluentd::Engine.setup_test_environment!
 

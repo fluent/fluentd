@@ -18,7 +18,6 @@
 module Fluentd
 
   require 'fluentd/engine'
-  require 'fluentd/configurable'
 
   #
   # Plugin provides Plugin.register_XXX where XXX is one of:
@@ -31,29 +30,18 @@ module Fluentd
   #
   module Plugin
 
+    # delegates methods to Engine.plugins, which is an instance of
+    # PluginRegistry.
     module ClassMethods
       extend Forwardable
 
-      # delegates methods to Engine.plugins
       def_delegators 'Fluentd::Engine.plugins',
         :register_input, :register_output, :register_filter, :register_buffer,
-        :new_input, :new_output, :new_filter, :new_buffer
-
-      # Configurable.register_type is global setting
-      def_delegators 'Fluentd::Configurable', :register_type
+        :new_input, :new_output, :new_filter, :new_buffer,
+        :register_type, :lookup_type
     end
 
     extend ClassMethods
   end
 
-  # loads base classes of plugins
-  require 'fluentd/event_collection'
-  require 'fluentd/config_error'
-  require 'fluentd/plugin/output'
-  require 'fluentd/plugin/input'
-  require 'fluentd/plugin/filter'
-  require 'fluentd/plugin/buffer'
-  require 'fluentd/plugin/buffered_output'
-  require 'fluentd/plugin/object_buffered_output'
-  require 'fluentd/plugin/time_sliced_output'
 end
