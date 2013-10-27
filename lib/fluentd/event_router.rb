@@ -56,9 +56,25 @@ module Fluentd
       @match_caches = []
       @match_patterns = []
       @match_collectors = []
+      @emit_error_handler = lambda {|tag,time,record,error| raise error }
+    end
+
+    class EmitErrorHandler
+      attr_writer :root_agent
+
+      def emit_error(collector, tag, time, record, error)
+        @root_agent.emit_error
+        raise error
+      end
+
+      def emits_error(collector, tag, es, error)
+        raise error
+      end
     end
 
     attr_accessor :default_collector
+
+    attr_accessor :emit_error_handler
 
     MATCH_CACHE_SIZE = 1024
 
@@ -72,11 +88,17 @@ module Fluentd
     # override Collector#emit for efficiency
     def emit(tag, time, record)
       match_offset(0, tag).emit(tag, time, record)
+    rescue => e
+      @emit_error_handler.call(tag, time, record, e)
+      nil
     end
 
     # override Collector#emits
     def emits(tag, es)
       match_offset(0, tag).emits(tag, es)
+    rescue => e
+      # TODO
+      raise
     end
 
     # override Collector#match
@@ -111,10 +133,16 @@ module Fluentd
 
     def emit_offset(offset, tag, time, record)
       match_offset(tag, offset).emit(tag, time, record)
+    rescue => e
+      @emit_error_handler.call(tag, time, record, e)
+      nil
     end
 
     def emits_offset(offset, tag, es)
       match_offset(offset, tag).emits(tag, es)
+    rescue => e
+      # TODO
+      raise
     end
 
     def match_offset(offset, tag)

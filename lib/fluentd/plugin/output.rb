@@ -41,18 +41,8 @@ module Fluentd
 
       def emits(tag, es)
         es.each {|time,record|
-          handle_error(tag, time, record) {
-            emit(tag, time, record)
-          }
+          emit(tag, time, record)
         }
-        nil
-      end
-
-      def handle_error(tag, time, record, &block)
-        block.call
-      rescue => e
-        log.warn "emit error", :error => e
-        @root_agent.emit_error(tag, time, record)
         nil
       end
     end

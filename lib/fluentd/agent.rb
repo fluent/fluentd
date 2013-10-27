@@ -47,15 +47,21 @@ module Fluentd
     include Configurable
 
     def initialize
-      @agents = []
+      @root_agent = nil
+      @parent_agent = nil
+      @agents = []  # child agents
+
       init_configurable  # initialize Configurable
       super
 
       @event_router = EventRouter.new(Collectors::NullCollector.new)
+      @event_router.emit_error_handler = method(:handle_emit_error)
 
       # See 'fluentd/agent_logger.rb' about AgentLogger.
       @logger = AgentLogger.new(Engine.logger)
     end
+
+    attr_reader :parent_agent
 
     attr_accessor :logger
     alias_method :log, :logger
@@ -141,19 +147,27 @@ module Fluentd
       # agent API called by Worker
     end
 
-    # called by PluginRegistry
-    def parent_agent=(parent)
-      @root_agent = parent.root_agent
-      @logger.root_agent = @root_agent
-      parent._add_agent(self)
-      @parent_agent = parent
+    def handle_emit_error(tag, time, record, error)
+      log.warn "emit error", :error => e
+      if @root_agent
+        @root_agent.emit_error(tag, time, record)
+      end
     end
-
-    attr_reader :parent_agent
+    private :handle_emit_error
 
     def _add_agent(agent)
       @agents << agent
       self
+    end
+
+    # called by PluginRegistry
+    def parent_agent=(parent)
+      # take root_agent
+      root_agent = parent.root_agent
+      @root_agent = root_agent
+      @logger.root_agent = root_agent
+      parent._add_agent(self)
+      @parent_agent = parent
     end
   end
 
