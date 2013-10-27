@@ -121,9 +121,7 @@ module Fluentd
       options = Engine.shared_data['fluentd_options']
 
       # add :load_path set by cmdline
-      options[:load_path].each {|path|
-        $LOAD_PATH << path
-      }
+      $LOAD_PATH.concat options[:load_path]
 
       # initialize worker instance
       worker = Worker.new(options)

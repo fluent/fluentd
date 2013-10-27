@@ -80,13 +80,13 @@ module Fluentd
     # RootAgent
     attr_reader :root_agent
 
+    config_param :log_level, :string, default: nil
+
     def configure(conf)
       super
 
-      if log_level = conf['log_level']
-        @logger.log_level = log_level
-        # note: can't use config_param because Plugin is not initialized yet
-        #       when 'fluentd/agent.rb' is loaded
+      if @log_level
+        @logger.level = @log_level
       end
 
       # initialize <match> and <filter> elements

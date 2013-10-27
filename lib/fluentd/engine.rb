@@ -50,7 +50,6 @@ module Fluentd
       def load_plugin_api!
         require 'fluentd/plugin'
         require 'fluentd/event_collection'
-        require 'fluentd/plugin/type_builtin'
         require 'fluentd/plugin/input'
         require 'fluentd/plugin/output'
         require 'fluentd/plugin/buffer'

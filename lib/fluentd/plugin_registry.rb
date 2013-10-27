@@ -29,7 +29,6 @@ module Fluentd
       @output = Registry.new(:output, 'fluentd/plugin/out_')
       @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
       @buffer = Registry.new(:buffer, 'fluentd/plugin/buffer_')
-      @type = Registry.new(:type, 'fluentd/plugin/type_')
     end
 
     def register_input(type, klass)
@@ -46,11 +45,6 @@ module Fluentd
 
     def register_buffer(type, klass)
       @buffer.register(type, klass)
-    end
-
-    def register_type(type, callable=nil, &block)
-      callable ||= block
-      @type.register(type, callable)
     end
 
     def new_input(parent_agent, type)
@@ -78,10 +72,6 @@ module Fluentd
       @buffer.lookup(type).new
     end
 
-    def lookup_type(type)
-      @type.lookup(type)
-    end
-
     # called by Worker
     def self.load_built_in_plugins
       dir = File.join(File.dirname(__FILE__), 'plugin')
@@ -92,7 +82,7 @@ module Fluentd
     def self.load_plugin_dir(dir)
       dir = File.expand_path(dir)
       Dir.entries(dir).sort.each {|fname|
-        if fname =~ /(?:in|out|filter|type|)_.*\.rb$/
+        if fname =~ /(?:in|out|filter)_.*\.rb$/
           require File.join(dir, fname)
         end
       }

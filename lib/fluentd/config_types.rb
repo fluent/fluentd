@@ -17,23 +17,23 @@
 #
 module Fluentd
 
-  Plugin.register_type(:any) do |val,opts|
+  Configurable.register_type(:any) do |val,opts|
     val
   end
 
-  Plugin.register_type(:string) do |val,opts|
+  Configurable.register_type(:string) do |val,opts|
     val.to_s
   end
 
-  Plugin.register_type(:integer) do |val,opts|
+  Configurable.register_type(:integer) do |val,opts|
     val.to_i
   end
 
-  Plugin.register_type(:float) do |val,opts|
+  Configurable.register_type(:float) do |val,opts|
     val.to_f
   end
 
-  Plugin.register_type(:size) do |val, opts|
+  Configurable.register_type(:size) do |val, opts|
     case val.to_s
     when /([0-9]+)k/i
       $~[1].to_i * 1024
@@ -48,7 +48,7 @@ module Fluentd
     end
   end
 
-  Plugin.register_type(:bool) do |val,opts|
+  Configurable.register_type(:bool) do |val,opts|
     case val.to_s
     when 'true', 'yes', nil
       true
@@ -59,7 +59,7 @@ module Fluentd
     end
   end
 
-  Plugin.register_type(:time) do |val,opts|
+  Configurable.register_type(:time) do |val,opts|
     f = case val.to_s
         when /([0-9]+)s/
           $~[1].to_f
@@ -75,7 +75,7 @@ module Fluentd
     f
   end
 
-  Plugin.register_type(:hash) do |val,opts|
+  Configurable.register_type(:hash) do |val,opts|
     case val
     when Hash
       val

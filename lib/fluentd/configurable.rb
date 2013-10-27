@@ -19,6 +19,7 @@ module Fluentd
 
   require 'json'
   require 'fluentd/config_error'
+  require 'fluentd/plugin_registry'
 
   module Configurable
     def init_configurable
@@ -50,11 +51,11 @@ module Fluentd
 
     attr_reader :config
 
-    CONFIG_TYPES = {}
+    CONFIG_TYPE_REGISTRY = PluginRegistry::Registry.new(:type, 'fluentd/plugin/type_')
 
     module ClassMethods
       def register_type(type, &block)
-        CONFIG_TYPES[type] = block
+        CONFIG_TYPE_REGISTRY.register(type, block)
       end
 
       def config_param(name, *args, &block)
@@ -77,7 +78,7 @@ module Fluentd
         end
 
         begin
-          block ||= Plugin.lookup_type(type)
+          block ||= CONFIG_TYPE_REGISTRY.lookup(type)
         rescue ConfigError
           # override error message
           raise ArgumentError, "unknown config_param type `#{type}'"
@@ -145,5 +146,8 @@ module Fluentd
 
     extend ClassMethods
   end
+
+  # load types
+  require 'fluentd/config_types'
 
 end
