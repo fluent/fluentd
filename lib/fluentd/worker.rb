@@ -42,6 +42,8 @@ module Fluentd
       @stop_flag = ServerEngine::BlockingFlag.new
       super(options)  # initialize ServerEngine::ConfigLoader
 
+      STDOUT.sync = true
+
       # ServerEngine::ConfigLoader#create_logger creates Fluentd::Logger.
       logger = create_logger
 

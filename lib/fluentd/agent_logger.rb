@@ -49,10 +49,12 @@ module Fluentd
     attr_writer :root_agent
 
     def add_event(level, time, message, record, caller_stack)
-      if @root_agent
-        @root_agent.emit_log(time.to_i, message, record)
-      end
       super  # calls #<<
+      if @root_agent
+        record['message'] = message
+        @root_agent.log_collector.emit("fluentd", time.to_i, record)
+      end
+      nil
     end
 
     # override

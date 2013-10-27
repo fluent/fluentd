@@ -54,6 +54,7 @@ module Fluentd
   module Server
     DEFAULT_PARAMETERS = {
       #daemon_process_name: 'fluentd:master',
+      log: '-',
     }
 
     OVERWRITE_PARAMETERS = {

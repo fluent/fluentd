@@ -54,8 +54,7 @@ module Fluentd
       init_configurable  # initialize Configurable
       super
 
-      @event_router = EventRouter.new(Collectors::NullCollector.new)
-      @event_router.emit_error_handler = method(:handle_emit_error)
+      @event_router = EventRouter.new(Collectors::NullCollector.new, self)
 
       # See 'fluentd/agent_logger.rb' about AgentLogger.
       @logger = AgentLogger.new(Engine.logger)
@@ -154,12 +153,18 @@ module Fluentd
     end
 
     def handle_emit_error(tag, time, record, error)
-      log.warn "emit error", :error => e
+      log.warn "emit error", error: error
       if @root_agent
-        @root_agent.emit_error(tag, time, record)
+        @root_agent.error_collector.emit(tag, time, record)
       end
     end
-    private :handle_emit_error
+
+    def handle_emits_error(tag, es, error)
+      log.warn "emit error", error: error
+      if @root_agent
+        @root_agent.error_collector.emits(tag, es)
+      end
+    end
 
     def _add_agent(agent)
       @agents << agent

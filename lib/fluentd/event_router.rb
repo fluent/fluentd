@@ -51,23 +51,20 @@ module Fluentd
   class EventRouter
     include Collector
 
-    def initialize(default_collector)
+    def initialize(default_collector, emit_error_handler)
       @default_collector = default_collector
       @match_caches = []
       @match_patterns = []
       @match_collectors = []
-      @emit_error_handler = lambda {|tag,time,record,error| raise error }
+      @emit_error_handler = emit_error_handler || RaiseEmitErrorHandler.new
     end
 
-    class EmitErrorHandler
-      attr_writer :root_agent
-
-      def emit_error(collector, tag, time, record, error)
-        @root_agent.emit_error
+    class RaiseEmitErrorHandler
+      def handle_emit_error(collector, tag, time, record, error)
         raise error
       end
 
-      def emits_error(collector, tag, es, error)
+      def handle_emits_error(collector, tag, es, error)
         raise error
       end
     end
@@ -89,7 +86,7 @@ module Fluentd
     def emit(tag, time, record)
       match_offset(0, tag).emit(tag, time, record)
     rescue => e
-      @emit_error_handler.call(tag, time, record, e)
+      @emit_error_handler.handle_emit_error(tag, time, record, e)
       nil
     end
 
@@ -97,8 +94,8 @@ module Fluentd
     def emits(tag, es)
       match_offset(0, tag).emits(tag, es)
     rescue => e
-      # TODO
-      raise
+      @emit_error_handler.handle_emits_error(tag, es, e)
+      nil
     end
 
     # override Collector#match
@@ -134,15 +131,15 @@ module Fluentd
     def emit_offset(offset, tag, time, record)
       match_offset(tag, offset).emit(tag, time, record)
     rescue => e
-      @emit_error_handler.call(tag, time, record, e)
+      @emit_error_handler.handle_emit_error(tag, time, record, e)
       nil
     end
 
     def emits_offset(offset, tag, es)
       match_offset(offset, tag).emits(tag, es)
     rescue => e
-      # TODO
-      raise
+      @emit_error_handler.handle_emits_error(tag, es, e)
+      nil
     end
 
     def match_offset(offset, tag)

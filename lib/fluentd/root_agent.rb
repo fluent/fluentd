@@ -109,8 +109,6 @@ module Fluentd
     end
 
     def add_label(name, e)
-      # TODO validate label name
-
       # if an event doesn't even match top-level patterns,
       # NoMatchNoticeCollector shows warnings.
       add_label_impl(name, self, e, NoMatchNoticeCollector.new)
@@ -127,34 +125,36 @@ module Fluentd
       end
     end
 
-    # root_router api
-    def emit_log(time, message, record)
-      record = record.dup
-      record['message'] = message
-      @log_collector.emit("fluentd", time, record)
-    end
+    # See 'fluentd/agent_logger.rb'
+    attr_reader :log_collector
+
+    # See Agent#handle_emit_error at 'fluentd/agent.rb'
+    attr_reader :error_collector
 
     # Agents nested in <label LOG> element use RootAgent wrapped by
     # this RootAgentProxyWithoutLogCollector. Thus those elements don't
     # send logs to @log_collector recursively.
     class RootAgentProxyWithoutLogCollector < SimpleDelegator
-      def emit_log(time, message, record)
-        # do nothing to not cause infinite loop
+      def initialize(root_agent)
+        super
+        @log_collector = Collectors::NullCollector.new
       end
-    end
 
-    # root_router api
-    def emit_error(tag, time, record)
-      @error_collector.emit(tag, time, record)
+      # override #log_collector
+      attr_reader :log_collector
     end
 
     # Agents nested in <label ERROR> element use RootAgent wrapped by
     # this RootAgentProxyWIthoutErrorCollector. Thus those elements don't
     # send logs to @error_collector recursively.
     class RootAgentProxyWIthoutErrorCollector < SimpleDelegator
-      def emit_error(tag, time, record)
-        # do nothing to not cause infinite loop
+      def initialize(root_agent)
+        super
+        @error_collector = Collectors::NullCollector.new
       end
+
+      # override #error_collector
+      attr_reader :error_collector
     end
 
     private

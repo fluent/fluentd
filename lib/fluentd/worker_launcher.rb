@@ -32,9 +32,9 @@ module Fluentd
   #              ---> spawn("ruby lib/fluentd/command/fluentd-worker.rb")
   #              ---> WorkerLauncher.main
   #
-  # To support windows environment, it doesn't use fork(). Instead, it starts
-  # new process using 'fluentd/command/fluentd-worker.rb' and it calls
-  # `WorkerLauncher.main`:
+  # To support Windows platform, WorkerLauncher doesn't use fork(). Instead,
+  # it runs new processes using 'fluentd/command/fluentd-worker.rb' command.
+  # fluentd-worker.rb calls `WorkerLauncher.main`.
   #
   # Next step: `Worker#run` in 'fluentd/worker.rb'
   #
