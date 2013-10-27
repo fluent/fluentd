@@ -84,6 +84,12 @@ module Fluentd
     def configure(conf)
       super
 
+      if log_level = conf['log_level']
+        @logger.log_level = log_level
+        # note: can't use config_param because Plugin is not initialized yet
+        #       when 'fluentd/agent.rb' is loaded
+      end
+
       # initialize <match> and <filter> elements
       conf.elements.select {|e|
         e.name == 'match' || e.name == 'filter'
