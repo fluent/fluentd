@@ -17,49 +17,66 @@
 #
 module Fluentd
 
-  Configurable.register_type(:any) do |val,opts|
+  Configurable.register_type(:object, lambda {|val,opts|
     val
-  end
+  })
 
-  Configurable.register_type(:string) do |val,opts|
+  Configurable.register_type(:string, lambda {|val,opts|
     val.to_s
-  end
+  })
 
-  Configurable.register_type(:integer) do |val,opts|
-    val.to_i
-  end
-
-  Configurable.register_type(:float) do |val,opts|
-    val.to_f
-  end
-
-  Configurable.register_type(:size) do |val, opts|
-    case val.to_s
-    when /([0-9]+)k/i
-      $~[1].to_i * 1024
-    when /([0-9]+)m/i
-      $~[1].to_i * (1024**2)
-    when /([0-9]+)g/i
-      $~[1].to_i * (1024**3)
-    when /([0-9]+)t/i
-      $~[1].to_i * (1024**4)
-    else
+  Configurable.register_type(:integer, lambda {|val,opts|
+    val = val.to_s
+    if val =~ /\A\-?(?:0|[1-9][0-9]*)\z/
       val.to_i
+    else
+      raise ConfigError, "Expected integer but got #{val.dump}"
     end
-  end
+  })
 
-  Configurable.register_type(:bool) do |val,opts|
-    case val.to_s
-    when 'true', 'yes', nil
+  Configurable.register_type(:float, lambda {|val,opts|
+    val.to_s
+    if val =~ /\A\-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?\z/
+      val.to_f
+    else
+      raise ConfigError, "Expected float but got #{val.dump}"
+    end
+  })
+
+  Configurable.register_type(:size, lambda {|val, opts|
+    val = val.to_s
+    {
+      'k' => 1024,
+      'm' => 1024**2,
+      'g' => 1024**3
+      't' => 1024**4,
+    }.each_pair {|k,v|
+      if val =~ /\A(0|[1-9][0-9]*)[ \t]*#{k}\z/
+        return m[1].to_i * v
+      end
+    }
+    if val =~ /\A\-?(?:0|[1-9][0-9]*)\z/
+      return val.to_i
+    end
+    raise ConfigError, "Expected size (integer + k, m, g) but got #{val.dump}"
+  })
+
+  Configurable.register_type(:boolean, lambda {|val,opts|
+    if val.nil?
+      return true
+    end
+    val = val.to_s
+    case val
+    when 'true'
       true
-    when 'false', 'no'
+    when 'false'
       false
     else
-      nil
+      raise ConfigError, "Expected 'true' or 'false' but got #{val.dump}"
     end
-  end
+  })
 
-  Configurable.register_type(:time) do |val,opts|
+  Configurable.register_type(:time, lambda {|val,opts|
     f = case val.to_s
         when /([0-9]+)s/
           $~[1].to_f
@@ -73,9 +90,9 @@ module Fluentd
           val.to_f
         end
     f
-  end
+  })
 
-  Configurable.register_type(:hash) do |val,opts|
+  Configurable.register_type(:hash, lambda {|val,opts|
     case val
     when Hash
       val
@@ -84,6 +101,6 @@ module Fluentd
     else
       raise ConfigError, "hash required but got #{val.inspect}"
     end
-  end
+  })
 
 end

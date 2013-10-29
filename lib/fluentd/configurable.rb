@@ -54,8 +54,13 @@ module Fluentd
     CONFIG_TYPE_REGISTRY = PluginRegistry::Registry.new(:type, 'fluentd/plugin/type_')
 
     module ClassMethods
-      def register_type(type, &block)
-        CONFIG_TYPE_REGISTRY.register(type, block)
+      def register_type(type, callable=nil, &block)
+        callable ||= blockj
+        CONFIG_TYPE_REGISTRY.register(type, callable)
+      end
+
+      def lookup_type(type)
+        CONFIG_TYPE_REGISTRY.lookup(type)
       end
 
       def config_param(name, *args, &block)

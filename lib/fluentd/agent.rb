@@ -173,12 +173,14 @@ module Fluentd
 
     # called by PluginRegistry
     def parent_agent=(parent)
-      # take root_agent
-      root_agent = parent.root_agent
-      @root_agent = root_agent
-      @logger.root_agent = root_agent
+      self.root_agent = parent.root_agent
       parent._add_agent(self)
       @parent_agent = parent
+    end
+
+    def root_agent=(root_agent)
+      @root_agent = root_agent
+      @logger.root_agent = root_agent
     end
   end
 
