@@ -48,7 +48,7 @@ module Fluentd
     {
       'k' => 1024,
       'm' => 1024**2,
-      'g' => 1024**3
+      'g' => 1024**3,
       't' => 1024**4,
     }.each_pair {|k,v|
       if val =~ /\A(0|[1-9][0-9]*)[ \t]*#{k}\z/
@@ -75,6 +75,9 @@ module Fluentd
       raise ConfigError, "Expected 'true' or 'false' but got #{val.dump}"
     end
   })
+
+  # alias
+  Configurable.register_type(:bool, Configurable.lookup_type(:boolean))
 
   Configurable.register_type(:time, lambda {|val,opts|
     f = case val.to_s
