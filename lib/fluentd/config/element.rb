@@ -102,9 +102,11 @@ module Fluentd
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
 
+        nonquote_regexp = /[a-zA-Z0-9_]+/
+
         each_pair {|k,v|
-          a = LiteralParser.nonquoted_string?(k) ? k : {"_"=>k}.to_json[5..-2]
-          #b = LiteralParser.nonquoted_string?(v) ? v : {"_"=>v}.to_json[5..-2]
+          a = (k =~ nonquote_regexp) ? k : {"_"=>k}.to_json[5..-2]
+          #b = (k =~ nonquote_regexp) ? v : {"_"=>v}.to_json[5..-2]
           b = {"_"=>v}.to_json[5..-2]
           out << "#{nindent}#{a} #{b}\n"
         }

@@ -15,43 +15,29 @@ describe Fluentd::Config::LiteralParser do
 
   let(:eval_context) { TestLiteralParserContext.new(v1, v2, v3) }
 
-  class UnexpectedString < Fluentd::ConfigParseError
-  end
-
   def parse_text(text)
     basepath = File.expand_path(File.dirname(__FILE__)+'/../../')
     ss = StringScanner.new(text)
     parser = Fluentd::Config::Parser.new(ss, basepath, "(test)", eval_context)
-    v = parser.parse_literal
-    if ss.eos?
-      v
-    else
-      raise UnexpectedString, ss.rest
-    end
+    parser.parse_literal
   end
 
-  context 'boolean' do
+  describe 'boolean parsing' do
     it { 'true'.should be_parsed_as(true) }
     it { 'false'.should be_parsed_as(false) }
     it { 'trueX'.should be_parsed_as("trueX") }
     it { 'falseX'.should be_parsed_as("falseX") }
   end
 
-  context 'nil' do
-    it { 'nil'.should be_parsed_as(nil) }
-    it { 'nilX'.should be_parsed_as("nilX") }
-  end
-
-  #context 'null' do
-  #  it { 'null'.should be_parsed_as(nil) }
-  #end
-
-  context 'integer' do
+  describe 'integer parsing' do
     it { '0'.should be_parsed_as(0) }
     it { '1'.should be_parsed_as(1) }
     it { '10'.should be_parsed_as(10) }
     it { '-1'.should be_parsed_as(-1) }
     it { '-10'.should be_parsed_as(-10) }
+    it { '0 '.should be_parsed_as(0) }
+    it { ' -1 '.should be_parsed_as(-1) }
+    # string
     it { '01'.should be_parsed_as("01") }
     it { '00'.should be_parsed_as("00") }
     it { '-01'.should be_parsed_as("-01") }
@@ -60,15 +46,18 @@ describe Fluentd::Config::LiteralParser do
     it { '0s'.should be_parsed_as("0s") }
   end
 
-  context 'float' do
+  describe 'float parsing' do
     it { '1.1'.should be_parsed_as(1.1) }
     it { '0.1'.should be_parsed_as(0.1) }
-    it { '12e8'.should be_parsed_as(12e8) }
-    it { '12.1e7'.should be_parsed_as(12.1e7) }
+    it { '0.0'.should be_parsed_as(0.0) }
     it { '-1.1'.should be_parsed_as(-1.1) }
-    it { '-12e8'.should be_parsed_as(-12e8) }
-    it { '-12.1e7'.should be_parsed_as(-12.1e7) }
-    it { '1.10'.should be_parsed_as("1.10") }
+    it { '-0.1'.should be_parsed_as(-0.1) }
+    it { '1.10'.should be_parsed_as(1.10) }
+    # string
+    it { '12e8'.should be_parsed_as("12e8") }
+    it { '12.1e7'.should be_parsed_as("12.1e7") }
+    it { '-12e8'.should be_parsed_as("-12e8") }
+    it { '-12.1e7'.should be_parsed_as("-12.1e7") }
     it { '.0'.should be_parsed_as(".0") }
     it { '.1'.should be_parsed_as(".1") }
     it { '0.'.should be_parsed_as("0.") }
@@ -78,7 +67,7 @@ describe Fluentd::Config::LiteralParser do
     it { '0@'.should be_parsed_as("0@") }
   end
 
-  context 'float keywords' do
+  describe 'float keywords parsing' do
     it { 'NaN'.should be_parsed_as(Float::NAN) }
     it { 'Infinity'.should be_parsed_as(Float::INFINITY) }
     it { '-Infinity'.should be_parsed_as(-Float::INFINITY) }
@@ -87,7 +76,7 @@ describe Fluentd::Config::LiteralParser do
     it { '-InfinityX'.should be_parsed_as("-InfinityX") }
   end
 
-  context 'quoted string' do
+  describe 'quoted string' do
     it { '""'.should be_parsed_as("") }
     it { '"text"'.should be_parsed_as("text") }
     it { '"\\""'.should be_parsed_as("\"") }
@@ -98,22 +87,24 @@ describe Fluentd::Config::LiteralParser do
     it { '"\\.t"'.should be_parsed_as(".t") }
     it { '"\\$t"'.should be_parsed_as("$t") }
     it { '"\\#t"'.should be_parsed_as("#t") }
-    it { '"\\z"'.should be_parse_error }
-    it { '"\\0"'.should be_parse_error }
-    it { '"\\1"'.should be_parse_error }
-    it { '"t'.should be_parse_error }
-    it { 't"'.should be_parse_error }
+    it { '"\\z"'.should be_parse_error }  # unknown escaped character
+    it { '"\\0"'.should be_parse_error }  # unknown escaped character
+    it { '"\\1"'.should be_parse_error }  # unknown escaped character
+    it { '"t'.should be_parse_error }  # non-terminated quoted character
+    it { 't"'.should be_parsed_as('t"') }
     it { '"."'.should be_parsed_as('.') }
     it { '"*"'.should be_parsed_as('*') }
     it { '"@"'.should be_parsed_as('@') }
-    it { '"\\${test}"'.should be_parsed_as("${test}") }
+    it { '"\\#{test}"'.should be_parsed_as("\#{test}") }
     it { '"$"'.should be_parsed_as('$') }
     it { '"$t"'.should be_parsed_as('$t') }
     it { '"$}"'.should be_parsed_as('$}') }
   end
 
-  context 'nonquoted string' do
-    it { ''.should be_parse_error }
+  describe 'nonquoted string parsing' do
+    # empty
+    it { ''.should be_parsed_as(nil) }
+
     it { 't'.should be_parsed_as('t') }
     it { 'T'.should be_parsed_as('T') }
     it { '_'.should be_parsed_as('_') }
@@ -126,65 +117,50 @@ describe Fluentd::Config::LiteralParser do
     it { 't+'.should be_parsed_as('t+') }
     it { 't/'.should be_parsed_as('t/') }
     it { 't='.should be_parsed_as('t=') }
-    #it { 't,'.should be_parsed_as('t,') }
+    it { 't,'.should be_parsed_as('t,') }
     it { '0t'.should be_parsed_as("0t") }
     it { '@1t'.should be_parsed_as('@1t') }
     it { '-1t'.should be_parsed_as('-1t') }
     it { '.1t'.should be_parsed_as('.1t') }
-    #it { ',1t'.should be_parsed_as(',1t') }
+    it { ',1t'.should be_parsed_as(',1t') }
     it { '.t'.should be_parsed_as('.t') }
     it { '*t'.should be_parsed_as('*t') }
     it { '@t'.should be_parsed_as('@t') }
-    it { '0 '.should be_parse_error }  # space
-    it { '-1 '.should be_parse_error }  # space
-    it { '$t'.should be_parse_error }
-    it { '{t'.should be_parse_error }
-    it { '}t'.should be_parse_error }
-    it { '$t'.should be_parse_error }
-    it { 't$'.should be_parse_error }
-    it { 't:'.should be_parse_error }
-    it { 't;'.should be_parse_error }
-    it { 't?'.should be_parse_error }
-    it { 't^'.should be_parse_error }
-    it { 't`'.should be_parse_error }
-    it { 't~'.should be_parse_error }
-    it { 't|'.should be_parse_error }
-    it { 't>'.should be_parse_error }
-    it { 't<'.should be_parse_error }
-    it { 't('.should be_parse_error }
-    it { 't['.should be_parse_error }
-    it { 't{'.should be_parse_error }
+    it { '$t'.should be_parsed_as('$t') }
+    it { '{t'.should be_parse_error }  # '{' begins map
+    it { 't{'.should be_parsed_as('t{') }
+    it { '}t'.should be_parsed_as('}t') }
+    it { '[t'.should be_parse_error }  # '[' begins array
+    it { 't['.should be_parsed_as('t[') }
+    it { ']t'.should be_parsed_as(']t') }
+    it { '$t'.should be_parsed_as('$t') }
+    it { 't:'.should be_parsed_as('t:') }
+    it { 't;'.should be_parsed_as('t;') }
+    it { 't?'.should be_parsed_as('t?') }
+    it { 't^'.should be_parsed_as('t^') }
+    it { 't`'.should be_parsed_as('t`') }
+    it { 't~'.should be_parsed_as('t~') }
+    it { 't|'.should be_parsed_as('t|') }
+    it { 't>'.should be_parsed_as('t>') }
+    it { 't<'.should be_parsed_as('t<') }
+    it { 't('.should be_parsed_as('t(') }
+    it { 't['.should be_parsed_as('t[') }
   end
 
-  context 'embedded ruby code' do
-    it { '${v1}'.should be_parsed_as(v1) }
-    it { '${v2}'.should be_parsed_as(v2) }
-    it { '${v3}'.should be_parsed_as(v3) }
-    it { '${1+1}'.should be_parsed_as(2) }
-    it { '${}'.should be_parsed_as(nil) }
-    it { 't${v1}'.should be_parsed_as("t"+v1.to_s) }
-    #it { '${v1}t'.should be_parse_error }
-    it { 't${v1}t'.should be_parsed_as("t"+v1.to_s+"t") }
-    it { '${"}"}'.should be_parsed_as("}") }
-    it { '${#}'.should be_parse_error }
-    it { "${\n=begin\n}".should be_parse_error }
+  describe 'embedded ruby code parsing' do
+    it { '"#{v1}"'.should be_parsed_as("#{v1}") }
+    it { '"#{v2}"'.should be_parsed_as("#{v2}") }
+    it { '"#{v3}"'.should be_parsed_as("#{v3}") }
+    it { '"#{1+1}"'.should be_parsed_as("2") }
+    it { '"#{}"'.should be_parsed_as("") }
+    it { '"t#{v1}"'.should be_parsed_as("t#{v1}") }
+    it { '"t#{v1}t"'.should be_parsed_as("t#{v1}t") }
+    it { '"#{"}"}"'.should be_parsed_as("}") }
+    it { '"#{#}"'.should be_parse_error }  # error in embedded ruby code
+    it { "\"\#{\n=begin\n}\"".should be_parse_error }  # error in embedded ruby code
   end
 
-  context 'string embedded ruby code' do
-    it { '"${v1}"'.should be_parsed_as(v1.to_s) }
-    it { '"${v2}"'.should be_parsed_as(v2.to_s) }
-    it { '"${v3}"'.should be_parsed_as(v3.to_s) }
-    it { '"${1+1}"'.should be_parsed_as("2") }
-    it { '"${}"'.should be_parsed_as("") }
-    it { '"t${v1}"'.should be_parsed_as("t"+v1.to_s) }
-    it { '"${v1}t"'.should be_parsed_as(v1.to_s+"t") }
-    it { '"t${v1}t"'.should be_parsed_as("t"+v1.to_s+"t") }
-    it { '"${"}"}"'.should be_parsed_as("}") }
-    it { '"${#}"'.should be_parse_error }
-    it { "\"${\n=begin\n}\"".should be_parse_error }
-  end
-
-  context 'array' do
+  describe 'array parsing' do
     it { '[]'.should be_parsed_as([]) }
     it { '[1]'.should be_parsed_as([1]) }
     it { '[1,2]'.should be_parsed_as([1,2]) }
@@ -204,7 +180,7 @@ describe Fluentd::Config::LiteralParser do
     it { '[ab,cd]'.should be_parsed_as(["ab","cd"]) }
   end
 
-  context 'map' do
+  describe 'map parsing' do
     it { '{}'.should be_parsed_as({}) }
     it { '{a:1}'.should be_parsed_as({"a"=>1}) }
     it { '{a:1,b:2}'.should be_parsed_as({"a"=>1,"b"=>2}) }

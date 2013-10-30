@@ -18,204 +18,127 @@
 module Fluentd
   module Config
 
-    require 'stringio'
     require 'fluentd/config/basic_parser'
-
     require 'irb/ruby-lex'  # RubyLex
 
     class LiteralParser < BasicParser
-      def_keyword :k_true, "true"
-      def_keyword :k_false, "false"
-      def_keyword :k_nil, "nil"
-      def_keyword :k_nan, "NaN"
-      def_keyword :k_infinity, "Infinity"
-      def_keyword :k_minus_infinity, "-Infinity"
+      def initialize(strscan, eval_context)
+        super(strscan)
+        @eval_context = eval_context
+      end
 
-      def_symbol :k_array_start, '['
-      def_symbol :k_array_end, ']'
-      def_symbol :k_map_start, '{'
-      def_symbol :k_map_end, '}'
-
-      def_symbol :k_comma, ','
-      def_symbol :k_colon, ':'
-
-      def_symbol :k_double_quote, '"'
-      def_symbol :k_single_quote, '"'
-
-      def_symbol :k_embedded_code_start, "${"
-      STRING_EMBEDDED_CODE_START = /\$\{/
-      EMBEDDED_CODE_END = /(?:\s|\#.*?)*\}/
-
-      NONQUOTED_STRING_CHARSET = BASIC_CHARACTERS
-      NONQUOTED_STRING_FIRST_CHARSET = BASIC_CHARACTERS
-
-      MAP_KEY_STRING_CHARSET = NONQUOTED_STRING_CHARSET
-
-      def_token :tok_integer, /-?(?:0|-?[1-9][0-9]*)/
-      def_token :tok_float, /-?(?:0|[1-9][0-9]*)(?:(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)|\.[0-9]*[1-9])/
-
-      def parse_literal
+      def parse_literal(string_boundary_charset=LINE_END)
         spacing
 
-        if k_true
-          true
-        elsif k_false
-          false
-        elsif k_nil
-          nil
-        elsif k_nan
-          Float::NAN
-        elsif k_infinity
-          Float::INFINITY
-        elsif k_minus_infinity
-          -Float::INFINITY
-        elsif k_array_start
-          return cont_parse_array
-        elsif k_map_start
-          return cont_parse_map
-        elsif s = tok_float
-          s.to_f
-        elsif s = tok_integer
-          s.to_i
-        elsif k_embedded_code_start
-          eval_embedded_code(cont_parse_embedded_code)
+        if skip(/true(?=#{string_boundary_charset})/)
+          value = true
+
+        elsif skip(/false(?=#{string_boundary_charset})/)
+          value = false
+
+        elsif skip(/NaN(?=#{string_boundary_charset})/)
+          value = Float::NAN
+
+        elsif skip(/Infinity(?=#{string_boundary_charset})/)
+          value = Float::INFINITY
+
+        elsif skip(/-Infinity(?=#{string_boundary_charset})/)
+          value = -Float::INFINITY
+
+        elsif m = scan(/\-?(?:0|[1-9][0-9]*)(?=#{string_boundary_charset})/)
+          # integer
+          value = m.to_i
+
+        elsif m = scan(/\-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?=#{string_boundary_charset})/)
+          # float
+          value = m.to_f
+
+        elsif skip(/\[/)
+          value = cont_parse_array
+
+        elsif skip(/\{/)
+          value = cont_parse_map
+
         else
-          parse_string
+          value = scan_string(string_boundary_charset)
+        end
+
+        return value
+      end
+
+      def scan_string(string_boundary_charset=LINE_END)
+        if skip(/\"/)
+          return scan_quoted_string
+        else
+          return scan_nonquoted_string(string_boundary_charset)
         end
       end
 
-      def parse_string
-        spacing
-
-        if string = try_parse_quoted_string
-          return string
-        end
-
-        string = try_parse_special_string(NONQUOTED_STRING_CHARSET, NONQUOTED_STRING_FIRST_CHARSET)
-        unless string
-          parse_error! "expected string"
-        end
-
-        return string
-      end
-
-      def parse_map_key_string
-        spacing
-
-        if string = try_parse_quoted_string
-          return string
-        end
-
-        string = try_parse_special_string(MAP_KEY_STRING_CHARSET)
-        unless string
-          parse_error! "expected key name"
-        end
-
-        return string
-      end
-
-      def try_parse_quoted_string
-        if k_double_quote
-          return cont_parse_double_quoted_string
-        end
-
-        # TODO single quoted string
-
-        return nil
-      end
-
-      def self.nonquoted_string?(v)
-        v.is_a?(String) && v[0] =~ NONQUOTED_STRING_FIRST_CHARSET && v[1..-1] =~ /\A#{NONQUOTED_STRING_CHARSET}*\z/
-      end
-
-      def cont_parse_double_quoted_string
-        string = ''
-
+      def scan_quoted_string
+        string = []
         while true
-          if skip(/"/)
-            return string
-          elsif s = scan(/(?:(?!"|\\|\$\{).)+/m)
-            string << s
+          if skip(/\"/)
+            return string.join
           elsif s = scan(/\\./)
             string << eval_escape_char(s[1,1])
-          elsif skip(STRING_EMBEDDED_CODE_START)
-            string << eval_embedded_code(cont_parse_embedded_code).to_s
+          elsif skip(/\#\{/)
+            string << eval_embedded_code(scan_embedded_code)
+            skip(/\}/)
+          elsif s = scan(/./)
+            string << s
           else
-            parse_error! "unexpected character in quoted string"
+            parse_error! "unexpected end of file in a quoted string"
           end
         end
       end
 
-      def try_parse_special_string(charset, first_char_charset=charset)
-        string = scan(first_char_charset)
-        return nil unless string
+      def scan_nonquoted_string(boundary_charset=LINE_END)
+        charset = /(?!#{boundary_charset})./
 
+        string = []
         while true
-          if s = scan(charset)
-            string << s
-          elsif s = scan(/\\./)
+          if s = scan(/\\./)
             string << eval_escape_char(s[1,1])
-          elsif skip(STRING_EMBEDDED_CODE_START)
-            string << eval_embedded_code(cont_parse_embedded_code).to_s
+          elsif s = scan(charset)
+            string << s
           else
-            return string
+            break
           end
         end
+
+        if string.empty?
+          return nil
+        end
+
+        string.join
+      end
+
+      def scan_embedded_code
+        rlex = RubyLex.new
+        src = '"#{'+@ss.rest+"\n=end\n}"
+
+        input = StringIO.new(src)
+        input.define_singleton_method(:encoding) { external_encoding }
+        rlex.set_input(input)
+
+        tk = rlex.token
+        code = src[3,tk.seek-3]
+
+        if @ss.rest.length < code.length
+          @ss.pos += @ss.rest.length
+          parse_error! "expected end of embedded code but $end"
+        end
+
+        @ss.pos += code.length
+
+        code
       end
 
       def eval_embedded_code(code)
-        parse_error! "embedded code is not supported"
-      end
-
-      def cont_parse_array
-        spacing
-        return [] if k_array_end
-
-        array = []
-        while true
-          array << parse_literal
-
-          spacing
-          return array if k_array_end
-
-          spacing
-          unless k_comma
-            parse_error! "expected ',' or ']' in array"
-          end
-
-          # to allow last ','
-          spacing
-          return array if k_array_end
+        if @eval_context == nil
+          parse_error! "embedded code is not allowed in this file"
         end
-      end
-
-      def cont_parse_map
-        spacing
-        return {} if k_map_end
-
-        map = {}
-        while true
-          key = parse_string
-
-          spacing
-          unless k_colon
-            parse_error! "expected ':' in map"
-          end
-
-          map[key] = parse_literal
-
-          spacing
-          return map if k_map_end
-
-          spacing
-          unless k_comma
-            parse_error! "expected ',' or '}' in map"
-          end
-
-          # to allow last ','
-          spacing
-          return map if k_map_end
-        end
+        @eval_context.instance_eval(code)
       end
 
       def eval_escape_char(c)
@@ -235,33 +158,63 @@ module Fluentd
         when "b"
           "\b"
         when /[a-zA-Z0-9]/
-          parse_error! "unexpected escape string '#{c}'"
-        else
+          parse_error! "unexpected back-slash escape character '#{c}'"
+        else  # symbols
           c
         end
       end
 
-      def cont_parse_embedded_code
-        rlex = RubyLex.new
-        src = '"#{'+@ss.rest+"\n=end\n}"
+      def cont_parse_array
+        spacing
+        return [] if skip(/\]/)
 
-        input = StringIO.new(src)
-        input.define_singleton_method(:encoding) { external_encoding }
-        rlex.set_input(input)
+        array = []
+        while true
+          array << parse_literal(/(?:#{SPACING}|[\]\,])/)
 
-        tk = rlex.token
-        code = src[3,tk.seek-3]
+          spacing
+          if skip(/\]/)
+            return array
+          end
 
-        if @ss.rest.length < code.length
-          @ss.pos += @ss.rest.length
-          parse_error! "expected end of embedded code but $end"
+          unless skip(/\,/)
+            parse_error! "expected ',' or ']' in array"
+          end
+
+          # to allow last ','
+          spacing
+          return array if skip(/\]/)
         end
+      end
 
-        @ss.pos += code.length
+      def cont_parse_map
+        spacing
+        return {} if skip(/\}/)
 
-        skip(EMBEDDED_CODE_END)
+        map = {}
+        while true
+          key = scan_string(/(?:#{SPACING}|[\}\:\,])/)
 
-        code
+          spacing
+          unless skip(/\:/)
+            parse_error! "expected ':' in map"
+          end
+
+          map[key] = parse_literal(/(?:#{SPACING}|[\}\,\:])/)
+
+          spacing
+          if skip(/\}/)
+            return map
+          end
+
+          unless skip(/\,/)
+            parse_error! "expected ',' or '}' in map"
+          end
+
+          # to allow last ','
+          spacing
+          return map if skip(/\}/)
+        end
       end
     end
 

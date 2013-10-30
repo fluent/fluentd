@@ -39,7 +39,7 @@ module Fluentd
       self.class.config_params.each_pair {|name,(block,opts)|
         varname = :"@#{name}"
         if val = conf[name.to_s]
-          val = self.instance_exec(val, opts, name, &block)
+          val = self.instance_exec(val, opts, &block)  # TODO pass name?
           instance_variable_set(varname, val)
         end
         unless instance_variable_defined?(varname)
