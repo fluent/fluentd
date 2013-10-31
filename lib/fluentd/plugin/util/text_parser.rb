@@ -25,11 +25,62 @@ module Fluentd
       require 'yajl'
 
       class TextParser
-        class RegexpParser
+        class TimeParser
           include Configurable
 
+          config_param :time_key, :string, :default => nil
           config_param :time_format, :string, :default => nil
+          config_param :time_parse, :bool, :default => true
 
+          def configure(conf)
+            super
+            if @time_format && !@time_key
+              raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
+            end
+          end
+
+          def parse_time(record)
+            time = nil
+            return time, record unless @time_key && @time_parse
+
+            begin
+              if value = record.delete(@time_key)
+                time = if @time_format
+                         Time.strptime(value, @time_format).to_i
+                       elsif value.is_a?(Integer)
+                         value
+                       else
+                         Time.parse(value.to_s).to_i
+                       end
+              end
+            rescue TypeError, ArgumentError => e
+              Fluentd.log.warn "failed to parse time", :time_key => @time_key, :value => value, :time_format => @time_format, :error => e
+              record[@time_key] = value
+            end
+
+            return time, record
+          end
+        end
+
+        class ValuesParser < TimeParser
+          config_param :keys, :string
+
+          def configure(conf)
+            super
+            @keys = @keys.split(",")
+
+            if @time_key && !@keys.include?(@time_key)
+              raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
+            end
+          end
+
+          def values_map(values)
+            record = Hash[keys.zip(values)]
+            parse_time(record)
+          end
+        end
+
+        class RegexpParser < TimeParser
           def initialize(regexp)
             super()
             @regexp = regexp
@@ -42,86 +93,27 @@ module Fluentd
               return nil, nil
             end
 
-            time = nil
             record = {}
-
             m.names.each {|name|
-              if value = m[name]
-                case name
-                when "time"
-                  if @time_format
-                    time = Time.strptime(value, @time_format).to_i
-                  else
-                    time = Time.parse(value).to_i
-                  end
-                else
-                  record[name] = value
-                end
+              if m[name]
+                record[name] = m[name]
               end
             }
-
-            return time, record
+            parse_time(record)
           end
         end
 
-        class JSONParser
-          include Configurable
-
-          config_param :time_key, :string, :default => 'time'
-          config_param :time_format, :string, :default => nil
+        class JSONParser < TimeParser
+          config_set_default :time_key, "time"
 
           def call(text)
-            record = Yajl.load(text)
-
-            if value = record.delete(@time_key)
-              if @time_format
-                time = Time.strptime(value, @time_format).to_i
-              else
-                time = value.to_i
-              end
+            begin
+              record = Yajl.load(text)
+            rescue Yajl::ParseError => e
+              Fluentd.log.warn "pattern not match", :text => text, :error => e
+              return nil,nil
             end
-
-            return time, record
-          rescue Yajl::ParseError
-            Fluentd.log.warn "pattern not match: #{text.inspect}: #{$!}"
-            return nil, nil
-          end
-        end
-
-        class ValuesParser
-          include Configurable
-
-          config_param :keys, :string
-          config_param :time_key, :string, :default => nil
-          config_param :time_format, :string, :default => nil
-
-          def configure(conf)
-            super
-
-            @keys = @keys.split(",")
-
-            if @time_key && !@keys.include?(@time_key)
-              raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
-            end
-
-            if @time_format && !@time_key
-              raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
-            end
-          end
-
-          def values_map(values)
-            record = Hash[keys.zip(values)]
-
-            if @time_key
-              value = record.delete(@time_key)
-              if @time_format
-                time = Time.strptime(value, @time_format).to_i
-              else
-                time = Time.parse(value).to_i
-              end
-            end
-
-            return time, record
+            parse_time(record)
           end
         end
 
@@ -134,9 +126,9 @@ module Fluentd
         end
 
         class LabeledTSVParser < ValuesParser
+          config_set_default :time_key, "time"
           config_param :delimiter,       :string, :default => "\t"
           config_param :label_delimiter, :string, :default =>  ":"
-          config_param :time_key, :string, :default =>  "time"
 
           def configure(conf)
             conf['keys'] = conf['time_key'] || 'time'
@@ -232,6 +224,8 @@ module Fluentd
         end
 
         class SyslogParser < RegexpParser
+          config_set_default :time_key, "time"
+
           REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
           TIME_FORMAT = '%b %d %H:%M:%S'
 
@@ -246,6 +240,7 @@ module Fluentd
         end
 
         class NginxParser < RegexpParser
+          config_set_default :time_key, "time"
           REGEXP = /^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
           TIME_FORMAT = '%d/%b/%Y:%H:%M:%S %z'
 

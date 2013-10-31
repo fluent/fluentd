@@ -70,6 +70,18 @@ describe Fluentd::Plugin::Util::TextParser do
                             'method' => 'PUT',
                           })
     end
+
+    it 'does not parse time key when specified not to do it' do
+      @parser.time_parse = false
+      time, record = @parser.call('{"time":1362020400,"host":"192.168.0.1","size":777,"method":"PUT"}')
+      expect(time).to be_nil
+      expect(record).to eq({
+                            'time' => 1362020400,
+                            'host'   => '192.168.0.1',
+                            'size'   => 777,
+                            'method' => 'PUT',
+                          })
+    end
   end
 
   context Fluentd::Plugin::Util::TextParser::LabeledTSVParser do
@@ -124,6 +136,23 @@ describe Fluentd::Plugin::Util::TextParser do
 
       expect(time).to eq expected_time
       expect(record).to eq({
+                            'host'   => '192.168.0.1',
+                            'req_id' => '111',
+                          })
+    end
+
+    it 'does not parse time key when specified not to do it' do
+      str_time = '28/Feb/2013:12:00:00 +0900'
+      time_format =  '%d/%b/%Y:%H:%M:%S %z'
+      expected_time = Time.strptime(str_time, time_format).to_i
+
+      @parser.configure( 'time_parse' => 'no' )
+
+      time, record = @parser.call("time:#{str_time}\thost:192.168.0.1\treq_id:111")
+
+      expect(time).to be_nil
+      expect(record).to eq({
+                            'time'   => '28/Feb/2013:12:00:00 +0900',
                             'host'   => '192.168.0.1',
                             'req_id' => '111',
                           })
