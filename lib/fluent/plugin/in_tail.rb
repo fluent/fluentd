@@ -514,6 +514,7 @@ module Fluent
   end
   #temprary code 
   require 'Win32API'
+  require 'fluent/win32api_constants.rb'
   class Win32File
     def initialize
       super
@@ -524,8 +525,8 @@ module Fluent
       closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'v')
       getFileInformation = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i')
 
-      file_handle = createfile.call(path, 0, 0, 0, 3, 0x80, 0 )
-      if file_handle == -1 
+      file_handle = createfile.call(path, 0, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0 )
+      if file_handle == INVALID_HANDLE_VALUE 
         return 0
       end
 
