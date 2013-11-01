@@ -319,7 +319,7 @@ module Fluent
                   if @buffer.empty?
                     @io.readpartial(2048, @buffer)
                   else
-                    @buffer << @io.readpartial(2048, @buffer)
+                    @buffer << @io.readpartial(2048, @iobuf)
                   end
                 end
                 while line = @buffer.slice!(/.*?\n/m)
