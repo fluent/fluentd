@@ -4,7 +4,7 @@ This is a branch version to make fluentd work on Windows! **This is a very preli
 
 We tried on following environments.
 
-    Windows 7, Apache 2.2 access.log, in_tail and stdout
+    Windows 7, Apache 2.2 access.log, in_tail, out_null, out_file and out_stdout
 
 == gem
 
