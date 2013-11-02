@@ -127,10 +127,8 @@ module Fluentd
       worker = Worker.new(options)
       install_signal_handlers(worker)
 
-      # read config file again for each worker because
-      # Config::DSL::Parser allows users to set Proc object
-      # which can't be exchanged across processes.
-      conf = Server.read_config(options[:config_path])
+      # receive configuration from the shared data through DRb
+      conf = Engine.shared_data['fluentd_config']
 
       # get <worker> element for this worker process
       worker_elements = conf.elements.select {|e| e.name == 'worker' }

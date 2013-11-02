@@ -112,6 +112,12 @@ module Fluentd
         raise ConfigError, "No <worker> elements in the config file"
       end
 
+      # config must be marshal-able so that WorkerLauncher can receive it through DRb
+      begin
+        Marshal.dump(conf)
+      rescue => e
+        raise ConfigError, "Configuration includes objects that Marshal can't serialize: #{e}"
+      end
       Engine.shared_data['fluentd_config'] = conf
 
       # set number of ServerEngine workers using
