@@ -16,22 +16,24 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Collectors
+  module Plugin
 
-    class LabelRedirectCollector
-      include Collector
-
-      def initialize(root_agent, label)
-        @root_agent = root_agent
-        @label = label
+    #
+    # RoutingOutput is a special output plugin that forwards
+    # events to other output plugins.
+    #
+    class RoutingOutput < Output
+      def emit(tag, time, record)
+        match(tag).emit(tag, time, record)
       end
 
       def emits(tag, es)
-        @root_agent.match_label(@label, tag).emits(tag, es)
+        match(tag).emits(tag, es)
       end
 
+      # must be implemented in the extending class
       def match(tag)
-        @root_agent.match_label(@label, tag)
+        raise NoMethodError, "#{self.class}#match is not implemented"
       end
     end
 

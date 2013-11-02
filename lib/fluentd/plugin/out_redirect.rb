@@ -18,26 +18,19 @@
 module Fluentd
   module Plugin
 
-    require_relative '../collectors/label_redirect_collector'
+    require 'fluentd/plugin/routing_output'
 
-    class RedirectOutput < Output
+    class RedirectOutput < RoutingOutput
       Plugin.register_output('redirect', self)
 
       def configure(conf)
         super
 
         @label = conf['label']
-        @tag = conf['tag']
-
-        self.default_collector = Collectors::LabelRedirectCollector.new(root_agent, @label)
       end
 
-      def emit(tag, time, record)
-        collector.emit(@tag || tag, time, record)
-      end
-
-      def emits(tag, es)
-        collector.emits(@tag || tag, es)
+      def match(tag)
+        root_agent.match_label(@label, tag)
       end
     end
 

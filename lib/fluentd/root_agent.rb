@@ -116,7 +116,7 @@ module Fluentd
     end
 
     # root_router api used by
-    # 'fluentd/collectors/label_redirect_collector.rb'
+    # 'fluentd/plugin/out_redirect.rb'
     def match_label(label_name, tag)
       if label = @labels[label_name]
         return label.collector.match(tag)
