@@ -152,6 +152,7 @@ module Fluentd
       # agent API called by Worker
     end
 
+    # EmitErrorHandler interface. See 'fluentd/event_router.rb'
     def handle_emit_error(tag, time, record, error)
       log.warn "emit error", error: error
       if @root_agent
@@ -159,6 +160,7 @@ module Fluentd
       end
     end
 
+    # EmitErrorHandler interface. See 'fluentd/event_router.rb'
     def handle_emits_error(tag, es, error)
       log.warn "emit error", error: error
       if @root_agent

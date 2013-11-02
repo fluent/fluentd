@@ -59,12 +59,13 @@ module Fluentd
       @emit_error_handler = emit_error_handler || RaiseEmitErrorHandler.new
     end
 
+    # Agent implements EmitErrorHandler. See 'fluentd/agent.rb'
     class RaiseEmitErrorHandler
-      def handle_emit_error(collector, tag, time, record, error)
+      def handle_emit_error(tag, time, record, error)
         raise error
       end
 
-      def handle_emits_error(collector, tag, es, error)
+      def handle_emits_error(tag, es, error)
         raise error
       end
     end
@@ -144,28 +145,33 @@ module Fluentd
 
     def match_offset(offset, tag)
       cache = (@match_caches[offset] ||= MatchCache.new)
-      collector = cache[tag]
 
-      unless collector
-        collector = find(tag, offset) || @default_collector
-        collector = collector.match(tag)
-        cache[tag] = collector
+      collector = cache.get(tag) do
+        c = find(tag, offset) || @default_collector
+        c.match(tag)
       end
 
       return collector
     end
 
-    class MatchCache < Hash
+    class MatchCache
       def initialize
         super
+        @map = {}
         @keys = []
       end
 
-      def []=(key, value)
-        if @keys.size >= MATCH_CACHE_SIZE
-          delete @keys.shift
+      def get(key, &find_block)
+        if collector = @map[key]
+          return collector
         end
-        super(key, value)
+        collector = @map[key] = find_block.call
+        if @keys.size >= MATCH_CACHE_SIZE
+          # expire the oldest key
+          @map.delete @keys.shift
+        end
+        @keys << key
+        return collector
       end
     end
 

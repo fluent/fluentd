@@ -26,7 +26,6 @@ module Fluentd
         @dummy_router = TestCollector.new
         plugin.default_collector = @dummy_router
 
-        @dummy_router = dummy_router
         @instance = plugin
       end
 
