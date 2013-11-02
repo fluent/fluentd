@@ -48,11 +48,14 @@ module Fluentd
 
     attr_writer :root_agent
 
+    LEVEL_TAGS = %w[fluentd.trace fluentd.debug fluentd.info fluentd.warn fluentd.error fluentd.fatal].map {|tag| tag.freeze }
+
     def add_event(level, time, message, record, caller_stack)
       super  # calls #<<
       if @root_agent
         record['message'] = message
-        @root_agent.log_collector.emit("fluentd", time.to_i, record)
+        tag = LEVEL_TAGS[level]
+        @root_agent.log_collector.emit(tag, time.to_i, record)
       end
       nil
     end

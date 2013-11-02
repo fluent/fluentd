@@ -57,7 +57,7 @@ module Fluentd
       @event_router = EventRouter.new(Collectors::NullCollector.new, self)
 
       # See 'fluentd/agent_logger.rb' about AgentLogger.
-      @logger = AgentLogger.new(Engine.logger)
+      @logger = Engine.logger ? AgentLogger.new(Engine.logger) : nil
     end
 
     attr_reader :parent_agent

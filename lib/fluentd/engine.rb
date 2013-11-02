@@ -40,6 +40,9 @@ module Fluentd
       end
 
       def setup_test_environment!
+        require 'fluentd/logger'
+        require 'fluentd/plugin_registry'
+        require 'fluentd/socket_manager'
         Engine.logger ||= Logger.new(STDERR)
         Engine.plugins ||= PluginRegistry.new
         Engine.sockets ||= SocketManager::NonManagedAPI.new
