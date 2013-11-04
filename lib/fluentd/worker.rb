@@ -98,11 +98,11 @@ module Fluentd
       # stop sending Worker's internal logs to root_agent
       @log.root_agent = nil
 
-      # call Agent#stop in reversed order
+      # call Agent#shutdown in reversed order
       started_agents.reverse.map {|a|
         Thread.new do
           begin
-            a.stop
+            a.shutdown
           rescue => e
             @log.warn "unexpected error while stopping down agent #{a}", error: e.to_s
             @log.warn_backtrace
@@ -110,11 +110,11 @@ module Fluentd
         end
       }.each {|t| t.join }
 
-      # call Agent#shutdown in reversed order
+      # call Agent#close in reversed order
       started_agents.reverse.map {|a|
         Thread.new do
           begin
-            a.shutdown
+            a.close
           rescue => e
             @log.warn "unexpected error while shutting down agent #{a}", error: e.to_s
             @log.warn_backtrace

@@ -22,6 +22,10 @@ module Fluentd
   require 'fluentd/plugin_registry'
 
   module Configurable
+    def initialize
+      init_configurable
+    end
+
     def init_configurable
       self.class.config_defaults.each_pair {|name,defval|
         varname = :"@#{name}"

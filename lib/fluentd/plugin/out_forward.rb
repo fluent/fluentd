@@ -230,7 +230,6 @@ module Fluentd
         end
 
         def configure(conf)
-          init_configurable
           super
 
           @name = "#{@host}:#{@port}"

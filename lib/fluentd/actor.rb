@@ -82,7 +82,7 @@ module Fluentd
         @actor.start
       end
 
-      def stop
+      def shutdown
         @actor.stop
         @actor.join
         super

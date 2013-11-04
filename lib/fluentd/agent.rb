@@ -52,7 +52,6 @@ module Fluentd
       @agents = []  # child agents
 
       init_configurable  # initialize Configurable
-      super
 
       @event_router = EventRouter.new(Collectors::NullCollector.new, self)
 
@@ -144,11 +143,11 @@ module Fluentd
       # agent API called by Worker
     end
 
-    def stop
+    def shutdown
       # agent API called by Worker
     end
 
-    def shutdown
+    def close
       # agent API called by Worker
     end
 
