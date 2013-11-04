@@ -121,6 +121,13 @@ module Fluentd
     def format_event(level, time, message, record, caller_stack)
       time_str = time.strftime(@time_format)
 
+      unless record.empty?
+        message = "#{message}:"
+        record.each_pair {|k,v|
+          message << " #{k}=#{v}"
+        }
+      end
+
       if @enable_filename && m = /^(.+?):(\d+)(?::in `(.*)')?/.match(caller_stack.first || '')
         dir_fname = m[1].split('/')[-2,2]
         file = dir_fname ? dir_fname.join('/') : m[1]
