@@ -49,7 +49,7 @@ module Fluentd
       end
 
       def acquire(&block)
-        raise NoMethodError, "#{self.class}#open(&block) is not implemented"
+        raise NoMethodError, "#{self.class}#acquire(&block) is not implemented"
       end
 
       def clear
@@ -88,6 +88,10 @@ module Fluentd
 
       def get_builder(key)
         raise NoMethodError, "#{self.class}#get_builder(key) is not implemented"
+      end
+
+      def clear
+        raise NoMethodError, "#{self.class}#clear is not implemented"
       end
 
       def acquire(&block)

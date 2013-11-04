@@ -28,7 +28,7 @@ module Fluentd
       @input = Registry.new(:input, 'fluentd/plugin/in_')
       @output = Registry.new(:output, 'fluentd/plugin/out_')
       @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
-      @buffer = Registry.new(:buffer, 'fluentd/plugin/buffer_')
+      @buffer = Registry.new(:buffer, 'fluentd/plugin/buf_')
     end
 
     def register_input(type, klass)
