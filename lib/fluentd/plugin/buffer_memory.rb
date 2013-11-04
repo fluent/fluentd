@@ -21,110 +21,90 @@ module Fluentd
     require 'stringio'
     require 'fluentd/plugin/buffer'
 
-    class MemoryBuffer < Buffer
+    class MemoryBuffer < BasicBuffer
       Plugin.register_buffer('memory', self)
-
-      include MonitorMixin
 
       def initialize
         super
         @map = {}
         @queue = []
-        @records = []
       end
 
-      def open(&block)
-        begin
-          yield self
-        ensure
-          flush_records
+      def persistent?
+        false
+      end
+
+      def get_builder(key)
+        @map[key] ||= MemoryBufferChunkBuilder.new(key, @queue, @buffer_chunk_limit)
+      end
+
+      def early_flush_chunk(strategy)
+        key, _ = @map.find {|key,builder| strategy.call(key, builder) }
+
+        if key && builder = @map.delete(key)
+          builder.flush
+          return true
+        else
+          return false
         end
       end
 
-      def append(key, data)
-        if data.bytesize > @buffer_record_limit
-          raise BufferRecordLimitError, "buffer record size exceeds limit"
-        end
-        @records << [key, data]
+      def acquire_next_chunk
+        # Hash is ordered
+        @queue.shift
       end
 
-      def flush_records
-        return if @records.empty?
+      def remove_acquired_chunk(chunk)
+        # do nothing
+      end
 
-        synchronize do
-          @records.reject! {|key,data|
-            if c = @map[key]
-              if c.size + data.bytesize > @buffer_chunk_limit
-                @queue << c
-                @map.delete(key)
-                c = @map[key] = MemoryBufferChunk.new(key)
-              end
-            else
-              c = @map[key] = MemoryBufferChunk.new(key)
-            end
-            c.data << data
-          }
+      def release_acquired_chunk(chunk)
+        @queue.unshift << chunk
+      end
 
-          if @queue.length > @buffer_queue_limit
-            # TODO check buffer_queue_limit
+      class MemoryBufferChunkBuilder < BufferChunkBuilder
+        def initialize(key, queue, buffer_chunk_limit)
+          super(key)
+          @queue = queue
+          @buffer_chunk_limit = buffer_chunk_limit
+          @data = ''.force_encoding('ASCII-8BIT')
+        end
+
+        def append(data)
+          if @data.bytesize + data.bytesize + @buffer_chunk_limit
+            flush
           end
+          @data << data
         end
-      end
 
-      private :flush_records
-
-      def keys
-        @map.keys
-      end
-
-      def enqueue_chunk(key)
-        if c = @map.delete(key)
-          @queue << c
+        def flush
+          @queue << MemoryBufferChunk.new(@key, @data.freeze)
+          @data = ''.force_encoding('ASCII-8BIT')
         end
-      end
-
-      def acquire(&block)
-        chunk = @queue.pop
-        if chunk
-          begin
-            yield chunk
-            chunk = nil
-            return true
-          ensure
-            @queue << chunk if chunk
-          end
-        end
-        nil
-      end
-
-      def clear
-        @queue.clear
       end
 
       class MemoryBufferChunk < BufferChunk
-        def initialize(key)
-          @data = ''.force_encoding('ASCII-8BIT')
-          super(key)
+        def initialize(key, data)
+          @key = key
+          @data = data
         end
 
-        attr_reader :data
-
+        # override
         def size
           @data.bytesize
         end
 
-        def open(&block)
-          yield StringIO.new(@data)
-        end
-
+        # override
         def read
           @data
         end
 
+        # override
         def write_to(io)
           io.write(@data)
         end
 
+        # override
         def msgpack_each(&block)
           u = MessagePack::Unpacker.new
           u.feed_each(@data, &block)

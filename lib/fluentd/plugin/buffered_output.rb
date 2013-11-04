@@ -18,93 +18,67 @@
 module Fluentd
   module Plugin
 
+    require 'serverengine'
+
     class BufferedOutput < Output
-      class FlushThread
-        def initialize(try_flush)
-          @try_flush = try_flush
-          @mutex = Mutex.new
-          @cond = ConditionVariable.new
-          @finished = false
-        end
-
-        def start
-          @thread = Thread.new(&method(:run))
-        end
-
-        def shutdown
-          @mutex.synchronize do
-            @finished = true
-            @cond.broadcast
-          end
-          if @thread
-            @thread.join
-            @thread = nil
-          end
-        end
-
-        private
-
-        def run
-          @mutex.synchronize do
-            until @finished
-              wait = @try_flush.call
-              @cond.wait(@mutex, wait) if wait > 0
-            end
-          end
-        end
-      end
-
       def initialize
         super
         @threads = []
-        @flush_mutex = Mutex.new
-        @flush_time = 0
+        @next_flush_time = 0
         @flush_error_history = []
+        @flush_retry_mutex = Mutex.new
       end
 
-      config_param :flush_interval, :time, :default => 10
-      config_param :flush_retry_limit, :integer, :default => 11
-      config_param :flush_retry_wait, :time, :default => 1
-      config_param :flush_threads, :integer, :default => 2
-      config_param :buffer_type, :string, :default => 'memory'
+      config_param :buffer_type, :string, default: 'memory'
+
+      config_param :flush_interval, :time, default: 10
+      config_param :flush_minimum_interval, :time, default: 0
+
+      config_param :flush_retry_wait, :time, default: 1
+      config_param :flush_retry_limit, :integer, default: 11
+
+      config_param :flush_threads, :integer, default: 2
+
+      config_param :flush_at_shutdown, :boolean, default: nil
 
       def configure(conf)
+        # backward compatibility
+        conf['flush_threads'] ||= conf['num_threads']
+
         super
 
         @buffer = Engine.plugins.new_buffer(@buffer_type)
         @buffer.configure(conf)
 
-        # TODO @secondary
+        if @flush_at_shutdown.nil? && !@buffer.persistent?
+          @flush_at_shutdown = true
+        end
 
+        # TODO @secondary
         #if @secondary && !is_a?(ObjectBufferedOutput)
         ## TODO warn
         #end
       end
 
       def start
+        @next_flush_time = Time.now.to_i + @flush_interval
         @flush_threads.times do
-          @threads << FlushThread.new(method(:try_flush))
+          @threads << FlushThread.new(&method(:try_flush))
         end
-
-        @threads.each {|t|
-          t.start
-        }
-
         @buffer.start
         super
       end
 
-      def stop
-        @buffer.stop if @buffer
+      def shutdown
+        @threads.reverse_each {|t| t.stop }
+        @threads.reverse_each {|t| t.join }
         super
       end
 
-      def shutdown
-        @buffer.shutdown if @buffer
-        @threads.reverse_each {|t|
-          t.shutdown
-        }
+      def close
         super
+        @buffer.shutdown
+        # TODO flush_at_shutdown
       end
 
       def emit(tag, time, record)
@@ -114,11 +88,9 @@ module Fluentd
       def emits(tag, es)
         @buffer.open do |a|
           es.each {|time,record|
-            handle_error(tag, time, record) do
-              data = format(tag, time, record)
-              key = buffer_key(tag, time, record)
-              a.append(key, data)
-            end
+            key = buffer_key(tag, time, record)
+            data = format(tag, time, record)
+            a.append(key, data)
           }
         end
         nil
@@ -138,110 +110,97 @@ module Fluentd
 
       private
 
-      class ScopedMutex
-        def initialize(mutex)
-          @mutex = mutex
-          @locked = false
+      class FlushThread
+        def initialize(&try_flush)
+          @stop_flag = ServerEngine::BlockingFlag.new
+          @try_flush = try_flush
+          @thread = Thread.new(&method(:run))
         end
 
-        def lock
-          @mutex.lock
-          @locked = true
+        def stop
+          @stop_flag.set!
         end
 
-        def unlock
-          @mutex.unlock
-          @locked = false
+        def join
+          @thread.join
         end
 
-        def ensure_locked
-          lock unless @locked
+        def run
+          until @stop_flag.set?
+            wait = @try_flush.call
+            @stop_flag.wait_for_set(wait) if wait > 0
+          end
         end
-
-        def ensure_unlocked
-          unlock if @locked
-        end
-      end
-
-      def acquire_chunk(&block)
-        @buffer.enqueue_chunk(@buffer.keys.first)
-        @buffer.acquire(&block)
       end
 
       def try_flush
-        now = Time.now.to_i
+        unless @flush_error_history.empty?
+          # allow parallel flush only if this trial is not in retrying mode
+          retry_lock = @flush_retry_mutex.lock
+          retry_count = @flush_error_history.size
+          if retry_count == 0
+            retry_lock.unlock
+            retry_count = nil
+          end
+        end
 
-        return @flush_time - now if @flush_time > now
-
-        flush_lock = ScopedMutex.new(@flush_mutex)
-        flush_lock.lock
         begin
-          return @flush_time - now if @flush_time > now
-
-          acquired = false
-          acquire_chunk {|chunk|
-            acquired = true
-
-            retry_count = @flush_error_history.size
-            if retry_count == 0
-              # allow parallel flush only if this trial is not in retrying mode
-              flush_lock.unlock
-            end
-
-            if @secondary && retry_count > @flush_retry_limit
-              error = secondary_flush_chunk(chunk)
-            else
-              error = flush_chunk(chunk)
-            end
-            now = Time.now.to_i
-
-            if error
-              flush_lock.ensure_locked
-              @flush_error_history << error
-              retry_wait = flush_failed(error)
-              @flush_time = now + retry_wait
-
-            elsif retry_count > 0
-              # retry succeeded; locked section
-              #@log.warn "retry succeeded.", :instance=>object_id
-              @flush_error_history.clear
-            end
-
-            # leave @flush_time as is to run next try_flush immediately
-          }
-
-          unless acquired  # buffer queue is empty
-            # flush_lock is locked
-            @flush_time = now + @flush_interval
+          now = Time.now.to_i
+          if @next_flush_time > now
+            return @next_flush_time - now
           end
 
-          # try next flush soon while buffer is not empty
-          return @flush_time - now
+          flushed = @buffer.acquire {|chunk|
+            if @secondary && retry_count && retry_count > @flush_retry_limit
+              # write to @secondary if retry_count > @flush_retry_limit
+              flush_chunk_secondary(chunk)
+            else
+              flush_chunk(chunk)
+            end
+          }
+
+          if retry_count
+            # retry succeeded
+            log.warn "retry succeeded.", instance: object_id
+            @flush_error_history.clear
+          end
+
+          now = Time.now.to_i
+          if flushed
+            wait_time = @flush_minimum_interval
+          else
+            wait_time = @flush_interval
+          end
+
+          # return wait time of this thread
+          @next_flush_time = now + wait_time
+          return wait_time
+
+        rescue => error
+          # flush error
+          retry_lock ||= @flush_retry_mutex.lock
+          @flush_error_history << error
+
+          wait_time = flush_failed(error)
+          @next_flush_time = now + wait_time
+          return wait_time
 
         ensure
-          flush_lock.ensure_unlocked
+          retry_lock.unlock if retry_lock
         end
+
+        # try_flush should never raise exceptions
       end
 
       def flush_chunk(chunk)
-        begin
-          write(chunk)
-          return nil
-        rescue => e
-          return e
-        end
+        write(chunk)
       end
 
-      def secondary_flush_chunk(chunk)
-        begin
-          if is_a?(ObjectBufferedOutput)
-            @secondary.emits(chunk.tag, chunk)
-          else
-            @secondary.write(chunk)
-          end
-          return nil
-        rescue => e
-          return e
+      def flush_chunk_secondary(chunk)
+        if is_a?(ObjectBufferedOutput)
+          @secondary.emits(chunk.tag, chunk)
+        else
+          @secondary.write(chunk)
         end
       end
 
@@ -250,35 +209,37 @@ module Fluentd
         retry_count = @flush_error_history.size - 1
 
         if retry_count < @flush_retry_limit
-          Engine.log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
-          Engine.log.warn_backtrace error.backtrace
-          return calc_retry_wait_time(retry_count)
+          wait_time = calc_retry_wait_time(retry_count)
+          log.warn "temporarily failed to flush the buffer, next retry will be at #{Time.at(@next_flush_time + wait_time)}.", error: error.to_s, instance: object_id
+          log.warn_backtrace error.backtrace
+          return wait_time
 
         elsif @secondary
           if retry_count == @flush_retry_limit
-            Engine.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
-            Engine.log.warn "retry count exceededs limit. falling back to secondary output."
-            Engine.log.warn_backtrace error.backtrace
+            log.warn "failed to flush the buffer.", error: error.to_s, instance: object_id
+            log.warn "retry count exceededs limit. falling back to secondary output."
+            log.warn_backtrace error.backtrace
             return 0  # retry immediately
 
           elsif retry_count <= @flush_retry_limit + @secondary_limit
-            Engine.log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@flush_time)}.", :error=>error.to_s, :instance=>object_id
-            Engine.log.warn_backtrace error.backtrace
-            return calc_retry_wait_time(retry_count - @flush_retry_limit - 1)
+            wait_time = calc_retry_wait_time(retry_count - @flush_retry_limit - 1)
+            log.warn "failed to flush the buffer, next retry will be with secondary output at #{Time.at(@next_flush_time + wait_time)}.", error: error.to_s, instance: object_id
+            log.warn_backtrace error.backtrace
+            return wait_time
 
           else
-            Engine.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
-            Engine.log.warn "secondary retry count exceededs limit."
-            Engine.log.warn_backtrace error.backtrace
+            log.warn "failed to flush the buffer.", error: error.to_s, instance: object_id
+            log.warn "secondary retry count exceededs limit."
+            log.warn_backtrace error.backtrace
             write_abort
             @flush_error_history.clear
             return @flush_interval
           end
 
         else
-          Engine.log.warn "failed to flush the buffer.", :error=>error.to_s, :instance=>object_id
-          Engine.log.warn "retry count exceededs limit."
-          #@log.warn_backtrace error.backtrace
+          log.warn "failed to flush the buffer.", error: error.to_s, instance: object_id
+          log.warn "retry count exceededs limit."
+          log.warn_backtrace error.backtrace
           write_abort
           @flush_error_history.clear
           return @flush_interval
@@ -286,12 +247,13 @@ module Fluentd
       end
 
       def write_abort
-        Engine.log.error "throwing away old logs."
+        log.error "throwing away old logs."
         begin
           #@buffer.clear
+          # TODO
         rescue
-          #Engine.log.error "unexpected error while aborting", :error=>$!.to_s
-          Engine.log.error_backtrace
+          log.error "unexpected error while aborting", error: $!.to_s
+          log.error_backtrace
         end
       end
 
