@@ -74,7 +74,7 @@ module Fluentd
         else
           # set default flush interval
           @flush_interval = [60, @time_slice_cache_interval].min
-          @buffer.early_flush_strategy = proc {|key,buffer|
+          @buffer.early_flush_strategy = proc {|key,status|
             now_slice = @time_slicer.call(Time.now.to_i - @time_slice_wait)
             key < now_slice
           }

@@ -32,11 +32,38 @@ module Fluentd
     class BufferQueueLimitError < BufferError
     end
 
+    #
+    # Buffer buffers binary data, queues buffered data chunks, and provides
+    # interface to take the buffered data chunks.
+    #
+    # key => BufferChunkBuilder ---+
+    #                              |    queue:
+    # key => BufferChunkBuilder ---+--> [BufferChunk, BufferChunk, ...]
+    #                              |
+    # key => BufferChunkBuilder ---+
+    #
+    # Buffer has a BufferChunkBuilder for each key. Buffer#open method provides
+    # a writer object to append data into the BufferChunkBuilders.
+    #
+    # When a BufferChunkBuilder buffers `buffer_chunk_limit` bytes of data, it
+    # flushes the built BufferChunk to a queue.
+    #
+    # Buffer#acquire is the thread-safe interface to take the first BufferChunk
+    # from the queue. If the queue is empty, #acquire method calls
+    # `early_flush_strategy.call(key, status)` for each BufferChunkBuilder. If
+    # the callback method returns true, it flushes the BufferChunkBuilder to the
+    # queue. By default, early_flush_strategy always returns true.
+    #
     class Buffer
       include Configurable
 
       config_param :buffer_chunk_limit, :size, :default => 8*1024*1024
       config_param :buffer_queue_limit, :integer, :default => 512
+
+      def initialize
+        super
+        @early_flush_strategy = proc {|key,status| true }
+      end
 
       attr_writer :early_flush_strategy
 
@@ -70,7 +97,6 @@ module Fluentd
       def initialize
         super
         @mutex = Mutex.new
-        @early_flush_strategy = proc {|key,builder| true }
       end
 
       def open(&block)
@@ -113,7 +139,8 @@ module Fluentd
             chunk = acquired_chunk
             acquired_chunk = nil
             remove_acquired_chunk(chunk)
-            return true
+
+            return early_flush ? false : true
 
           ensure
             if acquired_chunk

@@ -150,7 +150,7 @@ module Fluentd
             return @next_flush_time - now
           end
 
-          flushed = @buffer.acquire {|chunk|
+          has_next = @buffer.acquire {|chunk|
             if @secondary && retry_count && retry_count > @flush_retry_limit
               # write to @secondary if retry_count > @flush_retry_limit
               flush_chunk_secondary(chunk)
@@ -166,7 +166,7 @@ module Fluentd
           end
 
           now = Time.now.to_i
-          if flushed
+          if has_next
             wait_time = @flush_minimum_interval
           else
             wait_time = @flush_interval
