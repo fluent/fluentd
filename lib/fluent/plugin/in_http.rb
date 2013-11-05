@@ -154,7 +154,7 @@ module Fluent
         @idle = 0
         @km.add(self)
 
-        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername)
+        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
       end
 
       def step_idle
@@ -234,7 +234,7 @@ module Fluent
       def on_message_complete
         return if closing?
 
-        @env['REMOTE_ADDR'] = @remote_addr
+        @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
 
         params = WEBrick::HTTPUtils.parse_query(@parser.query_string)
 
