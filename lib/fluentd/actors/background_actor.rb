@@ -18,7 +18,7 @@
 module Fluentd
   module Actors
 
-    require_relative 'future'
+    require 'fluentd/actors/future'
 
     module BackgroundActor
       def initialize

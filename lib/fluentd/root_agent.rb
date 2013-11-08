@@ -17,60 +17,69 @@
 #
 module Fluentd
 
-  require 'delegate'  # SimpleDelegator
+  require 'delegate'
 
-  require_relative 'agent'
-  require_relative 'event_emitter'
-  require_relative 'collectors/null_collector'
-  require_relative 'collectors/no_match_notice_collector'
-  require_relative 'stats_collector'  # TODO file/class name
+  require 'fluentd/agent'
+  require 'fluentd/label'
+  require 'fluentd/collectors/null_collector'
+  require 'fluentd/collectors/no_match_notice_collector'
 
   #
-  # Fluentd forms a tree structure:
+  # Fluentd forms a tree structure to manage plugins:
   #
-  #                    Fluentd::Server
-  #                     /           \
-  #                    /             \
-  #               Worker             Worker      --- for each <server> section
-  #                  |                  |            in fluentd.conf
-  #              RootAgent          RootAgent
-  #                /   \               /  \
-  #         Agent A     Agent B      ...  ...   --- <source>, <match>, <filter> or <label>
-  #           /   \           \
-  #    Agent C     Agent D     ...              --- <source>, <match> or <filter>
+  #                      RootAgent
+  #                          |
+  #             +------------+-------------+
+  #             |            |             |
+  #          <label>      <label>       <source>
+  #             |                         |
+  #        +----+----+             +----+----+
+  #        |         |             |         |
+  #     <source>  <match>      <match>    <match>
+  #                  |                       |
+  #             +---------+               <match>
+  #             |         |
+  #          <match>   <match>
   #
-  # Agent is the base class of <source> (input plugins), <match> (output plugins) and
-  # <filter> (filter plugins).
+  # Relation:
+  # * RootAgent ---> <source>, <match>, <filter>, <label>
+  # * <label>   ---> <source>, <match>, <filter>
+  # * <source>, <match>, <filter> ---> <match>, <filter>
   #
-  # Worker is responsible to start/stop/shutdown all nested agents.
-  # RootAgent initializes top-level agents, labels and built-in labels (LOG and ERROR)
+  # Base class of RootAgent, <label>, <source>, <match> and <filter>
+  # is Agent.
   #
-  # Message routing is implemented in EventEmitter module. See also message_source.rb.
+  # Next step: `fluentd/agent.rb`
   #
-  class RootAgent < Agent
-    include EventEmitter
-
+  class RootAgent < Label
     LOG_LABEL = "LOG".freeze
     ERROR_LABEL = "ERROR".freeze
 
     def initialize
       super
 
+      # overwrite Agent#root_agent and #parent_agent
+      @root_agent = self
+      @parent_agent = nil
+
       @labels = {}
 
-      # init EventEmitter
-      init_event_emitter(self, Collectors::NoMatchNoticeCollector.new)
+      # error stream collector
+      @error_collector = Collectors::NullCollector.new
 
-      # set Agent#stats_collector
-      self.stats_collector = StatsCollector.new(self)
+      # internal log stream collector
+      @log_collector = Collectors::NullCollector.new
+
+      self.default_collector = Collectors::NullCollector.new
     end
 
     def configure(conf)
       super
 
-      error_label_config = conf.new_element("label", ERROR_LABEL)
-      log_label_config = conf.new_element("label", LOG_LABEL)
+      error_label_config = nil
+      log_label_config = nil
 
+      # initialize <label> elements
       conf.elements.select {|e|
         e.name == 'label'
       }.each {|e|
@@ -84,103 +93,83 @@ module Fluentd
         end
       }
 
-      add_label_impl(ErrorEventLabel, ERROR_LABEL,
-                     error_label_config, Collectors::ErrorNoticeCollector.new)
+      # initialize built-in ERROR label
+      error_label_config ||= conf.new_element("label", ERROR_LABEL)
+      error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWIthoutErrorCollector.new(self), error_label_config)
+      error_label.default_collector = Collectors::NullCollector.new
+      @error_collector = error_label.collector  # overwrite @error_collector
 
-      log_agent = add_label_impl(LogMessageLabel, LOG_LABEL,
-                     log_label_config, Collectors::NullCollector.new)
-
-      # hooks error logs to send them to the LogMessageLabel
-      Fluentd.logger.extend(StatsCollectLoggerMixin)
-      Fluentd.logger.init_stats_collect("fluentd", log_agent.collector)
+      # initialize built-in LOG label
+      log_label_config ||= conf.new_element("label", LOG_LABEL)
+      log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogCollector.new(self), log_label_config)
+      log_label.default_collector = Collectors::NullCollector.new
+      @log_collector = log_label.collector  # overwrite @log_collector
 
       nil
     end
 
-    # root_router api
-    def emits_label(label, tag, es)
-      if label = @labels[label]
-        return label.collector.emits(tag, es)
-      else
-        @default_collector.emits(tag, es)  # NoMatchNoticeCollector
-      end
-    end
-
-    def short_circuit_label(label, tag)
-      if label = @labels[label]
-        return label.collector.short_circuit(tag)
-      else
-        @default_collector.short_circuit(tag)
-      end
-    end
-
-    def add_label(label, e)
-      # TODO validate label name
-
-      add_label_impl(Label, label, e, Collectors::NoMatchNoticeCollector.new)
+    def add_label(name, e)
+      # if an event doesn't even match top-level patterns,
+      # NoMatchNoticeCollector shows warnings.
+      add_label_impl(name, self, e, NoMatchNoticeCollector.new)
       self
+    end
+
+    # root_router api used by
+    # 'fluentd/plugin/out_redirect.rb'
+    def match_label(label_name, tag)
+      if label = @labels[label_name]
+        return label.collector.match(tag)
+      else
+        collector.match(tag)
+      end
+    end
+
+    # See 'fluentd/agent_logger.rb'
+    attr_reader :log_collector
+
+    # See Agent#handle_emit_error at 'fluentd/agent.rb'
+    attr_reader :error_collector
+
+    # Agents nested in <label LOG> element use RootAgent wrapped by
+    # this RootAgentProxyWithoutLogCollector. Thus those elements don't
+    # send logs to @log_collector recursively.
+    class RootAgentProxyWithoutLogCollector < SimpleDelegator
+      def initialize(root_agent)
+        super
+        @log_collector = Collectors::NullCollector.new
+      end
+
+      # override #log_collector
+      attr_reader :log_collector
+    end
+
+    # Agents nested in <label ERROR> element use RootAgent wrapped by
+    # this RootAgentProxyWIthoutErrorCollector. Thus those elements don't
+    # send logs to @error_collector recursively.
+    class RootAgentProxyWIthoutErrorCollector < SimpleDelegator
+      def initialize(root_agent)
+        super
+        @error_collector = Collectors::NullCollector.new
+      end
+
+      # override #error_collector
+      attr_reader :error_collector
     end
 
     private
 
-    def add_label_impl(klass, label, e, default_collector)
-      agent = klass.new
-      agent.init_event_emitter(self, default_collector)
+    def add_label_impl(name, self_or_proxy, e)
+      label = Label.new
+      label.parent_agent = self_or_proxy
 
-      agent.configure(e)
-      add_agent(agent)  # Agent#add_agent
+      # if an event doesn't even match top-level patterns,
+      # NoMatchNoticeCollector shows warnings.
+      label.default_collector = Collectors::NoMatchNoticeCollector.new(label.logger)
 
-      @labels[label] = agent
-    end
+      label.configure(e)
 
-    class Label < Agent
-      include EventEmitter
-    end
-
-    class ErrorEventLabel < Label
-      def init_stats_source(stats_collector)
-        # prevent infinite loop
-        c = SimpleDelegator.new(stats_collector)
-        c.extend(NoErrorStatsCollectorMixin)
-        super(c)
-      end
-
-      module NoErrorStatsCollectorMixin
-        def emit_error(tag, time, record)
-          # do nothing
-        end
-        def emits_error(tag, es)
-          # do nothing
-        end
-      end
-    end
-
-    class LogMessageLabel < Label
-      def configure(conf)
-        # prevent infinite loop
-        c = SimpleDelegator.new(conf)
-        c.extend(NoStatsLoggerMixin)
-        super(c)
-      end
-
-      # prevents infinite loop
-      module NoStatsLoggerMixin
-        def collect_stats(level, message, record, time)
-        end
-      end
-    end
-
-    module StatsCollectLoggerMixin
-      def init_stats_collect(tag, collector)
-        @tag = tag
-        @collector = collector
-      end
-
-      def collect_stats(level, message, record, time)
-        record['message'] = message
-        tag = "#{@tag}.#{level}"
-        @collector.emit(tag, time.to_i, record)
-      end
+      @labels[name] = label
     end
   end
 

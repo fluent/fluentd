@@ -37,7 +37,7 @@ module Fluentd
 
       def listen_udp(bind, port)
         code = <<EOF
-s = SocketManager.create_udp_socket
+s = SocketManager.create_udp_socket(params[0])
 s.bind(params[0], params[1])
 s
 EOF

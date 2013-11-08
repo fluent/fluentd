@@ -50,12 +50,12 @@ module Fluentd
 
         def on_readable
           @callback.call(self)
-        rescue
+        rescue => e
           # close io on error
           close
           detach
-          Fluentd.log.error $!.to_s
-          Fluentd.log.error_backtrace
+          Engine.log.error e.to_s
+          Engine.log.error_backtrace e.backtrace
         end
       end
     end

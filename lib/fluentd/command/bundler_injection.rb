@@ -15,25 +15,17 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluentd
-  module Collectors
 
-    class LabelRedirectCollector
-      include Collector
-
-      def initialize(root_agent, label)
-        @root_agent = root_agent
-        @label = label
-      end
-
-      def emits(tag, es)
-        @root_agent.emits_label(@label, tag, es)
-      end
-
-      def short_circuit(tag)
-        @root_agent.short_circuit_label(@label, tag)
-      end
-    end
-
-  end
+system("bundle install")
+unless $?.success?
+  exit $?.exitstatus
 end
+
+cmdline = [
+  RbConfig.ruby,
+  File.expand_path(File.join(File.dirname(__FILE__), 'fluentd.rb')),
+] + ARGV
+
+exec *cmdline
+exit! 127
+

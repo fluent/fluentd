@@ -25,7 +25,7 @@ module Fluentd
       config_param :bind, :string, :default => '0.0.0.0'
 
       def start
-        @usock = Fluentd.socket_manager.listen_udp(@bind, @port)
+        @usock = Engine.sockets.listen_udp(@bind, @port)
         @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
         actor.watch_io(@usock, &method(:on_heartbeat_readable))
 

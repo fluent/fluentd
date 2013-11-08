@@ -18,173 +18,151 @@
 module Fluentd
 
   require 'serverengine'
+  require 'drb'
 
-  require_relative 'worker'
-  require_relative 'socket_manager'
-  require_relative 'server'  # Marshal.load requires classes loaded
+  require 'fluentd/engine'
+  require 'fluentd/worker'
+  require 'fluentd/socket_manager'
+  require 'fluentd/server'
 
+  #
+  # WorkerLauncher creates, monitor, and restart worker processes.
+  #
+  # ServerEngine ---> WorkerLauncher#run
+  #              ---> spawn("ruby lib/fluentd/command/fluentd-worker.rb")
+  #              ---> WorkerLauncher.main
+  #
+  # To support Windows platform, WorkerLauncher doesn't use fork(). Instead,
+  # it runs new processes using 'fluentd/command/fluentd-worker.rb' command.
+  # fluentd-worker.rb calls `WorkerLauncher.main`.
+  #
+  # Next step: `Worker#run` in 'fluentd/worker.rb'
+  #
   module WorkerLauncher
-    SOCKET_MANAGER_FILENO = 3
-
     def initialize
-      @opts = server.config
-      @worker_element = server.worker_elements[worker_id]
-      @worker_element['id'] ||= worker_id
+      @pm = ServerEngine::ProcessManager.new
+
+      @stop_flag = ServerEngine::BlockingFlag.new
+
+      # command line to start the new process:
+      #   $ ruby fluentd/command/fluentd-worker.rb $(drb_uri)
+      @cmdline = [
+        RbConfig.ruby,
+        File.expand_path(File.join(File.dirname(__FILE__), 'command', 'fluentd-worker.rb')),
+        worker_id.to_s,
+        server.drb_uri,
+      ]
+
+      super
     end
 
-    def before_fork
-      # spawn process before run, and monitor the spawned process
-      # in the run method
-      @monitor = spawn_process
-    rescue => e
-      logger.error e.to_s
-      logger.error_backtrace e.backtrace
-      raise
-    end
+    # TODO before_fork can't do blocking operation
+    ## ServerEngine callback
+    #def before_fork
+    #  # first attempt should not restart worker automatically to
+    #  # notice users errors.
+    #  run_worker
+    #
+    #  # check worker became ready to run at least once
+    #  unless Engine.shared_data["fluentd_worker_#{worker_id}_configured"]
+    #    raise "Worker configuration failed"
+    #  end
+    #end
 
+    # ServerEngine callback
     def run
-      # TODO monitor child process using heartbeat.
-      # So far here does nothing
-      @monitor
-    rescue => e
+      first = true
+      until @stop_flag.set?
+        unless first
+          logger.info "Worker #{worker_id} exited unexpectedly. Restarting."
+          first = false
+          # TODO stop Server by calling Server#stop_by_config_error
+          # if first==true and worker failed to configure. maybe it needs TupleSpace
+        end
+        run_worker
+      end
+    rescue
       logger.error e.to_s
       logger.error_backtrace e.backtrace
       raise
     ensure
-      if pid = @pid
-        Process.waitpid2(pid)
-      end
+      @pm.close
     end
 
-    def stop
-      if pid = @pid
-        begin
-          Process.kill('TERM', pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+    def run_worker
+      logger.info "Starting worker #{worker_id}"
+
+      monitor = @pm.spawn(*@cmdline)
+      until monitor.try_join
+        if @stop_flag.wait_for_set(1)
+          monitor.start_graceful_stop!
+          monitor.join
+          return
         end
       end
     end
 
-    # entry point of the worker process
+    # ServerEngine callback
+    def stop
+      @stop_flag.set!
+    end
+
+    # called by command/fluentd-worker.rb
     def self.main
-      # receives context data from the parent process
-      spawn_data = STDIN.read
-      STDIN.reopen(File::NULL)
-      opts, worker_element = SpawnData.restore(spawn_data)
+      # @cmdline includes worker_id and DRb URI
+      worker_id = ARGV[0].to_i
+      drb_uri = ARGV[1]
+
+      # Get config from the parent process.
+      # See also Server#before_run
+      parent_engine = DRb::DRbObject.new_with_uri(drb_uri)
+
+      Engine.shared_data = parent_engine.shared_data
+      options = Engine.shared_data['fluentd_options']
+
+      # add :load_path set by cmdline
+      $LOAD_PATH.concat options[:load_path]
+
+      # initialize worker instance
+      worker = Worker.new(options)
+      install_signal_handlers(worker)
+
+      # receive configuration from the shared data through DRb
+      conf = Engine.shared_data['fluentd_config']
+
+      # get <worker> element for this worker process
+      worker_elements = conf.elements.select {|e| e.name == 'worker' }
+      worker_element = worker_elements[worker_id]
+      worker_element['id'] ||= worker_id
 
       # set process name
-      $0 = "#{opts[:worker_process_name]} #{worker_element['id']}"
+      # :worker_process_name is set by command/fluentd.rb
+      $0 = "#{options[:worker_process_name]} #{worker_element['id']}"
 
       # change user and group
-      chuser = worker_element['process_user'] || opts[:chuser]
-      chgroup = worker_element['process_group'] || opts[:chgroup]
+      chuser = worker_element['chuser'] || options[:chuser]
+      chgroup = worker_element['chgroup'] || options[:chgroup]
       ServerEngine::Daemon.change_privilege(chuser, chgroup)
 
-      # setup SocketManager used by actors/socket_actor.rb
-      socket_client = SocketManager::Client.new(SOCKET_MANAGER_FILENO, worker_element['id'])
+      # configure worker using the config file
+      worker.configure(worker_element)
 
-      # initialize worker
-      w = Worker.new(opts, socket_client)
-      w.install_signal_handlers
-      w.configure(worker_element)
+      # this worker is ready to run
+      # TODO apparently this is not passed to the parent process
+      Engine.shared_data["fluentd_worker_#{worker_id}_configured"] = true
 
-      socket_client.start_heartbeat
-
-      w.run
+      worker.run
     end
 
-    private
-
-    def spawn_process
-      # fluentd/command/fluentd-worker.rb calls WorkerLauncher.main
-      worker_main = File.expand_path File.join(File.dirname(__FILE__), 'command', 'fluentd-worker.rb')
-
-      # arguments for Process.spawn
-      env = {'fluentd_worker_process'=>worker_id.to_s}
-      cmdline = [RbConfig.ruby, worker_main]
-
-      options = { }
-      setup_resource_options(options)
-
-      # sends context data to the worker process through STDIN
-      spawn_data = SpawnData.dump([@opts, @worker_element])
-
-      cpipe, monitor = server.socket_server.new_client_pipe
-
-      rpipe, wpipe = IO.pipe
-      begin
-        options[:in] = rpipe
-        options[SOCKET_MANAGER_FILENO] = cpipe
-
-        # spawn here
-        @pid = Process.spawn(env, *cmdline, options)  # calls WorkerLauncher.main
-
-        launch_success = false
-        begin
-          cpipe.close
-          wpipe.write spawn_data
-
-          # TODO wait for completion of Worker#configure
-
-          launch_success = true
-
-        ensure
-          unless launch_success
-            Process.kill('TERM', @pid)
-            Process.waitpid2(@pid)
-          end
-        end
-
-      ensure
-        rpipe.close
-        wpipe.close
-      end
-
-      return monitor
-    end
-
-    def setup_resource_options(options)
-      @opts.each_pair {|k,v|
-        if k =~ /^rlimit_/
-          options[k.to_s] = v.to_s
-        end
-      }
-
-      if @opts[:chumask]
-        options['umask'] = @opts[:chumask].to_s
-      end
-    end
-
-    class SpawnData
-      def initialize(user_data)
-        @loaded_features = $LOADED_FEATURES
-        @load_path = $LOAD_PATH
-        @debug = $DEBUG
-        @gc_profiler = GC::Profiler.enabled?
-        @user_data = user_data
-      end
-
-      def restore!
-        GC::Profiler.enable if @gc_profiler
-
-        $DEBUG = @debug
-
-        $LOAD_PATH.clear
-        @load_path.each {|path| $LOAD_PATH << path }
-
-        @loaded_features.sort.each {|feature|
-          require feature
-        }
-
-        return @user_data
-      end
-
-      def self.dump(user_data)
-        Marshal.dump(new(user_data))
-      end
-
-      def self.restore(user_data)
-        Marshal.load(user_data).restore!
+    def self.install_signal_handlers(worker)
+      ServerEngine::SignalThread.new do |st|
+        st.trap(ServerEngine::Daemon::Signals::GRACEFUL_STOP) { worker.stop }
+        st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_STOP, 'SIG_DFL')
+        st.trap(ServerEngine::Daemon::Signals::GRACEFUL_RESTART) { worker.stop }
+        st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_RESTART, 'SIG_DFL')
+        st.trap(ServerEngine::Daemon::Signals::RELOAD) { Engine.logger.reopen! }
+        st.trap(ServerEngine::Daemon::Signals::DETACH) { worker.stop }
+        st.trap(ServerEngine::Daemon::Signals::DUMP) { Sigdump.dump }
       end
     end
   end

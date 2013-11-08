@@ -180,7 +180,7 @@ module Fluentd
           def call(text)
             m = REGEXP.match(text)
             unless m
-              Fluentd.log.warn "pattern not match: #{text.inspect}"
+              Engine.log.warn "pattern not match: #{text.inspect}"
               return nil, nil
             end
 

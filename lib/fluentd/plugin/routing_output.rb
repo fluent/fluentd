@@ -16,13 +16,24 @@
 #    limitations under the License.
 #
 module Fluentd
-  module Collectors
+  module Plugin
 
-    class ErrorNoticeCollector
-      include Collector
+    #
+    # RoutingOutput is a special output plugin that forwards
+    # events to other output plugins.
+    #
+    class RoutingOutput < Output
+      def emit(tag, time, record)
+        match(tag).emit(tag, time, record)
+      end
 
       def emits(tag, es)
-        # TODO log
+        match(tag).emits(tag, es)
+      end
+
+      # must be implemented in the extending class
+      def match(tag)
+        raise NoMethodError, "#{self.class}#match is not implemented"
       end
     end
 

@@ -28,17 +28,18 @@ default_plugin_dir = ENV['FLUENTD_PLUGIN_DIR'] || ['/etc/fluentd/plugin']
 worker_process_name = ENV['FLUENTD_WORKER_PROCESS_NAME'] || 'fluentd:worker'
 
 opts = {
-  :config_path => default_config_path,
-  :plugin_dirs => default_plugin_dir,
-  :log_level => LOG_LEVEL_INFO,
-  :log => nil,
-  :daemonize => false,
-  :libs => [],
-  :setup_path => nil,
-  :chuser => nil,
-  :chgroup => nil,
-  :worker_process_name => worker_process_name,
-  :suppress_config_dump => false,
+  config_path: default_config_path,
+  plugin_dirs: default_plugin_dir,
+  load_path: [],
+  log_level: LOG_LEVEL_INFO,
+  log: nil,
+  daemonize: false,
+  libs: [],
+  setup_path: nil,
+  chuser: nil,
+  chgroup: nil,
+  worker_process_name: worker_process_name,
+  suppress_config_dump: false,
 }
 
 op.on('-s', '--setup [DIR]', "install sample configuration file to the directory (defalut: #{default_config_path})") {|s|
@@ -54,7 +55,7 @@ op.on('-p', '--plugin DIR', "add plugin directory") {|s|
 }
 
 op.on('-I PATH', "add library path") {|s|
-  $LOAD_PATH << s
+  opts[:load_path] << s
 }
 
 op.on('-r NAME', "load library") {|s|
@@ -65,7 +66,7 @@ op.on('-g', '--gemfile GEMFILE', "Gemfile path") {|s|
   opts[:gemfile] = s
 }
 
-op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path") {|s|
+op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dirname $gemfile)/vendor/bundle)") {|s|
   opts[:gem_install_path] = s
 }
 
@@ -130,15 +131,32 @@ op.on_tail("--version", "Show version") do
 end
 
 begin
-  op.parse!(ARGV)
+  rest = op.parse(ARGV)
 
-  if ARGV.length != 0
+  if rest.length != 0
     usage nil
   end
 rescue => e
   usage e.to_s
 end
 
+##
+## Bundler injection
+#
+if ENV['FLUENTD_DISABLE_BUNDLER_INJECTION'] != '1' && gemfile = opts[:gemfile]
+  ENV['BUNDLE_GEMFILE'] = gemfile
+  if path = opts[:gem_install_path]
+    ENV['BUNDLE_PATH'] = path
+  else
+    ENV['BUNDLE_PATH'] = File.expand_path(File.join(File.dirname(gemfile), 'vendor/bundle'))
+  end
+  ENV['FLUENTD_DISABLE_BUNDLER_INJECTION'] = '1'
+  load File.expand_path(File.join(File.dirname(__FILE__), 'bundler_injection.rb'))
+end
+
+##
+## Setup configuration file and exit
+#
 if setup_path = opts[:setup_path]
   require 'fileutils'
   sample_conf = File.read File.join(File.dirname(__FILE__), "..", "..", "..", "fluentd.conf")
@@ -162,11 +180,11 @@ if setup_path = opts[:setup_path]
   exit 0
 end
 
-if gemfile = opts[:gemfile]
-  require_relative '../bundler_injection'
-  Fluentd::BundlerInjection.install(gemfile, opts)
-end
-
+##
+## Start server
+#
+# add library root to the head of $LOAD_PATH to prioritize bundler
+$LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '../..'))
 require 'fluentd/server'
 Fluentd::Server.run(opts)
 

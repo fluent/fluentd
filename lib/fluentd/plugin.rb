@@ -17,8 +17,7 @@
 #
 module Fluentd
 
-  require_relative 'worker_global_methods'
-  require_relative 'configurable'
+  require 'fluentd/engine'
 
   #
   # Plugin provides Plugin.register_XXX where XXX is one of:
@@ -31,31 +30,18 @@ module Fluentd
   #
   module Plugin
 
+    # delegates methods to Engine.plugins, which is an instance of
+    # PluginRegistry.
     module ClassMethods
       extend Forwardable
 
-      # delegates methods to Fluentd.plugin defined in worker_global_methods.rb.
-      # worker_global_methods is initialized by Worker#configure
-
-      def_delegators 'Fluentd.plugin',
+      def_delegators 'Fluentd::Engine.plugins',
         :register_input, :register_output, :register_filter, :register_buffer,
-        :new_input, :new_output, :new_filter, :new_buffer
-
-      # Configurable.register_type is global setting
-      def_delegators 'Fluentd::Configurable', :register_type
+        :new_input, :new_output, :new_filter, :new_buffer,
+        :register_type, :lookup_type
     end
 
     extend ClassMethods
   end
 
-  # loads base classes of plugins
-  require_relative 'event_collection'
-  require_relative 'config_error'
-  require_relative 'plugin/output'
-  require_relative 'plugin/input'
-  require_relative 'plugin/filter'
-  require_relative 'plugin/buffer'
-  require_relative 'plugin/buffered_output'
-  require_relative 'plugin/object_buffered_output'
-  require_relative 'plugin/time_sliced_output'
 end

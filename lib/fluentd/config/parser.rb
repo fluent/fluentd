@@ -20,40 +20,29 @@ module Fluentd
 
     require 'strscan'
 
-    require_relative 'literal_parser'
-    require_relative 'element'
-    require_relative '../config_error'
+    require 'fluentd/config/literal_parser'
+    require 'fluentd/config/element'
+    require 'fluentd/config_error'
 
     class Parser < LiteralParser
-      def initialize(strscan, include_basepath, fname, eval_context)
-        super(strscan)
-        @include_basepath = include_basepath
-        @fname = fname
-        @eval_context = eval_context
-      end
+      ELEMENT_NAME = /[a-zA-Z0-9_]+/
 
-      SPACING_LINE_END = /[ \t]*(?:\;|[\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
-
-      #SIMPLE_STRING = /(?:(?!#{SPACING_LINE_END}).)*/
-
-      MATCH_PATTERN_STRING_CHARSET = /[^\<\>]/
-
-      def_symbol :k_lpoint, "<"
-      def_symbol :k_rpoint, ">"
-      def_symbol :k_tag_end, "</"
-
-      def_keyword :k_include, '@include'
-
-      def self.read(path, eval_context=Object.new)
+      def self.read(path, eval_context=nil)
         path = File.expand_path(path)
         data = File.read(path)
         parse(data, File.basename(path), File.dirname(path), eval_context)
       end
 
-      def self.parse(data, fname, basepath=Dir.pwd, eval_context=Object.new)
+      def self.parse(data, fname, basepath=Dir.pwd, eval_context=nil)
         ss = StringScanner.new(data)
         ps = Parser.new(ss, basepath, fname, eval_context)
         ps.parse!
+      end
+
+      def initialize(strscan, include_basepath, fname, eval_context)
+        super(strscan, eval_context)
+        @include_basepath = include_basepath
+        @fname = fname
       end
 
       def parse!
@@ -68,81 +57,63 @@ module Fluentd
         return root
       end
 
-      def parse_element(allow_include, elem_name, attrs={}, elems=[])
+      def parse_element(root_element, elem_name, attrs={}, elems=[])
         while true
           spacing
-          break if eof?
-
-          if k_tag_end  # </
-            # end tag
-            name = parse_string
-            unless k_rpoint
-              parse_error! "expected >"
+          if eof?
+            if root_element
+              break
             end
-            if name != elem_name
+            parse_error! "expected end tag '</#{elem_name}>' but got end of file"
+          end
+
+          if skip(/\<\//)
+            e_name = scan(ELEMENT_NAME)
+            spacing
+            unless skip(/\>/)
+              parse_error! "expected character in tag name"
+            end
+            unless line_end
+              parse_error! "expected end of line after end tag"
+            end
+            if e_name != elem_name
               parse_error! "unmatched end tag"
             end
             break
 
-          elsif k_lpoint  # <
-            # start nested tag
-            e_name = parse_string
-            unless k_rpoint
-              # <name string
-              skip(/[ \t]*/)
-              e_arg = parse_match_pattern_string
-              unless k_rpoint
-                parse_error! "expected >"
-              end
+          elsif skip(/\</)
+            e_name = scan(ELEMENT_NAME)
+            spacing
+            e_arg = scan_nonquoted_string(/(?:#{SPACING}|\>)/)
+            spacing
+            unless skip(/\>/)
+              parse_error! "expected '>'"
             end
-            e_arg ||= ''  # FIXME nil?
+            unless line_end
+              parse_error! "expected end of line after tag"
+            end
+            e_arg ||= ''
+            # call parse_element recursively
             e_attrs, e_elems = parse_element(false, e_name)
             elems << Element.new(e_name, e_arg, e_attrs, e_elems)
 
-          elsif allow_include && k_include  # @include
-            eval_include(attrs, elems, value)
+          elsif root_element && skip(/\@include#{SPACING}/)
+            uri = scan_string(LINE_END)
+            eval_include(attrs, elems, uri)
+            line_end
 
           else
-            # attribute key-value
-            k = parse_map_key_string
-            skip(/[ \t]+/)
-            if skip(SPACING_LINE_END)
-              v = nil
-            else
-              v = parse_literal
-              unless skip(SPACING_LINE_END)
-                parse_error! "expected \\n or ';'"
-              end
+            k = scan_string(SPACING)
+            spacing
+            v = parse_literal
+            unless line_end
+              parse_error! "expected end of line"
             end
-            #elsif skip(/[ \t]+/)
-            #  # backward compatibility?
-            #  v = parse_string_line
-
             attrs[k] = v
           end
         end
 
         return attrs, elems
-      end
-
-      #def parse_string_line
-      #  s = @ss.scan(SIMPLE_STRING) || ''
-      #  return s.rstrip
-      #end
-
-      def parse_match_pattern_string
-        spacing
-
-        if string = try_parse_quoted_string
-          return string
-        end
-
-        string = try_parse_special_string(MATCH_PATTERN_STRING_CHARSET)
-        unless string
-          parse_error! "expected match pattern or pattern surrounded by '\"'"
-        end
-
-        return string
       end
 
       def eval_include(attrs, elems, uri)
@@ -177,11 +148,6 @@ module Fluentd
         e = ConfigParseError.new("include error #{uri}")
         e.set_backtrace($!.backtrace)
         raise e
-      end
-
-      # override
-      def eval_embedded_code(code)
-        @eval_context.instance_eval(code)
       end
 
       # override

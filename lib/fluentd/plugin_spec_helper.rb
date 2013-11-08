@@ -1,14 +1,11 @@
 require 'logger'
-
-require 'serverengine'
-
-require 'fluentd/worker'
+require 'fluentd/engine'
 require 'fluentd/config/parser'
 require 'fluentd/plugin/input'
 require 'fluentd/plugin/output'
 require 'fluentd/plugin/filter'
 
-::Fluentd.plugin = Fluentd::PluginRegistry.new
+Fluentd::Engine.setup_test_environment!
 
 module Fluentd
   module PluginSpecHelper
@@ -21,17 +18,14 @@ module Fluentd
           raise ArgumentError, "unknown class as plugin #{plugin.class}"
         end
 
-        testlogger = TestLogger.new(nil)
-        plugin.log = testlogger
+        plugin.logger = TestLogger.new(nil)
 
         conf = Fluentd::Config::Parser.parse(conf, '[test config]')
-
         plugin.configure(conf)
 
-        dummy_router = TestRouter.new
-        plugin.instance_eval{ @event_router = dummy_router }
+        @dummy_router = TestCollector.new
+        plugin.default_collector = @dummy_router
 
-        @dummy_router = dummy_router
         @instance = plugin
       end
 
@@ -67,7 +61,8 @@ module Fluentd
         raise ArgumentError unless block_given?
         @instance.start
         yield self
-        @instance.stop
+        @instance.shutdown
+        @instance.close
       end
 
       def events
@@ -89,20 +84,13 @@ module Fluentd
       alias_method :r, :record
     end
 
-    class TestRouter
+    class TestCollector
+      include Collector
+
       attr_accessor :events
 
       def initialize
         @events = {}
-      end
-
-      def add_collector(pattern, collector)
-        nil
-      end
-
-      def current_offset
-        raise NotImplementedError # not used?
-        Fluentd::EventRouter::Offset.new(self, 0)
       end
 
       def emit(tag, time, record)

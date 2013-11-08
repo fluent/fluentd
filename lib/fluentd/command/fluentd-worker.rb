@@ -15,5 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-require_relative '../worker_launcher'
+
+# add library root to the head of $LOAD_PATH to prioritize bundler
+$LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '../..'))
+require 'fluentd/worker_launcher'
 Fluentd::WorkerLauncher.main

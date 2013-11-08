@@ -38,6 +38,7 @@ module Fluentd
           raise ConfigError, "stdout output output_type should be 'json' or 'hash'"
         end
       end
+
       def configure(conf)
         super
         @output_proc = OUTPUT_PROCS[@output_type]

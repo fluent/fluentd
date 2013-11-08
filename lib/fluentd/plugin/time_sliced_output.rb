@@ -70,12 +70,14 @@ module Fluentd
           if conf['time_slice_wait']
             log.warn "time_slice_wait is ignored if flush_interval is specified: #{conf}"
           end
-          @flush_all = true
 
         else
           # set default flush interval
           @flush_interval = [60, @time_slice_cache_interval].min
-          @flush_false = true
+          @buffer.early_flush_strategy = proc {|key,status|
+            now_slice = @time_slicer.call(Time.now.to_i - @time_slice_wait)
+            key < now_slice
+          }
         end
       end
 
@@ -89,23 +91,6 @@ module Fluentd
           @last_time = tc
           return @last_key = key
         end
-      end
-
-      # overwrides BufferedOutput#acquire_chunk
-      def acquire_chunk(&block)
-        if @flush_all
-          @buffer.keys.each {|key|
-            @buffer.enqueue_chunk(key)
-          }
-        else
-          now_slice = @time_slicer.call(Time.now.to_i - @time_slice_wait)
-          @buffer.keys.each {|key|
-            if key < now_slice
-              @buffer.enqueue_chunk(key)
-            end
-          }
-        end
-        @buffer.acquire(&block)
       end
     end
 

@@ -17,7 +17,7 @@
 #
 module Fluentd
 
-  require_relative 'config_error'
+  require 'fluentd/config_error'
 
   #
   # PluginRegistry searches & loads plugins and manages
@@ -28,8 +28,7 @@ module Fluentd
       @input = Registry.new(:input, 'fluentd/plugin/in_')
       @output = Registry.new(:output, 'fluentd/plugin/out_')
       @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
-      @buffer = Registry.new(:buffer, 'fluentd/plugin/buffer_')
-      require_relative 'plugin'
+      @buffer = Registry.new(:buffer, 'fluentd/plugin/buf_')
     end
 
     def register_input(type, klass)
@@ -48,24 +47,34 @@ module Fluentd
       @buffer.register(type, klass)
     end
 
-    def new_input(type)
-      @input.lookup(type).new
+    def new_input(parent_agent, type)
+      a = @input.lookup(type).new
+      a.parent_agent = parent_agent
+      a.default_collector = parent_agent.collector
+      return a
     end
 
-    def new_output(type)
-      @output.lookup(type).new
+    def new_output(parent_agent, type)
+      a = @output.lookup(type).new
+      a.parent_agent = parent_agent
+      a.default_collector = parent_agent.collector
+      return a
     end
 
-    def new_filter(type)
-      @filter.lookup(type).new
+    def new_filter(parent_agent, type)
+      a = @filter.lookup(type).new
+      a.parent_agent = parent_agent
+      a.default_collector = parent_agent.collector
+      return a
     end
 
     def new_buffer(type)
       @buffer.lookup(type).new
     end
 
-    def self.load_standard_plugins
-      dir = File.join(File.dirname(__FILE__), '../plugin')
+    # called by Worker
+    def self.load_built_in_plugins
+      dir = File.join(File.dirname(__FILE__), 'plugin')
       load_plugin_dir(dir)
       load_gem_plugins
     end
@@ -73,7 +82,7 @@ module Fluentd
     def self.load_plugin_dir(dir)
       dir = File.expand_path(dir)
       Dir.entries(dir).sort.each {|fname|
-        if fname =~ /\.rb$/
+        if fname =~ /(?:in|out|filter)_.*\.rb$/
           require File.join(dir, fname)
         end
       }
@@ -89,7 +98,7 @@ module Fluentd
           load plugin
         rescue ::Exception => e
           msg = "#{plugin.inspect}: #{e.message} (#{e.class})"
-          Fluentd.logger.warn "Error loading Fluent plugin #{msg}"  # TODO log
+          Engine.log.warn "Error loading Fluent plugin #{msg}"  # TODO log
         end
       }
     end
@@ -104,20 +113,20 @@ module Fluentd
 
       attr_reader :kind
 
-      def register(type, klass)
+      def register(type, value)
         type = type.to_sym
-        #Fluentd.logger.trace { "registered #{@kind} plugin '#{type}'" }
-        @map[type] = klass
+        #Engine.log.trace { "registered #{@kind} plugin '#{type}'" }
+        @map[type] = value
       end
 
       def lookup(type)
         type = type.to_sym
-        if klass = @map[type]
-          return klass
+        if value = @map[type]
+          return value
         end
         search(type)
-        if klass = @map[type]
-          return klass
+        if value = @map[type]
+          return value
         end
         raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluentd-plugin' to find plugins"  # TODO error class
       end
@@ -127,7 +136,7 @@ module Fluentd
 
         # prefer LOAD_PATH than gems
         files = $LOAD_PATH.map {|lp|
-          lpath = File.join(lp, "#{path}.rb")
+          lpath = File.expand_path(File.join(lp, "#{path}.rb"))
           File.exist?(lpath) ? lpath : nil
         }.compact
         unless files.empty?

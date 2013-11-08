@@ -17,19 +17,12 @@
 #
 module Fluentd
 
-  module Collectors
-    here = File.expand_path(File.dirname(__FILE__))
-
-    {
-      :ErrorNoticeCollector => 'collectors/error_notice_collector',
-      :NoMatchNoticeCollector => 'collectors/no_match_notice_collector',
-      :NullCollector => 'collectors/null_collector',
-      :LabelCollector => 'collectors/label_collector',
-    }.each_pair {|k,v|
-      autoload k, File.join(here, v)
-    }
-  end
-
+  #
+  # Collector is an interface to receive events.
+  #
+  # Collector is either of Output, Filter, built-in collectors, (such as
+  # fluentd/collectors/no_match_notice_collector.rb), or EventRouter.
+  #
   module Collector
     def emit(tag, time, record)
       emits(tag, SingleEventCollection.new(time, record))
@@ -39,7 +32,7 @@ module Fluentd
       raise NoMethodError, "#{self.class}#emits(tag, es) is not implemented"
     end
 
-    def short_circuit(tag)
+    def match(tag)
       self
     end
   end

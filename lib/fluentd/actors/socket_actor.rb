@@ -27,7 +27,7 @@ module Fluentd
       end
 
       def create_unix_thread_server(path, &block)
-        listen_socket = Fluentd.socket_manager.listen_unix(path)
+        listen_socket = Engine.sockets.listen_unix(path)
         listen_io(listen_socket) do |io|
           background(io, &callback)
         end
@@ -38,17 +38,17 @@ module Fluentd
       end
 
       def listen_tcp(bind, port, &block)
-        socket = Fluentd.socket_manager.listen_tcp(bind, port)
+        socket = Engine.sockets.listen_tcp(bind, port)
         listen_io(socket, &block)
       end
 
       def listen_unix(path, &block)
-        socket = Fluentd.socket_manager.listen_unix(path)
+        socket = Engine.sockets.listen_unix(path)
         listen_io(socket, &block)
       end
 
       def listen_udp(bind, port, &block)
-        socket = Fluentd.socket_manager.listen_udp(bind, port)
+        socket = Engine.sockets.listen_udp(bind, port)
         watch_io(socket, &block)
       end
 
@@ -60,9 +60,9 @@ module Fluentd
 
         def on_connection(socket)
           @callback.call(socket)
-        rescue
-          Fluentd.log.error $!.to_s
-          Fluentd.log.error_backtrace
+        rescue => e
+          Engine.log.error e.to_s
+          Engine.log.error_backtrace e.backtrace
         ensure
           sock.close
         end

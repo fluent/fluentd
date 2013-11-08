@@ -15,8 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-require_relative './object_buffered_output'
-require_relative '../dns_resolver'
+require 'fluentd/plugin/object_buffered_output'
+require 'fluentd/dns_resolver'
 
 module Fluentd
   module Plugin
@@ -230,7 +230,6 @@ module Fluentd
         end
 
         def configure(conf)
-          init_configurable
           super
 
           @name = "#{@host}:#{@port}"
@@ -279,7 +278,7 @@ module Fluentd
 
           if @heartbeat_type == :udp
             #TODO: expiration with name expired
-            @usock = UDPSocket.new( @ipv6 ? Socket::AF_INET6 : Socket::AF_INET ) # Fluentd.socket_manager.listen_udp(self.address, @port)
+            @usock = UDPSocket.new( @ipv6 ? Socket::AF_INET6 : Socket::AF_INET ) # Engine.sockets.listen_udp(self.address, @port)
             @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
             actor.watch_io(@usock, &method(:on_udp_heartbeat_readable))
           end
@@ -319,14 +318,14 @@ module Fluentd
             @connection.close if @connection
           rescue => e
             # ignore all errors with only logging
-            Fluentd.log.warn "error on connection closing in shutdown", :error_class => e.class, :error => e
+            Engine.log.warn "error on connection closing in shutdown", :error_class => e.class, :error => e
           end
           @expired_connections.each do |c|
             begin
               c.lose
             rescue => e
               # ignore all errors with only logging
-              Fluentd.log.warn "error on expired connection closing in shutdown", :error_class => e.class, :error => e
+              Engine.log.warn "error on expired connection closing in shutdown", :error_class => e.class, :error => e
             end
           end
         end
@@ -427,7 +426,7 @@ module Fluentd
             end
             @state.update!
           rescue SystemCallError => e #TODO: or each Errno::EXXX
-            Fluentd.log.error "failed to send data", :host => @host, :port => @port, :error_class => e.class, :error => e
+            Engine.log.error "failed to send data", :host => @host, :port => @port, :error_class => e.class, :error => e
             raise e
           end
         end
@@ -458,7 +457,7 @@ module Fluentd
             # success to connect => receive ack packet => alive
             @state.update!
           rescue SystemCallError => e # or each Errno::EXXX
-            Fluentd.log.debug "failed to send tcp heartbeat", :error_class => e.class, :error => e
+            Engine.log.debug "failed to send tcp heartbeat", :error_class => e.class, :error => e
           end
         end
 
@@ -467,7 +466,7 @@ module Fluentd
           begin
             @usock.send "\0", 0, self.address, @port
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
-            Fluentd.log.debug "failed to send udp heartbeat", :error_class => e.class, :error => e
+            Engine.log.debug "failed to send udp heartbeat", :error_class => e.class, :error => e
           end
         end
 

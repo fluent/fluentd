@@ -35,9 +35,9 @@ module Fluentd
 
         def on_timer
           @callback.call
-        rescue
-          Fluentd.log.error $!.to_s
-          Fluentd.log.error_backtrace
+        rescue => e
+          Engine.log.error e.to_s
+          Engine.log.error_backtrace e.backtrace
         end
       end
     end

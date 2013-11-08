@@ -36,9 +36,9 @@ module Fluentd
     def run
       @loop.run
       nil
-    rescue
-      Fluentd.log.error $!.to_s
-      Fluentd.log.error_backtrace
+    rescue => e
+      Engine.log.error e.to_s
+      Engine.log.error_backtrace e.backtrace
       sleep 1  # TODO auto restart?
       retry
     end
@@ -53,20 +53,20 @@ module Fluentd
       nil
     end
 
-    require_relative 'actors/background_actor'
+    require 'fluentd/actors/background_actor'
     include Actors::BackgroundActor
 
-    require_relative 'actors/timer_actor'
+    require 'fluentd/actors/timer_actor'
     include Actors::TimerActor
 
-    require_relative 'actors/io_actor'
+    require 'fluentd/actors/io_actor'
     include Actors::IOActor
 
-    require_relative 'actors/socket_actor'
+    require 'fluentd/actors/socket_actor'
     include Actors::SocketActor
 
     # TODO not implemented yet
-    #require_relative 'actors/async_actor'
+    #require 'fluentd/actors/async_actor'
     #include Actors::AsyncActor
 
     module AgentMixin
@@ -82,7 +82,7 @@ module Fluentd
         @actor.start
       end
 
-      def stop
+      def shutdown
         @actor.stop
         @actor.join
         super

@@ -18,27 +18,19 @@
 module Fluentd
   module Plugin
 
-    class RedirectOutput < Output
-      Plugin.register_output('redirect', self)
+    require 'fluentd/plugin/routing_output'
 
-      include EventEmitter
+    class RedirectOutput < RoutingOutput
+      Plugin.register_output('redirect', self)
 
       def configure(conf)
         super
 
         @label = conf['label']
-        @tag = conf['tag']
-
-        # EventEmitter#label_redirect
-        label_redirect(@label)
       end
 
-      def emit(tag, time, record)
-        collector.emit(@tag || tag, time, record)
-      end
-
-      def emits(tag, es)
-        collector.emits(@tag || tag, es)
+      def match(tag)
+        root_agent.match_label(@label, tag)
       end
     end
 

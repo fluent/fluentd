@@ -19,33 +19,49 @@ module Fluentd
 
   require 'sigdump'
 
-  require_relative 'worker_global_methods'
-  require_relative 'root_agent'
-  require_relative 'plugin_registry'
+  require 'fluentd/engine'
+  require 'fluentd/root_agent'
+  require 'fluentd/agent_logger'
+  require 'fluentd/plugin_registry'
 
   #
-  # Worker corresponds to a <worker> section in a configuration file.
+  # Worker corresponds to a <worker> element in a configuration file.
   #
-  # Worker has a RootAgent, and starts/stops all nested agents owned
-  # by the RootAgent.
+  # Worker is resonsible to:
+  #
+  # 1) configure RootAgent
+  # 2) collect all agents from the RootAgent
+  # 3) start, stop, and monitor agents
+  #
+  # NextStep: 'fluentd/root_agent.rb'
   #
   class Worker
     include ServerEngine::ConfigLoader
 
-    def initialize(opts, socket_manager)
+    def initialize(options)
       @stop_flag = ServerEngine::BlockingFlag.new
-      @socket_manager = socket_manager
-      super(opts)
-      @log = create_logger
+      super(options)  # initialize ServerEngine::ConfigLoader
+
+      STDOUT.sync = true
+
+      # ServerEngine::ConfigLoader#create_logger creates Fluentd::Logger.
+      logger = create_logger
+
+      # Worker uses AgentLogger so that Worker can send internal logs
+      # to <match> elements.
+      @log = AgentLogger.new(logger)
+
+      # initialize Engine
+      Engine.logger = logger
+      Engine.plugins = PluginRegistry.new
+      Engine.sockets = SocketManager::NonManagedAPI.new
+      # TODO socket manager is not used yet
+
+      Engine.load_plugin_api!
     end
 
     def configure(conf)
-      @server_id = conf['id']
-
-      @log.info "Starting worker #{@server_id}"
-
-      # setup worker_global_methods.rb
-      Fluentd.setup!(logger: @log, plugin: PluginRegistry.new, socket_manager: @socket_manager)
+      @worker_id = conf['id']
 
       # Worker has a RootAgent
       root_agent = RootAgent.new
@@ -56,8 +72,10 @@ module Fluentd
         @log.warn "parameter '#{key}' is not used in\n#{e.to_s(nil).strip}"
       }
 
-      # gather all nested agents recursively
-      @agents = gather_agents(root_agent)
+      # collect all agents recursively
+      @agents = collect_agents(root_agent)
+
+      Engine.root_agent = root_agent
     end
 
     def run
@@ -68,23 +86,17 @@ module Fluentd
         started_agents << a
       }
 
+      # start sending Worker's internal logs to root_agent
+      @log.root_agent = Engine.root_agent
+
       @stop_flag.wait
       nil
 
     ensure
-      @log.info "Shutting down worker #{@server_id}"
+      @log.info "Shutting down worker #{@worker_id}"
 
-      # call Agent#stop in reversed order
-      started_agents.reverse.map {|a|
-        Thread.new do
-          begin
-            a.stop
-          rescue => e
-            @log.warn "unexpected error while stopping down agent #{a}", :error=>$!.to_s
-            @log.warn_backtrace
-          end
-        end
-      }.each {|t| t.join }
+      # stop sending Worker's internal logs to root_agent
+      @log.root_agent = nil
 
       # call Agent#shutdown in reversed order
       started_agents.reverse.map {|a|
@@ -92,7 +104,19 @@ module Fluentd
           begin
             a.shutdown
           rescue => e
-            @log.warn "unexpected error while shutting down agent #{a}", :error=>$!.to_s
+            @log.warn "unexpected error while stopping down agent #{a}", error: e.to_s
+            @log.warn_backtrace
+          end
+        end
+      }.each {|t| t.join }
+
+      # call Agent#close in reversed order
+      started_agents.reverse.map {|a|
+        Thread.new do
+          begin
+            a.close
+          rescue => e
+            @log.warn "unexpected error while shutting down agent #{a}", error: e.to_s
             @log.warn_backtrace
           end
         end
@@ -103,24 +127,11 @@ module Fluentd
       @stop_flag.set!
     end
 
-    def install_signal_handlers
-      w = self
-      ServerEngine::SignalThread.new do |st|
-        st.trap(ServerEngine::Daemon::Signals::GRACEFUL_STOP) { w.stop }
-        st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_STOP, 'SIG_DFL')
-        st.trap(ServerEngine::Daemon::Signals::GRACEFUL_RESTART) { w.stop }
-        st.trap(ServerEngine::Daemon::Signals::IMMEDIATE_RESTART, 'SIG_DFL')
-        st.trap(ServerEngine::Daemon::Signals::RELOAD) { Fluentd.logger.reopen! }
-        st.trap(ServerEngine::Daemon::Signals::DETACH) { w.stop }
-        st.trap(ServerEngine::Daemon::Signals::DUMP) { Sigdump.dump }
-      end
-    end
-
     private
 
-    def gather_agents(agent, array=[])
+    def collect_agents(agent, array=[])
       agent.agents.each {|a|
-        gather_agents(a, array)
+        collect_agents(a, array)
       }
       array << agent
       return array
