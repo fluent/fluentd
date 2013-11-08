@@ -145,7 +145,7 @@ describe Fluentd::Plugin::Util::TextParser do
       time_format =  '%d/%b/%Y:%H:%M:%S %z'
       expected_time = Time.strptime(str_time, time_format).to_i
 
-      @parser.configure( 'time_parse' => 'no' )
+      @parser.configure( 'time_parse' => 'false' )
 
       time, record = @parser.call("time:#{str_time}\thost:192.168.0.1\treq_id:111")
 
