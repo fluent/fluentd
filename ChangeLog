@@ -1,3 +1,13 @@
+Release 0.10.40 - 2013/11/08
+
+* Dump gem version of fluent-plugin-xxx and fluent-mixin-xxx
+* in_http: Doesn't set REMOTE_ADDR when IO#getpeername failed
+* in_tail/parser: Fix RegexpParser which ignores time_format parameter
+* in_exec: Catch error and dumps error message in run_periodic
+* in_forward: Show error class in the error message
+* in_exec/out_exec_filter: Catch more exceptions, not only Errno::ESRCH, at shutdown
+* Log: Catch exception for log event handling at shutdown
+
 Release 0.10.39 - 2013/09/18
 
 * out_file: Improve symlink handling with buf_file
