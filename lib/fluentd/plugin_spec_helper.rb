@@ -61,7 +61,8 @@ module Fluentd
         raise ArgumentError unless block_given?
         @instance.start
         yield self
-        @instance.stop
+        @instance.shutdown
+        @instance.close
       end
 
       def events
