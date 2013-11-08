@@ -121,7 +121,7 @@ module Fluentd
     def format_event(level, time, message, record, caller_stack)
       time_str = time.strftime(@time_format)
 
-      unless record.empty?
+      unless record.nil? || record.empty?
         message = "#{message}:"
         record.each_pair {|k,v|
           message << " #{k}=#{v}"
