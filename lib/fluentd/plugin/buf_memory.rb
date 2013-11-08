@@ -39,6 +39,7 @@ module Fluentd
       end
 
       def early_flush_chunk(strategy)
+        # Hash is ordered
         key, _ = @map.find {|key,builder| strategy.call(key, builder) }
 
         if key && builder = @map.delete(key)
@@ -50,7 +51,6 @@ module Fluentd
       end
 
       def acquire_next_chunk
-        # Hash is ordered
         @queue.shift
       end
 
@@ -71,7 +71,7 @@ module Fluentd
         end
 
         def append(data)
-          if @data.bytesize + data.bytesize + @buffer_chunk_limit
+          if @data.bytesize + data.bytesize > @buffer_chunk_limit
             flush
           end
           @data << data

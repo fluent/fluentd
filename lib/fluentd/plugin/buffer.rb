@@ -19,6 +19,7 @@ module Fluentd
   module Plugin
 
     require 'fileutils'
+    require 'fluentd/configurable'
 
     class BufferError < StandardError
     end
