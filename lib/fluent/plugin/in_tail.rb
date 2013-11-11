@@ -522,25 +522,19 @@ module Fluent
     end 
      
     def Win32File.getfileindex(path)
-      createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i')
-      closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i')
+      w32io = Win32Io.new
       getFileInformation = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i')
-
-      file_handle = createfile.call(path, 0, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0 )
-      if file_handle == INVALID_HANDLE_VALUE 
+      w32io.createfile(path, GENERIC_INFO, FILE_SHARE_NONE, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL)
+      if w32io.file_handle == INVALID_HANDLE_VALUE 
         return 0
       end
-
       by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
-      ret = getFileInformation.call(file_handle, by_handle_file_information)
-      closehandle.call(file_handle)
-      if ret == 0
-        return 0 
-      end
-
-      return by_handle_file_information.unpack("I11Q1")[11]
+      ret = getFileInformation.call(w32io.file_handle, by_handle_file_information)
+      w32io.close
+      return ret ? by_handle_file_information.unpack("I11Q1")[11] : 0
     end
   end
+
 
   class Win32Io
     def initialize
