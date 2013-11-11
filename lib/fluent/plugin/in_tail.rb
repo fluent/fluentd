@@ -523,7 +523,7 @@ module Fluent
      
     def Win32File.getfileindex(path)
       createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i')
-      closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'v')
+      closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i')
       getFileInformation = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i')
 
       file_handle = createfile.call(path, 0, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0 )
@@ -542,4 +542,31 @@ module Fluent
     end
   end
 
+  class Win32Io
+    def initialize
+      super
+      @path = nil
+      @file_handle = INVALID_HANDLE_VALUE
+      @api_createfile = nil
+      @api_closehandle = nil
+    end
+    
+    attr_reader :path, :file_handle
+    
+    def createfile(file_path, file_access, file_sharemode, file_creationdisposition, file_flagsandattrs)
+      @path = file_path
+      unless @api_createfile
+        @api_createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i')
+      end
+      @file_handle = @api_createfile.call(file_path, file_access, file_sharemode, 0, file_creationdisposition, file_flagsandattrs, 0 )
+    end
+    
+    def close
+      unless @api_closehandle
+        @api_closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i')
+      end
+      @api_closehandle.call(@file_handle)
+      @file_handle = INVALID_HANDLE_VALUE
+    end
+  end
 end
