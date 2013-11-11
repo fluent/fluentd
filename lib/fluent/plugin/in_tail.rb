@@ -512,7 +512,8 @@ module Fluent
       end
     end
   end
-  #temprary code 
+  
+  #temporary code for win32 platform
   require 'Win32API'
   require 'fluent/win32api_constants.rb'
   class Win32File
