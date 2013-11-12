@@ -90,17 +90,22 @@ module Fluentd
 
       # initialize <match> and <filter> elements
       conf.elements.select {|e|
-        e.name == 'match' || e.name == 'filter'
+        e.name == 'match' || e.name == 'copy' || e.name == 'filter'
       }.each {|e|
         case e.name
         when 'match'
           pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
-          type = e['type'] || 'redirect'
+          type = e['type']
           add_match(type, pattern, e)
+
+        when 'copy'
+          pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
+          type = e['type']
+          add_copy(type, pattern, e)
 
         when 'filter'
           pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
-          type = e['type'] || 'redirect'
+          type = e['type']
           add_filter(type, pattern, e)
         end
       }
@@ -117,8 +122,19 @@ module Fluentd
       output = Engine.plugins.new_output(self, type)
       output.configure(conf)
 
-      @event_router.add_pattern(pattern, output)
+      @event_router.add_rule(pattern, output, copy: false)
+      return output
+    end
 
+    def add_copy(type, pattern, conf)
+      log.info "adding copy", pattern: pattern, type: type
+
+      # PluginRegistry#new_output adds the created Output to @agents
+      # (because Output is an Agent).
+      output = Engine.plugins.new_output(self, type)
+      output.configure(conf)
+
+      @event_router.add_rule(pattern, output, copy: true)
       return output
     end
 
@@ -134,7 +150,7 @@ module Fluentd
 
       filter.configure(conf)
 
-      @event_router.add_pattern(pattern, filter)
+      @event_router.add_rule(pattern, filter)
 
       return filter
     end

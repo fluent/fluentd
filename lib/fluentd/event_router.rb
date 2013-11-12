@@ -18,6 +18,7 @@
 module Fluentd
 
   require 'fluentd/collector'
+  require 'fluentd/collectors/copy_collector'
 
   #
   # EventRouter is responsible to route events to a collector.
@@ -52,10 +53,9 @@ module Fluentd
     include Collector
 
     def initialize(default_collector, emit_error_handler)
-      @default_collector = default_collector
+      @match_rules = []
       @match_caches = []
-      @match_patterns = []
-      @match_collectors = []
+      @default_collector = default_collector
       @emit_error_handler = emit_error_handler || RaiseEmitErrorHandler.new
     end
 
@@ -76,10 +76,27 @@ module Fluentd
 
     MATCH_CACHE_SIZE = 1024
 
+    class Rule
+      def initialize(pattern, collector, opts)
+        @pattern = pattern
+        @collector = collector
+        @copy = opts[:copy]
+      end
+
+      def match?(tag)
+        @pattern.match?(tag)
+      end
+
+      attr_reader :collector
+
+      def copy?
+        @copy
+      end
+    end
+
     # called by Agent to add new MatchPatterns and Collector
-    def add_pattern(pattern, collector)
-      @match_patterns << pattern
-      @match_collectors << collector
+    def add_rule(pattern, collector, opts={})
+      @match_rules << Rule.new(pattern, collector, opts)
       nil
     end
 
@@ -105,7 +122,7 @@ module Fluentd
     end
 
     def current_offset
-      Offset.new(self, @match_patterns.size+1)
+      Offset.new(self, @match_rules.size+1)
     end
 
     class Offset
@@ -147,8 +164,7 @@ module Fluentd
       cache = (@match_caches[offset] ||= MatchCache.new)
 
       collector = cache.get(tag) do
-        c = find(tag, offset) || @default_collector
-        c.match(tag)
+        c = find(tag, offset) || @default_collector.match(tag)
       end
 
       return collector
@@ -178,10 +194,19 @@ module Fluentd
     private
 
     def find(tag, offset)
-      @match_patterns.each_with_index {|pat,i|
+      copy_collectors = nil
+      @match_rules.each_with_index {|rule,i|
         next if i < offset
-        if pat.match?(tag)
-          return @match_collectors[i]
+        if rule.match?(tag)
+          if rule.copy?
+            copy_collectors ||= []
+            copy_collectors << rule.collector.match(tag)
+          elsif copy_collectors
+            copy_collectors << rule.collector.match(tag)
+            return Collectors::CopyCollector.new(copy_collectors, emit_error_handler: @emit_error_handler)
+          else
+            return rule.collector.match(tag)
+          end
         end
       }
       return nil
