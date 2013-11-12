@@ -159,9 +159,8 @@ module Fluent
         while @rotate_queue.first.ready?
           if io = @rotate_queue.first.io
             stat = io.stat
-            unless $platformwin
-              inode = stat.ino
-            else
+            inode = stat.ino
+            if $platformwin
               inode = Win32File.getfileindex(io.path)
             end
             if inode == @pe.read_inode
@@ -192,12 +191,10 @@ module Fluent
             # first time
             stat = io.stat
             fsize = stat.size
-            unless $platformwin
-              inode = stat.ino
-            else
+            inode = stat.ino
+            if $platformwin
               inode = Win32File.getfileindex(io.path)
             end
-
             last_inode = @pe.read_inode
             if inode == last_inode
               # seek to the saved position
