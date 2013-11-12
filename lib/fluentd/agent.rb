@@ -88,7 +88,9 @@ module Fluentd
         @logger.level = @log_level
       end
 
-      # initialize <match> and <filter> elements
+      # initialize <match>, <copy> and <filter> elements
+      # TODO Either of <copy> or <filter> will be removed.
+      #      See https://github.com/fluent/fluentd/wiki/V11-filter-syntax
       conf.elements.select {|e|
         e.name == 'match' || e.name == 'copy' || e.name == 'filter'
       }.each {|e|

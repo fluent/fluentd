@@ -19,6 +19,7 @@ module Fluentd
 
   require 'fluentd/agent'
   require 'fluentd/collector'
+  require 'fluentd/collectors/label_collector'
 
   #
   # Label is an Agent with nested <source> elements.
@@ -61,6 +62,14 @@ module Fluentd
       # (@event_router is initialized at Agent#initialize).
       agent = Engine.plugins.new_input(self, type)
       agent.configure(conf)
+
+      if self.is_a?(RootAgent)
+        # TODO Label#configure and #add_source will be moved to RootAgent,
+        #      or to_label option will be removed.
+        if label = conf['to_label']
+          agent.default_collector = Collectors::LabelCollector.new(root_agent, label)
+        end
+      end
 
       return agent
     end
