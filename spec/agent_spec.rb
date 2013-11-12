@@ -70,7 +70,7 @@ describe Fluentd::Agent do
   describe '#collector' do
     it 'routes error events to root_agent.error_collector' do
       root_agent.error_collector.should_receive(:emit).with("tag1", now, {})
-      agent.collector.add_pattern(MatchPattern('tag1.**'), ErrorCollector.new)
+      agent.collector.add_rule(MatchPattern('tag1.**'), ErrorCollector.new)
       agent.collector.emit("tag1", now, {})
     end
   end

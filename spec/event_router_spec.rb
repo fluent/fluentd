@@ -24,13 +24,13 @@ describe Fluentd::EventRouter do
 
   let! :tag1_collector do
     c = TestCollector.new
-    event_router.add_pattern(MatchPattern("tag1.**"), c)
+    event_router.add_rule(MatchPattern("tag1.**"), c)
     c
   end
 
   let! :tag2_collector do
     c = TestCollector.new
-    event_router.add_pattern(MatchPattern("tag2.**"), c)
+    event_router.add_rule(MatchPattern("tag2.**"), c)
     c
   end
 
@@ -49,7 +49,7 @@ describe Fluentd::EventRouter do
     end
 
     it 'routes logs to error handler if output raises error' do
-      event_router.add_pattern(MatchPattern("error.**"), ErrorCollector.new)
+      event_router.add_rule(MatchPattern("error.**"), ErrorCollector.new)
       event_router.emit("error.1", now, 'a'=>1)
       event_router.emit("error.2", now, 'b'=>1)
       event_router.emits("error.3", Fluentd::SingleEventCollection.new(now, 'c'=>1))
@@ -78,7 +78,7 @@ describe Fluentd::EventRouter do
     end
 
     it 'calls EmitErrorHandler#emits if output raises error' do
-      event_router.add_pattern(MatchPattern("error.**"), ErrorCollector.new)
+      event_router.add_rule(MatchPattern("error.**"), ErrorCollector.new)
       error_handler.should_receive(:handle_emits_error).with("error", es, kind_of(ErrorCollector::Error))
       event_router.emits("error", es)
     end
