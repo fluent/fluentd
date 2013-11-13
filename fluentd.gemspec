@@ -16,12 +16,12 @@ Gem::Specification.new do |gem|
 
   gem.add_dependency 'serverengine', ['~> 1.5.6']
   gem.add_dependency 'msgpack', ['~> 0.5.5']
-  gem.add_dependency "yajl-ruby", ["~> 1.1"]
-  gem.add_dependency "http_parser.rb", ["~> 0.5.1"]
+  gem.add_dependency 'yajl-ruby', ['~> 1.1']
+  gem.add_dependency 'http_parser.rb', ['~> 0.5.1']
   gem.add_dependency 'cool.io', ['~> 1.2.0']
 
   gem.add_development_dependency 'bundler', ['>= 1.0.0']
-  gem.add_development_dependency "rake", [">= 0.9.2"]
+  gem.add_development_dependency 'rake', ['>= 0.9.2']
   gem.add_development_dependency 'rspec', ['~> 2.13.0']
   gem.add_development_dependency 'yard', ['~> 0.8']
   gem.add_development_dependency 'simplecov', ['~> 0.6.4']
