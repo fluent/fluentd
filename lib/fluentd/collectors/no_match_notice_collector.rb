@@ -23,6 +23,7 @@ module Fluentd
 
       def initialize(logger)
         @logger = logger
+        @count = 0
       end
 
       def emit(tag, time, record)

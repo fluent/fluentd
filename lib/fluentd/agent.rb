@@ -172,6 +172,7 @@ module Fluentd
     # EmitErrorHandler interface. See 'fluentd/event_router.rb'
     def handle_emit_error(tag, time, record, error)
       log.warn "emit error", error: error
+      log.debug_backtrace error.backtrace if error.respond_to?(:backtrace)
       if @root_agent
         @root_agent.error_collector.emit(tag, time, record)
       end
