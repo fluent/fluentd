@@ -1,0 +1,13 @@
+Fluentd is licensed under Apache License, Version 2.0.
+Copyright (C) 2011-2014 FURUHASHI Sadayuki.
+
+Ruby is copyrighted free software by Yukihiro Matsumoto.
+
+ServerEngine is developed by FURUHASHI Sadayuki, licensed under Apache License,
+Version 2.0. The original software and related information is available at
+http://msgpack.sourceforge.jp/.
+
+MessagePack is developed by FURUHASHI Sadayuki, licensed under Apache License,
+Version 2.0. The original software and related information is available at
+http://msgpack.sourceforge.jp/.
+
