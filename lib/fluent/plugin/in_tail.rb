@@ -532,7 +532,6 @@ module Fluent
     end
   end
 
-
   class Win32Io
     def initialize
       super
@@ -540,7 +539,11 @@ module Fluent
       @file_handle = INVALID_HANDLE_VALUE
       @api_createfile = nil
       @api_closehandle = nil
+      @api_setfilepointer = nil
+      @api_getfilesize = nil
+      @api_getlasterror = nil
       @currentPos = 0
+      @file_size = 0
     end
     
     attr_reader :path, :file_handle
@@ -599,5 +602,25 @@ module Fluent
       seek(0,IO::SEEK_CUR)
       return @currentPos
     end
+    
+    def size
+    sizelow = 0
+    sizehi_p = "\0" * 4
+    @api_getfilesize = Win32API.new('kernel32', 'GetFileSize', %w(i p), 'i') unless @api_getfilesize
+    @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
+    sizelow = @api_getfilesize.call(@file_handle, sizehi_p)
+    err = @api_getlasterror.call
+    if sizelow == -1 && err != 0
+      return @file_size
+    end
+    sizelow = [sizelow].pack("i").unpack("I")[0]
+    sizehi = sizehi_p.unpack("I")[0]
+    @file_size = sizelow
+    if sizehi > 0
+      @file_size = @file_size + sizehi
+    end
+    return @file_size
+    end
+    
   end
 end
