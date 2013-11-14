@@ -542,6 +542,7 @@ module Fluent
       @api_setfilepointer = nil
       @api_getfilesize = nil
       @api_getlasterror = nil
+      @api_readfile = nil
       @currentPos = 0
       @file_size = 0
     end
@@ -631,5 +632,28 @@ module Fluent
       return @file_size
     end
     
+    def read(maxlen, outbuf = "")
+      raise ArgumentError if maxlen < 0
+      buf = "\0" * maxlen
+      readbytes_p = "\0" * 4
+
+      @api_readfile = Win32API.new('kernel32', 'ReadFile', %w(i p i p i), 'i') unless @api_readfile
+      @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
+      
+      ret = @api_readfile.call(@file_handle, buf, maxlen, readbytes_p, 0)
+      err = @api_getlasterror.call
+      
+      if ret == 0
+        raise IOError
+      end
+      
+      readbytes = readbytes_p.unpack("I")
+      if readbytes == 0
+        raise EOFError
+      end
+      
+      outbuf = buf.slice(0, readbytes)
+      return buf
+    end
   end
 end
