@@ -647,12 +647,12 @@ module Fluent
         raise IOError
       end
       
-      readbytes = readbytes_p.unpack("I")
+      readbytes = readbytes_p.unpack("I")[0]
       if readbytes == 0
         raise EOFError
       end
       
-      outbuf = buf.slice(0, readbytes)
+      outbuf << buf.slice(0, readbytes)
       return buf
     end
   end
