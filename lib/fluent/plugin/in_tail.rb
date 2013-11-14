@@ -587,7 +587,9 @@ module Fluent
       offsethi_p = [offsethi].pack("I")
       pos = @api_setfilepointer.call(@file_handle, offsetlow, offsethi_p, win32seek)
       err = @api_getlasterror.call
-      return if err != 0 
+      if pos == -1 && err != 0
+        return @currentPos
+      end
       
       pos = [pos].pack("i").unpack("I")[0]
       offsethi = offsethi_p.unpack("I")[0]
@@ -604,22 +606,22 @@ module Fluent
     end
     
     def size
-    sizelow = 0
-    sizehi_p = "\0" * 4
-    @api_getfilesize = Win32API.new('kernel32', 'GetFileSize', %w(i p), 'i') unless @api_getfilesize
-    @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
-    sizelow = @api_getfilesize.call(@file_handle, sizehi_p)
-    err = @api_getlasterror.call
-    if sizelow == -1 && err != 0
+      sizelow = 0
+      sizehi_p = "\0" * 4
+      @api_getfilesize = Win32API.new('kernel32', 'GetFileSize', %w(i p), 'i') unless @api_getfilesize
+      @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
+      sizelow = @api_getfilesize.call(@file_handle, sizehi_p)
+      err = @api_getlasterror.call
+      if sizelow == -1 && err != 0
+        return @file_size
+      end
+      sizelow = [sizelow].pack("i").unpack("I")[0]
+      sizehi = sizehi_p.unpack("I")[0]
+      @file_size = sizelow
+      if sizehi > 0
+        @file_size = @file_size + sizehi
+      end
       return @file_size
-    end
-    sizelow = [sizelow].pack("i").unpack("I")[0]
-    sizehi = sizehi_p.unpack("I")[0]
-    @file_size = sizelow
-    if sizehi > 0
-      @file_size = @file_size + sizehi
-    end
-    return @file_size
     end
     
   end
