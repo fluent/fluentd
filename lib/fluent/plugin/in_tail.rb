@@ -594,6 +594,10 @@ module Fluent
       end
       return @currentPos
     end
+
+    def pos
+      seek(0,IO::SEEK_CUR)
+      return @currentPos
+    end
   end
-  
 end
