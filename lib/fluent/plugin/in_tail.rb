@@ -559,5 +559,36 @@ module Fluent
       @api_closehandle.call(@file_handle)
       @file_handle = INVALID_HANDLE_VALUE
     end
+
+    def seek(offset, whence = IO::SEEK_SET)
+      @api_setfilepointer = Win32API.new('kernel32', 'SetFilePointer', %w(i i p i), 'i') unless @api_setfilepointer
+      @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
+      case whence
+      when IO::SEEK_CUR
+        win32seek = FILE_CURRENT
+      when IO::SEEK_END
+        win32seek = FILE_END
+      else
+        win32seek = FILE_BEGIN
+      end
+      
+      offsetlow = 0
+      offsethi = 0
+      if (offset > 0xFFFFFFFF)
+        offsetlow = offset & 0x00000000FFFFFFFF
+        offsethi = offset>>32
+      else
+        offsetlow = offset
+      end
+      offsethi_p = [offsethi].pack("I")
+      pos = @api_setfilepointer.call(@file_handle, offsetlow, offsethi_p, win32seek)
+      err = @api_getlasterror.call
+      return if err != 0 
+
+      pos = pos + offsethi if offsethi > 0
+      @currentPos = pos
+      return @currentPos
+    end
   end
+  
 end
