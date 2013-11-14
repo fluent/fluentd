@@ -540,6 +540,7 @@ module Fluent
       @file_handle = INVALID_HANDLE_VALUE
       @api_createfile = nil
       @api_closehandle = nil
+      @currentPos = 0
     end
     
     attr_reader :path, :file_handle
@@ -576,7 +577,7 @@ module Fluent
       offsethi = 0
       if (offset > 0xFFFFFFFF)
         offsetlow = offset & 0x00000000FFFFFFFF
-        offsethi = offset>>32
+        offsethi = offset >> 32
       else
         offsetlow = offset
       end
@@ -584,9 +585,13 @@ module Fluent
       pos = @api_setfilepointer.call(@file_handle, offsetlow, offsethi_p, win32seek)
       err = @api_getlasterror.call
       return if err != 0 
-
-      pos = pos + offsethi if offsethi > 0
+      
+      pos = [pos].pack("i").unpack("I")[0]
+      offsethi = offsethi_p.unpack("I")[0]
       @currentPos = pos
+      if offsethi > 0
+        @currentPos = @currentPos + (offsethi << 32)
+      end
       return @currentPos
     end
   end
