@@ -158,11 +158,13 @@ module Fluent
 
         while @rotate_queue.first.ready?
           if io = @rotate_queue.first.io
-            stat = io.stat
-            inode = stat.ino
-            if $platformwin
-              inode = Win32File.getfileindex(io.path)
+            unless platformwin
+              stat = io.stat
+              inode = stat.ino
+            else
+              inode = io.ino
             end
+            
             if inode == @pe.read_inode
               # rotated file has the same inode number with the last file.
               # assuming following situation:
@@ -189,11 +191,13 @@ module Fluent
         if @io_handler == nil
           if io
             # first time
-            stat = io.stat
-            fsize = stat.size
-            inode = stat.ino
-            if $platformwin
-              inode = Win32File.getfileindex(io.path)
+            unless $platformwin
+              stat = io.stat
+              fsize = stat.size
+              inode = stat.ino
+            else
+              fsize = io.size
+              inode = io.ino
             end
             last_inode = @pe.read_inode
             if inode == last_inode
@@ -314,9 +318,9 @@ module Fluent
                   end
                 else
                   if @buffer.empty?
-                    @io.readpartial(2048, @buffer)
+                    @io.read(2048,@buffer)
                   else
-                    @buffer << @io.readpartial(2048, @iobuf)
+                    @buffer << @io.read(2048, @iobuf)                    
                   end
                 end
                 while line = @buffer.slice!(/.*?\n/m)
@@ -374,14 +378,16 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path)
-            stat = io.stat
             unless $platformwin
+              io = File.open(@path)
+              stat = io.stat
               inode = stat.ino
+              fsize = stat.size
             else
-              inode = Win32File.getfileindex(io.path)
+              io = Win32File.open(@path, GENERIC_READ, FILE_SHARE_READ |FILE_SHARE_WRITE)
+              inode = io.ino
+              fsize = io.size
             end
-            fsize = stat.size
           rescue Errno::ENOENT
             # moved or deleted
             inode = nil
@@ -517,11 +523,12 @@ module Fluent
     def initialize
       super
     end 
-     
+
     def Win32File.open(path, *mode)
       access = GENERIC_READ
       sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE
       creationdisposition = OPEN_EXISTING
+
       if mode.size > 0
          if mode[0] == "r"
            access = GENERIC_READ
@@ -680,22 +687,17 @@ module Fluent
       raise ArgumentError if maxlen < 0
       buf = "\0" * maxlen
       readbytes_p = "\0" * 4
-
       @api_readfile = Win32API.new('kernel32', 'ReadFile', %w(i p i p i), 'i') unless @api_readfile
       @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
-      
       ret = @api_readfile.call(@file_handle, buf, maxlen, readbytes_p, 0)
       err = @api_getlasterror.call
-      
       if ret == 0
         raise IOError
       end
-      
       readbytes = readbytes_p.unpack("I")[0]
       if readbytes == 0
         raise EOFError
       end
-      
       outbuf << buf.slice(0, readbytes)
       return buf
     end
@@ -706,6 +708,5 @@ module Fluent
       ret = @api_getfileinformationbyhandle.call(@file_handle, by_handle_file_information)
       return ret == 1 ? by_handle_file_information.unpack("I11Q1")[11] : 0
     end
-
   end
 end
