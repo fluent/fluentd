@@ -543,6 +543,7 @@ module Fluent
       @api_getfilesize = nil
       @api_getlasterror = nil
       @api_readfile = nil
+      @api_getfileinformationbyhandle = nil
       @currentPos = 0
       @file_size = 0
     end
@@ -655,5 +656,13 @@ module Fluent
       outbuf << buf.slice(0, readbytes)
       return buf
     end
+
+    def ino
+      @api_getfileinformationbyhandle = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i') unless @api_getfileinformationbyhandle
+      by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
+      ret = @api_getfileinformationbyhandle.call(@file_handle, by_handle_file_information)
+      return ret == 1 ? by_handle_file_information.unpack("I11Q1")[11] : 0
+    end
+
   end
 end
