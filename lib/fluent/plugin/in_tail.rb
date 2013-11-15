@@ -518,6 +518,49 @@ module Fluent
       super
     end 
      
+    def Win32File.open(path, *mode)
+      access = GENERIC_READ
+      sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE
+      creationdisposition = OPEN_EXISTING
+      if mode.size > 0
+         if mode[0] == "r"
+           access = GENERIC_READ
+           creationdisposition = OPEN_EXISTING
+         elsif mode[0] == "r+"
+           access = GENERIC_READ | GENERIC_WRITE
+           creationdisposition = OPEN_ALWAYS
+         elsif mode[0] == "w"
+           access = GENERIC_WRITE
+           creationdisposition = CREATE_ALWAYS
+         elsif mode[0] == "w+"
+           access = GENERIC_READ | GENERIC_WRITE
+           creationdisposition = CREATE_ALWAYS
+         elsif mode[0] == "a"
+           access = GENERIC_WRITE
+           creationdisposition = OPEN_ALWAYS
+         elsif mode[0] == "a+"
+           access = GENERIC_READ | GENERIC_WRITE
+           creationdisposition = OPEN_ALWAYS
+         else
+           access = GENERIC_READ
+           creationdisposition = OPEN_EXISTING
+         end
+         if mode.size > 1
+           sharemode = mode[1]
+         end
+      end
+      w32io = Win32Io.new
+      hFile = w32io.createfile(path, access, sharemode, creationdisposition, FILE_ATTRIBUTE_NORMAL)
+      if hFile == INVALID_HANDLE_VALUE
+        return nil
+      end
+      
+      if mode[0][0] == "a"
+        w32io.seek(0, IO::SEEK_END)
+      end
+      return w32io
+    end
+
     def Win32File.getfileindex(path)
       w32io = Win32Io.new
       getFileInformation = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i')
