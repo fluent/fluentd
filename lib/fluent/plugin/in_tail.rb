@@ -698,8 +698,9 @@ module Fluent
       if readbytes == 0
         raise EOFError
       end
-      outbuf << buf.slice(0, readbytes)
-      return buf
+      buf_sliced = buf.slice(0, readbytes)
+      outbuf << buf_sliced
+      return buf_sliced
     end
 
     def ino
