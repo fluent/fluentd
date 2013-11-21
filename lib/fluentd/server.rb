@@ -99,8 +99,17 @@ module Fluentd
 
       # load fluentd.conf
       conf = Server.read_config(config[:config_path])
-      unless config[:suppress_config_dump]
-        logger.info "Configuration:\n#{conf.to_s}"
+
+      if config[:suppress_config_dump]
+        if conf[:compat]
+          logger.warn "Using backward compatible configuration file. Please replace it with configuration with <worker> tag."
+        end
+      else
+        if conf[:compat]
+          logger.warn "Using backward compatible configuration file. Please replace it with following content to not show this message again:\n#{conf.elements[0].to_s}"
+        else
+          logger.info "Configuration:\n#{conf.to_s}"
+        end
       end
 
       # <worker> element creates a worker instances
@@ -187,8 +196,8 @@ module Fluentd
       if compat_conf
         # generates root <worker> element for v10 compat configuration
         compat_conf.name = 'worker'
-        logger.warn "Using backward compatible configuration file. Please replace it with following content to not show this message again:\n#{compat_conf.to_s}"
-        conf = Config::Element.new('ROOT', '', {}, [compat_conf])
+        # logger.warn "Using backward compatible configuration file. Please replace it with following content to not show this message again:\n#{compat_conf.to_s}"
+        conf = Config::Element.new('ROOT', '', {compat: true}, [compat_conf])
       end
 
       return conf
