@@ -526,7 +526,7 @@ module Fluent
 
     def Win32File.open(path, *mode)
       access = GENERIC_READ
-      sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE
+      sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
       creationdisposition = OPEN_EXISTING
 
       if mode.size > 0
