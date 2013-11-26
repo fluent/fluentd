@@ -174,6 +174,7 @@ module Fluent
     config_param :flush_interval, :time, :default => 60
     config_param :retry_limit, :integer, :default => 17
     config_param :retry_wait, :time, :default => 1.0
+    config_param :max_retry_wait, :time, :default => nil
     config_param :num_threads, :integer, :default => 1
     config_param :queued_chunk_flush_interval, :time, :default => 1
 
@@ -388,7 +389,8 @@ module Fluent
                # secondary retry
                @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
              end
-      wait + (rand * (wait / 4.0) - (wait / 8.0))
+      retry_wait = wait + (rand * (wait / 4.0) - (wait / 8.0))
+      @max_retry_wait ? [retry_wait, @max_retry_wait].min : retry_wait
     end
 
     def write_abort
