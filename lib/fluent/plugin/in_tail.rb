@@ -158,7 +158,7 @@ module Fluent
 
         while @rotate_queue.first.ready?
           if io = @rotate_queue.first.io
-            unless platformwin
+            unless $platformwin
               stat = io.stat
               inode = stat.ino
             else
