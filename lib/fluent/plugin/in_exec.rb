@@ -133,22 +133,21 @@ module Fluent
     private
 
     def on_message(record)
-      if val = record.delete(@time_key)
-        time = @time_parse_proc.call(val)
-      else
-        time = Engine.now
-      end
-
       if val = record.delete(@tag_key)
         tag = val
       else
         tag = @tag
       end
 
+      if val = record.delete(@time_key)
+        time = @time_parse_proc.call(val)
+      else
+        time = Engine.now
+      end
+
       Engine.emit(tag, time, record)
-    rescue
-      $log.error "exec failed to emit", :error => $!.to_s, :error_class => $!.class.to_s, :record => Yajl.dump(record)
-      $log.warn_backtrace $!.backtrace
+    rescue => e
+      $log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
     end
   end
 end
