@@ -18,11 +18,12 @@
 module Fluent
   class Supervisor
     class LoggerInitializer
-      def initialize(path, level, chuser, chgroup)
+      def initialize(path, level, chuser, chgroup, opts)
         @path = path
         @level = level
         @chuser = chuser
         @chgroup = chgroup
+        @opts = opts
       end
 
       def init
@@ -37,7 +38,7 @@ module Fluent
           @io = STDOUT
         end
 
-        $log = Fluent::Log.new(@io, @level)
+        $log = Fluent::Log.new(@io, @level, @opts)
 
         $log.enable_color(false) if @path
         $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
@@ -69,7 +70,8 @@ module Fluent
       @dry_run = opt[:dry_run]
       @suppress_config_dump = opt[:suppress_config_dump]
 
-      @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup)
+      log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
+      @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
       @finished = false
       @main_pid = nil
     end
