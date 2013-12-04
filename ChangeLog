@@ -1,3 +1,9 @@
+Release 0.10.41 - 2013/12/05
+
+* BufferedOutput: Add 'max_retry_wait' to limit retry interval
+* in_exec/object_space/syslog: Improve emit error message
+* Log: Add --suppress-repeated-stacktrace option to prevent log size explosion
+
 Release 0.10.40 - 2013/11/08
 
 * Dump gem version of fluent-plugin-xxx and fluent-mixin-xxx
