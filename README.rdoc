@@ -4,11 +4,18 @@ This is a branch version to make fluentd work on Windows! **This is a very preli
 
 We tried on following environments.
 
-    Windows 7, Apache 2.2 access.log, in_tail, out_null, out_file and out_stdout. (*without buf_file)
+    Windows 7, Apache 2.2 access.log
+    in_tail,    buf_memory,     out_null,
+    in_forward,                 out_stdout,
+    in_http,                    out_forward,
+                                out_file,
+                                out_copy,
+    
+    *Caution, buf_file does not work correctly now.
 
 == gem
 
-Not available yet (you need to package this on your own).
+You can use a local gem, pkg/fluentd-0.10.35.gem included.
 
 == Known issues
 
