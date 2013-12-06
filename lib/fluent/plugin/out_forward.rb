@@ -205,8 +205,11 @@ module Fluent
     def send_heartbeat_tcp(node)
       sock = connect(node)
       begin
-        opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+        unless $platformwin
+          # SO_LINGER option looks not work on Windows.
+          opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+        end
         opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
         # don't send any data to not cause a compatibility problem
         #sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
@@ -220,9 +223,11 @@ module Fluent
     def send_data(node, tag, chunk)
       sock = connect(node)
       begin
-        opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-
+        unless $platformwin
+          # SO_LINGER option looks not work on Windows.
+          opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+        end
         opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
