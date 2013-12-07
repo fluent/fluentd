@@ -55,6 +55,27 @@ module Fluent
       include Configurable
 
       config_param :time_format, :string, :default => nil
+      config_param :name_separator, :string, :default => '|'
+
+      Converters = {
+        'string' => lambda { |v| v.to_s },
+        'integer' => lambda { |v| v.to_i },
+        'float' => lambda { |v| v.to_f },
+        'bool' => lambda { |v|
+          case v
+          when 'true', 'yes'
+            true
+          else
+            false
+          end
+        },
+        'time' => lambda { |v, time_parser|
+          time_parser.parse(v)
+        },
+        'array' => lambda { |v, separator|
+          v.split(separator)
+        }
+      }
 
       def initialize(regexp, conf={})
         super()
@@ -63,6 +84,14 @@ module Fluent
           configure(conf)
         end
 
+        @converters, names = parse_pattern_names(regexp)
+        @regexp = if @converters.empty?
+                    regexp
+                  else
+                    re = generate_regexp(regexp, names)
+                    $log.debug "format regex changed to #{re.source}"
+                    re
+                  end
         @time_parser = TimeParser.new(@time_format)
         @mutex = Mutex.new
       end
@@ -83,7 +112,12 @@ module Fluent
             when "time"
               time = @mutex.synchronize { @time_parser.parse(value) }
             else
-              record[name] = value
+              converter = @converters[name]
+              if converter.nil?
+                record[name] = value
+              else
+                record[name] = converter.call(value)
+              end
             end
           end
         }
@@ -91,6 +125,46 @@ module Fluent
         time ||= Engine.now
 
         return time, record
+      end
+
+      private
+
+      def parse_pattern_names(regexp)
+        converters = {}
+        names = []
+
+        regexp.names.each { |pattern_name|
+          name, type, format = pattern_name.split(@name_separator, 3)
+          names << name
+          next if type.nil?
+
+          case type
+          when 'time'
+            t_parser = TimeParser.new(format)
+            converters[name] = lambda { |v|
+              Converters[type].call(v, t_parser)
+            }
+          when 'array'
+            separator = format || ','
+            converters[name] = lambda { |v|
+              Converters[type].call(v, separator)
+            }
+          else
+            converters[name] = Converters[type]
+          end
+        }
+
+        return converters, names
+      end
+
+      def generate_regexp(regexp, names)
+        i = 0
+        source = regexp.source.gsub(Regexp.new('\(\?<.+?>')) { |re|
+          name = names[i]
+          i += 1
+          "(?<#{name}>"
+        }
+        Regexp.compile(source)
       end
     end
 
