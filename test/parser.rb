@@ -60,11 +60,12 @@ module ParserTest
     end
 
     def test_call_with_typed
-      internal_test_case(TextParser::RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user|string>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date|time|%d\/%b\/%Y:%H:%M:%S %z>[^\]]*)\] "(?<flag|bool>\S+)(?: +(?<path|array>[^ ]*) +\S*)?" (?<code|float>[^ ]*) (?<size|integer>[^ ]*)$/, 'time_format'=>"%d/%b/%Y:%H:%M:%S %z"))
+      # Use Regexp.new instead of // literal to avoid different parser behaviour in 1.9 and 2.0 
+      internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user|string>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date|time|%d/%b/%Y:%H:%M:%S %z>[^\]]*)\] "(?<flag|bool>\S+)(?: +(?<path|array>[^ ]*) +\S*)?" (?<code|float>[^ ]*) (?<size|integer>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z"))
     end
 
     def test_call_with_typed_and_name_separator
-      internal_test_case(TextParser::RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user:string>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date:time:%d\/%b\/%Y:%H:%M:%S %z>[^\]]*)\] "(?<flag:bool>\S+)(?: +(?<path:array>[^ ]*) +\S*)?" (?<code:float>[^ ]*) (?<size:integer>[^ ]*)$/, 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'name_separator' => ':'))
+      internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user:string>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date:time:%d/%b/%Y:%H:%M:%S %z>[^\]]*)\] "(?<flag:bool>\S+)(?: +(?<path:array>[^ ]*) +\S*)?" (?<code:float>[^ ]*) (?<size:integer>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'name_separator' => ':'))
     end
   end
 
