@@ -16,24 +16,12 @@
 module Fluentd
   module Plugin
 
-    require 'fluentd/agent'
-    require 'fluentd/actor'
+    require 'fluentd/has_nested_match'
     require 'fluentd/engine'
-    require 'fluentd/collectors/label_collector'
+    require 'fluentd/plugin/output'
 
-    class Input < Agent
-      # provides #actor
-      include Actor::AgentMixin
-
-      config_param :to_label, :string, default: nil
-
-      def configure(conf)
-        if @to_label
-          # overwrites Agent#default_collector to point a label
-          # instead of top-level (RootAgent#collector)
-          self.default_collector = Collectors::LabelCollector.new(root_agent, @to_label)
-        end
-      end
+    class FilteringOutput < Output
+      include HasNestedMatch
     end
 
   end

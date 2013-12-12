@@ -19,6 +19,7 @@ module Fluentd
 
   require 'fluentd/agent'
   require 'fluentd/label'
+  require 'fluentd/has_nested_match'
   require 'fluentd/collectors/null_collector'
   require 'fluentd/collectors/no_match_notice_collector'
 
@@ -29,29 +30,33 @@ module Fluentd
   #                          |
   #             +------------+-------------+
   #             |            |             |
-  #          <label>      <label>       <source>
-  #             |                         |
-  #        +----+----+             +----+----+
-  #        |         |             |         |
-  #     <source>  <match>      <match>    <match>
-  #                  |                       |
-  #             +---------+               <match>
+  #          <label>      <source>      <match>
+  #             |                          |
+  #        +----+----+                +----+----+
+  #        |         |                |         |
+  #     <match>   <match>       ( <match>    <match> )
+  #                  |
+  #             +---------+
   #             |         |
-  #          <match>   <match>
+  #        ( <match>   <match> )
   #
   # Relation:
-  # * RootAgent ---> <source>, <match>, <filter>, <label>
-  # * <label>   ---> <source>, <match>, <filter>
-  # * <source>, <match>, <filter> ---> <match>, <filter>
+  # * RootAgent has many <label>, <source> and <match>
+  # * <label>   has many <match>
+  # * <match>   has many <match> (*)
   #
-  # Base class of RootAgent, <label>, <source>, <match> and <filter>
-  # is Agent.
+  # (*) <match> has nested <match> only if the output plugin extends
+  #     FilteringOutput class or includes HasNestedMatch module.
   #
   # Next step: `fluentd/agent.rb`
+  # Next step: 'fluentd/label.rb'
+  # Next step: 'fluentd/has_nested_match.rb'
   #
-  class RootAgent < Label
-    LOG_LABEL = "LOG".freeze
-    ERROR_LABEL = "ERROR".freeze
+  class RootAgent < Agent
+    LOG_LABEL = "@LOG".freeze
+    ERROR_LABEL = "@ERROR".freeze
+
+    include HasNestedMatch
 
     def initialize
       super
@@ -67,51 +72,90 @@ module Fluentd
 
       # internal log stream collector
       @log_collector = Collectors::NullCollector.new
-
-      self.default_collector = Collectors::NullCollector.new
     end
 
     def configure(conf)
+      # calls HasNestedMatch#configure and Agent#configure
       super
 
       error_label_config = nil
       log_label_config = nil
 
-      # initialize <label> elements
+      # initialize <label> and <source> elements
       conf.elements.select {|e|
-        e.name == 'label'
+        e.name == 'label' || e.name == 'source'
       }.each {|e|
-        case label = e.arg
-        when ERROR_LABEL
-          error_label_config = e
-        when LOG_LABEL
-          log_label_config = e
-        else
-          add_label(label, e)
+        case e.name
+        when 'label'
+          name = e.arg
+          if name == ERROR_LABEL
+            error_label_config = e
+          elsif name == LOG_LABEL
+            log_label_config = e
+          else
+            add_label(name, e)
+          end
+
+        when 'source'
+          type = e['type']
+          raise ConfigError, "Missing 'type' parameter" unless type
+          add_source(type, e)
         end
       }
 
       # initialize built-in ERROR label
       error_label_config ||= conf.new_element("label", ERROR_LABEL)
-      error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWIthoutErrorCollector.new(self), error_label_config)
+      error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWithoutErrorCollector.new(self), error_label_config)
+      # overwrites HasNestedMatch#default_collector to show 'tag does not match' warnings
       error_label.default_collector = Collectors::NullCollector.new
-      @error_collector = error_label.collector  # overwrite @error_collector
+      @error_collector = error_label.collector
 
       # initialize built-in LOG label
       log_label_config ||= conf.new_element("label", LOG_LABEL)
       log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogCollector.new(self), log_label_config)
+      # overwrites HasNestedMatch#default_collector to show 'tag does not match' warnings
       log_label.default_collector = Collectors::NullCollector.new
-      @log_collector = log_label.collector  # overwrite @log_collector
+      @log_collector = log_label.collector
 
       nil
     end
 
+    def add_source(type, conf)
+      log.info "adding source", type: type
+
+      input = Engine.plugins.new_input(self, type)
+
+      # <source> emits events to the top-level EventRouter (RootAgent#collector).
+      # Input#configure overwrites default_collector to a label
+      # if it has `to_label` parameter.
+      # See also 'fluentd/plugin/input.rb'
+      input.default_collector = collector
+
+      input.configure(conf)
+
+      return input
+    end
+
     def add_label(name, e)
-      # if an event doesn't even match top-level patterns,
-      # NoMatchNoticeCollector shows warnings.
-      add_label_impl(name, self, e, NoMatchNoticeCollector.new)
+      add_label_impl(name, self, e)
       self
     end
+
+    def add_label_impl(name, self_or_proxy, e)
+      label = Label.new
+
+      # overwrites Agent#parent_agent with a proxy so that
+      # elements in the nested in <label @ERROR> or <label @LOG>
+      # don't use RootAgent#log_collector or #error_collector.
+      # otherwise it causes infinite loop.
+      label.parent_agent = self_or_proxy
+
+      label.configure(e)
+
+      @labels[name] = label
+    end
+
+    private :add_label_impl
 
     # root_router api used by
     # 'fluentd/plugin/out_redirect.rb'
@@ -126,12 +170,13 @@ module Fluentd
     # See 'fluentd/agent_logger.rb'
     attr_reader :log_collector
 
-    # See Agent#handle_emit_error at 'fluentd/agent.rb'
+    # See HasNestedMatch#handle_emit_error at
+    # 'fluentd/has_nested_match.rb'
     attr_reader :error_collector
 
-    # Agents nested in <label LOG> element use RootAgent wrapped by
-    # this RootAgentProxyWithoutLogCollector. Thus those elements don't
-    # send logs to @log_collector recursively.
+    # Agents nested in <label @LOG> element use RootAgent wrapped by
+    # this RootAgentProxyWithoutLogCollector. So that those elements don't
+    # send cause infinite loop.
     class RootAgentProxyWithoutLogCollector < SimpleDelegator
       def initialize(root_agent)
         super
@@ -143,9 +188,9 @@ module Fluentd
     end
 
     # Agents nested in <label ERROR> element use RootAgent wrapped by
-    # this RootAgentProxyWIthoutErrorCollector. Thus those elements don't
-    # send logs to @error_collector recursively.
-    class RootAgentProxyWIthoutErrorCollector < SimpleDelegator
+    # this RootAgentProxyWithoutErrorCollector. So that those elements don't
+    # send cause infinite loop.
+    class RootAgentProxyWithoutErrorCollector < SimpleDelegator
       def initialize(root_agent)
         super
         @error_collector = Collectors::NullCollector.new
@@ -153,21 +198,6 @@ module Fluentd
 
       # override #error_collector
       attr_reader :error_collector
-    end
-
-    private
-
-    def add_label_impl(name, self_or_proxy, e)
-      label = Label.new
-      label.parent_agent = self_or_proxy
-
-      # if an event doesn't even match top-level patterns,
-      # NoMatchNoticeCollector shows warnings.
-      label.default_collector = Collectors::NoMatchNoticeCollector.new(label.logger)
-
-      label.configure(e)
-
-      @labels[name] = label
     end
   end
 
