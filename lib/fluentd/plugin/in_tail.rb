@@ -278,8 +278,8 @@ module Fluentd
             @callback.call
           rescue
             # TODO log?
-            $log.error $!.to_s
-            $log.error_backtrace
+            log.error $!.to_s
+            log.error_backtrace
           end
         end
 

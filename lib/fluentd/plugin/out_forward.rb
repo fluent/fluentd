@@ -213,10 +213,12 @@ module Fluentd
         config_param :recover_time, :time, :default => nil
 
         attr_reader :nodes, :usock
+        attr_reader :log
 
         def initialize(parent)
           super()
           @parent = parent
+          @log = parent.log
         end
 
         def configure_parent_default(*params)
@@ -316,14 +318,14 @@ module Fluentd
             @connection.close if @connection
           rescue => e
             # ignore all errors with only logging
-            Engine.log.warn "error on connection closing in shutdown", :error_class => e.class, :error => e
+            log.warn "error on connection closing in shutdown", :error_class => e.class, :error => e
           end
           @expired_connections.each do |c|
             begin
               c.lose
             rescue => e
               # ignore all errors with only logging
-              Engine.log.warn "error on expired connection closing in shutdown", :error_class => e.class, :error => e
+              log.warn "error on expired connection closing in shutdown", :error_class => e.class, :error => e
             end
           end
         end
@@ -424,7 +426,7 @@ module Fluentd
             end
             @state.update!
           rescue SystemCallError => e #TODO: or each Errno::EXXX
-            Engine.log.error "failed to send data", :host => @host, :port => @port, :error_class => e.class, :error => e
+            log.error "failed to send data", :host => @host, :port => @port, :error_class => e.class, :error => e
             raise e
           end
         end
@@ -455,7 +457,7 @@ module Fluentd
             # success to connect => receive ack packet => alive
             @state.update!
           rescue SystemCallError => e # or each Errno::EXXX
-            Engine.log.debug "failed to send tcp heartbeat", :error_class => e.class, :error => e
+            log.debug "failed to send tcp heartbeat", :error_class => e.class, :error => e
           end
         end
 
@@ -464,7 +466,7 @@ module Fluentd
           begin
             @usock.send "\0", 0, self.address, @port
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
-            Engine.log.debug "failed to send udp heartbeat", :error_class => e.class, :error => e
+            log.debug "failed to send udp heartbeat", :error_class => e.class, :error => e
           end
         end
 
