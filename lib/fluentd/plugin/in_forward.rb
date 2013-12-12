@@ -29,7 +29,7 @@ module Fluentd
 
         actor.listen_tcp(@bind, @port) do |sock|
           h = Handler.new(self, sock, method(:on_message))
-          actor.watch_io(sock, &h.method(:on_readable))
+          actor.watch_io(sock, &(h.method(:on_readable)))
         end
 
         super
@@ -85,7 +85,7 @@ module Fluentd
 
         if entries.class == String
           # PackedForward
-          es = MessagePackEventCollection.new(entries, @cached_unpacker)
+          es = MessagePackEventCollection.new(entries)
           collector.emits(tag, es)
 
         elsif entries.class == Array
@@ -127,7 +127,7 @@ module Fluentd
         def on_readable(io)
           begin
             data = io.read_nonblock(32*1024, @buffer)
-          rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
+          rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, EOFError
             return
           end
           on_read(data)
@@ -155,7 +155,7 @@ module Fluentd
         rescue
           log.error "forward error: #{$!.to_s}"
           log.error_backtrace
-          close
+          @io.close
         end
 
         def on_read_msgpack(data)
@@ -163,7 +163,7 @@ module Fluentd
         rescue
           log.error "forward error: #{$!.to_s}"
           log.error_backtrace
-          close
+          @io.close
         end
 
         def on_close
