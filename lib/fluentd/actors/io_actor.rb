@@ -35,7 +35,7 @@ module Fluentd
         end
 
         def on_readable
-          @callback.call(self)
+          @callback.call(@io)
         end
       end
 

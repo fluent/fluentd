@@ -29,7 +29,7 @@ module Fluentd
 
         actor.listen_tcp(@bind, @port) do |sock|
           h = Handler.new(self, sock, method(:on_message))
-          actor.watch_io(sock, h.method(:on_readable))
+          actor.watch_io(sock, &h.method(:on_readable))
         end
 
         super
@@ -48,7 +48,7 @@ module Fluentd
 
       def send_heartbeat(sock, host, port)
         begin
-          usock.send "\0", 0, host, port
+          @usock.send "\0", 0, host, port
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
         end
       end
@@ -124,9 +124,9 @@ module Fluentd
           @buffer = ''
         end
 
-        def on_readable
+        def on_readable(io)
           begin
-            data = @io.read_nonblock(32*1024, @buffer)
+            data = io.read_nonblock(32*1024, @buffer)
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
             return
           end
