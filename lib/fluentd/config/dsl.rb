@@ -77,7 +77,7 @@ module Fluentd
           end
         end
 
-        %w[filter match label].each do |name|
+        %w[match label].each do |name|
           define_method(name.to_sym) do |*args, &block|
             ::Kernel.raise ::ArgumentError, "#{name} block requires arguments for match pattern" if args.nil? || args.size != 1
             @proxy.add_element(name, args.first, block)

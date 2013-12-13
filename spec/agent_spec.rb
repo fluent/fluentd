@@ -67,13 +67,14 @@ describe Fluentd::Agent do
     end
   end
 
-  describe '#collector' do
-    it 'routes error events to root_agent.error_collector' do
-      root_agent.error_collector.should_receive(:emit).with("tag1", now, {})
-      agent.collector.add_rule(MatchPattern('tag1.**'), ErrorCollector.new)
-      agent.collector.emit("tag1", now, {})
-    end
-  end
+  # TODO event_router is moved to HasNestedMatch
+  #describe '#event_router' do
+  #  it 'routes error events to root_agent.error_collector' do
+  #    root_agent.error_collector.should_receive(:emit).with("tag1", now, {})
+  #    agent.event_router.add_rule(MatchPattern('tag1.**'), ErrorCollector.new)
+  #    agent.event_router.emit("tag1", now, {})
+  #  end
+  #end
 
   describe '#logger' do
     %w[trace debug info warn error fatal].each do |level_name|

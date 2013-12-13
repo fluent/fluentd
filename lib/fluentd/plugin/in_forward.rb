@@ -24,7 +24,6 @@ module Fluentd
 
       def start
         @usock = Engine.sockets.listen_udp(@bind, @port)
-        @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
         actor.watch_io(@usock, &method(:on_heartbeat_readable))
 
         actor.listen_tcp(@bind, @port) do |sock|
@@ -37,6 +36,7 @@ module Fluentd
 
       def on_heartbeat_readable(sock)
         begin
+          sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
           msg, addr = sock.recvfrom(1024)
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
           return
@@ -86,7 +86,7 @@ module Fluentd
         if entries.class == String
           # PackedForward
           es = MessagePackEventCollection.new(entries)
-          collector.emits(tag, es)
+          event_router.emits(tag, es)
 
         elsif entries.class == Array
           # Forward
@@ -97,14 +97,14 @@ module Fluentd
             record = e[1]
             es.add(time, record)
           }
-          collector.emits(tag, es)
+          event_router.emits(tag, es)
 
         else
           # Message
           time = msg[1]
           time = Time.now.to_i if time == 0
           record = msg[2]
-          collector.emit(tag, time, record)
+          event_router.emit(tag, time, record)
         end
       end
 

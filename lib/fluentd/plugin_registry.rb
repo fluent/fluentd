@@ -25,7 +25,6 @@ module Fluentd
     def initialize
       @input = Registry.new(:input, 'fluentd/plugin/in_')
       @output = Registry.new(:output, 'fluentd/plugin/out_')
-      @filter = Registry.new(:filter, 'fluentd/plugin/filter_')
       @buffer = Registry.new(:buffer, 'fluentd/plugin/buf_')
     end
 
@@ -37,10 +36,6 @@ module Fluentd
       @output.register(type, klass)
     end
 
-    def register_filter(type, klass)
-      @filter.register(type, klass)
-    end
-
     def register_buffer(type, klass)
       @buffer.register(type, klass)
     end
@@ -48,21 +43,12 @@ module Fluentd
     def new_input(parent_agent, type)
       a = @input.lookup(type).new
       a.parent_agent = parent_agent
-      a.default_collector = parent_agent.collector
       return a
     end
 
     def new_output(parent_agent, type)
       a = @output.lookup(type).new
       a.parent_agent = parent_agent
-      a.default_collector = parent_agent.collector
-      return a
-    end
-
-    def new_filter(parent_agent, type)
-      a = @filter.lookup(type).new
-      a.parent_agent = parent_agent
-      a.default_collector = parent_agent.collector
       return a
     end
 
@@ -80,7 +66,7 @@ module Fluentd
     def self.load_plugin_dir(dir)
       dir = File.expand_path(dir)
       Dir.entries(dir).sort.each {|fname|
-        if fname =~ /(?:in|out|filter)_.*\.rb$/
+        if fname =~ /(?:in|out)_.*\.rb$/
           require File.join(dir, fname)
         end
       }

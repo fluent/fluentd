@@ -19,10 +19,30 @@ module Fluentd
     require 'fluentd/agent'
     require 'fluentd/actor'
     require 'fluentd/engine'
+    require 'fluentd/collectors/label_collector'
 
     class Input < Agent
+      attr_accessor :event_router
+
       # provides #actor
       include Actor::AgentMixin
+
+      config_param :to_label, :string, default: nil
+
+      def configure(conf)
+        super
+
+        if @to_label
+          # overwrites @event_router to point a label's event_router
+          # instead of top-level event_router (RootAgent#event_router)
+          label = root_agent.find_label(@to_label)
+          unless label
+            # TODO error or warning?
+            raise ConfigError, "Label #{@to_label} does not exist"
+          end
+          self.event_router = label.event_router
+        end
+      end
     end
 
   end

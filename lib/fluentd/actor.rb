@@ -42,6 +42,7 @@ module Fluentd
     end
 
     def stop
+      @loop.watchers.each {|w| w.detach }
       @loop.stop if @thread
       nil
     end

@@ -16,19 +16,23 @@
 module Fluentd
   module Plugin
 
-    require 'fluentd/plugin/routing_output'
+    require 'fluentd/plugin/filtering_output'
 
-    class RedirectOutput < RoutingOutput
+    class RedirectOutput < FilteringOutput
       Plugin.register_output('redirect', self)
 
-      def configure(conf)
-        super
+      config_param :to_label, :string
 
-        @label = conf['label']
+      def emit(tag, time, record)
+        match(tag).emit(tag, time, record)
+      end
+
+      def emits(tag, es)
+        match(tag).emits(tag, es)
       end
 
       def match(tag)
-        root_agent.match_label(@label, tag)
+        root_agent.match_label(@to_label, tag)
       end
     end
 

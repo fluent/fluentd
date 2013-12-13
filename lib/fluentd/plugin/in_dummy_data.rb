@@ -17,7 +17,7 @@ module Fluentd
         @running = true
         actor.every(@interval) do
           next unless @running
-          collector.emit(@tag, Time.now.to_i, @data)
+          event_router.emit(@tag, Time.now.to_i, @data)
         end
 
         super

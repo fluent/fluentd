@@ -16,10 +16,9 @@
 module Fluentd
   module Plugin
 
-    require 'fluentd/plugin/routing_output'
-    require 'fluentd/collectors/no_match_notice_collector'
+    require 'fluentd/plugin/filtering_output'
 
-    class RouteOutput < RoutingOutput
+    class RouteOutput < FilteringOutput
       Plugin.register_output('route', self)
 
       def configure(conf)
@@ -27,22 +26,25 @@ module Fluentd
         c.elements = []
 
         conf.elements.select {|e|
-          e.name == 'match' || e.name == 'copy' || e.name == 'filter'
+          e.name == 'match'
         }.each {|e|
+          # set default type: redirect
           c.elements << e.merge({'type' => 'redirect'})
         }
 
         super(c)
+      end
 
-        # TODO this should be moved to Agent if <filter> is removed
-        self.default_collector = Collectors::NoMatchNoticeCollector.new(logger)
-        #self.default_collector = Collectors::NullCollector.new
+      def emit(tag, time, record)
+        match(tag).emit(tag, time, record)
+      end
+
+      def emits(tag, es)
+        match(tag).emits(tag, es)
       end
 
       def match(tag)
-        #p @event_router
-        #return Collectors::NullCollector.new
-        collector.match(tag)
+        event_router.match(tag)
       end
     end
 

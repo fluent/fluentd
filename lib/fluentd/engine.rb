@@ -57,7 +57,6 @@ module Fluentd
         require 'fluentd/plugin/buffered_output'
         require 'fluentd/plugin/object_buffered_output'
         require 'fluentd/plugin/time_sliced_output'
-        require 'fluentd/plugin/filter'
       end
     end
 

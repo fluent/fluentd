@@ -49,7 +49,7 @@ module Fluentd
       'g' => 1024**3,
       't' => 1024**4,
     }.each_pair {|k,v|
-      if val =~ /\A(0|[1-9][0-9]*)[ \t]*#{k}\z/
+      if m = /\A(0|[1-9][0-9]*)[ \t]*#{k}\z/.match(val)
         return m[1].to_i * v
       end
     }

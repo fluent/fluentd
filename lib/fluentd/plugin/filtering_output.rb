@@ -16,12 +16,12 @@
 module Fluentd
   module Plugin
 
-    require 'fluentd/plugin/output'
+    require 'fluentd/has_nested_match'
     require 'fluentd/engine'
+    require 'fluentd/plugin/output'
 
-    class Filter < Output
-      # provides #actor
-      include Actor::AgentMixin
+    class FilteringOutput < Output
+      include HasNestedMatch
     end
 
   end

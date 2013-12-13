@@ -96,7 +96,7 @@ module Fluentd
 
         unless es.empty?
           begin
-            collector.emits(@tag, es)
+            event_router.emits(@tag, es)
           rescue
             # ignore errors. Engine shows logs and backtraces.
           end
