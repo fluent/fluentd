@@ -28,7 +28,7 @@ module Fluentd
         actor.watch_io(@usock, &method(:on_heartbeat_readable))
 
         actor.listen_tcp(@bind, @port) do |sock|
-          h = Handler.new(sock, method(:on_message))
+          h = Handler.new(self, sock, method(:on_message))
           actor.watch_io(sock, h.method(:on_readable))
         end
 
@@ -109,13 +109,17 @@ module Fluentd
       end
 
       class Handler
-        def initialize(io, on_message)
+        attr_reader :log
+
+        def initialize(parent, io, on_message)
+          @parent = parent
+          @log = parent.log
           @io = io
           if @io.is_a?(TCPSocket)
             opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
             @io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
           end
-          $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
+          log.trace { "accepted fluent socket object_id=#{self.object_id}" }
           @on_message = on_message
           @buffer = ''
         end
@@ -149,21 +153,21 @@ module Fluentd
         def on_read_json(data)
           @y << data
         rescue
-          $log.error "forward error: #{$!.to_s}"
-          $log.error_backtrace
+          log.error "forward error: #{$!.to_s}"
+          log.error_backtrace
           close
         end
 
         def on_read_msgpack(data)
           @u.feed_each(data, &@on_message)
         rescue
-          $log.error "forward error: #{$!.to_s}"
-          $log.error_backtrace
+          log.error "forward error: #{$!.to_s}"
+          log.error_backtrace
           close
         end
 
         def on_close
-          $log.trace { "closed fluent socket object_id=#{self.object_id}" }
+          log.trace { "closed fluent socket object_id=#{self.object_id}" }
         end
       end
     end
