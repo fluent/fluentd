@@ -86,7 +86,7 @@ module Fluentd
         if entries.class == String
           # PackedForward
           es = MessagePackEventCollection.new(entries)
-          collector.emits(tag, es)
+          event_router.emits(tag, es)
 
         elsif entries.class == Array
           # Forward
@@ -97,14 +97,14 @@ module Fluentd
             record = e[1]
             es.add(time, record)
           }
-          collector.emits(tag, es)
+          event_router.emits(tag, es)
 
         else
           # Message
           time = msg[1]
           time = Time.now.to_i if time == 0
           record = msg[2]
-          collector.emit(tag, time, record)
+          event_router.emit(tag, time, record)
         end
       end
 
