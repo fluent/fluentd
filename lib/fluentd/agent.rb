@@ -43,7 +43,7 @@ module Fluentd
     def initialize
       @root_agent = nil
       @parent_agent = nil
-      @agents = []  # child agents
+      @agents = []  # nested agents
 
       # See 'fluentd/agent_logger.rb' about AgentLogger.
       @logger = Engine.logger ? AgentLogger.new(Engine.logger) : nil
@@ -57,7 +57,7 @@ module Fluentd
     alias_method :log, :logger
     alias_method :log=, :logger=
 
-    # child agents
+    # nested agents
     attr_reader :agents
 
     # RootAgent
