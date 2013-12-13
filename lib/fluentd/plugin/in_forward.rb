@@ -24,7 +24,6 @@ module Fluentd
 
       def start
         @usock = Engine.sockets.listen_udp(@bind, @port)
-        @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
         actor.watch_io(@usock, &method(:on_heartbeat_readable))
 
         actor.listen_tcp(@bind, @port) do |sock|
@@ -37,6 +36,7 @@ module Fluentd
 
       def on_heartbeat_readable(sock)
         begin
+          sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
           msg, addr = sock.recvfrom(1024)
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
           return
