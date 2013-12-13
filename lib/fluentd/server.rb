@@ -30,17 +30,17 @@ module Fluentd
   #
   # Server is the master process of all worker processes.
   #
-  # It creates a thread (WorkerLauncher) for each <worker> elements in config file.
+  # It creates a thread (WorkerLauncher) for each <server> elements in config file.
   # Note that Server and WorkerLauncher are managed by a gem called "ServerEngine".
   #
   #         Managed by ServerEngine
   # +----------------------------------------+
   # |                                        |
-  # |          +--> <worker> WorkerLauncher ----> spawn Worker
+  # |          +--> <server> WorkerLauncher ----> spawn Worker
   # |          |                             |
-  # | Server --+--> <worker> WorkerLauncher ----> spawn Worker
+  # | Server --+--> <server> WorkerLauncher ----> spawn Worker
   # |          |                             |
-  # |          ---> <worker> WorkerLauncher ----> spawn Worker
+  # |          ---> <server> WorkerLauncher ----> spawn Worker
   # |                                        |
   # +----------------------------------------+
   #
@@ -89,7 +89,7 @@ module Fluentd
       super  # ServerEngine calls #reload_config
     end
 
-    attr_reader :worker_elements
+    attr_reader :server_elements
 
     attr_reader :socket_server
 
@@ -102,7 +102,7 @@ module Fluentd
 
       if config[:suppress_config_dump]
         if conf[:compat]
-          logger.warn "Using backward compatible configuration file. Please replace it with configuration with <worker> tag."
+          logger.warn "Using backward compatible configuration file. Please replace it with configuration with <server> tag."
         end
       else
         if conf[:compat]
@@ -112,11 +112,11 @@ module Fluentd
         end
       end
 
-      # <worker> element creates a worker instances
-      worker_elements = conf.elements.select {|e| e.name == 'worker' }
+      # <server> element creates a worker instances
+      server_elements = conf.elements.select {|e| e.name == 'server' }
 
-      if worker_elements.empty?
-        raise ConfigError, "No <worker> elements in the config file"
+      if server_elements.empty?
+        raise ConfigError, "No <server> elements in the config file"
       end
 
       # config must be marshal-able so that WorkerLauncher can receive it through DRb
@@ -129,7 +129,7 @@ module Fluentd
 
       # set number of ServerEngine workers using
       # ServerEngine::Server#scale_workers method
-      scale_workers(worker_elements.size)
+      scale_workers(server_elements.size)
     end
 
     # ServerEngine callback
@@ -176,8 +176,8 @@ module Fluentd
         # try to use v11 mode first
         conf = Config::Parser.read(path)
 
-        # use backward compatible mode if <worker> element doesn't exist
-        unless conf.elements.find {|e| e.name == 'worker' }
+        # use backward compatible mode if <server> element doesn't exist
+        unless conf.elements.find {|e| e.name == 'server' }
           compat_conf = Config::CompatParser.read(path)
         end
 
@@ -185,7 +185,7 @@ module Fluentd
         # falling back to compatible mode
         begin
           compat_conf = Config::CompatParser.read(path)
-          if compat_conf.elements.any? {|e| e.name == 'worker' }
+          if compat_conf.elements.any? {|e| e.name == 'server' }
             raise e
           end
         rescue
@@ -194,8 +194,8 @@ module Fluentd
       end
 
       if compat_conf
-        # generates root <worker> element for v10 compat configuration
-        compat_conf.name = 'worker'
+        # generates root <server> element for v10 compat configuration
+        compat_conf.name = 'server'
         # logger.warn "Using backward compatible configuration file. Please replace it with following content to not show this message again:\n#{compat_conf.to_s}"
         conf = Config::Element.new('ROOT', '', {compat: true}, [compat_conf])
       end

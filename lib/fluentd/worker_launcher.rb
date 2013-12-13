@@ -72,7 +72,7 @@ module Fluentd
       first = true
       until @stop_flag.set?
         unless first
-          logger.info "Worker #{worker_id} exited unexpectedly. Restarting."
+          logger.info "Server #{worker_id} exited unexpectedly. Restarting."
           first = false
           # TODO stop Server by calling Server#stop_by_config_error
           # if first==true and worker failed to configure. maybe it needs TupleSpace
@@ -88,7 +88,7 @@ module Fluentd
     end
 
     def run_worker
-      logger.info "Starting worker #{worker_id}"
+      logger.info "Starting server #{worker_id}"
 
       monitor = @pm.spawn(*@cmdline)
       until monitor.try_join
@@ -128,22 +128,22 @@ module Fluentd
       # receive configuration from the shared data through DRb
       conf = Engine.shared_data['fluentd_config']
 
-      # get <worker> element for this worker process
-      worker_elements = conf.elements.select {|e| e.name == 'worker' }
-      worker_element = worker_elements[worker_id]
-      worker_element['id'] ||= worker_id
+      # get <server> element for this worker process
+      server_elements = conf.elements.select {|e| e.name == 'server' }
+      server_element = server_elements[worker_id]
+      server_element['id'] ||= worker_id
 
       # set process name
       # :worker_process_name is set by command/fluentd.rb
-      $0 = "#{options[:worker_process_name]} #{worker_element['id']}"
+      $0 = "#{options[:worker_process_name]} #{server_element['id']}"
 
       # change user and group
-      chuser = worker_element['chuser'] || options[:chuser]
-      chgroup = worker_element['chgroup'] || options[:chgroup]
+      chuser = server_element['chuser'] || options[:chuser]
+      chgroup = server_element['chgroup'] || options[:chgroup]
       ServerEngine::Daemon.change_privilege(chuser, chgroup)
 
       # configure worker using the config file
-      worker.configure(worker_element)
+      worker.configure(server_element)
 
       # this worker is ready to run
       # TODO apparently this is not passed to the parent process
