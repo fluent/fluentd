@@ -30,6 +30,8 @@ module Fluentd
       config_param :to_label, :string, default: nil
 
       def configure(conf)
+        super
+
         if @to_label
           # overwrites @event_router to point a label's event_router
           # instead of top-level event_router (RootAgent#event_router)
