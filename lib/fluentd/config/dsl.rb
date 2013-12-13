@@ -71,7 +71,7 @@ module Fluentd
           self
         end
 
-        %w[server source].each do |name|
+        %w[process source].each do |name|
           define_method(name.to_sym) do |&block|
             @proxy.add_element(name, nil, block)
           end

@@ -59,7 +59,7 @@ module Fluentd
     end
 
     def configure(conf)
-      @server_id = conf['id']
+      @process_id = conf['id']
 
       # Worker has a RootAgent
       root_agent = RootAgent.new
@@ -91,7 +91,7 @@ module Fluentd
       nil
 
     ensure
-      @log.info "Shutting down server #{@server_id}"
+      @log.info "Shutting down process #{@process_id}"
 
       # stop sending Worker's internal logs to root_agent
       @log.root_agent = nil
