@@ -52,7 +52,7 @@ module Fluentd
 
     def initialize(default_collector, emit_error_handler)
       @match_rules = []
-      @match_caches = []
+      @match_cache = MatchCache.new
       @default_collector = default_collector
       @emit_error_handler = emit_error_handler || RaiseEmitErrorHandler.new
     end
@@ -100,7 +100,7 @@ module Fluentd
 
     # override Collector#emit for efficiency
     def emit(tag, time, record)
-      match_offset(0, tag).emit(tag, time, record)
+      match(tag).emit(tag, time, record)
     rescue => e
       @emit_error_handler.handle_emit_error(tag, time, record, e)
       nil
@@ -108,7 +108,7 @@ module Fluentd
 
     # override Collector#emits
     def emits(tag, es)
-      match_offset(0, tag).emits(tag, es)
+      match(tag).emits(tag, es)
     rescue => e
       @emit_error_handler.handle_emits_error(tag, es, e)
       nil
@@ -116,53 +116,8 @@ module Fluentd
 
     # override Collector#match
     def match(tag)
-      match_offset(0, tag)
-    end
-
-    def current_offset
-      Offset.new(self, @match_rules.size+1)
-    end
-
-    class Offset
-      include Collector
-
-      def initialize(router, offset)
-        @router = router
-        @offset = offset
-      end
-
-      def emit(tag, time, record)
-        @router.emit_offset(@offset, tag, time, record)
-      end
-
-      def emits(tag, es)
-        @router.emits_offset(@offset, tag, es)
-      end
-
-      def match(tag)
-        @router.match_offset(@offset, tag)
-      end
-    end
-
-    def emit_offset(offset, tag, time, record)
-      match_offset(tag, offset).emit(tag, time, record)
-    rescue => e
-      @emit_error_handler.handle_emit_error(tag, time, record, e)
-      nil
-    end
-
-    def emits_offset(offset, tag, es)
-      match_offset(offset, tag).emits(tag, es)
-    rescue => e
-      @emit_error_handler.handle_emits_error(tag, es, e)
-      nil
-    end
-
-    def match_offset(offset, tag)
-      cache = (@match_caches[offset] ||= MatchCache.new)
-
-      collector = cache.get(tag) do
-        c = find(tag, offset) || @default_collector.match(tag)
+      collector = @match_cache.get(tag) do
+        c = find(tag) || @default_collector.match(tag)
       end
 
       return collector
@@ -191,10 +146,9 @@ module Fluentd
 
     private
 
-    def find(tag, offset)
+    def find(tag)
       copy_collectors = nil
       @match_rules.each_with_index {|rule,i|
-        next if i < offset
         if rule.match?(tag)
           if rule.copy?
             copy_collectors ||= []
