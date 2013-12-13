@@ -23,7 +23,8 @@ module Fluentd
   #
   # <source> or <match> with HasNestedMatch can emit records to
   # the <match> elements of this Label through Label#collector.
-  # Label#collector is an EventRouter initialized at HasNestedMatch#initialize.
+  # Label#collector is an EventRouter initialized at
+  # HasNestedMatch#initialize.
   #
   # Next step: 'fluentd/has_nested_match.rb'
   #

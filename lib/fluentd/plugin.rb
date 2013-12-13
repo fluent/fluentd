@@ -22,7 +22,6 @@ module Fluentd
   #
   #   * input (input plugins)
   #   * output (output plugins)
-  #   * filter (filter plugins)
   #   * buffer (buffer plugins)
   #   * type (configuration types)
   #
@@ -34,8 +33,8 @@ module Fluentd
       extend Forwardable
 
       def_delegators 'Fluentd::Engine.plugins',
-        :register_input, :register_output, :register_filter, :register_buffer,
-        :new_input, :new_output, :new_filter, :new_buffer,
+        :register_input, :register_output, :register_buffer,
+        :new_input, :new_output, :new_buffer,
         :register_type, :lookup_type
     end
 

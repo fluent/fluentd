@@ -107,15 +107,15 @@ module Fluentd
       error_label_config ||= conf.new_element("label", ERROR_LABEL)
       error_label = add_label_impl(ERROR_LABEL, RootAgentProxyWithoutErrorCollector.new(self), error_label_config)
       # overwrites HasNestedMatch#default_collector to show 'tag does not match' warnings
-      error_label.default_collector = Collectors::NullCollector.new
-      @error_collector = error_label.collector
+      error_label.event_router.default_collector = Collectors::NullCollector.new
+      @error_collector = error_label.event_router
 
       # initialize built-in LOG label
       log_label_config ||= conf.new_element("label", LOG_LABEL)
       log_label = add_label_impl(LOG_LABEL, RootAgentProxyWithoutLogCollector.new(self), log_label_config)
       # overwrites HasNestedMatch#default_collector to show 'tag does not match' warnings
-      log_label.default_collector = Collectors::NullCollector.new
-      @log_collector = log_label.collector
+      log_label.event_router.default_collector = Collectors::NullCollector.new
+      @log_collector = log_label.event_router
 
       nil
     end
@@ -125,11 +125,11 @@ module Fluentd
 
       input = Engine.plugins.new_input(self, type)
 
-      # <source> emits events to the top-level EventRouter (RootAgent#collector).
-      # Input#configure overwrites default_collector to a label
+      # <source> emits events to the top-level event router (RootAgent#event_router).
+      # Input#configure overwrites event_router to a label's event_router
       # if it has `to_label` parameter.
       # See also 'fluentd/plugin/input.rb'
-      input.default_collector = collector
+      input.event_router = self.event_router
 
       input.configure(conf)
 
@@ -161,10 +161,14 @@ module Fluentd
     # 'fluentd/plugin/out_redirect.rb'
     def match_label(label_name, tag)
       if label = @labels[label_name]
-        return label.collector.match(tag)
+        return label.event_router.match(tag)
       else
-        collector.match(tag)
+        self.event_router.default_collector
       end
+    end
+
+    def find_label(label_name)
+      return @labels[label_name]
     end
 
     # See 'fluentd/agent_logger.rb'

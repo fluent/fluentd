@@ -15,26 +15,16 @@
 #
 module Fluentd
 
-  require 'fluentd/event_router'
-  require 'fluentd/match_pattern'
-  require 'fluentd/engine'
-  require 'fluentd/collectors/null_collector'
-
   #
-  # HasNestedMatch module is included by subclesses of Agent
-  # so that it can have nested <match> elements.
+  # HasEventRouter module is included by Input and HasNestedMatch.
   #
-  # When <source> or other component emit events to
-  # HasNestedMatch#collector (EventRouter class), it
-  # forwards the events to a matched <match> element.
+  # Next step: 'fluentd/has_nested_match.rb'
   #
-  # Next step: 'fluentd/event_router.rb'
-  #
-  module HasNestedMatch
+  module HasEventRouter
     def initialize
       super
 
-      # HasNestedMatch logs a warning message if an emitted
+      # HasEventRouter logs a warning message if an emitted
       # record doesn't match any <match> elements
       default_collector = Collectors::NoMatchNoticeCollector.new(logger)
       # second argument (self) is EmitErrorHandler interface
@@ -43,29 +33,8 @@ module Fluentd
 
     attr_reader :event_router
 
-    def configure(conf)
-      super
-
-      # initialize <match> elements
-      conf.elements.select {|e|
-        e.name == 'match'
-      }.each {|e|
-        pattern = MatchPattern.create(e.arg.empty? ? '**' : e.arg)
-        type = e['type']
-        add_match(type, pattern, e)
-      }
-    end
-
-    def add_match(type, pattern, conf)
-      log.info "adding match", pattern: pattern, type: type
-
-      # PluginRegistry#new_output adds the created Output to @agents
-      # (because Output is an Agent).
-      output = Engine.plugins.new_output(self, type)
-      output.configure(conf)
-
-      @event_router.add_rule(pattern, output, copy: false)
-      return output
+    def default_collector=(collector)
+      @event_router.default_collector = collector
     end
 
     # EmitErrorHandler interface. See 'fluentd/event_router.rb'

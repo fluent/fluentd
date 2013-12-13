@@ -36,7 +36,7 @@ module Fluentd
       private
 
       def emit_message
-        collector.emit(@tag, Time.now.to_i, @message)
+        event_router.emit(@tag, Time.now.to_i, @message)
       rescue
         log.error "emit error: #{$!}"
         log.warn_backtrace
