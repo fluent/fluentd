@@ -384,7 +384,7 @@ module Fluent
               inode = stat.ino
               fsize = stat.size
             else
-              io = Win32File.open(@path, GENERIC_READ, FILE_SHARE_READ |FILE_SHARE_WRITE)
+              io = Win32File.open(@path)
               inode = io.ino
               fsize = io.size
             end
@@ -528,6 +528,7 @@ module Fluent
       access = GENERIC_READ
       sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
       creationdisposition = OPEN_EXISTING
+      seektoend = false
 
       if mode.size > 0
          if mode[0] == "r"
@@ -545,9 +546,11 @@ module Fluent
          elsif mode[0] == "a"
            access = GENERIC_WRITE
            creationdisposition = OPEN_ALWAYS
+           seektoend = true
          elsif mode[0] == "a+"
            access = GENERIC_READ | GENERIC_WRITE
            creationdisposition = OPEN_ALWAYS
+           seektoend = true
          else
            access = GENERIC_READ
            creationdisposition = OPEN_EXISTING
@@ -562,7 +565,7 @@ module Fluent
         return nil
       end
       
-      if mode[0][0] == "a"
+      if seektoend
         w32io.seek(0, IO::SEEK_END)
       end
       return w32io
