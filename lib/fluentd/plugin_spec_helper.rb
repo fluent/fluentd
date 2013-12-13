@@ -3,7 +3,6 @@ require 'fluentd/engine'
 require 'fluentd/config/parser'
 require 'fluentd/plugin/input'
 require 'fluentd/plugin/output'
-require 'fluentd/plugin/filter'
 
 Fluentd::Engine.setup_test_environment!
 
@@ -14,7 +13,7 @@ module Fluentd
 
       def initialize(plugin_klass, conf)
         plugin = plugin_klass.new
-        unless plugin.is_a?(Fluentd::Plugin::Input) || plugin.is_a?(Fluentd::Plugin::Filter) || plugin.is_a?(Fluentd::Plugin::Output)
+        unless plugin.is_a?(Fluentd::Plugin::Input) || plugin.is_a?(Fluentd::Plugin::Output)
           raise ArgumentError, "unknown class as plugin #{plugin.class}"
         end
 
@@ -24,7 +23,9 @@ module Fluentd
         plugin.configure(conf)
 
         @dummy_router = TestCollector.new
-        plugin.default_collector = @dummy_router
+        if plugin.respond_to?(:event_router)
+          plugin.event_router.default_collector = @dummy_router
+        end
 
         @instance = plugin
       end
