@@ -58,6 +58,50 @@ class ConfigTest < Test::Unit::TestCase
     
   end
 
+  def test_check_not_fetchd
+    write_config "#{TMP_DIR}/config_test_not_fetched.conf", %[
+      <match dummy>
+       type          rewrite
+       add_prefix    filtered
+       <rule>
+         key     path
+         pattern ^[A-Z]+
+         replace
+       </rule>
+     </match>
+    ]
+    root_conf  = Config.read("#{TMP_DIR}/config_test_not_fetched.conf")
+    match_conf = root_conf.elements.first
+    rule_conf  = match_conf.elements.first
+
+    not_fetched = []; root_conf.check_not_fetched {|key, e| not_fetched << key }
+    assert_equal %w[type add_prefix key pattern replace], not_fetched
+
+    not_fetched = []; match_conf.check_not_fetched {|key, e| not_fetched << key }
+    assert_equal %w[type add_prefix key pattern replace], not_fetched
+
+    not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
+    assert_equal %w[key pattern replace], not_fetched
+
+    # accessing should delete
+    match_conf['type']
+    rule_conf['key']
+
+    not_fetched = []; root_conf.check_not_fetched {|key, e| not_fetched << key }
+    assert_equal %w[add_prefix pattern replace], not_fetched
+
+    not_fetched = []; match_conf.check_not_fetched {|key, e| not_fetched << key }
+    assert_equal %w[add_prefix pattern replace], not_fetched
+
+    not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
+    assert_equal %w[pattern replace], not_fetched
+
+    # repeateadly accessing should not grow memory usage
+    before_size = match_conf.unused.size
+    10.times { match_conf['type'] }
+    assert_equal before_size, match_conf.unused.size
+  end
+
   def write_config(path, data)
     FileUtils.mkdir_p(File.dirname(path))
     File.open(path, "w") {|f| f.write data }
