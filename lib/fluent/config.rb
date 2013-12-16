@@ -45,7 +45,7 @@ module Fluent
       end
 
       def +(o)
-        Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, @unused+o.unused)
+        Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, (@unused+o.unused).uniq)
       end
 
       def has_key?(key)
