@@ -25,7 +25,7 @@ module Fluent
 
   module Config
     class Element < Hash
-      def initialize(name, arg, attrs, elements, used=[])
+      def initialize(name, arg, attrs, elements, unused=nil)
         @name = name
         @arg = arg
         @elements = elements
@@ -33,10 +33,10 @@ module Fluent
         attrs.each {|k,v|
           self[k] = v
         }
-        @used = used
+        @unused = unused || attrs.keys
       end
 
-      attr_accessor :name, :arg, :elements, :used
+      attr_accessor :name, :arg, :elements, :unused
 
       def add_element(name, arg='')
         e = Element.new(name, arg, {}, [])
@@ -45,22 +45,22 @@ module Fluent
       end
 
       def +(o)
-        Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, @used+o.used)
+        Element.new(@name.dup, @arg.dup, o.merge(self), @elements+o.elements, @unused+o.unused)
       end
 
       def has_key?(key)
-        @used << key
+        @unused.delete(key)
         super
       end
 
       def [](key)
-        @used << key
+        @unused.delete(key)
         super
       end
 
       def check_not_fetched(&block)
         each_key {|key|
-          unless @used.include?(key)
+          if @unused.include?(key)
             block.call(key, self)
           end
         }
