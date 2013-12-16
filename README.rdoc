@@ -8,7 +8,6 @@ We tried on following environments.
     in_tail,    buf_memory,     out_null,
     in_forward,                 out_stdout,
     in_http,                    out_forward,
-                                out_file,
                                 out_copy,
     
     *Caution, buf_file does not work correctly now.
