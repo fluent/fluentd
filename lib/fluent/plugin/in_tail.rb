@@ -529,7 +529,6 @@ module Fluent
       sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
       creationdisposition = OPEN_EXISTING
       seektoend = false
-
       if mode.size > 0
          if mode[0] == "r"
            access = GENERIC_READ
@@ -564,24 +563,10 @@ module Fluent
       if hFile == INVALID_HANDLE_VALUE
         return nil
       end
-      
       if seektoend
         w32io.seek(0, IO::SEEK_END)
       end
       return w32io
-    end
-
-    def Win32File.getfileindex(path)
-      w32io = Win32Io.new
-      getFileInformation = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i')
-      w32io.createfile(path, GENERIC_INFO, FILE_SHARE_NONE, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL)
-      if w32io.file_handle == INVALID_HANDLE_VALUE 
-        return 0
-      end
-      by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
-      ret = getFileInformation.call(w32io.file_handle, by_handle_file_information)
-      w32io.close
-      return ret ? by_handle_file_information.unpack("I11Q1")[11] : 0
     end
   end
 
