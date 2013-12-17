@@ -710,7 +710,12 @@ module Fluent
       @api_getfileinformationbyhandle = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i') unless @api_getfileinformationbyhandle
       by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
       ret = @api_getfileinformationbyhandle.call(@file_handle, by_handle_file_information)
-      return ret == 1 ? by_handle_file_information.unpack("I11Q1")[11] : 0
+      unless ret
+        return 0
+      end
+      volumeserial = by_handle_file_information.unpack("I11Q1")[7]
+      fileindex = by_handle_file_information.unpack("I11Q1")[11]
+      return (volumeserial << 32) | fileindex
     end
   end
 end
