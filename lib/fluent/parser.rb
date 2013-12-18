@@ -51,8 +51,78 @@ module Fluent
       end
     end
 
+    module TypeConverter
+      Converters = {
+        'string' => lambda { |v| v.to_s },
+        'integer' => lambda { |v| v.to_i },
+        'float' => lambda { |v| v.to_f },
+        'bool' => lambda { |v|
+          case v.downcase
+          when 'true', 'yes', '1'
+            true
+          else
+            false
+          end
+        },
+        'time' => lambda { |v, time_parser|
+          time_parser.parse(v)
+        },
+        'array' => lambda { |v, delimiter|
+          v.to_s.split(delimiter)
+        }
+      }
+
+      def self.included(klass)
+        klass.instance_eval {
+          config_param :types, :string, :default => nil
+          config_param :types_delimiter, :string, :default => ','
+          config_param :types_label_delimiter, :string, :default => ':'
+        }
+      end
+
+      def configure(conf)
+        super
+
+        @type_converters = parse_types_parameter unless @types.nil?
+      end
+
+      private
+
+      def convert_type(name, value)
+        converter = @type_converters[name]
+        converter.nil? ? value : converter.call(value)
+      end
+
+      def parse_types_parameter
+        converters = {}
+
+        @types.split(@types_delimiter).each { |pattern_name|
+          name, type, format = pattern_name.split(@types_label_delimiter, 3)
+          raise ConfigError, "Type is needed" if type.nil?
+
+          case type
+          when 'time'
+            t_parser = TimeParser.new(format)
+            converters[name] = lambda { |v|
+              Converters[type].call(v, t_parser)
+            }
+          when 'array'
+            delimiter = format || ','
+            converters[name] = lambda { |v|
+              Converters[type].call(v, delimiter)
+            }
+          else
+            converters[name] = Converters[type]
+          end
+        }
+
+        converters
+      end
+    end
+
     class RegexpParser
       include Configurable
+      include TypeConverter
 
       config_param :time_format, :string, :default => nil
 
@@ -83,7 +153,11 @@ module Fluent
             when "time"
               time = @mutex.synchronize { @time_parser.parse(value) }
             else
-              record[name] = value
+              record[name] = if @type_converters.nil?
+                               value
+                             else
+                               convert_type(name, value)
+                             end
             end
           end
         }
@@ -131,6 +205,7 @@ module Fluent
 
     class ValuesParser
       include Configurable
+      include TypeConverter
 
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
@@ -163,7 +238,17 @@ module Fluent
           time = Engine.now
         end
 
+        convert_field_type!(record) if @type_converters
+
         return time, record
+      end
+
+      private
+
+      def convert_field_type!(record)
+        record.each { |key, value|
+          record[key] = convert_type(key, value)
+        }
       end
     end
 

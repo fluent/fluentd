@@ -41,6 +41,34 @@ module ParserTest
     end
   end
 
+  class RegexpParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def internal_test_case(parser)
+      time, record = parser.call('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777')
+
+      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal({
+        'user' => '-',
+        'flag' => true,
+        'code' => 200.0,
+        'size' => 777,
+        'date' => str2time('14/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'),
+        'host' => '192.168.0.1',
+        'path' => ['/', '/user']
+      }, record)
+    end
+
+    def test_call_with_typed
+      # Use Regexp.new instead of // literal to avoid different parser behaviour in 1.9 and 2.0 
+      internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'))
+    end
+
+    def test_call_with_typed_and_name_separator
+      internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer', 'types_label_delimiter'=>'|'))
+    end
+  end
+
   class ApacheParserTest < ::Test::Unit::TestCase
     include ParserTest
 
