@@ -10,28 +10,47 @@ We tried on following environments.
     in_http,                    out_forward,
                                 out_copy,
     
-    *Caution, buf_file does not work correctly now.
+    *Caution, buf_file does not work correctly now. More information, see below.
 
-== gem
+== Gem
 
 You can use a local gem, pkg/fluentd-0.10.35.gem included.
 
-== Known issues
+    gem install pkg/fluentd-0.10.35.gem
 
-=== file lock
-The Windows File lock problem still exists. Fluentd (ruby) opens target log files without FILE_SHARE_DELETE. So, the files being tailed by fluentd should NOT be deleted or (re)moved.
-
-=== deletion of a work file
-
-Same with the file-lock problem. Windows requires you to close the file handle before delete it.
-
-=== termination of  fluentd
-    
-It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
+== General condition
 
 === daemon(Windows Service)
-
 Not supported yet.
+
+=== termination of  fluentd
+It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
+
+== Plugin condition
+
+=== input plugin
+*name*:: *condition*
+in_http::  Looks good.
+in_forword:: Looks good.
+in_tail:: Looks good : NTFS requried. Network drive is not supported. Possibility of unexpected result on old Windows versions(we need check). FILE_SHARE_READ, FILE_SHARE_WRITE and FILE_SHARE_DELETE are required on a target file.
+in_exec:: Not work correctly yet : Sometimes exec doesn't launch.
+
+=== output plugin
+*name*:: *condition*
+out_copy:: Looks good.
+out_stdout:: Looks good.
+out_null:: Looks good.
+out_forword:: Looks good : send_timeout option cannot be used.
+out_file:: Not work correctly yet : Problem at timeslicing.
+out_exec:: Not work correctly yet : Sometimes exec doesn't launch.
+out_exec_filter:: Unknown.
+out_roundrobin:: Unknown.
+
+=== buffer plugin
+*name*:: *condition*
+buf_memory:: Looks good.
+buf_file:: Not work correctly yet.
+
 
 ---
 
