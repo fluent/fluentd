@@ -65,11 +65,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
   def test_msg_size
     d = create_driver
-
-    tests = [
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100, 'expected' => 'x' * 100},
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024, 'expected' => 'x' * 1024},
-    ]
+    tests = create_test_case
 
     d.run do
       u = UDPSocket.new
@@ -80,10 +76,35 @@ class SyslogInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
+    compare_test_result(d.emits, tests)
+  end
+
+  def test_msg_size_with_tcp
+    d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
+    tests = create_test_case
+
+    d.run do
+      TCPSocket.open('127.0.0.1', PORT) do |s|
+        tests.each {|test|
+          s.send(test['msg'], 0)
+        }
+      end
+      sleep 1
+    end
+
+    compare_test_result(d.emits, tests)
+  end
+
+  def create_test_case
+    [
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100, 'expected' => 'x' * 100},
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024, 'expected' => 'x' * 1024},
+    ]
+  end
+
+  def compare_test_result(emits, tests)
     emits.each_index {|i|
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
     }
   end
 end
-
