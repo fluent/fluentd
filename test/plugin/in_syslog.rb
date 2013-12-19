@@ -84,11 +84,11 @@ class SyslogInputTest < Test::Unit::TestCase
     tests = create_test_case
 
     d.run do
-      TCPSocket.open('127.0.0.1', PORT) do |s|
-        tests.each {|test|
+      tests.each {|test|
+        TCPSocket.open('127.0.0.1', PORT) do |s|
           s.send(test['msg'], 0)
-        }
-      end
+        end
+      }
       sleep 1
     end
 
