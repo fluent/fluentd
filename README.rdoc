@@ -1,6 +1,6 @@
 = Fluentd
 
-{<img src="https://travis-ci.org/fluent/fluentd.png" />}[https://travis-ci.org/fluent/fluentd]
+{<img src="https://travis-ci.org/fluent/fluentd.png" />}[https://travis-ci.org/fluent/fluentd] {<img src="https://codeclimate.com/github/fluent/fluentd.png " />}[https://codeclimate.com/github/fluent/fluentd]
 
 Fluentd is an event collector system. It is a generalized version of syslogd, which handles JSON objects for its log messages.
 
