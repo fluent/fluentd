@@ -172,6 +172,7 @@ module Fluent
 
     config_param :buffer_type, :string, :default => 'memory'
     config_param :flush_interval, :time, :default => 60
+    config_param :try_flush_interval, :float, :default => 1
     config_param :retry_limit, :integer, :default => 17
     config_param :retry_wait, :time, :default => 1.0
     config_param :max_retry_wait, :time, :default => nil
@@ -277,7 +278,7 @@ module Fluent
         end
       end
       if empty
-        return time + 1  # TODO 1
+        return time + @try_flush_interval
       end
 
       begin
@@ -288,7 +289,7 @@ module Fluent
             if retrying = !@error_history.empty?  # re-check in synchronize
               if @next_retry_time >= time
                 # allow retrying for only one thread
-                return time + 1  # TODO 1
+                return time + @try_flush_interval
               end
               # assume next retry failes and
               # clear them if when it succeeds
@@ -316,7 +317,7 @@ module Fluent
         if has_next
           return Engine.now + @queued_chunk_flush_interval
         else
-          return time + 1  # TODO 1
+          return time + @try_flush_interval
         end
 
       rescue => e
