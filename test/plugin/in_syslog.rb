@@ -95,10 +95,27 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests)
   end
 
+  def test_msg_size_with_same_tcp_connection
+    d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
+    tests = create_test_case
+
+    d.run do
+      TCPSocket.open('127.0.0.1', PORT) do |s|
+        tests.each {|test|
+          s.send(test['msg'], 0)
+        }
+      end
+      sleep 1
+    end
+
+    compare_test_result(d.emits, tests)
+  end
+
   def create_test_case
+    # actual syslog message has "\n"
     [
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100, 'expected' => 'x' * 100},
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024, 'expected' => 'x' * 1024},
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024},
     ]
   end
 

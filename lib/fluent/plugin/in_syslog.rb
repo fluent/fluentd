@@ -110,11 +110,6 @@ module Fluent
     def shutdown
       @loop.watchers.each {|w| w.detach }
       @loop.stop
-      if @protocol_type == :tcp
-        # port from in_forward
-        listen_address = (@bind == '0.0.0.0' ? '127.0.0.1' : @bind)
-        TCPSocket.open(listen_address, @port) {|sock| }  # FIXME @thread.join blocks without this line
-      end
       @handler.close
       @thread.join
     end
@@ -232,13 +227,23 @@ module Fluent
         end
         $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
         @on_message = on_message
+        @buffer = "".force_encoding('ASCII-8BIT')
       end
 
       def on_connect
       end
 
       def on_read(data)
-        @on_message.call(data)
+        @buffer << data
+        pos = 0
+
+        # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
+        while i = @buffer.index("\n", pos)
+          msg = @buffer[pos..i]
+          @on_message.call(msg)
+          pos = i + 1
+        end
+        @buffer.slice!(0, pos) if pos > 0
       rescue => e
         $log.error "syslog error", :error => e, :error_class => e.class
         close
