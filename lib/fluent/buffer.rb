@@ -159,7 +159,7 @@ module Fluent
     end
 
     def storable?(chunk, data)
-      top.size + data.bytesize <= @buffer_chunk_limit
+      chunk.size + data.bytesize <= @buffer_chunk_limit
     end
 
     def emit(key, data, chain)
