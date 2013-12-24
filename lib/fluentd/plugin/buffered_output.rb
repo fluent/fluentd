@@ -109,6 +109,8 @@ module Fluentd
       private
 
       class FlushThread
+        MAX_BLOCKING_TIME = 1
+
         def initialize(&try_flush)
           @stop_flag = ServerEngine::BlockingFlag.new
           @try_flush = try_flush
@@ -126,7 +128,9 @@ module Fluentd
         def run
           until @stop_flag.set?
             wait = @try_flush.call
-            @stop_flag.wait_for_set(wait) if wait > 0
+            if wait > 0
+              @stop_flag.wait_for_set([wait, MAX_BLOCKING_TIME].min)
+            end
           end
         end
       end
