@@ -168,7 +168,7 @@ module Fluent
           line.force_encoding('UTF-8')
           @i += 1
           line.lstrip!
-          line.gsub!(/\s*(?:\#.*)?$/,'')
+          if  /\s*(?:\\#.*)?$/.match(line)[0].length==1 then line.gsub!(/\s*(?:\#.*)?$/,'') end
           if line.empty?
             next
           elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
