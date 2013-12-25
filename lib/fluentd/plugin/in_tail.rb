@@ -116,7 +116,7 @@ module Fluentd
 
           @rotate_queue = []
 
-          # TODO: we can remove this one when using Watchr....
+          # TODO: We shouldn't use Coolio::Loop instance directly?
           @loop = Coolio::Loop.new
 
           @timer_trigger = TimerWatcher.new(1, &method(:on_notify))
@@ -128,7 +128,7 @@ module Fluentd
 
         def watch(actor)
           @timer_trigger.watch(actor)
-          @file_trigger.attach(@loop)  # wanna remove @loop....
+          @file_trigger.attach(@loop)
           on_notify
         end
 
@@ -249,25 +249,6 @@ module Fluentd
           end
         end
 
-=begin
-        class FileWatcher
-          require 'watchr'
-          include Watchr
-
-          alias_method :watch_internal, :watch
-
-          def initialize(path)
-            @path = path
-          end
-
-          def watch(&callback)
-            watch_internal(@path) do |md|
-              callback.call(md)
-            end
-          end
-        end
-=end
-
         class FileWatcher < Coolio::StatWatcher
           def initialize(path, &callback)
             @callback = callback
@@ -282,7 +263,6 @@ module Fluentd
             log.error_backtrace
           end
         end
-
 
         class RotationRequest
           def initialize(io, wait)
