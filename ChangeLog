@@ -1,3 +1,12 @@
+Release 0.10.42 - 2013/12/25
+
+* parser/in_tail: Add 'types' and related parameters to convert record value type
+* in_syslog: Add 'protocol_type' option for TCP support.
+* Buffer: Extract 'storable?' method for hook judge mechanizm by 3rd-party buffer plugins.
+* Output: Add 'try_flush_interval' parameter for high frequency flush.
+  It is undocumented because almost users never need this feature.
+* Change configuration unused checking to prevent memory leak when a plugin accesses configuratino keys.
+
 Release 0.10.41 - 2013/12/05
 
 * BufferedOutput: Add 'max_retry_wait' to limit retry interval
