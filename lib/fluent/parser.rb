@@ -137,6 +137,11 @@ module Fluent
         @mutex = Mutex.new
       end
 
+      def configure(conf)
+        super()
+        @time_parser = TimeParser.new(@time_format)
+      end
+
       def call(text)
         m = @regexp.match(text)
         unless m
