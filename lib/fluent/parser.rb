@@ -138,7 +138,7 @@ module Fluent
       end
 
       def configure(conf)
-        super()
+        super
         @time_parser = TimeParser.new(@time_format)
       end
 
