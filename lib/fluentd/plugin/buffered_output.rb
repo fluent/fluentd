@@ -252,8 +252,7 @@ module Fluentd
       def write_abort
         log.error "throwing away old logs."
         begin
-          #@buffer.clear
-          # TODO
+          @buffer.clear
         rescue
           log.error "unexpected error while aborting", error: $!.to_s
           log.error_backtrace
