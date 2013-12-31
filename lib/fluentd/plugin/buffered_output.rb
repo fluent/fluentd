@@ -59,7 +59,7 @@ module Fluentd
       end
 
       def start
-        @next_flush_time = Time.now.to_i + @flush_interval
+        @next_flush_time = Time.now.to_f + @flush_interval
         @flush_threads.times do
           @threads << FlushThread.new(&method(:try_flush))
         end
@@ -147,12 +147,13 @@ module Fluentd
         end
 
         begin
-          now = Time.now.to_i
+          now = Time.now.to_f
           if @next_flush_time > now
             return @next_flush_time - now
           end
 
           has_next = @buffer.acquire {|chunk|
+            # flush is blocking (long-running) operation)
             if @secondary && retry_count && retry_count > @flush_retry_limit
               # write to @secondary if retry_count > @flush_retry_limit
               flush_chunk_secondary(chunk)
@@ -167,7 +168,7 @@ module Fluentd
             @flush_error_history.clear
           end
 
-          now = Time.now.to_i
+          now = Time.now.to_f
           if has_next
             wait_time = @flush_minimum_interval
           else
