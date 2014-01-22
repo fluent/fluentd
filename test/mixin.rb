@@ -276,4 +276,58 @@ module MixinTest
       d.run
     end
   end
+
+  class TypeConverterMixinText < Test::Unit::TestCase
+    include Utils
+
+    def test_type_converter_default
+      format_check({
+        'a' => '1'
+      })
+
+      d = create_driver(Fluent::TypeConverterMixin, %[
+      ])
+      d.emit({'a' => '1'})
+      d.run
+    end
+
+    def test_all_type_converter
+      format_check({
+        'k_str'   => 'foo',
+        'k_int'   => 500,
+        'k_float' => 0.5,
+        'k_bool'  => true,
+        'k_time'  => 1390274984,
+        'k_array' => ["foo", "1", "2.0", "true"]
+      })
+
+      d = create_driver(Fluent::TypeConverterMixin, %[
+        types  k_str:string,k_int:integer,k_float:float,k_bool:bool,k_time:time,k_array:array
+      ])
+
+      d.emit({
+        'k_str'   => 'foo',
+        'k_int'   => '500',
+        'k_float' => '0.5',
+        'k_bool'  => 'true',
+        'k_time'  => '2014-01-21 12:29:44 +0900',
+        'k_array' => 'foo,1,2.0,true'
+      })
+      d.run
+    end
+
+    def test_with_handle_tag_name_mixin
+      format_check({
+        'a' => 1
+      }, 'test')
+
+      d = create_driver([Fluent::HandleTagNameMixin, Fluent::TypeConverterMixin], %[
+        remove_tag_prefix tag_prefix.
+        types  a:integer
+      ], 'tag_prefix.test')
+
+      d.emit({'a' => '1'})
+      d.run
+    end
+  end
 end
