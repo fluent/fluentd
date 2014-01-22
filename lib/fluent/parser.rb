@@ -251,8 +251,10 @@ module Fluent
       private
 
       def convert_field_type!(record)
-        record.each { |key, value|
-          record[key] = convert_type(key, value)
+        @type_converters.each_key { |key|
+          if value = record[key]
+            record[key] = convert_type(key, value)
+          end
         }
       end
     end
