@@ -174,7 +174,7 @@ module Fluentd
 
       begin
         # try to use v11 mode first
-        conf = Config::Parser.read(path)
+        conf = Config::Parser.read(path, Kernel.binding)
 
         # use backward compatible mode if <worker> element doesn't exist
         unless conf.elements.find {|e| e.name == 'worker' }
