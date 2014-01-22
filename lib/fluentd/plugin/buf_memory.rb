@@ -40,12 +40,14 @@ module Fluentd
         # Hash is ordered
         key, _ = @map.find {|key,builder| strategy.call(key, builder) }
 
-        if key && builder = @map.delete(key)
-          builder.flush
-          return true
-        else
-          return false
+        if key
+          if builder = @map.delete(key)
+            builder.flush
+            return true
+          end
         end
+
+        return false
       end
 
       def acquire_next_chunk

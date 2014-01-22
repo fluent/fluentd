@@ -122,33 +122,38 @@ module Fluentd
       def acquire(&block)
         lock = @mutex.lock
         begin
-          begin
+          acquired_chunk = acquire_next_chunk
+
+          unless acquire_next_chunk
+            early_flushed = true
+            early_flush_chunk(@early_flush_strategy)
             acquired_chunk = acquire_next_chunk
             unless acquired_chunk
-              early_flush = early_flush_chunk(@early_flush_strategy)
-              return nil unless early_flush
-              acquired_chunk = acquire_next_chunk
-              return nil unless acquired_chunk
+              return nil
             end
-            lock.unlock
-            lock = nil
+          end
 
-            block.call(acquired_chunk)
+          lock.unlock
+          lock = nil
 
-            chunk = acquired_chunk
-            acquired_chunk = nil
-            remove_acquired_chunk(chunk)
+          # blocking (long-running) operation:
+          block.call(acquired_chunk)
 
-            return early_flush ? false : true
+          chunk = acquired_chunk
+          acquired_chunk = nil
+          remove_acquired_chunk(chunk)
 
-          ensure
+          return early_flushed ? false : true
+
+        ensure
+          begin
             if acquired_chunk
               lock = @mutex.lock unless lock
               release_acquired_chunk(acquired_chunk)
             end
+          ensure
+            lock.unlock if lock
           end
-        ensure
-          lock.unlock if lock
         end
       end
 

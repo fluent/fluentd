@@ -137,6 +137,8 @@ module Fluentd
     end
 
     def add_label(name, e)
+      # if an event doesn't even match top-level patterns,
+      # NoMatchNoticeCollector shows warnings.
       add_label_impl(name, self, e)
       self
     end
