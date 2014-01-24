@@ -97,7 +97,11 @@ module Fluent
 
     def write_to(io)
       open {|i|
-        FileUtils.copy_stream(i, io)
+        unless $platformwin
+           FileUtils.copy_stream(i, io)
+        else
+          io.write( i.read )
+        end
       }
     end
 

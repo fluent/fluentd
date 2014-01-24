@@ -67,8 +67,19 @@ module Fluent
     attr_reader :path
 
     def mv(path)
-      File.rename(@path, path)
-      @path = path
+      unless $platformwin
+        File.rename(@path, path)
+        @path = path
+      else
+        pos = @file.pos
+        @file.close
+        File.rename(@path, path)
+        @path = path
+        @file = File.open(@path, "a+", DEFAULT_FILE_PERMISSION)
+        @file.sync = true
+        @size = @file.stat.size
+        @file.pos = pos
+      end
     end
   end
 
