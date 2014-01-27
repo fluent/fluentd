@@ -28,4 +28,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency(%q<parallel_tests>, [">= 0.15.3"])
   gem.add_development_dependency(%q<rr>, [">= 1.0.0"])
   gem.add_development_dependency(%q<timecop>, [">= 0.3.0"])
+  gem.add_development_dependency "rspec", ">= 2.13.0"
+  gem.add_development_dependency "coveralls", ">= 0.7.0"
 end
