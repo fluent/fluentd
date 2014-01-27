@@ -121,6 +121,12 @@ module Fluent
         if record.nil?
           return ["200 OK", {'Content-type'=>'text/plain'}, ""]
         end
+        
+        params.each_pair { |k,v|
+          if k.start_with?("HTTP_")
+            record[k] = v
+          end
+        }
 
         time = params['time']
         time = time.to_i
