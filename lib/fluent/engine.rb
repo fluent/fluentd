@@ -202,7 +202,11 @@ class EngineClass
       $log.error_backtrace
     ensure
       $log.info "shutting down fluentd"
-      shutdown
+      unless $platformwin
+        shutdown
+      else
+        shutdown_win
+      end
       if @log_emit_thread
         @log_event_loop_stop = true
         @log_emit_thread.join
@@ -247,6 +251,18 @@ class EngineClass
       end
     }.each {|t|
       t.join
+    }
+  end
+
+
+  def shutdown_win
+    @started.map {|s|
+        begin
+          s.shutdown
+        rescue => e
+          $log.warn "unexpected error while shutting down", :error_class=>e.class, :error=>e
+          $log.warn_backtrace
+        end
     }
   end
 
