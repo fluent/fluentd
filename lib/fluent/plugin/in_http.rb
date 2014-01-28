@@ -33,6 +33,7 @@ module Fluent
     config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
     config_param :backlog, :integer, :default => nil
+    config_param :add_http_headers, :bool, :default => false
 
     def configure(conf)
       super
@@ -120,6 +121,14 @@ module Fluent
         # Skip nil record
         if record.nil?
           return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+        end
+        
+        if @add_http_headers
+          params.each_pair { |k,v|
+            if k.start_with?("HTTP_")
+              record[k] = v
+            end
+          }
         end
 
         time = params['time']
