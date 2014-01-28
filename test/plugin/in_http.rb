@@ -25,6 +25,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal '127.0.0.1', d.instance.bind
     assert_equal 10*1024*1024, d.instance.body_size_limit
     assert_equal 5, d.instance.keepalive_timeout
+    assert_equal false, d.instance.add_http_headers
   end
 
   def test_time
@@ -58,6 +59,30 @@ class HttpInputTest < Test::Unit::TestCase
         assert_equal "200", res.code
       }
     end
+
+    d.emit_streams.each { |tag, es|
+      assert !include_http_header?(es.first[1])
+    }
+  end
+
+  def test_json_with_add_http_headers
+    d = create_driver(CONFIG + "add_http_headers true")
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [["tag1", time, {"a"=>1}], ["tag2", time, {"a"=>2}]]
+
+    d.run do
+      records.each {|tag,time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+        assert_equal "200", res.code
+
+      }
+    end
+
+    d.emit_streams.each { |tag, es|
+      assert include_http_header?(es.first[1])
+    }
   end
 
   def test_application_json
@@ -101,5 +126,8 @@ class HttpInputTest < Test::Unit::TestCase
     req.set_form_data(params)
     http.request(req)
   end
-end
 
+  def include_http_header?(record)
+    record.keys.find { |header| header.start_with?('HTTP_') }
+  end
+end
