@@ -71,14 +71,14 @@ module Fluent
     end
 
     def start
-      $log.debug "listening http on #{@bind}:#{@port}"
+      log.debug "listening http on #{@bind}:#{@port}"
       lsock = TCPServer.new(@bind, @port)
 
       detach_multi_process do
         super
         @km = KeepaliveManager.new(@keepalive_timeout)
         #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
-        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit)
+        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit, log)
         @lsock.listen(@backlog) unless @backlog.nil?
 
         @loop = Coolio::Loop.new
@@ -99,8 +99,8 @@ module Fluent
     def run
       @loop.run
     rescue
-      $log.error "unexpected error", :error=>$!.to_s
-      $log.error_backtrace
+      log.error "unexpected error", :error=>$!.to_s
+      log.error_backtrace
     end
 
     def on_request(path_info, params)
@@ -152,13 +152,14 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
-      def initialize(io, km, callback, body_size_limit)
+      def initialize(io, km, callback, body_size_limit, log)
         super(io)
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
         @content_type = ""
         @next_close = false
+        @log = log
 
         @idle = 0
         @km.add(self)
@@ -182,8 +183,8 @@ module Fluent
         @idle = 0
         @parser << data
       rescue
-        $log.warn "unexpected error", :error=>$!.to_s
-        $log.warn_backtrace
+        @log.warn "unexpected error", :error=>$!.to_s
+        @log.warn_backtrace
         close
       end
 

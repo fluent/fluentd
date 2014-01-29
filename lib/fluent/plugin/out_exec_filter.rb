@@ -114,7 +114,7 @@ module Fluent
           @time_format_proc = Proc.new {|time| time.to_s }
         end
       elsif @in_time_format
-        $log.warn "in_time_format effects nothing when in_time_key is not specified: #{conf}"
+        log.warn "in_time_format effects nothing when in_time_key is not specified: #{conf}"
       end
 
       if @out_time_key
@@ -124,7 +124,7 @@ module Fluent
           @time_parse_proc = Proc.new {|str| str.to_i }
         end
       elsif @out_time_format
-        $log.warn "out_time_format effects nothing when out_time_key is not specified: #{conf}"
+        log.warn "out_time_format effects nothing when out_time_key is not specified: #{conf}"
       end
 
       if @remove_prefix
@@ -180,7 +180,7 @@ module Fluent
       @rr = 0
       begin
         @num_children.times do
-          c = ChildProcess.new(@parser, @respawns)
+          c = ChildProcess.new(@parser, @respawns, log)
           c.start(@command)
           @children << c
         end
@@ -192,7 +192,7 @@ module Fluent
 
     def before_shutdown
       super
-      $log.debug "out_exec_filter#before_shutdown called"
+      log.debug "out_exec_filter#before_shutdown called"
       @children.each {|c|
         c.finished = true
       }
@@ -238,13 +238,14 @@ module Fluent
     class ChildProcess
       attr_accessor :finished
 
-      def initialize(parser,respawns=0)
+      def initialize(parser, respawns=0, log = $log)
         @pid = nil
         @thread = nil
         @parser = parser
         @respawns = respawns
         @mutex = Mutex.new
         @finished = nil
+        @log = log
       end
 
       def start(command)
@@ -289,7 +290,7 @@ module Fluent
           chunk.write_to(@io)
         rescue Errno::EPIPE => e
           # Broken pipe (child process unexpectedly exited)
-          $log.warn "exec_filter Broken pipe, child process maybe exited.", :command => @command
+          @log.warn "exec_filter Broken pipe, child process maybe exited.", :command => @command
           if try_respawn
             retry # retry chunk#write_to with child respawned
           else
@@ -312,21 +313,21 @@ module Fluent
 
           @respawns -= 1 if @respawns > 0
         end
-        $log.warn "exec_filter child process successfully respawned.", :command => @command, :respawns => @respawns
+        @log.warn "exec_filter child process successfully respawned.", :command => @command, :respawns => @respawns
         true
       end
 
       def run
         @parser.call(@io)
       rescue
-        $log.error "exec_filter thread unexpectedly failed with an error.", :command=>@command, :error=>$!.to_s
-        $log.warn_backtrace $!.backtrace
+        @log.error "exec_filter thread unexpectedly failed with an error.", :command=>@command, :error=>$!.to_s
+        @log.warn_backtrace $!.backtrace
       ensure
         pid, stat = Process.waitpid2(@pid)
         unless @finished
-          $log.error "exec_filter process unexpectedly exited.", :command=>@command, :ecode=>stat.to_i
+          @log.error "exec_filter process unexpectedly exited.", :command=>@command, :ecode=>stat.to_i
           unless @respawns == 0
-            $log.warn "exec_filter child process will respawn for next input data (respawns #{@respawns})."
+            @log.warn "exec_filter child process will respawn for next input data (respawns #{@respawns})."
           end
         end
       end
@@ -385,8 +386,8 @@ module Fluent
 
     rescue
       if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time
-        $log.error "exec_filter failed to emit", :error=>$!.to_s, :error_class=>$!.class.to_s, :record=>Yajl.dump(record)
-        $log.warn_backtrace $!.backtrace
+        log.error "exec_filter failed to emit", :error=>$!.to_s, :error_class=>$!.class.to_s, :record=>Yajl.dump(record)
+        log.warn_backtrace $!.backtrace
         @next_log_time = Time.now.to_i + @suppress_error_log_interval
       end
     end

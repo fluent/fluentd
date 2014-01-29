@@ -124,8 +124,8 @@ module Fluent
           @parser.call(io)
           Process.waitpid(io.pid)
         rescue
-          $log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
-          $log.warn_backtrace $!.backtrace
+          log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
+          log.warn_backtrace $!.backtrace
         end
       end
     end
@@ -147,7 +147,7 @@ module Fluent
 
       Engine.emit(tag, time, record)
     rescue => e
-      $log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
+      log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
     end
   end
 end
