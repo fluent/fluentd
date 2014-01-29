@@ -94,6 +94,8 @@ module Fluent
           time, record = parse_line(line)
           if time && record
             es.add(time, record)
+          else
+            $log.warn "pattern not match: #{line.inspect}"
           end
         rescue
           $log.warn line.dump, :error=>$!.to_s
