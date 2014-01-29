@@ -59,6 +59,7 @@ module Fluent
   class Output
     include Configurable
     include PluginId
+    include PluginLoggerMixin
 
     def initialize
       super

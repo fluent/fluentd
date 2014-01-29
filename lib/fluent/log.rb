@@ -15,6 +15,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
+require 'forwardable'
+
 module Fluent
   class Log
     module TTYColor
@@ -69,6 +72,10 @@ module Fluent
     def enable_event(b=true)
       @self_event = b
       self
+    end
+
+    def enable_color?
+      !@color_reset.empty?
     end
 
     def enable_color(b=true)
@@ -286,5 +293,68 @@ module Fluent
       return log_msg
     end
   end
-end
 
+
+  # PluginLogger has own log level separated from global $log object.
+  # This class enables log_level option in each plugin.
+  #
+  # PluginLogger has same functionality as Log but some methods are forwarded to internal logger
+  # for keeping logging action consistency in the process, e.g. color, tag, event, etc.
+  class PluginLogger < Log
+    def initialize(logger)
+      @logger = logger
+      @level = @logger.level
+      enable_color @logger.enable_color?
+    end
+
+    def level=(log_level_str)
+      @level = case log_level_str.downcase
+               when "trace" then LEVEL_TRACE
+               when "debug" then LEVEL_DEBUG
+               when "info"  then LEVEL_INFO
+               when "warn"  then LEVEL_WARN
+               when "error" then LEVEL_ERROR
+               when "fatal" then LEVEL_FATAL
+               else raise "Unknown log level: level = #{log_level_str}"
+               end
+    end
+
+    alias orig_enable_color enable_color
+
+    def enable_color(b = true)
+      orig_enable_color b
+      @logger.enable_color b
+    end
+
+    extend Forwardable
+    def_delegators '@logger', :enable_color?, :enable_debug, :enable_event,
+      :disable_events, :tag, :tag=, :time_format, :time_format=,
+      :event, :dump_stacktrace, :caller_line, :puts, :write, :flush
+  end
+
+
+  module PluginLoggerMixin
+    def self.included(klass)
+      klass.instance_eval {
+        config_param :log_level, :string, :default => nil
+      }
+    end
+
+    def initialize
+      super
+
+      @log = $log # Use $log object directly by default
+    end
+
+    attr_accessor :log
+
+    def configure(conf)
+      super
+
+      if @log_level
+        @log = PluginLogger.new($log)
+        @log.level = @log_level
+      end
+    end
+  end
+end
