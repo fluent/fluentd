@@ -39,7 +39,8 @@ opts = {
   :chgroup => nil,
   :suppress_interval => 0,
   :usespawn => 0,
-  :signame => nil
+  :signame => nil,
+  :winsvcreg => nil,
 }
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
@@ -110,6 +111,10 @@ op.on('-s', '--signame INTSIGNAME', "an object name which is used for Windows Se
   opts[:signame] = s
 }
 
+op.on('-w', '--winsvcinst MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
+  opts[:winsvcreg] = s
+}
+
 (class<<self;self;end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
@@ -142,6 +147,39 @@ if setup_path = opts[:setup_path]
     }
     puts "Installed #{confpath}."
   end
+  exit 0
+end
+
+if winsvcinstmode = opts[:winsvcreg]
+  require 'fileutils'
+  require "win32/service"
+  include Win32
+  
+  FLUENTD_WINSVC_NAME="fluentdsvc"
+  FLUENTD_WINSVC_DISPLAYNAME="Fluentd Windows Service"
+  FLUENTD_WINSVC_DESC="Fluentd is an event collector system."
+  
+  case winsvcinstmode
+  when 'i'
+    binary_path = File.join(File.dirname(__FILE__), "..")
+    
+    Service.create(
+      :service_name => FLUENTD_WINSVC_NAME, 
+      :host => nil,
+      :service_type => Service::WIN32_OWN_PROCESS,
+      :description => FLUENTD_WINSVC_DESC,
+      :start_type => Service::DEMAND_START,
+      :error_control => Service::ERROR_NORMAL,
+      :binary_path_name => Fluent::RUBY_INSTALL_DIR+"/bin/ruby.exe -C "+binary_path+" winsvc.rb",
+      :load_order_group => "",
+      :dependencies => [""],
+      :display_name => FLUENTD_WINSVC_DISPLAYNAME
+    )
+  when 'u'
+    Service.delete(FLUENTD_WINSVC_NAME)
+  else
+    # none
+  end 
   exit 0
 end
 
