@@ -39,6 +39,7 @@ opts = {
   :chgroup => nil,
   :suppress_interval => 0,
   :usespawn => 0,
+  :signame => nil
 }
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
@@ -103,6 +104,10 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
 
 op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (Windows only)", TrueClass) {|b|
   opts[:usespawn] = 1
+}
+
+op.on('-s', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
+  opts[:signame] = s
 }
 
 (class<<self;self;end).module_eval do

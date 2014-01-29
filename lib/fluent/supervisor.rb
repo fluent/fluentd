@@ -69,6 +69,7 @@ class Supervisor
     @suppress_interval = opt[:suppress_interval]
     @dry_run = opt[:dry_run]
     @usespawn = opt[:usespawn]
+    @signame = opt[:signame]
 
     $platformwin = false
     if RUBY_PLATFORM.downcase =~ /mswin(?!ce)|mingw|cygwin|bccwin/
@@ -85,13 +86,26 @@ class Supervisor
 
     dry_run if @dry_run
     start_daemonize if @daemonize
-    install_supervisor_signal_handlers
+    unless $platformwin
+      install_supervisor_signal_handlers
+    else
+      if @usespawn == 0
+        install_supervisor_winsigint_handler
+        install_supervisor_signal_handlers
+      end
+    end
+    
     until @finished
       supervise do
         read_config
         change_privilege
         init_engine
-        install_main_process_signal_handlers
+        unless $platformwin
+          install_main_process_signal_handlers
+        else
+          install_main_process_winsigint_handler
+          install_main_process_signal_handlers
+        end
         run_configure
         finish_daemonize if @daemonize
         run_engine
@@ -174,20 +188,22 @@ class Supervisor
     $log.info "starting fluentd-#{Fluent::VERSION}"
     $log.info "is windows platform : #{$platformwin}"
 
+    @main_pid = 0
     unless $platformwin
       @main_pid = fork do
         main_process(&block)
       end
     else
       if @usespawn == 0
-        flunetd_spawn_cmd = "fluentd "
+        fluentd_spawn_cmd = Fluent::RUBY_INSTALL_DIR+"/bin/ruby.exe '"+Fluent::RUBY_INSTALL_DIR+"/bin/fluentd' "
         $fluentdargv.each{|a|
-          flunetd_spawn_cmd << (a + " ")
+          fluentd_spawn_cmd << (a + " ")
         }
-        flunetd_spawn_cmd << "-u"
-        @main_pid = Process.spawn(flunetd_spawn_cmd)
+        fluentd_spawn_cmd << "-u"
+        $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
+        @main_pid = Process.spawn(fluentd_spawn_cmd)
       else
-        @main_pid = Process.pid
+        @main_pid = 0
         main_process(&block)
       end
     end
@@ -207,9 +223,13 @@ class Supervisor
         Process.waitpid(@main_pid)
       end
     end
-    @main_pid = nil
-    ecode = $?.to_i
 
+    ecode = $?.to_i
+   
+    if $platformwin
+      @th_sv.join
+    end
+    
     $log.info "process finished", :code=>ecode
 
     if !@finished && Time.now - start_time < 1
@@ -221,7 +241,10 @@ class Supervisor
   def main_process(&block)
     begin
       block.call
-
+      if $platformwin
+        @th_ma.join
+      end
+      
     rescue Fluent::ConfigError
       $log.error "config error", :file=>@config_path, :error=>$!.to_s
       $log.debug_backtrace
@@ -240,7 +263,7 @@ class Supervisor
         console.error_backtrace
       end
     end
-
+    
     exit! 1
   end
 
@@ -248,15 +271,19 @@ class Supervisor
     trap :INT do
       $log.debug "fluentd supervisor process get SIGINT"
       @finished = true
-      if pid = @main_pid
-        # kill processes only still exists
-        unless Process.waitpid(pid, Process::WNOHANG)
-          begin
-            Process.kill(:INT, pid)
-          rescue Errno::ESRCH
-            # ignore processes already died
+      unless $platformwin
+        if pid = @main_pid
+          # kill processes only still exists
+          unless Process.waitpid(pid, Process::WNOHANG)
+            begin
+              Process.kill(:INT, pid)
+            rescue Errno::ESRCH
+              # ignore processes already died
+            end
           end
         end
+      else
+        @winsigintevt.signal_on
       end
     end
 
@@ -297,6 +324,7 @@ class Supervisor
       end
     end
   end
+  
   def read_config
     $log.info "reading config file", :path=>@config_path
     @config_fname = File.basename(@config_path)
@@ -369,10 +397,14 @@ class Supervisor
 
     trap :INT do
       $log.debug "fluentd main process get SIGINT"
-      unless @finished
-        @finished = true
-        $log.debug "getting start to shutdown main process"
-        Fluent::Engine.stop
+      unless $platformwin
+        unless @finished
+          @finished = true
+          $log.debug "getting start to shutdown main process"
+          Fluent::Engine.stop
+        end
+      else
+        @winsigintevt.signal_on
       end
     end
 
@@ -404,8 +436,59 @@ class Supervisor
   def run_engine
     Fluent::Engine.run
   end
+
+  #
+  require 'Win32API'
+  require 'fluent/win32api_syncobj.rb'
+  
+  def install_supervisor_winsigint_handler
+    @winintname = "fluentdwinsigint_#{Process.pid}"
+    if @usespawn == 0 && @signame != nil
+      @winintname = @signame
+    end
+    @th_sv = Thread.new do 
+      @winsigintevt = Win32SyncObj.createevent(1,0,@winintname)
+      @winsigintevt.wait(0)
+      @winsigintevt.close
+      winsigint_supervisor 
+    end
+   
+  end
+
+  def install_main_process_winsigint_handler
+    @th_ma = Thread.new do
+      @winsigintevt = Win32SyncObj.createevent(1,0,"fluentdwinsigint_#{Process.pid}")
+      @winsigintevt.wait(0)
+      @winsigintevt.close
+      winsigint_main_process 
+   end
+    $log.debug "install_main_process_winsigint_handler***** installed main winsiginthandler"
+  end
+
+  def winsigint_supervisor
+    @finished = true
+    if pid = @main_pid
+      unless Process.waitpid(pid, Process::WNOHANG)
+        begin
+          w = Win32SyncObj.createevent(1,0,"fluentdwinsigint_#{pid}")
+          w.signal_on
+          w.close
+        rescue Errno::ESRCH
+          # ignore processes already died
+        end
+      end
+    end
+  end
+  
+  def winsigint_main_process
+    unless @finished
+      @finished = true
+      $log.debug "getting start to shutdown main process"
+      Fluent::Engine.stop
+    end
+  end
+
 end
-
-
+ 
 end
 

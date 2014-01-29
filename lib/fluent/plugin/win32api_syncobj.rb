@@ -37,7 +37,8 @@ module Fluent
       @event_handle = nil
     end
     
-    def wait(timeoutmilli)
+    def wait(timeoutmilli=0) 
+      #timeout cannot be used currently.
       unless @api_waitforsingleobject 
         @api_waitforsingleobject = Win32API.new('kernel32.dll', 'WaitForSingleObject', %w(i, i), 'i')
       end
