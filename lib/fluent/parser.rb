@@ -145,7 +145,6 @@ module Fluent
       def call(text)
         m = @regexp.match(text)
         unless m
-          $log.warn "pattern not match: #{text.inspect}"
           return nil, nil
         end
 
@@ -203,7 +202,6 @@ module Fluent
 
         return time, record
       rescue Yajl::ParseError
-        $log.warn "pattern not match: #{text.inspect}: #{$!}"
         return nil, nil
       end
     end
@@ -327,7 +325,6 @@ module Fluent
       def call(text)
         m = REGEXP.match(text)
         unless m
-          $log.warn "pattern not match: #{text.inspect}"
           return nil, nil
         end
 
