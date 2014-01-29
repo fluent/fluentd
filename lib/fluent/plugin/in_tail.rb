@@ -431,7 +431,11 @@ module Fluent
         @file.write path
         @file.write "\t"
         seek = @file.pos
-        @file.write "0000000000000000\t00000000\n"
+        unless $platformwin
+          @file.write "0000000000000000\t00000000\n"
+        else
+          @file.write "0000000000000000\t000000000000000000000000\n"
+        end
         @last_pos = @file.pos
 
         @map[path] = FilePositionEntry.new(@file, seek)
@@ -456,11 +460,20 @@ module Fluent
     # pos               inode
     # ffffffffffffffff\tffffffff\n
     class FilePositionEntry
-      POS_SIZE = 16
-      INO_OFFSET = 17
-      INO_SIZE = 8
-      LN_OFFSET = 25
-      SIZE = 26
+    
+      unless $platformwin
+        POS_SIZE = 16
+        INO_OFFSET = 17
+        INO_SIZE = 8
+        LN_OFFSET = 25
+        SIZE = 26
+      else
+        POS_SIZE = 16
+        INO_OFFSET = 17
+        INO_SIZE = 24
+        LN_OFFSET = 31
+        SIZE = 32
+      end
 
       def initialize(file, seek)
         @file = file
@@ -469,7 +482,11 @@ module Fluent
 
       def update(ino, pos)
         @file.pos = @seek
-        @file.write "%016x\t%08x" % [pos, ino]
+        unless $platformwin
+          @file.write "%016x\t%08x" % [pos, ino]
+        else
+          @file.write "%016x\t%024x" % [pos, ino]
+        end
         @inode = ino
       end
 
@@ -480,13 +497,13 @@ module Fluent
 
       def read_inode
         @file.pos = @seek + INO_OFFSET
-        raw = @file.read(8)
+        raw = @file.read(INO_SIZE)
         raw ? raw.to_i(16) : 0
       end
 
       def read_pos
         @file.pos = @seek
-        raw = @file.read(16)
+        raw = @file.read(POS_SIZE)
         raw ? raw.to_i(16) : 0
       end
     end
@@ -700,7 +717,7 @@ module Fluent
       end
       volumeserial = by_handle_file_information.unpack("I11Q1")[7]
       fileindex = by_handle_file_information.unpack("I11Q1")[11]
-      return (volumeserial << 32) | fileindex
+      return (volumeserial << 64) | fileindex
     end
   end
 end
