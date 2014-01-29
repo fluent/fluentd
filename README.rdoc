@@ -1,16 +1,10 @@
 = Fluentd, windows-branch
 
-This is a branch version to make fluentd work on Windows! **This is a very preliminary version, and we expect you would run into a lot of errors.** If you have any feedback, please let us know!
+This is a branch version to make fluentd work on Windows!
 
-We tried on following environments.
+**This is a very preliminary version, and we expect you would run into a lot of errors.
+If you have any feedback, please let us know!**
 
-    Windows 7, Apache 2.2 access.log
-    in_tail,    buf_memory,     out_null,
-    in_forward,                 out_stdout,
-    in_http,                    out_forward,
-                                out_copy,
-    
-    *Caution, buf_file does not work correctly now. More information, see below.
 
 == Gem
 
@@ -20,10 +14,15 @@ You can use a local gem, pkg/fluentd-0.10.35.gem included.
 
 == General condition
 
-=== daemon(Windows Service)
-Not supported yet.
+=== Setting environment
+Set RUBY_INSTALL_DIR in env.rb at first after install fluentd. It is requried when using on Windows. env.rb is typically at C:/Ruby193/lib/ruby/gems/1.9.1/gems/fluentd-0.10.35/lib/fluent.
+*name*:: *example*
+RUBY_INSTALL_DIR:: C:/Ruby193
 
-=== termination of  fluentd
+=== Daemon (Windows Service)
+Implementation exists, but some technical problems in Ruby and Coolio on Windows. So we cannot announce how to use yet. Sorry.
+
+=== Termination of  fluentd
 It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
 
 == Plugin condition
@@ -32,24 +31,24 @@ It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by
 *name*:: *condition*
 in_http::  Looks good.
 in_forword:: Looks good.
-in_tail:: Looks good : NTFS requried. Network drive is not supported. Possibility of unexpected result on old Windows versions(we need check). FILE_SHARE_READ, FILE_SHARE_WRITE and FILE_SHARE_DELETE are required on a target file.
-in_exec:: Not work correctly yet : Sometimes exec doesn't launch.
+in_tail:: Looks good, but NTFS requried, Network drive is not supported, Possibility of problems are on old Windows versions(we need check). FILE_SHARE_READ is absolutely required on a target file.
+in_exec:: Not work correctly at times.
 
 === output plugin
 *name*:: *condition*
 out_copy:: Looks good.
 out_stdout:: Looks good.
 out_null:: Looks good.
-out_forword:: Looks good : send_timeout option cannot be used.
-out_file:: Not work correctly yet : Problem at timeslicing.
-out_exec:: Not work correctly yet : Sometimes exec doesn't launch.
+out_forword:: Looks good, but send_timeout option cannot be used.
+out_file:: Looks good.
+out_exec:: Not work correctly yet at times.
 out_exec_filter:: Unknown.
 out_roundrobin:: Unknown.
 
 === buffer plugin
 *name*:: *condition*
 buf_memory:: Looks good.
-buf_file:: Not work correctly yet.
+buf_file:: Looks good.
 
 
 ---
