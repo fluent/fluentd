@@ -23,6 +23,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency(%q<yajl-ruby>, ["~> 1.0"])
   gem.add_runtime_dependency(%q<cool.io>, ["~> 1.2.0"])
   gem.add_runtime_dependency(%q<http_parser.rb>, ["~> 0.5.1"])
+  gem.add_runtime_dependency(%q<win32-service>, ["~> 0.8.3"])
 
   gem.add_development_dependency(%q<rake>, [">= 0.9.2"])
   gem.add_development_dependency(%q<rr>, [">= 1.0.0"])
