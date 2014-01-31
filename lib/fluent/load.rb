@@ -9,6 +9,7 @@ require 'json'
 require 'yajl'
 require 'uri'
 require 'msgpack'
+require 'sigdump/setup'
 # I hate global variable but we suffer pain now for the sake of future.
 # We will switch to MessagePack 0.5 and deprecate 0.4.
 $use_msgpack_5 = defined?(MessagePack::Packer) ? true : false

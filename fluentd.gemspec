@@ -23,6 +23,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency(%q<yajl-ruby>, ["~> 1.0"])
   gem.add_runtime_dependency(%q<cool.io>, ["~> 1.1.1"])
   gem.add_runtime_dependency(%q<http_parser.rb>, ["~> 0.5.1"])
+  gem.add_runtime_dependency(%q<sigdump>, ["~> 0.2.2"])
 
   gem.add_development_dependency(%q<rake>, [">= 0.9.2"])
   gem.add_development_dependency(%q<parallel_tests>, [">= 0.15.3"])
