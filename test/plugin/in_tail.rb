@@ -61,6 +61,30 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message"=>"test4"}, emits[1][2])
   end
 
+  def test_emit_without_pos_file
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    d = create_driver(CONFIG_WITHOUT_POS_FILE)
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        f.puts "test3"
+        f.puts "test4"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test3"}, emits[0][2])
+    assert_equal({"message"=>"test4"}, emits[1][2])
+  end
+
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
 
