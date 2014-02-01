@@ -25,6 +25,15 @@ class TailInputTest < Test::Unit::TestCase
     format /(?<message>.*)/
   ]
 
+  CONFIG_READ_FROM_HEAD = %[
+    path #{TMP_DIR}/tail.txt
+    tag t1
+    rotate_wait 2s
+    pos_file #{TMP_DIR}/tail.pos
+    read_from_head true
+    format /(?<message>.*)/
+  ]
+
   def create_driver(conf=CONFIG)
     Fluent::Test::InputTestDriver.new(Fluent::TailInput).configure(conf)
   end
@@ -85,6 +94,32 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message"=>"test4"}, emits[1][2])
   end
 
+  def test_emit_with_read_from_head
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    d = create_driver(CONFIG_READ_FROM_HEAD)
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        f.puts "test3"
+        f.puts "test4"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test1"}, emits[0][2])
+    assert_equal({"message"=>"test2"}, emits[1][2])
+    assert_equal({"message"=>"test3"}, emits[2][2])
+    assert_equal({"message"=>"test4"}, emits[3][2])
+  end
+
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
 
@@ -137,15 +172,52 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_rotate_file
-    sub_test_rotate_file(CONFIG)
+    emits = sub_test_rotate_file(CONFIG)
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test3"}, emits[0][2])
+    assert_equal({"message"=>"test4"}, emits[1][2])
+    assert_equal({"message"=>"test5"}, emits[2][2])
+    assert_equal({"message"=>"test6"}, emits[3][2])
   end
 
   def test_rotate_file_without_pos_file
-    sub_test_rotate_file(CONFIG_WITHOUT_POS_FILE)
+    emits = sub_test_rotate_file(CONFIG_WITHOUT_POS_FILE)
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test3"}, emits[0][2])
+    assert_equal({"message"=>"test4"}, emits[1][2])
+    assert_equal({"message"=>"test5"}, emits[2][2])
+    assert_equal({"message"=>"test6"}, emits[3][2])
+  end
+
+  def test_rotate_file_with_read_from_head
+    emits = sub_test_rotate_file(CONFIG_READ_FROM_HEAD)
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test1"}, emits[0][2])
+    assert_equal({"message"=>"test2"}, emits[1][2])
+    assert_equal({"message"=>"test3"}, emits[2][2])
+    assert_equal({"message"=>"test4"}, emits[3][2])
+    assert_equal({"message"=>"test5"}, emits[4][2])
+    assert_equal({"message"=>"test6"}, emits[5][2])
   end
 
   def test_rotate_file_when_fluent_doesnot_start
-    sub_test_rotate_file_when_fluent_doesnot_start(CONFIG)
+    emits = sub_test_rotate_file_when_fluent_doesnot_start(CONFIG)
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test3"}, emits[0][2])
+    assert_equal({"message"=>"test4"}, emits[1][2])
+    assert_equal({"message"=>"test5"}, emits[2][2])
+    assert_equal({"message"=>"test6"}, emits[3][2])
+  end
+
+  def test_rotate_file_when_fluent_doesnot_start_with_read_from_head
+    emits = sub_test_rotate_file_when_fluent_doesnot_start(CONFIG_READ_FROM_HEAD)
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test1"}, emits[0][2])
+    assert_equal({"message"=>"test2"}, emits[1][2])
+    assert_equal({"message"=>"test3"}, emits[2][2])
+    assert_equal({"message"=>"test4"}, emits[3][2])
+    assert_equal({"message"=>"test5"}, emits[4][2])
+    assert_equal({"message"=>"test6"}, emits[5][2])
   end
 
   def sub_test_rotate_file(config)
@@ -183,11 +255,6 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     emits = d.emits
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message"=>"test3"}, emits[0][2])
-    assert_equal({"message"=>"test4"}, emits[1][2])
-    assert_equal({"message"=>"test5"}, emits[2][2])
-    assert_equal({"message"=>"test6"}, emits[3][2])
   end
 
   # A log file rotates when fluentd does not start.
@@ -225,10 +292,5 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     emits = d.emits
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message"=>"test3"}, emits[0][2])
-    assert_equal({"message"=>"test4"}, emits[1][2])
-    assert_equal({"message"=>"test5"}, emits[2][2])
-    assert_equal({"message"=>"test6"}, emits[3][2])
   end
 end
