@@ -41,7 +41,7 @@ module Fluent
       else
         uri = "druby://#{@bind}:#{@port}"
       end
-      $log.info "listening dRuby", :uri => uri, :object => @object
+      log.info "listening dRuby", :uri => uri, :object => @object
       obj = eval(@object)
       @server = DRb::DRbServer.new(uri, obj)
     end

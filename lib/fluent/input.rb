@@ -19,6 +19,7 @@ module Fluent
   class Input
     include Configurable
     include PluginId
+    include PluginLoggerMixin
 
     def initialize
       super
@@ -35,4 +36,3 @@ module Fluent
     end
   end
 end
-

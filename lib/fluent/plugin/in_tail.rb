@@ -40,8 +40,8 @@ module Fluent
       end
 
       unless @pos_file
-        $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
-        $log.warn "this parameter is highly recommended to save the position to resume tailing."
+        log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
+        log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
 
       configure_parser(conf)
@@ -62,7 +62,9 @@ module Fluent
       @loop = Coolio::Loop.new
       @tails = @paths.map {|path|
         pe = @pf ? @pf[path] : MemoryPositionEntry.new
-        TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
+        tw = TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
+        tw.log = log
+        tw
       }
       @tails.each {|tail|
         tail.attach(@loop)
@@ -82,8 +84,8 @@ module Fluent
     def run
       @loop.run
     rescue
-      $log.error "unexpected error", :error=>$!.to_s
-      $log.error_backtrace
+      log.error "unexpected error", :error=>$!.to_s
+      log.error_backtrace
     end
 
     def receive_lines(lines)
@@ -95,11 +97,11 @@ module Fluent
           if time && record
             es.add(time, record)
           else
-            $log.warn "pattern not match: #{line.inspect}"
+            log.warn "pattern not match: #{line.inspect}"
           end
         rescue
-          $log.warn line.dump, :error=>$!.to_s
-          $log.debug_backtrace
+          log.warn line.dump, :error=>$!.to_s
+          log.debug_backtrace
         end
       }
 
@@ -130,6 +132,19 @@ module Fluent
 
         @rotate_handler = RotateHandler.new(path, &method(:on_rotate))
         @io_handler = nil
+        @log = $log
+      end
+
+      # We use accessor approach to assign each logger, not passing log object at initialization,
+      # because several plugins depend on these internal classes.
+      # This approach avoids breaking plugins with new log_level option.
+      attr_accessor :log
+
+      def log=(logger)
+        @log = logger
+        @timer_trigger.log = logger
+        @stat_trigger.log = logger
+        @rotate_handler.log = logger
       end
 
       def attach(loop)
@@ -175,7 +190,7 @@ module Fluent
               pos = io.pos
             end
             @pe.update(inode, pos)
-            io_handler = IOHandler.new(io, @pe, &@receive_lines)
+            io_handler = IOHandler.new(io, @pe, log, &@receive_lines)
           else
             io_handler = NullIOHandler.new
           end
@@ -214,7 +229,7 @@ module Fluent
             end
             io.seek(pos)
 
-            @io_handler = IOHandler.new(io, @pe, &@receive_lines)
+            @io_handler = IOHandler.new(io, @pe, log, &@receive_lines)
           else
             @io_handler = NullIOHandler.new
           end
@@ -225,11 +240,11 @@ module Fluent
           end
           last_io = @rotate_queue.empty? ? @io_handler.io : @rotate_queue.last.io
           if last_io == nil
-            $log.info "detected rotation of #{@path}"
+            log.info "detected rotation of #{@path}"
             # rotate imeediately if previous file is nil
             wait = 0
           else
-            $log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
+            log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
             wait = @rotate_wait
             wait -= @rotate_queue.first.wait unless @rotate_queue.empty?
           end
@@ -240,30 +255,36 @@ module Fluent
       class TimerWatcher < Coolio::TimerWatcher
         def initialize(interval, repeat, &callback)
           @callback = callback
+          @log = $log
           super(interval, repeat)
         end
+
+        attr_accessor :log
 
         def on_timer
           @callback.call
         rescue
           # TODO log?
-          $log.error $!.to_s
-          $log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
 
       class StatWatcher < Coolio::StatWatcher
         def initialize(path, &callback)
           @callback = callback
+          @log = $log
           super(path)
         end
+
+        attr_accessor :log
 
         def on_change(prev, cur)
           @callback.call
         rescue
           # TODO log?
-          $log.error $!.to_s
-          $log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
 
@@ -287,8 +308,9 @@ module Fluent
       MAX_LINES_AT_ONCE = 1000
 
       class IOHandler
-        def initialize(io, pe, &receive_lines)
-          $log.info "following tail of #{io.path}"
+        def initialize(io, pe, log, &receive_lines)
+          @log = log
+          @log.info "following tail of #{io.path}"
           @io = io
           @pe = pe
           @receive_lines = receive_lines
@@ -330,8 +352,8 @@ module Fluent
           end while read_more
 
         rescue
-          $log.error $!.to_s
-          $log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
           close
         end
 
@@ -360,7 +382,10 @@ module Fluent
           @inode = nil
           @fsize = -1  # first
           @on_rotate = on_rotate
+          @log = $log
         end
+
+        attr_accessor :log
 
         def on_notify
           begin
@@ -388,8 +413,8 @@ module Fluent
           end
 
         rescue
-          $log.error $!.to_s
-          $log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
     end

@@ -61,8 +61,8 @@ module Fluent
     end
 
     def listen
-      $log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+      log.info "listening fluent socket on #{@bind}:#{@port}"
+      s = Coolio::TCPServer.new(@bind, @port, Handler, log, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s
     end
@@ -73,15 +73,15 @@ module Fluent
     #    File.unlink(@path)
     #  end
     #  FileUtils.mkdir_p File.dirname(@path)
-    #  $log.debug "listening fluent socket on #{@path}"
+    #  log.debug "listening fluent socket on #{@path}"
     #  Coolio::UNIXServer.new(@path, Handler, method(:on_message))
     #end
 
     def run
       @loop.run
     rescue => e
-      $log.error "unexpected error", :error => e, :error_class => e.class
-      $log.error_backtrace
+      log.error "unexpected error", :error => e, :error_class => e.class
+      log.error_backtrace
     end
 
     protected
@@ -143,14 +143,15 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
-      def initialize(io, on_message)
+      def initialize(io, log, on_message)
         super(io)
         if io.is_a?(TCPSocket)
           opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
-        $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
         @on_message = on_message
+        @log = log
+        @log.trace { "accepted fluent socket object_id=#{self.object_id}" }
       end
 
       def on_connect
@@ -176,21 +177,21 @@ module Fluent
       def on_read_json(data)
         @y << data
       rescue => e
-        $log.error "forward error", :error => e, :error_class => e.class
-        $log.error_backtrace
+        @log.error "forward error", :error => e, :error_class => e.class
+        @log.error_backtrace
         close
       end
 
       def on_read_msgpack(data)
         @u.feed_each(data, &@on_message)
       rescue => e
-        $log.error "forward error", :error => e, :error_class => e.class
-        $log.error_backtrace
+        @log.error "forward error", :error => e, :error_class => e.class
+        @log.error_backtrace
         close
       end
 
       def on_close
-        $log.trace { "closed fluent socket object_id=#{self.object_id}" }
+        @log.trace { "closed fluent socket object_id=#{self.object_id}" }
       end
     end
 
@@ -216,7 +217,7 @@ module Fluent
     end
 
     def on_heartbeat_request(host, port, msg)
-      #$log.trace "heartbeat request from #{host}:#{port}"
+      #log.trace "heartbeat request from #{host}:#{port}"
       begin
         @usock.send "\0", 0, host, port
       rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR

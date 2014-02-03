@@ -154,7 +154,7 @@ module Fluent
     end
 
     def start
-      $log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
+      log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
       @srv = WEBrick::HTTPServer.new({
           :BindAddress => @bind,
           :Port => @port,
