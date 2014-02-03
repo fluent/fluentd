@@ -40,8 +40,8 @@ module Fluent
       end
 
       unless @pos_file
-        log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
-        log.warn "this parameter is highly recommended to save the position to resume tailing."
+        $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
+        $log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
 
       configure_parser(conf)
