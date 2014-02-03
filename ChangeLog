@@ -1,3 +1,12 @@
+Release 0.10.43 - 2013/02/03
+
+* Input/Output: Add 'log_level' option to plugins
+* parser/in_tail: Fix RegexpParser forget to call configure method
+* parser/in_tail: Improve type conversion performance
+* in_http: Add add_http_headers option to add HTTP headers to record
+* Buffer: Improve submit_buffer throughput using round-robin writer selection
+* add sigdump gem to dump useful information via SIGCONT
+
 Release 0.10.42 - 2013/12/25
 
 * parser/in_tail: Add 'types' and related parameters to convert record value type
