@@ -162,13 +162,17 @@ module Fluent
       end
     end
 
+    def storable?(chunk, data)
+      chunk.size + data.bytesize <= @buffer_chunk_limit
+    end
+
     def emit(key, data, chain)
       key = key.to_s
 
       synchronize do
         top = (@map[key] ||= new_chunk(key))  # TODO generate unique chunk id
 
-        if top.size + data.bytesize <= @buffer_chunk_limit
+        if storable?(top, data)
           chain.next
           top << data
           return false
@@ -276,13 +280,17 @@ module Fluent
           write_chunk(chunk, out)
         end
 
-        @queue.delete_if {|c|
-          c.object_id == chunk.object_id
-        }
+        empty = false
+        @queue.synchronize do
+          @queue.delete_if {|c|
+            c.object_id == chunk.object_id
+          }
+          empty = @queue.empty?
+        end
 
         chunk.purge
 
-        return !@queue.empty?
+        return !empty
       ensure
         chunk.mon_exit
       end

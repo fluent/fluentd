@@ -65,6 +65,8 @@ module Fluent
       super
 
       @timef = TimeFormatter.new(@time_format, @localtime)
+
+      @buffer.symlink_path = @symlink_path if @symlink_path
     end
 
     def format(tag, time, record)
@@ -97,19 +99,12 @@ module Fluent
           chunk.write_to(f)
         }
       end
-      create_symlink(path, suffix) if @symlink_path
 
       return path  # for test
     end
 
     def secondary_init(primary)
       # don't warn even if primary.class is not FileOutput
-    end
-
-    private
-
-    def create_symlink(path, suffix)
-      FileUtils.ln_sf(path, "#{@symlink_path}#{suffix}")
     end
   end
 end

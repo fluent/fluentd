@@ -39,11 +39,7 @@ module Fluent
         raise ConfigError, "tail: 'path' parameter is required on tail input"
       end
 
-      if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
-        @pf_file.sync = true
-        @pf = PositionFile.parse(@pf_file)
-      else
+      unless @pos_file
         $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
         $log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
@@ -57,6 +53,12 @@ module Fluent
     end
 
     def start
+      if @pos_file
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
+        @pf_file.sync = true
+        @pf = PositionFile.parse(@pf_file)
+      end
+
       @loop = Coolio::Loop.new
       @tails = @paths.map {|path|
         pe = @pf ? @pf[path] : MemoryPositionEntry.new
@@ -373,7 +375,6 @@ module Fluent
           @inode = nil
           @fsize = -1  # first
           @on_rotate = on_rotate
-          @path = path
         end
 
         def on_notify

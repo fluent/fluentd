@@ -55,6 +55,8 @@ buf_file:: Looks good.
 
 = Fluentd
 
+{<img src="https://travis-ci.org/fluent/fluentd.png" />}[https://travis-ci.org/fluent/fluentd]
+
 Fluentd is an event collector system. It is a generalized version of syslogd, which handles JSON objects for its log messages.
 
 == Architecture

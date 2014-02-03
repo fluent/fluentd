@@ -1,4 +1,5 @@
 require 'fluent/test'
+require 'helper'
 require 'net/http'
 
 class HttpInputTest < Test::Unit::TestCase
@@ -6,8 +7,9 @@ class HttpInputTest < Test::Unit::TestCase
     Fluent::Test.setup
   end
 
+  PORT = unused_port
   CONFIG = %[
-    port 9911
+    port #{PORT}
     bind 127.0.0.1
     body_size_limit 10m
     keepalive_timeout 5
@@ -19,7 +21,7 @@ class HttpInputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert_equal 9911, d.instance.port
+    assert_equal PORT, d.instance.port
     assert_equal '127.0.0.1', d.instance.bind
     assert_equal 10*1024*1024, d.instance.body_size_limit
     assert_equal 5, d.instance.keepalive_timeout
@@ -68,7 +70,7 @@ class HttpInputTest < Test::Unit::TestCase
 
     d.run do
       d.expected_emits.each {|tag,time,record|
-        http = Net::HTTP.new("127.0.0.1", 9911)
+        http = Net::HTTP.new("127.0.0.1", PORT)
         req = Net::HTTP::Post.new("/#{tag}?time=#{time.to_s}", {"content-type"=>"application/json; charset=utf-8"})
         req.body = record.to_json
         res = http.request(req)
@@ -94,7 +96,7 @@ class HttpInputTest < Test::Unit::TestCase
   end
 
   def post(path, params)
-    http = Net::HTTP.new("127.0.0.1", 9911)
+    http = Net::HTTP.new("127.0.0.1", PORT)
     req = Net::HTTP::Post.new(path, {})
     req.set_form_data(params)
     http.request(req)

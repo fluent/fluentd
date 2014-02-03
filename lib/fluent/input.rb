@@ -16,27 +16,23 @@
 #    limitations under the License.
 #
 module Fluent
+  class Input
+    include Configurable
+    include PluginId
 
+    def initialize
+      super
+    end
 
-class Input
-  include Configurable
-  include PluginId
+    def configure(conf)
+      super
+    end
 
-  def initialize
-    super
+    def start
+    end
+
+    def shutdown
+    end
   end
-
-  def configure(conf)
-    super
-  end
-
-  def start
-  end
-
-  def shutdown
-  end
-end
-
-
 end
 

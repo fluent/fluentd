@@ -1,6 +1,6 @@
 require 'fluent/test'
 
-class ObjectSpaceInputTest < Test::Unit::TestCase
+class GCStatInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
   end

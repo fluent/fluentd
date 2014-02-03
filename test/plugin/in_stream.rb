@@ -1,4 +1,5 @@
 require 'fluent/test'
+require 'helper'
 
 module StreamInputTest
   def setup
@@ -107,8 +108,9 @@ end
 class TcpInputTest < Test::Unit::TestCase
   include StreamInputTest
 
+  PORT = unused_port
   CONFIG = %[
-    port 13998
+    port #{PORT}
     bind 127.0.0.1
   ]
 
@@ -118,22 +120,22 @@ class TcpInputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert_equal 13998, d.instance.port
+    assert_equal PORT, d.instance.port
     assert_equal '127.0.0.1', d.instance.bind
   end
 
   def connect
-    TCPSocket.new('127.0.0.1', 13998)
+    TCPSocket.new('127.0.0.1', PORT)
   end
 end
 
 class UnixInputTest < Test::Unit::TestCase
   include StreamInputTest
 
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp"
-
+  TMP_DIR = File.dirname(__FILE__) + "/../tmp/in_unix#{ENV['TEST_ENV_NUMBER']}"
   CONFIG = %[
     path #{TMP_DIR}/unix
+    backlog 1000
   ]
 
   def create_driver(conf=CONFIG)
@@ -143,10 +145,10 @@ class UnixInputTest < Test::Unit::TestCase
   def test_configure
     d = create_driver
     assert_equal "#{TMP_DIR}/unix", d.instance.path
+    assert_equal 1000, d.instance.backlog
   end
 
   def connect
     UNIXSocket.new("#{TMP_DIR}/unix")
   end
 end
-

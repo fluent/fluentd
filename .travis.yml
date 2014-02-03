@@ -1,7 +1,6 @@
 language: ruby
 
 rvm:
-  - 1.9.2
   - 1.9.3
   - 2.0.0
   - rbx-19mode
@@ -9,5 +8,10 @@ rvm:
 branches:
   only:
     - master
+    - v11
 
-script: bundle exec rake test
+script: bundle exec rake
+
+matrix:
+  allow_failures:
+    - rvm: rbx-19mode

@@ -21,10 +21,24 @@ module Fluent
 
     def initialize
       super
+      require 'fluent/plugin/exec_util'
     end
 
+    SUPPORTED_FORMAT = {
+      'tsv' => :tsv,
+      'json' => :json,
+      'msgpack' => :msgpack,
+    }
+
     config_param :command, :string
-    config_param :keys, :string
+    config_param :format, :default => :tsv do |val|
+      f = SUPPORTED_FORMAT[val]
+      raise ConfigError, "Unsupported format '#{val}'" unless f
+      f
+    end
+    config_param :keys, :default => [] do |val|
+      val.split(',')
+    end
     config_param :tag, :string, :default => nil
     config_param :tag_key, :string, :default => nil
     config_param :time_key, :string, :default => nil
@@ -44,8 +58,6 @@ module Fluent
         raise ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
 
-      @keys = @keys.split(',')
-
       if @time_key
         if @time_format
           f = @time_format
@@ -53,6 +65,18 @@ module Fluent
         else
           @time_parse_proc = Proc.new {|str| str.to_i }
         end
+      end
+
+      case @format
+      when :tsv
+        if @keys.empty?
+          raise ConfigError, "keys option is required on exec input for tsv format"
+        end
+        @parser = ExecUtil::TSVParser.new(@keys, method(:on_message))
+      when :json
+        @parser = ExecUtil::JSONParser.new(method(:on_message))
+      when :msgpack
+        @parser = ExecUtil::MessagePackParser.new(method(:on_message))
       end
     end
 
@@ -72,57 +96,58 @@ module Fluent
         @finished = true
         @thread.join
       else
-        Process.kill(:TERM, @pid)
+        begin
+          Process.kill(:TERM, @pid)
+        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+        end
         if @thread.join(60)  # TODO wait time
           return
         end
-        Process.kill(:KILL, @pid)
+
+        begin
+          Process.kill(:KILL, @pid)
+        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+        end
         @thread.join
       end
     end
 
     def run
-      @io.each_line(&method(:each_line))
+      @parser.call(@io)
     end
 
     def run_periodic
       until @finished
-        sleep @run_interval
-        io = IO.popen(@command, "r")
-        io.each_line(&method(:each_line))
-        Process.waitpid(io.pid)
+        begin
+          sleep @run_interval
+          io = IO.popen(@command, "r")
+          @parser.call(io)
+          Process.waitpid(io.pid)
+        rescue
+          $log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
+          $log.warn_backtrace $!.backtrace
+        end
       end
     end
 
     private
-    def each_line(line)
-      begin
-        line.chomp!
-        vals = line.split("\t")
 
+    def on_message(record)
+      if val = record.delete(@tag_key)
+        tag = val
+      else
         tag = @tag
-        time = nil
-        record = {}
-        for i in 0..@keys.length-1
-          key = @keys[i]
-          val = vals[i]
-          if key == @time_key
-            time = @time_parse_proc.call(val)
-          elsif key == @tag_key
-            tag = val
-          else
-            record[key] = val
-          end
-        end
-
-        if tag
-          time ||= Engine.now
-          Engine.emit(tag, time, record)
-        end
-      rescue
-        $log.error "exec failed to emit", :error=>$!.to_s, :line=>line
-        $log.warn_backtrace $!.backtrace
       end
+
+      if val = record.delete(@time_key)
+        time = @time_parse_proc.call(val)
+      else
+        time = Engine.now
+      end
+
+      Engine.emit(tag, time, record)
+    rescue => e
+      $log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
     end
   end
 end

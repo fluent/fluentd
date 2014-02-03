@@ -21,6 +21,7 @@ module Fluent
 
     def initialize
       super
+      require 'fluent/plugin/exec_util'
     end
 
     SUPPORTED_FORMAT = {
@@ -151,11 +152,11 @@ module Fluent
         if @out_keys.empty?
           raise ConfigError, "out_keys option is required on exec_filter output for tsv in_format"
         end
-        @parser = TSVParser.new(@out_keys, method(:on_message))
+        @parser = ExecUtil::TSVParser.new(@out_keys, method(:on_message))
       when :json
-        @parser = JSONParser.new(method(:on_message))
+        @parser = ExecUtil::JSONParser.new(method(:on_message))
       when :msgpack
-        @parser = MessagePackParser.new(method(:on_message))
+        @parser = ExecUtil::MessagePackParser.new(method(:on_message))
       end
 
       @respawns = if @child_respawn.nil? or @child_respawn == 'none' or @child_respawn == '0'
@@ -260,7 +261,7 @@ module Fluent
       def kill_child(join_wait)
         begin
           Process.kill(:TERM, @pid)
-        rescue Errno::ESRCH
+        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
           # Errno::ESRCH 'No such process', ignore
           # child process killed by signal chained from fluentd process
         end
@@ -270,7 +271,7 @@ module Fluent
         end
         begin
           Process.kill(:KILL, @pid)
-        rescue Errno::ESRCH
+        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
           # ignore if successfully killed by :TERM
         end
         @thread.join
@@ -387,50 +388,6 @@ module Fluent
         $log.error "exec_filter failed to emit", :error=>$!.to_s, :error_class=>$!.class.to_s, :record=>Yajl.dump(record)
         $log.warn_backtrace $!.backtrace
         @next_log_time = Time.now.to_i + @suppress_error_log_interval
-      end
-    end
-
-    class Parser
-      def initialize(on_message)
-        @on_message = on_message
-      end
-    end
-
-    class TSVParser < Parser
-      def initialize(out_keys, on_message)
-        @out_keys = out_keys
-        super(on_message)
-      end
-
-      def call(io)
-        io.each_line(&method(:each_line))
-      end
-
-      def each_line(line)
-        line.chomp!
-        vals = line.split("\t")
-
-        record = Hash[@out_keys.zip(vals)]
-
-        @on_message.call(record)
-      end
-    end
-
-    class JSONParser < Parser
-      def call(io)
-        y = Yajl::Parser.new
-        y.on_parse_complete = @on_message
-        y.parse(io)
-      end
-    end
-
-    class MessagePackParser < Parser
-      def call(io)
-        @u = MessagePack::Unpacker.new(io)
-        begin
-          @u.each(&@on_message)
-        rescue EOFError
-        end
       end
     end
   end

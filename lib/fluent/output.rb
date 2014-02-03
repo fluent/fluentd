@@ -35,6 +35,18 @@ module Fluent
     end
   end
 
+  class CopyOutputChain < OutputChain
+    def next
+      if @array.length <= @offset
+        return @chain.next
+      end
+      @offset += 1
+      es = @array.length > @offset ? @es.dup : @es
+      result = @array[@offset-1].emit(@tag, es, self)
+      result
+    end
+  end
+
   class NullOutputChain
     require 'singleton'
     include Singleton
@@ -160,8 +172,10 @@ module Fluent
 
     config_param :buffer_type, :string, :default => 'memory'
     config_param :flush_interval, :time, :default => 60
+    config_param :try_flush_interval, :float, :default => 1
     config_param :retry_limit, :integer, :default => 17
     config_param :retry_wait, :time, :default => 1.0
+    config_param :max_retry_wait, :time, :default => nil
     config_param :num_threads, :integer, :default => 1
     config_param :queued_chunk_flush_interval, :time, :default => 1
 
@@ -264,7 +278,7 @@ module Fluent
         end
       end
       if empty
-        return time + 1  # TODO 1
+        return time + @try_flush_interval
       end
 
       begin
@@ -275,7 +289,7 @@ module Fluent
             if retrying = !@error_history.empty?  # re-check in synchronize
               if @next_retry_time >= time
                 # allow retrying for only one thread
-                return time + 1  # TODO 1
+                return time + @try_flush_interval
               end
               # assume next retry failes and
               # clear them if when it succeeds
@@ -303,7 +317,7 @@ module Fluent
         if has_next
           return Engine.now + @queued_chunk_flush_interval
         else
-          return time + 1  # TODO 1
+          return time + @try_flush_interval
         end
 
       rescue => e
@@ -376,7 +390,8 @@ module Fluent
                # secondary retry
                @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
              end
-      wait + (rand * (wait / 4.0) - (wait / 8.0))
+      retry_wait = wait + (rand * (wait / 4.0) - (wait / 8.0))
+      @max_retry_wait ? [retry_wait, @max_retry_wait].min : retry_wait
     end
 
     def write_abort
