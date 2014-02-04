@@ -112,7 +112,10 @@ module Fluent
         end
         @on_message = on_message
         @log = log
-        @log.trace { "accepted fluent socket object_id=#{self.object_id}" }
+        @log.trace {
+          remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername) rescue nil
+          "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
+        }
       end
 
       def on_connect
