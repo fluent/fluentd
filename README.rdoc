@@ -8,9 +8,9 @@ If you have any feedback, please let us know!**
 
 == Gem
 
-You can use a local gem, pkg/fluentd-0.10.35.gem included.
+You can use a local gem, pkg/fluentd-0.10.42.gem included.
 
-    gem install pkg/fluentd-0.10.35.gem
+    gem install pkg/fluentd-0.10.42.gem
 
 == General condition
 
