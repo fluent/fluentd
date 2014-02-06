@@ -55,7 +55,9 @@ module Fluent
       @loop.stop
       @usock.close
       listen_address = (@bind == '0.0.0.0' ? '127.0.0.1' : @bind)
-      TCPSocket.open(listen_address, @port) {|sock| }  # FIXME @thread.join blocks without this line
+      # This line is for connecting listen socket to stop the event loop.
+      # We should use more better approach, e.g. using pipe, fixing cool.io with timeout, etc.
+      TCPSocket.open(listen_address, @port) {|sock| } # FIXME @thread.join blocks without this line
       @thread.join
       @lsock.close
     end
