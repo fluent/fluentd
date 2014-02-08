@@ -53,7 +53,7 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 
 == Sign Up For Our Newsletters and Learn More
 
-{Sign up for our newsletters}(http://go.treasuredata.com/Fluentd_education) and get the latest updates and bug fixes right in your inbox.
+{Sign up for our newsletters}[http://go.treasuredata.com/Fluentd_education] and get the latest updates and bug fixes right in your inbox.
 
 == Meta
 
