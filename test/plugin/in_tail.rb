@@ -8,7 +8,7 @@ class TailInputTest < Test::Unit::TestCase
     FileUtils.mkdir_p(TMP_DIR)
   end
 
-  TMP_DIR = File.dirname(__FILE__) + "/../tmp"
+  TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
 
   CONFIG = %[
     path #{TMP_DIR}/tail.txt

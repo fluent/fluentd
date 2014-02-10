@@ -26,6 +26,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency(%q<win32-service>, ["~> 0.8.3"])
 
   gem.add_development_dependency(%q<rake>, [">= 0.9.2"])
+  gem.add_development_dependency(%q<parallel_tests>, [">= 0.15.3"])
   gem.add_development_dependency(%q<rr>, [">= 1.0.0"])
   gem.add_development_dependency(%q<timecop>, [">= 0.3.0"])
 end

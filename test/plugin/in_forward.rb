@@ -1,12 +1,14 @@
 require 'fluent/test'
+require 'helper'
 
 class ForwardInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
   end
 
+  PORT = unused_port
   CONFIG = %[
-    port 13998
+    port #{PORT}
     bind 127.0.0.1
   ]
 
@@ -16,12 +18,12 @@ class ForwardInputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert_equal 13998, d.instance.port
+    assert_equal PORT, d.instance.port
     assert_equal '127.0.0.1', d.instance.bind
   end
 
   def connect
-    TCPSocket.new('127.0.0.1', 13998)
+    TCPSocket.new('127.0.0.1', PORT)
   end
 
   def test_time
@@ -120,4 +122,3 @@ class ForwardInputTest < Test::Unit::TestCase
 
   # TODO heartbeat
 end
-

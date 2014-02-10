@@ -19,9 +19,29 @@ module Fluent
   class StdoutOutput < Output
     Plugin.register_output('stdout', self)
 
+    OUTPUT_PROCS = {
+      :json => Proc.new {|record| Yajl.dump(record) },
+      :hash => Proc.new {|record| record.to_s },
+    }
+
+    config_param :output_type, :default => :json do |val|
+      case val.downcase
+      when 'json'
+        :json
+      when 'hash'
+        :hash
+      else
+        raise ConfigError, "stdout output output_type should be 'json' or 'hash'"
+      end
+    end
+    def configure(conf)
+      super
+      @output_proc = OUTPUT_PROCS[@output_type]
+    end
+
     def emit(tag, es, chain)
       es.each {|time,record|
-        $log.write "#{Time.at(time).localtime} #{tag}: #{Yajl.dump(record)}\n"
+        $log.write "#{Time.at(time).localtime} #{tag}: #{@output_proc.call(record)}\n"
       }
       $log.flush
 

@@ -32,6 +32,7 @@ module Fluent
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
+    config_param :backlog, :integer, :default => nil
 
     def configure(conf)
       super
@@ -77,6 +78,7 @@ module Fluent
         @km = KeepaliveManager.new(@keepalive_timeout)
         #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
         @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit)
+        @lsock.listen(@backlog) unless @backlog.nil?
 
         @loop = Coolio::Loop.new
         @loop.attach(@km)
@@ -115,6 +117,11 @@ module Fluent
           raise "'json' or 'msgpack' parameter is required"
         end
 
+        # Skip nil record
+        if record.nil?
+          return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+        end
+
         time = params['time']
         time = time.to_i
         if time == 0
@@ -147,7 +154,7 @@ module Fluent
         @idle = 0
         @km.add(self)
 
-        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername)
+        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
       end
 
       def step_idle
@@ -227,7 +234,7 @@ module Fluent
       def on_message_complete
         return if closing?
 
-        @env['REMOTE_ADDR'] = @remote_addr
+        @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
 
         params = WEBrick::HTTPUtils.parse_query(@parser.query_string)
 

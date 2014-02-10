@@ -84,18 +84,21 @@ module Fluent
         # Forward
         es = MultiEventStream.new
         entries.each {|e|
+          record = e[1]
+          next if record.nil?
           time = e[0].to_i
           time = (now ||= Engine.now) if time == 0
-          record = e[1]
           es.add(time, record)
         }
         Engine.emit_stream(tag, es)
 
       else
         # Message
+        record = msg[2]
+        return if record.nil?
+
         time = msg[1]
         time = Engine.now if time == 0
-        record = msg[2]
         Engine.emit(tag, time, record)
       end
     end
@@ -185,6 +188,7 @@ module Fluent
     Plugin.register_input('unix', self)
 
     config_param :path, :string, :default => DEFAULT_SOCKET_PATH
+    config_param :backlog, :integer, :default => nil
 
     def configure(conf)
       super
@@ -197,7 +201,9 @@ module Fluent
       end
       FileUtils.mkdir_p File.dirname(@path)
       $log.debug "listening fluent socket on #{@path}"
-      Coolio::UNIXServer.new(@path, Handler, method(:on_message))
+      s = Coolio::UNIXServer.new(@path, Handler, method(:on_message))
+      s.listen(@backlog) unless @backlog.nil?
+      s
     end
   end
 end

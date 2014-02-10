@@ -63,12 +63,23 @@ module Fluent
 
     def initialize
       super
+      require 'cool.io'
       require 'fluent/plugin/socket_util'
     end
 
     config_param :port, :integer, :default => 5140
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :tag, :string
+    config_param :protocol_type, :default => :udp do |val|
+      case val.downcase
+      when 'tcp'
+        :tcp
+      when 'udp'
+        :udp
+      else
+        raise ConfigError, "syslog input protocol type should be 'tcp' or 'udp'"
+      end
+    end
 
     def configure(conf)
       super
@@ -78,6 +89,7 @@ module Fluent
         @parser = parser
       else
         @parser = nil
+        @time_parser = TextParser::TimeParser.new(TIME_FORMAT)
       end
     end
 
@@ -89,12 +101,7 @@ module Fluent
       end
 
       @loop = Coolio::Loop.new
-
-      $log.debug "listening syslog socket on #{@bind}:#{@port}"
-      @usock = SocketUtil.create_udp_socket(@bind)
-      @usock.bind(@bind, @port)
-
-      @handler = UdpHandler.new(@usock, callback)
+      @handler = listen(callback)
       @loop.attach(@handler)
 
       @thread = Thread.new(&method(:run))
@@ -153,7 +160,7 @@ module Fluent
           when "pri"
             pri = value.to_i
           when "time"
-            time = Time.strptime(value.gsub(/ +/, ' '), TIME_FORMAT).to_i
+            time = @time_parser.parse(value.gsub(/ +/, ' '))
           else
             record[name] = value
           end
@@ -170,6 +177,18 @@ module Fluent
     end
 
     private
+
+    def listen(callback)
+      $log.debug "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
+      if @protocol_type == :udp
+        @usock = SocketUtil.create_udp_socket(@bind)
+        @usock.bind(@bind, @port)
+        UdpHandler.new(@usock, callback)
+      else
+        Coolio::TCPServer.new(@bind, @port, TcpHandler, callback)
+      end
+    end
+
     def emit(pri, time, record)
       facility = FACILITY_MAP[pri >> 3]
       priority = PRIORITY_MAP[pri & 0b111]
@@ -177,6 +196,8 @@ module Fluent
       tag = "#{@tag}.#{facility}.#{priority}"
 
       Engine.emit(tag, time, record)
+    rescue => e
+      $log.error "syslog failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
     end
 
     class UdpHandler < Coolio::IO
@@ -194,6 +215,42 @@ module Fluent
         @callback.call(msg)
       rescue
         # TODO log?
+      end
+    end
+
+    class TcpHandler < Coolio::Socket
+      def initialize(io, on_message)
+        super(io)
+        if io.is_a?(TCPSocket)
+          opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+        end
+        $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
+        @on_message = on_message
+        @buffer = "".force_encoding('ASCII-8BIT')
+      end
+
+      def on_connect
+      end
+
+      def on_read(data)
+        @buffer << data
+        pos = 0
+
+        # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
+        while i = @buffer.index("\n", pos)
+          msg = @buffer[pos..i]
+          @on_message.call(msg)
+          pos = i + 1
+        end
+        @buffer.slice!(0, pos) if pos > 0
+      rescue => e
+        $log.error "syslog error", :error => e, :error_class => e.class
+        close
+      end
+
+      def on_close
+        $log.trace { "closed fluent socket object_id=#{self.object_id}" }
       end
     end
   end

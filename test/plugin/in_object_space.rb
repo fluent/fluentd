@@ -11,13 +11,13 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
     Fluent::Test.setup
   end
 
-  CONFIG = %[
+  TESTCONFIG = %[
     emit_interval 1
     tag t1
     top 2
   ]
 
-  def create_driver(conf=CONFIG)
+  def create_driver(conf=TESTCONFIG)
     Fluent::Test::InputTestDriver.new(Fluent::ObjectSpaceInput).configure(conf)
   end
 

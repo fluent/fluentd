@@ -28,6 +28,7 @@ module Fluent
 
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
     config_param :bind, :string, :default => '0.0.0.0'
+    config_param :backlog, :integer, :default => nil
 
     def configure(conf)
       super
@@ -61,7 +62,9 @@ module Fluent
 
     def listen
       $log.info "listening fluent socket on #{@bind}:#{@port}"
-      Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+      s = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+      s.listen(@backlog) unless @backlog.nil?
+      s
     end
 
     #config_param :path, :string, :default => DEFAULT_SOCKET_PATH
@@ -76,8 +79,8 @@ module Fluent
 
     def run
       @loop.run
-    rescue
-      $log.error "unexpected error", :error=>$!.to_s
+    rescue => e
+      $log.error "unexpected error", :error => e, :error_class => e.class
       $log.error_backtrace
     end
 
@@ -121,18 +124,20 @@ module Fluent
         # Forward
         es = MultiEventStream.new
         entries.each {|e|
+          record = e[1]
+          next if record.nil?
           time = e[0].to_i
           time = (now ||= Engine.now) if time == 0
-          record = e[1]
           es.add(time, record)
         }
         Engine.emit_stream(tag, es)
 
       else
         # Message
+        record = msg[2]
+        return if record.nil?
         time = msg[1]
         time = Engine.now if time == 0
-        record = msg[2]
         Engine.emit(tag, time, record)
       end
     end
@@ -170,16 +175,16 @@ module Fluent
 
       def on_read_json(data)
         @y << data
-      rescue
-        $log.error "forward error: #{$!.to_s}"
+      rescue => e
+        $log.error "forward error", :error => e, :error_class => e.class
         $log.error_backtrace
         close
       end
 
       def on_read_msgpack(data)
         @u.feed_each(data, &@on_message)
-      rescue
-        $log.error "forward error: #{$!.to_s}"
+      rescue => e
+        $log.error "forward error", :error => e, :error_class => e.class
         $log.error_backtrace
         close
       end

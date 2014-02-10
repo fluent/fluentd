@@ -38,6 +38,7 @@ opts = {
   :chuser => nil,
   :chgroup => nil,
   :suppress_interval => 0,
+  :suppress_repeated_stacktrace => false,
   :usespawn => 0,
   :signame => nil,
   :winsvcreg => nil,
@@ -91,6 +92,10 @@ op.on('--emit-error-log-interval SECONDS', "suppress interval seconds of emit er
   opts[:suppress_interval] = s.to_i
 }
 
+op.on('--suppress-repeated-stacktrace', "suppress repeated stacktrace", TrueClass) {|b|
+  opts[:suppress_repeated_stacktrace] = b
+}
+
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
     opts[:log_level] = [opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max
@@ -101,6 +106,10 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
   if b
     opts[:log_level] = [opts[:log_level] + 1, Fluent::Log::LEVEL_ERROR].min
   end
+}
+
+op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
+  opts[:suppress_config_dump] = b
 }
 
 op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (Windows only)", TrueClass) {|b|

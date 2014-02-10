@@ -16,49 +16,45 @@
 #    limitations under the License.
 #
 module Fluent
-module Test
+  module Test
+    class TestDriver
+      include ::Test::Unit::Assertions
 
-
-class TestDriver
-  include ::Test::Unit::Assertions
-
-  def initialize(klass, &block)
-    if klass.is_a?(Class)
-      if block
-        klass = klass.dup
-        klass.module_eval(&block)
+      def initialize(klass, &block)
+        if klass.is_a?(Class)
+          if block
+            klass = klass.dup
+            klass.module_eval(&block)
+          end
+          @instance = klass.new
+        else
+          @instance = klass
+        end
+        @config = Config.new
       end
-      @instance = klass.new
-    else
-      @instance = klass
-    end
-    @config = Config.new
-  end
 
-  attr_reader :instance, :config
+      attr_reader :instance, :config
 
-  def configure(str)
-    if str.is_a?(Fluent::Config::Element)
-      @config = str
-    else
-      @config = Config.parse(str, "(test)")
-    end
-    @instance.configure(@config)
-    self
-  end
+      def configure(str)
+        if str.is_a?(Fluent::Config::Element)
+          @config = str
+        else
+          @config = Config.parse(str, "(test)")
+        end
+        @instance.configure(@config)
+        self
+      end
 
-  def run(&block)
-    @instance.start
-    begin
-      # wait until thread starts
-      10.times { sleep 0.05 }
-      return yield
-    ensure
-      @instance.shutdown
+      def run(&block)
+        @instance.start
+        begin
+          # wait until thread starts
+          10.times { sleep 0.05 }
+          return yield
+        ensure
+          @instance.shutdown
+        end
+      end
     end
   end
-end
-
-
-end
 end
