@@ -3,7 +3,7 @@ language: ruby
 rvm:
   - 1.9.3
   - 2.0.0
-  - rbx-19mode
+  - rbx
 
 branches:
   only:
@@ -14,4 +14,4 @@ script: bundle exec rake
 
 matrix:
   allow_failures:
-    - rvm: rbx-19mode
+    - rvm: rbx
