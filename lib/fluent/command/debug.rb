@@ -59,6 +59,13 @@ require 'fluent/load'
 $log = Fluent::Log.new(STDERR, Fluent::Log::LEVEL_TRACE)
 Fluent::Engine.init
 
+DRb::DRbObject.class_eval do
+  undef_method :methods
+  undef_method :instance_eval
+  undef_method :instance_variables
+  undef_method :instance_variable_get
+end
+
 remote_engine = DRb::DRbObject.new_with_uri(uri)
 
 Fluent.module_eval do
