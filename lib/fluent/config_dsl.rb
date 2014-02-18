@@ -81,6 +81,24 @@ module Fluent
           ::Kernel.raise ::ArgumentError, "#{name} block requires arguments for match pattern" if args.nil? || args.size != 1
           @proxy.add_element('match', args.first, block)
         end
+
+        def self.const_missing(name)
+          return ::Kernel.const_get(name) if ::Kernel.const_defined?(name)
+
+          if name.to_s =~ /^Fluent::Config::DSL::Element::(.*)$/
+            name = "#{$1}".to_sym
+            return ::Kernel.const_get(name) if ::Kernel.const_defined?(name)
+          end
+          ::Kernel.eval("#{name}")
+        end
+
+        def ruby(&block)
+          if block
+            @proxy.instance_exec(&block)
+          else
+            ::Kernel
+          end
+        end
       end
     end
   end

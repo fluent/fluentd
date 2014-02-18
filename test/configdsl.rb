@@ -104,4 +104,45 @@ match('aa')
       Fluent::Config::DSL::Parser.parse(TEST_DSL_CONFIG5)
     }
   end
+
+  def test_with_ruby_keyword
+    uname_string = `uname -a`
+    root1 = Fluent::Config::DSL::Parser.parse(<<DSL)
+uname_str = ruby.open('|uname -a'){|out| out.read}
+source {
+  uname uname_str
+}
+DSL
+    source1 = root1.elements.first
+    assert_equal 'source', source1.name
+    assert_equal 1, source1.keys.size
+    assert_equal uname_string, source1['uname']
+
+    root2 = Fluent::Config::DSL::Parser.parse(<<DSL)
+ruby_version = ruby {
+  require 'erb'
+  ERB.new('<%= RUBY_VERSION %> from erb').result
+}
+source {
+  version ruby_version
+}
+DSL
+    source2 = root2.elements.first
+    assert_equal 'source', source2.name
+    assert_equal 1, source2.keys.size
+    assert_equal "#{RUBY_VERSION} from erb", source2['version']
+
+    # Parser#parse raises NoMethodError when configuration dsl elements are written in ruby block
+    conf3 = <<DSL
+ruby {
+  source {
+    type "tail"
+  }
+}
+source {
+  uname uname_str
+}
+DSL
+    assert_raise (NoMethodError) { Fluent::Config::DSL::Parser.parse(conf3) }
+  end
 end
