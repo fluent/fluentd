@@ -29,4 +29,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency(%q<parallel_tests>, [">= 0.15.3"])
   gem.add_development_dependency(%q<rr>, [">= 1.0.0"])
   gem.add_development_dependency(%q<timecop>, [">= 0.3.0"])
+  gem.add_development_dependency(%q<rspec>) # rspec tests needs Ruby >= 2.0.0
 end
