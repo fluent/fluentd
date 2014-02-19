@@ -22,9 +22,6 @@ RUBY_INSTALL_DIR:: C:/Ruby193
 === Daemon (Windows Service)
 Implementation exists, but some technical problems in Ruby and Coolio on Windows. So we cannot announce how to use yet. Sorry.
 
-=== Termination of  fluentd
-It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
-
 == Plugin condition
 
 === input plugin
