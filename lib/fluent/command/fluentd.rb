@@ -116,7 +116,7 @@ op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (
   opts[:usespawn] = 1
 }
 
-op.on('-s', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
+op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
   opts[:signame] = s
 }
 
