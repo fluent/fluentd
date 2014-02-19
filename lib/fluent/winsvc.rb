@@ -11,8 +11,9 @@ require "fluent/win32api_syncobj"
 include Win32
  
 class FluentdService < Daemon
+  @pid=0
   def service_main
-    Process.spawn (Fluent::RUBY_INSTALL_DIR+"/bin/ruby.exe '"+Fluent::RUBY_INSTALL_DIR+"/bin/fluentd' "+Fluent::FLUENTD_OPTION_FOR_WINSVC+" -x "+INTEVENTOBJ_NAME)
+    @pid=Process.spawn (Fluent::RUBY_INSTALL_DIR+"/bin/ruby.exe '"+Fluent::RUBY_INSTALL_DIR+"/bin/fluentd' "+Fluent::FLUENTD_OPTION_FOR_WINSVC+" -x "+INTEVENTOBJ_NAME)
     while running?
       sleep 10
     end
@@ -22,7 +23,9 @@ class FluentdService < Daemon
     sigint = Win32SyncObj.createevent(1,0,INTEVENTOBJ_NAME)
     sigint.signal_on
     sigint.close
-    exit!
+    if @pid > 0 
+      Process.waitpid(@pid)
+    end
   end
 end
 
