@@ -183,6 +183,8 @@ module Fluent
             value = m[2]
             if allow_include && key == 'include'
               process_include(attrs, elems, value)
+            elsif key == 'embed'
+              process_include(attrs, elems, value)
             else
               attrs[key] = value
             end

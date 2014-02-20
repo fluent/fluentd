@@ -32,12 +32,23 @@ class ConfigTest < Test::Unit::TestCase
     ]
     write_config "#{TMP_DIR}/config.d/config_test_6.conf", %[
       k6 wildcard_include_1
-      <elem name>
+      <elem1 name>
         include normal_parameter
-      </elem>
+      </elem1>
     ]
     write_config "#{TMP_DIR}/config.d/config_test_7.conf", %[
       k7 wildcard_include_2
+    ]
+    write_config "#{TMP_DIR}/config.d/config_test_8.conf", %[
+      <elem2 name>
+        embed ../dir/config_test_9.conf
+      </elem2>
+    ]
+    write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
+      k9 embeded
+      <elem3 name>
+        nested nested_value
+      </elem3>
     ]
 
   end
@@ -52,10 +63,20 @@ class ConfigTest < Test::Unit::TestCase
     assert_equal 'uri_include', c['k5']
     assert_equal 'wildcard_include_1', c['k6']
     assert_equal 'wildcard_include_2', c['k7']
-    assert_equal 'elem', c.elements.first.name
-    assert_equal 'name', c.elements.first.arg
-    assert_equal 'normal_parameter', c.elements.first['include']
-    
+
+    elem1 = c.elements.find { |e| e.name == 'elem1' }
+    assert_not_nil elem1
+    assert_equal   'name',             elem1.arg
+    assert_equal   'normal_parameter', elem1['include']
+
+    elem2 = c.elements.find { |e| e.name == 'elem2' }
+    assert_not_nil elem2
+    assert_equal   'name',    elem2.arg
+    assert_equal   'embeded', elem2['k9']
+
+    elem3 = elem2.elements.find { |e| e.name == 'elem3' }
+    assert_not_nil elem3
+    assert_equal   'nested_value', elem3['nested']
   end
 
   def test_check_not_fetchd
@@ -118,4 +139,5 @@ class ConfigTest < Test::Unit::TestCase
     end  
   end
 end
+
 
