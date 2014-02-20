@@ -22,6 +22,9 @@ RUBY_INSTALL_DIR:: C:/Ruby193
 === Daemon (Windows Service)
 Implementation exists, but some technical problems in Ruby and Coolio on Windows. So we cannot announce how to use yet. Sorry.
 
+=== Termination of  fluentd
+It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
+
 == Plugin condition
 
 === input plugin
@@ -39,8 +42,8 @@ out_null:: Looks good.
 out_forword:: Looks good, but send_timeout option cannot be used.
 out_file:: Looks good.
 out_exec:: Looks good.
-out_exec_filter:: Unknown.
-out_roundrobin:: Unknown.
+out_exec_filter:: Not good. Error occures when stopping fluentd.
+out_roundrobin:: Looks good.
 
 === buffer plugin
 *name*:: *condition*
