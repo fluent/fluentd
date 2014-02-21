@@ -3,12 +3,17 @@ language: ruby
 rvm:
   - 1.9.3
   - 2.0.0
+  - 2.1.0
   - rbx
 
 branches:
   only:
     - master
     - v11
+
+gemfile:
+  - Gemfile
+  - Gemfile.cool.io.1.1.1
 
 script: bundle exec rake
 

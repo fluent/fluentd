@@ -18,15 +18,15 @@ Gem::Specification.new do |gem|
 
   gem.required_ruby_version = '>= 1.9.2'
 
-  gem.add_runtime_dependency(%q<msgpack>, [">= 0.4.4", "!= 0.5.0", "!= 0.5.1", "!= 0.5.2", "!= 0.5.3", "< 0.6.0"])
-  gem.add_runtime_dependency(%q<json>, [">= 1.4.3"])
-  gem.add_runtime_dependency(%q<yajl-ruby>, ["~> 1.0"])
-  gem.add_runtime_dependency(%q<cool.io>, ["~> 1.1.1"])
-  gem.add_runtime_dependency(%q<http_parser.rb>, ["~> 0.5.1"])
-  gem.add_runtime_dependency(%q<sigdump>, ["~> 0.2.2"])
+  gem.add_runtime_dependency("msgpack", [">= 0.4.4", "!= 0.5.0", "!= 0.5.1", "!= 0.5.2", "!= 0.5.3", "< 0.6.0"])
+  gem.add_runtime_dependency("json", [">= 1.4.3"])
+  gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
+  gem.add_runtime_dependency("cool.io", [">= 1.1.1", "!= 1.2.0", "< 2.0.0"])
+  gem.add_runtime_dependency("http_parser.rb", ["~> 0.5.1"])
+  gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
 
-  gem.add_development_dependency(%q<rake>, [">= 0.9.2"])
-  gem.add_development_dependency(%q<parallel_tests>, [">= 0.15.3"])
-  gem.add_development_dependency(%q<rr>, [">= 1.0.0"])
-  gem.add_development_dependency(%q<timecop>, [">= 0.3.0"])
+  gem.add_development_dependency("rake", [">= 0.9.2"])
+  gem.add_development_dependency("parallel_tests", [">= 0.15.3"])
+  gem.add_development_dependency("rr", [">= 1.0.0"])
+  gem.add_development_dependency("timecop", [">= 0.3.0"])
 end
