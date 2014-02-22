@@ -200,26 +200,6 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message"=>"test6"}, emits[5][2])
   end
 
-  def test_rotate_file_when_fluent_doesnot_start
-    emits = sub_test_rotate_file_when_fluent_doesnot_start(CONFIG)
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message"=>"test3"}, emits[0][2])
-    assert_equal({"message"=>"test4"}, emits[1][2])
-    assert_equal({"message"=>"test5"}, emits[2][2])
-    assert_equal({"message"=>"test6"}, emits[3][2])
-  end
-
-  def test_rotate_file_when_fluent_doesnot_start_with_read_from_head
-    emits = sub_test_rotate_file_when_fluent_doesnot_start(CONFIG_READ_FROM_HEAD)
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message"=>"test1"}, emits[0][2])
-    assert_equal({"message"=>"test2"}, emits[1][2])
-    assert_equal({"message"=>"test3"}, emits[2][2])
-    assert_equal({"message"=>"test4"}, emits[3][2])
-    assert_equal({"message"=>"test5"}, emits[4][2])
-    assert_equal({"message"=>"test6"}, emits[5][2])
-  end
-
   def sub_test_rotate_file(config)
     File.open("#{TMP_DIR}/tail.txt", "w") {|f|
       f.puts "test1"
@@ -249,43 +229,6 @@ class TailInputTest < Test::Unit::TestCase
       }
       sleep 1
     end
-
-    d.run do
-      sleep 1
-    end
-
-    emits = d.emits
-  end
-
-  # A log file rotates when fluentd does not start.
-  def sub_test_rotate_file_when_fluent_doesnot_start(config)
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
-      f.puts "test1"
-      f.puts "test2"
-    }
-
-    d = create_driver(config)
-
-    d.run do
-      sleep 1
-
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
-        f.puts "test3"
-        f.puts "test4"
-      }
-      sleep 1
-
-      FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
-    end
-
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
-    sleep 1
-
-    File.open("#{TMP_DIR}/tail.txt", "a") {|f|
-      f.puts "test5"
-      f.puts "test6"
-    }
-    sleep 1
 
     d.run do
       sleep 1
