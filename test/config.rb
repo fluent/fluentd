@@ -39,6 +39,12 @@ class ConfigTest < Test::Unit::TestCase
     write_config "#{TMP_DIR}/config.d/config_test_7.conf", %[
       k7 wildcard_include_2
     ]
+    write_config "#{TMP_DIR}/config.d/00_config_test_8.conf", %[
+      k8 wildcard_include_3
+      <elem name>
+        include normal_parameter
+      </elem>
+    ]
 
   end
 
@@ -52,10 +58,20 @@ class ConfigTest < Test::Unit::TestCase
     assert_equal 'uri_include', c['k5']
     assert_equal 'wildcard_include_1', c['k6']
     assert_equal 'wildcard_include_2', c['k7']
+    assert_equal 'wildcard_include_3', c['k8']
     assert_equal 'elem', c.elements.first.name
     assert_equal 'name', c.elements.first.arg
     assert_equal 'normal_parameter', c.elements.first['include']
-    
+    assert_equal c.keys, [
+      'k1',
+      'k2',
+      'k3',
+      'k4',
+      'k5',
+      'k8', # Because of the file name this comes first.
+      'k6',
+      'k7',
+    ]
   end
 
   def test_check_not_fetchd

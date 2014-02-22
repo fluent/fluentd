@@ -207,7 +207,7 @@ module Fluent
             pattern = path
           end
 
-          Dir.glob(pattern).each {|path|
+          Dir.glob(pattern).sort.each {|path|
             basepath = File.dirname(path)
             fname = File.basename(path)
             File.open(path) {|f|
