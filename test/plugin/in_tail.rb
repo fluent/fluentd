@@ -10,14 +10,6 @@ class TailInputTest < Test::Unit::TestCase
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
 
-  CONFIG = %[
-    path #{TMP_DIR}/tail.txt
-    tag t1
-    rotate_wait 2s
-    pos_file #{TMP_DIR}/tail.pos
-    format /(?<message>.*)/
-  ]
-
   CONFIG_WITHOUT_POS_FILE = %[
     path #{TMP_DIR}/tail.txt
     tag t1
@@ -25,13 +17,12 @@ class TailInputTest < Test::Unit::TestCase
     format /(?<message>.*)/
   ]
 
-  CONFIG_READ_FROM_HEAD = %[
-    path #{TMP_DIR}/tail.txt
-    tag t1
-    rotate_wait 2s
+  CONFIG = CONFIG_WITHOUT_POS_FILE + %[
     pos_file #{TMP_DIR}/tail.pos
+  ]
+
+  CONFIG_READ_FROM_HEAD = CONFIG + %[
     read_from_head true
-    format /(?<message>.*)/
   ]
 
   def create_driver(conf=CONFIG)
