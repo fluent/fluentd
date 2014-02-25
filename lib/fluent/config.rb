@@ -171,6 +171,9 @@ module Fluent
           line.gsub!(/\s*(?:\#.*)?$/,'')
           if line.empty?
             next
+          elsif m = /^\<include\s*(.*)\s*\/\>$/.match(line)
+            value = m[1].strip
+            process_include(attrs, elems, value, allow_include)
           elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
             e_name = m[1]
             e_arg = m[2] || ""
@@ -197,7 +200,7 @@ module Fluent
         return attrs, elems
       end
 
-      def process_include(attrs, elems, uri)
+      def process_include(attrs, elems, uri, allow_include = true)
         u = URI.parse(uri)
         if u.scheme == 'file' || u.path == uri  # file path
           path = u.path
@@ -211,7 +214,7 @@ module Fluent
             basepath = File.dirname(path)
             fname = File.basename(path)
             File.open(path) {|f|
-              Parser.new(basepath, f.each_line, fname).parse!(true, nil, attrs, elems)
+              Parser.new(basepath, f.each_line, fname).parse!(allow_include, nil, attrs, elems)
             }
           }
 
@@ -220,7 +223,7 @@ module Fluent
           fname = path
           require 'open-uri'
           open(uri) {|f|
-            Parser.new(basepath, f.each_line, fname).parse!(true, nil, attrs, elems)
+            Parser.new(basepath, f.each_line, fname).parse!(allow_include, nil, attrs, elems)
           }
         end
 

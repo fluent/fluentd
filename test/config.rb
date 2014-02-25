@@ -15,7 +15,7 @@ class ConfigTest < Test::Unit::TestCase
       include dir/config_test_2.conf  #
       include #{TMP_DIR}/config_test_4.conf
       include file://#{TMP_DIR}/config_test_5.conf
-      include config.d/*.conf
+      <include config.d/*.conf />
     ]
     write_config "#{TMP_DIR}/dir/config_test_2.conf", %[
       k2 relative_path_include
@@ -32,18 +32,30 @@ class ConfigTest < Test::Unit::TestCase
     ]
     write_config "#{TMP_DIR}/config.d/config_test_6.conf", %[
       k6 wildcard_include_1
-      <elem name>
+      <elem1 name>
         include normal_parameter
-      </elem>
+      </elem1>
     ]
     write_config "#{TMP_DIR}/config.d/config_test_7.conf", %[
       k7 wildcard_include_2
     ]
+    write_config "#{TMP_DIR}/config.d/config_test_8.conf", %[
+      <elem2 name>
+        <include ../dir/config_test_9.conf />
+      </elem2>
+    ]
+    write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
+      k9 embeded
+      <elem3 name>
+        nested nested_value
+        include hoge
+      </elem3>
+    ]
     write_config "#{TMP_DIR}/config.d/00_config_test_8.conf", %[
       k8 wildcard_include_3
-      <elem name>
+      <elem4 name>
         include normal_parameter
-      </elem>
+      </elem4>
     ]
 
   end
@@ -59,10 +71,7 @@ class ConfigTest < Test::Unit::TestCase
     assert_equal 'wildcard_include_1', c['k6']
     assert_equal 'wildcard_include_2', c['k7']
     assert_equal 'wildcard_include_3', c['k8']
-    assert_equal 'elem', c.elements.first.name
-    assert_equal 'name', c.elements.first.arg
-    assert_equal 'normal_parameter', c.elements.first['include']
-    assert_equal c.keys, [
+    assert_equal [
       'k1',
       'k2',
       'k3',
@@ -71,7 +80,21 @@ class ConfigTest < Test::Unit::TestCase
       'k8', # Because of the file name this comes first.
       'k6',
       'k7',
-    ]
+    ], c.keys
+
+    elem1 = c.elements.find { |e| e.name == 'elem1' }
+    assert_not_nil elem1
+    assert_equal 'name', elem1.arg
+    assert_equal 'normal_parameter', elem1['include']
+
+    elem2 = c.elements.find { |e| e.name == 'elem2' }
+    assert_not_nil elem2
+    assert_equal 'name', elem2.arg
+    assert_equal 'embeded', elem2['k9']
+
+    elem3 = elem2.elements.find { |e| e.name == 'elem3' }
+    assert_not_nil elem3
+    assert_equal 'nested_value', elem3['nested']
   end
 
   def test_check_not_fetchd
