@@ -96,6 +96,7 @@ class ConfigTest < Test::Unit::TestCase
     elem3 = elem2.elements.find { |e| e.name == 'elem3' }
     assert_not_nil elem3
     assert_equal 'nested_value', elem3['nested']
+    assert_equal 'hoge', elem3['include']
   end
 
   def test_check_not_fetchd
