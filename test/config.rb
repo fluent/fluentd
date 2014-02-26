@@ -91,6 +91,7 @@ class ConfigTest < Test::Unit::TestCase
     assert_not_nil elem2
     assert_equal 'name', elem2.arg
     assert_equal 'embeded', elem2['k9']
+    assert !elem2.has_key?('include')
 
     elem3 = elem2.elements.find { |e| e.name == 'elem3' }
     assert_not_nil elem3
