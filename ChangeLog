@@ -1,3 +1,12 @@
+Release 0.10.44 - 2014/02/26
+
+* in_forward: Print remote address and port in trace log
+* Remove several methods from fluentd-debug to call remote object method directly
+* Add --gemfile option to manage Fluentd and plugins using Gemfile and Bundler
+* Add <include path /> directive to include the configuration file under the elements
+* Add 'ruby' keyword to call Kernel method in configuration DSL
+* Relax Cool.io gem version to allow 1.2.x
+
 Release 0.10.43 - 2014/02/03
 
 * Input/Output: Add 'log_level' option to plugins
