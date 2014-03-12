@@ -265,6 +265,10 @@ module Fluent
         end
       }
 
+      map.each_pair {|k,v|
+        message << " #{k}=#{v.inspect}"
+      }
+
       unless @threads_exclude_events.include?(Thread.current)
         record = map.dup
         record.keys.each {|key|
@@ -273,10 +277,6 @@ module Fluent
         record['message'] = message.dup
         Engine.push_log_event("#{@tag}.#{level}", time.to_i, record)
       end
-
-      map.each_pair {|k,v|
-        message << " #{k}=#{v.inspect}"
-      }
 
       return time, message
     end
