@@ -45,6 +45,13 @@ module Fluent
       end
 
       configure_parser(conf)
+
+      @multiline_mode = conf['format'] == 'multiline'
+      @receive_handler = if @multiline_mode
+                           method(:parse_multilines)
+                         else
+                           method(:parse_singleline)
+                         end
     end
 
     def configure_parser(conf)
@@ -78,7 +85,22 @@ module Fluent
       }
       @loop.stop
       @thread.join
+
+      flush_buffer if @multiline_mode
       @pf_file.close if @pf_file
+    end
+
+    def flush_buffer
+      if @line_buffer
+        @line_buffer.chomp!
+        time, record = parse_line(@line_buffer)
+        if time && record
+          Engine.emit(@tag, time, record)
+        else
+          log.warn "got incomplete line at shutdown: #{@line_buffer.inspect}"
+        end
+        @line_buffer = nil
+      end
     end
 
     def run
@@ -89,22 +111,7 @@ module Fluent
     end
 
     def receive_lines(lines)
-      es = MultiEventStream.new
-      lines.each {|line|
-        begin
-          line.chomp!  # remove \n
-          time, record = parse_line(line)
-          if time && record
-            es.add(time, record)
-          else
-            log.warn "pattern not match: #{line.inspect}"
-          end
-        rescue
-          log.warn line.dump, :error=>$!.to_s
-          log.debug_backtrace
-        end
-      }
-
+      es = @receive_handler.call(lines)
       unless es.empty?
         begin
           Engine.emit_stream(@tag, es)
@@ -116,6 +123,48 @@ module Fluent
 
     def parse_line(line)
       return @parser.parse(line)
+    end
+
+    def convert_line_to_event(line, es)
+      begin
+        line.chomp!  # remove \n
+        time, record = parse_line(line)
+        if time && record
+          es.add(time, record)
+        else
+          log.warn "pattern not match: #{@line_buffer.inspect}"
+        end
+      rescue => e
+        log.warn line.dump, :error => e.to_s
+        log.debug_backtrace(e)
+      end
+    end
+
+    def parse_singleline(lines)
+      es = MultiEventStream.new
+      lines.each { |line|
+        convert_line_to_event(line, es)
+      }
+      es
+    end
+
+    def parse_multilines(lines)
+      es = MultiEventStream.new
+      lines.each { |line|
+        if @parser.parser.firstline?(line)
+          if @line_buffer
+            convert_line_to_event(@line_buffer, es)
+          end
+          @line_buffer = line
+        else
+          if @line_buffer.nil?
+            log.warn "got incomplete line before first line: #{line.inspect}"
+          else
+            @line_buffer << line
+          end
+        end
+      }
+      es
     end
 
     class TailWatcher
