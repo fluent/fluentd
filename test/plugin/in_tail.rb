@@ -20,8 +20,8 @@ class TailInputTest < Test::Unit::TestCase
     format /(?<message>.*)/
   ]
 
-  def create_driver(conf = SINGLE_LINE_CONFIG)
-    config = COMMON_CONFIG + conf
+  def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
+    config = use_common_conf ? COMMON_CONFIG + conf : conf
     Fluent::Test::InputTestDriver.new(Fluent::TailInput).configure(config)
   end
 
@@ -170,5 +170,37 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message1" => "test5"}, emits[1][2])
     assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
     assert_equal({"message1" => "test8"}, emits[3][2])
+  end
+
+  def test_multilinelog_with_multiple_paths
+    files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
+    files.each { |file| File.open(file, "w") { |f| } }
+
+    d = create_driver(%[
+      path #{files[0]},#{files[1]}
+      tag t1
+      format multiline
+      format1 /^[s|f] (?<message>.*)/
+      format_firstline /^[s]/
+    ], false)
+    d.run do
+      files.each do |file|
+        File.open(file, 'a') { |f|
+          f.puts "f #{file} line should be ignored"
+          f.puts "s test1"
+          f.puts "f test2"
+          f.puts "f test3"
+          f.puts "s test4"
+        }
+      end
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal({"message" => "test1\nf test2\nf test3"}, emits[0][2])
+    assert_equal({"message" => "test1\nf test2\nf test3"}, emits[1][2])
+    # "test4" events are here because these events are flushed at shutdown phase
+    assert_equal({"message" => "test4"}, emits[2][2])
+    assert_equal({"message" => "test4"}, emits[3][2])
   end
 end

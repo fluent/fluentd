@@ -91,16 +91,17 @@ module Fluent
     end
 
     def flush_buffer
-      if @line_buffer
-        @line_buffer.chomp!
-        time, record = parse_line(@line_buffer)
-        if time && record
-          Engine.emit(@tag, time, record)
-        else
-          log.warn "got incomplete line at shutdown: #{@line_buffer.inspect}"
+      @tails.each { |tail|
+        if lb = tail.line_buffer
+          lb.chomp!
+          time, record = parse_line(lb)
+          if time && record
+            Engine.emit(@tag, time, record)
+          else
+            log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
+          end
         end
-        @line_buffer = nil
-      end
+      }
     end
 
     def run
@@ -110,8 +111,8 @@ module Fluent
       log.error_backtrace
     end
 
-    def receive_lines(lines)
-      es = @receive_handler.call(lines)
+    def receive_lines(lines, tail_watcher)
+      es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
         begin
           Engine.emit_stream(@tag, es)
@@ -132,7 +133,7 @@ module Fluent
         if time && record
           es.add(time, record)
         else
-          log.warn "pattern not match: #{@line_buffer.inspect}"
+          log.warn "pattern not match: #{line.inspect}"
         end
       rescue => e
         log.warn line.dump, :error => e.to_s
@@ -140,7 +141,7 @@ module Fluent
       end
     end
 
-    def parse_singleline(lines)
+    def parse_singleline(lines, tail_watcher)
       es = MultiEventStream.new
       lines.each { |line|
         convert_line_to_event(line, es)
@@ -148,22 +149,24 @@ module Fluent
       es
     end
 
-    def parse_multilines(lines)
+    def parse_multilines(lines, tail_watcher)
+      lb = tail_watcher.line_buffer
       es = MultiEventStream.new
       lines.each { |line|
         if @parser.parser.firstline?(line)
-          if @line_buffer
-            convert_line_to_event(@line_buffer, es)
+          if lb
+            convert_line_to_event(lb, es)
           end
-          @line_buffer = line
+          lb = line
         else
-          if @line_buffer.nil?
-            log.warn "got incomplete line before first line: #{line.inspect}"
+          if lb.nil?
+            log.warn "got incomplete line before first line from #{tail_watcher.path}: #{lb.inspect}"
           else
-            @line_buffer << line
+            lb << line
           end
         end
       }
+      tail_watcher.line_buffer = lb
       es
     end
 
@@ -184,6 +187,9 @@ module Fluent
         @log = $log
       end
 
+      attr_reader :path
+      attr_accessor :line_buffer
+
       # We use accessor approach to assign each logger, not passing log object at initialization,
       # because several plugins depend on these internal classes.
       # This approach avoids breaking plugins with new log_level option.
@@ -194,6 +200,10 @@ module Fluent
         @timer_trigger.log = logger
         @stat_trigger.log = logger
         @rotate_handler.log = logger
+      end
+
+      def wrap_receive_lines(lines)
+        @receive_lines.call(lines, self)
       end
 
       def attach(loop)
@@ -239,7 +249,7 @@ module Fluent
               pos = io.pos
             end
             @pe.update(inode, pos)
-            io_handler = IOHandler.new(io, @pe, log, &@receive_lines)
+            io_handler = IOHandler.new(io, @pe, log, &method(:wrap_receive_lines))
           else
             io_handler = NullIOHandler.new
           end
@@ -278,7 +288,7 @@ module Fluent
             end
             io.seek(pos)
 
-            @io_handler = IOHandler.new(io, @pe, log, &@receive_lines)
+            @io_handler = IOHandler.new(io, @pe, log, &method(:wrap_receive_lines))
           else
             @io_handler = NullIOHandler.new
           end
@@ -397,7 +407,6 @@ module Fluent
               @receive_lines.call(lines)
               @pe.update_pos(@io.pos - @buffer.bytesize)
             end
-
           end while read_more
 
         rescue
