@@ -22,7 +22,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
     config = use_common_conf ? COMMON_CONFIG + conf : conf
-    Fluent::Test::InputTestDriver.new(Fluent::TailInput).configure(config)
+    Fluent::Test::InputTestDriver.new(Fluent::NewTailInput).configure(config)
   end
 
   def test_configure
