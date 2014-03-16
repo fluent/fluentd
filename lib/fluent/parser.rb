@@ -367,6 +367,83 @@ module Fluent
       end
     end
 
+    class MultilineParser
+      include Configurable
+
+      config_param :format_firstline, :string, :default => nil
+
+      FORMAT_MAX_NUM = 20
+
+      def configure(conf)
+        super
+
+        formats = parse_formats(conf).compact.map { |f| f[1..-2] }.join
+        begin
+          @regex = Regexp.new(formats, Regexp::MULTILINE)
+          if @regex.named_captures.empty?
+            raise "No named captures"
+          end
+          @parser = RegexpParser.new(@regex, conf)
+        rescue => e
+          raise ConfigError, "Invalid regexp '#{formats}': #{e}"
+        end
+
+        if @format_firstline
+          check_format_regexp(@format_firstline, 'format_firstline')
+          @regex = Regexp.new(@format_firstline[1..-2])
+        end
+      end
+
+      def call(text)
+        @parser.call(text)
+      end
+
+      def firstline?(text)
+        @regex.match(text)
+      end
+
+      private
+
+      def parse_formats(conf)
+        check_format_range(conf)
+
+        prev_format = nil
+        (1..FORMAT_MAX_NUM).map { |i|
+          format = conf["format#{i}"]
+          if (i > 1) && prev_format.nil? && !format.nil?
+            raise ConfigError, "Jump of format index found. format#{i - 1} is missing."
+          end
+          prev_format = format
+          next if format.nil?
+
+          check_format_regexp(format, "format#{i}")
+          format
+        }
+      end
+
+      def check_format_range(conf)
+        invalid_formats = conf.keys.select { |k|
+          m = k.match(/^format(\d+)$/)
+          m ? !((1..FORMAT_MAX_NUM).include?(m[1].to_i)) : false
+        }
+        unless invalid_formats.empty?
+          raise ConfigError, "Invalid formatN found. N should be 1 - #{FORMAT_MAX_NUM}: " + invalid_formats.join(",")
+        end
+      end
+
+      def check_format_regexp(format, key)
+        if format[0] == '/' && format[-1] == '/'
+          begin
+            Regexp.new(format[1..-2], Regexp::MULTILINE)
+          rescue => e
+            raise ConfigError, "Invalid regexp in #{key}: #{e}"
+          end
+        else
+          raise ConfigError, "format should be Regexp, need //, in #{key}: '#{format}'"
+        end
+      end
+    end
+
     TEMPLATE_FACTORIES = {
       'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'apache2' => Proc.new { ApacheParser.new },
@@ -377,6 +454,7 @@ module Fluent
       'csv' => Proc.new { CSVParser.new },
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'none' => Proc.new { NoneParser.new },
+      'multiline' => Proc.new { MultilineParser.new },
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
@@ -393,6 +471,8 @@ module Fluent
     def initialize
       @parser = nil
     end
+
+    attr_reader :parser
 
     def configure(conf, required=true)
       format = conf['format']

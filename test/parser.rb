@@ -282,4 +282,85 @@ module ParserTest
     end
   end
 
+  class MultilineParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def create_parser(conf)
+      parser = TextParser::TEMPLATE_FACTORIES['multiline'].call
+      parser.configure(conf)
+      parser
+    end
+
+    def test_configure_with_invalid_params
+      [{'format100' => '/(?<msg>.*)/'}, {'format1' => '/(?<msg>.*)/', 'format3' => '/(?<msg>.*)/'}, 'format1' => '/(?<msg>.*)'].each { |config|
+        assert_raise(ConfigError) {
+          create_parser(config)
+        }
+      }
+    end
+
+    def test_call
+      parser = create_parser('format1' => '/^(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}) \[(?<thread>.*)\] (?<level>[^\s]+)(?<message>.*)/')
+      time, record = parser.call(<<EOS.chomp)
+2013-3-03 14:27:33 [main] ERROR Main - Exception
+javax.management.RuntimeErrorException: null
+\tat Main.main(Main.java:16) ~[bin/:na]
+EOS
+
+      assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
+      assert_equal({
+        "thread"  => "main",
+        "level"   => "ERROR",
+        "message" => " Main - Exception\njavax.management.RuntimeErrorException: null\n\tat Main.main(Main.java:16) ~[bin/:na]"
+      }, record)
+    end
+
+    def test_call_with_firstline
+      parser = create_parser('format_firstline' => '/----/', 'format1' => '/time=(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}).*message=(?<message>.*)/')
+      time, record = parser.call(<<EOS.chomp)
+----
+time=2013-3-03 14:27:33 
+message=test1
+EOS
+
+      assert(parser.firstline?('----'))
+      assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
+      assert_equal({"message" => "test1"}, record)
+    end
+
+    def test_call_with_multiple_formats
+      parser = create_parser('format_firstline' => '/^Started/',
+        'format1' => '/Started (?<method>[^ ]+) "(?<path>[^"]+)" for (?<host>[^ ]+) at (?<time>[^ ]+ [^ ]+ [^ ]+)\n/',
+        'format2' => '/Processing by (?<controller>[^\u0023]+)\u0023(?<controller_method>[^ ]+) as (?<format>[^ ]+?)\n/',
+        'format3' => '/(  Parameters: (?<parameters>[^ ]+)\n)?/',
+        'format4' => '/  Rendered (?<template>[^ ]+) within (?<layout>.+) \([\d\.]+ms\)\n/',
+        'format5' => '/Completed (?<code>[^ ]+) [^ ]+ in (?<runtime>[\d\.]+)ms \(Views: (?<view_runtime>[\d\.]+)ms \| ActiveRecord: (?<ar_runtime>[\d\.]+)ms\)/'
+        )
+      time, record = parser.call(<<EOS.chomp)
+Started GET "/users/123/" for 127.0.0.1 at 2013-06-14 12:00:11 +0900
+Processing by UsersController#show as HTML
+  Parameters: {"user_id"=>"123"}
+  Rendered users/show.html.erb within layouts/application (0.3ms)
+Completed 200 OK in 4ms (Views: 3.2ms | ActiveRecord: 0.0ms)
+EOS
+
+      assert(parser.firstline?('Started GET "/users/123/" for 127.0.0.1...'))
+      assert_equal(str2time('2013-06-14 12:00:11 +0900').to_i, time)
+      assert_equal({
+        "method" => "GET",
+        "path" => "/users/123/",
+        "host" => "127.0.0.1",
+        "controller" => "UsersController",
+        "controller_method" => "show",
+        "format" => "HTML",
+        "parameters" => "{\"user_id\"=>\"123\"}",
+        "template" => "users/show.html.erb",
+        "layout" => "layouts/application",
+        "code" => "200",
+        "runtime" => "4",
+        "view_runtime" => "3.2",
+        "ar_runtime" => "0.0"
+      }, record)
+    end
+  end
 end
