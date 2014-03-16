@@ -15,6 +15,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
+require 'fluent/plugin/exec_util'
+
 module Fluent
   class ExecOutput < TimeSlicedOutput
     Plugin.register_output('exec', self)
@@ -26,41 +29,52 @@ module Fluent
     end
 
     config_param :command, :string
-    config_param :keys, :string
+    config_param :keys, :default => [] do |val|
+      val.split(',')
+    end
     config_param :tag_key, :string, :default => nil
     config_param :time_key, :string, :default => nil
     config_param :time_format, :string, :default => nil
+    config_param :format, :default => :tsv do |val|
+      f = ExecUtil::SUPPORTED_FORMAT[val]
+      raise ConfigError, "Unsupported format '#{val}'" unless f
+      f
+    end
 
     def configure(conf)
       super
 
-      @keys = @keys.split(',')
+      @formatter = case @format
+                   when :tsv
+                     if @keys.empty?
+                       raise ConfigError, "keys option is required on exec output for tsv format"
+                     end
+                     ExecUtil::TSVFormatter.new(@keys)
+                   when :json
+                     ExecUtil::JSONFormatter.new
+                   when :msgpack
+                     ExecUtil::MessagePackFormatter.new
+                   end
 
       if @time_key
         if @time_format
           tf = TimeFormatter.new(@time_format, @localtime)
           @time_format_proc = tf.method(:format)
         else
-          @time_format_proc = Proc.new {|time| time.to_s }
+          @time_format_proc = Proc.new { |time| time.to_s }
         end
       end
     end
 
     def format(tag, time, record)
       out = ''
-      last = @keys.length-1
-      for i in 0..last
-        key = @keys[i]
-        if key == @time_key
-          out << @time_format_proc.call(time)
-        elsif key == @tag_key
-          out << tag
-        else
-          out << record[key].to_s
-        end
-        out << "\t" if i != last
+      if @time_key
+        record[@time_key] = @time_format_proc.call(time)
       end
-      out << "\n"
+      if @tag_key
+        record[@tag_key] = tag
+      end
+      @formatter.call(record, out)
       out
     end
 

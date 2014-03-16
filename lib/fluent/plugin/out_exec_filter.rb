@@ -15,20 +15,16 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
+require 'fluent/plugin/exec_util'
+
 module Fluent
   class ExecFilterOutput < BufferedOutput
     Plugin.register_output('exec_filter', self)
 
     def initialize
       super
-      require 'fluent/plugin/exec_util'
     end
-
-    SUPPORTED_FORMAT = {
-      'tsv' => :tsv,
-      'json' => :json,
-      'msgpack' => :msgpack,
-    }
 
     config_param :command, :string
 
@@ -36,7 +32,7 @@ module Fluent
     config_param :add_prefix, :string, :default => nil
 
     config_param :in_format, :default => :tsv do |val|
-      f = SUPPORTED_FORMAT[val]
+      f = ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported in_format '#{val}'" unless f
       f
     end
@@ -48,7 +44,7 @@ module Fluent
     config_param :in_time_format, :default => nil
 
     config_param :out_format, :default => :tsv do |val|
-      f = SUPPORTED_FORMAT[val]
+      f = ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported out_format '#{val}'" unless f
       f
     end
@@ -140,11 +136,11 @@ module Fluent
         if @in_keys.empty?
           raise ConfigError, "in_keys option is required on exec_filter output for tsv in_format"
         end
-        @formatter = TSVFormatter.new(@in_keys)
+        @formatter = ExecUtil::TSVFormatter.new(@in_keys)
       when :json
-        @formatter = JSONFormatter.new
+        @formatter = ExecUtil::JSONFormatter.new
       when :msgpack
-        @formatter = MessagePackFormatter.new
+        @formatter = ExecUtil::MessagePackFormatter.new
       end
 
       case @out_format
@@ -330,38 +326,6 @@ module Fluent
             @log.warn "exec_filter child process will respawn for next input data (respawns #{@respawns})."
           end
         end
-      end
-    end
-
-    class Formatter
-    end
-
-    class TSVFormatter < Formatter
-      def initialize(in_keys)
-        @in_keys = in_keys
-        super()
-      end
-
-      def call(record, out)
-        last = @in_keys.length-1
-        for i in 0..last
-          key = @in_keys[i]
-          out << record[key].to_s
-          out << "\t" if i != last
-        end
-        out << "\n"
-      end
-    end
-
-    class JSONFormatter < Formatter
-      def call(record, out)
-        out << Yajl.dump(record) << "\n"
-      end
-    end
-
-    class MessagePackFormatter < Formatter
-      def call(record, out)
-        record.to_msgpack(out)
       end
     end
 

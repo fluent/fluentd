@@ -1,5 +1,11 @@
 module Fluent
   module ExecUtil
+    SUPPORTED_FORMAT = {
+      'tsv' => :tsv,
+      'json' => :json,
+      'msgpack' => :msgpack,
+    }
+
     class Parser
       def initialize(on_message)
         @on_message = on_message
@@ -43,7 +49,37 @@ module Fluent
         end
       end
     end
+
+    class Formatter
+    end
+
+    class TSVFormatter < Formatter
+      def initialize(in_keys)
+        @in_keys = in_keys
+        super()
+      end
+
+      def call(record, out)
+        last = @in_keys.length-1
+        for i in 0..last
+          key = @in_keys[i]
+          out << record[key].to_s
+          out << "\t" if i != last
+        end
+        out << "\n"
+      end
+    end
+
+    class JSONFormatter < Formatter
+      def call(record, out)
+        out << Yajl.dump(record) << "\n"
+      end
+    end
+
+    class MessagePackFormatter < Formatter
+      def call(record, out)
+        record.to_msgpack(out)
+      end
+    end
   end
 end
-
-
