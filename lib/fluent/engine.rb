@@ -24,6 +24,7 @@ module Fluent
       @match_cache_keys = []
       @started = []
       @default_loop = nil
+      @engine_stopped = false
 
       @log_emit_thread = nil
       @log_event_loop_stop = false
@@ -208,11 +209,18 @@ module Fluent
           @log_emit_thread = Thread.new(&method(:log_event_loop))
         end
 
-        # for empty loop
-        @default_loop = Coolio::Loop.default
-        @default_loop.attach Coolio::TimerWatcher.new(1, true)
-        # TODO attach async watch for thread pool
-        @default_loop.run
+        unless @engine_stopped
+          # for empty loop
+          @default_loop = Coolio::Loop.default
+          @default_loop.attach Coolio::TimerWatcher.new(1, true)
+          # TODO attach async watch for thread pool
+          @default_loop.run
+        end
+
+        if @engine_stopped and @default_loop
+          @default_loop.stop
+          @default_loop = nil
+        end
 
       rescue => e
         $log.error "unexpected error", :error_class=>e.class, :error=>e
@@ -228,6 +236,7 @@ module Fluent
     end
 
     def stop
+      @engine_stopped = true
       if @default_loop
         @default_loop.stop
         @default_loop = nil
