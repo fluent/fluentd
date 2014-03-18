@@ -29,6 +29,7 @@ module Fluent
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :backlog, :integer, :default => nil
+    config_param :linger_timeout, :integer, :default => 0
 
     def configure(conf)
       super
@@ -64,7 +65,7 @@ module Fluent
 
     def listen
       log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, log, method(:on_message))
+      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s
     end
@@ -145,10 +146,10 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
-      def initialize(io, log, on_message)
+      def initialize(io, linger_timeout, log, on_message)
         super(io)
         if io.is_a?(TCPSocket)
-          opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
         @on_message = on_message
