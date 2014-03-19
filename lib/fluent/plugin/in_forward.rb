@@ -29,6 +29,7 @@ module Fluent
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :backlog, :integer, :default => nil
+    # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
     config_param :linger_timeout, :integer, :default => 0
 
     def configure(conf)
