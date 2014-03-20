@@ -22,12 +22,15 @@ module Fluent
     def initialize
       super
       @paths = []
+      @tails = {}
     end
 
     config_param :path, :string
     config_param :tag, :string
     config_param :rotate_wait, :time, :default => 5
     config_param :pos_file, :string, :default => nil
+    config_param :read_from_head, :bool, :default => false
+    config_param :refresh_interval, :time, :default => nil
 
     attr_reader :paths
 
@@ -45,6 +48,7 @@ module Fluent
       end
 
       configure_parser(conf)
+      configure_tag
 
       @multiline_mode = conf['format'] == 'multiline'
       @receive_handler = if @multiline_mode
@@ -59,6 +63,16 @@ module Fluent
       @parser.configure(conf)
     end
 
+    def configure_tag
+      if @tag.index('*')
+        @tag_prefix, @tag_suffix = @tag.split('*')
+        @tag_suffix ||= ''
+      else
+        @tag_prefix = nil
+        @tag_suffix = nil
+      end
+    end
+
     def start
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
@@ -67,41 +81,86 @@ module Fluent
       end
 
       @loop = Coolio::Loop.new
-      @tails = @paths.map {|path|
-        pe = @pf ? @pf[path] : MemoryPositionEntry.new
-        tw = TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
-        tw.log = log
-        tw
-      }
-      @tails.each {|tail|
-        tail.attach(@loop)
-      }
+      refresh_watchers
+
+      if @refresh_interval
+        @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, &method(:refresh_watchers))
+        @refresh_trigger.attach(@loop)
+      end
+
       @thread = Thread.new(&method(:run))
     end
 
     def shutdown
-      @tails.each {|tail|
-        tail.close
-      }
+      @refresh_trigger.detach if @refresh_trigger && @refresh_trigger.attached?
+
+      stop_watchers(@tails.keys, true)
       @loop.stop
       @thread.join
-
-      flush_buffer if @multiline_mode
       @pf_file.close if @pf_file
     end
 
-    def flush_buffer
-      @tails.each { |tail|
-        if lb = tail.line_buffer
-          lb.chomp!
-          time, record = parse_line(lb)
-          if time && record
-            Engine.emit(@tag, time, record)
-          else
-            log.warn "got incomplete line at shutdown from #{tail.path}: #{lb.inspect}"
+    def expand_paths
+      date = Time.now
+      paths = []
+      @paths.each { |path|
+        path = date.strftime(path)
+        paths += Dir.glob(path)
+      }
+      paths
+    end
+
+    def refresh_watchers
+      target_paths = expand_paths
+      existence_paths = @tails.keys
+
+      missing = existence_paths - target_paths
+      added = target_paths - existence_paths
+
+      stop_watchers(missing) unless missing.empty?
+      start_watchers(added) unless added.empty?
+    end
+
+    def start_watchers(paths)
+      paths.each { |path|
+        pe = nil
+        if @pf
+          pe = @pf[path]
+          if @read_from_head && pe.read_inode.zero?
+            pe.update(File::Stat.new(path).ino, 0)
           end
         end
+
+        tw = TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
+        tw.log = log
+        tw.attach(@loop)
+        @tails[path] = tw
       }
+    end
+
+    def stop_watchers(paths, immediate = false)
+      close_loop = immediate ? nil : @loop
+      paths.each { |path|
+        tw = @tails.delete(path)
+        tw.close(close_loop, &method(:flush_buffer)) if tw
+      }
+    end
+
+    def flush_buffer(tw)
+      if lb = tw.line_buffer
+        lb.chomp!
+        time, record = parse_line(lb)
+        if time && record
+          tag = if @tag_prefix || @tag_suffix
+                  @tag_prefix + tail_watcher.tag + @tag_suffix
+                else
+                  @tag
+                end
+          Engine.emit(tag, time, record)
+        else
+          log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
+        end
+      end
     end
 
     def run
@@ -114,8 +173,13 @@ module Fluent
     def receive_lines(lines, tail_watcher)
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
+        tag = if @tag_prefix || @tag_suffix
+                @tag_prefix + tail_watcher.tag + @tag_suffix
+              else
+                @tag
+              end
         begin
-          Engine.emit_stream(@tag, es)
+          Engine.emit_stream(tag, es)
         rescue
           # ignore errors. Engine shows logs and backtraces.
         end
@@ -202,6 +266,10 @@ module Fluent
         @rotate_handler.log = logger
       end
 
+      def tag
+        @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
+      end
+
       def wrap_receive_lines(lines)
         @receive_lines.call(lines, self)
       end
@@ -217,12 +285,32 @@ module Fluent
         @stat_trigger.detach if @stat_trigger.attached?
       end
 
-      def close
+      def close(loop, &callback)
+        detach  # detach first to avoid timer conflict
+        @close_callback = callback
+        if loop
+          @close_trigger = TimerWatcher.new(@rotate_wait * 2, false, &method(:_close))
+          @close_trigger.attach(loop)
+        else
+          _close
+        end
+      end
+
+      def close_queue
         @rotate_queue.reject! {|req|
           req.io.close
           true
         }
         detach
+      end
+
+      def _close
+        @close_trigger.detach if @close_trigger && @close_trigger.attached?
+        close_queue
+
+        @io_handler.on_notify
+        @io_handler.close
+        @close_callback.call(self)
       end
 
       def on_notify
