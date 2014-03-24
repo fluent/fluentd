@@ -203,4 +203,31 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "test4"}, emits[2][2])
     assert_equal({"message" => "test4"}, emits[3][2])
   end
+
+  def test_path_key
+    File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+
+    d = create_driver(%[
+      path #{TMP_DIR}/tail.txt
+      tag t1
+      format /(?<message>.*)/
+      path_key path
+    ], false)
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message"=>"test1", "path"=>"#{TMP_DIR}/tail.txt"}, emits[0][2])
+    assert_equal({"message"=>"test2", "path"=>"#{TMP_DIR}/tail.txt"}, emits[1][2])
+  end
+
 end
