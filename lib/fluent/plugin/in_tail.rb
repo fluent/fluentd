@@ -94,7 +94,7 @@ module Fluent
     def shutdown
       @refresh_trigger.detach if @refresh_trigger && @refresh_trigger.attached?
 
-      stop_watchers(@tails.keys, true)
+      stop_watchers(@tails.keys)
       @loop.stop
       @thread.join
       @pf_file.close if @pf_file
@@ -143,8 +143,7 @@ module Fluent
       }
     end
 
-    def stop_watchers(paths, immediate = false)
-      close_loop = immediate ? nil : @loop
+    def stop_watchers(paths)
       paths.each { |path|
         tw = @tails.delete(path)
         if tw
