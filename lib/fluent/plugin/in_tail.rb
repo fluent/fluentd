@@ -110,6 +110,11 @@ module Fluent
       paths
     end
 
+    # Current in_tail with '*' path doesn't check rotation file equality at refresh phase.
+    # So you should not use '*' path when your logs will be rotated by another tool.
+    # It will cause log duplication after updated watch files.
+    # In such case, you should separate log directory and specify two paths in path parameter.
+    # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
     def refresh_watchers
       target_paths = expand_paths
       existence_paths = @tails.keys
@@ -142,7 +147,10 @@ module Fluent
       close_loop = immediate ? nil : @loop
       paths.each { |path|
         tw = @tails.delete(path)
-        tw.close(close_loop, &method(:flush_buffer)) if tw
+        if tw
+          tw.close
+          flush_buffer(tw)
+        end
       }
     end
 
@@ -285,32 +293,12 @@ module Fluent
         @stat_trigger.detach if @stat_trigger.attached?
       end
 
-      def close(loop, &callback)
-        detach  # detach first to avoid timer conflict
-        @close_callback = callback
-        if loop
-          @close_trigger = TimerWatcher.new(@rotate_wait * 2, false, &method(:_close))
-          @close_trigger.attach(loop)
-        else
-          _close
-        end
-      end
-
-      def close_queue
-        @rotate_queue.reject! {|req|
-          req.io.close
+      def close
+        @rotate_queue.reject! { |req|
+          req.io.close if req.io  # io is nil when on_notify is called shortly after a file is deleted
           true
         }
         detach
-      end
-
-      def _close
-        @close_trigger.detach if @close_trigger && @close_trigger.attached?
-        close_queue
-
-        @io_handler.on_notify
-        @io_handler.close
-        @close_callback.call(self)
       end
 
       def on_notify

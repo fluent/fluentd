@@ -240,9 +240,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     flexstub(Time) do |timeclass|
-      timeclass.should_receive(:now).with_no_args.and_return(
-        Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6),
-        Time.new(2010, 1, 2, 3, 4, 7))
+      timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6), Time.new(2010, 1, 2, 3, 4, 7))
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
@@ -250,6 +248,7 @@ class TailInputTest < Test::Unit::TestCase
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:log=).once
+              watcher.should_receive(:line_buffer).zero_or_more_times
             }
           end
         end
@@ -266,6 +265,7 @@ class TailInputTest < Test::Unit::TestCase
             watcher.should_receive(:attach).once
             watcher.should_receive(:close).once
             watcher.should_receive(:log=).once
+            watcher.should_receive(:line_buffer).zero_or_more_times
           end
         end
         plugin.refresh_watchers
