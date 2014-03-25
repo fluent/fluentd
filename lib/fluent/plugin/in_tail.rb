@@ -30,7 +30,7 @@ module Fluent
     config_param :rotate_wait, :time, :default => 5
     config_param :pos_file, :string, :default => nil
     config_param :read_from_head, :bool, :default => false
-    config_param :refresh_interval, :time, :default => nil
+    config_param :refresh_interval, :time, :default => 60
 
     attr_reader :paths
 
@@ -83,11 +83,8 @@ module Fluent
       @loop = Coolio::Loop.new
       refresh_watchers
 
-      if @refresh_interval
-        @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, &method(:refresh_watchers))
-        @refresh_trigger.attach(@loop)
-      end
-
+      @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, &method(:refresh_watchers))
+      @refresh_trigger.attach(@loop)
       @thread = Thread.new(&method(:run))
     end
 
@@ -105,7 +102,12 @@ module Fluent
       paths = []
       @paths.each { |path|
         path = date.strftime(path)
-        paths += Dir.glob(path)
+        if path.include?('*')
+          paths += Dir.glob(path)
+        else
+          # When file is not created yet, Dir.glob returns an empty array. So just add when static path.
+          paths << path
+        end
       }
       paths
     end
