@@ -209,6 +209,7 @@ class TailInputTest < Test::Unit::TestCase
 
   # * path test
   # TODO: Clean up tests
+  EX_RORATE_WAIT = 0
 
   EX_CONFIG = %[
     tag tail
@@ -217,6 +218,7 @@ class TailInputTest < Test::Unit::TestCase
     pos_file #{TMP_DIR}/tail.pos
     read_from_head true
     refresh_interval 30
+    rotate_wait #{EX_RORATE_WAIT}s
   ]
   EX_PATHS = [
     'test/plugin/data/2010/01/20100102-030405.log',
@@ -237,16 +239,18 @@ class TailInputTest < Test::Unit::TestCase
     sio = StringIO.new
     plugin.instance_eval do
       @pf = Fluent::NewTailInput::PositionFile.parse(sio)
-    end
+      @loop = Coolio::Loop.new
+   end
 
     flexstub(Time) do |timeclass|
       timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6), Time.new(2010, 1, 2, 3, 4, 7))
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, 5, Fluent::NewTailInput::FilePositionEntry, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
+              watcher.should_receive(:log).zero_or_more_times
               watcher.should_receive(:log=).once
               watcher.should_receive(:line_buffer).zero_or_more_times
             }
@@ -256,14 +260,14 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       plugin.instance_eval do
-        @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).once
+        @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).zero_or_more_times
       end
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', 5, Fluent::NewTailInput::FilePositionEntry, any).once.and_return do
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
-            watcher.should_receive(:close).once
+            watcher.should_receive(:log).zero_or_more_times
             watcher.should_receive(:log=).once
             watcher.should_receive(:line_buffer).zero_or_more_times
           end
