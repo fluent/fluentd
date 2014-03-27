@@ -83,7 +83,7 @@ module Fluent
       @loop = Coolio::Loop.new
       refresh_watchers
 
-      @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, &method(:refresh_watchers))
+      @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, log, &method(:refresh_watchers))
       @refresh_trigger.attach(@loop)
       @thread = Thread.new(&method(:run))
     end
@@ -129,8 +129,7 @@ module Fluent
     end
 
     def setup_watcher(path, pe)
-      tw = TailWatcher.new(path, @rotate_wait, pe, method(:update_watcher), &method(:receive_lines))
-      tw.log = log
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, method(:update_watcher), &method(:receive_lines))
       tw.attach(@loop)
       tw
     end
@@ -175,7 +174,7 @@ module Fluent
     end
 
     def close_watcher_after_rotate_wait(tw)
-      closer = TailWatcher::Closer.new(@rotate_wait, tw, &method(:close_watcher))
+      closer = TailWatcher::Closer.new(@rotate_wait, tw, log, &method(:close_watcher))
       closer.attach(@loop)
     end
 
@@ -268,35 +267,23 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, update_watcher, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, update_watcher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @timer_trigger = TimerWatcher.new(1, true, &method(:on_notify))
-        @stat_trigger = StatWatcher.new(path, &method(:on_notify))
+        @timer_trigger = TimerWatcher.new(1, true, log, &method(:on_notify))
+        @stat_trigger = StatWatcher.new(path, log, &method(:on_notify))
 
-        @rotate_handler = RotateHandler.new(path, &method(:on_rotate))
+        @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
         @io_handler = nil
-        @log = $log
+        @log = log
       end
 
       attr_reader :path
       attr_accessor :line_buffer
-
-      # We use accessor approach to assign each logger, not passing log object at initialization,
-      # because several plugins depend on these internal classes.
-      # This approach avoids breaking plugins with new log_level option.
-      attr_accessor :log
-
-      def log=(logger)
-        @log = logger
-        @timer_trigger.log = logger
-        @stat_trigger.log = logger
-        @rotate_handler.log = logger
-      end
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
@@ -363,14 +350,14 @@ module Fluent
             end
             io.seek(pos)
 
-            @io_handler = IOHandler.new(io, @pe, log, &method(:wrap_receive_lines))
+            @io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
           else
             @io_handler = NullIOHandler.new
           end
         else
           log_msg = "detected rotation of #{@path}"
           log_msg << "; waiting #{@rotate_wait} seconds" if @io_handler.io  # wait rotate_time if previous file is exist
-          log.info log_msg
+          @log.info log_msg
 
           @update_watcher.call(@path, swap_state(@pe))
         end
@@ -380,7 +367,7 @@ module Fluent
           mpe = MemoryPositionEntry.new
           mpe.update(pe.read_inode, pe.read_pos)
           @pe = mpe
-          @io_handler = IOHandler.new(@io_handler.io, mpe, log, false, &method(:wrap_receive_lines))
+          @io_handler = IOHandler.new(@io_handler.io, mpe, @log, false, &method(:wrap_receive_lines))
 
           # This pe is updated in on_rotate method after TailWatcher is initialized
           pe
@@ -388,13 +375,11 @@ module Fluent
       end
 
       class TimerWatcher < Coolio::TimerWatcher
-        def initialize(interval, repeat, &callback)
+        def initialize(interval, repeat, log, &callback)
           @callback = callback
-          @log = $log
+          @log = log
           super(interval, repeat)
         end
-
-        attr_accessor :log
 
         def on_timer
           @callback.call
@@ -406,13 +391,11 @@ module Fluent
       end
 
       class StatWatcher < Coolio::StatWatcher
-        def initialize(path, &callback)
+        def initialize(path, log, &callback)
           @callback = callback
-          @log = $log
+          @log = log
           super(path)
         end
-
-        attr_accessor :log
 
         def on_change(prev, cur)
           @callback.call
@@ -424,10 +407,10 @@ module Fluent
       end
 
       class Closer < Coolio::TimerWatcher
-        def initialize(interval, tw, &callback)
+        def initialize(interval, tw, log, &callback)
           @callback = callback
           @tw = tw
-          @log = tw.log
+          @log = log
           super(interval, false)
         end
 
@@ -510,15 +493,13 @@ module Fluent
       end
 
       class RotateHandler
-        def initialize(path, &on_rotate)
+        def initialize(path, log, &on_rotate)
           @path = path
           @inode = nil
           @fsize = -1  # first
           @on_rotate = on_rotate
-          @log = $log
+          @log = log
         end
-
-        attr_accessor :log
 
         def on_notify
           begin

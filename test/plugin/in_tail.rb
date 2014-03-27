@@ -247,11 +247,9 @@ class TailInputTest < Test::Unit::TestCase
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
-              watcher.should_receive(:log).zero_or_more_times
-              watcher.should_receive(:log=).once
               watcher.should_receive(:line_buffer).zero_or_more_times
             }
           end
@@ -264,11 +262,9 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, any).once.and_return do
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
-            watcher.should_receive(:log).zero_or_more_times
-            watcher.should_receive(:log=).once
             watcher.should_receive(:line_buffer).zero_or_more_times
           end
         end
