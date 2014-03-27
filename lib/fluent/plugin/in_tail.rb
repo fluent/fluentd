@@ -359,7 +359,17 @@ module Fluent
           log_msg << "; waiting #{@rotate_wait} seconds" if @io_handler.io  # wait rotate_time if previous file is exist
           @log.info log_msg
 
-          @update_watcher.call(@path, swap_state(@pe))
+          if io
+            stat = io.stat
+            if stat.ino == @pe.read_inode # truncated
+              @pe.update_pos(stat.size)
+              io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+              @io_handler.close
+              @io_handler = io_handler
+            else
+              @update_watcher.call(@path, swap_state(@pe))
+            end
+          end
         end
 
         def swap_state(pe)
