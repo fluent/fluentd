@@ -361,14 +361,22 @@ module Fluent
 
           if io
             stat = io.stat
-            if stat.ino == @pe.read_inode # truncated
+            inode = stat.ino
+            if inode == @pe.read_inode # truncated
               @pe.update_pos(stat.size)
               io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
               @io_handler.close
               @io_handler = io_handler
+            elsif @io_handler.io.nil? # There is no previous file. Reuse TailWatcher
+              @pe.update(inode, io.pos)
+              io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+              @io_handler = io_handler
             else
               @update_watcher.call(@path, swap_state(@pe))
             end
+          else
+            @io_handler.close
+            @io_handler = NullIOHandler.new
           end
         end
 
