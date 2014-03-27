@@ -25,6 +25,7 @@ module Fluent
     end
 
     config_param :path, :string
+    config_param :path_key, :string, :default => nil
     config_param :tag, :string
     config_param :rotate_wait, :time, :default => 5
     config_param :pos_file, :string, :default => nil
@@ -126,11 +127,12 @@ module Fluent
       return @parser.parse(line)
     end
 
-    def convert_line_to_event(line, es)
+    def convert_line_to_event(line, es, tail_watcher)
       begin
         line.chomp!  # remove \n
         time, record = parse_line(line)
         if time && record
+          record[@path_key] ||= tail_watcher.path unless @path_key.nil?
           es.add(time, record)
         else
           log.warn "pattern not match: #{line.inspect}"
@@ -144,7 +146,7 @@ module Fluent
     def parse_singleline(lines, tail_watcher)
       es = MultiEventStream.new
       lines.each { |line|
-        convert_line_to_event(line, es)
+        convert_line_to_event(line, es, tail_watcher)
       }
       es
     end
@@ -155,7 +157,7 @@ module Fluent
       lines.each { |line|
         if @parser.parser.firstline?(line)
           if lb
-            convert_line_to_event(lb, es)
+            convert_line_to_event(lb, es, tail_watcher)
           end
           lb = line
         else
