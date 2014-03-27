@@ -92,7 +92,7 @@ module Fluent
       @refresh_trigger.detach if @refresh_trigger && @refresh_trigger.attached?
 
       stop_watchers(@tails.keys, true)
-      @loop.stop
+      @loop.stop rescue nil # when all watchers are detached, `stop` raises RuntimeError. We can ignore such exception.
       @thread.join
       @pf_file.close if @pf_file
     end
