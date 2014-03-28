@@ -92,7 +92,7 @@ module Fluent
       @refresh_trigger.detach if @refresh_trigger && @refresh_trigger.attached?
 
       stop_watchers(@tails.keys, true)
-      @loop.stop rescue nil # when all watchers are detached, `stop` raises RuntimeError. We can ignore such exception.
+      @loop.stop rescue nil # when all watchers are detached, `stop` raises RuntimeError. We can ignore this exception.
       @thread.join
       @pf_file.close if @pf_file
     end
@@ -105,14 +105,14 @@ module Fluent
         if path.include?('*')
           paths += Dir.glob(path)
         else
-          # When file is not created yet, Dir.glob returns an empty array. So just add when static path.
+          # When file is not created yet, Dir.glob returns an empty array. So just add when path is static.
           paths << path
         end
       }
       paths
     end
 
-    # Current in_tail with '*' path doesn't check rotation file equality at refresh phase.
+    # in_tail with '*' path doesn't check rotation file equality at refresh phase.
     # So you should not use '*' path when your logs will be rotated by another tool.
     # It will cause log duplication after updated watch files.
     # In such case, you should separate log directory and specify two paths in path parameter.
@@ -162,7 +162,7 @@ module Fluent
       }
     end
 
-    # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher call sequence for safety.
+    # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(path, pe)
       rotated_tw = @tails[path]
       @tails[path] = setup_watcher(path, pe)
@@ -601,12 +601,12 @@ module Fluent
       # Clean up unwatched file entries
       def self.compact(file)
         file.pos = 0
-        existent_entries = file.each_line.map { |line|
+        existent_entries = file.each_line.select { |line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
           next unless m
           pos = m[2].to_i(16)
           pos == UNWATCHED_POSITION ? nil : line
-        }.compact
+        }
 
         file.pos = 0
         file.truncate(0)
