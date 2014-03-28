@@ -1,3 +1,12 @@
+Release 0.10.45 - 2014/03/28
+
+* in_tail: Merge in_tail_ex and in_tail_multiline features
+* in_forward: Add linger_timeout option
+* out_exec: Support json and msgpack format
+* Engine: Fix signal handling when receives SIGTERM before loop starts
+* Use correct out_forward option in fluent.conf with --setup option
+* Ignore sigdump exception on signal unsupported environment
+
 Release 0.10.44 - 2014/02/26
 
 * in_forward: Print remote address and port in trace log
