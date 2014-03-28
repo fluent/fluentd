@@ -121,10 +121,10 @@ module Fluent
       target_paths = expand_paths
       existence_paths = @tails.keys
 
-      missing = existence_paths - target_paths
+      unwatched = existence_paths - target_paths
       added = target_paths - existence_paths
 
-      stop_watchers(missing) unless missing.empty?
+      stop_watchers(unwatched, false, true) unless unwatched.empty?
       start_watchers(added) unless added.empty?
     end
 
@@ -148,10 +148,11 @@ module Fluent
       }
     end
 
-    def stop_watchers(paths, immediate = false)
+    def stop_watchers(paths, immediate = false, unwatched = false)
       paths.each { |path|
         tw = @tails.delete(path)
         if tw
+          tw.unwatched = unwatched
           if immediate
             close_watcher(tw)
           else
@@ -171,6 +172,9 @@ module Fluent
     def close_watcher(tw)
       tw.close
       flush_buffer(tw)
+      if tw.unwatched && @pf
+        @pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
+      end
     end
 
     def close_watcher_after_rotate_wait(tw)
@@ -284,6 +288,7 @@ module Fluent
 
       attr_reader :path
       attr_accessor :line_buffer
+      attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
@@ -553,6 +558,8 @@ module Fluent
 
 
     class PositionFile
+      UNWATCHED_POSITION = 0xffffffffffffffff
+
       def initialize(file, map, last_pos)
         @file = file
         @map = map
@@ -575,6 +582,8 @@ module Fluent
       end
 
       def self.parse(file)
+        compact(file)
+
         map = {}
         file.pos = 0
         file.each_line {|line|
@@ -587,6 +596,21 @@ module Fluent
           map[path] = FilePositionEntry.new(file, seek)
         }
         new(file, map, file.pos)
+      end
+
+      # Clean up unwatched file entries
+      def self.compact(file)
+        file.pos = 0
+        existent_entries = file.each_line.map { |line|
+          m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
+          next unless m
+          pos = m[2].to_i(16)
+          pos == UNWATCHED_POSITION ? nil : line
+        }.compact
+
+        file.pos = 0
+        file.truncate(0)
+        file.write(existent_entries.join)
       end
     end
 
