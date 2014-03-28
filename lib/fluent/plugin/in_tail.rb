@@ -385,10 +385,9 @@ module Fluent
           mpe = MemoryPositionEntry.new
           mpe.update(pe.read_inode, pe.read_pos)
           @pe = mpe
-          @io_handler = IOHandler.new(@io_handler.io, mpe, @log, false, &method(:wrap_receive_lines))
+          @io_handler.pe = mpe # Don't re-create IOHandler because IOHandler has an internal buffer.
 
-          # This pe is updated in on_rotate method after TailWatcher is initialized
-          pe
+          pe # This pe will be updated in on_rotate after TailWatcher is initialized
         end
       end
 
@@ -454,6 +453,7 @@ module Fluent
         end
 
         attr_reader :io
+        attr_accessor :pe
 
         def on_notify
           begin
