@@ -22,12 +22,15 @@ module Fluent
     def initialize
       super
       @paths = []
+      @tails = {}
     end
 
     config_param :path, :string
     config_param :tag, :string
     config_param :rotate_wait, :time, :default => 5
     config_param :pos_file, :string, :default => nil
+    config_param :read_from_head, :bool, :default => false
+    config_param :refresh_interval, :time, :default => 60
 
     attr_reader :paths
 
@@ -45,6 +48,7 @@ module Fluent
       end
 
       configure_parser(conf)
+      configure_tag
 
       @multiline_mode = conf['format'] == 'multiline'
       @receive_handler = if @multiline_mode
@@ -59,6 +63,16 @@ module Fluent
       @parser.configure(conf)
     end
 
+    def configure_tag
+      if @tag.index('*')
+        @tag_prefix, @tag_suffix = @tag.split('*')
+        @tag_suffix ||= ''
+      else
+        @tag_prefix = nil
+        @tag_suffix = nil
+      end
+    end
+
     def start
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
@@ -67,41 +81,122 @@ module Fluent
       end
 
       @loop = Coolio::Loop.new
-      @tails = @paths.map {|path|
-        pe = @pf ? @pf[path] : MemoryPositionEntry.new
-        tw = TailWatcher.new(path, @rotate_wait, pe, &method(:receive_lines))
-        tw.log = log
-        tw
-      }
-      @tails.each {|tail|
-        tail.attach(@loop)
-      }
+      refresh_watchers
+
+      @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, log, &method(:refresh_watchers))
+      @refresh_trigger.attach(@loop)
       @thread = Thread.new(&method(:run))
     end
 
     def shutdown
-      @tails.each {|tail|
-        tail.close
-      }
-      @loop.stop
-      @thread.join
+      @refresh_trigger.detach if @refresh_trigger && @refresh_trigger.attached?
 
-      flush_buffer if @multiline_mode
+      stop_watchers(@tails.keys, true)
+      @loop.stop rescue nil # when all watchers are detached, `stop` raises RuntimeError. We can ignore this exception.
+      @thread.join
       @pf_file.close if @pf_file
     end
 
-    def flush_buffer
-      @tails.each { |tail|
-        if lb = tail.line_buffer
-          lb.chomp!
-          time, record = parse_line(lb)
-          if time && record
-            Engine.emit(@tag, time, record)
+    def expand_paths
+      date = Time.now
+      paths = []
+      @paths.each { |path|
+        path = date.strftime(path)
+        if path.include?('*')
+          paths += Dir.glob(path)
+        else
+          # When file is not created yet, Dir.glob returns an empty array. So just add when path is static.
+          paths << path
+        end
+      }
+      paths
+    end
+
+    # in_tail with '*' path doesn't check rotation file equality at refresh phase.
+    # So you should not use '*' path when your logs will be rotated by another tool.
+    # It will cause log duplication after updated watch files.
+    # In such case, you should separate log directory and specify two paths in path parameter.
+    # e.g. path /path/to/dir/*,/path/to/rotated_logs/target_file
+    def refresh_watchers
+      target_paths = expand_paths
+      existence_paths = @tails.keys
+
+      unwatched = existence_paths - target_paths
+      added = target_paths - existence_paths
+
+      stop_watchers(unwatched, false, true) unless unwatched.empty?
+      start_watchers(added) unless added.empty?
+    end
+
+    def setup_watcher(path, pe)
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, method(:update_watcher), &method(:receive_lines))
+      tw.attach(@loop)
+      tw
+    end
+
+    def start_watchers(paths)
+      paths.each { |path|
+        pe = nil
+        if @pf
+          pe = @pf[path]
+          if @read_from_head && pe.read_inode.zero?
+            pe.update(File::Stat.new(path).ino, 0)
+          end
+        end
+
+        @tails[path] = setup_watcher(path, pe)
+      }
+    end
+
+    def stop_watchers(paths, immediate = false, unwatched = false)
+      paths.each { |path|
+        tw = @tails.delete(path)
+        if tw
+          tw.unwatched = unwatched
+          if immediate
+            close_watcher(tw)
           else
-            log.warn "got incomplete line at shutdown from #{tail.path}: #{lb.inspect}"
+            close_watcher_after_rotate_wait(tw)
           end
         end
       }
+    end
+
+    # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
+    def update_watcher(path, pe)
+      rotated_tw = @tails[path]
+      @tails[path] = setup_watcher(path, pe)
+      close_watcher_after_rotate_wait(rotated_tw) if rotated_tw
+    end
+
+    def close_watcher(tw)
+      tw.close
+      flush_buffer(tw)
+      if tw.unwatched && @pf
+        @pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
+      end
+    end
+
+    def close_watcher_after_rotate_wait(tw)
+      closer = TailWatcher::Closer.new(@rotate_wait, tw, log, &method(:close_watcher))
+      closer.attach(@loop)
+    end
+
+    def flush_buffer(tw)
+      if lb = tw.line_buffer
+        lb.chomp!
+        time, record = parse_line(lb)
+        if time && record
+          tag = if @tag_prefix || @tag_suffix
+                  @tag_prefix + tail_watcher.tag + @tag_suffix
+                else
+                  @tag
+                end
+          Engine.emit(tag, time, record)
+        else
+          log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
+        end
+      end
     end
 
     def run
@@ -114,8 +209,13 @@ module Fluent
     def receive_lines(lines, tail_watcher)
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
+        tag = if @tag_prefix || @tag_suffix
+                @tag_prefix + tail_watcher.tag + @tag_suffix
+              else
+                @tag
+              end
         begin
-          Engine.emit_stream(@tag, es)
+          Engine.emit_stream(tag, es)
         rescue
           # ignore errors. Engine shows logs and backtraces.
         end
@@ -171,35 +271,27 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, update_watcher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @receive_lines = receive_lines
+        @update_watcher = update_watcher
 
-        @rotate_queue = []
+        @timer_trigger = TimerWatcher.new(1, true, log, &method(:on_notify))
+        @stat_trigger = StatWatcher.new(path, log, &method(:on_notify))
 
-        @timer_trigger = TimerWatcher.new(1, true, &method(:on_notify))
-        @stat_trigger = StatWatcher.new(path, &method(:on_notify))
-
-        @rotate_handler = RotateHandler.new(path, &method(:on_rotate))
+        @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
         @io_handler = nil
-        @log = $log
+        @log = log
       end
 
       attr_reader :path
       attr_accessor :line_buffer
+      attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
-      # We use accessor approach to assign each logger, not passing log object at initialization,
-      # because several plugins depend on these internal classes.
-      # This approach avoids breaking plugins with new log_level option.
-      attr_accessor :log
-
-      def log=(logger)
-        @log = logger
-        @timer_trigger.log = logger
-        @stat_trigger.log = logger
-        @rotate_handler.log = logger
+      def tag
+        @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
       end
 
       def wrap_receive_lines(lines)
@@ -218,10 +310,10 @@ module Fluent
       end
 
       def close
-        @rotate_queue.reject! {|req|
-          req.io.close
-          true
-        }
+        if @io_handler
+          @io_handler.on_notify
+          @io_handler.close
+        end
         detach
       end
 
@@ -229,35 +321,6 @@ module Fluent
         @rotate_handler.on_notify
         return unless @io_handler
         @io_handler.on_notify
-
-        # proceeds rotate queue
-        return if @rotate_queue.empty?
-        @rotate_queue.first.tick
-
-        while @rotate_queue.first.ready?
-          if io = @rotate_queue.first.io
-            stat = io.stat
-            inode = stat.ino
-            if inode == @pe.read_inode
-              # rotated file has the same inode number with the last file.
-              # assuming following situation:
-              #   a) file was once renamed and backed, or
-              #   b) symlink or hardlink to the same file is recreated
-              # in either case, seek to the saved position
-              pos = @pe.read_pos
-            else
-              pos = io.pos
-            end
-            @pe.update(inode, pos)
-            io_handler = IOHandler.new(io, @pe, log, &method(:wrap_receive_lines))
-          else
-            io_handler = NullIOHandler.new
-          end
-          @io_handler.close
-          @io_handler = io_handler
-          @rotate_queue.shift
-          break if @rotate_queue.empty?
-        end
       end
 
       def on_rotate(io)
@@ -270,7 +333,11 @@ module Fluent
 
             last_inode = @pe.read_inode
             if inode == last_inode
-              # seek to the saved position
+              # rotated file has the same inode number with the last file.
+              # assuming following situation:
+              #   a) file was once renamed and backed, or
+              #   b) symlink or hardlink to the same file is recreated
+              # in either case, seek to the saved position
               pos = @pe.read_pos
             elsif last_inode != 0
               # this is FilePositionEntry and fluentd once started.
@@ -288,37 +355,53 @@ module Fluent
             end
             io.seek(pos)
 
-            @io_handler = IOHandler.new(io, @pe, log, &method(:wrap_receive_lines))
+            @io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
           else
             @io_handler = NullIOHandler.new
           end
-
         else
-          if io && @rotate_queue.find {|req| req.io == io }
-            return
-          end
-          last_io = @rotate_queue.empty? ? @io_handler.io : @rotate_queue.last.io
-          if last_io == nil
-            log.info "detected rotation of #{@path}"
-            # rotate imeediately if previous file is nil
-            wait = 0
+          log_msg = "detected rotation of #{@path}"
+          log_msg << "; waiting #{@rotate_wait} seconds" if @io_handler.io  # wait rotate_time if previous file is exist
+          @log.info log_msg
+
+          if io
+            stat = io.stat
+            inode = stat.ino
+            if inode == @pe.read_inode # truncated
+              @pe.update_pos(stat.size)
+              io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+              @io_handler.close
+              @io_handler = io_handler
+            elsif @io_handler.io.nil? # There is no previous file. Reuse TailWatcher
+              @pe.update(inode, io.pos)
+              io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+              @io_handler = io_handler
+            else
+              @update_watcher.call(@path, swap_state(@pe))
+            end
           else
-            log.info "detected rotation of #{@path}; waiting #{@rotate_wait} seconds"
-            wait = @rotate_wait
-            wait -= @rotate_queue.first.wait unless @rotate_queue.empty?
+            @io_handler.close
+            @io_handler = NullIOHandler.new
           end
-          @rotate_queue << RotationRequest.new(io, wait)
+        end
+
+        def swap_state(pe)
+          # Use MemoryPositionEntry for rotated file temporary
+          mpe = MemoryPositionEntry.new
+          mpe.update(pe.read_inode, pe.read_pos)
+          @pe = mpe
+          @io_handler.pe = mpe # Don't re-create IOHandler because IOHandler has an internal buffer.
+
+          pe # This pe will be updated in on_rotate after TailWatcher is initialized
         end
       end
 
       class TimerWatcher < Coolio::TimerWatcher
-        def initialize(interval, repeat, &callback)
+        def initialize(interval, repeat, log, &callback)
           @callback = callback
-          @log = $log
+          @log = log
           super(interval, repeat)
         end
-
-        attr_accessor :log
 
         def on_timer
           @callback.call
@@ -330,13 +413,11 @@ module Fluent
       end
 
       class StatWatcher < Coolio::StatWatcher
-        def initialize(path, &callback)
+        def initialize(path, log, &callback)
           @callback = callback
-          @log = $log
+          @log = log
           super(path)
         end
-
-        attr_accessor :log
 
         def on_change(prev, cur)
           @callback.call
@@ -347,29 +428,28 @@ module Fluent
         end
       end
 
-      class RotationRequest
-        def initialize(io, wait)
-          @io = io
-          @wait = wait
+      class Closer < Coolio::TimerWatcher
+        def initialize(interval, tw, log, &callback)
+          @callback = callback
+          @tw = tw
+          @log = log
+          super(interval, false)
         end
 
-        attr_reader :io, :wait
-
-        def tick
-          @wait -= 1
-        end
-
-        def ready?
-          @wait <= 0
+        def on_timer
+          @callback.call(@tw)
+        rescue => e
+          @log.error e.to_s
+          @log.error_backtrace(e.backtrace)
         end
       end
 
       MAX_LINES_AT_ONCE = 1000
 
       class IOHandler
-        def initialize(io, pe, log, &receive_lines)
+        def initialize(io, pe, log, first = true, &receive_lines)
           @log = log
-          @log.info "following tail of #{io.path}"
+          @log.info "following tail of #{io.path}" if first
           @io = io
           @pe = pe
           @receive_lines = receive_lines
@@ -378,6 +458,7 @@ module Fluent
         end
 
         attr_reader :io
+        attr_accessor :pe
 
         def on_notify
           begin
@@ -435,15 +516,13 @@ module Fluent
       end
 
       class RotateHandler
-        def initialize(path, &on_rotate)
+        def initialize(path, log, &on_rotate)
           @path = path
           @inode = nil
           @fsize = -1  # first
           @on_rotate = on_rotate
-          @log = $log
+          @log = log
         end
-
-        attr_accessor :log
 
         def on_notify
           begin
@@ -479,6 +558,8 @@ module Fluent
 
 
     class PositionFile
+      UNWATCHED_POSITION = 0xffffffffffffffff
+
       def initialize(file, map, last_pos)
         @file = file
         @map = map
@@ -501,6 +582,8 @@ module Fluent
       end
 
       def self.parse(file)
+        compact(file)
+
         map = {}
         file.pos = 0
         file.each_line {|line|
@@ -513,6 +596,21 @@ module Fluent
           map[path] = FilePositionEntry.new(file, seek)
         }
         new(file, map, file.pos)
+      end
+
+      # Clean up unwatched file entries
+      def self.compact(file)
+        file.pos = 0
+        existent_entries = file.each_line.select { |line|
+          m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
+          next unless m
+          pos = m[2].to_i(16)
+          pos == UNWATCHED_POSITION ? nil : line
+        }
+
+        file.pos = 0
+        file.truncate(0)
+        file.write(existent_entries.join)
       end
     end
 
@@ -533,7 +631,6 @@ module Fluent
       def update(ino, pos)
         @file.pos = @seek
         @file.write "%016x\t%08x" % [pos, ino]
-        @inode = ino
       end
 
       def update_pos(pos)
