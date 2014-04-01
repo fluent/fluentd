@@ -347,6 +347,7 @@ module Fluent
       attr_reader :name, :host, :port, :weight
       attr_writer :weight, :standby, :available
       attr_reader :sockaddr  # used by on_heartbeat
+      attr_reader :failure, :available # for test
 
       def available?
         @available
@@ -401,17 +402,18 @@ module Fluent
           return true
         end
 
-        phi = @failure.phi(now)
-        #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
-        if phi > @phi_threshold
-          @log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
-          @available = false
-          @resolved_host = nil  # expire cached host
-          @failure.clear
-          return true
-        else
-          return false
+        if @phi_threshold >= 0
+          phi = @failure.phi(now)
+          #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+          if phi > @phi_threshold
+            @log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+            @available = false
+            @resolved_host = nil  # expire cached host
+            @failure.clear
+            return true
+          end
         end
+        return false
       end
 
       def heartbeat(detect=true)

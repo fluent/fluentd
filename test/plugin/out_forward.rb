@@ -1,4 +1,5 @@
 require 'fluent/test'
+require 'helper'
 
 class ForwardOutputTest < Test::Unit::TestCase
   def setup
@@ -38,4 +39,20 @@ class ForwardOutputTest < Test::Unit::TestCase
     d = create_driver(CONFIG + "\nheartbeat_type tcp")
     assert_equal :tcp, d.instance.heartbeat_type
   end
+
+  def test_phi_failure_detector
+    # negative phi_threshold turns off failure detector
+    d = create_driver(CONFIG + %[phi_threshold -1])
+    node = d.instance.nodes.first
+    stub(node.failure).phi { raise 'Should not be called' }
+    node.tick
+    assert_equal node.available, true
+
+    # positive or zero phi_threshold turns on failure detector
+    d = create_driver(CONFIG + %[phi_threshold 0])
+    node = d.instance.nodes.first
+    node.tick
+    assert_equal node.available, false
+  end
 end
+
