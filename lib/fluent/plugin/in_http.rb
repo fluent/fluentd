@@ -25,6 +25,7 @@ module Fluent
 
     def initialize
       require 'webrick/httputils'
+      require 'uri'
       super
     end
 
@@ -246,7 +247,8 @@ module Fluent
 
         @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
 
-        params = WEBrick::HTTPUtils.parse_query(@parser.query_string)
+        uri = URI.parse(@parser.request_url)
+        params = WEBrick::HTTPUtils.parse_query(uri.query)
 
         if @content_type =~ /^application\/x-www-form-urlencoded/
           params.update WEBrick::HTTPUtils.parse_query(@body)
@@ -256,7 +258,7 @@ module Fluent
         elsif @content_type =~ /^application\/json/
           params['json'] = @body
         end
-        path_info = @parser.request_path
+        path_info = uri.path
 
         params.merge!(@env)
         @env.clear
