@@ -15,6 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+require 'fluent/config'
+
 module Fluent
   class BufferError < StandardError
   end
@@ -130,6 +132,7 @@ module Fluent
     # should override buffer_chunk_limit with a larger size.
     config_param :buffer_chunk_limit, :size, :default => 8*1024*1024
     config_param :buffer_queue_limit, :integer, :default => 256
+    config_param :buffer_queue_limit_log_level, :string, :default => 'raise_exception'
 
     alias chunk_limit buffer_chunk_limit
     alias chunk_limit= buffer_chunk_limit=
@@ -138,6 +141,12 @@ module Fluent
 
     def configure(conf)
       super
+
+      log_level_candidates = %w!raise_exception off! + Log::LEVEL_TEXT
+      unless log_level_candidates.include?(@buffer_queue_limit_log_level)
+        raise ConfigError, "invalid 'buffer_queue_limit_log_level' param"
+      end
+      @buffer_queue_limit_log_level = @buffer_queue_limit_log_level.to_sym
     end
 
     def start
@@ -179,7 +188,7 @@ module Fluent
           #  raise BufferChunkLimitError, "received data too large"
 
         elsif @queue.size >= @buffer_queue_limit
-          raise BufferQueueLimitError, "queue size exceeds limit"
+          log_or_raise_exception_queue_limit_exceeded
         end
 
         if data.bytesize > @buffer_chunk_limit
@@ -301,6 +310,20 @@ module Fluent
         chunk.purge
         true
       }
+    end
+
+    private
+
+    def log_or_raise_exception_queue_limit
+      message = "queue size exceeds limit"
+      case @buffer_queue_limit_log_level
+      when :raise_exception
+        raise BufferQueueLimitError, message
+      when :off
+        # do nothing
+      else
+        $log.public_send(@buffer_queue_limit_log_level, message)
+      end
     end
   end
 end
