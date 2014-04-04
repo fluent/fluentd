@@ -49,7 +49,8 @@ module FluentOutputTest
       # max_retry_wait
       d = create_driver(CONFIG + %[max_retry_wait 4])
       d.instance.retry_limit.times { d.instance.instance_variable_get(:@error_history) << Engine.now }
-      assert_equal 4, d.instance.calc_retry_wait
+      wait = 4
+      assert( d.instance.calc_retry_wait > wait - wait / 8.0 )
     end
 
     def create_mock_driver(conf=CONFIG)
