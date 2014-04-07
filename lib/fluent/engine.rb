@@ -144,7 +144,7 @@ module Fluent
         # this is not thread-safe but inconsistency doesn't
         # cause serious problems while locking causes.
         if @match_cache_keys.size >= MATCH_CACHE_SIZE
-          @match_cache_keys.delete @match_cache_keys.shift
+          @match_cache.delete @match_cache_keys.shift
         end
         @match_cache[tag] = target
         @match_cache_keys << tag
