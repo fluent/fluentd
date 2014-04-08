@@ -57,6 +57,10 @@ module Fluent
         @ss.scan(pattern)
       end
 
+      def getch
+        @ss.getch
+      end
+
       def eof?
         @ss.eos?
       end

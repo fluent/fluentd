@@ -16,6 +16,7 @@
 module Fluent
   module Config
 
+    require 'yajl'
     require 'fluent/config/basic_parser'
     require 'irb/ruby-lex'  # RubyLex
 
@@ -28,6 +29,7 @@ module Fluent
       def parse_literal(string_boundary_charset = LINE_END)
         spacing
 
+=begin
         if skip(/true(?=#{string_boundary_charset})/)
           value = true
 
@@ -59,8 +61,16 @@ module Fluent
         else
           value = scan_string(string_boundary_charset)
         end
+=end
+        value = if skip(/\[/)
+                  scan_json(true)
+                elsif skip(/\{/)
+                  scan_json(false)
+                else
+                  scan_string(string_boundary_charset)
+                end
 
-        return value.to_s
+        value.to_s
       end
 
       def scan_string(string_boundary_charset = LINE_END)
@@ -161,6 +171,21 @@ module Fluent
         end
       end
 
+      def scan_json(is_array)
+        result = nil
+
+        y = Yajl::Parser.new
+        y.on_parse_complete = Proc.new { |obj| result = obj }
+        y << (is_array ? '[' : '{')
+        until result
+          y << getch
+        end
+
+        Yajl.dump(result) # Convert json to string for config_param
+      rescue Yajl::ParseError => e
+        parse_error! "unexpected json #{is_array ? 'array' : 'object'} parser error"
+      end
+=begin
       def cont_parse_array
         spacing
         return [] if skip(/\]/)
@@ -213,6 +238,7 @@ module Fluent
           return map if skip(/\}/)
         end
       end
+=end
     end
   end
 end
