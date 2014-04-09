@@ -42,9 +42,9 @@ describe Fluent::Config::NewParser do
       "_.%$!,",
       "/=~-~@`:?",
       "()*{}.[]",
-    ].each do |k|
-      it "parses a value with symbol #{k.inspect} to #{k.inspect}" do
-        "k1 1".should be_parsed_as("k1" => "1")
+    ].each do |v|
+      it "parses a value with symbol #{v.inspect}" do
+        "k #{v}".should be_parsed_as("k" => v)
       end
     end
 
