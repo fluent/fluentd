@@ -140,7 +140,7 @@ module Fluent
       def scan_json(is_array)
         result = nil
 
-        y = Yajl::Parser.new
+        y = Yajl::Parser.new(:allow_comments => true)
         y.on_parse_complete = Proc.new { |obj| result = obj }
         y << (is_array ? '[' : '{')
         until result
