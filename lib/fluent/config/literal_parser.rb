@@ -29,39 +29,6 @@ module Fluent
       def parse_literal(string_boundary_charset = LINE_END)
         spacing
 
-=begin
-        if skip(/true(?=#{string_boundary_charset})/)
-          value = true
-
-        elsif skip(/false(?=#{string_boundary_charset})/)
-          value = false
-
-        elsif skip(/NaN(?=#{string_boundary_charset})/)
-          value = Float::NAN
-
-        elsif skip(/Infinity(?=#{string_boundary_charset})/)
-          value = Float::INFINITY
-
-        elsif skip(/-Infinity(?=#{string_boundary_charset})/)
-          value = -Float::INFINITY
-
-        elsif m = scan(/\-?(?:0|[1-9][0-9]*)(?=#{string_boundary_charset})/)
-          # integer
-          value = m.to_i
-
-        elsif m = scan(/\-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?=#{string_boundary_charset})/)
-          # float
-          value = m.to_f
-
-        elsif skip(/\[/)
-          value = cont_parse_array.to_json
-
-        elsif skip(/\{/)
-          value = cont_parse_map.to_json
-        else
-          value = scan_string(string_boundary_charset)
-        end
-=end
         value = if skip(/\[/)
                   scan_json(true)
                 elsif skip(/\{/)
@@ -69,8 +36,7 @@ module Fluent
                 else
                   scan_string(string_boundary_charset)
                 end
-
-        value.to_s
+        value
       end
 
       def scan_string(string_boundary_charset = LINE_END)
@@ -178,67 +144,15 @@ module Fluent
         y.on_parse_complete = Proc.new { |obj| result = obj }
         y << (is_array ? '[' : '{')
         until result
-          y << getch
+          ch = getch
+          parse_error! "got incomplete #{is_array ? 'array' : 'hash'} configuration" if ch.nil?
+          y << ch
         end
 
         Yajl.dump(result) # Convert json to string for config_param
       rescue Yajl::ParseError => e
-        parse_error! "unexpected json #{is_array ? 'array' : 'object'} parser error"
+        parse_error! "unexpected #{is_array ? 'array' : 'hash'} parse error"
       end
-=begin
-      def cont_parse_array
-        spacing
-        return [] if skip(/\]/)
-
-        array = []
-        while true
-          array << parse_literal(/(?:#{SPACING}|[\]\,])/)
-
-          spacing
-          if skip(/\]/)
-            return array
-          end
-
-          unless skip(/\,/)
-            parse_error! "expected ',' or ']' in array"
-          end
-
-          # to allow last ','
-          spacing
-          return array if skip(/\]/)
-        end
-      end
-
-      def cont_parse_map
-        spacing
-        return {} if skip(/\}/)
-
-        map = {}
-        while true
-          key = scan_string(/(?:#{SPACING}|[\}\:\,])/)
-
-          spacing
-          unless skip(/\:/)
-            parse_error! "expected ':' in map"
-          end
-
-          map[key] = parse_literal(/(?:#{SPACING}|[\}\,\:])/)
-
-          spacing
-          if skip(/\}/)
-            return map
-          end
-
-          unless skip(/\,/)
-            parse_error! "expected ',' or '}' in map"
-          end
-
-          # to allow last ','
-          spacing
-          return map if skip(/\}/)
-        end
-      end
-=end
     end
   end
 end
