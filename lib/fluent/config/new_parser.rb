@@ -17,8 +17,9 @@ module Fluent
   module Config
 
     require 'strscan'
-    require 'fluent/config/literal_parser'
     require 'fluent/config/error'
+    require 'fluent/config/literal_parser'
+    require 'fluent/config/element'
 
     class NewParser < LiteralParser
       ELEMENT_NAME = /[a-zA-Z0-9_]+/
@@ -151,6 +152,5 @@ module Fluent
         "#{@fname} #{super}"
       end
     end
-
   end
 end

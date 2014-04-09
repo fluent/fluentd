@@ -1,5 +1,8 @@
 module Fluent
   module Config
+    require 'fluent/config/error'
+    require 'fluent/config/element'
+
     class Parser
       def self.read(path)
         path = File.expand_path(path)
