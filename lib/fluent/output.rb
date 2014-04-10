@@ -388,14 +388,14 @@ module Fluent
 
     def calc_retry_wait
       # TODO retry pattern
-      wait = if @error_history.size <= @retry_limit
-               @retry_wait * (2 ** (@error_history.size-1))
-             else
-               # secondary retry
-               @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
-             end
+      exponent_wait = if @error_history.size <= @retry_limit
+                        @retry_wait * (2 ** (@error_history.size-1))
+                      else
+                        # secondary retry
+                        @retry_wait * (2 ** (@error_history.size-2-@retry_limit))
+                      end
+      wait = @max_retry_wait ? [exponent_wait, @max_retry_wait].min : exponent_wait
       retry_wait = wait + (rand * (wait / 4.0) - (wait / 8.0))
-      @max_retry_wait ? [retry_wait, @max_retry_wait].min : retry_wait
     end
 
     def write_abort
