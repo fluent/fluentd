@@ -21,7 +21,7 @@ module Fluent
     require 'fluent/config/literal_parser'
     require 'fluent/config/element'
 
-    class NewParser < LiteralParser
+    class V1Parser < LiteralParser
       ELEMENT_NAME = /[a-zA-Z0-9_]+/
 
       def self.read(path, eval_context = nil)
@@ -32,7 +32,7 @@ module Fluent
 
       def self.parse(data, fname, basepath = Dir.pwd, eval_context = nil)
         ss = StringScanner.new(data)
-        ps = NewParser.new(ss, basepath, fname, eval_context)
+        ps = V1Parser.new(ss, basepath, fname, eval_context)
         ps.parse!
       end
 
@@ -128,7 +128,7 @@ module Fluent
             fname = File.basename(path)
             data = File.read(path)
             ss = StringScanner.new(data)
-            NewParser.new(ss, basepath, fname, @eval_context).parse(true, nil, attrs, elems)
+            V1Parser.new(ss, basepath, fname, @eval_context).parse(true, nil, attrs, elems)
           }
 
         else
@@ -138,7 +138,7 @@ module Fluent
           data = nil
           open(uri) { |f| read = f.read }
           ss = StringScanner.new(data)
-          NewParser.new(ss, basepath, fname, @eval_context).parse(true, nil, attrs, elems)
+          V1Parser.new(ss, basepath, fname, @eval_context).parse(true, nil, attrs, elems)
         end
 
       rescue SystemCallError => e

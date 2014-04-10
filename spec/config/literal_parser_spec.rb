@@ -1,7 +1,7 @@
 require "config/helper"
 require "fluent/config/error"
 require "fluent/config/literal_parser"
-require "fluent/config/new_parser"
+require "fluent/config/v1_parser"
 
 describe Fluent::Config::LiteralParser do
   include_context 'config_helper'
@@ -17,7 +17,7 @@ describe Fluent::Config::LiteralParser do
   def parse_text(text)
     basepath = File.expand_path(File.dirname(__FILE__)+'/../../')
     ss = StringScanner.new(text)
-    parser = Fluent::Config::NewParser.new(ss, basepath, "(test)", eval_context)
+    parser = Fluent::Config::V1Parser.new(ss, basepath, "(test)", eval_context)
     parser.parse_literal
   end
 

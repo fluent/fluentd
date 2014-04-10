@@ -69,7 +69,7 @@ module Fluent
       @suppress_interval = opt[:suppress_interval]
       @dry_run = opt[:dry_run]
       @suppress_config_dump = opt[:suppress_config_dump]
-      @use_new_config = opt[:use_new_config]
+      @use_v1_config = opt[:use_v1_config]
 
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -283,7 +283,7 @@ module Fluent
     end
 
     def run_configure
-      Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir, @use_new_config)
+      Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir, @use_v1_config)
     end
 
     def change_privilege

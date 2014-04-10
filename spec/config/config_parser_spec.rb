@@ -3,14 +3,14 @@ require "config/helper"
 require "fluent/config/error"
 require "fluent/config/basic_parser"
 require "fluent/config/literal_parser"
-require "fluent/config/new_parser"
+require "fluent/config/v1_parser"
 
-describe Fluent::Config::NewParser do
+describe Fluent::Config::V1Parser do
   include_context 'config_helper'
 
   def parse_text(text)
     basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-    Fluent::Config::NewParser.parse(text, '(test)', basepath, nil)
+    Fluent::Config::V1Parser.parse(text, '(test)', basepath, nil)
   end
 
   def root(*elements)

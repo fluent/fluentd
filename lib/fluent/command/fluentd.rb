@@ -37,7 +37,7 @@ opts = {
   :chgroup => nil,
   :suppress_interval => 0,
   :suppress_repeated_stacktrace => false,
-  :use_new_config => false,
+  :use_v1_config => false,
 }
 
 op.on('-s', "--setup [DIR=#{File.dirname(Fluent::DEFAULT_CONFIG_PATH)}]", "install sample configuration file to the directory") {|s|
@@ -92,8 +92,8 @@ op.on('--suppress-repeated-stacktrace', "suppress repeated stacktrace", TrueClas
   opts[:suppress_repeated_stacktrace] = b
 }
 
-op.on('--use-new-config', "Use new configuration format", TrueClass) {|b|
-  opts[:use_new_config] = b
+op.on('--use-v1-config', "Use v1 configuration format", TrueClass) {|b|
+  opts[:use_v1_config] = b
 }
 
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|

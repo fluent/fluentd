@@ -20,20 +20,20 @@ module Fluent
   require 'fluent/config/element'
 
   module Config
-    def self.read(path, new_config = false)
-      if new_config
-        require 'fluent/config/new_parser'
-        NewParser.read(path)
+    def self.read(path, v1_config = false)
+      if v1_config
+        require 'fluent/config/v1_parser'
+        V1Parser.read(path)
       else
         require 'fluent/config/parser'
         Parser.read(path)
       end
     end
 
-    def self.parse(str, fname, basepath = Dir.pwd, new_config = false)
-      if new_config
-        require 'fluent/config/new_parser'
-        NewParser.parse(str, fname, basepath, Kernel.binding)
+    def self.parse(str, fname, basepath = Dir.pwd, v1_config = false)
+      if v1_config
+        require 'fluent/config/v1_parser'
+        V1Parser.parse(str, fname, basepath, Kernel.binding)
       else
         require 'fluent/config/parser'
         Parser.parse(str, fname, basepath)
