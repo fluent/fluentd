@@ -1,5 +1,4 @@
 module Fluent
-  require 'json'
   require 'fluent/config/error'
   require 'fluent/registry'
 
