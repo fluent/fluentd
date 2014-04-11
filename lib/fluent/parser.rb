@@ -236,7 +236,11 @@ module Fluent
 
         if @time_key
           value = record.delete(@time_key)
-          time = @mutex.synchronize { @time_parser.parse(value) }
+          time = if value.nil?
+                   Engine.now
+                 else
+                   @mutex.synchronize { @time_parser.parse(value) }
+                 end
         else
           time = Engine.now
         end
