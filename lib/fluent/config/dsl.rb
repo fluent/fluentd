@@ -67,7 +67,11 @@ module Fluent
             proxy.element.instance_exec(&block)
             @elements.push(proxy.to_config_element)
           else
-            @attrs[name.to_s] = value.to_s
+            @attrs[name.to_s] = if value.is_a?(Array) || value.is_a?(Hash)
+                                  JSON.dump(value)
+                                else
+                                  value.to_s
+                                end
           end
 
           self

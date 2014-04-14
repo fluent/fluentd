@@ -1,4 +1,4 @@
-require 'fluent/config_dsl'
+require 'fluent/config/dsl'
 require 'fluent/test'
 require 'helper'
 

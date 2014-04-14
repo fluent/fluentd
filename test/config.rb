@@ -1,5 +1,6 @@
 require File.dirname(__FILE__) + '/helper'
 require 'fluent/config'
+require 'fluent/config/parser'
 require 'fluent/supervisor'
 require 'fluent/load'
 require 'fileutils'
