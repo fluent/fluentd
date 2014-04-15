@@ -41,15 +41,13 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_phi_failure_detector
-    # negative phi_threshold turns off failure detector
-    d = create_driver(CONFIG + %[phi_threshold -1])
+    d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
     node = d.instance.nodes.first
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
     assert_equal node.available, true
 
-    # positive or zero phi_threshold turns on failure detector
-    d = create_driver(CONFIG + %[phi_threshold 0])
+    d = create_driver(CONFIG + %[phi_failure_detector true \n phi_threshold 0])
     node = d.instance.nodes.first
     node.tick
     assert_equal node.available, false

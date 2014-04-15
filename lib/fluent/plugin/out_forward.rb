@@ -43,6 +43,7 @@ module Fluent
     config_param :hard_timeout, :time, :default => 60
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
     config_param :phi_threshold, :integer, :default => 16
+    config_param :phi_failure_detector, :bool, :default => true
     attr_reader :nodes
 
     # backward compatibility
@@ -83,7 +84,7 @@ module Fluent
 
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
         @nodes << Node.new(name, host, port, weight, standby, failure,
-          @phi_threshold, recover_sample_size, @expire_dns_cache, log)
+          @phi_threshold, recover_sample_size, @expire_dns_cache, log, @phi_failure_detector)
         log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
       }
     end
@@ -326,7 +327,7 @@ module Fluent
 
     class Node
       def initialize(name, host, port, weight, standby, failure,
-          phi_threshold, recover_sample_size, expire_dns_cache, log)
+          phi_threshold, recover_sample_size, expire_dns_cache, log, phi_failure_detector)
         @name = name
         @host = host
         @port = port
@@ -338,6 +339,7 @@ module Fluent
         @expire_dns_cache = expire_dns_cache
         @available = true
         @log = log
+        @phi_failure_detector = phi_failure_detector
 
         @resolved_host = nil
         @resolved_time = 0
@@ -402,7 +404,7 @@ module Fluent
           return true
         end
 
-        if @phi_threshold >= 0
+        if @phi_failure_detector
           phi = @failure.phi(now)
           #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
           if phi > @phi_threshold
