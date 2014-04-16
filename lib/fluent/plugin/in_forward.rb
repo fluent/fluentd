@@ -31,6 +31,8 @@ module Fluent
     config_param :backlog, :integer, :default => nil
     # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
     config_param :linger_timeout, :integer, :default => 0
+    # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
+    config_param :blocking_timeout, :time, :default => 0.5
 
     def configure(conf)
       super
@@ -82,7 +84,11 @@ module Fluent
     #end
 
     def run
-      @loop.run
+      if @loop.method(:run).arity.zero?
+        @loop.run
+      else
+        @loop.run(@blocking_timeout)
+      end
     rescue => e
       log.error "unexpected error", :error => e, :error_class => e.class
       log.error_backtrace
