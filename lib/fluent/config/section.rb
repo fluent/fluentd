@@ -6,6 +6,11 @@ module Fluent
       def self.generate(proxy, conf, logger, stack=[])
         return nil if conf.nil?
 
+        section_stack = ""
+        unless stack.empty?
+          section_stack = ", in section " + stack.join(" > ")
+        end
+
         section_params = {}
 
         proxy.defaults.each_pair do |name, defval|
@@ -21,7 +26,7 @@ module Fluent
           end
           unless section_params.has_key?(varname)
             logger.error "config error in:\n#{conf}"
-            raise ConfigError, "'#{name}' parameter is required"
+            raise ConfigError, "'#{name}' parameter is required" + section_stack
           end
         end
 
@@ -31,16 +36,16 @@ module Fluent
 
           if subproxy.required? && elements.size < 1
             logger.error "config error in:\n#{conf}"
-            raise ConfigError, "'<#{proxy.name}>' section is required"
+            raise ConfigError, "'<#{subproxy.name}>' sections are required" + section_stack
           end
           if subproxy.multi?
-            section_params[varname] = elements.map{ |e| generate(proxy.h, e, logger) }
+            section_params[varname] = elements.map{ |e| generate(proxy.h, e, logger, stack + [subproxy.name]) }
           else
             if elements.size > 1
               logger.error "config error in:\n#{conf}"
-              raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more"
+              raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more" + section_stack
             end
-            section_params[varname] = generate(proxy, elements.first, logger)
+            section_params[varname] = generate(proxy, elements.first, logger, stack + [subproxy.name])
           end
         end
 
