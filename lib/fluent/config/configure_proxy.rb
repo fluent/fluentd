@@ -1,11 +1,12 @@
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :param_name, :required, :multi, :params, :defaults, :sections
+      attr_accessor :name, :param_name, :required, :multi, :argument, :params, :defaults, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
       # config_section :default, required: true, multi: false do
+      #   config_argument :arg, :string
       #   config_param :required, :bool, default: false
       #   config_param :name, :string
       #   config_param :power, :integer
@@ -26,6 +27,7 @@ module Fluent
         @required = opts[:required]
         @multi = opts[:multi]
 
+        @argument = nil # nil: ignore argument
         @params = {}
         @defaults = {}
         @sections = {}
@@ -43,11 +45,52 @@ module Fluent
         }
         merged = self.class.new(other.name, options)
 
+        merged.argument = other.argument || self.argument
         merged.params = self.params.merge(other.params)
         merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = self.sections.merge(other.sections)
 
         merged
+      end
+
+      def config_argument(name, *args, &block)
+        if @argument
+          raise ArgumentError, "config_argument called twice"
+        end
+
+        name = name.to_sym
+
+        opts = {}
+        args.each { |a|
+          if a.is_a?(Symbol)
+            opts[:type] = a
+          elsif a.is_a?(Hash)
+            opts.merge!(a)
+          else
+            raise ArgumentError, "wrong number of arguments (#{1 + args.length} for #{block ? 2 : 3})"
+          end
+        }
+
+        type = opts[:type]
+        if block && type
+          raise ArgumentError, "both of block and type cannot be specified for config_argument"
+        end
+
+        begin
+          type = :string if type.nil?
+          block ||= Configurable.lookup_type(type)
+        rescue ConfigError
+          # override error message
+          raise ArgumentError, "unknown config_argument type `#{type}'"
+        end
+
+        @argument = [name, block, opts]
+
+        if opts.has_key?(:default)
+          config_set_default(name, opts[:default])
+        end
+
+        name
       end
 
       def config_param(name, *args, &block)
@@ -66,7 +109,7 @@ module Fluent
 
         type = opts[:type]
         if block && type
-          raise ArgumentError, "wrong number of arguments (#{1 + args.length} for 2)" # block exists
+          raise ArgumentError, "both of block and type cannot be specified for config_param"
         end
 
         begin
