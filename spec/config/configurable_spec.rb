@@ -12,6 +12,10 @@ module ConfigurableSpec
     config_param :name2, :string
     config_param :name3, :string, :default => "base1"
     config_param :name4, :string, :default => "base1"
+
+    def get_all
+      [@node, @name1, @name2, @name3, @name4]
+    end
   end
 
   class Base2 < Base1
@@ -19,6 +23,11 @@ module ConfigurableSpec
     config_set_default :name4, "base2"
     config_param :name5, :string
     config_param :name6, :string, :default => "base2"
+
+    def get_all
+      ary = super
+      ary + [@name5, @name6]
+    end
   end
 
   class Base3 < Base2
@@ -35,6 +44,11 @@ module ConfigurableSpec
           config_param :type, :string, default: 'ladybird'
         end
       end
+    end
+
+    def get_all
+      ary = super
+      ary + [@branch]
     end
   end
 
@@ -57,6 +71,11 @@ module ConfigurableSpec
         "desc3: #{val}"
       end
       config_param :text, :string
+    end
+
+    def get_all
+      ary = super
+      ary + [@nodes, @description1, @description2, @description3]
     end
   end
 end
@@ -92,6 +111,8 @@ describe Fluent::Configurable do
         expect{ b2.configure({"name1" => "t1"}) }.to raise_error(Fluent::ConfigError)
         expect{ b2.configure({"name5" => "t5"}) }.to raise_error(Fluent::ConfigError)
         expect{ b2.configure({"name1" => "t1", "name5" => "t5"}) }.not_to raise_error()
+
+        expect(b2.get_all).to eql(["node", "t1", "base2", "base1", "base2", "t5", "base2"])
       end
 
       it 'overwrites values of defaults' do
@@ -103,6 +124,8 @@ describe Fluent::Configurable do
         expect(b2.name4).to eql("t4")
         expect(b2.name5).to eql("t5")
         expect(b2.name6).to eql("base2")
+
+        expect(b2.get_all).to eql(["node", "t1", "t2", "t3", "t4", "t5", "base2"])
       end
     end
   end
