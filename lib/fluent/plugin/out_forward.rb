@@ -83,8 +83,10 @@ module Fluent
         end
 
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
-        @nodes << Node.new(name, host, port, weight, standby, failure,
-          @phi_threshold, recover_sample_size, @expire_dns_cache, log, @phi_failure_detector)
+
+        node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
+          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector)
+        @nodes << Node.new(log, node_conf)
         log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
       }
     end
@@ -325,29 +327,27 @@ module Fluent
       end
     end
 
+    NodeConfig = Struct.new("NodeConfig", :name, :host, :port, :weight, :standby, :failure,
+      :phi_threshold, :recover_sample_size, :expire_dns_cache, :phi_failure_detector)
+
     class Node
-      def initialize(name, host, port, weight, standby, failure,
-          phi_threshold, recover_sample_size, expire_dns_cache, log, phi_failure_detector)
-        @name = name
-        @host = host
-        @port = port
-        @weight = weight
-        @standby = standby
-        @failure = failure
-        @phi_threshold = phi_threshold
-        @recover_sample_size = recover_sample_size
-        @expire_dns_cache = expire_dns_cache
-        @available = true
+      def initialize(log, conf)
         @log = log
-        @phi_failure_detector = phi_failure_detector
+        @conf = conf
+        @name = @conf.name
+        @host = @conf.host
+        @port = @conf.port
+        @weight = @conf.weight
+        @failure = @conf.failure
+        @available = true
 
         @resolved_host = nil
         @resolved_time = 0
         resolved_host  # check dns
       end
 
+      attr_reader :conf
       attr_reader :name, :host, :port, :weight
-      attr_writer :weight, :standby, :available
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
 
@@ -356,11 +356,11 @@ module Fluent
       end
 
       def standby?
-        @standby
+        @conf.standby
       end
 
       def resolved_host
-        case @expire_dns_cache
+        case @conf.expire_dns_cache
         when 0
           # cache is disabled
           return resolve_dns!
@@ -372,7 +372,7 @@ module Fluent
         else
           now = Engine.now
           rh = @resolved_host
-          if !rh || now - @resolved_time >= @expire_dns_cache
+          if !rh || now - @resolved_time >= @conf.expire_dns_cache
             rh = @resolved_host = resolve_dns!
             @resolved_time = now
           end
@@ -404,10 +404,10 @@ module Fluent
           return true
         end
 
-        if @phi_failure_detector
+        if @conf.phi_failure_detector
           phi = @failure.phi(now)
           #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
-          if phi > @phi_threshold
+          if phi > @conf.phi_threshold
             @log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
             @available = false
             @resolved_host = nil  # expire cached host
@@ -422,7 +422,7 @@ module Fluent
         now = Time.now.to_f
         @failure.add(now)
         #@log.trace "heartbeat from '#{@name}'", :host=>@host, :port=>@port, :available=>@available, :sample_size=>@failure.sample_size
-        if detect && !@available && @failure.sample_size > @recover_sample_size
+        if detect && !@available && @failure.sample_size > @conf.recover_sample_size
           @available = true
           @log.warn "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
           return true
