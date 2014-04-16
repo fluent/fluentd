@@ -44,6 +44,8 @@ module Fluent
           instance_variable_set(varname, root[param_name])
         end
       end
+
+      self
     end
 
     CONFIG_TYPE_REGISTRY = Registry.new(:config_type, 'fluent/plugin/type_')
