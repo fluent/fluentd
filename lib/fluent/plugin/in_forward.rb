@@ -58,10 +58,12 @@ module Fluent
       @loop.watchers.each {|w| w.detach }
       @loop.stop
       @usock.close
-      listen_address = (@bind == '0.0.0.0' ? '127.0.0.1' : @bind)
-      # This line is for connecting listen socket to stop the event loop.
-      # We should use more better approach, e.g. using pipe, fixing cool.io with timeout, etc.
-      TCPSocket.open(listen_address, @port) {|sock| } # FIXME @thread.join blocks without this line
+      unless support_blocking_timeout?
+        listen_address = (@bind == '0.0.0.0' ? '127.0.0.1' : @bind)
+        # This line is for connecting listen socket to stop the event loop.
+        # We should use more better approach, e.g. using pipe, fixing cool.io with timeout, etc.
+        TCPSocket.open(listen_address, @port) {|sock| } # FIXME @thread.join blocks without this line
+      end
       @thread.join
       @lsock.close
     end
@@ -84,10 +86,10 @@ module Fluent
     #end
 
     def run
-      if @loop.method(:run).arity.zero?
-        @loop.run
-      else
+      if support_blocking_timeout?
         @loop.run(@blocking_timeout)
+      else
+        @loop.run
       end
     rescue => e
       log.error "unexpected error", :error => e, :error_class => e.class
@@ -95,6 +97,11 @@ module Fluent
     end
 
     protected
+
+    def support_blocking_timeout?
+      @loop.method(:run).arity.nonzero?
+    end
+
     # message Entry {
     #   1: long time
     #   2: object record
