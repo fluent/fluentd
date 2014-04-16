@@ -33,3 +33,28 @@ if ENV['GC_STRESS']
   STDERR.puts "enable GC.stress"
   GC.stress = true
 end
+
+require 'fluent/log'
+require 'fluent/plugin'
+
+class DummyLogDevice
+  attr_reader :logs
+  def initialize ; @logs = [] ; end
+  def tty? ; false ; end
+  def puts(*args) ; args.each{ |arg| write(arg + "\n") } ; end
+  def write(message) ; @logs.push message ; end
+  def flush ; true ; end
+  def close ; true ; end
+end
+
+class TestLogger < Fluent::PluginLogger
+  def initialize
+    @logdev = DummyLogDevice.new
+    super(Fluent::Log.new(@logdev))
+  end
+  def logs
+    @logdev.logs
+  end
+end
+
+$log ||= TestLogger.new
