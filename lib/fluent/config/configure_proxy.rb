@@ -124,7 +124,6 @@ module Fluent
           raise ArgumentError, "unknown config_param type `#{type}'"
         end
 
-        @params.delete(name)
         @sections.delete(name)
         @params[name] = [block, opts]
 
@@ -138,7 +137,6 @@ module Fluent
       def config_set_default(name, defval)
         name = name.to_sym
 
-        @defaults.delete(name)
         @defaults[name] = defval
 
         nil
@@ -159,7 +157,6 @@ module Fluent
         sub_proxy.instance_exec(&block)
 
         @params.delete(name)
-        @sections.delete(name)
         @sections[name] = sub_proxy
 
         name
