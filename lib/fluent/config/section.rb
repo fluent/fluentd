@@ -7,14 +7,27 @@ module Fluent
         'Fluent::Config::Section'
       end
 
-      def initialize(params)
+      def initialize(params={})
         @klass = 'Fluent::Config::Section'
         @params = params
       end
 
-      def kind_of?(mod)
-        mod.name == 'Fluent::Config::Section'
+      def to_h
+        @params
       end
+
+      def +(other)
+        Section.new(self.to_h.merge(other.to_h))
+      end
+
+      def instance_of?(mod)
+        @klass == mod.name
+      end
+
+      def kind_of?(mod)
+        @klass == mod.name || BasicObject == mod
+      end
+      alias is_a? kind_of?
 
       def [](key)
         @params[key.to_sym]
