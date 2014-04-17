@@ -33,9 +33,13 @@ module Fluent
         @sections = {}
       end
 
-      def required? ; @required.nil? ? false : @required ; end
+      def required?
+        @required.nil? ? false : @required
+      end
 
-      def multi? ; @multi.nil? ? true : @multi ; end
+      def multi?
+        @multi.nil? ? true : @multi
+      end
 
       def merge(other) # self is base class, other is subclass
         options = {
