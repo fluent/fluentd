@@ -63,14 +63,16 @@ module Fluent
       def configure_proxy_map
         map = {}
         self.define_singleton_method(:configure_proxy_map){ map }
+        map
       end
 
       def configure_proxy(mod_name)
-        unless configure_proxy_map[mod_name]
+        map = configure_proxy_map()
+        unless map[mod_name]
           proxy = Fluent::Config::ConfigureProxy.new(mod_name, required: true, multi: false)
-          configure_proxy_map[mod_name] = proxy
+          map[mod_name] = proxy
         end
-        configure_proxy_map[mod_name]
+        map[mod_name]
       end
 
       def config_param(name, *args, &block)
