@@ -68,5 +68,29 @@ describe Fluent::Config::ConfigureProxy do
         expect(proxy.multi?).to be_false
       end
     end
+
+    describe '#config_param / #config_set_default / #config_argument' do
+      it 'does not permit config_set_default for param w/ :default option' do
+        proxy = Fluent::Config::ConfigureProxy.new(:section)
+        proxy.config_param(:name, :string, default: "name1")
+        expect{ proxy.config_set_default(:name, "name2") }.to raise_error(ArgumentError)
+      end
+
+      it 'does not permit default value specification twice' do
+        proxy = Fluent::Config::ConfigureProxy.new(:section)
+        proxy.config_param(:name, :string)
+        proxy.config_set_default(:name, "name1")
+        expect{ proxy.config_set_default(:name, "name2") }.to raise_error(ArgumentError)
+      end
+
+      it 'does not permit default value specification twice, even on config_argument' do
+        proxy = Fluent::Config::ConfigureProxy.new(:section)
+        proxy.config_param(:name, :string)
+        proxy.config_set_default(:name, "name1")
+
+        proxy.config_argument(:name)
+        expect{ proxy.config_argument(:name, default: "name2") }.to raise_error(ArgumentError)
+      end
+    end
   end
 end

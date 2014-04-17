@@ -57,11 +57,7 @@ module Fluent
         merged
       end
 
-      def config_argument(name, *args, &block)
-        if @argument
-          raise ArgumentError, "config_argument called twice"
-        end
-
+      def parameter_configuration(name, *args, &block)
         name = name.to_sym
 
         opts = {}
@@ -77,7 +73,7 @@ module Fluent
 
         type = opts[:type]
         if block && type
-          raise ArgumentError, "both of block and type cannot be specified for config_argument"
+          raise ArgumentError, "both of block and type cannot be specified"
         end
 
         begin
@@ -88,57 +84,39 @@ module Fluent
           raise ArgumentError, "unknown config_argument type `#{type}'"
         end
 
-        @argument = [name, block, opts]
-
         if opts.has_key?(:default)
           config_set_default(name, opts[:default])
         end
 
+        [name, block, opts]
+      end
+
+      def config_argument(name, *args, &block)
+        if @argument
+          raise ArgumentError, "config_argument called twice"
+        end
+        name, block, opts = parameter_configuration(name, *args, &block)
+
+        @argument = [name, block, opts]
         name
       end
 
       def config_param(name, *args, &block)
-        name = name.to_sym
-
-        opts = {}
-        args.each { |a|
-          if a.is_a?(Symbol)
-            opts[:type] = a
-          elsif a.is_a?(Hash)
-            opts.merge!(a)
-          else
-            raise ArgumentError, "wrong number of arguments (#{1 + args.length} for #{block ? 2 : 3})"
-          end
-        }
-
-        type = opts[:type]
-        if block && type
-          raise ArgumentError, "both of block and type cannot be specified for config_param"
-        end
-
-        begin
-          type = :string if type.nil?
-          block ||= Configurable.lookup_type(type)
-        rescue ConfigError
-          # override error message
-          raise ArgumentError, "unknown config_param type `#{type}'"
-        end
+        name, block, opts = parameter_configuration(name, *args, &block)
 
         @sections.delete(name)
         @params[name] = [block, opts]
-
-        if opts.has_key?(:default)
-          config_set_default(name, opts[:default])
-        end
-
         name
       end
 
       def config_set_default(name, defval)
         name = name.to_sym
 
-        @defaults[name] = defval
+        if @defaults.has_key?(name)
+          raise ArgumentError, "default value specified twice for #{name}"
+        end
 
+        @defaults[name] = defval
         nil
       end
 
