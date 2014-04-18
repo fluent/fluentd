@@ -80,7 +80,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_FACTORIES['apache'].call
+      @parser = TextParser::TEMPLATE_REGISTRY.lookup('apache').call
     end
 
     def test_call
@@ -126,7 +126,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_FACTORIES['syslog'].call
+      @parser = TextParser::TEMPLATE_REGISTRY.lookup('syslog').call
     end
 
     def test_call
@@ -165,7 +165,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_FACTORIES['nginx'].call
+      @parser = TextParser::TEMPLATE_REGISTRY.lookup('nginx').call
       @expected = {
         'remote'  => '127.0.0.1',
         'host'    => '192.168.0.1',
@@ -267,7 +267,7 @@ module ParserTest
     end
 
     def test_call
-      parser = TextParser::TEMPLATE_FACTORIES['none'].call
+      parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
       time, record = parser.call('log message!')
 
       assert_equal({'message' => 'log message!'}, record)
@@ -286,7 +286,7 @@ module ParserTest
     include ParserTest
 
     def create_parser(conf)
-      parser = TextParser::TEMPLATE_FACTORIES['multiline'].call
+      parser = TextParser::TEMPLATE_REGISTRY.lookup('multiline').call
       parser.configure(conf)
       parser
     end
@@ -361,6 +361,23 @@ EOS
         "view_runtime" => "3.2",
         "ar_runtime" => "0.0"
       }, record)
+    end
+  end
+
+  class ParserLookupTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def test_unknown_format
+      assert_raise ConfigError do
+        TextParser::TEMPLATE_REGISTRY.lookup('unknown')
+      end
+    end
+
+    def test_find_parser
+      $LOAD_PATH.unshift(File.join(File.expand_path(File.dirname(__FILE__)), 'scripts'))
+      assert_nothing_raised ConfigError do
+        TextParser::TEMPLATE_REGISTRY.lookup('known')
+      end
     end
   end
 end
