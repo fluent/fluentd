@@ -67,7 +67,7 @@ module Fluent
       end
 
       def configure_proxy(mod_name)
-        map = configure_proxy_map()
+        map = configure_proxy_map
         unless map[mod_name]
           proxy = Fluent::Config::ConfigureProxy.new(mod_name, required: true, multi: false)
           map[mod_name] = proxy
@@ -90,7 +90,7 @@ module Fluent
       end
 
       def merged_configure_proxy
-        configurables = ancestors.reverse.select{|a| a.respond_to?(:configure_proxy) }
+        configurables = ancestors.reverse.select{ |a| a.respond_to?(:configure_proxy) }
 
         # 'a.object_id.to_s' is to support anonymous class
         #   which created in tests to overwrite original behavior temporally
@@ -98,7 +98,7 @@ module Fluent
         # p Module.new.name   #=> nil
         # p Class.new.name    #=> nil
         # p AnyGreatClass.dup.name #=> nil
-        configurables.map{|a| a.configure_proxy(a.name || a.object_id.to_s) }.reduce(:merge)
+        configurables.map{ |a| a.configure_proxy(a.name || a.object_id.to_s) }.reduce(:merge)
       end
     end
   end

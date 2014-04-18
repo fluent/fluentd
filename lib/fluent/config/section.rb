@@ -7,7 +7,7 @@ module Fluent
         'Fluent::Config::Section'
       end
 
-      def initialize(params={})
+      def initialize(params = {})
         @klass = 'Fluent::Config::Section'
         @params = params
       end
@@ -47,7 +47,7 @@ module Fluent
     end
 
     module SectionGenerator
-      def self.generate(proxy, conf, logger, stack=[])
+      def self.generate(proxy, conf, logger, stack = [])
         return nil if conf.nil?
 
         section_stack = ""
@@ -64,7 +64,7 @@ module Fluent
 
         if proxy.argument
           unless conf.arg.empty?
-            key,block,opts = proxy.argument
+            key, block, opts = proxy.argument
             section_params[key] = self.instance_exec(conf.arg, opts, name, &block)
           end
           unless section_params.has_key?(proxy.argument.first)
@@ -75,7 +75,7 @@ module Fluent
 
         proxy.params.each_pair do |name, defval|
           varname = name.to_sym
-          block,opts = defval
+          block, opts = defval
           if val = conf[name.to_s]
             section_params[varname] = self.instance_exec(val, opts, name, &block)
           end
@@ -87,7 +87,7 @@ module Fluent
 
         proxy.sections.each do |name, subproxy|
           varname = subproxy.param_name.to_sym
-          elements = (conf.respond_to?(:elements) ? conf.elements : []).select{|e| e.name == subproxy.name.to_s }
+          elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s }
 
           if subproxy.required? && elements.size < 1
             logger.error "config error in:\n#{conf}"

@@ -106,7 +106,7 @@ describe Fluent::Configurable do
 
     describe '#configure' do
       it 'raise errors without any specifications for param without defaults' do
-        b2 = ConfigurableSpec::Base2.new()
+        b2 = ConfigurableSpec::Base2.new
         expect{ b2.configure({}) }.to raise_error(Fluent::ConfigError)
         expect{ b2.configure({"name1" => "t1"}) }.to raise_error(Fluent::ConfigError)
         expect{ b2.configure({"name5" => "t5"}) }.to raise_error(Fluent::ConfigError)
@@ -116,7 +116,7 @@ describe Fluent::Configurable do
       end
 
       it 'overwrites values of defaults' do
-        b2 = ConfigurableSpec::Base2.new()
+        b2 = ConfigurableSpec::Base2.new
         b2.configure({"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5"})
         expect(b2.name1).to eql("t1")
         expect(b2.name2).to eql("t2")
@@ -133,36 +133,36 @@ describe Fluent::Configurable do
   context 'class defined with config_section' do
     describe '#initialize' do
       it 'create instance methods and default values as nil for params from config_section specified as non-multi' do
-        b4 = ConfigurableSpec::Base4.new()
+        b4 = ConfigurableSpec::Base4.new
         expect(b4.description1).to be_nil
         expect(b4.description2).to be_nil
       end
 
       it 'create instance methods and default values as [] for params from config_section specified as multi' do
-        b4 = ConfigurableSpec::Base4.new()
+        b4 = ConfigurableSpec::Base4.new
         expect(b4.description3).to eql([])
       end
 
       it 'overwrite base class definition by config_section of sub class definition' do
-        b3 = ConfigurableSpec::Base3.new()
+        b3 = ConfigurableSpec::Base3.new
         expect(b3.node).to eql([])
       end
 
       it 'create instance methods and default values by param_name' do
-        b4 = ConfigurableSpec::Base4.new()
+        b4 = ConfigurableSpec::Base4.new
         expect(b4.nodes).to eql([])
         expect(b4.node).to eql("node")
       end
 
       it 'create non-required and multi without any specifications' do
-        b3 = ConfigurableSpec::Base3.new()
+        b3 = ConfigurableSpec::Base3.new
         expect(b3.class.merged_configure_proxy.sections[:node].required?).to be_false
         expect(b3.class.merged_configure_proxy.sections[:node].multi?).to be_true
       end
     end
 
     describe '#configure' do
-      def e(name, arg='', attrs={}, elements=[])
+      def e(name, arg = '', attrs = {}, elements = [])
         attrs_str_keys = {}
         attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
         Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)

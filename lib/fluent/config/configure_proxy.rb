@@ -20,7 +20,7 @@ module Fluent
       #   end
       # end
 
-      def initialize(name, opts={})
+      def initialize(name, opts = {})
         @name = name.to_sym
 
         @param_name = (opts[:param_name] || @name).to_sym
@@ -44,8 +44,8 @@ module Fluent
       def merge(other) # self is base class, other is subclass
         options = {
           param_name: other.param_name,
-          required: ( other.required.nil? ? self.required : other.required ),
-          multi: ( other.multi.nil? ? self.multi : other.multi)
+          required: (other.required.nil? ? self.required : other.required),
+          multi: (other.multi.nil? ? self.multi : other.multi)
         }
         merged = self.class.new(other.name, options)
 
