@@ -16,6 +16,8 @@
 #    limitations under the License.
 #
 module Fluent
+  require 'fluent/registry'
+
   class TextParser
     class TimeParser
       def initialize(time_format)
@@ -448,7 +450,8 @@ module Fluent
       end
     end
 
-    TEMPLATE_FACTORIES = {
+    TEMPLATE_REGISTRY = Registry.new(:config_type, 'fluent/plugin/parser_')
+    {
       'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'apache2' => Proc.new { ApacheParser.new },
       'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
@@ -459,6 +462,8 @@ module Fluent
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'none' => Proc.new { NoneParser.new },
       'multiline' => Proc.new { MultilineParser.new },
+    }.each { |name, factory|
+      TEMPLATE_REGISTRY.register(name, factory)
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
@@ -469,7 +474,7 @@ module Fluent
         factory = regexp_or_proc
       end
 
-      TEMPLATE_FACTORIES[name] = factory
+      TEMPLATE_REGISTRY.register(name, factory)
     end
 
     def initialize
@@ -504,8 +509,9 @@ module Fluent
 
       else
         # built-in template
-        factory = TEMPLATE_FACTORIES[format]
-        unless factory
+        begin
+          factory = TEMPLATE_REGISTRY.lookup(format)
+        rescue ConfigError => e # keep same error message
           raise ConfigError, "Unknown format template '#{format}'"
         end
         @parser = factory.call
