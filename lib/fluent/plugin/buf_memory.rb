@@ -78,6 +78,11 @@ module Fluent
 
     def configure(conf)
       super
+
+      unless @flush_at_shutdown
+        $log.warn "When flush_at_shutdown is false, buf_memory discards buffered chunks at shutdown."
+        $log.warn "Please confirm 'flush_at_shutdown false' configuration is correct or not."
+      end
     end
 
     def before_shutdown(out)
