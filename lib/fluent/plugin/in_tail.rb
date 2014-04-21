@@ -237,7 +237,7 @@ module Fluent
         end
       rescue => e
         log.warn line.dump, :error => e.to_s
-        log.debug_backtrace(e)
+        log.debug_backtrace(e.backtrace)
       end
     end
 
