@@ -12,6 +12,10 @@ module Fluent
         @params = params
       end
 
+      def nil?
+        false
+      end
+
       def to_h
         @params
       end

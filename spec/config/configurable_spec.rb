@@ -7,6 +7,8 @@ module ConfigurableSpec
     include Fluent::Configurable
 
     config_param :node, :string, :default => "node"
+    config_param :flag1, :bool, :default => false
+    config_param :flag2, :bool, :default => true
 
     config_param :name1, :string
     config_param :name2, :string
@@ -14,7 +16,7 @@ module ConfigurableSpec
     config_param :name4, :string, :default => "base1"
 
     def get_all
-      [@node, @name1, @name2, @name3, @name4]
+      [@node, @flag1, @flag2, @name1, @name2, @name3, @name4]
     end
   end
 
@@ -86,6 +88,8 @@ describe Fluent::Configurable do
       it 'create instance methods and default values by config_param and config_set_default' do
         obj1 = ConfigurableSpec::Base1.new
         expect(obj1.node).to eql("node")
+        expect(obj1.flag1).to eq(false)
+        expect(obj1.flag2).to eq(true)
         expect(obj1.name1).to be_nil
         expect(obj1.name2).to be_nil
         expect(obj1.name3).to eql("base1")
@@ -95,6 +99,8 @@ describe Fluent::Configurable do
       it 'create instance methods and default values overwritten by sub class definition' do
         obj2 = ConfigurableSpec::Base2.new
         expect(obj2.node).to eql("node")
+        expect(obj2.flag1).to eq(false)
+        expect(obj2.flag2).to eq(true)
         expect(obj2.name1).to be_nil
         expect(obj2.name2).to eql("base2")
         expect(obj2.name3).to eql("base1")
@@ -112,7 +118,19 @@ describe Fluent::Configurable do
         expect{ b2.configure({"name5" => "t5"}) }.to raise_error(Fluent::ConfigError)
         expect{ b2.configure({"name1" => "t1", "name5" => "t5"}) }.not_to raise_error()
 
-        expect(b2.get_all).to eql(["node", "t1", "base2", "base1", "base2", "t5", "base2"])
+        expect(b2.get_all).to eql(["node", false, true, "t1", "base2", "base1", "base2", "t5", "base2"])
+      end
+
+      it 'can configure bool values' do
+        b2a = ConfigurableSpec::Base2.new
+        expect{ b2a.configure({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5"}) }.not_to raise_error()
+        expect(b2a.flag1).to eq(true)
+        expect(b2a.flag2).to eq(true)
+
+        b2b = ConfigurableSpec::Base2.new
+        expect{ b2b.configure({"flag1" => "false", "flag2" => "no", "name1" => "t1", "name5" => "t5"}) }.not_to raise_error()
+        expect(b2b.flag1).to eq(false)
+        expect(b2b.flag2).to eq(false)
       end
 
       it 'overwrites values of defaults' do
@@ -125,7 +143,7 @@ describe Fluent::Configurable do
         expect(b2.name5).to eql("t5")
         expect(b2.name6).to eql("base2")
 
-        expect(b2.get_all).to eql(["node", "t1", "t2", "t3", "t4", "t5", "base2"])
+        expect(b2.get_all).to eql(["node", false, true, "t1", "t2", "t3", "t4", "t5", "base2"])
       end
     end
   end
