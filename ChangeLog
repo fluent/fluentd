@@ -1,3 +1,16 @@
+Release 0.10.46 - 2014/04/21
+
+* in_tail: Fix typo in rescue for dumping backtrace
+* in_forward: Add blocking_timeout option to avoid Cool.io loop stuck in shutdown
+* out_forward: Add phi_failure_detector option to disable "The Phi accrual failure detector"
+* buf_memory: Add flush_at_shutdown option to discard buffered event at shutdown
+* parser: Use Engine.now when time_key is missing in ValuesParser
+* parser: TextParser loads fluent/plugin/parser_xxx.rb automatically when 'xxx' format not found
+* Fix match cache expiration
+* Add new v1 configuration format and --use-v1-config option to enable v1 configuration format
+* Add config_section to Configurable to support nested parameters in plugins
+* Relax http_parser.rb gem version to support 0.6 series
+
 Release 0.10.45 - 2014/03/28
 
 * in_tail: Merge in_tail_ex and in_tail_multiline features
