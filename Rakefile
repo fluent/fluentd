@@ -12,7 +12,7 @@ task :test => [:base_test, :spec]
 desc 'Run test_unit based test'
 Rake::TestTask.new(:base_test) do |t|
   t.libs << "test"
-  t.test_files = (Dir["test/*.rb"] + Dir["test/plugin/*.rb"] - ["helper.rb"]).sort
+  t.test_files = (Dir["test/test_*.rb"] + Dir["test/plugin/test_*.rb"] - ["helper.rb"]).sort
   t.verbose = true
   #t.warning = true
 end
