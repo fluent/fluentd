@@ -20,6 +20,7 @@ module Fluent
     Plugin.register_output('copy', self)
 
     config_param :deep_copy, :bool, :default => false
+    config_param :ignore_individual_errors, :bool, :default => false
 
     def initialize
       super
@@ -66,9 +67,9 @@ module Fluent
         es = m
       end
       if @deep_copy
-        chain = CopyOutputChain.new(@outputs, tag, es, chain)
+        chain = CopyOutputChain.new(@outputs, tag, es, chain, @ignore_individual_errors)
       else
-        chain = OutputChain.new(@outputs, tag, es, chain)
+        chain = OutputChain.new(@outputs, tag, es, chain, @ignore_individual_errors)
       end
       chain.next
     end
