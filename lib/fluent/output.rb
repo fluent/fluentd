@@ -17,33 +17,42 @@
 #
 module Fluent
   class OutputChain
-    def initialize(array, tag, es, chain=NullOutputChain.instance)
+    def initialize(array, tag, es, chain=NullOutputChain.instance, fault_tolerant=false)
       @array = array
       @tag = tag
       @es = es
       @offset = 0
       @chain = chain
+      @fault_tolerant = fault_tolerant
+      @errors = 0
     end
 
     def next
-      if @array.length <= @offset
-        return @chain.next
+      begin
+        if @array.length <= @offset
+          return @chain.next
+        end
+        @offset += 1
+        result = @array[@offset-1].emit(@tag, es, self)
+      rescue Exception => e
+        @errors += 1
+        raise e if not @fault_tolerant or @errors == @array.length
+        $log.error e.message, :error => e.to_s
+        retry
       end
-      @offset += 1
-      result = @array[@offset-1].emit(@tag, @es, self)
       result
+    end
+
+    protected
+    def es
+      @es
     end
   end
 
   class CopyOutputChain < OutputChain
-    def next
-      if @array.length <= @offset
-        return @chain.next
-      end
-      @offset += 1
-      es = @array.length > @offset ? @es.dup : @es
-      result = @array[@offset-1].emit(@tag, es, self)
-      result
+    protected
+    def es
+      @array.length > @offset ? @es.dup : @es
     end
   end
 
