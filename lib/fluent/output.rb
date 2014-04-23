@@ -36,21 +36,21 @@ module Fluent
         result = @array[@offset-1].emit(@tag, es, self)
       rescue Exception => e
         @errors += 1
-        raise e if not @fault_tolerant or @errors == @array.length
+        raise e if !@fault_tolerant || @errors == @array.length
         $log.error e.message, :error => e.to_s
         retry
       end
       result
     end
 
-    protected
+    private
     def es
       @es
     end
   end
 
   class CopyOutputChain < OutputChain
-    protected
+    private
     def es
       @array.length > @offset ? @es.dup : @es
     end
