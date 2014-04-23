@@ -21,11 +21,8 @@ class ForwardInputTest < Test::Unit::TestCase
     assert_equal PORT, d.instance.port
     assert_equal '127.0.0.1', d.instance.bind
     assert_equal 0, d.instance.linger_timeout
-    assert_equal 0.5, d.instance.blocking_timeout
     assert !d.instance.backlog
   end
-
-  # TODO: Will add Loop::run arity check with stub/mock library
 
   def connect
     TCPSocket.new('127.0.0.1', PORT)
