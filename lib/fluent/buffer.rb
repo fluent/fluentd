@@ -130,6 +130,7 @@ module Fluent
     # should override buffer_chunk_limit with a larger size.
     config_param :buffer_chunk_limit, :size, :default => 8*1024*1024
     config_param :buffer_queue_limit, :integer, :default => 256
+    config_param :buffer_ignore_exceeded_chunk, :bool, :default => false
 
     alias chunk_limit buffer_chunk_limit
     alias chunk_limit= buffer_chunk_limit=
@@ -179,7 +180,12 @@ module Fluent
           #  raise BufferChunkLimitError, "received data too large"
 
         elsif @queue.size >= @buffer_queue_limit
-          raise BufferQueueLimitError, "queue size exceeds limit"
+          ex = BufferQueueLimitError.new("queue size exceeds limit")
+          if @buffer_ignore_exceeded_chunk
+            $log.error ex.message, :error => ex
+          else
+            raise ex
+          end
         end
 
         if data.bytesize > @buffer_chunk_limit
