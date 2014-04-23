@@ -16,6 +16,9 @@
 #    limitations under the License.
 #
 module Fluent
+  class OutputChainError < StandardError
+  end
+
   class OutputChain
     def initialize(array, tag, es, chain=NullOutputChain.instance, fault_tolerant=false)
       @array = array
@@ -34,10 +37,10 @@ module Fluent
         end
         @offset += 1
         result = @array[@offset-1].emit(@tag, es, self)
-      rescue Exception => e
+      rescue => e
         @errors += 1
-        raise e if !@fault_tolerant || @errors == @array.length
-        $log.error e.message, :error => e.to_s
+        $log.error e.message, :error_class => e.class.to_s, :error => e.message
+        raise OutputChainError, "All configured outputs failed"  if !@fault_tolerant || @errors == @array.length
         retry
       end
       result

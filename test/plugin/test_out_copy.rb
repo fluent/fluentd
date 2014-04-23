@@ -117,7 +117,7 @@ class CopyOutputTest < Test::Unit::TestCase
     output = Fluent::Plugin.new_output('test')
     output.configure('name' => 'failing_output')
     output.define_singleton_method(:emit) do |tag, es, chain|
-      raise Exception, "ごめんなさい"
+      raise StandardError, "ごめんなさい"
       es.each do |time, record|
         super(tag, [[time, record]], chain)
       end
@@ -192,7 +192,7 @@ class CopyOutputTest < Test::Unit::TestCase
 
     es = Fluent::OneEventStream.new(time, {"a" => 1})
 
-    assert_raises Exception do
+    assert_raises Fluent::OutputChainError do
       d.instance.emit('test', es, Fluent::NullOutputChain.instance)
     end
   end
@@ -242,7 +242,7 @@ class CopyOutputTest < Test::Unit::TestCase
 
     es = Fluent::OneEventStream.new(time, {"a" => 1})
 
-    assert_raises Exception do
+    assert_raises Fluent::OutputChainError do
       d.instance.emit('test', es, Fluent::NullOutputChain.instance)
     end
   end
