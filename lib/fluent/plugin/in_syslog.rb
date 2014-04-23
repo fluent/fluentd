@@ -117,15 +117,15 @@ module Fluent
     def run
       @loop.run
     rescue
-      $log.error "unexpected error", :error=>$!.to_s
-      $log.error_backtrace
+      log.error "unexpected error", :error=>$!.to_s
+      log.error_backtrace
     end
 
     protected
     def receive_data_parser(data)
       m = SYSLOG_REGEXP.match(data)
       unless m
-        $log.debug "invalid syslog message: #{data.dump}"
+        log.debug "invalid syslog message: #{data.dump}"
         return
       end
       pri = m[1].to_i
@@ -133,20 +133,21 @@ module Fluent
 
       time, record = @parser.parse(text)
       unless time && record
+        log.warn "pattern not match: #{text.inspect}"
         return
       end
 
       emit(pri, time, record)
 
     rescue
-      $log.warn data.dump, :error=>$!.to_s
-      $log.debug_backtrace
+      log.warn data.dump, :error=>$!.to_s
+      log.debug_backtrace
     end
 
     def receive_data(data)
       m = SYSLOG_ALL_REGEXP.match(data)
       unless m
-        $log.debug "invalid syslog message", :data=>data
+        log.debug "invalid syslog message", :data=>data
         return
       end
 
@@ -172,20 +173,20 @@ module Fluent
       emit(pri, time, record)
 
     rescue
-      $log.warn data.dump, :error=>$!.to_s
-      $log.debug_backtrace
+      log.warn data.dump, :error=>$!.to_s
+      log.debug_backtrace
     end
 
     private
 
     def listen(callback)
-      $log.debug "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
+      log.debug "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
       if @protocol_type == :udp
         @usock = SocketUtil.create_udp_socket(@bind)
         @usock.bind(@bind, @port)
         UdpHandler.new(@usock, callback)
       else
-        Coolio::TCPServer.new(@bind, @port, TcpHandler, callback)
+        Coolio::TCPServer.new(@bind, @port, TcpHandler, log, callback)
       end
     end
 
@@ -197,7 +198,7 @@ module Fluent
 
       Engine.emit(tag, time, record)
     rescue => e
-      $log.error "syslog failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
+      log.error "syslog failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
     end
 
     class UdpHandler < Coolio::IO
@@ -219,14 +220,15 @@ module Fluent
     end
 
     class TcpHandler < Coolio::Socket
-      def initialize(io, on_message)
+      def initialize(io, log, on_message)
         super(io)
         if io.is_a?(TCPSocket)
           opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
-        $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
         @on_message = on_message
+        @log = log
+        @log.trace { "accepted fluent socket object_id=#{self.object_id}" }
         @buffer = "".force_encoding('ASCII-8BIT')
       end
 
@@ -245,12 +247,12 @@ module Fluent
         end
         @buffer.slice!(0, pos) if pos > 0
       rescue => e
-        $log.error "syslog error", :error => e, :error_class => e.class
+        @log.error "syslog error", :error => e, :error_class => e.class
         close
       end
 
       def on_close
-        $log.trace { "closed fluent socket object_id=#{self.object_id}" }
+        @log.trace { "closed fluent socket object_id=#{self.object_id}" }
       end
     end
   end

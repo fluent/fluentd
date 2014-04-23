@@ -1,3 +1,43 @@
+Release 0.10.46 - 2014/04/21
+
+* in_tail: Fix typo in rescue for dumping backtrace
+* in_forward: Add blocking_timeout option to avoid Cool.io loop stuck in shutdown
+* out_forward: Add phi_failure_detector option to disable "The Phi accrual failure detector"
+* buf_memory: Add flush_at_shutdown option to discard buffered event at shutdown
+* parser: Use Engine.now when time_key is missing in ValuesParser
+* parser: TextParser loads fluent/plugin/parser_xxx.rb automatically when 'xxx' format not found
+* Fix match cache expiration
+* Add new v1 configuration format and --use-v1-config option to enable v1 configuration format
+* Add config_section to Configurable to support nested parameters in plugins
+* Relax http_parser.rb gem version to support 0.6 series
+
+Release 0.10.45 - 2014/03/28
+
+* in_tail: Merge in_tail_ex and in_tail_multiline features
+* in_forward: Add linger_timeout option
+* out_exec: Support json and msgpack format
+* Engine: Fix signal handling when receives SIGTERM before loop starts
+* Use correct out_forward option in fluent.conf with --setup option
+* Ignore sigdump exception on signal unsupported environment
+
+Release 0.10.44 - 2014/02/26
+
+* in_forward: Print remote address and port in trace log
+* Remove several methods from fluentd-debug to call remote object method directly
+* Add --gemfile option to manage Fluentd and plugins using Gemfile and Bundler
+* Add <include path /> directive to include the configuration file under the elements
+* Add 'ruby' keyword to call Kernel method in configuration DSL
+* Relax Cool.io gem version to allow 1.2.x
+
+Release 0.10.43 - 2014/02/03
+
+* Input/Output: Add 'log_level' option to plugins
+* parser/in_tail: Fix RegexpParser forget to call configure method
+* parser/in_tail: Improve type conversion performance
+* in_http: Add add_http_headers option to add HTTP headers to record
+* Buffer: Improve submit_buffer throughput using round-robin writer selection
+* add sigdump gem to dump useful information via SIGCONT
+
 Release 0.10.42 - 2013/12/25
 
 * parser/in_tail: Add 'types' and related parameters to convert record value type

@@ -71,20 +71,28 @@ module Fluent
       super
     end
 
+    config_param :flush_at_shutdown, :bool, :default => true
     # Overwrite default BasicBuffer#buffer_queue_limit
     # to limit total memory usage upto 512MB.
     config_set_default :buffer_queue_limit, 64
 
     def configure(conf)
       super
+
+      unless @flush_at_shutdown
+        $log.warn "When flush_at_shutdown is false, buf_memory discards buffered chunks at shutdown."
+        $log.warn "Please confirm 'flush_at_shutdown false' configuration is correct or not."
+      end
     end
 
     def before_shutdown(out)
-      synchronize do
-        @map.each_key {|key|
-          push(key)
-        }
-        while pop(out)
+      if @flush_at_shutdown
+        synchronize do
+          @map.each_key {|key|
+            push(key)
+          }
+          while pop(out)
+          end
         end
       end
     end

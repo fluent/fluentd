@@ -59,6 +59,7 @@ module Fluent
   class Output
     include Configurable
     include PluginId
+    include PluginLoggerMixin
 
     def initialize
       super
@@ -223,6 +224,8 @@ module Fluent
       @buffer.start
       @secondary.start if @secondary
       @writers.each {|writer| writer.start }
+      @writer_current_position = 0
+      @writers_size = @writers.size
     end
 
     def shutdown
@@ -240,8 +243,9 @@ module Fluent
     end
 
     def submit_flush
-      # TODO roundrobin?
-      @writers.first.submit_flush
+      # Without locks: it is rough but enough to select "next" writer selection
+      @writer_current_position = (@writer_current_position + 1) % @writers_size
+      @writers[@writer_current_position].submit_flush
     end
 
     def format_stream(tag, es)

@@ -28,8 +28,9 @@ module Fluent
     config_param :top, :integer, :default => 15
 
     class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, repeat, &callback)
+      def initialize(interval, repeat, log, &callback)
         @callback = callback
+        @log = log
         super(interval, repeat)
       end
 
@@ -37,8 +38,8 @@ module Fluent
         @callback.call
       rescue
         # TODO log?
-        $log.error $!.to_s
-        $log.error_backtrace
+        @log.error $!.to_s
+        @log.error_backtrace
       end
     end
 
@@ -48,7 +49,7 @@ module Fluent
 
     def start
       @loop = Coolio::Loop.new
-      @timer = TimerWatcher.new(@emit_interval, true, &method(:on_timer))
+      @timer = TimerWatcher.new(@emit_interval, true, log, &method(:on_timer))
       @loop.attach(@timer)
       @thread = Thread.new(&method(:run))
     end
@@ -62,8 +63,8 @@ module Fluent
     def run
       @loop.run
     rescue
-      $log.error "unexpected error", :error=>$!.to_s
-      $log.error_backtrace
+      log.error "unexpected error", :error=>$!.to_s
+      log.error_backtrace
     end
 
     class Counter
@@ -110,7 +111,7 @@ module Fluent
 
       Engine.emit(@tag, now, record)
     rescue => e
-      $log.error "object space failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => @tag, :record => Yajl.dump(record)
+      log.error "object space failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => @tag, :record => Yajl.dump(record)
     end
   end
 end
