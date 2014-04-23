@@ -8,6 +8,8 @@ module FluentBufferTest
   include Fluent
 
   class SimpleBufferedOutput < BasicBuffer
+    attr_reader :queue
+
     def resume
       # queue, map
       return [], {}
@@ -38,12 +40,16 @@ module FluentBufferTest
 
     def test_doesnt_raise_exception_if_chunk_limit_exceeded_and_ignored
       @out.configure %[
-        buffer_chunk_limit 3
+        buffer_chunk_limit 4
         buffer_queue_limit 0
         buffer_ignore_exceeded_chunk true
       ]
 
-      @out.run { @out.instance.emit('sample.key', "data", Fluent::NullOutputChain.instance) }
+      @out.run do
+        @out.instance.emit('sample.key', "data", Fluent::NullOutputChain.instance)
+        @out.instance.emit('sample.key', "data", Fluent::NullOutputChain.instance)
+        assert_equal [], @out.instance.queue
+      end
     end
   end
 end

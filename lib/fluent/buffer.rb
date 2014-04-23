@@ -182,7 +182,8 @@ module Fluent
         elsif @queue.size >= @buffer_queue_limit
           ex = BufferQueueLimitError.new("queue size exceeds limit")
           if @buffer_ignore_exceeded_chunk
-            $log.error ex.message, :error => ex
+            $log.error ex.message, :error_class => ex.class.to_s, :error => ex.message
+            return false
           else
             raise ex
           end
