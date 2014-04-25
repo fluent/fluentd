@@ -1,3 +1,4 @@
+# encoding: utf-8
 require 'fluent/test'
 
 class CopyOutputTest < Test::Unit::TestCase
@@ -89,40 +90,57 @@ class CopyOutputTest < Test::Unit::TestCase
     }
   end
 
-  def create_event_test_driver(is_deep_copy = false)
-    deep_copy_config = %[
-deep_copy true
-]
-
-    output1 = Fluent::Plugin.new_output('test')
-    output1.configure('name' => 'output1')
-    output1.define_singleton_method(:emit) do |tag, es, chain|
+  def record_changing_output
+    output = Fluent::Plugin.new_output('test')
+    output.configure('name' => 'record_changing_output')
+    output.define_singleton_method(:emit) do |tag, es, chain|
       es.each do |time, record|
         record['foo'] = 'bar'
         super(tag, [[time, record]], chain)
       end
     end
+    output
+  end
 
-    output2 = Fluent::Plugin.new_output('test')
-    output2.configure('name' => 'output2')
-    output2.define_singleton_method(:emit) do |tag, es, chain|
+  def simple_output
+    output = Fluent::Plugin.new_output('test')
+    output.configure('name' => 'simple_output')
+    output.define_singleton_method(:emit) do |tag, es, chain|
       es.each do |time, record|
         super(tag, [[time, record]], chain)
       end
     end
+    output
+  end
 
-    outputs = [output1, output2]
+  def failing_output
+    output = Fluent::Plugin.new_output('test')
+    output.configure('name' => 'failing_output')
+    output.define_singleton_method(:emit) do |tag, es, chain|
+      raise StandardError, "ごめんなさい"
+      es.each do |time, record|
+        super(tag, [[time, record]], chain)
+      end
+    end
+    output
+  end
+
+  def create_event_test_driver(options={})
+    config = ""
+    config << "deep_copy true\n" if options[:deep_copy]
+    config << "ignore_individual_errors true\n" if options[:ignore_individual_errors]
+
 
     d = Fluent::Test::OutputTestDriver.new(Fluent::CopyOutput)
-    d = d.configure(deep_copy_config) if is_deep_copy
-    d.instance.instance_eval { @outputs = outputs }
+    d = d.configure(config)
+    d.instance.instance_eval { @outputs = options[:outputs] }
     d
   end
 
   def test_one_event
     time = Time.parse("2013-05-26 06:37:22 UTC").to_i
 
-    d = create_event_test_driver(false)
+    d = create_event_test_driver(:outputs => [record_changing_output, simple_output])
     es = Fluent::OneEventStream.new(time, {"a" => 1})
     d.instance.emit('test', es, Fluent::NullOutputChain.instance)
 
@@ -131,7 +149,7 @@ deep_copy true
       [[time, {"a"=>1, "foo"=>"bar"}]]
     ], d.instance.outputs.map{ |o| o.events }
 
-    d = create_event_test_driver(true)
+    d = create_event_test_driver(:deep_copy => true, :outputs => [record_changing_output, simple_output])
     es = Fluent::OneEventStream.new(time, {"a" => 1})
     d.instance.emit('test', es, Fluent::NullOutputChain.instance)
 
@@ -144,7 +162,7 @@ deep_copy true
   def test_multi_event
     time = Time.parse("2013-05-26 06:37:22 UTC").to_i
 
-    d = create_event_test_driver(false)
+    d = create_event_test_driver(:outputs => [record_changing_output, simple_output])
     es = Fluent::MultiEventStream.new
     es.add(time, {"a" => 1})
     es.add(time, {"b" => 2})
@@ -155,7 +173,7 @@ deep_copy true
       [[time, {"a"=>1, "foo"=>"bar"}], [time, {"b"=>2, "foo"=>"bar"}]]
     ], d.instance.outputs.map{ |o| o.events }
 
-    d = create_event_test_driver(true)
+    d = create_event_test_driver(:deep_copy => true, :outputs => [record_changing_output, simple_output])
     es = Fluent::MultiEventStream.new
     es.add(time, {"a" => 1})
     es.add(time, {"b" => 2})
@@ -166,5 +184,68 @@ deep_copy true
       [[time, {"a"=>1}], [time, {"b"=>2}]]
     ], d.instance.outputs.map{ |o| o.events }
   end
+
+  def test_single_failure_breaks_chain_unless_configured
+    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+
+    d = create_event_test_driver(:outputs => [simple_output, failing_output])
+
+    es = Fluent::OneEventStream.new(time, {"a" => 1})
+
+    assert_raises Fluent::OutputChainError do
+      d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+    end
+  end
+
+  def test_single_failure_doesnt_break_chain
+    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+
+    d = create_event_test_driver(:ignore_individual_errors => true,
+                                 :outputs => [failing_output,
+                                              record_changing_output,
+                                              simple_output])
+
+    es = Fluent::OneEventStream.new(time, {"a" => 1})
+    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+
+    assert_equal [
+      [],
+      [[time, {"a"=>1, "foo" => "bar"}]],
+      [[time, {"a"=>1, "foo" => "bar"}]]
+    ], d.instance.outputs.map{ |o| o.events }
+  end
+
+  def test_single_failure_doesnt_break_chain_with_deep_copy
+    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+
+    d = create_event_test_driver(:ignore_individual_errors => true,
+                                 :deep_copy => true,
+                                 :outputs => [failing_output,
+                                              record_changing_output,
+                                              simple_output])
+
+    es = Fluent::OneEventStream.new(time, {"a" => 1})
+    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+
+    assert_equal [
+      [],
+      [[time, {"a"=>1, "foo" => "bar"}]],
+      [[time, {"a"=>1}]]
+    ], d.instance.outputs.map{ |o| o.events }
+  end
+
+  def test_all_failures_raises_exception
+    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+
+    d = create_event_test_driver(:ignore_individual_errors => true,
+                                 :outputs => [failing_output, failing_output])
+
+    es = Fluent::OneEventStream.new(time, {"a" => 1})
+
+    assert_raises Fluent::OutputChainError do
+      d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+    end
+  end
+
 end
 

@@ -16,34 +16,46 @@
 #    limitations under the License.
 #
 module Fluent
+  class OutputChainError < StandardError
+  end
+
   class OutputChain
-    def initialize(array, tag, es, chain=NullOutputChain.instance)
+    def initialize(array, tag, es, chain=NullOutputChain.instance, fault_tolerant=false)
       @array = array
       @tag = tag
       @es = es
       @offset = 0
       @chain = chain
+      @fault_tolerant = fault_tolerant
+      @errors = 0
     end
 
     def next
-      if @array.length <= @offset
-        return @chain.next
+      begin
+        if @array.length <= @offset
+          return @chain.next
+        end
+        @offset += 1
+        result = @array[@offset-1].emit(@tag, es, self)
+      rescue => e
+        @errors += 1
+        $log.error e.message, :error_class => e.class.to_s, :error => e.message
+        raise OutputChainError, "All configured outputs failed"  if !@fault_tolerant || @errors == @array.length
+        retry
       end
-      @offset += 1
-      result = @array[@offset-1].emit(@tag, @es, self)
       result
+    end
+
+    private
+    def es
+      @es
     end
   end
 
   class CopyOutputChain < OutputChain
-    def next
-      if @array.length <= @offset
-        return @chain.next
-      end
-      @offset += 1
-      es = @array.length > @offset ? @es.dup : @es
-      result = @array[@offset-1].emit(@tag, es, self)
-      result
+    private
+    def es
+      @array.length > @offset ? @es.dup : @es
     end
   end
 
