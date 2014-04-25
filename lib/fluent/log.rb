@@ -357,7 +357,9 @@ module Fluent
       super
 
       if @log_level
-        @log = PluginLogger.new($log)
+        unless @log.is_a?(PluginLogger)
+          @log = PluginLogger.new($log)
+        end
         @log.level = @log_level
       end
     end

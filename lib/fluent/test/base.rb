@@ -32,6 +32,8 @@ module Fluent
         else
           @instance = klass
         end
+        @instance.log = TestLogger.new
+
         @config = Config.new
       end
 
@@ -56,6 +58,45 @@ module Fluent
         ensure
           @instance.shutdown
         end
+      end
+    end
+
+    class DummyLogDevice
+      attr_reader :logs
+
+      def initialize
+        @logs = []
+      end
+
+      def tty?
+        false
+      end
+
+      def puts(*args)
+        args.each{ |arg| write(arg + "\n") }
+      end
+
+      def write(message)
+        @logs.push message
+      end
+
+      def flush
+        true
+      end
+
+      def close
+        true
+      end
+    end
+
+    class TestLogger < Fluent::PluginLogger
+      def initialize
+        @logdev = DummyLogDevice.new
+        super(Fluent::Log.new(@logdev))
+      end
+
+      def logs
+        @logdev.logs
       end
     end
   end
