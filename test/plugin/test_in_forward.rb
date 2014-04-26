@@ -116,6 +116,73 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_send_large_chunk_warning
+    d = create_driver(CONFIG + %[
+      chunk_size_warn 16M
+      chunk_size_limit 32M
+    ])
+
+    time = Time.parse("2014-04-25 13:14:15 UTC").to_i
+
+    # generate over 16M chunk
+    str = "X" * 1024 * 1024
+    chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
+    assert chunk.size > (16 * 1024 * 1024)
+    assert chunk.size < (32 * 1024 * 1024)
+
+    # d.run => send_data
+    d.run do
+      send_data chunk
+
+      # FIXME: need right way to check whether data are properly sent (and callback ran), or not
+      (0...10).each{ sleep 0.05 }
+    end
+
+    # check emitted data
+    emits = d.emits
+    assert_equal 16, emits.size
+    assert emits.map(&:first).all?{|t| t == "test.tag" }
+    assert_equal (0...16).to_a, emits.map{|tag, t, record| t - time }
+
+    # check log
+    assert d.instance.log.logs.select{|line|
+      line =~ / \[warn\]: Forward input chunk is very large:/ &&
+      line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port \d+" limit=16777216 size=16778013/
+    }.size == 1, "large chunk warning is not logged"
+  end
+
+  def test_send_large_chunk_limit
+    d = create_driver(CONFIG + %[
+      chunk_size_warn 16M
+      chunk_size_limit 32M
+    ])
+
+    time = Time.parse("2014-04-25 13:14:15 UTC").to_i
+
+    # generate over 32M chunk
+    str = "X" * 1024 * 1024
+    chunk = [ "test.tag", (0...32).map{|i| [time + i, {"data" => str}] } ].to_msgpack
+    assert chunk.size > (32 * 1024 * 1024)
+
+    # d.run => send_data
+    d.run do
+      send_data chunk
+
+      # FIXME: need right way to check whether data are properly sent (and callback ran), or not
+      (0...10).each{ sleep 0.05 }
+    end
+
+    # check emitted data
+    emits = d.emits
+    assert_equal 0, emits.size
+
+    # check log
+    assert d.instance.log.logs.select{|line|
+      line =~ / \[warn\]: Dropping forward input chunk size is larger than limit:/ &&
+      line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port \d+" limit=33554432 size=33555501/
+    }.size == 1, "large chunk warning is not logged"
+  end
+
   def send_data(data)
     io = connect
     begin
