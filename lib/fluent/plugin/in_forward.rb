@@ -177,7 +177,7 @@ module Fluent
 
         if io.is_a?(TCPSocket) # for future unix domain socket support
           proto, port, host, addr = io.peeraddr
-          @source = "host: #{host}, addr: #{addr}, port #{port}"
+          @source = "host: #{host}, addr: #{addr}, port: #{port}"
 
           opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
