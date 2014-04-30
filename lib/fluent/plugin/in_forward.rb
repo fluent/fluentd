@@ -125,7 +125,7 @@ module Fluent
     #   2: long? time
     #   3: object record
     # }
-    def on_message(msg, chunk_size, from)
+    def on_message(msg, chunk_size, source)
       if msg.nil?
         # for future TCP heartbeat_request
         return
@@ -137,10 +137,10 @@ module Fluent
 
       if @chunk_size_warn || @chunk_size_limit
         if chunk_size > @chunk_size_limit
-          log.warn "Dropping forward input chunk size is larger than limit:", tag: tag, source: from, limit: @chunk_size_limit, size: chunk_size
+          log.warn "Dropping forward input chunk size is larger than limit:", tag: tag, source: source, limit: @chunk_size_limit, size: chunk_size
           return
         elsif chunk_size > @chunk_size_warn
-          log.warn "Forward input chunk is very large:", tag: tag, source: from, limit: @chunk_size_warn, size: chunk_size
+          log.warn "Forward input chunk is very large:", tag: tag, source: source, limit: @chunk_size_warn, size: chunk_size
         end
       end
 
