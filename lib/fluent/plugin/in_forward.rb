@@ -176,20 +176,23 @@ module Fluent
         super(io)
 
         if io.is_a?(TCPSocket) # for future unix domain socket support
-          proto, port, host, addr = io.peeraddr
+          proto, port, host, addr = ( io.peeraddr rescue ["?", "?", "name resolusion failed", "?"] )
           @source = "host: #{host}, addr: #{addr}, port: #{port}"
 
           opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-        else
-          raise "Unknown forward source"
         end
 
         @chunk_counter = 0
         @on_message = on_message
         @log = log
         @log.trace {
-          remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername) rescue nil
+          begin
+            remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername)
+          rescue => e
+            remote_port = nil
+            remote_addr = nil
+          end
           "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
         }
       end
