@@ -76,6 +76,11 @@ module Fluent
       if RUBY_PLATFORM.downcase =~ /mswin(?!ce)|mingw|cygwin|bccwin/
         $platformwin = true
       end
+      if $platformwin
+        require 'fluent/win32api_syncobj'
+        ruby_path = Fluent::Win32Dll.getmodulefilename
+        @rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
+      end
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
       @finished = false
@@ -197,7 +202,7 @@ module Fluent
         end
       else
         if @usespawn == 0
-          fluentd_spawn_cmd = Fluent::RUBY_INSTALL_DIR+"/bin/ruby.exe '"+Fluent::RUBY_INSTALL_DIR+"/bin/fluentd' "
+          fluentd_spawn_cmd = @rubybin_dir+"/ruby.exe '"+@rubybin_dir+"/fluentd' "
           $fluentdargv.each{|a|
             fluentd_spawn_cmd << (a + " ")
           }
