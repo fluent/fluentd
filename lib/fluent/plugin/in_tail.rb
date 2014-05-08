@@ -188,7 +188,7 @@ module Fluent
         time, record = parse_line(lb)
         if time && record
           tag = if @tag_prefix || @tag_suffix
-                  @tag_prefix + tail_watcher.tag + @tag_suffix
+                  @tag_prefix + tw.tag + @tag_suffix
                 else
                   @tag
                 end
