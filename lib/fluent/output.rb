@@ -234,8 +234,9 @@ module Fluent
       @buffer.shutdown
     end
 
-    def emit(tag, es, chain, key="")
+    def emit(tag, es, chain)
       @emit_count += 1
+      key = chunk_key(tag)
       data = format_stream(tag, es)
       if @buffer.emit(key, data, chain)
         submit_flush
@@ -254,6 +255,10 @@ module Fluent
         out << format(tag, time, record)
       }
       out
+    end
+
+    def chunk_key(tag)
+      ''
     end
 
     #def format(tag, time, record)
