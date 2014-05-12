@@ -38,6 +38,8 @@ module Fluent
         true
       when 'false', 'no'
         false
+      when ''
+        true
       else
         nil
       end
