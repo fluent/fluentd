@@ -118,7 +118,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
   def test_send_large_chunk_warning
     d = create_driver(CONFIG + %[
-      chunk_size_warn 16M
+      chunk_size_warn_limit 16M
       chunk_size_limit 32M
     ])
 
@@ -144,14 +144,14 @@ class ForwardInputTest < Test::Unit::TestCase
 
     # check log
     assert d.instance.log.logs.select{|line|
-      line =~ / \[warn\]: Forward input chunk is very large:/ &&
+      line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
       line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
     }.size == 1, "large chunk warning is not logged"
   end
 
   def test_send_large_chunk_limit
     d = create_driver(CONFIG + %[
-      chunk_size_warn 16M
+      chunk_size_warn_limit 16M
       chunk_size_limit 32M
     ])
 
@@ -175,7 +175,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     # check log
     assert d.instance.log.logs.select{|line|
-      line =~ / \[warn\]: Dropping forward input chunk size is larger than limit:/ &&
+      line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
       line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=33554432 size=33554989/
     }.size == 1, "large chunk warning is not logged"
   end

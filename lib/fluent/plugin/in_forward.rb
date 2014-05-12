@@ -34,7 +34,7 @@ module Fluent
     # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
     config_param :blocking_timeout, :time, :default => 0.5
 
-    config_param :chunk_size_warn, :size, :default => nil
+    config_param :chunk_size_warn_limit, :size, :default => nil
     config_param :chunk_size_limit, :size, :default => nil
 
     def configure(conf)
@@ -135,12 +135,12 @@ module Fluent
       tag = msg[0].to_s
       entries = msg[1]
 
-      if @chunk_size_warn || @chunk_size_limit
+      if @chunk_size_warn_limit || @chunk_size_limit
         if chunk_size > @chunk_size_limit
-          log.warn "Dropping forward input chunk size is larger than limit:", tag: tag, source: source, limit: @chunk_size_limit, size: chunk_size
+          log.warn "Input chunk size is larger than 'chunk_size_limit', dropped:", tag: tag, source: source, limit: @chunk_size_limit, size: chunk_size
           return
-        elsif chunk_size > @chunk_size_warn
-          log.warn "Forward input chunk is very large:", tag: tag, source: source, limit: @chunk_size_warn, size: chunk_size
+        elsif chunk_size > @chunk_size_warn_limit
+          log.warn "Input chunk size is larger than 'chunk_size_warn_limit':", tag: tag, source: source, limit: @chunk_size_warn_limit, size: chunk_size
         end
       end
 
