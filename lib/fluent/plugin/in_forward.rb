@@ -34,6 +34,9 @@ module Fluent
     # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
     config_param :blocking_timeout, :time, :default => 0.5
 
+    config_param :chunk_size_warn, :size, :default => nil
+    config_param :chunk_size_limit, :size, :default => nil
+
     def configure(conf)
       super
     end
@@ -122,7 +125,7 @@ module Fluent
     #   2: long? time
     #   3: object record
     # }
-    def on_message(msg)
+    def on_message(msg, chunk_size, source)
       if msg.nil?
         # for future TCP heartbeat_request
         return
@@ -131,6 +134,15 @@ module Fluent
       # TODO format error
       tag = msg[0].to_s
       entries = msg[1]
+
+      if @chunk_size_warn || @chunk_size_limit
+        if chunk_size > @chunk_size_limit
+          log.warn "Dropping forward input chunk size is larger than limit:", tag: tag, source: source, limit: @chunk_size_limit, size: chunk_size
+          return
+        elsif chunk_size > @chunk_size_warn
+          log.warn "Forward input chunk is very large:", tag: tag, source: source, limit: @chunk_size_warn, size: chunk_size
+        end
+      end
 
       if entries.class == String
         # PackedForward
@@ -162,14 +174,25 @@ module Fluent
     class Handler < Coolio::Socket
       def initialize(io, linger_timeout, log, on_message)
         super(io)
-        if io.is_a?(TCPSocket)
+
+        if io.is_a?(TCPSocket) # for future unix domain socket support
+          proto, port, host, addr = ( io.peeraddr rescue ["?", "?", "name resolusion failed", "?"] )
+          @source = "host: #{host}, addr: #{addr}, port: #{port}"
+
           opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
+
+        @chunk_counter = 0
         @on_message = on_message
         @log = log
         @log.trace {
-          remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername) rescue nil
+          begin
+            remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername)
+          rescue => e
+            remote_port = nil
+            remote_addr = nil
+          end
           "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
         }
       end
@@ -178,11 +201,12 @@ module Fluent
       end
 
       def on_read(data)
+        @chunk_counter += data.size
         first = data[0]
         if first == '{' || first == '['
           m = method(:on_read_json)
           @y = Yajl::Parser.new
-          @y.on_parse_complete = @on_message
+          @y.on_parse_complete = lambda {|obj| @on_message.call(obj, @chunk_counter, @source) ; @chunk_counter = 0 }
         else
           m = method(:on_read_msgpack)
           @u = MessagePack::Unpacker.new
@@ -195,6 +219,7 @@ module Fluent
       end
 
       def on_read_json(data)
+        @chunk_counter += data.size
         @y << data
       rescue => e
         @log.error "forward error", :error => e, :error_class => e.class
@@ -203,7 +228,11 @@ module Fluent
       end
 
       def on_read_msgpack(data)
-        @u.feed_each(data, &@on_message)
+        @chunk_counter += data.size
+        @u.feed_each(data) do |obj|
+          @on_message.call(obj, @chunk_counter, @source)
+          @chunk_counter = 0
+        end
       rescue => e
         @log.error "forward error", :error => e, :error_class => e.class
         @log.error_backtrace
