@@ -65,6 +65,10 @@ module Fluent
         @ss.eos?
       end
 
+      def prev_match
+        @ss[0]
+      end
+
       def line_end
         skip(LINE_END)
       end

@@ -34,6 +34,13 @@ describe Fluent::Config::V1Parser do
       ].should be_parsed_as("k1"=>"v1", "k2"=>"v2")
     end
 
+    it "allows attribute without value" do
+      %[
+        k1
+        k2 v2
+      ].should be_parsed_as("k1"=>"", "k2"=>"v2")
+    end
+
     it "parses attribute key always string" do
       "1 1".should be_parsed_as("1" => "1")
     end

@@ -102,11 +102,15 @@ module Fluent
           else
             k = scan_string(SPACING)
             spacing
-            v = parse_literal
-            unless line_end
-              parse_error! "expected end of line"
+            if prev_match.include?("\n") # support 'tag_mapped' like "without value" configuration
+              attrs[k] = ""
+            else
+              v = parse_literal
+              unless line_end
+                parse_error! "expected end of line"
+              end
+              attrs[k] = v
             end
-            attrs[k] = v
           end
         end
 
