@@ -445,7 +445,7 @@ module Fluent
       def self.parse(file)
         map = {}
         file.pos = 0
-        previous_seek = file.pos
+        previous_seek = 0
         file.each_line {|line|
           tmp_seek = file.pos
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
