@@ -189,6 +189,7 @@ end
 if winsvcinstmode = opts[:winsvcreg]
   require 'fileutils'
   require "win32/service"
+  require 'fluent/win32api_syncobj'
   include Win32
   
   FLUENTD_WINSVC_NAME="fluentdsvc"
@@ -198,6 +199,7 @@ if winsvcinstmode = opts[:winsvcreg]
   case winsvcinstmode
   when 'i'
     binary_path = File.join(File.dirname(__FILE__), "..")
+    ruby_path = Fluent::Win32Dll.getmodulefilename
     
     Service.create(
       :service_name => FLUENTD_WINSVC_NAME, 
@@ -206,7 +208,7 @@ if winsvcinstmode = opts[:winsvcreg]
       :description => FLUENTD_WINSVC_DESC,
       :start_type => Service::DEMAND_START,
       :error_control => Service::ERROR_NORMAL,
-      :binary_path_name => Fluent::RUBY_INSTALL_DIR+"/bin/ruby.exe -C "+binary_path+" winsvc.rb",
+      :binary_path_name => rub_path+" -C "+binary_path+" winsvc.rb",
       :load_order_group => "",
       :dependencies => [""],
       :display_name => FLUENTD_WINSVC_DISPLAYNAME

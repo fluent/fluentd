@@ -15,9 +15,7 @@ You can use a local gem, pkg/fluentd-0.10.42.gem included.
 == General condition
 
 === Setting environment
-Set RUBY_INSTALL_DIR in env.rb at first after install fluentd. It is requried when using on Windows. env.rb is typically at C:/Ruby193/lib/ruby/gems/1.9.1/gems/fluentd-0.10.42/lib/fluent.
-*name*:: *example*
-RUBY_INSTALL_DIR:: C:/Ruby193
+Make settings just like as original one.(RUBY_INSTALL_DIR in env.rb is not required any more.)
 
 === Daemon (Windows Service)
 Implementation exists, but some technical problems in Ruby and Coolio on Windows. So we cannot announce how to use yet. Sorry.

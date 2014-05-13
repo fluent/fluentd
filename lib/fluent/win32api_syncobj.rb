@@ -3,6 +3,19 @@ require 'Win32API'
 require 'fluent/win32api_constants.rb'
 
 module Fluent
+  class Win32Dll
+    @api_getmodulefilename = nil
+    def Win32Dll.getmodulefilename
+      filename = "\0" * 256
+      unless @api_getmodulefilename
+        @api_getmodulefilename = Win32API.new("kernel32", "GetModuleFileName", %w(i p i), 'i')
+      end
+      @api_getmodulefilename.call(0, filename, 256)
+      filename = filename.rstrip
+      return filename.gsub(/\\/, '/')
+    end
+  end
+  
   class Win32SyncObj
     def Win32SyncObj.createevent(manual=0, init=0, name=nil)
       w32evt = Win32Event.new
