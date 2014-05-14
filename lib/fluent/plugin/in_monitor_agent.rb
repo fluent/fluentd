@@ -153,6 +153,36 @@ module Fluent
       end
     end
 
+    class ConfigMonitorServlet < MonitorServlet
+      def build_object(req, res)
+        {
+          'pid' => Process.pid,
+          'ppid' => Process.ppid
+        }.merge(@agent.fluentd_opts)
+      end
+    end
+
+    class LTSVConfigMonitorServlet < ConfigMonitorServlet
+      def process(req, res)
+        result = build_object(req, res)
+
+        row = []
+        JSON.parse(result.to_json).each_pair { |k, v|
+          row << "#{k}:#{v}"
+        }
+        text = row.join("\t")
+
+        [200, {'Content-Type'=>'text/plain'}, text]
+      end
+    end
+
+    class JSONConfigMonitorServlet < ConfigMonitorServlet
+      def process(req, res)
+        result = build_object(req, res)
+        render_json(result)
+      end
+    end
+
     def start
       log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
       @srv = WEBrick::HTTPServer.new({
@@ -163,6 +193,8 @@ module Fluent
         })
       @srv.mount('/api/plugins', LTSVMonitorServlet, self)
       @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
+      @srv.mount('/api/config', LTSVConfigMonitorServlet, self)
+      @srv.mount('/api/config.json', JSONConfigMonitorServlet, self)
       @thread = Thread.new {
         @srv.start
       }
@@ -281,6 +313,19 @@ module Fluent
       end
 
       obj
+    end
+
+    def fluentd_opts
+      @fluentd_opts ||= get_fluentd_opts
+    end
+
+    def get_fluentd_opts
+      opts = {}
+      ObjectSpace.each_object(Fluent::Supervisor) { |obj|
+        opts.merge!(obj.options)
+        break
+      }
+      opts
     end
   end
 end
