@@ -7,6 +7,10 @@ rvm:
   - ruby-head
   - rbx
 
+os:
+  - linux
+  - osx
+
 branches:
   only:
     - master
