@@ -1,3 +1,12 @@
+Release 0.10.47 - 2014/05/15
+
+* in_tail: Fix typo in flush_buffer
+* in_forward: Add chunk_size_warn_limit and chunk_size_limit for large chunks
+* in_monitor_agent: Add /api/config APIs to expose Fluentd configurations
+* supervisor: Add Supervisor.default_options to return default Fluentd options
+* test: Add DummyLogDevise and improve log handling in tests
+* config: Allow empty string value like `tag_mapped` in v1 configuration
+
 Release 0.10.46 - 2014/04/21
 
 * in_tail: Fix typo in rescue for dumping backtrace
