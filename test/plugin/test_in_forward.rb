@@ -149,6 +149,29 @@ class ForwardInputTest < Test::Unit::TestCase
     }.size == 1, "large chunk warning is not logged"
   end
 
+  def test_send_large_chunk_only_warning
+    d = create_driver(CONFIG + %[
+      chunk_size_warn_limit 16M
+    ])
+    time = Time.parse("2014-04-25 13:14:15 UTC").to_i
+
+    # generate over 16M chunk
+    str = "X" * 1024 * 1024
+    chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
+
+    d.run do
+      MessagePack::Unpacker.new.feed_each(chunk) do |obj|
+        d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      end
+    end
+
+    # check log
+    assert d.instance.log.logs.select{ |line|
+      line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
+      line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
+    }.size == 1, "large chunk warning is not logged"
+  end
+
   def test_send_large_chunk_limit
     d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M

@@ -135,13 +135,11 @@ module Fluent
       tag = msg[0].to_s
       entries = msg[1]
 
-      if @chunk_size_warn_limit || @chunk_size_limit
-        if chunk_size > @chunk_size_limit
-          log.warn "Input chunk size is larger than 'chunk_size_limit', dropped:", tag: tag, source: source, limit: @chunk_size_limit, size: chunk_size
-          return
-        elsif chunk_size > @chunk_size_warn_limit
-          log.warn "Input chunk size is larger than 'chunk_size_warn_limit':", tag: tag, source: source, limit: @chunk_size_warn_limit, size: chunk_size
-        end
+      if @chunk_size_limit && (chunk_size > @chunk_size_limit)
+        log.warn "Input chunk size is larger than 'chunk_size_limit', dropped:", tag: tag, source: source, limit: @chunk_size_limit, size: chunk_size
+        return
+      elsif @chunk_size_warn_limit && (chunk_size > @chunk_size_warn_limit)
+        log.warn "Input chunk size is larger than 'chunk_size_warn_limit':", tag: tag, source: source, limit: @chunk_size_warn_limit, size: chunk_size
       end
 
       if entries.class == String
@@ -172,11 +170,13 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
+      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+
       def initialize(io, linger_timeout, log, on_message)
         super(io)
 
-        if io.is_a?(TCPSocket) # for future unix domain socket support
-          proto, port, host, addr = ( io.peeraddr rescue ["?", "?", "name resolusion failed", "?"] )
+        if io.is_a?(TCPSocket) # for unix domain socket support in the future
+          proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
           @source = "host: #{host}, addr: #{addr}, port: #{port}"
 
           opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -201,12 +201,14 @@ module Fluent
       end
 
       def on_read(data)
-        @chunk_counter += data.size
         first = data[0]
         if first == '{' || first == '['
           m = method(:on_read_json)
           @y = Yajl::Parser.new
-          @y.on_parse_complete = lambda {|obj| @on_message.call(obj, @chunk_counter, @source) ; @chunk_counter = 0 }
+          @y.on_parse_complete = lambda { |obj|
+            @on_message.call(obj, @chunk_counter, @source)
+            @chunk_counter = 0
+          }
         else
           m = method(:on_read_msgpack)
           @u = MessagePack::Unpacker.new
@@ -219,7 +221,7 @@ module Fluent
       end
 
       def on_read_json(data)
-        @chunk_counter += data.size
+        @chunk_counter += data.bytesize
         @y << data
       rescue => e
         @log.error "forward error", :error => e, :error_class => e.class
@@ -228,7 +230,7 @@ module Fluent
       end
 
       def on_read_msgpack(data)
-        @chunk_counter += data.size
+        @chunk_counter += data.bytesize
         @u.feed_each(data) do |obj|
           @on_message.call(obj, @chunk_counter, @source)
           @chunk_counter = 0
