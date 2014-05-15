@@ -66,7 +66,7 @@ module Fluent
         :plugin_dirs => [Fluent::DEFAULT_PLUGIN_DIR],
         :log_level => Fluent::Log::LEVEL_INFO,
         :log_path => nil,
-        :daemonize => false,
+        :daemonize => nil,
         :libs => [],
         :setup_path => nil,
         :chuser => nil,
@@ -118,6 +118,15 @@ module Fluent
         end
         $log.error "fluentd main process died unexpectedly. restarting." unless @finished
       end
+    end
+
+    def options
+      {
+        'config_path' => @config_path,
+        'pid_file' => @daemonize,
+        'plugin_dirs' => @plugin_dirs,
+        'log_path' => @log_path
+      }
     end
 
     private
