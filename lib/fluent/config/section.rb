@@ -1,3 +1,5 @@
+require 'json'
+
 module Fluent
   require 'fluent/config/error'
 
@@ -10,6 +12,10 @@ module Fluent
       def initialize(params = {})
         @klass = 'Fluent::Config::Section'
         @params = params
+      end
+
+      def inspect
+        "<Fluent::Config::Section #{@params.to_json}>"
       end
 
       def nil?
