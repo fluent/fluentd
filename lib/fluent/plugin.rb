@@ -50,7 +50,6 @@ module Fluent
     def load_plugins
       dir = File.join(File.dirname(__FILE__), "plugin")
       load_plugin_dir(dir)
-      load_gem_plugins
     end
 
     def load_plugin_dir(dir)
@@ -68,20 +67,6 @@ module Fluent
     end
 
     private
-    def load_gem_plugins
-      return unless defined? Gem
-      plugins = Gem.find_files('fluent_plugin')
-
-      plugins.each {|plugin|
-        begin
-          load plugin
-        rescue ::Exception => e
-          msg = "#{plugin.inspect}: #{e.message} (#{e.class})"
-          $log.warn "Error loading Fluent plugin #{msg}"
-        end
-      }
-    end
-
     def register_impl(name, map, type, klass)
       map[type] = klass
       $log.trace { "registered #{name} plugin '#{type}'" }
