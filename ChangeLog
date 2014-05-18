@@ -1,3 +1,9 @@
+Release 0.10.48 - 2014/05/18
+
+* config: Add inspect method to Section for dumping the status
+* test: Fix the regression which forget to initialize $log in fluent/test.rb
+* Engine: Remove undocumented legacy plugin load mechanizm
+
 Release 0.10.47 - 2014/05/15
 
 * in_tail: Fix typo in flush_buffer
