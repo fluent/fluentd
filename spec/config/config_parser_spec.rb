@@ -177,7 +177,104 @@ describe Fluent::Config::V1Parser do
     end
   end
 
+  # port from test_config.rb
   describe '@include parsing' do
-    # TODO
+    TMP_DIR = File.dirname(__FILE__) + "/tmp/v1_config#{ENV['TEST_ENV_NUMBER']}"
+
+    def write_config(path, data)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.open(path, "w") { |f| f.write data }
+    end
+
+    def prepare_config
+      write_config "#{TMP_DIR}/config_test_1.conf", %[
+        k1 root_config
+        include dir/config_test_2.conf  #
+        @include #{TMP_DIR}/config_test_4.conf
+        include file://#{TMP_DIR}/config_test_5.conf
+        @include config.d/*.conf
+      ]
+      write_config "#{TMP_DIR}/dir/config_test_2.conf", %[
+        k2 relative_path_include
+        @include ../config_test_3.conf
+      ]
+      write_config "#{TMP_DIR}/config_test_3.conf", %[
+        k3 relative_include_in_included_file
+      ]
+      write_config "#{TMP_DIR}/config_test_4.conf", %[
+        k4 absolute_path_include
+      ]
+      write_config "#{TMP_DIR}/config_test_5.conf", %[
+        k5 uri_include
+      ]
+      write_config "#{TMP_DIR}/config.d/config_test_6.conf", %[
+        k6 wildcard_include_1
+        <elem1 name>
+          include normal_parameter
+        </elem1>
+      ]
+      write_config "#{TMP_DIR}/config.d/config_test_7.conf", %[
+        k7 wildcard_include_2
+      ]
+      write_config "#{TMP_DIR}/config.d/config_test_8.conf", %[
+        <elem2 name>
+          @include ../dir/config_test_9.conf
+        </elem2>
+      ]
+      write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
+        k9 embeded
+        <elem3 name>
+          nested nested_value
+          include hoge
+        </elem3>
+      ]
+      write_config "#{TMP_DIR}/config.d/00_config_test_8.conf", %[
+        k8 wildcard_include_3
+        <elem4 name>
+          include normal_parameter
+        </elem4>
+      ]
+    end
+
+    it 'parses @include / include correctly' do
+      prepare_config
+      c = Fluent::Config.read("#{TMP_DIR}/config_test_1.conf", true)
+      expect('root_config').to eq(c['k1'])
+      expect('relative_path_include').to eq(c['k2'])
+      expect('relative_include_in_included_file').to eq(c['k3'])
+      expect('absolute_path_include').to eq(c['k4'])
+      expect('uri_include').to eq(c['k5'])
+      expect('wildcard_include_1').to eq(c['k6'])
+      expect('wildcard_include_2').to eq(c['k7'])
+      expect('wildcard_include_3').to eq(c['k8'])
+      expect([
+        'k1',
+        'k2',
+        'k3',
+        'k4',
+        'k5',
+        'k8', # Because of the file name this comes first.
+        'k6',
+        'k7',
+      ]).to eq(c.keys)
+
+      elem1 = c.elements.find { |e| e.name == 'elem1' }
+      expect(elem1).to be
+      expect('name').to eq(elem1.arg)
+      expect('normal_parameter').to eq(elem1['include'])
+
+      elem2 = c.elements.find { |e| e.name == 'elem2' }
+      expect(elem2).to be
+      expect('name').to eq(elem2.arg)
+      expect('embeded').to eq(elem2['k9'])
+      expect(elem2.has_key?('include')).to be_false
+
+      elem3 = elem2.elements.find { |e| e.name == 'elem3' }
+      expect(elem2).to be
+      expect('nested_value').to eq(elem3['nested'])
+      expect('hoge').to eq(elem3['include'])
+    end
+
+    # TODO: Add uri based include spec
   end
 end
