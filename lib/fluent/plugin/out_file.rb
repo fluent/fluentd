@@ -82,11 +82,13 @@ module Fluent
         suffix = ".gz"
       end
 
-      i = 0
-      begin
-        path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
-        i += 1
-      end while File.exist?(path)
+     # i = 0
+    #  begin
+    #    path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
+    #    i += 1
+    #  end while File.exist?(path)
+    
+      path = "#{@path_prefix}#{chunk.key}#{@path_suffix}#{suffix}"
       FileUtils.mkdir_p File.dirname(path)
 
       case @compress
@@ -95,8 +97,9 @@ module Fluent
           chunk.write_to(f)
         }
       when :gz
-        Zlib::GzipWriter.open(path) {|f|
-          chunk.write_to(f)
+        File.open(path, "a") {|f|
+           gz= Zlib::GzipWriter.new(f)
+          chunk.write_to(gz)
         }
       end
 
