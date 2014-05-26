@@ -96,7 +96,7 @@ module Fluent
 
           elsif root_element && skip(/(\@include|include)#{SPACING}/)
             if !prev_match.start_with?('@')
-              $log.warn "'include' is deprecated. Please use '@include' instead"
+              $log.warn "'include' is deprecated. Use '@include' instead"
             end
             parse_include(attrs, elems)
 
@@ -138,7 +138,7 @@ module Fluent
             pattern = path
           end
 
-          Dir.glob(pattern).each { |path|
+          Dir.glob(pattern).sort.each { |path|
             basepath = File.dirname(path)
             fname = File.basename(path)
             data = File.read(path)

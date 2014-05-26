@@ -239,15 +239,15 @@ describe Fluent::Config::V1Parser do
     it 'parses @include / include correctly' do
       prepare_config
       c = Fluent::Config.read("#{TMP_DIR}/config_test_1.conf", true)
-      expect('root_config').to eq(c['k1'])
-      expect('relative_path_include').to eq(c['k2'])
-      expect('relative_include_in_included_file').to eq(c['k3'])
-      expect('absolute_path_include').to eq(c['k4'])
-      expect('uri_include').to eq(c['k5'])
-      expect('wildcard_include_1').to eq(c['k6'])
-      expect('wildcard_include_2').to eq(c['k7'])
-      expect('wildcard_include_3').to eq(c['k8'])
-      expect([
+      expect(c['k1']).to eq('root_config')
+      expect(c['k2']).to eq('relative_path_include')
+      expect(c['k3']).to eq('relative_include_in_included_file')
+      expect(c['k4']).to eq('absolute_path_include')
+      expect(c['k5']).to eq('uri_include')
+      expect(c['k6']).to eq('wildcard_include_1')
+      expect(c['k7']).to eq('wildcard_include_2')
+      expect(c['k8']).to eq('wildcard_include_3')
+      expect(c.keys).to eq([
         'k1',
         'k2',
         'k3',
@@ -256,25 +256,26 @@ describe Fluent::Config::V1Parser do
         'k8', # Because of the file name this comes first.
         'k6',
         'k7',
-      ]).to eq(c.keys)
+      ])
 
       elem1 = c.elements.find { |e| e.name == 'elem1' }
       expect(elem1).to be
-      expect('name').to eq(elem1.arg)
-      expect('normal_parameter').to eq(elem1['include'])
+      expect(elem1.arg).to eq('name')
+      expect(elem1['include']).to eq('normal_parameter')
 
       elem2 = c.elements.find { |e| e.name == 'elem2' }
       expect(elem2).to be
-      expect('name').to eq(elem2.arg)
-      expect('embeded').to eq(elem2['k9'])
-      expect(elem2.has_key?('include')).to be_false
+      expect(elem2.arg).to eq('name')
+      expect(elem2['k9']).to eq('embeded')
+      expect(elem2.has_key?('include')).to be(false)
 
       elem3 = elem2.elements.find { |e| e.name == 'elem3' }
-      expect(elem2).to be
-      expect('nested_value').to eq(elem3['nested'])
-      expect('hoge').to eq(elem3['include'])
+      expect(elem3).to be
+      expect(elem3['nested']).to eq('nested_value')
+      expect(elem3['include']).to eq('hoge')
     end
 
     # TODO: Add uri based include spec
   end
 end
+
