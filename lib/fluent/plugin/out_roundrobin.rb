@@ -20,6 +20,8 @@ module Fluent
     Plugin.register_output('roundrobin', self)
 
     def initialize
+      super
+
       @outputs = []
       @weights = []
     end
@@ -28,6 +30,8 @@ module Fluent
     attr_accessor :rand_seed
 
     def configure(conf)
+      super
+
       conf.elements.select {|e|
         e.name == 'store'
       }.each {|e|
@@ -38,7 +42,7 @@ module Fluent
 
         weight = e['weight']
         weight = weight ? weight.to_i : 1
-        $log.debug "adding store type=#{type.dump}, weight=#{weight}"
+        log.debug "adding store type=#{type.dump}, weight=#{weight}"
 
         output = Plugin.new_output(type)
         output.configure(e)

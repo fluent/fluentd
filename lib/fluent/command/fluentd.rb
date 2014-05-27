@@ -39,6 +39,7 @@ opts = {
   :chgroup => nil,
   :suppress_interval => 0,
   :suppress_repeated_stacktrace => false,
+  :use_v1_config => false,
   :usespawn => 0,
   :signame => nil,
   :winsvcreg => nil,
@@ -96,6 +97,10 @@ op.on('--suppress-repeated-stacktrace', "suppress repeated stacktrace", TrueClas
   opts[:suppress_repeated_stacktrace] = b
 }
 
+op.on('--use-v1-config', "Use v1 configuration format", TrueClass) {|b|
+  opts[:use_v1_config] = b
+}
+
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
     opts[:log_level] = [opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max
@@ -110,6 +115,14 @@ op.on('-q', '--quiet', "decrease verbose level (-q: warn, -qq: error)", TrueClas
 
 op.on('--suppress-config-dump', "suppress config dumping when fluentd starts", TrueClass) {|b|
   opts[:suppress_config_dump] = b
+}
+
+op.on('-g', '--gemfile GEMFILE', "Gemfile path") {|s|
+  opts[:gemfile] = s
+}
+
+op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dirname $gemfile)/vendor/bundle)") {|s|
+  opts[:gem_install_path] = s
 }
 
 op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (Windows only)", TrueClass) {|b|
@@ -133,15 +146,29 @@ op.on('-w', '--winsvcinst MODE', "install/uninstall as Windows Service. (i: inst
 end
 
 begin
-  op.parse!(ARGV)
+  rest = op.parse(ARGV)
 
-  if ARGV.length != 0
+  if rest.length != 0
     usage nil
   end
 rescue
   usage $!.to_s
 end
 
+
+##
+## Bundler injection
+#
+if ENV['FLUENTD_DISABLE_BUNDLER_INJECTION'] != '1' && gemfile = opts[:gemfile]
+  ENV['BUNDLE_GEMFILE'] = gemfile
+  if path = opts[:gem_install_path]
+    ENV['BUNDLE_PATH'] = path
+  else
+    ENV['BUNDLE_PATH'] = File.expand_path(File.join(File.dirname(gemfile), 'vendor/bundle'))
+  end
+  ENV['FLUENTD_DISABLE_BUNDLER_INJECTION'] = '1'
+  load File.expand_path(File.join(File.dirname(__FILE__), 'bundler_injection.rb'))
+end
 
 if setup_path = opts[:setup_path]
   require 'fileutils'

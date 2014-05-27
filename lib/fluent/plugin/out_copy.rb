@@ -37,7 +37,7 @@ module Fluent
         unless type
           raise ConfigError, "Missing 'type' parameter on <store> directive"
         end
-        $log.debug "adding store type=#{type.dump}"
+        log.debug "adding store type=#{type.dump}"
 
         output = Plugin.new_output(type)
         output.configure(e)

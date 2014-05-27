@@ -69,6 +69,7 @@ module Fluent
       @suppress_interval = opt[:suppress_interval]
       @dry_run = opt[:dry_run]
       @suppress_config_dump = opt[:suppress_config_dump]
+      @use_v1_config = opt[:use_v1_config]
       @usespawn = opt[:usespawn]
       @signame = opt[:signame]
 
@@ -346,7 +347,7 @@ module Fluent
     end
 
     def run_configure
-      Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir)
+      Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir, @use_v1_config)
     end
 
     def change_privilege

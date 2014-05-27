@@ -29,6 +29,10 @@ module Fluent
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :backlog, :integer, :default => nil
+    # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
+    config_param :linger_timeout, :integer, :default => 0
+    # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
+    config_param :blocking_timeout, :time, :default => 0.5
 
     def configure(conf)
       super
@@ -54,15 +58,19 @@ module Fluent
       @loop.watchers.each {|w| w.detach }
       @loop.stop
       @usock.close
-      listen_address = (@bind == '0.0.0.0' ? '127.0.0.1' : @bind)
-      TCPSocket.open(listen_address, @port) {|sock| }  # FIXME @thread.join blocks without this line
+      unless support_blocking_timeout?
+        listen_address = (@bind == '0.0.0.0' ? '127.0.0.1' : @bind)
+        # This line is for connecting listen socket to stop the event loop.
+        # We should use more better approach, e.g. using pipe, fixing cool.io with timeout, etc.
+        TCPSocket.open(listen_address, @port) {|sock| } # FIXME @thread.join blocks without this line
+      end
       @thread.join
       @lsock.close
     end
 
     def listen
-      $log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
+      log.info "listening fluent socket on #{@bind}:#{@port}"
+      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s
     end
@@ -73,18 +81,27 @@ module Fluent
     #    File.unlink(@path)
     #  end
     #  FileUtils.mkdir_p File.dirname(@path)
-    #  $log.debug "listening fluent socket on #{@path}"
+    #  log.debug "listening fluent socket on #{@path}"
     #  Coolio::UNIXServer.new(@path, Handler, method(:on_message))
     #end
 
     def run
-      @loop.run
+      if support_blocking_timeout?
+        @loop.run(@blocking_timeout)
+      else
+        @loop.run
+      end
     rescue => e
-      $log.error "unexpected error", :error => e, :error_class => e.class
-      $log.error_backtrace
+      log.error "unexpected error", :error => e, :error_class => e.class
+      log.error_backtrace
     end
 
     protected
+
+    def support_blocking_timeout?
+      @loop.method(:run).arity.nonzero?
+    end
+
     # message Entry {
     #   1: long time
     #   2: object record
@@ -143,14 +160,18 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
-      def initialize(io, on_message)
+      def initialize(io, linger_timeout, log, on_message)
         super(io)
         if io.is_a?(TCPSocket)
-          opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
-        $log.trace { "accepted fluent socket object_id=#{self.object_id}" }
         @on_message = on_message
+        @log = log
+        @log.trace {
+          remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername) rescue nil
+          "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
+        }
       end
 
       def on_connect
@@ -176,21 +197,21 @@ module Fluent
       def on_read_json(data)
         @y << data
       rescue => e
-        $log.error "forward error", :error => e, :error_class => e.class
-        $log.error_backtrace
+        @log.error "forward error", :error => e, :error_class => e.class
+        @log.error_backtrace
         close
       end
 
       def on_read_msgpack(data)
         @u.feed_each(data, &@on_message)
       rescue => e
-        $log.error "forward error", :error => e, :error_class => e.class
-        $log.error_backtrace
+        @log.error "forward error", :error => e, :error_class => e.class
+        @log.error_backtrace
         close
       end
 
       def on_close
-        $log.trace { "closed fluent socket object_id=#{self.object_id}" }
+        @log.trace { "closed fluent socket object_id=#{self.object_id}" }
       end
     end
 
@@ -216,7 +237,7 @@ module Fluent
     end
 
     def on_heartbeat_request(host, port, msg)
-      #$log.trace "heartbeat request from #{host}:#{port}"
+      #log.trace "heartbeat request from #{host}:#{port}"
       begin
         @usock.send "\0", 0, host, port
       rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR

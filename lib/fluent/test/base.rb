@@ -23,7 +23,9 @@ module Fluent
       def initialize(klass, &block)
         if klass.is_a?(Class)
           if block
-            klass = klass.dup
+            # Create new class for test w/ overwritten methods
+            #   klass.dup is worse because its ancestors does NOT include original class name
+            klass = Class.new(klass)
             klass.module_eval(&block)
           end
           @instance = klass.new

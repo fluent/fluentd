@@ -13,15 +13,24 @@ class ExecOutputTest < Test::Unit::TestCase
   CONFIG = %[
     buffer_path #{TMP_DIR}/buffer
     command cat >#{TMP_DIR}/out
+    localtime
+  ]
+  TSV_CONFIG = %[
     keys time,tag,k1
     tag_key tag
     time_key time
     time_format %Y-%m-%d %H:%M:%S
-    localtime
   ]
 
-  def create_driver(conf = CONFIG)
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::ExecOutput).configure(conf)
+  def create_driver(conf = TSV_CONFIG)
+    config = CONFIG + conf
+    Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::ExecOutput).configure(config)
+  end
+
+  def create_test_case
+    time = Time.parse("2011-01-02 13:14:15").to_i
+    tests = [{"k1"=>"v1","kx"=>"vx"}, {"k1"=>"v2","kx"=>"vx"}]
+    return time, tests
   end
 
   def test_configure
@@ -36,10 +45,11 @@ class ExecOutputTest < Test::Unit::TestCase
 
   def test_format
     d = create_driver
+    time, tests = create_test_case
 
-    time = Time.parse("2011-01-02 13:14:15").to_i
-    d.emit({"k1"=>"v1","kx"=>"vx"}, time)
-    d.emit({"k1"=>"v2","kx"=>"vx"}, time)
+    tests.each { |test|
+      d.emit(test, time)
+    }
 
     d.expect_format %[2011-01-02 13:14:15\ttest\tv1\n]
     d.expect_format %[2011-01-02 13:14:15\ttest\tv2\n]
@@ -47,12 +57,37 @@ class ExecOutputTest < Test::Unit::TestCase
     d.run
   end
 
+  def test_format_json
+    d = create_driver("format json")
+    time, tests = create_test_case
+
+    tests.each { |test|
+      d.emit(test, time)
+      d.expect_format Yajl.dump(test) + "\n"
+    }
+
+    d.run
+  end
+
+  def test_format_msgpack
+    d = create_driver("format msgpack")
+    time, tests = create_test_case
+
+    tests.each { |test|
+      d.emit(test, time)
+      d.expect_format test.to_msgpack
+    }
+
+    d.run
+  end
+
   def test_write
     d = create_driver
+    time, tests = create_test_case
 
-    time = Time.parse("2011-01-02 13:14:15").to_i
-    d.emit({"k1"=>"v1","kx"=>"vx"}, time)
-    d.emit({"k1"=>"v2","kx"=>"vx"}, time)
+    tests.each { |test|
+      d.emit(test, time)
+    }
 
     d.run
 

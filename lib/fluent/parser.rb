@@ -16,6 +16,8 @@
 #    limitations under the License.
 #
 module Fluent
+  require 'fluent/registry'
+
   class TextParser
     class TimeParser
       def initialize(time_format)
@@ -137,10 +139,14 @@ module Fluent
         @mutex = Mutex.new
       end
 
+      def configure(conf)
+        super
+        @time_parser = TimeParser.new(@time_format)
+      end
+
       def call(text)
         m = @regexp.match(text)
         unless m
-          $log.warn "pattern not match: #{text.inspect}"
           return nil, nil
         end
 
@@ -198,7 +204,6 @@ module Fluent
 
         return time, record
       rescue Yajl::ParseError
-        $log.warn "pattern not match: #{text.inspect}: #{$!}"
         return nil, nil
       end
     end
@@ -233,7 +238,11 @@ module Fluent
 
         if @time_key
           value = record.delete(@time_key)
-          time = @mutex.synchronize { @time_parser.parse(value) }
+          time = if value.nil?
+                   Engine.now
+                 else
+                   @mutex.synchronize { @time_parser.parse(value) }
+                 end
         else
           time = Engine.now
         end
@@ -246,8 +255,10 @@ module Fluent
       private
 
       def convert_field_type!(record)
-        record.each { |key, value|
-          record[key] = convert_type(key, value)
+        @type_converters.each_key { |key|
+          if value = record[key]
+            record[key] = convert_type(key, value)
+          end
         }
       end
     end
@@ -320,7 +331,6 @@ module Fluent
       def call(text)
         m = REGEXP.match(text)
         unless m
-          $log.warn "pattern not match: #{text.inspect}"
           return nil, nil
         end
 
@@ -363,7 +373,85 @@ module Fluent
       end
     end
 
-    TEMPLATE_FACTORIES = {
+    class MultilineParser
+      include Configurable
+
+      config_param :format_firstline, :string, :default => nil
+
+      FORMAT_MAX_NUM = 20
+
+      def configure(conf)
+        super
+
+        formats = parse_formats(conf).compact.map { |f| f[1..-2] }.join
+        begin
+          @regex = Regexp.new(formats, Regexp::MULTILINE)
+          if @regex.named_captures.empty?
+            raise "No named captures"
+          end
+          @parser = RegexpParser.new(@regex, conf)
+        rescue => e
+          raise ConfigError, "Invalid regexp '#{formats}': #{e}"
+        end
+
+        if @format_firstline
+          check_format_regexp(@format_firstline, 'format_firstline')
+          @regex = Regexp.new(@format_firstline[1..-2])
+        end
+      end
+
+      def call(text)
+        @parser.call(text)
+      end
+
+      def firstline?(text)
+        @regex.match(text)
+      end
+
+      private
+
+      def parse_formats(conf)
+        check_format_range(conf)
+
+        prev_format = nil
+        (1..FORMAT_MAX_NUM).map { |i|
+          format = conf["format#{i}"]
+          if (i > 1) && prev_format.nil? && !format.nil?
+            raise ConfigError, "Jump of format index found. format#{i - 1} is missing."
+          end
+          prev_format = format
+          next if format.nil?
+
+          check_format_regexp(format, "format#{i}")
+          format
+        }
+      end
+
+      def check_format_range(conf)
+        invalid_formats = conf.keys.select { |k|
+          m = k.match(/^format(\d+)$/)
+          m ? !((1..FORMAT_MAX_NUM).include?(m[1].to_i)) : false
+        }
+        unless invalid_formats.empty?
+          raise ConfigError, "Invalid formatN found. N should be 1 - #{FORMAT_MAX_NUM}: " + invalid_formats.join(",")
+        end
+      end
+
+      def check_format_regexp(format, key)
+        if format[0] == '/' && format[-1] == '/'
+          begin
+            Regexp.new(format[1..-2], Regexp::MULTILINE)
+          rescue => e
+            raise ConfigError, "Invalid regexp in #{key}: #{e}"
+          end
+        else
+          raise ConfigError, "format should be Regexp, need //, in #{key}: '#{format}'"
+        end
+      end
+    end
+
+    TEMPLATE_REGISTRY = Registry.new(:config_type, 'fluent/plugin/parser_')
+    {
       'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'apache2' => Proc.new { ApacheParser.new },
       'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
@@ -373,6 +461,9 @@ module Fluent
       'csv' => Proc.new { CSVParser.new },
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'none' => Proc.new { NoneParser.new },
+      'multiline' => Proc.new { MultilineParser.new },
+    }.each { |name, factory|
+      TEMPLATE_REGISTRY.register(name, factory)
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
@@ -383,12 +474,14 @@ module Fluent
         factory = regexp_or_proc
       end
 
-      TEMPLATE_FACTORIES[name] = factory
+      TEMPLATE_REGISTRY.register(name, factory)
     end
 
     def initialize
       @parser = nil
     end
+
+    attr_reader :parser
 
     def configure(conf, required=true)
       format = conf['format']
@@ -416,8 +509,9 @@ module Fluent
 
       else
         # built-in template
-        factory = TEMPLATE_FACTORIES[format]
-        unless factory
+        begin
+          factory = TEMPLATE_REGISTRY.lookup(format)
+        rescue ConfigError => e # keep same error message
           raise ConfigError, "Unknown format template '#{format}'"
         end
         @parser = factory.call

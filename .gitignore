@@ -15,6 +15,5 @@ deps/
 fluent-cat
 fluent-gem
 fluentd
-pkg/*
 test/tmp/*
 make_dist.sh
