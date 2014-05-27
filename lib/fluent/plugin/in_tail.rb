@@ -755,7 +755,7 @@ module Fluent
 
     def start
       if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, DEFAULT_FILE_PERMISSION)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
       end
