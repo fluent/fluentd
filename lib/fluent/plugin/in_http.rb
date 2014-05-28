@@ -35,9 +35,22 @@ module Fluent
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
     config_param :backlog, :integer, :default => nil
     config_param :add_http_headers, :bool, :default => false
+    config_param :format, :string, :default => 'default'
 
     def configure(conf)
       super
+
+      m = if @format == 'default'
+            method(:parse_params_default)
+          else
+            parser = TextParser.new
+            parser.configure(conf)
+            @parser = parser
+            method(:parse_params_with_parser)
+          end
+      (class << self; self; end).module_eval do
+        define_method(:parse_params, m)
+      end
     end
 
     class KeepaliveManager < Coolio::TimerWatcher
@@ -79,7 +92,7 @@ module Fluent
         super
         @km = KeepaliveManager.new(@keepalive_timeout)
         #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
-        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit, log)
+        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit, @format, log)
         @lsock.listen(@backlog) unless @backlog.nil?
 
         @loop = Coolio::Loop.new
@@ -108,22 +121,13 @@ module Fluent
       begin
         path = path_info[1..-1]  # remove /
         tag = path.split('/').join('.')
-
-        if msgpack = params['msgpack']
-          record = MessagePack.unpack(msgpack)
-
-        elsif js = params['json']
-          record = JSON.parse(js)
-
-        else
-          raise "'json' or 'msgpack' parameter is required"
-        end
+        record_time, record = parse_params(params)
 
         # Skip nil record
         if record.nil?
           return ["200 OK", {'Content-type'=>'text/plain'}, ""]
         end
-        
+
         if @add_http_headers
           params.each_pair { |k,v|
             if k.start_with?("HTTP_")
@@ -132,12 +136,12 @@ module Fluent
           }
         end
 
-        time = params['time']
-        time = time.to_i
-        if time == 0
-          time = Engine.now
-        end
-
+        time = if param_time = params['time']
+                 param_time = param_time.to_i
+                 param_time.zero? ? Engine.now : param_time
+               else
+                 record_time.nil? ? Engine.now : record_time
+               end
       rescue
         return ["400 Bad Request", {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
       end
@@ -152,14 +156,40 @@ module Fluent
       return ["200 OK", {'Content-type'=>'text/plain'}, ""]
     end
 
+    private
+
+    def parse_params_default(params)
+      record = if msgpack = params['msgpack']
+                 MessagePack.unpack(msgpack)
+               elsif js = params['json']
+                 JSON.parse(js)
+               else
+                 raise "'json' or 'msgpack' parameter is required"
+               end
+      return nil, record
+    end
+
+    EVENT_RECORD_PARAMETER = '_event_record'
+
+    def parse_params_with_parser(params)
+      if content = params[EVENT_RECORD_PARAMETER]
+        time, record = @parser.parse(content)
+        raise "Received event is not #{@format}: #{content}" if record.nil?
+        return time, record
+      else
+        raise "'#{EVENT_RECORD_PARAMETER}' parameter is required"
+      end
+    end
+
     class Handler < Coolio::Socket
-      def initialize(io, km, callback, body_size_limit, log)
+      def initialize(io, km, callback, body_size_limit, format, log)
         super(io)
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
         @content_type = ""
         @next_close = false
+        @format = format
         @log = log
 
         @idle = 0
@@ -250,7 +280,9 @@ module Fluent
         uri = URI.parse(@parser.request_url)
         params = WEBrick::HTTPUtils.parse_query(uri.query)
 
-        if @content_type =~ /^application\/x-www-form-urlencoded/
+        if @format != 'default'
+          params[EVENT_RECORD_PARAMETER] = @body
+        elsif @content_type =~ /^application\/x-www-form-urlencoded/
           params.update WEBrick::HTTPUtils.parse_query(@body)
         elsif @content_type =~ /^multipart\/form-data; boundary=(.+)/
           boundary = WEBrick::HTTPUtils.dequote($1)
