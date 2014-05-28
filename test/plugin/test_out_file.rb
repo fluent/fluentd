@@ -57,8 +57,7 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal expect_path, path
 
     data = Zlib::GzipReader.open(expect_path) {|f| f.read }
-    assert_equal %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] +
-                    %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n],
+    assert_equal %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n],
                  data
   end
 
@@ -72,12 +71,38 @@ class FileOutputTest < Test::Unit::TestCase
     # FileOutput#write returns path
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._0.log.gz", path
-
+    size = File::Stat.new("#{TMP_DIR}/out_file_test._0.log.gz").size
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._1.log.gz", path
-
+    assert_equal size, File::Stat.new("#{TMP_DIR}/out_file_test._1.log.gz").size
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._2.log.gz", path
+    assert_equal size, File::Stat.new("#{TMP_DIR}/out_file_test._2.log.gz").size
+  end
+
+  def test_write_without_path_increment
+    d = create_driver %[
+      path #{TMP_DIR}/out_file_test
+      compress gz
+      utc
+      path_increment false
+    ]
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+
+    # FileOutput#write returns path
+    path = d.run
+    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    size = File::Stat.new("#{TMP_DIR}/out_file_test..log.gz").size
+    path = d.run
+    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    assert size < File::Stat.new("#{TMP_DIR}/out_file_test..log.gz").size
+    size = File::Stat.new("#{TMP_DIR}/out_file_test..log.gz").size
+    path = d.run
+    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    assert size < File::Stat.new("#{TMP_DIR}/out_file_test..log.gz").size
   end
 
   def test_write_with_symlink
