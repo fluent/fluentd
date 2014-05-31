@@ -148,7 +148,15 @@ module Fluent
 
       # TODO server error
       begin
-        Engine.emit(tag, time, record)
+        # Support batched requests
+        if record.is_a?(Array)           
+          record.each do |single_record|
+            single_time = single_record["time"] || time 
+            Engine.emit(tag, single_time, single_record)
+          end
+	else
+          Engine.emit(tag, time, record)
+        end
       rescue
         return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
       end
