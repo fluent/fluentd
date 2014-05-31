@@ -25,9 +25,8 @@ module Fluent
     }
 
     config_param :path, :string
-
     config_param :time_format, :string, :default => nil
-
+    config_param :append, :bool, :default => false
     config_param :compress, :default => nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
@@ -35,7 +34,6 @@ module Fluent
       end
       c
     end
-
     config_param :symlink_path, :string, :default => nil
 
     def initialize
@@ -75,18 +73,7 @@ module Fluent
     end
 
     def write(chunk)
-      case @compress
-      when nil
-        suffix = ''
-      when :gz
-        suffix = ".gz"
-      end
-
-      i = 0
-      begin
-        path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
-        i += 1
-      end while File.exist?(path)
+      path = generate_path(chunk)
       FileUtils.mkdir_p File.dirname(path)
 
       case @compress
@@ -95,8 +82,10 @@ module Fluent
           chunk.write_to(f)
         }
       when :gz
-        Zlib::GzipWriter.open(path) {|f|
-          chunk.write_to(f)
+        File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
+          gz = Zlib::GzipWriter.new(f)
+          chunk.write_to(gz)
+          gz.close
         }
       end
 
@@ -105,6 +94,29 @@ module Fluent
 
     def secondary_init(primary)
       # don't warn even if primary.class is not FileOutput
+    end
+
+    private
+
+    def generate_path(chunk)
+      case @compress
+      when nil
+        suffix = ''
+      when :gz
+        suffix = ".gz"
+      end
+
+      if @append
+        "#{@path_prefix}#{chunk.key}#{@path_suffix}#{suffix}"
+      else
+        path = nil
+        i = 0
+        begin
+          path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
+          i += 1
+        end while File.exist?(path)
+        path
+      end
     end
   end
 end

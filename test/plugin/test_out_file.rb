@@ -57,9 +57,26 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal expect_path, path
 
     data = Zlib::GzipReader.open(expect_path) {|f| f.read }
-    assert_equal %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] +
-                    %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n],
+    assert_equal %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n],
                  data
+  end
+
+  def check_gzipped_result(path, expect)
+    # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
+    # Following code from https://www.ruby-forum.com/topic/971591#979520
+    result = ''
+    File.open(path) { |io|
+      loop do
+        gzr = Zlib::GzipReader.new(io)
+        result << gzr.read
+        unused = gzr.unused
+        gzr.finish
+        break if unused.nil?
+        io.pos -= unused.length
+      end
+    }
+
+    assert_equal expect, result
   end
 
   def test_write_path_increment
@@ -68,16 +85,43 @@ class FileOutputTest < Test::Unit::TestCase
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
     d.emit({"a"=>1}, time)
     d.emit({"a"=>2}, time)
+    formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
     # FileOutput#write returns path
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._0.log.gz", path
-
+    check_gzipped_result(path, formatted_lines)
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._1.log.gz", path
-
+    check_gzipped_result(path, formatted_lines)
     path = d.run
     assert_equal "#{TMP_DIR}/out_file_test._2.log.gz", path
+    check_gzipped_result(path, formatted_lines)
+  end
+
+  def test_write_with_append
+    d = create_driver %[
+      path #{TMP_DIR}/out_file_test
+      compress gz
+      utc
+      append true
+    ]
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+    formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
+
+    # FileOutput#write returns path
+    path = d.run
+    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    check_gzipped_result(path, formatted_lines)
+    path = d.run
+    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    check_gzipped_result(path, formatted_lines * 2)
+    path = d.run
+    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    check_gzipped_result(path, formatted_lines * 3)
   end
 
   def test_write_with_symlink
