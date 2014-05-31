@@ -26,6 +26,7 @@ module Fluent
 
     config_param :path, :string
     config_param :time_format, :string, :default => nil
+    config_param :append, :bool, :default => false
     config_param :compress, :default => nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
@@ -34,7 +35,6 @@ module Fluent
       c
     end
     config_param :symlink_path, :string, :default => nil
-    config_param :path_increment, :bool, :default => true
 
     def initialize
       require 'zlib'
@@ -106,7 +106,9 @@ module Fluent
         suffix = ".gz"
       end
 
-      if @path_increment
+      if @append
+        "#{@path_prefix}#{chunk.key}#{@path_suffix}#{suffix}"
+      else
         path = nil
         i = 0
         begin
@@ -114,8 +116,6 @@ module Fluent
           i += 1
         end while File.exist?(path)
         path
-      else
-        "#{@path_prefix}#{chunk.key}#{@path_suffix}#{suffix}"
       end
     end
   end

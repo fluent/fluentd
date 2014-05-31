@@ -99,12 +99,12 @@ class FileOutputTest < Test::Unit::TestCase
     check_gzipped_result(path, formatted_lines)
   end
 
-  def test_write_without_path_increment
+  def test_write_with_append
     d = create_driver %[
       path #{TMP_DIR}/out_file_test
       compress gz
       utc
-      path_increment false
+      append true
     ]
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
