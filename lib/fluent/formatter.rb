@@ -11,14 +11,17 @@ module Fluent
           config_param :time_format, :string, :default => nil
           config_param :include_tag_key, :bool, :default => false
           config_param :tag_key, :string, :default => 'tag'
-          config_param :localtime, :bool, :default => false
         }
       end
 
       def configure(conf)
         super
 
-        @localtime = false if @utc
+        if conf['utc']
+          @localtime = false
+        elsif conf['localtime']
+          @localtime = true
+        end
         @timef = TimeFormatter.new(@time_format, @localtime)
       end
 
@@ -36,8 +39,8 @@ module Fluent
       include Configurable
       include HandleTagAndTimeMixin
 
-      config_param :output_tag_header, :bool, :default => true
-      config_param :output_time_header, :bool, :default => true
+      config_param :output_tag, :bool, :default => true
+      config_param :output_time, :bool, :default => true
       config_param :delimiter, :default => "\t" do |val|
         case val
         when /SPACE/i then ' '
@@ -53,8 +56,8 @@ module Fluent
       def format(tag, time, record)
         filter_record(tag, time, record)
         header = ''
-        header << "#{@timef.format(time)}#{@field_separator}" if @output_time_header
-        header << "#{tag}#{@field_separator}" if @output_tag_header
+        header << "#{@timef.format(time)}#{@delimiter}" if @output_time
+        header << "#{tag}#{@delimiter}" if @output_tag
         "#{header}#{Yajl.dump(record)}\n"
       end
     end
@@ -64,19 +67,24 @@ module Fluent
       include HandleTagAndTimeMixin
 
       # Other formatter also should have this paramter?
-      config_param :keep_time_as_number, :bool, :default => false
+      config_param :time_as_epoch, :bool, :default => false
 
       def configure(conf)
         super
 
-        if @keep_time_as_number
-          @include_time_key = false
+        if @time_as_epoch
+          if @include_time_key
+            @include_time_key = false
+          else
+            $log.warn "include_time_key is false so ignore time_as_epoch"
+            @time_as_epoch = false
+          end
         end
       end
 
       def format(tag, time, record)
         filter_record(tag, time, record)
-        record[@time_key] = time if @keep_time_as_number
+        record[@time_key] = time if @time_as_epoch
         "#{Yajl.dump(record)}\n"
       end
     end
@@ -91,10 +99,12 @@ module Fluent
 
       def format(tag, time, record)
         filter_record(tag, time, record)
-        record.inject('') { |result, pair|
+        formatted = record.inject('') { |result, pair|
           result << @delimiter if result.length.nonzero?
           result << "#{pair.first}#{@label_delimiter}#{pair.last}"
         }
+        formatted << "\n"
+        formatted
       end
     end
 
@@ -119,7 +129,13 @@ module Fluent
       TEMPLATE_REGISTRY.register(name, factory)
     }
 
-    def self.register_template(name, factory)
+    def self.register_template(name, factory_or_proc)
+      factory = if factory_or_proc.arity == 3
+                  Proc.new { factory_or_proc }
+                else
+                  factory_or_proc
+                end
+
       TEMPLATE_REGISTRY.register(name, factory)
     end
 
