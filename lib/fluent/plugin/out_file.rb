@@ -25,7 +25,7 @@ module Fluent
     }
 
     config_param :path, :string
-    config_param :time_format, :string, :default => nil
+    config_param :format, :string, :default => 'out_file'
     config_param :append, :bool, :default => false
     config_param :compress, :default => nil do |val|
       c = SUPPORTED_COMPRESS[val]
@@ -62,14 +62,14 @@ module Fluent
 
       super
 
-      @timef = TimeFormatter.new(@time_format, @localtime)
+      conf['format'] = @format
+      @formatter = TextFormatter.create(conf)
 
       @buffer.symlink_path = @symlink_path if @symlink_path
     end
 
     def format(tag, time, record)
-      time_str = @timef.format(time)
-      "#{time_str}\t#{tag}\t#{Yajl.dump(record)}\n"
+      @formatter.format(tag, time, record)
     end
 
     def write(chunk)

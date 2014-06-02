@@ -39,8 +39,8 @@ module Fluent
       include Configurable
       include HandleTagAndTimeMixin
 
-      config_param :output_tag, :bool, :default => true
       config_param :output_time, :bool, :default => true
+      config_param :output_tag, :bool, :default => true
       config_param :delimiter, :default => "\t" do |val|
         case val
         when /SPACE/i then ' '
@@ -141,13 +141,8 @@ module Fluent
 
     def self.create(conf)
       format = conf['format']
-
       if format.nil?
-        if required
-          raise ConfigError, "'format' parameter is required"
-        else
-          return nil
-        end
+        raise ConfigError, "'format' parameter is required"
       end
 
       # built-in template
