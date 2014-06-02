@@ -82,9 +82,6 @@ class HttpInputTest < Test::Unit::TestCase
       assert_equal "200", res.code
     end
 
-    d.emit_streams.each { |tag, es|
-      assert !include_http_header?(es.first[1])
-    }
   end
 
   def test_json_with_add_http_headers
@@ -156,9 +153,6 @@ class HttpInputTest < Test::Unit::TestCase
       assert_equal "200", res.code
     end
 
-    d.emit_streams.each { |tag, es|
-      assert !include_http_header?(es.first[1])
-    }
   end
 
   def test_with_regexp

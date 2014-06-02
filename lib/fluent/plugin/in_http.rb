@@ -150,10 +150,12 @@ module Fluent
       begin
         # Support batched requests
         if record.is_a?(Array)           
+          mes = MultiEventStream.new
           record.each do |single_record|
             single_time = single_record["time"] || time 
-            Engine.emit(tag, single_time, single_record)
+            mes.add(single_time, single_record)
           end
+          Engine.emit_stream(tag, mes)
 	else
           Engine.emit(tag, time, record)
         end
