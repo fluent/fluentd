@@ -152,7 +152,7 @@ module Fluent
         if record.is_a?(Array)           
           mes = MultiEventStream.new
           record.each do |single_record|
-            single_time = single_record["time"] || time 
+            single_time = single_record.delete("time") || time 
             mes.add(single_time, single_record)
           end
           Engine.emit_stream(tag, mes)
