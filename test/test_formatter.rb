@@ -163,11 +163,11 @@ module FormatterTest
     end
   end
 
-  class OneKeyFormatterTest < ::Test::Unit::TestCase
+  class SingleValueFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
     def test_config_params
-      formatter = TextFormatter::OneKeyFormatter.new
+      formatter = TextFormatter::SingleValueFormatter.new
       assert_equal "message", formatter.message_key
 
       formatter.configure('message_key' => 'foobar')
@@ -175,13 +175,13 @@ module FormatterTest
     end
 
     def test_format
-      formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('onekey').call
+      formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('single_value').call
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
       assert_equal('awesome', formatted)
     end
 
     def test_format_with_message_key
-      formatter = TextFormatter::OneKeyFormatter.new
+      formatter = TextFormatter::SingleValueFormatter.new
       formatter.configure('message_key' => 'foobar')
       formatted = formatter.format('tag', Engine.now, {'foobar' => 'foo'})
 

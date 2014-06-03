@@ -1,7 +1,23 @@
+#
+# Fluent
+#
+# Copyright (C) 2014 Fluentd project
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
 module Fluent
   require 'fluent/registry'
 
-  # TextFormatter is module, not class. This is for reducing method call unlike TextParser.
   module TextFormatter
     module HandleTagAndTimeMixin
       def self.included(klass)
@@ -66,7 +82,6 @@ module Fluent
       include Configurable
       include HandleTagAndTimeMixin
 
-      # Other formatter also should have this paramter?
       config_param :time_as_epoch, :bool, :default => false
 
       def configure(conf)
@@ -89,7 +104,6 @@ module Fluent
       end
     end
 
-    # Should use 'ltsv' gem?
     class LabeledTSVFormatter
       include Configurable
       include HandleTagAndTimeMixin
@@ -108,8 +122,7 @@ module Fluent
       end
     end
 
-    # More better name?
-    class OneKeyFormatter
+    class SingleValueFormatter
       include Configurable
 
       config_param :message_key, :string, :default => 'message'
@@ -124,7 +137,7 @@ module Fluent
       'out_file' => Proc.new { OutFileFormatter.new },
       'json' => Proc.new { JSONFormatter.new },
       'ltsv' => Proc.new { LabeledTSVFormatter.new },
-      'onekey' => Proc.new { OneKeyFormatter.new },
+      'single_value' => Proc.new { SingleValueFormatter.new },
     }.each { |name, factory|
       TEMPLATE_REGISTRY.register(name, factory)
     }
