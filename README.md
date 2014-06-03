@@ -1,3 +1,61 @@
+Fluentd: Windows branch
+=======================
+
+This is a branch version to make fluentd work on Windows!
+
+**This is a very preliminary version, and we expect you would run into a lot of errors.
+If you have any feedback, please let us know!**
+
+## Gem
+
+You can use a local gem, pkg/fluentd-0.10.46.gem included.
+
+    gem install pkg/fluentd-0.10.46.gem
+
+## General condition
+
+### Setting environment
+Make settings just like as original one.(RUBY_INSTALL_DIR in env.rb is not required any more.)
+
+### Daemon (Windows Service)
+Implementation exists, but some technical problems in Ruby and Coolio on Windows. So we cannot announce how to use yet. Sorry.
+
+### Termination of  fluentd
+It cannot be terminatd by the usual Ctrl+C yet. For now, you can terminate it by closing the command prompt window.
+
+## Plugin condition
+
+### input plugin
+
+| name | condition |
+|:-----    |:----------|
+|in_http   |Looks good.|
+|in_forword|Looks good|
+|in_tail   |Looks good, but NTFS requried, Network drive is not supported, Possibility of problems are on old Windows versions(we need check). FILE_SHARE_READ on a target file is absolutely required.|
+|in_exec   | Looks good.|
+
+
+### output plugin
+| name | condition |
+|:-----|:----------|
+|out_copy|Looks good.|
+|out_stdout|Looks good.|
+|out_null|Looks good.|
+|out_forword|Looks good, but send_timeout option cannot be used.|
+|out_file|Looks good.|
+|out_exec|Looks good.|
+|out_exec_filter|Not good. Error occures when stopping fluentd.|
+|out_roundrobin|Looks good.|
+
+## buffer plugin 
+| name | condition |
+|:-----|:----------|
+| buf_memory | Looks good.|
+|buf_file|Looks good.|
+
+-----------------------------------------------------
+
+
 Fluentd: Open-Source Data Collector
 ===================================
 
