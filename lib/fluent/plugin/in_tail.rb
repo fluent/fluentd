@@ -143,6 +143,7 @@ module Fluent
             begin
               pe.update(File::Stat.new(path).ino, 0)
             rescue Errno::ENOENT
+              $log.warn "#{path} not found. Continuing without tailing it."
             end
           end
         end
