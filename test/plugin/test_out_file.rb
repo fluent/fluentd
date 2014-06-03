@@ -44,23 +44,6 @@ class FileOutputTest < Test::Unit::TestCase
     d.run
   end
 
-  def test_write
-    d = create_driver
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
-
-    # FileOutput#write returns path
-    path = d.run
-    expect_path = "#{TMP_DIR}/out_file_test._0.log.gz"
-    assert_equal expect_path, path
-
-    data = Zlib::GzipReader.open(expect_path) {|f| f.read }
-    assert_equal %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n],
-                 data
-  end
-
   def check_gzipped_result(path, expect)
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
@@ -77,6 +60,33 @@ class FileOutputTest < Test::Unit::TestCase
     }
 
     assert_equal expect, result
+  end
+
+  def test_write
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+
+    # FileOutput#write returns path
+    path = d.run
+    expect_path = "#{TMP_DIR}/out_file_test._0.log.gz"
+    assert_equal expect_path, path
+
+    check_gzipped_result(path, %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
+  end
+
+  def test_write_with_format_json
+    d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch'].join("\n")
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+
+    # FileOutput#write returns path
+    path = d.run
+    check_gzipped_result(path, %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
   end
 
   def test_write_path_increment
