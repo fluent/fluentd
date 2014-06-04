@@ -140,7 +140,11 @@ module Fluent
         if @pf
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
-            pe.update(File::Stat.new(path).ino, 0)
+            begin
+              pe.update(File::Stat.new(path).ino, 0)
+            rescue Errno::ENOENT
+              $log.warn "#{path} not found. Continuing without tailing it."
+            end
           end
         end
 

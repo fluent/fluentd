@@ -337,4 +337,39 @@ class TailInputTest < Test::Unit::TestCase
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
   end
+
+  # Ensure that no fatal exception is raised when a file is missing and that
+  # files that do exist are still tailed as expected.
+  def test_missing_file
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    # Try two different configs - one with read_from_head and one without,
+    # since their interactions with the filesystem differ.
+    config1 = %[
+      tag t1
+      path #{TMP_DIR}/non_existent_file.txt,#{TMP_DIR}/tail.txt
+      format none
+      rotate_wait 2s
+      pos_file #{TMP_DIR}/tail.pos
+    ]
+    config2 = config1 + '  read_from_head true'
+    [config1, config2].each do |config|
+      d = create_driver(config, false)
+      d.run do
+        sleep 1
+        File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+        sleep 1
+      end
+      emits = d.emits
+      assert_equal(2, emits.length)
+      assert_equal({"message"=>"test3"}, emits[0][2])
+      assert_equal({"message"=>"test4"}, emits[1][2])
+    end
+  end
 end
