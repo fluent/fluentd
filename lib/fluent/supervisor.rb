@@ -18,9 +18,26 @@
 
 require 'fluent/env'
 require 'fluent/log'
+require 'etc'
 
 module Fluent
   class Supervisor
+    def self.get_etc_passwd(user)
+      if user.to_i.to_s == user
+        Etc.getpwuid(user.to_i)
+      else
+        Etc.getpwnam(user)
+      end
+    end
+
+    def self.get_etc_group(group)
+      if group.to_i.to_s == group
+        Etc.getgrgid(group.to_i)
+      else
+        Etc.getgrnam(group)
+      end
+    end
+
     class LoggerInitializer
       def initialize(path, level, chuser, chgroup, opts)
         @path = path
@@ -34,8 +51,8 @@ module Fluent
         if @path && @path != "-"
           @io = File.open(@path, "a")
           if @chuser || @chgroup
-            chuid = @chuser ? `id -u #{@chuser}`.to_i : nil
-            chgid = @chgroup ? `id -g #{@chgroup}`.to_i : nil
+            chuid = @chuser ? Supervisor.get_etc_passwd(@chuser).uid : nil
+            chgid = @chgroup ? Supervisor.get_etc_group(@chgroup).gid : nil
             File.chown(chuid, chgid, @path)
           end
         else
@@ -318,32 +335,18 @@ module Fluent
 
     def change_privilege
       if @chgroup
-        chgid = @chgroup.to_i
-        if chgid.to_s != @chgroup
-          chgid = `id -g #{@chgroup}`.to_i
-          if $?.to_i != 0
-            exit 1
-          end
-        end
-        Process::GID.change_privilege(chgid)
+        etc_group = Supervisor.get_etc_group(@chgroup)
+        Process::GID.change_privilege(etc_group.gid)
       end
 
       if @chuser
-        chuid = @chuser.to_i
-        if chuid.to_s != @chuser
-          chuid = `id -u #{@chuser}`.to_i
-          if $?.to_i != 0
-            exit 1
-          end
-        end
-
-        user_groups = `id -G #{@chuser}`.split.map(&:to_i)
-        if $?.to_i != 0
-          exit 1
-        end
+        etc_pw = Supervisor.get_etc_passwd(@chuser)
+        user_groups = [etc_pw.gid]
+        Etc.setgrent
+        Etc.group { |gr| user_groups << gr.gid if gr.mem.include?(etc_pw.name) } # emulate 'id -G'
 
         Process.groups = Process.groups | user_groups
-        Process::UID.change_privilege(chuid)
+        Process::UID.change_privilege(etc_pw.uid)
       end
     end
 
