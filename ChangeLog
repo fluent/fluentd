@@ -1,3 +1,15 @@
+Release 0.10.49 - 2014/06/05
+
+* in_http: Add format option to support various input data format
+* in_http: Accept json / msgpack array in default format
+* in_tail: Print warning message when file not exist with 'read_from_head true'
+* out_file: Add append option to disable path increment
+* out_file: Add format option to support various output data format
+* config: Fix broken 'include' processing in V1 configuration. Now add @include
+* fluentd-debug: Fix undefined method 'usage' error when invalid option passed
+* supervisor: Fix incorrect --group option handling
+* Add TextFormatter module for output plugins
+
 Release 0.10.48 - 2014/05/18
 
 * config: Add inspect method to Section for dumping the status
