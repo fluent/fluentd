@@ -89,6 +89,30 @@ class FileOutputTest < Test::Unit::TestCase
     check_gzipped_result(path, %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
   end
 
+  def test_write_with_format_ltsv
+    d = create_driver [CONFIG, 'format ltsv', 'include_time_key true'].join("\n")
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+
+    # FileOutput#write returns path
+    path = d.run
+    check_gzipped_result(path, %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
+  end
+
+  def test_write_with_format_single_value
+    d = create_driver [CONFIG, 'format single_value', 'message_key a'].join("\n")
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+
+    # FileOutput#write returns path
+    path = d.run
+    check_gzipped_result(path, %[1\n] + %[2\n])
+  end
+
   def test_write_path_increment
     d = create_driver
 

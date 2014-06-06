@@ -177,7 +177,14 @@ module FormatterTest
     def test_format
       formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('single_value').call
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
-      assert_equal('awesome', formatted)
+      assert_equal("awesome\n", formatted)
+    end
+
+    def test_format_without_newline
+      formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('single_value').call
+      formatter.configure('add_newline' => 'false')
+      formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
+      assert_equal("awesome", formatted)
     end
 
     def test_format_with_message_key
@@ -185,7 +192,7 @@ module FormatterTest
       formatter.configure('message_key' => 'foobar')
       formatted = formatter.format('tag', Engine.now, {'foobar' => 'foo'})
 
-      assert_equal('foo', formatted)
+      assert_equal("foo\n", formatted)
     end
   end
 

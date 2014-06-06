@@ -126,9 +126,12 @@ module Fluent
       include Configurable
 
       config_param :message_key, :string, :default => 'message'
+      config_param :add_newline, :bool, :default => true
 
       def format(tag, time, record)
-        record[@message_key]
+        text = record[@message_key].to_s
+        text << "\n" if @add_newline
+        text
       end
     end
 
