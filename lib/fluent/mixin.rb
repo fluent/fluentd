@@ -67,20 +67,6 @@ module Fluent
     def format_nocache(time)
       # will be overridden in initialize
     end
-
-    def self.configure(conf)
-      if time_format = conf['time_format']
-        @time_format = time_format
-      end
-
-      if localtime = conf['localtime']
-        @localtime = true
-      elsif utc = conf['utc']
-        @localtime = false
-      end
-
-      @timef = new(@time_format, @localtime)
-    end
   end
 
 

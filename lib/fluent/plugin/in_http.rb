@@ -54,13 +54,6 @@ module Fluent
     end
 
     class KeepaliveManager < Coolio::TimerWatcher
-      class TimerValue
-        def initialize
-          @value = 0
-        end
-        attr_accessor :value
-      end
-
       def initialize(timeout)
         super(1, true)
         @cons = {}
