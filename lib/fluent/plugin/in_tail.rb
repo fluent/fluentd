@@ -129,7 +129,7 @@ module Fluent
     end
 
     def setup_watcher(path, pe)
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, method(:update_watcher), &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, method(:update_watcher), &method(:receive_lines))
       tw.attach(@loop)
       tw
     end
@@ -275,10 +275,11 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, update_watcher, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, update_watcher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
+        @read_from_head = read_from_head
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
@@ -354,7 +355,7 @@ module Fluent
               # seek to the end of the any files.
               # logs may duplicate without this seek because it's not sure the file is
               # existent file or rotated new file.
-              pos = fsize
+              pos = @read_from_head ? 0 : fsize
               @pe.update(inode, pos)
             end
             io.seek(pos)

@@ -72,11 +72,10 @@ module Fluent
 
       def run(&block)
         m = method(:emit_stream)
+        Engine.define_singleton_method(:emit_stream) {|tag,es|
+          m.call(tag, es)
+        }
         super {
-          Engine.define_singleton_method(:emit_stream) {|tag,es|
-            m.call(tag, es)
-          }
-
           block.call if block
 
           if @expects
