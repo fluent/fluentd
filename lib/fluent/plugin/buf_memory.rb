@@ -22,7 +22,7 @@ module Fluent
       @data.force_encoding('ASCII-8BIT')
       now = Time.now.utc
       u1 = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff))
-      @unique_id = [u1 >> 32, u1 & u1 & 0xffffffff, rand(0xffffffff), rand(0xffffffff)].pack('NNNN')
+      @unique_id = [u1 >> 32, u1 & 0xffffffff, rand(0xffffffff), rand(0xffffffff)].pack('NNNN')
       super(key)
     end
 
