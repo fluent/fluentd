@@ -158,7 +158,7 @@ module Fluent
         if tw
           tw.unwatched = unwatched
           if immediate
-            close_watcher(tw)
+            close_watcher(tw, false)
           else
             close_watcher_after_rotate_wait(tw)
           end
@@ -173,8 +173,12 @@ module Fluent
       close_watcher_after_rotate_wait(rotated_tw) if rotated_tw
     end
 
-    def close_watcher(tw)
-      tw.close
+    # TailWatcher#close is called by another thread at shutdown phase.
+    # It causes 'can't modify string; temporarily locked' error in IOHandler
+    # so adding close_io argument to avoid this problem.
+    # At shutdown, IOHandler's io will be released automatically after detached the event loop
+    def close_watcher(tw, close_io = true)
+      tw.close(close_io)
       flush_buffer(tw)
       if tw.unwatched && @pf
         @pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
@@ -314,8 +318,8 @@ module Fluent
         @stat_trigger.detach if @stat_trigger.attached?
       end
 
-      def close
-        if @io_handler
+      def close(close_io = true)
+        if close_io && @io_handler
           @io_handler.on_notify
           @io_handler.close
         end
