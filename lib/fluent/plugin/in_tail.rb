@@ -256,20 +256,32 @@ module Fluent
     def parse_multilines(lines, tail_watcher)
       lb = tail_watcher.line_buffer
       es = MultiEventStream.new
-      lines.each { |line|
-        if @parser.parser.firstline?(line)
-          if lb
-            convert_line_to_event(lb, es)
-          end
-          lb = line
-        else
-          if lb.nil?
-            log.warn "got incomplete line before first line from #{tail_watcher.path}: #{lb.inspect}"
+      if @parser.parser.has_firstline?
+        lines.each { |line|
+          if @parser.parser.firstline?(line)
+            if lb
+              convert_line_to_event(lb, es)
+            end
+            lb = line
           else
-            lb << line
+            if lb.nil?
+              log.warn "got incomplete line before first line from #{tail_watcher.path}: #{lb.inspect}"
+            else
+              lb << line
+            end
+          end
+        }
+      else
+        lb ||= ''
+        lines.each do |line|
+          lb << line
+          time, record = parse_line(lb)
+          if time && record
+            convert_line_to_event(lb, es)
+            lb = ''
           end
         end
-      }
+      end
       tail_watcher.line_buffer = lb
       es
     end
