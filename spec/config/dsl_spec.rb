@@ -156,7 +156,7 @@ describe Fluent::Config::DSL::Parser do
       it 'does not make worker element implicitly because DSL configuration does not support v10 compat mode' do
         expect(root.elements.size).to eql(1)
         expect(root.elements.first.name).to eql('source')
-        expect(root.elements.find{|e| e.name == 'worker'}).to be_false
+        expect(root.elements.find{|e| e.name == 'worker'}).to be_falsey
       end
     end
   end
