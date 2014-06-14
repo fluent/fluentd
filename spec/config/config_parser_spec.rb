@@ -28,21 +28,21 @@ describe Fluent::Config::V1Parser do
 
   describe 'attribute parsing' do
     it "parses attributes" do
-      %[
+      expect(%[
         k1 v1
         k2 v2
-      ].should be_parsed_as("k1"=>"v1", "k2"=>"v2")
+      ]).to be_parsed_as("k1"=>"v1", "k2"=>"v2")
     end
 
     it "allows attribute without value" do
-      %[
+      expect(%[
         k1
         k2 v2
-      ].should be_parsed_as("k1"=>"", "k2"=>"v2")
+      ]).to be_parsed_as("k1"=>"", "k2"=>"v2")
     end
 
     it "parses attribute key always string" do
-      "1 1".should be_parsed_as("1" => "1")
+      expect("1 1").to be_parsed_as("1" => "1")
     end
 
     [
@@ -51,41 +51,41 @@ describe Fluent::Config::V1Parser do
       "()*{}.[]",
     ].each do |v|
       it "parses a value with symbol #{v.inspect}" do
-        "k #{v}".should be_parsed_as("k" => v)
+        expect("k #{v}").to be_parsed_as("k" => v)
       end
     end
 
     it "ignores spacing around value" do
-      "  k1     a    ".should be_parsed_as("k1" => "a")
+      expect("  k1     a    ").to be_parsed_as("k1" => "a")
     end
 
     it "allows spaces in value" do
-      "k1 a  b  c".should be_parsed_as("k1" => "a  b  c")
+      expect("k1 a  b  c").to be_parsed_as("k1" => "a  b  c")
     end
 
     it "ignores comments after value" do
-      "  k1 a#comment".should be_parsed_as("k1" => "a")
+      expect("  k1 a#comment").to be_parsed_as("k1" => "a")
     end
 
     it "allows # in value if quoted" do
-      '  k1 "a#comment"'.should be_parsed_as("k1" => "a#comment")
+      expect('  k1 "a#comment"').to be_parsed_as("k1" => "a#comment")
     end
 
     it "rejects characters after quoted string" do
-      '  k1 "a" 1'.should be_parse_error
+      expect('  k1 "a" 1').to be_parse_error
     end
   end
 
   describe 'element parsing' do
     it do
-      "".should be_parsed_as(root)
+      expect("").to be_parsed_as(root)
     end
 
     it "accepts empty element" do
-      %[
+      expect(%[
         <test>
         </test>
-      ].should be_parsed_as(
+      ]).to be_parsed_as(
         root(
           e("test")
         )
@@ -93,17 +93,17 @@ describe Fluent::Config::V1Parser do
     end
 
     it "accepts argument and attributes" do
-      %[
+      expect(%[
         <test var>
           key val
         </test>
-      ].should be_parsed_as(root(
+      ]).to be_parsed_as(root(
           e("test", 'var', {'key'=>"val"})
         ))
     end
 
     it "accepts nested elements" do
-      %[
+      expect(%[
         <test var>
           key 1
           <nested1>
@@ -111,7 +111,7 @@ describe Fluent::Config::V1Parser do
           <nested2>
           </nested2>
         </test>
-      ].should be_parsed_as(root(
+      ]).to be_parsed_as(root(
           e("test", 'var', {'key'=>'val'}, [
             e('nested1'),
             e('nested2')
@@ -128,52 +128,52 @@ describe Fluent::Config::V1Parser do
       "()*{}.[]",
     ].each do |arg|
       it "parses element argument #{arg.inspect}" do
-        %[
+        expect(%[
           <test #{arg}>
           </test>
-        ].should be_parsed_as(root(
+        ]).to be_parsed_as(root(
             e("test", arg)
           ))
       end
     end
 
     it "parses empty element argument to nil" do
-      %[
+      expect(%[
         <test >
         </test>
-      ].should be_parsed_as(root(
+      ]).to be_parsed_as(root(
           e("test", nil)
         ))
     end
 
     it "ignores spacing around element argument" do
-      %[
+      expect(%[
         <test    a    >
         </test>
-      ].should be_parsed_as(root(
+      ]).to be_parsed_as(root(
           e("test", "a")
         ))
     end
 
     it "considers comments in element argument" do
-      %[
+      expect(%[
         <test #a>
         </test>
-      ].should be_parse_error
+      ]).to be_parse_error
     end
 
     it "requires line_end after begin tag" do
-      %[
+      expect(%[
         <test></test>
-      ].should be_parse_error
+      ]).to be_parse_error
     end
 
     it "requires line_end after end tag" do
-      %[
+      expect(%[
         <test>
         </test><test>
         </test>
-      ].should be_parse_error
+      ]).to be_parse_error
     end
   end
 
