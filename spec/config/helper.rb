@@ -9,7 +9,7 @@ shared_context 'config_helper' do
       end
     end
 
-    failure_message_for_should do |text|
+    failure_message do |text|
       msg = parse_text(text).inspect rescue 'failed'
       "expected that #{text.inspect} would be a parsed as #{obj.inspect} but got #{msg}"
     end
@@ -21,7 +21,7 @@ shared_context 'config_helper' do
       v == obj
     end
 
-    failure_message_for_should do |text|
+    failure_message do |text|
       msg = parse_text(text).inspect rescue 'failed'
       "expected that #{text.inspect} would be a parsed as #{obj.inspect} but got #{msg}"
     end
@@ -37,7 +37,7 @@ shared_context 'config_helper' do
       end
     end
 
-    failure_message_for_should do |text|
+    failure_message do |text|
       begin
         msg = parse_text(text).inspect
       rescue

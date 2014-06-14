@@ -60,17 +60,17 @@ describe Fluent::Config::Section do
     describe '#instance_of?' do
       it 'can judge whether it is a Section object or not' do
         s = Fluent::Config::Section.new
-        expect(s.instance_of?(Fluent::Config::Section)).to be_true
-        expect(s.instance_of?(BasicObject)).to be_false
+        expect(s.instance_of?(Fluent::Config::Section)).to be true
+        expect(s.instance_of?(BasicObject)).to be false
       end
     end
 
     describe '#is_a?' do
       it 'can judge whether it belongs to or not' do
         s = Fluent::Config::Section.new
-        expect(s.is_a?(Fluent::Config::Section)).to be_true
-        expect(s.kind_of?(Fluent::Config::Section)).to be_true
-        expect(s.is_a?(BasicObject)).to be_true
+        expect(s.is_a?(Fluent::Config::Section)).to be true
+        expect(s.kind_of?(Fluent::Config::Section)).to be true
+        expect(s.is_a?(BasicObject)).to be true
       end
     end
 

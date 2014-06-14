@@ -11,27 +11,27 @@ describe Fluent::Config::ConfigureProxy do
         expect(proxy.name).to eql(:section)
         expect(proxy.param_name).to eql(:section)
         expect(proxy.required).to be_nil
-        expect(proxy.required?).to be_false
+        expect(proxy.required?).to be false
         expect(proxy.multi).to be_nil
-        expect(proxy.multi?).to be_true
+        expect(proxy.multi?).to be true
       end
 
       it 'can specify param_name/required/multi with optional arguments' do
         proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: 'sections', required: false, multi: true)
         expect(proxy.name).to eql(:section)
         expect(proxy.param_name).to eql(:sections)
-        expect(proxy.required).to be_false
-        expect(proxy.required?).to be_false
-        expect(proxy.multi).to be_true
-        expect(proxy.multi?).to be_true
+        expect(proxy.required).to be false
+        expect(proxy.required?).to be false
+        expect(proxy.multi).to be true
+        expect(proxy.multi?).to be true
 
         proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, required: true, multi: false)
         expect(proxy.name).to eql(:section)
         expect(proxy.param_name).to eql(:sections)
-        expect(proxy.required).to be_true
-        expect(proxy.required?).to be_true
-        expect(proxy.multi).to be_false
-        expect(proxy.multi?).to be_false
+        expect(proxy.required).to be true
+        expect(proxy.required?).to be true
+        expect(proxy.multi).to be false
+        expect(proxy.multi?).to be false
       end
     end
 
@@ -41,18 +41,18 @@ describe Fluent::Config::ConfigureProxy do
         expect(proxy.name).to eql(:section)
         expect(proxy.param_name).to eql(:section)
         expect(proxy.required).to be_nil
-        expect(proxy.required?).to be_false
+        expect(proxy.required?).to be false
         expect(proxy.multi).to be_nil
-        expect(proxy.multi?).to be_true
+        expect(proxy.multi?).to be true
 
         p2 = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, required: true, multi: false)
         proxy = p1.merge(p2)
         expect(proxy.name).to eql(:section)
         expect(proxy.param_name).to eql(:sections)
-        expect(proxy.required).to be_true
-        expect(proxy.required?).to be_true
-        expect(proxy.multi).to be_false
-        expect(proxy.multi?).to be_false
+        expect(proxy.required).to be true
+        expect(proxy.required?).to be true
+        expect(proxy.multi).to be false
+        expect(proxy.multi?).to be false
       end
 
       it 'does not overwrite with argument object without any specifications of required/multi' do
@@ -62,10 +62,10 @@ describe Fluent::Config::ConfigureProxy do
         proxy = p1.merge(p2).merge(p3)
         expect(proxy.name).to eql(:section3)
         expect(proxy.param_name).to eql(:section3)
-        expect(proxy.required).to be_true
-        expect(proxy.required?).to be_true
-        expect(proxy.multi).to be_false
-        expect(proxy.multi?).to be_false
+        expect(proxy.required).to be true
+        expect(proxy.required?).to be true
+        expect(proxy.multi).to be false
+        expect(proxy.multi?).to be false
       end
     end
 

@@ -174,8 +174,8 @@ describe Fluent::Configurable do
 
       it 'create non-required and multi without any specifications' do
         b3 = ConfigurableSpec::Base3.new
-        expect(b3.class.merged_configure_proxy.sections[:node].required?).to be_false
-        expect(b3.class.merged_configure_proxy.sections[:node].multi?).to be_true
+        expect(b3.class.merged_configure_proxy.sections[:node].required?).to be false
+        expect(b3.class.merged_configure_proxy.sections[:node].multi?).to be true
       end
     end
 
