@@ -295,6 +295,33 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "test4"}, emits[3][2])
   end
 
+  def test_multiline_without_firstline
+    File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+
+    d = create_driver %[
+      format multiline
+      format1 /(?<var1>foo \\d)\\n/
+      format2 /(?<var2>bar \\d)\\n/
+      format3 /(?<var3>baz \\d)/
+    ]
+    d.run do
+      File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+        f.puts "foo 1"
+        f.puts "bar 1"
+        f.puts "baz 1"
+        f.puts "foo 2"
+        f.puts "bar 2"
+        f.puts "baz 2"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(emits.length, 2)
+    assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, emits[0][2])
+    assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, emits[1][2])
+  end
+
   # * path test
   # TODO: Clean up tests
   EX_RORATE_WAIT = 0
