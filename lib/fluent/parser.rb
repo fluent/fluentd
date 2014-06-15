@@ -396,7 +396,7 @@ module Fluent
 
         if @format_firstline
           check_format_regexp(@format_firstline, 'format_firstline')
-          @regex = Regexp.new(@format_firstline[1..-2])
+          @firstline_regex = Regexp.new(@format_firstline[1..-2])
         end
       end
 
@@ -404,8 +404,12 @@ module Fluent
         @parser.call(text)
       end
 
+      def has_firstline?
+        !!@format_firstline
+      end
+
       def firstline?(text)
-        @regex.match(text)
+        @firstline_regex.match(text)
       end
 
       private
