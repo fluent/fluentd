@@ -1266,11 +1266,13 @@ module Fluent
   require 'Win32API'
   require 'fluent/win32api_constants.rb'
   class Win32File
+    @@api_getlasterror = nil
     def initialize
       super
     end 
 
     def Win32File.open(path, *mode)
+      @@api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @@api_getlasterror
       access = GENERIC_READ
       sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
       creationdisposition = OPEN_EXISTING
@@ -1306,7 +1308,11 @@ module Fluent
       end
       w32io = Win32Io.new
       hFile = w32io.createfile(path, access, sharemode, creationdisposition, FILE_ATTRIBUTE_NORMAL)
+      dwerr = @@api_getlasterror.call
       if hFile == INVALID_HANDLE_VALUE
+        if dwerr == ERROR_FILE_NOT_FOUND || dwerr == ERROR_ACCESS_DENIED
+          raise SystemCallError.new(2)
+        end
         return nil
       end
       if seektoend
@@ -1336,9 +1342,7 @@ module Fluent
     
     def createfile(file_path, file_access, file_sharemode, file_creationdisposition, file_flagsandattrs)
       @path = file_path
-      unless @api_createfile
-        @api_createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i')
-      end
+      @api_createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i') unless @api_createfile
       @file_handle = @api_createfile.call(file_path, file_access, file_sharemode, 0, file_creationdisposition, file_flagsandattrs, 0 )
     end
     
