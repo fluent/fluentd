@@ -264,6 +264,7 @@ module Fluent
     end
 
     def shutdown
+      # Shutdown Input plugin first to prevent emitting to terminated Output plugin
       @started_sources.map { |s|
         Thread.new do
           begin
@@ -276,6 +277,8 @@ module Fluent
       }.each { |t|
         t.join
       }
+      # Output plugin as filter emits records at shutdown so emit problem still exist.
+      # This problem will be resolved after actual filter mechanizm.
       @started_matches.map { |m|
         Thread.new do
           begin
