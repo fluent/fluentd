@@ -147,7 +147,7 @@ module Fluent
       def call(text)
         m = @regexp.match(text)
         unless m
-          return nil, nil
+          yield nil, nil
         end
 
         time = nil
@@ -170,7 +170,7 @@ module Fluent
 
         time ||= Engine.now
 
-        return time, record
+        yield time, record
       end
     end
 
@@ -202,9 +202,9 @@ module Fluent
           time = Engine.now
         end
 
-        return time, record
+        yield time, record
       rescue Yajl::ParseError
-        return nil, nil
+        yield nil, nil
       end
     end
 
@@ -267,7 +267,7 @@ module Fluent
       config_param :delimiter, :string, :default => "\t"
 
       def call(text)
-        return values_map(text.split(@delimiter))
+        yield values_map(text.split(@delimiter))
       end
     end
 
@@ -291,7 +291,7 @@ module Fluent
           values.push(value)
         end
 
-        return values_map(values)
+        yield values_map(values)
       end
     end
 
@@ -302,7 +302,7 @@ module Fluent
       end
 
       def call(text)
-        return values_map(CSV.parse_line(text))
+        yield values_map(CSV.parse_line(text))
       end
     end
 
@@ -314,7 +314,7 @@ module Fluent
       def call(text)
         record = {}
         record[@message_key] = text
-        return Engine.now, record
+        yield Engine.now, record
       end
     end
 
@@ -331,7 +331,7 @@ module Fluent
       def call(text)
         m = REGEXP.match(text)
         unless m
-          return nil, nil
+          yield nil, nil
         end
 
         host = m['host']
@@ -369,7 +369,7 @@ module Fluent
           "agent" => agent,
         }
 
-        return time, record
+        yield time, record
       end
     end
 
@@ -400,8 +400,8 @@ module Fluent
         end
       end
 
-      def call(text)
-        @parser.call(text)
+      def call(text, &block)
+        @parser.call(text, &block)
       end
 
       def has_firstline?
@@ -510,7 +510,6 @@ module Fluent
         end
 
         @parser = RegexpParser.new(regexp, conf)
-
       else
         # built-in template
         begin
@@ -528,8 +527,14 @@ module Fluent
       return true
     end
 
-    def parse(text)
-      return @parser.call(text)
+    def parse(text, &block)
+      if block
+        @parser.call(text, &block)
+      else # keep backward compatibility
+        @parser.call(text) { |time, record|
+          return time, record
+        }
+      end
     end
   end
 end
