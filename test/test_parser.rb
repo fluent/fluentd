@@ -45,7 +45,8 @@ module ParserTest
     include ParserTest
 
     def internal_test_case(parser)
-      parser.call('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777') { |time, record|
+      text = '192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777'
+      [parser.call(text), parser.call(text) { |time, record| return time, record}].each { |time, record|
         assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal({
           'user' => '-',
