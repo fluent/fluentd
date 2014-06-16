@@ -194,6 +194,51 @@ module ParserTest
     end
   end
 
+  class TSVParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def test_config_params
+      parser = TextParser::TSVParser.new
+
+      assert_equal "\t", parser.delimiter
+
+      parser.configure(
+        'keys' => 'a,b',
+        'delimiter' => ',',
+      )
+
+      assert_equal ",", parser.delimiter
+    end
+
+    def test_call
+      parser = TextParser::TSVParser.new
+      parser.configure('keys' => 'time,a,b', 'time_key' => 'time')
+      parser.call("2013/02/28 12:00:00\t192.168.0.1\t111") { |time, record|
+        assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+        assert_equal({
+          'a' => '192.168.0.1',
+          'b' => '111',
+        }, record)
+      }
+    end
+  end
+
+  class CSVParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def test_call
+      parser = TextParser::CSVParser.new
+      parser.configure('keys' => 'time,c,d', 'time_key' => 'time')
+      parser.call("2013/02/28 12:00:00,192.168.0.1,111") { |time, record|
+        assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+        assert_equal({
+          'c' => '192.168.0.1',
+          'd' => '111',
+        }, record)
+      }
+    end
+  end
+
   class LabeledTSVParserTest < ::Test::Unit::TestCase
     include ParserTest
 
