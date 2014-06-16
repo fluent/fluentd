@@ -131,14 +131,14 @@ module Fluent
       pri = m[1].to_i
       text = m[2]
 
-      time, record = @parser.parse(text)
-      unless time && record
-        log.warn "pattern not match: #{text.inspect}"
-        return
-      end
+      @parser.parse(text) { |time, record|
+        unless time && record
+          log.warn "pattern not match: #{text.inspect}"
+          return
+        end
 
-      emit(pri, time, record)
-
+        emit(pri, time, record)
+      }
     rescue
       log.warn data.dump, :error=>$!.to_s
       log.debug_backtrace

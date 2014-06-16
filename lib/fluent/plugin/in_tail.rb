@@ -193,17 +193,18 @@ module Fluent
     def flush_buffer(tw)
       if lb = tw.line_buffer
         lb.chomp!
-        time, record = parse_line(lb)
-        if time && record
-          tag = if @tag_prefix || @tag_suffix
-                  @tag_prefix + tw.tag + @tag_suffix
-                else
-                  @tag
-                end
-          Engine.emit(tag, time, record)
-        else
-          log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
-        end
+        @parser.parse(lb) { |time, record|
+          if time && record
+            tag = if @tag_prefix || @tag_suffix
+                    @tag_prefix + tw.tag + @tag_suffix
+                  else
+                    @tag
+                  end
+            Engine.emit(tag, time, record)
+          else
+            log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
+          end
+        }
       end
     end
 
@@ -230,19 +231,16 @@ module Fluent
       end
     end
 
-    def parse_line(line)
-      return @parser.parse(line)
-    end
-
     def convert_line_to_event(line, es)
       begin
         line.chomp!  # remove \n
-        time, record = parse_line(line)
-        if time && record
-          es.add(time, record)
-        else
-          log.warn "pattern not match: #{line.inspect}"
-        end
+        @parser.parse(line) { |time, record|
+          if time && record
+            es.add(time, record)
+          else
+            log.warn "pattern not match: #{line.inspect}"
+          end
+        }
       rescue => e
         log.warn line.dump, :error => e.to_s
         log.debug_backtrace(e.backtrace)
@@ -279,11 +277,12 @@ module Fluent
         lb ||= ''
         lines.each do |line|
           lb << line
-          time, record = parse_line(lb)
-          if time && record
-            convert_line_to_event(lb, es)
-            lb = ''
-          end
+          @parser.parse(lb) { |time, record|
+            if time && record
+              convert_line_to_event(lb, es)
+              lb = ''
+            end
+          }
         end
       end
       tail_watcher.line_buffer = lb
