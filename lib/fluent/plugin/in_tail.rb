@@ -277,11 +277,12 @@ module Fluent
         lb ||= ''
         lines.each do |line|
           lb << line
-          time, record = parse_line(lb)
-          if time && record
-            convert_line_to_event(lb, es)
-            lb = ''
-          end
+          @parser.parse(lb) { |time, record|
+            if time && record
+              convert_line_to_event(lb, es)
+              lb = ''
+            end
+          }
         end
       end
       tail_watcher.line_buffer = lb

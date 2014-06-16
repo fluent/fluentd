@@ -317,7 +317,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     emits = d.emits
-    assert_equal(emits.length, 2)
+    assert_equal(2, emits.length)
     assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, emits[0][2])
     assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, emits[1][2])
   end

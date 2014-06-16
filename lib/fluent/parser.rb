@@ -148,6 +148,7 @@ module Fluent
         m = @regexp.match(text)
         unless m
           yield nil, nil
+          return
         end
 
         time = nil
@@ -332,6 +333,7 @@ module Fluent
         m = REGEXP.match(text)
         unless m
           yield nil, nil
+          return
         end
 
         host = m['host']
