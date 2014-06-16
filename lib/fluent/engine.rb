@@ -22,7 +22,8 @@ module Fluent
       @sources = []
       @match_cache = {}
       @match_cache_keys = []
-      @started = []
+      @started_sources = []
+      @started_matches = []
       @default_loop = nil
       @engine_stopped = false
 
@@ -254,25 +255,40 @@ module Fluent
     def start
       @matches.each {|m|
         m.start
-        @started << m
+        @started_matches << m
       }
       @sources.each {|s|
         s.start
-        @started << s
+        @started_sources << s
       }
     end
 
     def shutdown
-      @started.map {|s|
+      # Shutdown Input plugin first to prevent emitting to terminated Output plugin
+      @started_sources.map { |s|
         Thread.new do
           begin
             s.shutdown
           rescue => e
-            $log.warn "unexpected error while shutting down", :error_class=>e.class, :error=>e
+            $log.warn "unexpected error while shutting down", :plugin => s.class, :plugin_id => s.plugin_id, :error_class => e.class, :error => e
             $log.warn_backtrace
           end
         end
-      }.each {|t|
+      }.each { |t|
+        t.join
+      }
+      # Output plugin as filter emits records at shutdown so emit problem still exist.
+      # This problem will be resolved after actual filter mechanizm.
+      @started_matches.map { |m|
+        Thread.new do
+          begin
+            m.shutdown
+          rescue => e
+            $log.warn "unexpected error while shutting down", :plugin => m.output.class, :plugin_id => m.output.plugin_id, :error_class => e.class, :error => e
+            $log.warn_backtrace
+          end
+        end
+      }.each { |t|
         t.join
       }
     end
