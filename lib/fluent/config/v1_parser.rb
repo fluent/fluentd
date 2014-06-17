@@ -142,16 +142,16 @@ module Fluent
             basepath = File.dirname(path)
             fname = File.basename(path)
             data = File.read(path)
+            data.force_encoding('UTF-8')
             ss = StringScanner.new(data)
             V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
           }
-
         else
+          require 'open-uri'
           basepath = '/'
           fname = path
-          require 'open-uri'
-          data = nil
-          open(uri) { |f| data = f.read }
+          data = open(uri) { |f| f.read }
+          data.force_encoding('UTF-8')
           ss = StringScanner.new(data)
           V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
         end
