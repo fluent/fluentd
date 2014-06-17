@@ -1,3 +1,14 @@
+Release 0.10.50 - 2014/06/17
+
+* in_tail: Fix race condition at shutdown
+* in_tail: read_from_head now works without pos_file
+* in_tail: Fix multiline format parsing without format_firstline
+* formatter: Add add_newline option to SingleValueFormatter
+* parser: Add block based API to support multi-events parsing
+* config: Fix encoding mismatch when @include used in v1
+* engine: Serialize shutdown order. Now shutdown input plugins first
+* Update rspec to 3.x
+
 Release 0.10.49 - 2014/06/05
 
 * in_http: Add format option to support various input data format
