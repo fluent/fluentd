@@ -196,7 +196,6 @@ module Fluent
       $log.info "starting fluentd-#{Fluent::VERSION}"
       $log.info "is windows platform : #{$platformwin}"
 
-      @main_pid = 0
       unless $platformwin
         @main_pid = fork do
           main_process(&block)
@@ -211,7 +210,6 @@ module Fluent
           $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
           @main_pid = Process.spawn(fluentd_spawn_cmd)
         else
-          @main_pid = 0
           main_process(&block)
         end
       end
@@ -492,9 +490,7 @@ module Fluent
       if pid = @main_pid
         unless Process.waitpid(pid, Process::WNOHANG)
           begin
-            w = Win32SyncObj.createevent(1,0,"fluentdwinsigint_#{pid}")
-            w.signal_on
-            w.close
+            Process.kill(:INT, pid)
           rescue Errno::ESRCH
             # ignore processes already died
           end
@@ -511,4 +507,3 @@ module Fluent
     end
   end
 end
-
