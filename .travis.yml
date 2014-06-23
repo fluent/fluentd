@@ -5,7 +5,7 @@ rvm:
   - 2.0.0
   - 2.1
   - ruby-head
-  - rbx
+  - rbx-2
 
 os:
   - linux
@@ -24,4 +24,4 @@ script: bundle exec rake
 matrix:
   allow_failures:
     - rvm: ruby-head
-    - rvm: rbx
+    - rvm: rbx-2
