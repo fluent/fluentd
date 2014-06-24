@@ -62,13 +62,6 @@ module Fluent
       @suppress_config_dump = flag
     end
 
-    def read_config(path)
-      $log.info "reading config file", :path=>path
-      File.open(path) {|io|
-        parse_config(io, File.basename(path), File.dirname(path))
-      }
-    end
-
     def parse_config(io, fname, basepath = Dir.pwd, v1_config = false)
       conf = if fname =~ /\.rb$/
                require 'fluent/config/dsl'
