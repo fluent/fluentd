@@ -139,8 +139,8 @@ module Fluent
 
         emit(pri, time, record)
       }
-    rescue
-      log.error data.dump, :error=>$!.to_s
+    rescue => e
+      log.error data.dump, :error => e.to_s
       log.error_backtrace
     end
 
@@ -171,8 +171,8 @@ module Fluent
       time ||= Engine.now
 
       emit(pri, time, record)
-    rescue
-      log.error data.dump, :error=>$!.to_s
+    rescue => e
+      log.error data.dump, :error => e.to_s
       log.error_backtrace
     end
 
