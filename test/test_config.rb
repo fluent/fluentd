@@ -10,6 +10,13 @@ class ConfigTest < Test::Unit::TestCase
 
   TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
 
+  def read_config(path)
+    path = File.expand_path(path)
+    File.open(path) { |io|
+      Fluent::Config::Parser.parse(io, File.basename(path), File.dirname(path))
+    }
+  end
+
   def prepare_config
     write_config "#{TMP_DIR}/config_test_1.conf", %[
       k1 root_config
@@ -63,7 +70,7 @@ class ConfigTest < Test::Unit::TestCase
 
   def test_include
     prepare_config
-    c = Config.read("#{TMP_DIR}/config_test_1.conf")
+    c = read_config("#{TMP_DIR}/config_test_1.conf")
     assert_equal 'root_config', c['k1']
     assert_equal 'relative_path_include', c['k2']
     assert_equal 'relative_include_in_included_file', c['k3']
@@ -112,7 +119,7 @@ class ConfigTest < Test::Unit::TestCase
        </rule>
      </match>
     ]
-    root_conf  = Config.read("#{TMP_DIR}/config_test_not_fetched.conf")
+    root_conf  = read_config("#{TMP_DIR}/config_test_not_fetched.conf")
     match_conf = root_conf.elements.first
     rule_conf  = match_conf.elements.first
 

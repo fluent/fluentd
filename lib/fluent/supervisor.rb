@@ -321,6 +321,7 @@ module Fluent
       end
     end
 
+    # with_log is for disabling logging before Log#init is called
     def read_config(with_log = true)
       $log.info "reading config file", :path => @config_path if with_log
       @config_fname = File.basename(@config_path)
@@ -337,15 +338,7 @@ module Fluent
       include Configurable
 
       config_param :log_level, :default => nil do |level|
-        case level
-        when 'trace' then Fluent::Log::LEVEL_TRACE
-        when 'debug' then Fluent::Log::LEVEL_DEBUG
-        when 'info'  then Fluent::Log::LEVEL_INFO
-        when 'warn'  then Fluent::Log::LEVEL_WARN
-        when 'error' then Fluent::Log::LEVEL_ERROR
-        when 'fatal' then Fluent::Log::LEVEL_FATAL
-        else raise ConfigError, "Unknown log level: #{level}"
-        end
+        Log.str_to_level(level)
       end
       config_param :suppress_repeated_stacktrace, :bool, :default => nil
       config_param :emit_error_log_interval, :time, :default => nil
@@ -368,8 +361,8 @@ module Fluent
 
     def apply_system_config(opt)
       read_config(false)
-      systems = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config).elements.select {
-        |e| e.name == 'system'
+      systems = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config).elements.select { |e|
+        e.name == 'system'
       }
       return if systems.empty?
       raise ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1

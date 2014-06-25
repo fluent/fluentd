@@ -8,6 +8,12 @@ require "fluent/config/v1_parser"
 describe Fluent::Config::V1Parser do
   include_context 'config_helper'
 
+  def read_config(path)
+    path = File.expand_path(path)
+    data = File.read(path)
+    Fluent::Config::V1Parser.parse(data, File.basename(path), File.dirname(path))
+  end
+
   def parse_text(text)
     basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
     Fluent::Config::V1Parser.parse(text, '(test)', basepath, nil)
@@ -238,7 +244,7 @@ describe Fluent::Config::V1Parser do
 
     it 'parses @include / include correctly' do
       prepare_config
-      c = Fluent::Config.read("#{TMP_DIR}/config_test_1.conf", true)
+      c = read_config("#{TMP_DIR}/config_test_1.conf")
       expect(c['k1']).to eq('root_config')
       expect(c['k2']).to eq('relative_path_include')
       expect(c['k3']).to eq('relative_include_in_included_file')

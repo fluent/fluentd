@@ -24,12 +24,6 @@ module Fluent
     class V1Parser < LiteralParser
       ELEMENT_NAME = /[a-zA-Z0-9_]+/
 
-      def self.read(path, eval_context = nil)
-        path = File.expand_path(path)
-        data = File.read(path)
-        parse(data, File.basename(path), File.dirname(path), eval_context)
-      end
-
       def self.parse(data, fname, basepath = Dir.pwd, eval_context = nil)
         ss = StringScanner.new(data)
         ps = V1Parser.new(ss, basepath, fname, eval_context)

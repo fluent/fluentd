@@ -4,13 +4,6 @@ module Fluent
     require 'fluent/config/element'
 
     class Parser
-      def self.read(path)
-        path = File.expand_path(path)
-        File.open(path) { |io|
-          parse(io, File.basename(path), File.dirname(path))
-        }
-      end
-
       def self.parse(io, fname, basepath = Dir.pwd)
         attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
         Element.new('ROOT', '', attrs, elems)
