@@ -22,11 +22,11 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 
 ## More Information
 
-- Web site:  http://fluentd.org/
-- Documents: http://docs.fluentd.org/
+- Website: http://fluentd.org/
+- Documentation: http://docs.fluentd.org/
 - Source repository: http://github.com/fluent
 - Discussion: http://groups.google.com/group/fluentd
-- News Letters: http://go.treasuredata.com/Fluentd_education
+- Newsletters: http://get.treasuredata.com/Fluentd_education
 - Author: Sadayuki Furuhashi
 - Copyright: (c) 2011 FURUHASHI Sadayuki
 - License: Apache License, Version 2.0
