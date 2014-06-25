@@ -3,6 +3,20 @@ require 'Win32API'
 require 'fluent/win32api_constants.rb'
 
 module Fluent
+  class Win32Base
+    @api_getversionex = nil
+    def Win32Base.getversionex
+      @api_getversionex = Win32API.new("kernel32","GetVersionExW", %w(p),'i') unless @api_getversionex
+      osvi = [276]
+      (4*4+2*128).times do
+        osvi.push 0
+      end
+      osvi_pack = osvi.pack("L5S128")
+      @api_getversionex.call(osvi_pack)
+      return osvi_pack.unpack("L5S128")
+    end
+  end
+  
   class Win32Dll
     @api_getmodulefilename = nil
     def Win32Dll.getmodulefilename

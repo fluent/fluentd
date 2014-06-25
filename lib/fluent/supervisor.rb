@@ -81,6 +81,7 @@ module Fluent
         require 'fluent/win32api_syncobj'
         ruby_path = Fluent::Win32Dll.getmodulefilename
         @rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
+        @winosvi = Fluent::Win32Base.getversionex
       end
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -489,8 +490,9 @@ module Fluent
       @finished = true
       if pid = @main_pid
         unless Process.waitpid(pid, Process::WNOHANG)
+          sigx = (@winosvi[1] >= 6 && @winosvi[2] >=2) ? (:INT) : (:KILL)
           begin
-            Process.kill(:INT, pid)
+            Process.kill(sigx, pid)
           rescue Errno::ESRCH
             # ignore processes already died
           end
