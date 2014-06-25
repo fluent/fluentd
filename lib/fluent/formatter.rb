@@ -33,10 +33,9 @@ module Fluent
       def configure(conf)
         super
 
+        @localtime = true
         if conf['utc']
           @localtime = false
-        elsif conf['localtime']
-          @localtime = true
         end
         @timef = TimeFormatter.new(@time_format, @localtime)
       end
