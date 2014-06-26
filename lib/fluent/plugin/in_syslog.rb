@@ -122,7 +122,7 @@ module Fluent
     end
 
     protected
-    def receive_data_parser(data)
+    def receive_data_parser(data, addr)
       m = SYSLOG_REGEXP.match(data)
       unless m
         log.warn "invalid syslog message: #{data.dump}"
@@ -144,7 +144,7 @@ module Fluent
       log.error_backtrace
     end
 
-    def receive_data(data)
+    def receive_data(data, addr)
       m = SYSLOG_ALL_REGEXP.match(data)
       unless m
         log.warn "invalid syslog message", :data=>data
@@ -183,9 +183,10 @@ module Fluent
       if @protocol_type == :udp
         @usock = SocketUtil.create_udp_socket(@bind)
         @usock.bind(@bind, @port)
-        UdpHandler.new(@usock, callback)
+        SocketUtil::UdpHandler.new(@usock, log, 2048, callback)
       else
-        Coolio::TCPServer.new(@bind, @port, TcpHandler, log, callback)
+        # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
+        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback)
       end
     end
 
@@ -198,61 +199,6 @@ module Fluent
       Engine.emit(tag, time, record)
     rescue => e
       log.error "syslog failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
-    end
-
-    class UdpHandler < Coolio::IO
-      def initialize(io, callback)
-        super(io)
-        @io = io
-        @callback = callback
-      end
-
-      def on_readable
-        msg, addr = @io.recvfrom_nonblock(2048)
-        #host = addr[3]
-        #port = addr[1]
-        #@callback.call(host, port, msg)
-        @callback.call(msg)
-      rescue
-        # TODO log?
-      end
-    end
-
-    class TcpHandler < Coolio::Socket
-      def initialize(io, log, on_message)
-        super(io)
-        if io.is_a?(TCPSocket)
-          opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-          io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-        end
-        @on_message = on_message
-        @log = log
-        @log.trace { "accepted fluent socket object_id=#{self.object_id}" }
-        @buffer = "".force_encoding('ASCII-8BIT')
-      end
-
-      def on_connect
-      end
-
-      def on_read(data)
-        @buffer << data
-        pos = 0
-
-        # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
-        while i = @buffer.index("\n", pos)
-          msg = @buffer[pos..i]
-          @on_message.call(msg)
-          pos = i + 1
-        end
-        @buffer.slice!(0, pos) if pos > 0
-      rescue => e
-        @log.error "syslog error", :error => e, :error_class => e.class
-        close
-      end
-
-      def on_close
-        @log.trace { "closed fluent socket object_id=#{self.object_id}" }
-      end
     end
   end
 end
