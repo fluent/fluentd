@@ -27,13 +27,13 @@ module Fluent
           config_param :time_format, :string, :default => nil
           config_param :include_tag_key, :bool, :default => false
           config_param :tag_key, :string, :default => 'tag'
+          config_param :localtime, :bool, :default => true
         }
       end
 
       def configure(conf)
         super
 
-        @localtime = true
         if conf['utc']
           @localtime = false
         end

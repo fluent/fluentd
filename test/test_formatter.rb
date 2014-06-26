@@ -37,29 +37,33 @@ module FormatterTest
       @time = Engine.now
     end
 
+    def configure(conf)
+      @formatter.configure({'utc' => true}.merge(conf))
+    end
+
     def test_format
-      @formatter.configure({})
+      configure({})
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("#{time2str(@time)}\t#{tag}\t#{Yajl.dump(record)}\n", formatted)
     end
 
     def test_format_without_time
-      @formatter.configure('output_time' => 'false')
+      configure('output_time' => 'false')
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("#{tag}\t#{Yajl.dump(record)}\n", formatted)
     end
 
     def test_format_without_tag
-      @formatter.configure('output_tag' => 'false')
+      configure('output_tag' => 'false')
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("#{time2str(@time)}\t#{Yajl.dump(record)}\n", formatted)
     end
 
     def test_format_without_time_and_tag
-      @formatter.configure('output_tag' => 'false', 'output_time' => 'false')
+      configure('output_tag' => 'false', 'output_time' => 'false')
       formatted = @formatter.format('tag', @time, record)
 
       assert_equal("#{Yajl.dump(record)}\n", formatted)
