@@ -160,34 +160,6 @@ module Fluent
     end
   end
 
-
-  # obsolete
-  # ForwardInput is backward compatible with TcpInput
-  #class TcpInput < StreamInput
-  #  Plugin.register_input('tcp', self)
-  #
-  #  config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
-  #  config_param :bind, :string, :default => '0.0.0.0'
-  #
-  #  def configure(conf)
-  #    super
-  #  end
-  #
-  #  def listen
-  #    log.debug "listening fluent socket on #{@bind}:#{@port}"
-  #    Coolio::TCPServer.new(@bind, @port, Handler, method(:on_message))
-  #  end
-  #end
-  class TcpInput < ForwardInput
-    Plugin.register_input('tcp', self)
-
-    def initialize
-      super
-      $log.warn "'tcp' input is obsoleted and will be removed soon. Use 'forward' instead."
-    end
-  end
-
-
   class UnixInput < StreamInput
     Plugin.register_input('unix', self)
 

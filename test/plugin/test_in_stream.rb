@@ -105,30 +105,6 @@ module StreamInputTest
   end
 end
 
-class TcpInputTest < Test::Unit::TestCase
-  include StreamInputTest
-
-  PORT = unused_port
-  CONFIG = %[
-    port #{PORT}
-    bind 127.0.0.1
-  ]
-
-  def create_driver(conf=CONFIG)
-    super(Fluent::TcpInput, conf)
-  end
-
-  def test_configure
-    d = create_driver
-    assert_equal PORT, d.instance.port
-    assert_equal '127.0.0.1', d.instance.bind
-  end
-
-  def connect
-    TCPSocket.new('127.0.0.1', PORT)
-  end
-end
-
 class UnixInputTest < Test::Unit::TestCase
   include StreamInputTest
 
