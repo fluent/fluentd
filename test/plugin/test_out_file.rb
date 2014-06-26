@@ -22,6 +22,14 @@ class FileOutputTest < Test::Unit::TestCase
     Fluent::Test::BufferedOutputTestDriver.new(Fluent::FileOutput).configure(conf)
   end
 
+  def with_timezone(timezone = 'UTC', &block)
+    old = ENV['TZ']
+    ENV['TZ'] = timezone
+    output = yield
+    ENV['TZ'] = old
+    output
+  end
+
   def test_configure
     d = create_driver %[
       path test_path
@@ -29,6 +37,17 @@ class FileOutputTest < Test::Unit::TestCase
     ]
     assert_equal 'test_path', d.instance.path
     assert_equal :gz, d.instance.compress
+  end
+
+  def test_default_localtime
+    d = create_driver(%[path #{TMP_DIR}/out_file_test])
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    with_timezone('Asia/Taipei') do
+      d.emit({"a"=>1}, time)
+      d.expect_format %[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]
+      d.run
+    end
   end
 
   def test_format
