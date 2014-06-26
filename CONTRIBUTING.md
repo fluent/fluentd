@@ -1,6 +1,6 @@
 # Contributing to Fluentd
 
-We'd love your contribution. Here is the guidelines!
+We'd love your contribution. Here are the guidelines!
 
 ## Got a question or problem?
 
