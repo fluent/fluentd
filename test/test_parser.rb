@@ -75,6 +75,33 @@ module ParserTest
     def test_call_with_typed_and_name_separator
       internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer', 'types_label_delimiter'=>'|'))
     end
+
+    def test_call_without_time
+      time_at_start = Time.now.to_i
+      text = "tagomori_satoshi tagomoris 34\n"
+
+      parser = TextParser::RegexpParser.new(Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
+      parser.configure('types'=>'name:string,user:string,age:bool')
+
+      [parser.call(text), parser.call(text) { |time, record| return time, record}].each { |time, record|
+        assert time && time >= time_at_start
+        assert_equal "tagomori_satoshi", record["name"]
+        assert_equal "tagomoris", record["user"]
+        assert_equal 34, record["age"]
+      }
+
+      parser2 = TextParser::RegexpParser.new(Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
+      parser2.configure('types'=>'name:string,user:string,age:bool', 'time_default_current' => 'no')
+
+      [parser2.call(text), parser2.call(text) { |time, record| return time, record}].each { |time, record|
+        assert_equal "tagomori_satoshi", record["name"]
+        assert_equal "tagomoris", record["user"]
+        assert_equal 34, record["age"]
+
+        assert_nil time
+      }
+
+    end
   end
 
   class ApacheParserTest < ::Test::Unit::TestCase

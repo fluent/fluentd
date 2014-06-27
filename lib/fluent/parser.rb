@@ -127,6 +127,7 @@ module Fluent
       include TypeConverter
 
       config_param :time_format, :string, :default => nil
+      config_param :time_default_current, :bool, :default => true
 
       def initialize(regexp, conf={})
         super()
@@ -173,7 +174,9 @@ module Fluent
           end
         }
 
-        time ||= Engine.now
+        if @time_default_current
+          time ||= Engine.now
+        end
 
         if block_given?
           yield time, record
@@ -188,6 +191,7 @@ module Fluent
 
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
+      config_param :time_default_current, :bool, :default => true
 
       def configure(conf)
         super
@@ -208,7 +212,11 @@ module Fluent
             time = value.to_i
           end
         else
-          time = Engine.now
+          if @time_default_current
+            time = Engine.now
+          else
+            time = nil
+          end
         end
 
         if block_given?
@@ -232,6 +240,7 @@ module Fluent
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
+      config_param :time_default_current, :bool, :default => true
 
       def configure(conf)
         super
@@ -255,13 +264,17 @@ module Fluent
 
         if @time_key
           value = record.delete(@time_key)
-          time = if value.nil?
+          time = if value.nil? && @time_default_current
                    Engine.now
+                 elsif value.nil?
+                   nil
                  else
                    @mutex.synchronize { @time_parser.parse(value) }
                  end
-        else
+        elsif @time_default_current
           time = Engine.now
+        else
+          time = nil
         end
 
         convert_field_type!(record) if @type_converters
@@ -339,14 +352,16 @@ module Fluent
       include Configurable
 
       config_param :message_key, :string, :default => 'message'
+      config_param :time_default_current, :bool, :default => true
 
       def call(text)
         record = {}
         record[@message_key] = text
+        time = @time_default_current ? Engine.now : nil
         if block_given?
-          yield Engine.now, record
+          yield time, record
         else
-          return Engine.now, record
+          return time, record
         end
       end
     end
