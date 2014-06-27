@@ -247,7 +247,7 @@ module Fluent
 
         @keys = @keys.split(",")
 
-        if @time_key && !@keys.include?(@time_key)
+        if @time_key && !@keys.include?(@time_key) && @time_default_current
           raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
         end
 

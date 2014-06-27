@@ -84,7 +84,7 @@ module ParserTest
       parser.configure('types'=>'name:string,user:string,age:bool')
 
       [parser.call(text), parser.call(text) { |time, record| return time, record}].each { |time, record|
-        assert time && time >= time_at_start
+        assert time && time >= time_at_start, "parser puts current time without time input"
         assert_equal "tagomori_satoshi", record["name"]
         assert_equal "tagomoris", record["user"]
         assert_equal 34, record["age"]
@@ -98,7 +98,7 @@ module ParserTest
         assert_equal "tagomoris", record["user"]
         assert_equal 34, record["age"]
 
-        assert_nil time
+        assert_nil time, "parser returns nil if configured so"
       }
 
     end
@@ -187,6 +187,30 @@ module ParserTest
         }, record)
       }
     end
+
+    def test_call_without_time
+      time_at_start = Time.now.to_i
+
+      @parser.call('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
+        assert time && time >= time_at_start, "parser puts current time without time input"
+        assert_equal({
+          'host'   => '192.168.0.1',
+          'size'   => 777,
+          'method' => 'PUT',
+        }, record)
+      }
+
+      parser = TextParser::JSONParser.new
+      parser.configure('time_default_current' => 'false')
+      parser.call('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
+        assert_equal({
+          'host'   => '192.168.0.1',
+          'size'   => 777,
+          'method' => 'PUT',
+        }, record)
+        assert_nil time, "parser return nil w/o time and if specified so"
+      }
+    end
   end
 
   class NginxParserTest < ::Test::Unit::TestCase
@@ -249,6 +273,30 @@ module ParserTest
         }, record)
       }
     end
+
+    def test_call_with_time
+      time_at_start = Time.now.to_i
+
+      parser = TextParser::TSVParser.new
+      parser.configure('keys' => 'a,b')
+      parser.call("192.168.0.1\t111") { |time, record|
+        assert time && time >= time_at_start, "parser puts current time without time input"
+        assert_equal({
+          'a' => '192.168.0.1',
+          'b' => '111',
+        }, record)
+      }
+
+      parser = TextParser::TSVParser.new
+      parser.configure('keys' => 'a,b', 'time_key' => 'time', 'time_default_current' => 'no')
+      parser.call("192.168.0.1\t111") { |time, record|
+        assert_equal({
+          'a' => '192.168.0.1',
+          'b' => '111',
+        }, record)
+        assert_nil time, "parser returns nil w/o time and if configured so"
+      }
+    end
   end
 
   class CSVParserTest < ::Test::Unit::TestCase
@@ -263,6 +311,30 @@ module ParserTest
           'c' => '192.168.0.1',
           'd' => '111',
         }, record)
+      }
+    end
+
+    def test_call_without_time
+      time_at_start = Time.now.to_i
+
+      parser = TextParser::CSVParser.new
+      parser.configure('keys' => 'c,d')
+      parser.call("192.168.0.1,111") { |time, record|
+        assert time && time >= time_at_start, "parser puts current time without time input"
+        assert_equal({
+          'c' => '192.168.0.1',
+          'd' => '111',
+        }, record)
+      }
+
+      parser = TextParser::CSVParser.new
+      parser.configure('keys' => 'c,d', 'time_key' => 'time', 'time_default_current' => 'false')
+      parser.call("192.168.0.1,111") { |time, record|
+        assert_equal({
+          'c' => '192.168.0.1',
+          'd' => '111',
+        }, record)
+        assert_nil time, "parser returns nil w/o time and if configured so"
       }
     end
   end
@@ -326,13 +398,38 @@ module ParserTest
         }, record)
       }
     end
-  end
+
+    def test_call_without_time
+      time_at_start = Time.now.to_i
+
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure({})
+      parser.call("host:192.168.0.1\treq_id:111") { |time, record|
+        assert time && time >= time_at_start, "parser puts current time without time input"
+        assert_equal({
+          'host'   => '192.168.0.1',
+          'req_id' => '111',
+        }, record)
+      }
+
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure({'time_default_current' => 'no'})
+      parser.call("host:192.168.0.1\treq_id:111") { |time, record|
+        assert_equal({
+          'host'   => '192.168.0.1',
+          'req_id' => '111',
+        }, record)
+        assert_nil time, "parser returns nil w/o time and if configured so"
+      }
+    end
+ end
 
   class NoneParserTest < ::Test::Unit::TestCase
     include ParserTest
 
     def test_config_params
       parser = TextParser::NoneParser.new
+      parser.configure({})
       assert_equal "message", parser.message_key
 
       parser.configure('message_key' => 'foobar')
@@ -341,6 +438,7 @@ module ParserTest
 
     def test_call
       parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser.configure({})
       parser.call('log message!') { |time, record|
         assert_equal({'message' => 'log message!'}, record)
       }
@@ -351,6 +449,24 @@ module ParserTest
       parser.configure('message_key' => 'foobar')
       parser.call('log message!') { |time, record|
         assert_equal({'foobar' => 'log message!'}, record)
+      }
+    end
+
+    def test_call_without_default_time
+      time_at_start = Time.now.to_i
+
+      parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser.configure({})
+      parser.call('log message!') { |time, record|
+        assert time && time >= time_at_start, "parser puts current time without time input"
+        assert_equal({'message' => 'log message!'}, record)
+      }
+
+      parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser.configure({'time_default_current' => 'no'})
+      parser.call('log message!') { |time, record|
+        assert_equal({'message' => 'log message!'}, record)
+        assert_nil time, "parser returns nil w/o time if configured so"
       }
     end
   end
