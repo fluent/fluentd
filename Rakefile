@@ -15,7 +15,7 @@ Rake::TestTask.new(:base_test) do |t|
   # bundle exec rake 'pattern=test/test_*.rb' base_test
   t.libs << "test"
   t.test_files = if ENV['pattern']
-                   Dir[ENV['pattern']].sort
+                   Dir[ENV.delete('pattern')].sort
                  else
                    (Dir["test/test_*.rb"] + Dir["test/plugin/test_*.rb"] - ["helper.rb"]).sort
                  end
