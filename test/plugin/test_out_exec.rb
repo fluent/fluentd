@@ -16,15 +16,15 @@ class ExecOutputTest < Test::Unit::TestCase
     localtime
   ]
   TSV_CONFIG = %[
-    keys time,tag,k1
-    tag_key tag
-    time_key time
+    keys "time,tag,k1"
+    tag_key "tag"
+    time_key "time"
     time_format %Y-%m-%d %H:%M:%S
   ]
 
   def create_driver(conf = TSV_CONFIG)
     config = CONFIG + conf
-    Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::ExecOutput).configure(config)
+    Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::ExecOutput).configure(config, true)
   end
 
   def create_test_case

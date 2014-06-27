@@ -10,13 +10,13 @@ class HttpInputTest < Test::Unit::TestCase
   PORT = unused_port
   CONFIG = %[
     port #{PORT}
-    bind 127.0.0.1
+    bind "127.0.0.1"
     body_size_limit 10m
     keepalive_timeout 5
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::HttpInput).configure(conf)
+    Fluent::Test::InputTestDriver.new(Fluent::HttpInput).configure(conf, true)
   end
 
   def test_configure
@@ -157,7 +157,7 @@ class HttpInputTest < Test::Unit::TestCase
 
   def test_with_regexp
     d = create_driver(CONFIG + %[
-      format /^(?<field_1>\\d+):(?<field_2>\\w+)$/
+      format /^(?<field_1>\\\\d+):(?<field_2>\\\\w+)$/
       types field_1:integer
     ])
 

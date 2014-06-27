@@ -39,11 +39,11 @@ module Fluent
 
       attr_reader :instance, :config
 
-      def configure(str)
+      def configure(str, use_v1 = false)
         if str.is_a?(Fluent::Config::Element)
           @config = str
         else
-          @config = Config.parse(str, "(test)")
+          @config = Config.parse(str, "(test)", "(test_dir)", use_v1)
         end
         @instance.configure(@config)
         self
