@@ -11,14 +11,11 @@ task :test => [:base_test, :spec]
 
 desc 'Run test_unit based test'
 Rake::TestTask.new(:base_test) do |t|
-  # bundle exec rake pattern=test/test_parser.rb base_test
-  # bundle exec rake 'pattern=test/test_*.rb' base_test
+  # To run test for only one file (or file path pattern)
+  #  $ bundle exec rake base_test TEST=test/test_specified_path.rb
+  #  $ bundle exec rake base_test TEST=test/test_*.rb
   t.libs << "test"
-  t.test_files = if ENV['pattern']
-                   Dir[ENV.delete('pattern')].sort
-                 else
-                   (Dir["test/test_*.rb"] + Dir["test/plugin/test_*.rb"] - ["helper.rb"]).sort
-                 end
+  t.test_files = (Dir["test/test_*.rb"] + Dir["test/plugin/test_*.rb"] - ["helper.rb"]).sort
   t.verbose = true
   #t.warning = true
 end
