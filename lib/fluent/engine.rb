@@ -63,15 +63,18 @@ module Fluent
     end
 
     def parse_config(io, fname, basepath = Dir.pwd, v1_config = false)
-      conf = if fname =~ /\.rb$/
-               require 'fluent/config/dsl'
-               Config::DSL::Parser.parse(io, File.join(basepath, fname))
-             else
-               Config.parse(io, fname, basepath, v1_config)
-             end
+      if fname =~ /\.rb$/
+        require 'fluent/config/dsl'
+        Config::DSL::Parser.parse(io, File.join(basepath, fname))
+      else
+        Config.parse(io, fname, basepath, v1_config)
+      end
+    end
+
+    def run_configure(conf)
       configure(conf)
-      conf.check_not_fetched {|key,e|
-        $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
+      conf.check_not_fetched { |key, e|
+        $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used." unless e.name == 'system'
       }
     end
 

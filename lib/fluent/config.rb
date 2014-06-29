@@ -20,23 +20,18 @@ module Fluent
   require 'fluent/config/element'
 
   module Config
-    def self.read(path, v1_config = false)
-      if v1_config
-        require 'fluent/config/v1_parser'
-        V1Parser.read(path)
-      else
-        require 'fluent/config/parser'
-        Parser.read(path)
-      end
-    end
-
     def self.parse(str, fname, basepath = Dir.pwd, v1_config = false)
-      if v1_config
-        require 'fluent/config/v1_parser'
-        V1Parser.parse(str, fname, basepath, Kernel.binding)
+      if fname =~ /\.rb$/
+        require 'fluent/config/dsl'
+        Config::DSL::Parser.parse(str, File.join(basepath, fname))
       else
-        require 'fluent/config/parser'
-        Parser.parse(str, fname, basepath)
+        if v1_config
+          require 'fluent/config/v1_parser'
+          V1Parser.parse(str, fname, basepath, Kernel.binding)
+        else
+          require 'fluent/config/parser'
+          Parser.parse(str, fname, basepath)
+        end
       end
     end
 

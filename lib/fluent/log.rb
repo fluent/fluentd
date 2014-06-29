@@ -43,6 +43,18 @@ module Fluent
 
     LEVEL_TEXT = %w(trace debug info warn error fatal)
 
+    def self.str_to_level(log_level_str)
+      case log_level_str.downcase
+      when "trace" then LEVEL_TRACE
+      when "debug" then LEVEL_DEBUG
+      when "info"  then LEVEL_INFO
+      when "warn"  then LEVEL_WARN
+      when "error" then LEVEL_ERROR
+      when "fatal" then LEVEL_FATAL
+      else raise "Unknown log level: level = #{log_level_str}"
+      end
+    end
+
     def initialize(out=STDERR, level=LEVEL_TRACE, opts={})
       @out = out
       @level = level
@@ -313,15 +325,7 @@ module Fluent
     end
 
     def level=(log_level_str)
-      @level = case log_level_str.downcase
-               when "trace" then LEVEL_TRACE
-               when "debug" then LEVEL_DEBUG
-               when "info"  then LEVEL_INFO
-               when "warn"  then LEVEL_WARN
-               when "error" then LEVEL_ERROR
-               when "fatal" then LEVEL_FATAL
-               else raise "Unknown log level: level = #{log_level_str}"
-               end
+      @level = Log.str_to_level(log_level_str)
     end
 
     alias orig_enable_color enable_color

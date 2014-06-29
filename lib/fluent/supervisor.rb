@@ -18,6 +18,7 @@
 
 require 'fluent/env'
 require 'fluent/log'
+require 'fluent/config'
 require 'etc'
 
 module Fluent
@@ -95,19 +96,22 @@ module Fluent
     end
 
     def initialize(opt)
-      @config_path = opt[:config_path]
-      @log_path = opt[:log_path]
-      @log_level = opt[:log_level]
       @daemonize = opt[:daemonize]
-      @chgroup = opt[:chgroup]
-      @chuser = opt[:chuser]
+      @config_path = opt[:config_path]
+      @inline_config = opt[:inline_config]
+      @use_v1_config = opt[:use_v1_config]
+      @log_path = opt[:log_path]
+      @dry_run = opt[:dry_run]
       @libs = opt[:libs]
       @plugin_dirs = opt[:plugin_dirs]
-      @inline_config = opt[:inline_config]
+      @chgroup = opt[:chgroup]
+      @chuser = opt[:chuser]
+
+      apply_system_config(opt)
+
+      @log_level = opt[:log_level]
       @suppress_interval = opt[:suppress_interval]
-      @dry_run = opt[:dry_run]
       @suppress_config_dump = opt[:suppress_config_dump]
-      @use_v1_config = opt[:use_v1_config]
 
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -317,8 +321,9 @@ module Fluent
       end
     end
 
-    def read_config
-      $log.info "reading config file", :path=>@config_path
+    # with_log is for disabling logging before Log#init is called
+    def read_config(with_log = true)
+      $log.info "reading config file", :path => @config_path if with_log
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
       @config_data = File.read(@config_path)
@@ -329,8 +334,45 @@ module Fluent
       end
     end
 
+    class SystemConfig
+      include Configurable
+
+      config_param :log_level, :default => nil do |level|
+        Log.str_to_level(level)
+      end
+      config_param :suppress_repeated_stacktrace, :bool, :default => nil
+      config_param :emit_error_log_interval, :time, :default => nil
+      config_param :suppress_config_dump, :bool, :default => nil
+
+      def initialize(conf)
+        super()
+        configure(conf)
+      end
+
+      def to_opt
+        opt = {}
+        opt[:log_level] = @log_level unless @log_level.nil?
+        opt[:suppress_interval] = @emit_error_log_interval unless @emit_error_log_interval.nil?
+        opt[:suppress_config_dump] = @suppress_config_dump unless @suppress_config_dump.nil?
+        opt[:suppress_repeated_stacktrace] = @suppress_repeated_stacktrace unless @suppress_repeated_stacktrace.nil?
+        opt
+      end
+    end
+
+    def apply_system_config(opt)
+      read_config(false)
+      systems = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config).elements.select { |e|
+        e.name == 'system'
+      }
+      return if systems.empty?
+      raise ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
+
+      opt.merge!(SystemConfig.new(systems.first).to_opt)
+    end
+
     def run_configure
-      Fluent::Engine.parse_config(@config_data, @config_fname, @config_basedir, @use_v1_config)
+      conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
+      Fluent::Engine.run_configure(conf)
     end
 
     def change_privilege
