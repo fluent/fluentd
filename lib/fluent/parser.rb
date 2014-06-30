@@ -129,6 +129,7 @@ module Fluent
       config_param :time_format, :string, :default => nil
 
       # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      # 'configure()' may raise errors for unexpected configurations
       attr_accessor :time_default_current
 
       def initialize(regexp, conf={})
@@ -196,6 +197,7 @@ module Fluent
       config_param :time_format, :string, :default => nil
 
       # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      # 'configure()' may raise errors for unexpected configurations
       attr_accessor :time_default_current
 
       def initialize
@@ -252,6 +254,7 @@ module Fluent
       config_param :time_format, :string, :default => nil
 
       # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      # 'configure()' may raise errors for unexpected configurations
       attr_accessor :time_default_current
 
       def initialize
