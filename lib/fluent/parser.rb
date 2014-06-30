@@ -281,10 +281,12 @@ module Fluent
 
         if @time_key
           value = record.delete(@time_key)
-          time = if value.nil? && @time_default_current
-                   Engine.now
-                 elsif value.nil?
-                   nil
+          time = if value.nil?
+                   if @time_default_current
+                     Engine.now
+                   else
+                     nil
+                   end
                  else
                    @mutex.synchronize { @time_parser.parse(value) }
                  end
