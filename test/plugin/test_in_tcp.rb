@@ -7,21 +7,20 @@ class TcpInputTest < Test::Unit::TestCase
   end
 
   PORT = unused_port
-  CONFIG = %[
+  BASE_CONFIG = %[
     port #{PORT}
+    tag tcp
+  ]
+  CONFIG = BASE_CONFIG + %[
     bind 127.0.0.1
-    tag tcp
     format none
   ]
-
-  IPv6_CONFIG = %[
-    port #{PORT}
+  IPv6_CONFIG = BASE_CONFIG + %[
     bind ::1
-    tag tcp
     format none
   ]
 
-  def create_driver(conf = CONFIG)
+  def create_driver(conf)
     Fluent::Test::InputTestDriver.new(Fluent::TcpInput).configure(conf)
   end
 
@@ -37,44 +36,48 @@ class TcpInputTest < Test::Unit::TestCase
     }
   end
 
-  def test_msg_size
-    d = create_driver
-    tests = create_test_case
-
-    d.run do
-      tests.each {|test|
-        TCPSocket.open('127.0.0.1', PORT) do |s|
-          s.send(test['msg'], 0)
-        end
-      }
-      sleep 1
-    end
-
-    compare_test_result(d.emits, tests)
-  end
-
-  def test_msg_size_with_same_connection
-    d = create_driver
-    tests = create_test_case
-
-    d.run do
-      TCPSocket.open('127.0.0.1', PORT) do |s|
-        tests.each {|test|
-          s.send(test['msg'], 0)
-        }
-      end
-      sleep 1
-    end
-
-    compare_test_result(d.emits, tests)
-  end
-
-  def create_test_case
-    [
+  {
+    'none' => [
       {'msg' => "tcptest1\n", 'expected' => 'tcptest1'},
       {'msg' => "tcptest2\n", 'expected' => 'tcptest2'},
+    ],
+    'json' => [
+      {'msg' => {'k' => 123, 'message' => 'tcptest1'}.to_json + "\n", 'expected' => 'tcptest1'},
+      {'msg' => {'k' => 'tcptest2', 'message' => 456}.to_json + "\n", 'expected' => 456},
     ]
-  end
+  }.each { |format, test_cases|
+    define_method("test_msg_size_#{format}") do
+      d = create_driver(BASE_CONFIG + "format #{format}")
+      tests = test_cases
+
+      d.run do
+        tests.each {|test|
+          TCPSocket.open('127.0.0.1', PORT) do |s|
+            s.send(test['msg'], 0)
+          end
+        }
+        sleep 1
+      end
+
+      compare_test_result(d.emits, tests)
+    end
+
+    define_method("test_msg_size_with_same_connection_#{format}") do
+      d = create_driver(BASE_CONFIG + "format #{format}")
+      tests = test_cases
+
+      d.run do
+        TCPSocket.open('127.0.0.1', PORT) do |s|
+          tests.each {|test|
+            s.send(test['msg'], 0)
+          }
+        end
+        sleep 1
+      end
+
+      compare_test_result(d.emits, tests)
+    end
+  }
 
   def compare_test_result(emits, tests)
     assert_equal(2, emits.size)

@@ -7,21 +7,20 @@ class UdpInputTest < Test::Unit::TestCase
   end
 
   PORT = unused_port
-  CONFIG = %!
+  BASE_CONFIG = %[
     port #{PORT}
+    tag udp
+  ]
+  CONFIG = BASE_CONFIG + %!
     bind 127.0.0.1
-    tag udp
     format /^\\[(?<time>[^\\]]*)\\] (?<message>.*)/
   !
-
-  IPv6_CONFIG = %!
-    port #{PORT}
+  IPv6_CONFIG = BASE_CONFIG + %!
     bind ::1
-    tag udp
     format /^\\[(?<time>[^\\]]*)\\] (?<message>.*)/
   !
 
-  def create_driver(conf = CONFIG)
+  def create_driver(conf)
     Fluent::Test::InputTestDriver.new(Fluent::UdpInput).configure(conf)
   end
 
@@ -65,28 +64,36 @@ class UdpInputTest < Test::Unit::TestCase
     }
   end
 
-  def test_msg_size
-    d = create_driver
-    tests = create_test_case
-
-    d.run do
-      u = UDPSocket.new
-      u.connect('127.0.0.1', PORT)
-      tests.each { |test|
-        u.send(test['msg'], 0)
-      }
-      sleep 1
-    end
-
-    compare_test_result(d.emits, tests)
-  end
-
-  def create_test_case
-    [
+  {
+    'none' => [
+      {'msg' => "tcptest1\n", 'expected' => 'tcptest1'},
+      {'msg' => "tcptest2\n", 'expected' => 'tcptest2'},
+    ],
+    'json' => [
+      {'msg' => {'k' => 123, 'message' => 'tcptest1'}.to_json + "\n", 'expected' => 'tcptest1'},
+      {'msg' => {'k' => 'tcptest2', 'message' => 456}.to_json + "\n", 'expected' => 456},
+    ],
+    '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/' => [
       {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 100 + "\n", 'expected' => 'localhost: ' + 'x' * 100},
       {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 1024 + "\n", 'expected' => 'localhost: ' + 'x' * 1024},
     ]
-  end
+  }.each { |format, test_cases|
+    define_method("test_msg_size_#{format[0] == '/' ? 'regexp' : format}") do
+      d = create_driver(BASE_CONFIG + "format #{format}")
+      tests = test_cases
+
+      d.run do
+        u = UDPSocket.new
+        u.connect('127.0.0.1', PORT)
+        tests.each { |test|
+          u.send(test['msg'], 0)
+        }
+        sleep 1
+      end
+
+      compare_test_result(d.emits, tests)
+    end
+  }
 
   def compare_test_result(emits, tests)
     assert_equal(2, emits.size)
