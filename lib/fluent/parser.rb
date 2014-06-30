@@ -127,7 +127,9 @@ module Fluent
       include TypeConverter
 
       config_param :time_format, :string, :default => nil
-      config_param :time_default_current, :bool, :default => true
+
+      # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      attr_accessor :time_default_current
 
       def initialize(regexp, conf={})
         super()
@@ -137,6 +139,7 @@ module Fluent
         end
 
         @time_parser = TimeParser.new(@time_format)
+        @time_default_current = true
         @mutex = Mutex.new
       end
 
@@ -191,7 +194,14 @@ module Fluent
 
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
-      config_param :time_default_current, :bool, :default => true
+
+      # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      attr_accessor :time_default_current
+
+      def initialize
+        super
+        @time_default_current = true
+      end
 
       def configure(conf)
         super
@@ -240,7 +250,14 @@ module Fluent
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
-      config_param :time_default_current, :bool, :default => true
+
+      # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      attr_accessor :time_default_current
+
+      def initialize
+        super
+        @time_default_current = true
+      end
 
       def configure(conf)
         super
@@ -352,7 +369,13 @@ module Fluent
       include Configurable
 
       config_param :message_key, :string, :default => 'message'
-      config_param :time_default_current, :bool, :default => true
+
+      attr_accessor :time_default_current
+
+      def initialize
+        super
+        @time_default_current = true
+      end
 
       def call(text)
         record = {}
