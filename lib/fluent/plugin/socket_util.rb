@@ -24,6 +24,7 @@ module Fluent
 
       def on_readable
         msg, addr = @io.recvfrom_nonblock(@body_size_limit)
+        msg.chomp!
         @callback.call(msg, addr)
       rescue => e
         @log.error "unexpected error", :error => e, :error_class => e.class
@@ -31,6 +32,8 @@ module Fluent
     end
 
     class TcpHandler < Coolio::Socket
+      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+
       def initialize(io, log, delimiter, callback)
         super(io)
         if io.is_a?(TCPSocket)
@@ -54,9 +57,9 @@ module Fluent
         pos = 0
 
         while i = @buffer.index(@delimiter, pos)
-          msg = @buffer[pos..i]
+          msg = @buffer[pos...i]
           @callback.call(msg, @addr)
-          pos = i + 1
+          pos = i + @delimiter.length
         end
         @buffer.slice!(0, pos) if pos > 0
       rescue => e

@@ -11,14 +11,14 @@ class TcpInputTest < Test::Unit::TestCase
     port #{PORT}
     bind 127.0.0.1
     tag tcp
-    format json
+    format none
   ]
 
   IPv6_CONFIG = %[
     port #{PORT}
     bind ::1
     tag tcp
-    format json
+    format none
   ]
 
   def create_driver(conf = CONFIG)
@@ -71,8 +71,8 @@ class TcpInputTest < Test::Unit::TestCase
 
   def create_test_case
     [
-      {'msg' => '{"k":"v","message":"tcptest1"}' + "\n", 'expected' => 'tcptest1'},
-      {'msg' => '{"k":"v","message":"tcptest2"}' + "\n", 'expected' => 'tcptest2'},
+      {'msg' => "tcptest1\n", 'expected' => 'tcptest1'},
+      {'msg' => "tcptest2\n", 'expected' => 'tcptest2'},
     ]
   end
 
