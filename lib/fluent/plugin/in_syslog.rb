@@ -86,8 +86,10 @@ module Fluent
       if parser.configure(conf, false)
         @parser = parser
       else
-        @use_default = true
+        conf['with_priority'] = true
         @parser = TextParser::SyslogParser.new
+        @parser.configure(conf)
+        @use_default = true
       end
     end
 
