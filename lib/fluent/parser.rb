@@ -128,6 +128,10 @@ module Fluent
 
       config_param :time_format, :string, :default => nil
 
+      # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      # 'configure()' may raise errors for unexpected configurations
+      attr_accessor :estimate_current_event
+
       def initialize(regexp, conf={})
         super()
         @regexp = regexp
@@ -136,6 +140,7 @@ module Fluent
         end
 
         @time_parser = TimeParser.new(@time_format)
+        @estimate_current_event = true
         @mutex = Mutex.new
       end
 
@@ -173,7 +178,9 @@ module Fluent
           end
         }
 
-        time ||= Engine.now
+        if @estimate_current_event
+          time ||= Engine.now
+        end
 
         if block_given?
           yield time, record
@@ -188,6 +195,15 @@ module Fluent
 
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
+
+      # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      # 'configure()' may raise errors for unexpected configurations
+      attr_accessor :estimate_current_event
+
+      def initialize
+        super
+        @estimate_current_event = true
+      end
 
       def configure(conf)
         super
@@ -208,7 +224,11 @@ module Fluent
             time = value.to_i
           end
         else
-          time = Engine.now
+          if @estimate_current_event
+            time = Engine.now
+          else
+            time = nil
+          end
         end
 
         if block_given?
@@ -233,12 +253,21 @@ module Fluent
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
 
+      # SET false BEFORE CONFIGURE, to return nil when time not parsed
+      # 'configure()' may raise errors for unexpected configurations
+      attr_accessor :estimate_current_event
+
+      def initialize
+        super
+        @estimate_current_event = true
+      end
+
       def configure(conf)
         super
 
         @keys = @keys.split(",")
 
-        if @time_key && !@keys.include?(@time_key)
+        if @time_key && !@keys.include?(@time_key) && @estimate_current_event
           raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
         end
 
@@ -256,12 +285,18 @@ module Fluent
         if @time_key
           value = record.delete(@time_key)
           time = if value.nil?
-                   Engine.now
+                   if @estimate_current_event
+                     Engine.now
+                   else
+                     nil
+                   end
                  else
                    @mutex.synchronize { @time_parser.parse(value) }
                  end
-        else
+        elsif @estimate_current_event
           time = Engine.now
+        else
+          time = nil
         end
 
         convert_field_type!(record) if @type_converters
@@ -340,13 +375,21 @@ module Fluent
 
       config_param :message_key, :string, :default => 'message'
 
+      attr_accessor :estimate_current_event
+
+      def initialize
+        super
+        @estimate_current_event = true
+      end
+
       def call(text)
         record = {}
         record[@message_key] = text
+        time = @estimate_current_event ? Engine.now : nil
         if block_given?
-          yield Engine.now, record
+          yield time, record
         else
-          return Engine.now, record
+          return time, record
         end
       end
     end
