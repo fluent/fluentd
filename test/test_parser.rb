@@ -202,8 +202,8 @@ module ParserTest
       }
 
       parser = TextParser::JSONParser.new
+      parser.estimate_current_event = false
       parser.configure({})
-      parser.time_default_current = false
       parser.call('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
         assert_equal({
           'host'   => '192.168.0.1',
@@ -290,9 +290,8 @@ module ParserTest
       }
 
       parser = TextParser::TSVParser.new
-      parser.time_default_current = false
+      parser.estimate_current_event = false
       parser.configure('keys' => 'a,b', 'time_key' => 'time')
-      parser.time_default_current = false
       parser.call("192.168.0.1\t111") { |time, record|
         assert_equal({
           'a' => '192.168.0.1',
@@ -332,9 +331,8 @@ module ParserTest
       }
 
       parser = TextParser::CSVParser.new
-      parser.time_default_current = false
+      parser.estimate_current_event = false
       parser.configure('keys' => 'c,d', 'time_key' => 'time')
-      parser.time_default_current = false
       parser.call("192.168.0.1,111") { |time, record|
         assert_equal({
           'c' => '192.168.0.1',
@@ -419,8 +417,8 @@ module ParserTest
       }
 
       parser = TextParser::LabeledTSVParser.new
+      parser.estimate_current_event = false
       parser.configure({})
-      parser.time_default_current = false
       parser.call("host:192.168.0.1\treq_id:111") { |time, record|
         assert_equal({
           'host'   => '192.168.0.1',
@@ -470,8 +468,8 @@ module ParserTest
       }
 
       parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser.estimate_current_event = false
       parser.configure({})
-      parser.time_default_current = false
       parser.call('log message!') { |time, record|
         assert_equal({'message' => 'log message!'}, record)
         assert_nil time, "parser returns nil w/o time if configured so"
