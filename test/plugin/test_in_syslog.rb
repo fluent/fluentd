@@ -111,6 +111,26 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests)
   end
 
+  def test_msg_size_with_json_format
+    d = create_driver([CONFIG, 'format json'].join("\n"))
+    time = Time.parse('2013-09-18 12:00:00 +0900').to_i
+    tests = ['Hello!', 'Syslog!'].map { |msg|
+      event = {'time' => time, 'message' => msg}
+      {'msg' => '<6>' + event.to_json + "\n", 'expected' => msg}
+    }
+
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    compare_test_result(d.emits, tests)
+  end
+
   def create_test_case
     # actual syslog message has "\n"
     [
@@ -120,7 +140,8 @@ class SyslogInputTest < Test::Unit::TestCase
   end
 
   def compare_test_result(emits, tests)
-    emits.each_index {|i|
+    emits.each_index { |i|
+      assert_equal('syslog.kern.info', emits[0][0]) # <6> means kern.info
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
     }
   end
