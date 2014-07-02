@@ -396,11 +396,11 @@ module Fluent
               @pe.update(inode, io.pos)
               io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
               @io_handler = io_handler
-            else
+            else # file is rotated and new file found
               @update_watcher.call(@path, swap_state(@pe))
             end
-          else # file is rotated but new file not found
-            # Avoid duplicated file watch in same path.
+          else # file is rotated and new file not found
+            # Clear RotateHandler to avoid duplicated file watch in same path.
             @rotate_handler = nil
             @update_watcher.call(@path, swap_state(@pe))
           end

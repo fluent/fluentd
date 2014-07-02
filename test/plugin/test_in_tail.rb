@@ -95,7 +95,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_rotate_file
     emits = sub_test_rotate_file(SINGLE_LINE_CONFIG)
-    assert(emits.length > 0)
+    assert_equal(4, emits.length)
     assert_equal({"message" => "test3"}, emits[0][2])
     assert_equal({"message" => "test4"}, emits[1][2])
     assert_equal({"message" => "test5"}, emits[2][2])
@@ -104,7 +104,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_rotate_file_with_read_from_head
     emits = sub_test_rotate_file(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
-    assert(emits.length > 0)
+    assert_equal(6, emits.length)
     assert_equal({"message" => "test1"}, emits[0][2])
     assert_equal({"message" => "test2"}, emits[1][2])
     assert_equal({"message" => "test3"}, emits[2][2])
@@ -113,32 +113,71 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "test6"}, emits[5][2])
   end
 
-  def sub_test_rotate_file(config = nil)
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
-      f.puts "test1"
-      f.puts "test2"
+  def test_rotate_file_with_write_old
+    emits = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
+      File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+      rotated_file.puts "test7"
+      rotated_file.puts "test8"
+      rotated_file.flush
+
+      sleep 1
+      File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+        f.puts "test5"
+        f.puts "test6"
+      }
     }
+    assert_equal(6, emits.length)
+    assert_equal({"message" => "test3"}, emits[0][2])
+    assert_equal({"message" => "test4"}, emits[1][2])
+    assert_equal({"message" => "test7"}, emits[2][2])
+    assert_equal({"message" => "test8"}, emits[3][2])
+    assert_equal({"message" => "test5"}, emits[4][2])
+    assert_equal({"message" => "test6"}, emits[5][2])
+  end
+
+  def test_rotate_file_with_write_old_and_no_new_file
+    emits = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
+      rotated_file.puts "test7"
+      rotated_file.puts "test8"
+      rotated_file.flush
+    }
+    assert_equal(4, emits.length)
+    assert_equal({"message" => "test3"}, emits[0][2])
+    assert_equal({"message" => "test4"}, emits[1][2])
+    assert_equal({"message" => "test7"}, emits[2][2])
+    assert_equal({"message" => "test8"}, emits[3][2])
+  end
+
+  def sub_test_rotate_file(config = nil)
+    file = File.open("#{TMP_DIR}/tail.txt", "w")
+    file.puts "test1"
+    file.puts "test2"
+    file.flush
+
     d = create_driver(config)
     d.run do
       sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
-        f.puts "test3"
-        f.puts "test4"
-      }
+      file.puts "test3"
+      file.puts "test4"
+      file.flush
       sleep 1
 
       FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
-      sleep 1
+      if block_given?
+        yield file
+        sleep 1
+      else
+        sleep 1
+        File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+        sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
-      sleep 1
-
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
-        f.puts "test5"
-        f.puts "test6"
-      }
-      sleep 1
+        File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+          f.puts "test5"
+          f.puts "test6"
+        }
+        sleep 1
+      end
     end
 
     d.run do
@@ -146,6 +185,8 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     d.emits
+  ensure
+    file.close
   end
 
   def test_lf
