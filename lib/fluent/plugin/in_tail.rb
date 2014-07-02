@@ -338,7 +338,7 @@ module Fluent
       end
 
       def on_notify
-        @rotate_handler.on_notify
+        @rotate_handler.on_notify if @rotate_handler
         return unless @io_handler
         @io_handler.on_notify
       end
@@ -399,9 +399,10 @@ module Fluent
             else
               @update_watcher.call(@path, swap_state(@pe))
             end
-          else
-            @io_handler.close
-            @io_handler = NullIOHandler.new
+          else # file is rotated but new file not found
+            # Avoid duplicated file watch in same path.
+            @rotate_handler = nil
+            @update_watcher.call(@path, swap_state(@pe))
           end
         end
 
