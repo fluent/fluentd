@@ -476,6 +476,7 @@ module Fluent
         super
         @estimate_current_event = true
         @time_parser = TextParser::TimeParser.new(TIME_FORMAT)
+        @mutex = Mutex.new
       end
 
       def configure(conf)
@@ -504,7 +505,7 @@ module Fluent
             when "pri"
               record['pri'] = value.to_i
             when "time"
-              time = @time_parser.parse(value.gsub(/ +/, ' '))
+              time = @mutex.synchronize { @time_parser.parse(value.gsub(/ +/, ' ')) }
             else
               record[name] = value
             end
