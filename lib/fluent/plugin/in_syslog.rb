@@ -20,8 +20,6 @@ module Fluent
     Plugin.register_input('syslog', self)
 
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
-    SYSLOG_ALL_REGEXP = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
-    TIME_FORMAT = "%b %d %H:%M:%S"
 
     FACILITY_MAP = {
       0   => 'kern',
@@ -88,17 +86,19 @@ module Fluent
       if parser.configure(conf, false)
         @parser = parser
       else
-        @parser = nil
-        @time_parser = TextParser::TimeParser.new(TIME_FORMAT)
+        conf['with_priority'] = true
+        @parser = TextParser::SyslogParser.new
+        @parser.configure(conf)
+        @use_default = true
       end
     end
 
     def start
-      if @parser
-        callback = method(:receive_data_parser)
-      else
-        callback = method(:receive_data)
-      end
+      callback = if @use_default
+                   method(:receive_data)
+                 else
+                   method(:receive_data_parser)
+                 end
 
       @loop = Coolio::Loop.new
       @handler = listen(callback)
@@ -145,32 +145,15 @@ module Fluent
     end
 
     def receive_data(data, addr)
-      m = SYSLOG_ALL_REGEXP.match(data)
-      unless m
-        log.warn "invalid syslog message", :data=>data
-        return
-      end
-
-      pri = nil
-      time = nil
-      record = {}
-
-      m.names.each {|name|
-        if value = m[name]
-          case name
-          when "pri"
-            pri = value.to_i
-          when "time"
-            time = @time_parser.parse(value.gsub(/ +/, ' '))
-          else
-            record[name] = value
-          end
+      @parser.call(data) { |time, record|
+        unless time && record
+          log.warn "invalid syslog message", :data => data
+          return
         end
+
+        pri = record.delete('pri')
+        emit(pri, time, record)
       }
-
-      time ||= Engine.now
-
-      emit(pri, time, record)
     rescue => e
       log.error data.dump, :error => e.to_s
       log.error_backtrace

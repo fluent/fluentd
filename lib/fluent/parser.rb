@@ -398,9 +398,10 @@ module Fluent
       include Configurable
 
       REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
+      TIME_FORMAT = "%d/%b/%Y:%H:%M:%S %z"
 
       def initialize
-        @time_parser = TimeParser.new("%d/%b/%Y:%H:%M:%S %z")
+        @time_parser = TimeParser.new(TIME_FORMAT)
         @mutex = Mutex.new
       end
 
@@ -449,6 +450,71 @@ module Fluent
           "referer" => referer,
           "agent" => agent,
         }
+
+        if block_given?
+          yield time, record
+        else
+          return time, record
+        end
+      end
+    end
+
+    class SyslogParser
+      include Configurable
+
+      # From existence TextParser pattern
+      REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
+      # From in_syslog default pattern
+      REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
+      TIME_FORMAT = "%b %d %H:%M:%S"
+
+      config_param :with_priority, :bool, :default => false
+
+      attr_accessor :estimate_current_event
+
+      def initialize
+        super
+        @estimate_current_event = true
+        @time_parser = TextParser::TimeParser.new(TIME_FORMAT)
+        @mutex = Mutex.new
+      end
+
+      def configure(conf)
+        super
+
+        @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+      end
+
+      def call(text)
+        m = @regexp.match(text)
+        unless m
+          if block_given?
+            yield nil, nil
+            return
+          else
+            return nil, nil
+          end
+        end
+
+        time = nil
+        record = {}
+
+        m.names.each { |name|
+          if value = m[name]
+            case name
+            when "pri"
+              record['pri'] = value.to_i
+            when "time"
+              time = @mutex.synchronize { @time_parser.parse(value.gsub(/ +/, ' ')) }
+            else
+              record[name] = value
+            end
+          end
+        }
+
+        if @estimate_current_event
+          time ||= Engine.now
+        end
 
         if block_given?
           yield time, record
@@ -547,7 +613,7 @@ module Fluent
     {
       'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'apache2' => Proc.new { ApacheParser.new },
-      'syslog' => Proc.new { RegexpParser.new(/^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/, {'time_format'=>"%b %d %H:%M:%S"}) },
+      'syslog' => Proc.new { SyslogParser.new },
       'json' => Proc.new { JSONParser.new },
       'tsv' => Proc.new { TSVParser.new },
       'ltsv' => Proc.new { LabeledTSVParser.new },
