@@ -67,9 +67,12 @@ module ParserTest
 
     def test_call_with_configure
       # Specify conf by configure method instaed of intializer
-      parser = TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!))
+      regexp = Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!)
+      parser = TextParser::RegexpParser.new(regexp)
       parser.configure('time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer')
       internal_test_case(parser)
+      assert_equal(regexp, parser.patterns['format'])
+      assert_equal("%d/%b/%Y:%H:%M:%S %z", parser.patterns['time_format'])
     end
 
     def test_call_with_typed_and_name_separator
@@ -148,6 +151,8 @@ module ParserTest
           'agent'   => 'Opera/12.0'
         }, record)
       }
+      assert_equal(TextParser::ApacheParser::REGEXP, @parser.patterns['format'])
+      assert_equal(TextParser::ApacheParser::TIME_FORMAT, @parser.patterns['time_format'])
     end
   end
 
@@ -169,6 +174,8 @@ module ParserTest
           'message' => '[error] Syslog test'
         }, record)
       }
+      assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
+      assert_equal(TextParser::SyslogParser::TIME_FORMAT, @parser.patterns['time_format'])
     end
 
     def test_call_with_priority
@@ -183,6 +190,8 @@ module ParserTest
           'message' => '[error] Syslog test'
         }, record)
       }
+      assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.patterns['format'])
+      assert_equal(TextParser::SyslogParser::TIME_FORMAT, @parser.patterns['time_format'])
     end
   end
 

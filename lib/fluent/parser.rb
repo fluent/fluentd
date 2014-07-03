@@ -149,6 +149,10 @@ module Fluent
         @time_parser = TimeParser.new(@time_format)
       end
 
+      def patterns
+        {'format' => @regexp, 'time_format' => @time_format}
+      end
+
       def call(text)
         m = @regexp.match(text)
         unless m
@@ -405,6 +409,10 @@ module Fluent
         @mutex = Mutex.new
       end
 
+      def patterns
+        {'format' => REGEXP, 'time_format' => TIME_FORMAT}
+      end
+
       def call(text)
         m = REGEXP.match(text)
         unless m
@@ -483,6 +491,10 @@ module Fluent
         super
 
         @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+      end
+
+      def patterns
+        {'format' => @regexp, 'time_format' => TIME_FORMAT}
       end
 
       def call(text)
