@@ -1,3 +1,14 @@
+Release 0.10.51 - 2014/07/04
+
+* in_tail: Fix rotation handling when new file not found
+* in_syslog: Change debug log level to warn at pattern mismatch
+* formatter: Use localtime by default
+* parser: Add SyslogParser
+* parser: Add "estimate_current_event" attribute to TextParsers not to set current time into parse result
+* config: Add <system> section to set core parameters via configuration file
+* test: Support v1 configuration in TestDriver
+* Add udp and tcp input plugins
+
 Release 0.10.50 - 2014/06/17
 
 * in_tail: Fix race condition at shutdown
