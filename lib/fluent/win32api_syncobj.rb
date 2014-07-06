@@ -61,7 +61,7 @@ module Fluent
         @api_closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i')
       end
       @api_closehandle.call(@event_handle)
-      @event_handle = nil
+      @event_handle = 0
     end
     
     def wait(timeoutmilli=0) 
