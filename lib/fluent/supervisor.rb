@@ -16,9 +16,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/env'
-require 'fluent/log'
-require 'fluent/config'
+require 'fluent/load'
 require 'etc'
 
 module Fluent
@@ -120,7 +118,6 @@ module Fluent
     end
 
     def start
-      require 'fluent/load'
       @log.init
 
       dry_run if @dry_run
@@ -393,7 +390,6 @@ module Fluent
     end
 
     def init_engine
-      require 'fluent/load'
       Fluent::Engine.init
       if @suppress_interval
         Fluent::Engine.suppress_interval(@suppress_interval)
