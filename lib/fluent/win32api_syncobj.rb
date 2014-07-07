@@ -21,9 +21,7 @@ module Fluent
     @api_getmodulefilename = nil
     def Win32Dll.getmodulefilename
       filename = "\0" * 256
-      unless @api_getmodulefilename
-        @api_getmodulefilename = Win32API.new("kernel32", "GetModuleFileName", %w(i p i), 'i')
-      end
+      @api_getmodulefilename = Win32API.new("kernel32", "GetModuleFileName", %w(i p i), 'i') unless @api_getmodulefilename
       @api_getmodulefilename.call(0, filename, 256)
       filename = filename.rstrip
       return filename.gsub(/\\/, '/')
@@ -50,25 +48,19 @@ module Fluent
     @api_resetevent = nil
     
     def open(manual, init, name)
-      unless @api_createevent
-        @api_createevent = Win32API.new('kernel32', 'CreateEvent', %w(p i i p), 'i')
-      end
+      @api_createevent = Win32API.new('kernel32', 'CreateEvent', %w(p i i p), 'i') unless @api_createevent
       @event_handle = @api_createevent.call(nil, manual, init, name)
     end
     
     def close
-      unless @api_closehandle
-        @api_closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i')
-      end
+      @api_closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i') unless @api_closehandle
       @api_closehandle.call(@event_handle)
       @event_handle = 0
     end
     
     def wait(timeoutmilli=0) 
       #timeout cannot be used currently.
-      unless @api_waitforsingleobject 
-        @api_waitforsingleobject = Win32API.new('kernel32.dll', 'WaitForSingleObject', %w(i, i), 'i')
-      end
+      @api_waitforsingleobject = Win32API.new('kernel32.dll', 'WaitForSingleObject', %w(i, i), 'i') unless @api_waitforsingleobject
       result = @api_waitforsingleobject.call(@event_handle, 0)
       while result == 0x102
         result = @api_waitforsingleobject.call(@event_handle, 0)
@@ -77,20 +69,14 @@ module Fluent
     end
     
     def signal_on
-      unless @api_setevent
-        @api_setevent = Win32API.new('kernel32', 'SetEvent', 'i', 'i')
-      end
-      ret = @api_setevent.call(@event_handle) 
-      return ret
+      @api_setevent = Win32API.new('kernel32', 'SetEvent', 'i', 'i') unless @api_setevent
+      return @api_setevent.call(@event_handle) 
     end
     
     def signal_off
-      unless @api_resetevent
-        @api_resetevent = Win32API.new('kernel32', 'ResetEvent', 'i', 'i')
-      end
+      @api_resetevent = Win32API.new('kernel32', 'ResetEvent', 'i', 'i') unless @api_resetevent
       return @api_resetevent.call(@event_handle) 
-    end
-    
+    end    
   end
 end
 
