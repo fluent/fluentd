@@ -17,10 +17,7 @@
 #
 
 require 'optparse'
-require 'fluent/log'
-require 'fluent/env'
 require 'fluent/supervisor'
-require 'fluent/version'
 
 op = OptionParser.new
 op.version = Fluent::VERSION
@@ -156,6 +153,4 @@ if setup_path = opts[:setup_path]
   exit 0
 end
 
-require 'fluent/supervisor'
 Fluent::Supervisor.new(opts).start
-
