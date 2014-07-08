@@ -17,6 +17,7 @@ module Fluent
   module Config
 
     require 'strscan'
+    require 'uri'
     require 'fluent/config/error'
     require 'fluent/config/literal_parser'
     require 'fluent/config/element'
