@@ -80,6 +80,10 @@ describe Fluent::Config::V1Parser do
     it "rejects characters after quoted string" do
       expect('  k1 "a" 1').to be_parse_error
     end
+
+    it "rejects @ prefix in parameter name" do
+      expect('  @k v').to be_parse_error
+    end
   end
 
   describe 'element parsing' do
