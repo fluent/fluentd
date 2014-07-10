@@ -35,6 +35,7 @@ module Fluent
       @next_emit_error_log_time = nil
 
       @suppress_config_dump = false
+      @without_source = false
     end
 
     MATCH_CACHE_SIZE = 1024
@@ -43,23 +44,24 @@ module Fluent
 
     attr_reader :matches, :sources
 
-    def init
+    def init(opts = {})
       BasicSocket.do_not_reverse_lookup = true
       Plugin.load_plugins
       if defined?(Encoding)
         Encoding.default_internal = 'ASCII-8BIT' if Encoding.respond_to?(:default_internal)
         Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
       end
+
+      suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
+      @suppress_config_dump = opts[:suppress_config_dump] if opts[:suppress_config_dump]
+      @without_source = opts[:without_source] if opts[:without_source]
+
       self
     end
 
     def suppress_interval(interval_time)
       @suppress_emit_error_log_interval = interval_time
       @next_emit_error_log_time = Time.now.to_i
-    end
-
-    def suppress_config_dump=(flag)
-      @suppress_config_dump = flag
     end
 
     def parse_config(io, fname, basepath = Dir.pwd, v1_config = false)
@@ -74,7 +76,11 @@ module Fluent
     def run_configure(conf)
       configure(conf)
       conf.check_not_fetched { |key, e|
-        $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used." unless e.name == 'system'
+        unless e.name == 'system'
+          unless @without_source && e.name == 'source'
+            $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
+          end
+        end
       }
     end
 
@@ -88,20 +94,24 @@ module Fluent
         $log.info "using configuration file: #{conf.to_s.rstrip}"
       end
 
-      conf.elements.select {|e|
-        e.name == 'source'
-      }.each {|e|
-        type = e['type']
-        unless type
-          raise ConfigError, "Missing 'type' parameter on <source> directive"
-        end
-        $log.info "adding source type=#{type.dump}"
+      if @without_source
+        $log.info "'--without-source' is applied. Ignore <source> sections"
+      else
+        conf.elements.select {|e|
+          e.name == 'source'
+        }.each {|e|
+          type = e['type']
+          unless type
+            raise ConfigError, "Missing 'type' parameter on <source> directive"
+          end
+          $log.info "adding source type=#{type.dump}"
 
-        input = Plugin.new_input(type)
-        input.configure(e)
+          input = Plugin.new_input(type)
+          input.configure(e)
 
-        @sources << input
-      }
+          @sources << input
+        }
+      end
 
       conf.elements.select {|e|
         e.name == 'match'

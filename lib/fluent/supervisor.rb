@@ -89,6 +89,7 @@ module Fluent
         :chgroup => nil,
         :suppress_interval => 0,
         :suppress_repeated_stacktrace => false,
+        :without_source => false,
         :use_v1_config => false,
       }
     end
@@ -110,6 +111,7 @@ module Fluent
       @log_level = opt[:log_level]
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
+      @without_source = opt[:without_source]
 
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -340,6 +342,7 @@ module Fluent
       config_param :suppress_repeated_stacktrace, :bool, :default => nil
       config_param :emit_error_log_interval, :time, :default => nil
       config_param :suppress_config_dump, :bool, :default => nil
+      config_param :without_source, :bool, :default => nil
 
       def initialize(conf)
         super()
@@ -352,6 +355,7 @@ module Fluent
         opt[:suppress_interval] = @emit_error_log_interval unless @emit_error_log_interval.nil?
         opt[:suppress_config_dump] = @suppress_config_dump unless @suppress_config_dump.nil?
         opt[:suppress_repeated_stacktrace] = @suppress_repeated_stacktrace unless @suppress_repeated_stacktrace.nil?
+        opt[:without_source] = @without_source unless @without_source.nil?
         opt
       end
     end
@@ -390,12 +394,8 @@ module Fluent
     end
 
     def init_engine
-      Fluent::Engine.init
-      if @suppress_interval
-        Fluent::Engine.suppress_interval(@suppress_interval)
-      end
-
-      Fluent::Engine.suppress_config_dump = @suppress_config_dump
+      init_opts = {:suppress_interval => @suppress_interval, :suppress_config_dump => @suppress_config_dump, :without_source => @without_source}
+      Fluent::Engine.init(init_opts)
 
       @libs.each {|lib|
         require lib

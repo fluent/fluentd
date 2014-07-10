@@ -76,6 +76,10 @@ op.on('--suppress-repeated-stacktrace', "suppress repeated stacktrace", TrueClas
   opts[:suppress_repeated_stacktrace] = b
 }
 
+op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {|b|
+  opts[:without_source] = b
+}
+
 op.on('--use-v1-config', "Use v1 configuration format", TrueClass) {|b|
   opts[:use_v1_config] = b
 }
