@@ -474,8 +474,8 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?[^\:]*\: *(?<message>.*)$/
-      TIME_FORMAT = "%b %d %H:%M:%S"
 
+      config_param :time_format, :string, :default => "%b %d %H:%M:%S"
       config_param :with_priority, :bool, :default => false
 
       attr_accessor :estimate_current_event
@@ -483,7 +483,6 @@ module Fluent
       def initialize
         super
         @estimate_current_event = true
-        @time_parser = TextParser::TimeParser.new(TIME_FORMAT)
         @mutex = Mutex.new
       end
 
@@ -491,10 +490,11 @@ module Fluent
         super
 
         @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+        @time_parser = TextParser::TimeParser.new(@time_format)
       end
 
       def patterns
-        {'format' => @regexp, 'time_format' => TIME_FORMAT}
+        {'format' => @regexp, 'time_format' => @time_format}
       end
 
       def call(text)

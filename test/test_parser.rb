@@ -161,37 +161,41 @@ module ParserTest
 
     def setup
       @parser = TextParser::TEMPLATE_REGISTRY.lookup('syslog').call
+      @expected = {
+        'host'    => '192.168.0.1',
+        'ident'   => 'fluentd',
+        'pid'     => '11111',
+        'message' => '[error] Syslog test'
+      }
     end
 
     def test_call
       @parser.configure({})
       @parser.call('Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
-        assert_equal({
-          'host'    => '192.168.0.1',
-          'ident'   => 'fluentd',
-          'pid'     => '11111',
-          'message' => '[error] Syslog test'
-        }, record)
+        assert_equal(@expected, record)
       }
       assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
-      assert_equal(TextParser::SyslogParser::TIME_FORMAT, @parser.patterns['time_format'])
+      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+    end
+
+    def test_call_with_time_format
+      @parser.configure('time_format' => '%b %d %M:%S:%H')
+      @parser.call('Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+        assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+        assert_equal(@expected, record)
+      }
+      assert_equal('%b %d %M:%S:%H', @parser.patterns['time_format'])
     end
 
     def test_call_with_priority
       @parser.configure('with_priority' => true)
       @parser.call('<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
-        assert_equal({
-          'pri'     => 6,
-          'host'    => '192.168.0.1',
-          'ident'   => 'fluentd',
-          'pid'     => '11111',
-          'message' => '[error] Syslog test'
-        }, record)
+        assert_equal(@expected.merge('pri' => 6), record)
       }
       assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.patterns['format'])
-      assert_equal(TextParser::SyslogParser::TIME_FORMAT, @parser.patterns['time_format'])
+      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
     end
   end
 
