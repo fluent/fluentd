@@ -139,19 +139,61 @@ module Fluent
 
       def scan_json(is_array)
         result = nil
+        # Yajl does not raise ParseError for imcomplete json string, like '[1', '{"h"', '{"h":' or '{"h1":1'
+        # This is the reason to use JSON module.
 
-        y = Yajl::Parser.new(:allow_comments => true)
-        y.on_parse_complete = Proc.new { |obj| result = obj }
-        y << (is_array ? '[' : '{')
+        buffer = (is_array ? "[" : "{")
+        line_buffer = ""
+
         until result
-          ch = getch
-          parse_error! "got incomplete #{is_array ? 'array' : 'hash'} configuration" if ch.nil?
-          y << ch
+          char = getch
+
+          break if char.nil?
+
+          if char == "#"
+            # If this is out of json string literals, this object can be parsed correctly
+            # '{"foo":"bar", #' -> '{"foo":"bar"}' (to check)
+            parsed = nil
+            begin
+              parsed = JSON.parse(buffer + line_buffer.rstrip.sub(/,$/, '') + (is_array ? "]" : "}"))
+            rescue JSON::ParserError => e
+              # This '#' is in json string literals
+            end
+
+            if parsed
+              # ignore chars as comment before newline
+              while (char = getch) != "\n"
+                # ignore comment char
+              end
+              buffer << line_buffer + "\n"
+              line_buffer = ""
+            else
+              # '#' is a char in json string
+              line_buffer << char
+            end
+
+            next # This char '#' MUST NOT terminate json object.
+          end
+
+          if char == "\n"
+            buffer << line_buffer + "\n"
+            line_buffer = ""
+            next
+          end
+
+          line_buffer << char
+          begin
+            result = JSON.parse(buffer + line_buffer)
+          rescue JSON::ParserError => e
+            # Incomplete json string yet
+          end
         end
 
-        Yajl.dump(result) # Convert json to string for config_param
-      rescue Yajl::ParseError => e
-        parse_error! "unexpected #{is_array ? 'array' : 'hash'} parse error"
+        unless result
+          parse_error! "got incomplete #{is_array ? 'array' : 'hash'} configuration"
+        end
+
+        JSON.dump(result)
       end
     end
   end
