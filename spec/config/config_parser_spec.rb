@@ -37,44 +37,44 @@ describe Fluent::Config::V1Parser do
       expect(%[
         k1 v1
         k2 v2
-      ]).to be_parsed_as("k1"=>"v1", "k2"=>"v2")
+      ]).to be_parsed_as(e('ROOT', '', {"k1"=>"v1", "k2"=>"v2"}))
     end
 
     it "allows attribute without value" do
       expect(%[
         k1
         k2 v2
-      ]).to be_parsed_as("k1"=>"", "k2"=>"v2")
+      ]).to be_parsed_as(e('ROOT', '', {"k1"=>"", "k2"=>"v2"}))
     end
 
     it "parses attribute key always string" do
-      expect("1 1").to be_parsed_as("1" => "1")
+      expect("1 1").to be_parsed_as(e('ROOT', '', {"1" => "1"}))
     end
 
     [
       "_.%$!,",
-      "/=~-~@`:?",
+      "/=~-~@\`:?",
       "()*{}.[]",
     ].each do |v|
       it "parses a value with symbol #{v.inspect}" do
-        expect("k #{v}").to be_parsed_as("k" => v)
+        expect("k #{v}").to be_parsed_as(e('ROOT', '', {"k" => v}))
       end
     end
 
     it "ignores spacing around value" do
-      expect("  k1     a    ").to be_parsed_as("k1" => "a")
+      expect("  k1     a    ").to be_parsed_as(e('ROOT', '', {"k1" => "a"}))
     end
 
     it "allows spaces in value" do
-      expect("k1 a  b  c").to be_parsed_as("k1" => "a  b  c")
+      expect("k1 a  b  c").to be_parsed_as(e('ROOT', '', {"k1" => "a  b  c"}))
     end
 
     it "ignores comments after value" do
-      expect("  k1 a#comment").to be_parsed_as("k1" => "a")
+      expect("  k1 a#comment").to be_parsed_as(e('ROOT', '', {"k1" => "a"}))
     end
 
     it "allows # in value if quoted" do
-      expect('  k1 "a#comment"').to be_parsed_as("k1" => "a#comment")
+      expect('  k1 "a#comment"').to be_parsed_as(e('ROOT', '', {"k1" => "a#comment"}))
     end
 
     it "rejects characters after quoted string" do
@@ -122,11 +122,23 @@ describe Fluent::Config::V1Parser do
           </nested2>
         </test>
       ]).to be_parsed_as(root(
-          e("test", 'var', {'key'=>'val'}, [
+          e("test", 'var', {'key'=>'1'}, [
             e('nested1'),
             e('nested2')
           ])
         ))
+    end
+
+    it "accepts multiline json values" do
+      expect(%[
+        <test var>
+          key ["a",
+"b", "c",
+"d"]
+        </test>
+      ]).to be_parsed_as(root(
+          e("test", 'var', {'key'=>"[\"a\",\"b\",\"c\",\"d\"]"})
+      ))
     end
 
     [
@@ -152,7 +164,7 @@ describe Fluent::Config::V1Parser do
         <test >
         </test>
       ]).to be_parsed_as(root(
-          e("test", nil)
+          e("test", '')
         ))
     end
 

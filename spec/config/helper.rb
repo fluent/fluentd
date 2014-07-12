@@ -47,4 +47,3 @@ shared_context 'config_helper' do
     end
   end
 end
-

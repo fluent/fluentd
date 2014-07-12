@@ -22,6 +22,19 @@ module Fluent
         e
       end
 
+      def inspect
+        attrs = super
+        "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect
+      end
+
+      def ==(o)
+        self.name == o.name && self.arg == o.arg &&
+          self.keys.size == o.keys.size &&
+          self.keys.reduce(true){|r, k| r && self[k] == o[k] } &&
+          self.elements.size == o.elements.size &&
+          [self.elements, o.elements].transpose.reduce(true){|r, e| r && e[0] == e[1] }
+      end
+
       def +(o)
         Element.new(@name.dup, @arg.dup, o.merge(self), @elements + o.elements, (@unused + o.unused).uniq)
       end
