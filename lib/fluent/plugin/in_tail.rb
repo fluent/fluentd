@@ -267,7 +267,7 @@ module Fluent
             lb = line
           else
             if lb.nil?
-              log.warn "got incomplete line before first line from #{tail_watcher.path}: #{lb.inspect}"
+              log.warn "got incomplete line before first line from #{tail_watcher.path}: #{line.inspect}"
             else
               lb << line
             end
