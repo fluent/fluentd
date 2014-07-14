@@ -1,3 +1,14 @@
+Release 0.10.52 - 2014/07/15
+
+* in_tail: Fix typo of warning argument. lb to line
+* config: Fix 'uninitialized constant Fluent::Config::V1Parser::URI' error
+* config: Reject '@' prefix of parameter name in V1 configuration. @ is reserved prefix.
+* config; Accept '#' comment in array and hash types
+* parser: Add time_format option to SyslogParser
+* parser: SyslogParser now makes ':' optional after pid
+* process: Fix 'mutex can't lock' issue of DetachMultiProcessMixin on Ruby 2.x
+* Add --without-source option to ignore <source> sections
+
 Release 0.10.51 - 2014/07/04
 
 * in_tail: Fix rotation handling when new file not found
