@@ -202,12 +202,7 @@ module ParserTest
       @parser.configure({})
       @parser.call('Feb 28 12:00:00 192.168.0.1 fluentd[11111] [error] Syslog test') { |time, record|
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
-        assert_equal({
-          'host'    => '192.168.0.1',
-          'ident'   => 'fluentd',
-          'pid'     => '11111',
-          'message' => '[error] Syslog test'
-        }, record)
+        assert_equal(@expected, record)
       }
       assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
       assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
