@@ -378,9 +378,12 @@ module Fluent
       def stop
         return if @finished
         @finished = true
-        @mutex.synchronize do
-          @cond.broadcast
-        end
+        # Creating new thread due to mutex can't lock in main thread during trap context
+        Thread.new {
+          @mutex.synchronize do
+            @cond.broadcast
+          end
+        }.run
       end
 
       def finished?
