@@ -59,7 +59,6 @@ module Fluent
         end
 
         $log = Fluent::Log.new(@io, @level, @opts)
-
         $log.enable_color(false) if @path
         $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
       end
@@ -320,9 +319,8 @@ module Fluent
       end
     end
 
-    # with_log is for disabling logging before Log#init is called
-    def read_config(with_log = true)
-      $log.info "reading config file", :path => @config_path if with_log
+    def read_config
+      $log.info "reading config file", :path => @config_path
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
       @config_data = File.read(@config_path)
@@ -361,7 +359,10 @@ module Fluent
     end
 
     def apply_system_config(opt)
-      read_config(false)
+      # Create NULL file to avoid $log uninitialized problem before call @log.init
+      file = File.open(File::NULL)
+      $log = Fluent::Log.new(file, Log::LEVEL_INFO)
+      read_config
       systems = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config).elements.select { |e|
         e.name == 'system'
       }
@@ -369,6 +370,8 @@ module Fluent
       raise ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
 
       opt.merge!(SystemConfig.new(systems.first).to_opt)
+    ensure
+      file.close
     end
 
     def run_configure
