@@ -172,6 +172,30 @@ describe Fluent::Config::LiteralParser do
     it { expect('[ "a" , "b" ]').to be_parsed_as_json(["a","b"]) }
     it { expect("[\n\"a\"\n,\n\"b\"\n]").to be_parsed_as_json(["a","b"]) }
     it { expect('["ab","cd"]').to be_parsed_as_json(["ab","cd"]) }
+    json_array_with_js_comment = <<EOA
+[
+ "a", // this is a
+ "b", // this is b
+ "c"  // this is c
+]
+EOA
+    it { expect(json_array_with_js_comment).to be_parsed_as_json(["a","b","c"]) }
+    json_array_with_comment = <<EOA
+[
+ "a", # this is a
+ "b", # this is b
+ "c"  # this is c
+]
+EOA
+    it { expect(json_array_with_comment).to be_parsed_as_json(["a","b","c"]) }
+    json_array_with_tailing_comma = <<EOA
+[
+ "a", # this is a
+ "b", # this is b
+ "c", # this is c
+]
+EOA
+    it { expect(json_array_with_tailing_comma).to be_parse_error }
   end
 
   describe 'map parsing' do
@@ -185,6 +209,14 @@ describe Fluent::Config::LiteralParser do
     it { expect('{"a":"b","c":"d"}').to be_parsed_as_json({"a"=>"b","c"=>"d"}) }
     it { expect('{ "a" : "b" , "c" : "d" }').to be_parsed_as_json({"a"=>"b","c"=>"d"}) }
     it { expect("{\n\"a\"\n:\n\"b\"\n,\n\"c\"\n:\n\"d\"\n}").to be_parsed_as_json({"a"=>"b","c"=>"d"}) }
+    json_hash_with_comment = <<EOH
+{
+ "a": 1, # this is a
+ "b": 2, # this is b
+ "c": 3  # this is c
+}
+EOH
+    it { expect(json_hash_with_comment).to be_parsed_as_json({"a"=>1,"b"=>2,"c"=>3}) }
   end
 end
 
