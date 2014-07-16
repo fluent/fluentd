@@ -42,13 +42,18 @@ module FluentOutputTest
     def test_calc_retry_wait
       # default
       d = create_driver
-      d.instance.retry_limit.times { d.instance.instance_variable_get(:@error_history) << Engine.now }
+      d.instance.retry_limit.times {
+        # "d.instance.instance_variable_get(:@num_errors) += 1" causes SyntaxError
+        d.instance.instance_eval { @num_errors += 1 }
+      }
       wait = d.instance.retry_wait * (2 ** (d.instance.retry_limit - 1))
       assert( d.instance.calc_retry_wait > wait - wait / 8.0 )
 
       # max_retry_wait
       d = create_driver(CONFIG + %[max_retry_wait 4])
-      d.instance.retry_limit.times { d.instance.instance_variable_get(:@error_history) << Engine.now }
+      d.instance.retry_limit.times {
+        d.instance.instance_eval { @num_errors += 1 }
+      }
       assert_equal 4, d.instance.calc_retry_wait
     end
 

@@ -217,7 +217,7 @@ module Fluent
       'output_plugin' => 'is_a?(::Fluent::Output)',
       'buffer_queue_length' => '@buffer.queue_size',
       'buffer_total_queued_size' => '@buffer.total_queued_chunk_size',
-      'retry_count' => '@error_history.size',
+      'retry_count' => '@num_errors',
       'config' => 'config',
     }
 
