@@ -151,6 +151,8 @@ module Fluent
     private
 
     def dry_run
+      $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode"
+
       read_config
       change_privilege
       init_engine
@@ -158,7 +160,7 @@ module Fluent
       run_configure
       exit 0
     rescue => e
-      $log.error "Dry run failed: #{e}"
+      $log.error "dry run failed: #{e}"
       exit 1
     end
 
