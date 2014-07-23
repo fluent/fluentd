@@ -26,7 +26,7 @@ module Fluent
         when '"'
           '\"'
         when "'"
-          "\'"
+          "\\'"
         when '\\'
           '\\\\'
         when "\r"

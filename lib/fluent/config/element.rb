@@ -87,7 +87,7 @@ module Fluent
         end
         each_pair { |k, v|
           if @v1_config
-            out << "#{nindent}#{k} #{unescape_parameter(v)}\n"
+            out << "#{nindent}#{k} #{Element.unescape_parameter(v)}\n"
           else
             out << "#{nindent}#{k} #{v}\n"
           end
@@ -99,7 +99,7 @@ module Fluent
         out
       end
 
-      def unescape_parameter(v)
+      def self.unescape_parameter(v)
         result = ''
         v.each_char { |c| result << LiteralParser.unescape_char(c) }
         result
