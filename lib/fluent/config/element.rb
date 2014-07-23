@@ -12,12 +12,14 @@ module Fluent
           self[k] = v
         }
         @unused = unused || attrs.keys
+        @v1_config = false
       end
 
-      attr_accessor :name, :arg, :elements, :unused
+      attr_accessor :name, :arg, :elements, :unused, :v1_config
 
       def add_element(name, arg='')
         e = Element.new(name, arg, {}, [])
+        e.v1_config = @v1_config
         @elements << e
         e
       end
@@ -36,7 +38,9 @@ module Fluent
       end
 
       def +(o)
-        Element.new(@name.dup, @arg.dup, o.merge(self), @elements + o.elements, (@unused + o.unused).uniq)
+        e = Element.new(@name.dup, @arg.dup, o.merge(self), @elements + o.elements, (@unused + o.unused).uniq)
+        e.v1_config = @v1_config
+        e
       end
 
       def each_element(*names, &block)
@@ -82,13 +86,23 @@ module Fluent
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair { |k, v|
-          out << "#{nindent}#{k} #{v}\n"
+          if @v1_config
+            out << "#{nindent}#{k} #{unescape_parameter(v)}\n"
+          else
+            out << "#{nindent}#{k} #{v}\n"
+          end
         }
         @elements.each { |e|
           out << e.to_s(nest + 1)
         }
         out << "#{indent}</#{@name}>\n"
         out
+      end
+
+      def unescape_parameter(v)
+        result = ''
+        v.each_char { |c| result << LiteralParser.unescape_char(c) }
+        result
       end
     end
   end

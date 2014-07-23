@@ -21,6 +21,29 @@ module Fluent
     require 'irb/ruby-lex'  # RubyLex
 
     class LiteralParser < BasicParser
+      def self.unescape_char(c)
+        case c
+        when '"'
+          '\"'
+        when "'"
+          "\'"
+        when '\\'
+          '\\\\'
+        when "\r"
+          '\r'
+        when "\n"
+          '\n'
+        when "\t"
+          '\t'
+        when "\f"
+          '\f'
+        when "\b"
+          '\b'
+        else
+          c
+        end
+      end
+
       def initialize(strscan, eval_context)
         super(strscan)
         @eval_context = eval_context

@@ -39,6 +39,7 @@ module Fluent
       def parse!
         attrs, elems = parse_element(true, nil)
         root = Element.new('ROOT', '', attrs, elems)
+        root.v1_config = true
 
         spacing
         unless eof?
@@ -86,7 +87,9 @@ module Fluent
             e_arg ||= ''
             # call parse_element recursively
             e_attrs, e_elems = parse_element(false, e_name)
-            elems << Element.new(e_name, e_arg, e_attrs, e_elems)
+            new_e = Element.new(e_name, e_arg, e_attrs, e_elems)
+            new_e.v1_config = true
+            elems << new_e
 
           elsif root_element && skip(/(\@include|include)#{SPACING}/)
             if !prev_match.start_with?('@')
