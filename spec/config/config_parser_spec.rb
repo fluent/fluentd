@@ -299,5 +299,16 @@ describe Fluent::Config::V1Parser do
 
     # TODO: Add uri based include spec
   end
-end
 
+  describe 'unescape parameter' do
+    it 'parses dumpped configuration' do
+      original = %q!a\\\\\n\r\f\b\\'\\"z!
+      expected = %!a\\\n\r\f\b'"z!
+
+      conf = parse_text(%[k1 #{original}])
+      expect(conf['k1']).to eq(expected) # escape check
+      conf2 = parse_text(conf.to_s) # use dumpped configuration to check unescape
+      expect(conf2.elements.first['k1']).to eq(expected)
+    end
+  end
+end
