@@ -78,6 +78,8 @@ module Fluent
         raise ConfigError, "syslog input protocol type should be 'tcp' or 'udp'"
       end
     end
+    config_param :include_source_host, :bool, :default => false
+    config_param :source_host_key, :string, :default => 'source_host'.freeze
 
     def configure(conf)
       super
@@ -137,6 +139,7 @@ module Fluent
           return
         end
 
+        record[@source_host_key] = addr[2] if @include_source_host
         emit(pri, time, record)
       }
     rescue => e
@@ -152,6 +155,7 @@ module Fluent
         end
 
         pri = record.delete('pri')
+        record[@source_host_key] = addr[2] if @include_source_host
         emit(pri, time, record)
       }
     rescue => e
