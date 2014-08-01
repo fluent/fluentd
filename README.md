@@ -20,6 +20,10 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
     $ fluentd -c conf/fluent.conf &
     $ echo '{"json":"message"}' | fluent-cat debug.test
 
+## Fluentd UI: Admin GUI
+
+[Fluentd UI](https://github.co/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
+
 ## More Information
 
 - Website: http://fluentd.org/
