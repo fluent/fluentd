@@ -23,8 +23,9 @@ module Fluent
       false
     end
 
-    #def each(&block)
-    #end
+    def each(&block)
+      raise NotImplementedError, "DO NOT USE THIS CLASS directly."
+    end
 
     def to_msgpack_stream
       out = ''
@@ -56,7 +57,10 @@ module Fluent
     end
   end
 
-
+  # EventStream from entries: Array of [time, record]
+  #
+  # Use this class for many events data with a tag
+  # and its representation is [ [time, record], [time, record], .. ]
   class ArrayEventStream < EventStream
     def initialize(entries)
       @entries = entries
@@ -79,15 +83,18 @@ module Fluent
       @entries.each(&block)
       nil
     end
-
-    #attr_reader :entries
-    #
-    #def to_a
-    #  @entries
-    #end
   end
 
-
+  # EventStream from entries: numbers of pairs of time and record.
+  #
+  # This class can handle many events more efficiently than ArrayEventStream
+  # because this class generate less objects than ArrayEventStream.
+  #
+  # Use this class as below, in loop of data-enumeration:
+  #  1. initialize blank stream:
+  #     streams[tag] ||= MultiEventStream
+  #  2. add events
+  #     stream[tag].add(time, record)
   class MultiEventStream < EventStream
     def initialize
       @time_array = []
@@ -173,25 +180,5 @@ module Fluent
     end
 
   end
-
-  #class IoEventStream < EventStream
-  #  def initialize(io, num)
-  #    @io = io
-  #    @num = num
-  #    @u = MessagePack::Unpacker.new(@io)
-  #  end
-  #
-  #  def repeatable?
-  #    false
-  #  end
-  #
-  #  def each(&block)
-  #    return nil if @num == 0
-  #    @u.each {|obj|
-  #      block.call(obj[0], obj[1])
-  #      break if @array.size >= @num
-  #    }
-  #  end
-  #end
 end
 
