@@ -131,6 +131,24 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests)
   end
 
+  def test_msg_size_with_include_source_host
+    d = create_driver([CONFIG, 'include_source_host'].join("\n"))
+    tests = create_test_case
+
+    host = nil
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      host = u.peeraddr[2]
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    compare_test_result(d.emits, tests, host)
+  end
+
   def create_test_case
     # actual syslog message has "\n"
     [
@@ -139,10 +157,11 @@ class SyslogInputTest < Test::Unit::TestCase
     ]
   end
 
-  def compare_test_result(emits, tests)
+  def compare_test_result(emits, tests, host = nil)
     emits.each_index { |i|
       assert_equal('syslog.kern.info', emits[0][0]) # <6> means kern.info
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
+      assert_equal(host, emits[i][2]['source_host']) if host
     }
   end
 end
