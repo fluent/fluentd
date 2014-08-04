@@ -462,6 +462,8 @@ module Fluent
         rescue => e
           @log.error e.to_s
           @log.error_backtrace(e.backtrace)
+        ensure
+          detach
         end
       end
 
