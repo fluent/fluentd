@@ -130,6 +130,33 @@ module ParserTest
     end
   end
 
+  class ApacheErrorParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def setup
+      @parser = TextParser::TEMPLATE_REGISTRY.lookup('apache_error').call
+      @expected = {
+        'level' => 'error',
+        'client' => '127.0.0.1',
+        'message' => 'client denied by server configuration'
+      }
+    end
+
+    def test_call
+      @parser.call('[Wed Oct 11 14:32:52 2000] [error] [client 127.0.0.1] client denied by server configuration') { |time, record|
+        assert_equal(str2time('Wed Oct 11 14:32:52 2000'), time)
+        assert_equal(@expected, record)
+      }
+    end
+
+    def test_call_with_pid
+      @parser.call('[Wed Oct 11 14:32:52 2000] [error] [pid 1000] [client 127.0.0.1] client denied by server configuration') { |time, record|
+        assert_equal(str2time('Wed Oct 11 14:32:52 2000'), time)
+        assert_equal(@expected.merge('pid' => '1000'), record)
+      }
+    end
+  end
+
   class Apache2ParserTest < ::Test::Unit::TestCase
     include ParserTest
 
