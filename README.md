@@ -22,7 +22,7 @@ An event consists of *tag*, *time* and *record*. Tag is a string separated with 
 
 ## Fluentd UI: Admin GUI
 
-[Fluentd UI](https://github.co/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
+[Fluentd UI](https://github.com/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
 
 ## More Information
 
