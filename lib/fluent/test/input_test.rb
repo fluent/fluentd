@@ -28,18 +28,11 @@ module Fluent
         FileBuffer.clear_buffer_paths
         super(klass, &block)
         @emit_streams = []
-        @expects = nil
+        @expected_emits_length = nil
+        @run_timeout = 5
       end
 
-      def expect_emit(tag, time, record)
-        (@expects ||= []) << [tag, time, record]
-        self
-      end
-
-      def expected_emits
-        @expects ||= []
-      end
-
+      attr_accessor :expected_emits_length, :run_timeout
       attr_reader :emit_streams
 
       def emits
@@ -78,15 +71,17 @@ module Fluent
         super {
           block.call if block
 
-          if @expects
-            i = 0
-            @emit_streams.each {|tag,events|
-              events.each {|time,record|
-                assert_equal(@expects[i], [tag, time, record])
-                i += 1
-              }
-            }
-            assert_equal @expects.length, i
+          if @expected_emits_length
+            t0 = Time.now
+            i, j = 0, 0
+            while i < @expected_emits_length && Time.now <= t0 + @run_timeout
+              if j >= @emit_streams.length
+                sleep 0.01
+                next
+              end
+              i += @emit_streams[j][1].length
+              j += 1
+            end
           end
         }
         self
