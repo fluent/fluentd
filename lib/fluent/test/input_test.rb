@@ -29,6 +29,7 @@ module Fluent
         super(klass, &block)
         @emit_streams = []
         @expects = nil
+        @run_timeout = 5
       end
 
       def expect_emit(tag, time, record)
@@ -40,6 +41,7 @@ module Fluent
         @expects ||= []
       end
 
+      attr_accessor :run_timeout
       attr_reader :emit_streams
 
       def emits
@@ -79,13 +81,21 @@ module Fluent
           block.call if block
 
           if @expects
-            i = 0
-            @emit_streams.each {|tag,events|
-              events.each {|time,record|
+            t0 = Time.now
+            i, j = 0, 0
+            while i < @expects.length && Time.now <= t0 + @run_timeout
+              if j >= @emit_streams.length
+                sleep 0.01
+                next
+              end
+
+              tag, events = @emit_streams[j]
+              events.each do |time, record|
                 assert_equal(@expects[i], [tag, time, record])
                 i += 1
-              }
-            }
+              end
+              j += 1
+            end
             assert_equal @expects.length, i
           end
         }

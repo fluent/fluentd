@@ -19,7 +19,6 @@ module StreamInputTest
       d.expected_emits.each {|tag,time,record|
         send_data [tag, 0, record].to_msgpack
       }
-      sleep 0.5
     end
   end
 
@@ -35,7 +34,6 @@ module StreamInputTest
       d.expected_emits.each {|tag,time,record|
         send_data [tag, time, record].to_msgpack
       }
-      sleep 0.5
     end
   end
 
@@ -53,7 +51,6 @@ module StreamInputTest
         entries << [time, record]
       }
       send_data ["tag1", entries].to_msgpack
-      sleep 0.5
     end
   end
 
@@ -71,7 +68,6 @@ module StreamInputTest
         [time, record].to_msgpack(entries)
       }
       send_data ["tag1", entries].to_msgpack
-      sleep 0.5
     end
   end
 
@@ -87,7 +83,6 @@ module StreamInputTest
       d.expected_emits.each {|tag,time,record|
         send_data [tag, time, record].to_json
       }
-      sleep 0.5
     end
   end
 
