@@ -29,6 +29,7 @@ module Fluent
         super(klass, &block)
         @emit_streams = []
         @expects = nil
+        @expected_emits_length = nil
         @run_timeout = 5
       end
 
@@ -41,6 +42,7 @@ module Fluent
         @expects ||= []
       end
 
+      attr_accessor :expected_emits_length
       attr_accessor :run_timeout
       attr_reader :emit_streams
 
@@ -80,10 +82,11 @@ module Fluent
         super {
           block.call if block
 
-          if @expects
+          if @expected_emits_length || @expects
+            max_length = @expected_emits_length || @expects.length
             t0 = Time.now
             i, j = 0, 0
-            while i < @expects.length && Time.now <= t0 + @run_timeout
+            while i < max_length && Time.now <= t0 + @run_timeout
               if j >= @emit_streams.length
                 sleep 0.01
                 next
@@ -91,12 +94,12 @@ module Fluent
 
               tag, events = @emit_streams[j]
               events.each do |time, record|
-                assert_equal(@expects[i], [tag, time, record])
+                assert_equal(@expects[i], [tag, time, record]) if @expects
                 i += 1
               end
               j += 1
             end
-            assert_equal @expects.length, i
+            assert_equal(@expects.length, i) if @expects
           end
         }
         self
