@@ -37,15 +37,19 @@ class ForwardInputTest < Test::Unit::TestCase
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
     Fluent::Engine.now = time
 
-    d.expect_emit "tag1", time, {"a"=>1}
-    d.expect_emit "tag2", time, {"a"=>2}
+    tests = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = tests.length
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
+      tests.each {|tag,time,record|
         send_data [tag, 0, record].to_msgpack
       }
-      sleep 0.5
     end
+
+    compare_test_result(tests, d.emits)
   end
 
   def test_message
@@ -53,15 +57,19 @@ class ForwardInputTest < Test::Unit::TestCase
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect_emit "tag1", time, {"a"=>1}
-    d.expect_emit "tag2", time, {"a"=>2}
+    tests = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = tests.length
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
+      tests.each {|tag,time,record|
         send_data [tag, time, record].to_msgpack
       }
-      sleep 0.5
     end
+
+    compare_test_result(tests, d.emits)
   end
 
   def test_forward
@@ -69,17 +77,21 @@ class ForwardInputTest < Test::Unit::TestCase
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect_emit "tag1", time, {"a"=>1}
-    d.expect_emit "tag1", time, {"a"=>2}
+    tests = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = tests.length
 
     d.run do
       entries = []
-      d.expected_emits.each {|tag,time,record|
+      tests.each {|tag,time,record|
         entries << [time, record]
       }
       send_data ["tag1", entries].to_msgpack
-      sleep 0.5
     end
+
+    compare_test_result(tests, d.emits)
   end
 
   def test_packed_forward
@@ -87,17 +99,21 @@ class ForwardInputTest < Test::Unit::TestCase
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect_emit "tag1", time, {"a"=>1}
-    d.expect_emit "tag1", time, {"a"=>2}
+    tests = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = tests.length
 
     d.run do
       entries = ''
-      d.expected_emits.each {|tag,time,record|
+      tests.each {|tag,time,record|
         [time, record].to_msgpack(entries)
       }
       send_data ["tag1", entries].to_msgpack
-      sleep 0.5
     end
+
+    compare_test_result(tests, d.emits)
   end
 
   def test_message_json
@@ -105,15 +121,19 @@ class ForwardInputTest < Test::Unit::TestCase
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    d.expect_emit "tag1", time, {"a"=>1}
-    d.expect_emit "tag2", time, {"a"=>2}
+    tests = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = tests.length
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
+      tests.each {|tag,time,record|
         send_data [tag, time, record].to_json
       }
-      sleep 0.5
     end
+
+    compare_test_result(tests, d.emits)
   end
 
   def test_send_large_chunk_warning
@@ -209,6 +229,13 @@ class ForwardInputTest < Test::Unit::TestCase
       io.write data
     ensure
       io.close
+    end
+  end
+
+  def compare_test_result(tests, emits)
+    assert_equal(tests.length, emits.length)
+    emits.each_index do |i|
+      assert_equal(tests[i], emits[i])
     end
   end
 
