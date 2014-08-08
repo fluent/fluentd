@@ -4,7 +4,7 @@ Fluentd: Open-Source Data Collector
 [<img src="https://travis-ci.org/fluent/fluentd.png" />](https://travis-ci.org/fluent/fluentd) [![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
 
 
-[Fluentd](http://fluentd.org/) collects events from various data sources and writes them to files, database or other types of storages. You can simplify your data stream, and have robust data collection mechanism instantly:
+[Fluentd](http://fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](http://www.fluentd.org/blog/unified-logging-layer)).
 
 <p align="center">
 <img src="http://docs.fluentd.org/images/fluentd-architecture.png" width="500px"/>
