@@ -190,7 +190,6 @@ module Fluent
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
-        @content_type = ""
         @next_close = false
         @format = format
         @log = log
@@ -235,6 +234,7 @@ module Fluent
           @keep_alive = false
         end
         @env = {}
+        @content_type = ""
         headers.each_pair {|k,v|
           @env["HTTP_#{k.gsub('-','_').upcase}"] = v
           case k
