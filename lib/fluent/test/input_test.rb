@@ -84,9 +84,9 @@ module Fluent
 
           if @expected_emits_length || @expects
             max_length = @expected_emits_length || @expects.length
-            t0 = Time.now
+            started_at = Time.now
             i, j = 0, 0
-            while i < max_length && Time.now <= t0 + @run_timeout
+            while i < max_length && Time.now <= started_at + @run_timeout
               if j >= @emit_streams.length
                 sleep 0.01
                 next
