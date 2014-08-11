@@ -93,6 +93,19 @@ module ConfigurableSpec
     config_param :hashvalue, :hash
     config_param :arrayvalue, :array
   end
+
+  class Example1
+    include Fluent::Configurable
+
+    config_param :name, :string, alias: :fullname
+    config_section :detail, required: true, multi: false, alias: "information" do
+      config_param :address, :string
+    end
+
+    def get_all
+      [@name, @detail]
+    end
+  end
 end
 
 describe Fluent::Configurable do
@@ -472,6 +485,34 @@ describe Fluent::Configurable do
 
         ex5 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => false}))
         expect(ex5.boolvalue).to equal(false)
+      end
+    end
+  end
+
+  context 'class defined with config_param/config_section having :alias' do
+    describe '#initialize' do
+      it 'does not create methods for alias' do
+        ex1 = ConfigurableSpec::Example1.new
+        expect { ex1.name }.not_to raise_error()
+        expect { ex1.fullname }.to raise_error(NoMethodError)
+        expect { ex1.detail }.not_to raise_error()
+        expect { ex1.information}.to raise_error(NoMethodError)
+      end
+    end
+
+    describe '#configure' do
+      def e(name, arg = '', attrs = {}, elements = [])
+        attrs_str_keys = {}
+        attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
+        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+      end
+
+      it 'provides accessible data for alias attribute keys' do
+        ex1 = ConfigurableSpec::Example1.new
+        ex1.configure(e('ROOT', '', {"fullname" => "foo bar"}, [e('information', '', {"address" => "Mountain View 0"})]))
+        expect(ex1.name).to eql("foo bar")
+        expect(ex1.detail).not_to be_nil
+        expect(ex1.detail.address).to eql("Mountain View 0")
       end
     end
   end
