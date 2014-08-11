@@ -33,15 +33,15 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
 
     time = Time.parse("2011-01-02 13:14:15").to_i
 
-    d.run do
-      sleep 2
-    end
+    d.expected_emits_length = 2
+    d.run
 
     emits = d.emits
     assert_equal true, emits.length > 0
 
-    tag, time, record = emits[0]
-    assert_equal 2, record.size
+    emits.each { |tag, time, record|
+      assert_equal d.instance.tag, tag
+      assert_equal d.instance.top, record.keys.size
+    }
   end
 end
-
