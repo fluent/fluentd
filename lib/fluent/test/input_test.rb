@@ -29,6 +29,7 @@ module Fluent
         super(klass, &block)
         @emit_streams = []
         @expects = nil
+        # for checking only the number of emitted records during run
         @expected_emits_length = nil
         @run_timeout = 5
       end
