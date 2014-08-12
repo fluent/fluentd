@@ -257,8 +257,6 @@ module Fluent
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
 
-      # SET false BEFORE CONFIGURE, to return nil when time not parsed
-      # 'configure()' may raise errors for unexpected configurations
       attr_accessor :estimate_current_event
 
       def initialize
@@ -651,9 +649,14 @@ module Fluent
 
     def initialize
       @parser = nil
+      @estimate_current_event = nil
     end
 
     attr_reader :parser
+
+    # SET false BEFORE CONFIGURE, to return nil when time not parsed
+    # 'configure()' may raise errors for unexpected configurations
+    attr_accessor :estimate_current_event
 
     def configure(conf, required=true)
       format = conf['format']
@@ -686,6 +689,10 @@ module Fluent
           raise ConfigError, "Unknown format template '#{format}'"
         end
         @parser = factory.call
+      end
+
+      if ! @estimate_current_event.nil? && @parser.respond_to?(:'estimate_current_event=')
+        @parser.estimate_current_event = @estimate_current_event
       end
 
       if @parser.respond_to?(:configure)
