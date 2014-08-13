@@ -683,5 +683,23 @@ EOS
         i += 1
       }
     end
+
+    def test_setting_estimate_current_event_value
+      p1 = TextParser.new
+      assert_nil p1.estimate_current_event
+      assert_nil p1.parser
+
+      p1.configure('format' => 'none')
+      assert_equal true, p1.parser.estimate_current_event
+
+      p2 = TextParser.new
+      assert_nil p2.estimate_current_event
+      assert_nil p2.parser
+
+      p2.estimate_current_event = false
+
+      p2.configure('format' => 'none')
+      assert_equal false, p2.parser.estimate_current_event
+    end
   end
 end
