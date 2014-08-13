@@ -52,6 +52,10 @@ op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
   opts[:daemonize] = s
 }
 
+op.on('--no-supervisor', "run without fluent supervisor") {
+  opts[:supervise] = false
+}
+
 op.on('--user USER', "change user") {|s|
   opts[:chuser] = s
 }
