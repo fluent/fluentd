@@ -360,6 +360,7 @@ module Fluent
       end
     end
 
+    # TODO: this method should be moved to SystemConfig class method
     def apply_system_config(opt)
       # Create NULL file to avoid $log uninitialized problem before call @log.init
       file = File.open(File::NULL)
