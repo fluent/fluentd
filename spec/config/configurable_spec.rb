@@ -80,6 +80,19 @@ module ConfigurableSpec
       ary + [@nodes, @description1, @description2, @description3]
     end
   end
+
+  class Example0
+    include Fluent::Configurable
+
+    config_param :stringvalue, :string
+    config_param :boolvalue, :bool
+    config_param :integervalue, :integer
+    config_param :sizevalue, :size
+    config_param :timevalue, :time
+    config_param :floatvalue, :float
+    config_param :hashvalue, :hash
+    config_param :arrayvalue, :array
+  end
 end
 
 describe Fluent::Configurable do
@@ -111,6 +124,11 @@ describe Fluent::Configurable do
     end
 
     describe '#configure' do
+      it 'returns configurable object itself' do
+        b2 = ConfigurableSpec::Base2.new
+        expect(b2.configure({"name1" => "t1", "name5" => "t5"})).to be_a(ConfigurableSpec::Base2)
+      end
+
       it 'raise errors without any specifications for param without defaults' do
         b2 = ConfigurableSpec::Base2.new
         expect{ b2.configure({}) }.to raise_error(Fluent::ConfigError)
@@ -367,6 +385,67 @@ describe Fluent::Configurable do
         expect(b4.description3[1].text).to eql('dddd3-2')
         expect(b4.description3[2].note).to eql('desc3: d-3a')
         expect(b4.description3[2].text).to eql('dddd3-3')
+      end
+
+      it 'checks missing of specifications' do
+        conf0 = e('ROOT', '', {}, [])
+        ex01 = ConfigurableSpec::Example0.new
+        expect { ex01.configure(conf0) }.to raise_error(Fluent::ConfigError)
+
+        complete = {
+          "stringvalue" => "s1", "boolvalue" => "yes", "integervalue" => "10",
+          "sizevalue" => "10m", "timevalue" => "100s", "floatvalue" => "1.001",
+          "hashvalue" => '{"foo":1, "bar":2}',
+          "arrayvalue" => '[1,"ichi"]',
+        }
+
+        checker = lambda {|conf| ConfigurableSpec::Example0.new.configure(conf) }
+
+        expect { checker.call(complete) }.not_to raise_error()
+        expect { checker.call(complete.reject{|k,v| k == "stringvalue" }) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "boolvalue"   }) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "integervalue"}) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "sizevalue"   }) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "timevalue"   }) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "floatvalue"  }) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "hashvalue"   }) }.to raise_error(Fluent::ConfigError)
+        expect { checker.call(complete.reject{|k,v| k == "arrayvalue"  }) }.to raise_error(Fluent::ConfigError)
+      end
+
+      it 'accepts configuration values as string representation' do
+        conf = {
+          "stringvalue" => "s1", "boolvalue" => "yes", "integervalue" => "10",
+          "sizevalue" => "10m", "timevalue" => "10m", "floatvalue" => "1.001",
+          "hashvalue" => '{"foo":1, "bar":2}',
+          "arrayvalue" => '[1,"ichi"]',
+        }
+        ex = ConfigurableSpec::Example0.new.configure(conf)
+        expect(ex.stringvalue).to eq("s1")
+        expect(ex.boolvalue).to equal(true)
+        expect(ex.integervalue).to eq(10)
+        expect(ex.sizevalue).to eq(10 * 1024 * 1024)
+        expect(ex.timevalue).to eq(10 * 60)
+        expect(ex.floatvalue).to eq(1.001)
+        expect(ex.hashvalue).to eq({"foo" => 1, "bar" => 2})
+        expect(ex.arrayvalue).to eq([1, "ichi"])
+      end
+
+      it 'accepts configuration values as ruby value representation (especially for DSL)' do
+        conf = {
+          "stringvalue" => "s1", "boolvalue" => true, "integervalue" => 10,
+          "sizevalue" => 10 * 1024 * 1024, "timevalue" => 10 * 60, "floatvalue" => 1.001,
+          "hashvalue" => {"foo" => 1, "bar" => 2},
+          "arrayvalue" => [1,"ichi"],
+        }
+        ex = ConfigurableSpec::Example0.new.configure(conf)
+        expect(ex.stringvalue).to eq("s1")
+        expect(ex.boolvalue).to equal(true)
+        expect(ex.integervalue).to eq(10)
+        expect(ex.sizevalue).to eq(10 * 1024 * 1024)
+        expect(ex.timevalue).to eq(10 * 60)
+        expect(ex.floatvalue).to eq(1.001)
+        expect(ex.hashvalue).to eq({"foo" => 1, "bar" => 2})
+        expect(ex.arrayvalue).to eq([1, "ichi"])
       end
     end
   end
