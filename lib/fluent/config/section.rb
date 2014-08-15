@@ -86,7 +86,8 @@ module Fluent
         proxy.params.each_pair do |name, defval|
           varname = name.to_sym
           block, opts = defval
-          if val = conf[name.to_s]
+          if conf.has_key?(name.to_s)
+            val = conf[name.to_s]
             section_params[varname] = self.instance_exec(val, opts, name, &block)
           end
           unless section_params.has_key?(varname)

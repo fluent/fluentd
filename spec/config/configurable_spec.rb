@@ -447,6 +447,32 @@ describe Fluent::Configurable do
         expect(ex.hashvalue).to eq({"foo" => 1, "bar" => 2})
         expect(ex.arrayvalue).to eq([1, "ichi"])
       end
+
+      it 'gets both of true(yes) and false(no) for bool value parameter' do
+        conf = {
+          "stringvalue" => "s1", "integervalue" => 10,
+          "sizevalue" => 10 * 1024 * 1024, "timevalue" => 10 * 60, "floatvalue" => 1.001,
+          "hashvalue" => {"foo" => 1, "bar" => 2},
+          "arrayvalue" => [1,"ichi"],
+        }
+        ex0 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => "true"}))
+        expect(ex0.boolvalue).to equal(true)
+
+        ex1 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => "yes"}))
+        expect(ex1.boolvalue).to equal(true)
+
+        ex2 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => true}))
+        expect(ex2.boolvalue).to equal(true)
+
+        ex3 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => "false"}))
+        expect(ex3.boolvalue).to equal(false)
+
+        ex4 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => "no"}))
+        expect(ex4.boolvalue).to equal(false)
+
+        ex5 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => false}))
+        expect(ex5.boolvalue).to equal(false)
+      end
     end
   end
 end
