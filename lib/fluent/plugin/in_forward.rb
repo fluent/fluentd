@@ -54,7 +54,16 @@ module Fluent
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
+      # In test cases it occasionally appeared that when detaching a watcher, another watcher is also detached.
+      # In the case in the iteration of watchers, a watcher that has been already detached is intended to be detached
+      # and therfore RuntimeError occurs saying that it is not attached to a loop.
+      # It occures only when testing for sending responses to ForwardOutput.
+      # Sending responses needs to write the socket that is previously used only to read
+      # and a handler has 2 watchers that is used to read and to write.
+      # This problem occurs possibly because those watchers are thought to be related to each other
+      # and when detaching one of them the other is also detached for some reasons.
+      # As a workaround, check if watchers are attached before detaching them.
+      @loop.watchers.each {|w| w.detach if w.attached? }
       @loop.stop
       @usock.close
       @thread.join
@@ -95,17 +104,20 @@ module Fluent
     # message Forward {
     #   1: string tag
     #   2: list<Entry> entries
+    #   3: object option (optional)
     # }
     #
     # message PackedForward {
     #   1: string tag
     #   2: raw entries  # msgpack stream of Entry
+    #   3: object option (optional)
     # }
     #
     # message Message {
     #   1: string tag
     #   2: long? time
     #   3: object record
+    #   4: object option (optional)
     # }
     def on_message(msg, chunk_size, source)
       if msg.nil?
@@ -128,6 +140,7 @@ module Fluent
         # PackedForward
         es = MessagePackEventStream.new(entries)
         Engine.emit_stream(tag, es)
+        option = msg[2]
 
       elsif entries.class == Array
         # Forward
@@ -140,6 +153,7 @@ module Fluent
           es.add(time, record)
         }
         Engine.emit_stream(tag, es)
+        option = msg[2]
 
       else
         # Message
@@ -148,7 +162,11 @@ module Fluent
         time = msg[1]
         time = Engine.now if time == 0
         Engine.emit(tag, time, record)
+        option = msg[3]
       end
+
+      # return option for response
+      option
     end
 
     class Handler < Coolio::Socket
@@ -186,13 +204,16 @@ module Fluent
         first = data[0]
         if first == '{' || first == '['
           m = method(:on_read_json)
+          @serializer = :to_json.to_proc
           @y = Yajl::Parser.new
           @y.on_parse_complete = lambda { |obj|
-            @on_message.call(obj, @chunk_counter, @source)
+            option = @on_message.call(obj, @chunk_counter, @source)
+            respond option if option
             @chunk_counter = 0
           }
         else
           m = method(:on_read_msgpack)
+          @serializer = :to_msgpack.to_proc
           @u = MessagePack::Unpacker.new
         end
 
@@ -214,13 +235,22 @@ module Fluent
       def on_read_msgpack(data)
         @chunk_counter += data.bytesize
         @u.feed_each(data) do |obj|
-          @on_message.call(obj, @chunk_counter, @source)
+          option = @on_message.call(obj, @chunk_counter, @source)
+          respond option if option
           @chunk_counter = 0
         end
       rescue => e
         @log.error "forward error", :error => e, :error_class => e.class
         @log.error_backtrace
         close
+      end
+
+      def respond(option)
+        if option && option['seq']
+          res = { 'ack' => option['seq'] }
+          write @serializer.call(res)
+          @log.trace { "sent response to fluent socket object_id=#{self.object_id}" }
+        end
       end
 
       def on_close

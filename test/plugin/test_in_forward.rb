@@ -4,6 +4,7 @@ require 'helper'
 class ForwardInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    @responses = []  # for testing responses after sending data
   end
 
   PORT = unused_port
@@ -198,13 +199,214 @@ class ForwardInputTest < Test::Unit::TestCase
     }.size == 1, "large chunk warning is not logged"
   end
 
-  def send_data(data)
+  def test_respond_to_message_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    expected_acks = []
+
+    d.run do
+      events.each {|tag,time,record|
+        op = { 'seq' => record.object_id }
+        expected_acks << op['seq']
+        send_data [tag, time, record, op].to_msgpack, true
+      }
+    end
+
+    assert_equal events, d.emits
+    assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
+  end
+
+  # FIX: response is not pushed into @responses because IO.select has been blocked until InputForward shutdowns
+  def test_respond_to_forward_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    expected_acks = []
+
+    d.run do
+      entries = []
+      events.each {|tag,time,record|
+        entries << [time, record]
+      }
+      op = { 'seq' => entries.object_id }
+      expected_acks << op['seq']
+      send_data ["tag1", entries, op].to_msgpack, true
+    end
+
+    assert_equal events, d.emits
+    assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
+  end
+
+  def test_respond_to_packed_forward_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    expected_acks = []
+
+    d.run do
+      entries = ''
+      events.each {|tag,time,record|
+        [time, record].to_msgpack(entries)
+      }
+      op = { 'seq' => entries.object_id }
+      expected_acks << op['seq']
+      send_data ["tag1", entries, op].to_msgpack, true
+    end
+
+    assert_equal events, d.emits
+    assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
+  end
+
+  def test_respond_to_message_json_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    expected_acks = []
+
+    d.run do
+      events.each {|tag,time,record|
+        op = { 'seq' => record.object_id }
+        expected_acks << op['seq']
+        send_data [tag, time, record, op].to_json, true
+      }
+    end
+
+    assert_equal events, d.emits
+    assert_equal expected_acks, @responses.map { |res| JSON.parse(res)['ack'] }
+
+  end
+
+  def test_not_respond_to_message_not_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    d.run do
+      events.each {|tag,time,record|
+        send_data [tag, time, record].to_msgpack, true
+      }
+    end
+
+    assert_equal events, d.emits
+    assert_equal [nil, nil], @responses
+  end
+
+  def test_not_respond_to_forward_not_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    d.run do
+      entries = []
+      events.each {|tag,time,record|
+        entries << [time, record]
+      }
+      send_data ["tag1", entries].to_msgpack, true
+    end
+
+    assert_equal events, d.emits
+    assert_equal [nil], @responses
+  end
+
+  def test_not_respond_to_packed_forward_not_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    d.run do
+      entries = ''
+      events.each {|tag,time,record|
+        [time, record].to_msgpack(entries)
+      }
+      send_data ["tag1", entries].to_msgpack, true
+    end
+
+    assert_equal events, d.emits
+    assert_equal [nil], @responses
+  end
+
+  def test_not_respond_to_message_json_not_requiring_ack
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}]
+    ]
+    d.expected_emits_length = events.length
+
+    d.run do
+      events.each {|tag,time,record|
+        send_data [tag, time, record].to_json, true
+      }
+    end
+
+    assert_equal events, d.emits
+    assert_equal [nil, nil], @responses
+  end
+
+  def send_data(data, try_to_receive_response=false, response_timeout=1)
     io = connect
     begin
       io.write data
+      if try_to_receive_response
+        if IO.select([io], nil, nil, response_timeout)
+          res = io.recv(1024)
+        end
+        # timeout means no response, so push nil to @responses
+      end
     ensure
       io.close
     end
+    @responses << res if try_to_receive_response
   end
 
   # TODO heartbeat

@@ -52,5 +52,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     node.tick
     assert_equal node.available, false
   end
-end
 
+  def test_wait_response_timeout_config
+    d = create_driver(CONFIG)
+    assert_nil d.instance.wait_response_timeout
+
+    d = create_driver(CONFIG + %[wait_response_timeout 2s])
+    assert_equal 2, d.instance.wait_response_timeout
+  end
+end
