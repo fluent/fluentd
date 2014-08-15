@@ -15,6 +15,12 @@
 #
 
 module Fluent
+  class ForwardOutputError < StandardError
+  end
+
+  class ForwardOutputResponseError < ForwardOutputError
+  end
+
   class ForwardOutput < ObjectBufferedOutput
     Plugin.register_output('forward', self)
 
@@ -43,6 +49,7 @@ module Fluent
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
     config_param :phi_threshold, :integer, :default => 16
     config_param :phi_failure_detector, :bool, :default => true
+    config_param :wait_response_timeout, :time, :default => nil  # nil or 0 means do not wait for response
     attr_reader :nodes
 
     # backward compatibility
@@ -200,8 +207,8 @@ module Fluent
       @weight_array = weight_array
     end
 
-    # MessagePack FixArray length = 2
-    FORWARD_HEADER = [0x92].pack('C')
+    # MessagePack FixArray length = 3
+    FORWARD_HEADER = [0x93].pack('C')
 
     #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
     def send_heartbeat_tcp(node)
@@ -249,6 +256,40 @@ module Fluent
 
         # writeRawBody(packed_es)
         chunk.write_to(sock)
+
+        option = {
+          'seq' => chunk.object_id
+        }
+        sock.write option.to_msgpack
+
+        if @wait_response_timeout && @wait_response_timeout > 0
+          # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
+          # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
+          # and process them asynchronously.
+          if IO.select([sock], nil, nil, @wait_response_timeout)
+            raw_data = sock.recv(1024)
+            # Serialization type of the response is same as sent data.
+            res = MessagePack.unpack(raw_data)
+
+            if res['ack'] != option['seq']
+              # Some errors may have occured when ack and seq are different, so send the chunk again.
+              raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
+            end
+
+          else
+            # IO.select returns nil on timeout.
+            # There are 2 types of cases when no response has been received:
+            # (1) the node does not support sending responses
+            # (2) the node does support sending response but responses have not arrived for some reasons.
+            # It is impossible to distinguish (1) from (2). So, for compatibility
+            # the chunk should not be sent again just because no response has arrived,
+            # because the same chunk will be sent indefinitely in the case (1).
+            # But considering the case (2), regard the node as unavailable and disable it anyway,
+            # unwillingly accepting that the chunk may be lost.
+            @log.warn "no response from #{n.host}:#{n.port}. regard it as unavailable."
+            node.disable!
+          end
+        end
 
         node.heartbeat(false)
       ensure
@@ -352,6 +393,10 @@ module Fluent
 
       def available?
         @available
+      end
+
+      def disable!
+        @available = false
       end
 
       def standby?
