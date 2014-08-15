@@ -98,6 +98,7 @@ module ConfigurableSpec
     include Fluent::Configurable
 
     config_param :name, :string, alias: :fullname
+    config_param :bool, :bool, alias: :flag
     config_section :detail, required: true, multi: false, alias: "information" do
       config_param :address, :string
     end
@@ -159,7 +160,7 @@ describe Fluent::Configurable do
         expect(b2a.flag2).to eq(true)
 
         b2b = ConfigurableSpec::Base2.new
-        expect{ b2b.configure({"flag1" => "false", "flag2" => "no", "name1" => "t1", "name5" => "t5"}) }.not_to raise_error()
+        expect{ b2b.configure({"flag1" => false, "flag2" => "no", "name1" => "t1", "name5" => "t5"}) }.not_to raise_error()
         expect(b2b.flag1).to eq(false)
         expect(b2b.flag2).to eq(false)
       end
@@ -495,6 +496,8 @@ describe Fluent::Configurable do
         ex1 = ConfigurableSpec::Example1.new
         expect { ex1.name }.not_to raise_error()
         expect { ex1.fullname }.to raise_error(NoMethodError)
+        expect { ex1.bool }.not_to raise_error()
+        expect { ex1.flag }.to raise_error(NoMethodError)
         expect { ex1.detail }.not_to raise_error()
         expect { ex1.information}.to raise_error(NoMethodError)
       end
@@ -509,8 +512,10 @@ describe Fluent::Configurable do
 
       it 'provides accessible data for alias attribute keys' do
         ex1 = ConfigurableSpec::Example1.new
-        ex1.configure(e('ROOT', '', {"fullname" => "foo bar"}, [e('information', '', {"address" => "Mountain View 0"})]))
+        ex1.configure(e('ROOT', '', {"fullname" => "foo bar", "bool" => false}, [e('information', '', {"address" => "Mountain View 0"})]))
         expect(ex1.name).to eql("foo bar")
+        expect(ex1.bool).not_to be_nil
+        expect(ex1.bool).to be_falsy
         expect(ex1.detail).not_to be_nil
         expect(ex1.detail.address).to eql("Mountain View 0")
       end
