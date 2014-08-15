@@ -71,7 +71,7 @@ module Fluent
   })
 
   Configurable.register_type(:hash, Proc.new { |val, opts|
-    param = JSON.load(val)
+    param = val.is_a?(String) ? JSON.load(val) : val
     if param.class != Hash
       raise ConfigError, "hash required but got #{val.inspect}"
     end
@@ -79,7 +79,7 @@ module Fluent
   })
 
   Configurable.register_type(:array, Proc.new { |val, opts|
-    param = JSON.load(val)
+    param = val.is_a?(String) ? JSON.load(val) : val
     if param.class != Array
       raise ConfigError, "array required but got #{val.inspect}"
     end
