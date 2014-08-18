@@ -86,8 +86,12 @@ module Fluent
         proxy.params.each_pair do |name, defval|
           varname = name.to_sym
           block, opts = defval
-          if conf.has_key?(name.to_s)
-            val = conf[name.to_s]
+          if conf.has_key?(name.to_s) || opts[:alias] && conf.has_key?(opts[:alias].to_s)
+            val = if conf.has_key?(name.to_s)
+                    conf[name.to_s]
+                  else
+                    conf[opts[:alias].to_s]
+                  end
             section_params[varname] = self.instance_exec(val, opts, name, &block)
           end
           unless section_params.has_key?(varname)
@@ -98,7 +102,7 @@ module Fluent
 
         proxy.sections.each do |name, subproxy|
           varname = subproxy.param_name.to_sym
-          elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s }
+          elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
 
           if subproxy.required? && elements.size < 1
             logger.error "config error in:\n#{conf}"

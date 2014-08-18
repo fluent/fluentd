@@ -1,7 +1,7 @@
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :param_name, :required, :multi, :argument, :params, :defaults, :sections
+      attr_accessor :name, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
@@ -12,7 +12,7 @@ module Fluent
       #   config_param :power, :integer
       # end
       #
-      # config_section :child, param_name: 'children', required: false, multi: true do
+      # config_section :child, param_name: 'children', required: false, multi: true, alias: 'node' do
       #   config_param :name, :string
       #   config_param :power, :integer, default: nil
       #   config_section :item do
@@ -26,6 +26,7 @@ module Fluent
         @param_name = (opts[:param_name] || @name).to_sym
         @required = opts[:required]
         @multi = opts[:multi]
+        @alias = opts[:alias]
 
         @argument = nil # nil: ignore argument
         @params = {}
