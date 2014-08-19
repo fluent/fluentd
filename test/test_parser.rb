@@ -155,6 +155,16 @@ module ParserTest
         assert_equal(@expected.merge('pid' => '1000'), record)
       }
     end
+
+    def test_call_without_client
+      @parser.call('[Wed Oct 11 14:32:52 2000] [notice] Apache/2.2.15 (Unix) DAV/2 configured -- resuming normal operations') { |time, record|
+        assert_equal(str2time('Wed Oct 11 14:32:52 2000'), time)
+        assert_equal({
+          'level' => 'notice',
+          'message' => 'Apache/2.2.15 (Unix) DAV/2 configured -- resuming normal operations'
+        }, record)
+      }
+    end
   end
 
   class Apache2ParserTest < ::Test::Unit::TestCase
