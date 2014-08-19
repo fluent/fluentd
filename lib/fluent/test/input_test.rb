@@ -75,6 +75,34 @@ module Fluent
         all
       end
 
+      def register_run_post_condition(proc)
+        if proc.respond_to?(:call)
+          @run_post_conditions ||= []
+          @run_post_conditions << proc
+        end
+      end
+
+      def register_run_breaking_condition(proc)
+        if proc.respond_to?(:call)
+          @run_breaking_conditions ||= []
+          @run_breaking_conditions << proc
+        end
+      end
+
+      def run_should_stop?
+        # Should stop running if post conditions are not registered.
+        return true unless @run_post_conditions
+
+        # Should stop running if all of the post conditions are true.
+        return true if @run_post_conditions.all? {|proc| proc.call }
+
+        # Should stop running if any of the breaking conditions is true.
+        # In this case, some post conditions may be not true.
+        return true if @run_breaking_conditions && @run_breaking_conditions.any? {|proc| proc.call }
+
+        false
+      end
+
       def run(&block)
         m = method(:emit_stream)
         Engine.define_singleton_method(:emit_stream) {|tag,es|
@@ -83,11 +111,20 @@ module Fluent
         super {
           block.call if block
 
-          if @expected_emits_length || @expects
-            max_length = @expected_emits_length || @expects.length
-            started_at = Time.now
+          if @expected_emits_length || @expects || @run_post_conditions
+            # counters for emits and emit_streams
             i, j = 0, 0
-            while i < max_length && Time.now <= started_at + @run_timeout
+
+            # Events of expected length will be emitted at the end.
+            max_length = @expected_emits_length
+            max_length ||= @expects.length if @expects
+            register_run_post_condition(lambda { i == max_length }) if max_length
+
+            # Set runnning timeout to avoid infinite loop caused by some errors.
+            started_at = Time.now
+            register_run_breaking_condition(lambda { Time.now >= started_at + @run_timeout })
+
+            until run_should_stop?
               if j >= @emit_streams.length
                 sleep 0.01
                 next
