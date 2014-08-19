@@ -105,6 +105,12 @@ module Fluent
             else
               if k == '@include'
                 parse_include(attrs, elems)
+              elsif k == '@label'
+                v = parse_literal
+                unless line_end
+                  parse_error! "expected end of line"
+                end
+                attrs[k] = v
               else
                 if k.start_with?('@')
                   parse_error! "'@' is reserved prefix. Don't use '@' in parameter name"
