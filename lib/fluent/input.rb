@@ -20,12 +20,19 @@ module Fluent
     include PluginId
     include PluginLoggerMixin
 
+    attr_accessor :router
+
     def initialize
       super
     end
 
     def configure(conf)
       super
+
+      if label_name = conf['@label']
+        label = Engine.root_agent.find_label(label_name)
+        @router = label.event_router
+      end
     end
 
     def start

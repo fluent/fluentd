@@ -15,14 +15,13 @@
 #
 
 module Fluent
+  require 'fluent/event_router'
+  require 'fluent/root_agent'
+
   class EngineClass
     def initialize
-      @matches = []
-      @sources = []
-      @match_cache = {}
-      @match_cache_keys = []
-      @started_sources = []
-      @started_matches = []
+      @root_agent = nil
+      @event_router = nil
       @default_loop = nil
       @engine_stopped = false
 
@@ -30,17 +29,13 @@ module Fluent
       @log_event_loop_stop = false
       @log_event_queue = []
 
-      @suppress_emit_error_log_interval = 0
-      @next_emit_error_log_time = nil
-
       @suppress_config_dump = false
-      @without_source = false
     end
 
     MATCH_CACHE_SIZE = 1024
-
     LOG_EMIT_INTERVAL = 0.1
 
+    attr_reader :root_agent
     attr_reader :matches, :sources
 
     def init(opts = {})
@@ -55,7 +50,13 @@ module Fluent
       @suppress_config_dump = opts[:suppress_config_dump] if opts[:suppress_config_dump]
       @without_source = opts[:without_source] if opts[:without_source]
 
+      @root_agent = RootAgent.new(opts)
+
       self
+    end
+
+    def log
+      $log
     end
 
     def suppress_interval(interval_time)
@@ -93,41 +94,8 @@ module Fluent
         $log.info "using configuration file: #{conf.to_s.rstrip}"
       end
 
-      if @without_source
-        $log.info "'--without-source' is applied. Ignore <source> sections"
-      else
-        conf.elements.select {|e|
-          e.name == 'source'
-        }.each {|e|
-          type = e['type']
-          unless type
-            raise ConfigError, "Missing 'type' parameter on <source> directive"
-          end
-          $log.info "adding source type=#{type.dump}"
-
-          input = Plugin.new_input(type)
-          input.configure(e)
-
-          @sources << input
-        }
-      end
-
-      conf.elements.select {|e|
-        e.name == 'match'
-      }.each {|e|
-        type = e['type']
-        pattern = e.arg
-        unless type
-          raise ConfigError, "Missing 'type' parameter on <match #{e.arg}> directive"
-        end
-        $log.info "adding match", :pattern=>pattern, :type=>type
-
-        output = Plugin.new_output(type)
-        output.configure(e)
-
-        match = Match.new(pattern, output)
-        @matches << match
-      }
+      @root_agent.configure(conf)
+      @event_router = @root_agent.event_router
     end
 
     def load_plugin_dir(dir)
@@ -145,40 +113,11 @@ module Fluent
     end
 
     def emit_stream(tag, es)
-      target = @match_cache[tag]
-      unless target
-        target = match(tag) || NoMatchMatch.new
-        # this is not thread-safe but inconsistency doesn't
-        # cause serious problems while locking causes.
-        if @match_cache_keys.size >= MATCH_CACHE_SIZE
-          @match_cache.delete @match_cache_keys.shift
-        end
-        @match_cache[tag] = target
-        @match_cache_keys << tag
-      end
-      target.emit(tag, es)
-    rescue => e
-      if @suppress_emit_error_log_interval == 0 || now > @next_emit_error_log_time
-        $log.warn "emit transaction failed ", :error_class=>e.class, :error=>e
-        $log.warn_backtrace
-        # $log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
-        @next_emit_error_log_time = Time.now.to_i + @suppress_emit_error_log_interval
-        # $log.debug "next emit failure log suppressed"
-        # $log.debug "next logged time is #{Time.at(@next_emit_error_log_time)}"
-      end
-      raise
-    end
-
-    def match(tag)
-      @matches.find {|m| m.match(tag) }
-    end
-
-    def match?(tag)
-      !!match(tag)
+      @event_router.emit_stream(tag, es)
     end
 
     def flush!
-      flush_recursive(@matches)
+      @root_agent.flush!
     end
 
     def now
@@ -211,7 +150,7 @@ module Fluent
       begin
         start
 
-        if match?($log.tag)
+        if @event_router.match?($log.tag)
           $log.enable_event
           @log_emit_thread = Thread.new(&method(:log_event_loop))
         end
@@ -257,101 +196,17 @@ module Fluent
     end
 
     private
+
     def start
-      @matches.each {|m|
-        m.start
-        @started_matches << m
-      }
-      @sources.each {|s|
-        s.start
-        @started_sources << s
-      }
+      @root_agent.start
     end
 
     def shutdown
-      # Shutdown Input plugin first to prevent emitting to terminated Output plugin
-      @started_sources.map { |s|
-        Thread.new do
-          begin
-            s.shutdown
-          rescue => e
-            $log.warn "unexpected error while shutting down", :plugin => s.class, :plugin_id => s.plugin_id, :error_class => e.class, :error => e
-            $log.warn_backtrace
-          end
-        end
-      }.each { |t|
-        t.join
-      }
-      # Output plugin as filter emits records at shutdown so emit problem still exist.
-      # This problem will be resolved after actual filter mechanizm.
-      @started_matches.map { |m|
-        Thread.new do
-          begin
-            m.shutdown
-          rescue => e
-            $log.warn "unexpected error while shutting down", :plugin => m.output.class, :plugin_id => m.output.plugin_id, :error_class => e.class, :error => e
-            $log.warn_backtrace
-          end
-        end
-      }.each { |t|
-        t.join
-      }
-    end
-
-    def flush_recursive(array)
-      array.each {|m|
-        begin
-          if m.is_a?(Match)
-            m = m.output
-          end
-          if m.is_a?(BufferedOutput)
-            m.force_flush
-          elsif m.is_a?(MultiOutput)
-            flush_recursive(m.outputs)
-          end
-        rescue => e
-          $log.debug "error while force flushing", :error_class=>e.class, :error=>e
-          $log.debug_backtrace
-        end
-      }
-    end
-
-    class NoMatchMatch
-      def initialize
-        @count = 0
-      end
-
-      def emit(tag, es)
-        # TODO use time instead of num of records
-        c = (@count += 1)
-        if c < 512
-          if Math.log(c) / Math.log(2) % 1.0 == 0
-            $log.warn "no patterns matched", :tag=>tag
-            return
-          end
-        else
-          if c % 512 == 0
-            $log.warn "no patterns matched", :tag=>tag
-            return
-          end
-        end
-        $log.on_trace { $log.trace "no patterns matched", :tag=>tag }
-      end
-
-      def start
-      end
-
-      def shutdown
-      end
-
-      def match(tag)
-        false
-      end
+      @root_agent.shutdown
     end
   end
 
   Engine = EngineClass.new
-
 
   module Test
     @@test = false
