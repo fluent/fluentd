@@ -68,7 +68,7 @@ module Fluent
     def on_timer
       now = Engine.now
       Status.each {|record|
-        Engine.emit(@tag, now, record)
+        router.emit(@tag, now, record)
       }
     end
   end

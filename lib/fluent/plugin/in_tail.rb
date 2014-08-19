@@ -199,7 +199,7 @@ module Fluent
                   else
                     @tag
                   end
-            Engine.emit(tag, time, record)
+            router.emit(tag, time, record)
           else
             log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
           end
@@ -223,7 +223,7 @@ module Fluent
                 @tag
               end
         begin
-          Engine.emit_stream(tag, es)
+          router.emit_stream(tag, es)
         rescue
           # ignore errors. Engine shows logs and backtraces.
         end
@@ -789,7 +789,7 @@ module Fluent
 
       unless es.empty?
         begin
-          Engine.emit_stream(@tag, es)
+          router.emit_stream(@tag, es)
         rescue
           # ignore errors. Engine shows logs and backtraces.
         end

@@ -108,7 +108,7 @@ module Fluent
         record[c.name] = c.count
       }
 
-      Engine.emit(@tag, now, record)
+      router.emit(@tag, now, record)
     rescue => e
       log.error "object space failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => @tag, :record => Yajl.dump(record)
     end
