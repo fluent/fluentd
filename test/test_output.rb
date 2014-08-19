@@ -27,6 +27,7 @@ module FluentOutputTest
       d = create_driver
       assert_equal 'memory', d.instance.buffer_type
       assert_equal 60, d.instance.flush_interval
+      assert_equal false, d.instance.disable_retry_limit
       assert_equal 17, d.instance.retry_limit
       assert_equal 1.0, d.instance.retry_wait
       assert_equal nil, d.instance.max_retry_wait
@@ -37,6 +38,10 @@ module FluentOutputTest
       # max_retry_wait
       d = create_driver(CONFIG + %[max_retry_wait 4])
       assert_equal 4, d.instance.max_retry_wait
+
+      # disable_retry_limit
+      d = create_driver(CONFIG + %[disable_retry_limit true])
+      assert_equal true, d.instance.disable_retry_limit
     end
 
     def test_calc_retry_wait

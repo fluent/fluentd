@@ -174,6 +174,7 @@ module Fluent
     config_param :buffer_type, :string, :default => 'memory'
     config_param :flush_interval, :time, :default => 60
     config_param :try_flush_interval, :float, :default => 1
+    config_param :disable_retry_limit, :bool, :default => false
     config_param :retry_limit, :integer, :default => 17
     config_param :retry_wait, :time, :default => 1.0
     config_param :max_retry_wait, :time, :default => nil
@@ -304,7 +305,7 @@ module Fluent
           end
         end
 
-        if @secondary && @num_errors > @retry_limit
+        if @secondary && !@disable_retry_limit && @num_errors > @retry_limit
           has_next = flush_secondary(@secondary)
         else
           has_next = @buffer.pop(self)
@@ -339,7 +340,7 @@ module Fluent
           end
         end
 
-        if error_count < @retry_limit
+        if @disable_retry_limit || error_count < @retry_limit
           $log.warn "temporarily failed to flush the buffer.", :next_retry=>Time.at(@next_retry_time), :error_class=>e.class.to_s, :error=>e.to_s, :instance=>object_id
           $log.warn_backtrace e.backtrace
 
@@ -388,7 +389,7 @@ module Fluent
 
     def calc_retry_wait
       # TODO retry pattern
-      wait = if @num_errors <= @retry_limit
+      wait = if @disable_retry_limit || @num_errors <= @retry_limit
                @retry_wait * (2 ** (@num_errors - 1))
              else
                # secondary retry
