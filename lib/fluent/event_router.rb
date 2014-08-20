@@ -133,13 +133,55 @@ module Fluent
 
     private
 
+    class Pipeline
+      def initialize
+        @filters = []
+        @output = nil
+      end
+
+      def add_filter(filter)
+        @filters << filter
+      end
+
+      def set_output(output)
+        @output = output
+      end
+
+      def emit(tag, es, chain)
+        processed = es
+        @filters.each { |filter|
+          processed = filter.filter_stream(tag, processed)
+        }
+        @output.emit(tag, processed, chain)
+      end
+    end
+
     def find(tag)
+      pipeline = nil
       @match_rules.each_with_index { |rule, i|
         if rule.match?(tag)
-          return rule.collector
+          if rule.collector.is_a?(Filter)
+            pipeline ||= Pipeline.new
+            pipeline.add_filter(rule.collector)
+          else
+            if pipeline
+              pipeline.set_output(rule.collector)
+            else
+              # Use Output directly when filter is not matched
+              pipeline = rule.collector
+            end
+            return pipeline
+          end
         end
       }
-      nil
+
+      if pipeline
+        # filter is matched but no match
+        pipeline.set_output(@default_collector)
+        pipeline
+      else
+        nil
+      end
     end
   end
 end

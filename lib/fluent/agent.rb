@@ -32,7 +32,9 @@ module Fluent
 
       @context = nil
       @outputs = []
+      @filters = []
       @started_outputs = []
+      @started_filters = []
 
       @log = Engine.log
       @event_router = EventRouter.new(self, NoMatchMatch.new(log))
@@ -45,6 +47,15 @@ module Fluent
 
     def configure(conf)
       super
+
+      # initialize <match> elements
+      conf.elements.select { |e|
+        e.name == 'filter'
+      }.each {|e|
+        pattern = e.arg.empty? ? '**' : e.arg
+        type = e['type']
+        add_filter(type, pattern, e)
+      }
 
       # initialize <match> elements
       conf.elements.select { |e|
@@ -62,10 +73,26 @@ module Fluent
         o.start
         @started_outputs << o
       }
+
+      @filters.each { |f|
+        f.start
+        @started_filters << f
+      }
     end
 
     # agent API called by Worker
     def shutdown
+      @started_filters.map { |f|
+        Thread.new do
+          begin
+            f.shutdown
+          rescue => e
+            log.warn "unexpected error while shutting down filter plugins", :plugin => f.class, :plugin_id => f.plugin_id, :error_class => e.class, :error => e
+            log.warn_backtrace
+          end
+        end
+      }.each { |t| t.join }
+
       # Output plugin as filter emits records at shutdown so emit problem still exist.
       # This problem will be resolved after actual filter mechanizm.
       @started_outputs.map { |o|
@@ -73,7 +100,7 @@ module Fluent
           begin
             o.shutdown
           rescue => e
-            log.warn "unexpected error while shutting down output plugins", :plugin => o.class, :plugin_id => output.plugin_id, :error_class => e.class, :error => e
+            log.warn "unexpected error while shutting down output plugins", :plugin => o.class, :plugin_id => o.plugin_id, :error_class => e.class, :error => e
             log.warn_backtrace
           end
         end
@@ -108,6 +135,17 @@ module Fluent
       @event_router.add_rule(pattern, output)
 
       output
+    end
+
+    def add_filter(type, pattern, conf)
+      log.info "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
+
+      filter = Plugin.new_filter(type)
+      filter.configure(conf)
+      @filters << filter
+      @event_router.add_rule(pattern, filter)
+
+      filter
     end
 
     def handle_emits_error(tag, es, e)

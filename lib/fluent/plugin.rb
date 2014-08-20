@@ -20,6 +20,7 @@ module Fluent
     def initialize
       @input = {}
       @output = {}
+      @filter = {}
       @buffer = {}
     end
 
@@ -29,6 +30,10 @@ module Fluent
 
     def register_output(type, klass)
       register_impl('output', @output, type, klass)
+    end
+
+    def register_filter(type, klass)
+      register_impl('filter', @filter, type, klass)
     end
 
     def register_buffer(type, klass)
@@ -41,6 +46,10 @@ module Fluent
 
     def new_output(type)
       new_impl('output', @output, type)
+    end
+
+    def new_filter(type)
+      new_impl('filter', @filter, type)
     end
 
     def new_buffer(type)
@@ -90,6 +99,8 @@ module Fluent
         path = "fluent/plugin/in_#{type}"
       when 'output'
         path = "fluent/plugin/out_#{type}"
+      when 'filter'
+        path = "fluent/plugin/filter_#{type}"
       when 'buffer'
         path = "fluent/plugin/buf_#{type}"
       else
@@ -142,4 +153,3 @@ module Fluent
 
   Plugin = PluginClass.new
 end
-
