@@ -123,6 +123,7 @@ module Fluent
       log.info "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       output = Plugin.new_output(type)
+      output.router = @event_router
       output.configure(conf)
       @outputs << output
       @event_router.add_rule(pattern, output)
