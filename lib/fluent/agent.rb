@@ -48,22 +48,15 @@ module Fluent
     def configure(conf)
       super
 
-      # initialize <match> elements
-      conf.elements.select { |e|
-        e.name == 'filter'
-      }.each {|e|
+      # initialize <match> and <filter> elements
+      conf.elements.select { |e| e.name == 'filter' || e.name == 'match' }.each { |e|
         pattern = e.arg.empty? ? '**' : e.arg
         type = e['type']
-        add_filter(type, pattern, e)
-      }
-
-      # initialize <match> elements
-      conf.elements.select { |e|
-        e.name == 'match'
-      }.each {|e|
-        pattern = e.arg.empty? ? '**' : e.arg
-        type = e['type']
-        add_match(type, pattern, e)
+        if e.name == 'filter'
+          add_filter(type, pattern, e)
+        else
+          add_match(type, pattern, e)
+        end
       }
     end
 
@@ -138,7 +131,7 @@ module Fluent
     end
 
     def add_filter(type, pattern, conf)
-      log.info "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
+      log.info "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       filter = Plugin.new_filter(type)
       filter.configure(conf)
