@@ -63,8 +63,8 @@ module Fluent
 
       error_label_config = nil
 
-      # initialize <label> and <source> elements
-
+      # initialize <label> elements
+      label_configs = {}
       conf.elements.select { |e| e.name == 'label' }.each { |e|
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
@@ -73,9 +73,13 @@ module Fluent
           error_label_config = e
         else
           add_label(name, e)
+          label_configs[name] = e
         end
       }
+      # Call 'configure' here to avoid 'label not found'
+      label_configs.each { |name, e| @labels[name].configure(e) }
 
+      # initialize <source> elements
       if @without_source
         log.info "'--without-source' is applied. Ignore <source> sections"
       else
@@ -86,6 +90,10 @@ module Fluent
         }
       end
 
+      setup_error_label(error_label_config)
+    end
+
+    def setup_error_label(error_label_config)
       # initialize built-in ERROR label
       if error_label_config
         error_label = add_label(ERROR_LABEL, error_label_config)
@@ -148,8 +156,6 @@ module Fluent
     def add_label(name, e)
       label = Label.new(name)
       label.root_agent = self
-      label.configure(e)
-
       @labels[name] = label
     end
 
