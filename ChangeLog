@@ -1,3 +1,17 @@
+Release 0.10.53 - 2014/08/21
+
+* in_tail: Fix forget to detach Closer timer object
+* in_debug_agent: Fix config_param type of unix_path
+* in_syslog: Add include_source_host and source_host_Key options
+* config: Dump V1 escaped parameter correctly at start phase
+* config: Fix bug for config_param of bool value without defaults
+* config: Add 'alias' option to config_section and config_param
+* buffer: Add 'disable_retry_limit' option
+* engine: Reduce memory usage when retry_limit is large
+* parser: Add apache_error format
+* supervisor: Dump Fluentd version at dry run mode
+* test: InputTestDriver wait 'run' until input plugin emits all test data
+
 Release 0.10.52 - 2014/07/15
 
 * in_tail: Fix typo of warning argument. lb to line
