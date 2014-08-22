@@ -29,7 +29,6 @@ module Fluent
       @lsock = listen
       @loop.attach(@lsock)
       @thread = Thread.new(&method(:run))
-      @cached_unpacker = $use_msgpack_5 ? nil : MessagePack::Unpacker.new
     end
 
     def shutdown
@@ -77,7 +76,7 @@ module Fluent
 
       if entries.class == String
         # PackedForward
-        es = MessagePackEventStream.new(entries, @cached_unpacker)
+        es = MessagePackEventStream.new(entries)
         Engine.emit_stream(tag, es)
 
       elsif entries.class == Array
