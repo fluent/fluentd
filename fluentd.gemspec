@@ -18,7 +18,7 @@ Gem::Specification.new do |gem|
 
   gem.required_ruby_version = '>= 1.9.2'
 
-  gem.add_runtime_dependency("msgpack", [">= 0.4.4", "!= 0.5.0", "!= 0.5.1", "!= 0.5.2", "!= 0.5.3", "< 0.6.0"])
+  gem.add_runtime_dependency("msgpack", [">= 0.5.4", "< 0.6.0"])
   gem.add_runtime_dependency("json", [">= 1.4.3"])
   gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
   gem.add_runtime_dependency("cool.io", [">= 1.2.2", "< 2.0.0"])

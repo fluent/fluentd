@@ -132,53 +132,26 @@ module Fluent
     end
   end
 
-  if $use_msgpack_5
-
-    class MessagePackEventStream < EventStream
-      def initialize(data, cached_unpacker=nil)
-        @data = data
-      end
-
-      def repeatable?
-        true
-      end
-
-      def each(&block)
-        # TODO format check
-        unpacker = MessagePack::Unpacker.new
-        unpacker.feed_each(@data, &block)
-        nil
-      end
-
-      def to_msgpack_stream
-        @data
-      end
+  class MessagePackEventStream < EventStream
+    # Keep cached_unpacker argument for existence plugins
+    def initialize(data, cached_unpacker = nil)
+      @data = data
     end
 
-  else # for 0.4.x. Will be removed after 0.5.x is stable
-
-    class MessagePackEventStream < EventStream
-      def initialize(data, cached_unpacker=nil)
-        @data = data
-        @unpacker = cached_unpacker || MessagePack::Unpacker.new
-      end
-
-      def repeatable?
-        true
-      end
-
-      def each(&block)
-        @unpacker.reset
-        # TODO format check
-        @unpacker.feed_each(@data, &block)
-        nil
-      end
-
-      def to_msgpack_stream
-        @data
-      end
+    def repeatable?
+      true
     end
 
+    def each(&block)
+      # TODO format check
+      unpacker = MessagePack::Unpacker.new
+      unpacker.feed_each(@data, &block)
+      nil
+    end
+
+    def to_msgpack_stream
+      @data
+    end
   end
 end
 
