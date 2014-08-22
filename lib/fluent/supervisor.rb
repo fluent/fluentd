@@ -89,7 +89,7 @@ module Fluent
         :suppress_interval => 0,
         :suppress_repeated_stacktrace => false,
         :without_source => false,
-        :use_v1_config => false,
+        :use_v1_config => true,
       }
     end
 
