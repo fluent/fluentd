@@ -18,6 +18,8 @@
 module Fluent
   # obsolete
   class StreamInput < Input
+    config_param :blocking_timeout, :time, :default => 0.5
+
     def initialize
       require 'socket'
       require 'yajl'
@@ -42,7 +44,7 @@ module Fluent
     #end
 
     def run
-      @loop.run
+      @loop.run(@blocking_timeout)
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace
