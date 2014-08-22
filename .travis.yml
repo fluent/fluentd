@@ -17,7 +17,6 @@ branches:
 
 gemfile:
   - Gemfile
-  - Gemfile.cool.io.1.1.1
 
 script: bundle exec rake
 

@@ -36,6 +36,7 @@ module Fluent
     config_param :backlog, :integer, :default => nil
     config_param :add_http_headers, :bool, :default => false
     config_param :format, :string, :default => 'default'
+    config_param :blocking_timeout, :time, :default => 0.5
 
     def configure(conf)
       super
@@ -104,7 +105,7 @@ module Fluent
     end
 
     def run
-      @loop.run
+      @loop.run(@blocking_timeout)
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace

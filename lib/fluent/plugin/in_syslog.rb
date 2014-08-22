@@ -80,6 +80,7 @@ module Fluent
     end
     config_param :include_source_host, :bool, :default => false
     config_param :source_host_key, :string, :default => 'source_host'.freeze
+    config_param :blocking_timeout, :time, :default => 0.5
 
     def configure(conf)
       super
@@ -117,7 +118,7 @@ module Fluent
     end
 
     def run
-      @loop.run
+      @loop.run(@blocking_timeout)
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace
