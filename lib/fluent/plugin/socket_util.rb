@@ -83,6 +83,7 @@ module Fluent
       config_param :port, :integer, :default => 5150
       config_param :bind, :string, :default => '0.0.0.0'
       config_param :source_host_key, :string, :default => nil
+      config_param :blocking_timeout, :time, :default => 0.5
 
       def configure(conf)
         super
@@ -106,7 +107,7 @@ module Fluent
       end
 
       def run
-        @loop.run
+        @loop.run(@blocking_timeout)
       rescue => e
         log.error "unexpected error", :error => e, :error_class => e.class
         log.error_backtrace
