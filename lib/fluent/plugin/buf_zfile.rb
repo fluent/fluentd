@@ -1,7 +1,5 @@
 #
-# Fluent
-#
-# Copyright (C) 2011 FURUHASHI Sadayuki
+# Fluentd
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,70 +13,63 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
 module Fluent
-
-
-class ZFileBufferChunk < FileBufferChunk
-  def initialize(path)
-    super(path)
-    @z = Zlib::Deflate.new
-  end
-
-  def <<(data)
-    zdata = @z.deflate(data, Z_NO_FLUSH)
-    unless zdata.empty?
-      super(zdata)
+  class ZFileBufferChunk < FileBufferChunk
+    def initialize(path)
+      super(path)
+      @z = Zlib::Deflate.new
     end
-  end
 
-  def close_write
-    zdata = @z.flush
-    unless zdata.empty?
-      @file.write(zdata)
-      @size += zdata.bytesize
+    def <<(data)
+      zdata = @z.deflate(data, Z_NO_FLUSH)
+      unless zdata.empty?
+        super(zdata)
+      end
     end
-    super
+
+    def close_write
+      zdata = @z.flush
+      unless zdata.empty?
+        @file.write(zdata)
+        @size += zdata.bytesize
+      end
+      super
+    end
+
+    def close
+      @z.close
+      super
+    end
+
+    def purge
+      @z.close
+      super
+    end
+
+    #def open(&block)
+    #end
   end
 
-  def close
-    @z.close
-    super
-  end
+  class ZFileBuffer < FileBuffer
+    #Plugin.register_buffer('zfile', self)
 
-  def purge
-    @z.close
-    super
-  end
+    def initialize
+      require 'zlib'
+      super
+    end
 
-  # TODO
-  #def open(&block)
-  #end
-end
+    def resume_queue
+      queue = resume_queue_paths.map {|path|
+        ZFileBufferChunk.new(path)
+      }
+      top = new_chunk
+      return queue, top
+    end
 
-
-class ZFileBuffer < FileBuffer
-  # TODO
-  #Plugin.register_buffer('zfile', self)
-
-  def initialize
-    require 'zlib'
-    super
-  end
-
-  def resume_queue
-    queue = resume_queue_paths.map {|path|
+    def new_chunk
+      path = new_chunk_path
       ZFileBufferChunk.new(path)
-    }
-    top = new_chunk
-    return queue, top
-  end
-
-  def new_chunk
-    path = new_chunk_path
-    ZFileBufferChunk.new(path)
+    end
   end
 end
-
-
-end
-
