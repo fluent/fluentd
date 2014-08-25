@@ -14,18 +14,20 @@
 #    limitations under the License.
 #
 
-system("bundle install")
+bundle_bin = Gem::Specification.find_by_name('bundler').bin_file('bundle')
+ruby_bin = RbConfig.ruby
+system("#{ruby_bin} #{bundle_bin} install")
 unless $?.success?
   exit $?.exitstatus
 end
 
 cmdline = [
-  'bundle',
+  ruby_bin,
+  bundle_bin,
   'exec',
-  RbConfig.ruby,
+  ruby_bin,
   File.expand_path(File.join(File.dirname(__FILE__), 'fluentd.rb')),
 ] + ARGV
 
 exec *cmdline
 exit! 127
-
