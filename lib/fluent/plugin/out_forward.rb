@@ -286,7 +286,7 @@ module Fluent
             # because the same chunk will be sent indefinitely in the case (1).
             # But considering the case (2), regard the node as unavailable and disable it anyway,
             # unwillingly accepting that the chunk may be lost.
-            @log.warn "no response from #{n.host}:#{n.port}. regard it as unavailable."
+            @log.warn "no response from #{node.host}:#{node.port}. regard it as unavailable."
             node.disable!
           end
         end
