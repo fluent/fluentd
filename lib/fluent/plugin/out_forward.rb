@@ -268,12 +268,19 @@ module Fluent
           # and process them asynchronously.
           if IO.select([sock], nil, nil, @wait_response_timeout)
             raw_data = sock.recv(1024)
-            # Serialization type of the response is same as sent data.
-            res = MessagePack.unpack(raw_data)
 
-            if res['ack'] != option['seq']
-              # Some errors may have occured when ack and seq are different, so send the chunk again.
-              raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
+            # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+            # In this case, the node is available and successfully close connection without sending responses.
+            # ForwardInput is not expected to do so, but some alternatives may do so.
+            # Therefore do not send the chunk again.
+            unless raw_data.empty?
+              # Serialization type of the response is same as sent data.
+              res = MessagePack.unpack(raw_data)
+
+              if res['ack'] != option['seq']
+                # Some errors may have occured when ack and seq are different, so send the chunk again.
+                raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
+              end
             end
 
           else
