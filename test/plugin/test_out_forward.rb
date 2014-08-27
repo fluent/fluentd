@@ -99,8 +99,9 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 1},
       {"a" => 2}
     ]
-    d.expected_emits_length = records.length
-    # TODO: set when d.run ends
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
 
     target_input_driver.run do
       d.run do
@@ -129,8 +130,9 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 1},
       {"a" => 2}
     ]
-    d.expected_emits_length = records.length
-    # TODO: set when d.run ends
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
 
     target_input_driver.run do
       d.run do
@@ -164,8 +166,9 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 1},
       {"a" => 2}
     ]
-    d.expected_emits_length = records.length
-    # TODO: set when d.run ends
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
 
     target_input_driver.run do
       d.run do
@@ -200,8 +203,9 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 1},
       {"a" => 2}
     ]
-    d.expected_emits_length = records.length
-    # TODO: set when d.run ends
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
 
     target_input_driver.run do
       d.run do
