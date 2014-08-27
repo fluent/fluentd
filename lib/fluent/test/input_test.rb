@@ -75,17 +75,17 @@ module Fluent
         all
       end
 
-      def register_run_post_condition(proc)
-        if proc.respond_to?(:call)
+      def register_run_post_condition(&block)
+        if block
           @run_post_conditions ||= []
-          @run_post_conditions << proc
+          @run_post_conditions << block
         end
       end
 
-      def register_run_breaking_condition(proc)
-        if proc.respond_to?(:call)
+      def register_run_breaking_condition(&block)
+        if block
           @run_breaking_conditions ||= []
-          @run_breaking_conditions << proc
+          @run_breaking_conditions << block
         end
       end
 
@@ -118,11 +118,17 @@ module Fluent
             # Events of expected length will be emitted at the end.
             max_length = @expected_emits_length
             max_length ||= @expects.length if @expects
-            register_run_post_condition(lambda { i == max_length }) if max_length
+            if max_length
+              register_run_post_condition do
+                i == max_length
+              end
+            end
 
             # Set runnning timeout to avoid infinite loop caused by some errors.
             started_at = Time.now
-            register_run_breaking_condition(lambda { Time.now >= started_at + @run_timeout })
+            register_run_breaking_condition do
+              Time.now >= started_at + @run_timeout
+            end
 
             until run_should_stop?
               if j >= @emit_streams.length
