@@ -22,10 +22,11 @@ module Fluent
     end
 
     def filter_stream(tag, es)
+      new_es = MultiEventStream.new
       es.each { |time, record|
-        filter(tag, time, record)
+        new_es.add(time, filter(tag, time, record))
       }
-      es
+      new_es
     end
   end
 end
