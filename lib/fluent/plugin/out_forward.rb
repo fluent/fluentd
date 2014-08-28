@@ -15,6 +15,12 @@
 #
 
 module Fluent
+  class ForwardOutputError < StandardError
+  end
+
+  class ForwardOutputResponseError < ForwardOutputError
+  end
+
   class ForwardOutput < ObjectBufferedOutput
     Plugin.register_output('forward', self)
 
@@ -43,6 +49,9 @@ module Fluent
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
     config_param :phi_threshold, :integer, :default => 16
     config_param :phi_failure_detector, :bool, :default => true
+    config_param :extend_internal_protocol, :bool, :default => false
+    config_param :require_ack_response, :bool, :default => false  # require in_forward to respond with ack
+    config_param :ack_response_timeout, :time, :default => 0  # 0 means do not wait for ack responses
     attr_reader :nodes
 
     # backward compatibility
@@ -200,8 +209,15 @@ module Fluent
       @weight_array = weight_array
     end
 
-    # MessagePack FixArray length = 2
-    FORWARD_HEADER = [0x92].pack('C')
+    # MessagePack FixArray length = 3 (if @extend_internal_protocol)
+    #                             = 2 (else)
+    def forward_header
+      if @extend_internal_protocol
+        [0x93].pack('C')
+      else
+        [0x92].pack('C')
+      end
+    end
 
     #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
     def send_heartbeat_tcp(node)
@@ -229,7 +245,7 @@ module Fluent
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
         # beginArray(2)
-        sock.write FORWARD_HEADER
+        sock.write forward_header
 
         # writeRaw(tag)
         sock.write tag.to_msgpack  # tag
@@ -250,7 +266,50 @@ module Fluent
         # writeRawBody(packed_es)
         chunk.write_to(sock)
 
+        if @extend_internal_protocol
+          option = {}
+          option['seq'] = chunk.object_id if @require_ack_response
+          sock.write option.to_msgpack
+
+          if @require_ack_response && @ack_response_timeout > 0
+            # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
+            # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
+            # and process them asynchronously.
+            if IO.select([sock], nil, nil, @ack_response_timeout)
+              raw_data = sock.recv(1024)
+
+              # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+              # In this case, the node is available and successfully close connection without sending responses.
+              # ForwardInput is not expected to do so, but some alternatives may do so.
+              # Therefore do not send the chunk again.
+              unless raw_data.empty?
+                # Serialization type of the response is same as sent data.
+                res = MessagePack.unpack(raw_data)
+
+                if res['ack'] != option['seq']
+                  # Some errors may have occured when ack and seq are different, so send the chunk again.
+                  raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
+                end
+              end
+
+            else
+              # IO.select returns nil on timeout.
+              # There are 2 types of cases when no response has been received:
+              # (1) the node does not support sending responses
+              # (2) the node does support sending response but responses have not arrived for some reasons.
+              # It is impossible to distinguish (1) from (2). So, for compatibility
+              # the chunk should not be sent again just because no response has arrived,
+              # because the same chunk will be sent indefinitely in the case (1).
+              # But considering the case (2), regard the node as unavailable and disable it anyway,
+              # unwillingly accepting that the chunk may be lost.
+              @log.warn "no response from #{node.host}:#{node.port}. regard it as unavailable."
+              node.disable!
+            end
+          end
+        end
+
         node.heartbeat(false)
+        return res  # for test
       ensure
         sock.close
       end
@@ -352,6 +411,10 @@ module Fluent
 
       def available?
         @available
+      end
+
+      def disable!
+        @available = false
       end
 
       def standby?
