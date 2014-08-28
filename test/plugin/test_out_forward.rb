@@ -148,7 +148,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_empty d.instance.exceptions
   end
 
-  def test_send_with_opiton_to_a_node_supporting_responses
+  def test_require_a_node_supporting_responses_to_respond_with_ack
     target_input_driver = create_target_input_driver(true)
 
     d = create_driver(CONFIG + %[
@@ -184,7 +184,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_empty d.instance.exceptions
   end
 
-  def test_send_with_opiton_to_a_node_not_supporting_responses
+  def test_require_a_node_not_supporting_responses_to_respond_with_ack
     target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[
