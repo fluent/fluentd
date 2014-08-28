@@ -74,10 +74,18 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_wait_response_timeout_config
     d = create_driver(CONFIG)
-    assert_nil d.instance.wait_response_timeout
+    assert_equal false, d.instance.extend_internal_protocol
+    assert_equal false, d.instance.require_ack_response
+    assert_equal 0, d.instance.ack_response_timeout
 
-    d = create_driver(CONFIG + %[wait_response_timeout 2s])
-    assert_equal 2, d.instance.wait_response_timeout
+    d = create_driver(CONFIG + %[
+      extend_internal_protocol true
+      require_ack_response true
+      ack_response_timeout 2s
+    ])
+    assert d.instance.extend_internal_protocol
+    assert d.instance.require_ack_response
+    assert_equal 2, d.instance.ack_response_timeout
   end
 
   def test_send_to_a_node_supporting_responses
@@ -145,7 +153,9 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
-      wait_response_timeout 1s
+      extend_internal_protocol true
+      require_ack_response true
+      ack_response_timeout 1s
     ])
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
@@ -179,7 +189,9 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
-      wait_response_timeout 1s
+      extend_internal_protocol true
+      require_ack_response true
+      ack_response_timeout 1s
     ])
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
