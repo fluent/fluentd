@@ -19,8 +19,6 @@ module Fluent
 
   require 'fluent/agent'
   require 'fluent/label'
-  #require 'fluentd/collectors/null_collector'
-  #require 'fluentd/collectors/no_match_notice_collector'
 
   #
   # Fluentd forms a tree structure to manage plugins:
@@ -90,15 +88,15 @@ module Fluent
         }
       end
 
-      setup_error_label(error_label_config)
+      setup_error_label(error_label_config) if error_label_config
     end
 
-    def setup_error_label(error_label_config)
+    def setup_error_label(e)
       # initialize built-in ERROR label
-      if error_label_config
-        error_label = add_label(ERROR_LABEL, error_label_config)
-        @error_collector = error_label.event_router
-      end
+      error_label = add_label(ERROR_LABEL, e)
+      error_label.configure(e)
+      error_label.root_agent = RootAgentProxyWithoutErrorCollector.new(self)
+      @error_collector = error_label.event_router
     end
 
     def start
@@ -169,17 +167,40 @@ module Fluent
 
     def handle_emits_error(tag, es, e)
       if @error_collector
-        #@error_collector.emit_stream("error.#{tag}", e)
         @error_collector.emit_stream(tag, es)
       else
         now = Engine.now
-        if @suppress_emit_error_log_interval == 0 || now > @next_emit_error_log_time
+        if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed ", :error_class => e.class, :error => e
           log.warn_backtrace
           # log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
           # log.debug "next emit failure log suppressed"
           # log.debug "next logged time is #{Time.at(@next_emit_error_log_time)}"
+        end
+        raise e
+      end
+    end
+
+    # <label @ERROR> element use RootAgent wrapped by # this RootAgentProxyWithoutErrorCollector.
+    # So that those elements don't send cause infinite loop.
+    class RootAgentProxyWithoutErrorCollector < SimpleDelegator
+      def initialize(root_agent)
+        super
+
+        @suppress_emit_error_log_interval = 0
+        @next_emit_error_log_time = nil
+
+        interval_time = root_agent.instance_variable_get(:@suppress_emit_error_log_interval)
+        suppress_interval(interval_time) unless interval_time.zero?
+      end
+
+      def handle_emits_error(tag, es, e)
+        now = Engine.now
+        if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
+          log.warn "emit transaction failed ", :error_class => e.class, :error => e
+          log.warn_backtrace
+          @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end
         raise e
       end

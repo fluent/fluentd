@@ -138,7 +138,7 @@ module Fluent
 
         events.each {|tag,time,record|
           begin
-            Engine.emit(tag, time, record)
+            @event_router.emit(tag, time, record)
           rescue => e
             $log.error "failed to emit fluentd's log event", :tag => tag, :event => record, :error_class => e.class, :error => e
           end
