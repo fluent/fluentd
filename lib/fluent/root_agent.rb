@@ -56,6 +56,9 @@ module Fluent
       @without_source = opts[:without_source] if opts[:without_source]
     end
 
+    attr_reader :inputs
+    attr_reader :labels
+
     def configure(conf)
       super
 

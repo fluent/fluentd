@@ -42,6 +42,8 @@ module Fluent
     end
 
     attr_reader :log
+    attr_reader :outputs
+    attr_reader :context
     attr_reader :event_router
     attr_reader :error_collector
 

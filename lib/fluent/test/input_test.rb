@@ -79,6 +79,9 @@ module Fluent
         Engine.define_singleton_method(:emit_stream) {|tag,es|
           m.call(tag, es)
         }
+        instance.router.define_singleton_method(:emit_stream) {|tag,es|
+          m.call(tag, es)
+        }
         super {
           block.call if block
 

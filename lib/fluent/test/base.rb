@@ -31,6 +31,7 @@ module Fluent
         else
           @instance = klass
         end
+        @instance.router = Engine.root_agent.event_router
         @instance.log = TestLogger.new
 
         @config = Config.new
