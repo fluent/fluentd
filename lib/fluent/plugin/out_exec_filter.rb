@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/exec_util'
+require 'open3'
 
 module Fluent
   class ExecFilterOutput < BufferedOutput
@@ -235,6 +236,9 @@ module Fluent
       def initialize(parser, respawns=0, log = $log)
         @pid = nil
         @thread = nil
+        @thr_err = nil
+        @thr_child = nil
+        @io_in = @io_out = @io_err = nil
         @parser = parser
         @respawns = respawns
         @mutex = Mutex.new
@@ -245,10 +249,11 @@ module Fluent
       def start(command)
         @command = command
         @mutex.synchronize do
-          @io = IO.popen(command, "r+")
-          @pid = @io.pid
-          @io.sync = true
+          @io_in, @io_out, @io_err, @thr_child = Open3.popen3(@command)
+          @pid = @thr_child.pid
+          @io_in.sync = @io_out.sync = @io_err.sync = true
           @thread = Thread.new(&method(:run))
+          @thr_err = Thread.new(&method(:log_error))
         end
         @finished = false
       end
@@ -260,16 +265,22 @@ module Fluent
           # Errno::ESRCH 'No such process', ignore
           # child process killed by signal chained from fluentd process
         end
-        if @thread.join(join_wait)
-          # @thread successfully shutdown
-          return
+        begin
+          if @thread.join(join_wait) && @thr_child.join(join_wait) && @thr_err.join(join_wait)
+            # @thread successfully shutdown
+            return
+          end
+        rescue
+          # ignore exception when join.
         end
         begin
           Process.kill(:KILL, @pid)
         rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
           # ignore if successfully killed by :TERM
         end
-        @thread.join
+        begin; @thread.join; rescue; end # ignore exception on join
+        begin; @thr_err.join; rescue; end # ignore exception on join
+        @thr_child.join
       end
 
       def shutdown
@@ -281,7 +292,7 @@ module Fluent
 
       def write(chunk)
         begin
-          chunk.write_to(@io)
+          chunk.write_to(@io_in)
         rescue Errno::EPIPE => e
           # Broken pipe (child process unexpectedly exited)
           @log.warn "exec_filter Broken pipe, child process maybe exited.", :command => @command
@@ -300,10 +311,11 @@ module Fluent
 
           kill_child(5) # TODO wait time
 
-          @io = IO.popen(@command, "r+")
-          @pid = @io.pid
-          @io.sync = true
+          @io_in, @io_out, @io_err, @thr_child = Open3.popen3(@command)
+          @pid = @thr_child.pid
+          @io_in.sync = @io_out.sync = @io_err.sync = true
           @thread = Thread.new(&method(:run))
+          @thr_err = Thread.new(&method(:log_error))
 
           @respawns -= 1 if @respawns > 0
         end
@@ -312,7 +324,7 @@ module Fluent
       end
 
       def run
-        @parser.call(@io)
+        @parser.call(@io_out)
       rescue
         @log.error "exec_filter thread unexpectedly failed with an error.", :command=>@command, :error=>$!.to_s
         @log.warn_backtrace $!.backtrace
@@ -323,6 +335,12 @@ module Fluent
           unless @respawns == 0
             @log.warn "exec_filter child process will respawn for next input data (respawns #{@respawns})."
           end
+        end
+      end
+
+      def log_error
+        @io_err.each do |line|
+          @log.warn "exec_filter child process error: #{line}"
         end
       end
     end
