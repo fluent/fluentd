@@ -15,30 +15,12 @@
 #
 
 module Fluent
-  class Input
-    include Configurable
-    include PluginId
-    include PluginLoggerMixin
+  class RelabelOutput < Output
+    Plugin.register_output('relabel', self)
 
-    attr_accessor :router
-
-    def initialize
-      super
-    end
-
-    def configure(conf)
-      super
-
-      if label_name = conf['@label']
-        label = Engine.root_agent.find_label(label_name)
-        @router = label.event_router
-      end
-    end
-
-    def start
-    end
-
-    def shutdown
+    def emit(tag, es, chain)
+      router.emit_stream(tag, es)
+      chain.next
     end
   end
 end

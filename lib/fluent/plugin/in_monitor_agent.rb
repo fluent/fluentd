@@ -224,11 +224,17 @@ module Fluent
       array = []
 
       # get all input plugins
-      array.concat Engine.sources
+      array.concat Engine.root_agent.inputs
 
       # get all output plugins
-      Engine.matches.each {|m|
-        MonitorAgentInput.collect_children(m.output, array)
+      Engine.root_agent.outputs.each { |o|
+        MonitorAgentInput.collect_children(o, array)
+      }
+      Engine.root_agent.labels.each { |name, l|
+        # TODO: Add label name to outputs for identifing plugins
+        l.outputs.each { |o|
+          MonitorAgentInput.collect_children(o, array)
+        }
       }
 
       array

@@ -78,7 +78,7 @@ module Fluent
       if entries.class == String
         # PackedForward
         es = MessagePackEventStream.new(entries)
-        Engine.emit_stream(tag, es)
+        router.emit_stream(tag, es)
 
       elsif entries.class == Array
         # Forward
@@ -90,7 +90,7 @@ module Fluent
           time = (now ||= Engine.now) if time == 0
           es.add(time, record)
         }
-        Engine.emit_stream(tag, es)
+        router.emit_stream(tag, es)
 
       else
         # Message
@@ -99,7 +99,7 @@ module Fluent
 
         time = msg[1]
         time = Engine.now if time == 0
-        Engine.emit(tag, time, record)
+        router.emit(tag, time, record)
       end
     end
 

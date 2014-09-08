@@ -344,8 +344,7 @@ module Fluent
         tag = @tag
       end
 
-      Engine.emit(tag, time, record)
-
+      router.emit(tag, time, record)
     rescue
       if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time
         log.error "exec_filter failed to emit", :error=>$!.to_s, :error_class=>$!.class.to_s, :record=>Yajl.dump(record)
