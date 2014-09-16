@@ -50,7 +50,9 @@ module Fluent
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
     config_param :phi_threshold, :integer, :default => 16
     config_param :phi_failure_detector, :bool, :default => true
-    config_param :extend_internal_protocol, :bool, :default => false
+
+    # if any options added that requires extended forward api, fix @extend_internal_protocol
+
     config_param :require_ack_response, :bool, :default => false  # require in_forward to respond with ack
     config_param :ack_response_timeout, :time, :default => 0  # 0 means do not wait for ack responses
     attr_reader :nodes
@@ -58,6 +60,8 @@ module Fluent
     # backward compatibility
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
     config_param :host, :string, :default => nil
+
+    attr_accessor :extend_internal_protocol
 
     def configure(conf)
       super
@@ -74,6 +78,12 @@ module Fluent
 
       recover_sample_size = @recover_wait / @heartbeat_interval
 
+      # add options here if any options addes which uses extended protocol
+      @extend_internal_protocol = if @require_ack_response
+                                    true
+                                  else
+                                    false
+                                  end
       conf.elements.each {|e|
         next if e.name != "server"
 
