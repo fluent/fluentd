@@ -79,7 +79,6 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 190, d.instance.ack_response_timeout
 
     d = create_driver(CONFIG + %[
-      extend_internal_protocol true
       require_ack_response true
       ack_response_timeout 2s
     ])
@@ -155,7 +154,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
-      extend_internal_protocol true
       require_ack_response true
       ack_response_timeout 1s
     ])
@@ -192,7 +190,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
-      extend_internal_protocol true
       require_ack_response true
       ack_response_timeout 1s
     ])
@@ -222,8 +219,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     node = d.instance.nodes.first
     assert_equal false, node.available # node is regarded as unavailable when timeout
 
-    assert_equal [nil], d.instance.responses # a nil response when timeout
-    assert_empty d.instance.exceptions
+    assert_empty d.instance.responses # send_data() raises exception, so response is missing
+    assert_equal 1, d.instance.exceptions.size
   end
 
   def create_target_input_driver(do_respond=false, conf=TARGET_CONFIG)

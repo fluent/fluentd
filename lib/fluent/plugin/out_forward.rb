@@ -21,6 +21,9 @@ module Fluent
   class ForwardOutputResponseError < ForwardOutputError
   end
 
+  class ForwardOutputACKTimeoutError < ForwardOutputResponseError
+  end
+
   class ForwardOutput < ObjectBufferedOutput
     Plugin.register_output('forward', self)
 
@@ -311,13 +314,9 @@ module Fluent
               # There are 2 types of cases when no response has been received:
               # (1) the node does not support sending responses
               # (2) the node does support sending response but responses have not arrived for some reasons.
-              # It is impossible to distinguish (1) from (2). So, for compatibility
-              # the chunk should not be sent again just because no response has arrived,
-              # because the same chunk will be sent indefinitely in the case (1).
-              # But considering the case (2), regard the node as unavailable and disable it anyway,
-              # unwillingly accepting that the chunk may be lost.
               @log.warn "no response from #{node.host}:#{node.port}. regard it as unavailable."
               node.disable!
+              raise ForwardOutputACKTimeoutError, "node #{node.host}:#{node.port} does not return ACK"
             end
           end
         end
