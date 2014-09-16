@@ -76,7 +76,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     d = create_driver(CONFIG)
     assert_equal false, d.instance.extend_internal_protocol
     assert_equal false, d.instance.require_ack_response
-    assert_equal 0, d.instance.ack_response_timeout
+    assert_equal 190, d.instance.ack_response_timeout
 
     d = create_driver(CONFIG + %[
       extend_internal_protocol true

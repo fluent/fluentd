@@ -54,7 +54,10 @@ module Fluent
     # if any options added that requires extended forward api, fix @extend_internal_protocol
 
     config_param :require_ack_response, :bool, :default => false  # require in_forward to respond with ack
-    config_param :ack_response_timeout, :time, :default => 0  # 0 means do not wait for ack responses
+    config_param :ack_response_timeout, :time, :default => 190  # 0 means do not wait for ack responses
+    # Linux default tcp_syn_retries is 5 (in many environment)
+    # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
+
     attr_reader :nodes
 
     # backward compatibility
