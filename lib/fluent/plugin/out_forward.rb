@@ -26,6 +26,7 @@ module Fluent
 
     def initialize
       super
+      require "base64"
       require 'socket'
       require 'fileutils'
       require 'fluent/plugin/socket_util'
@@ -268,7 +269,7 @@ module Fluent
 
         if @extend_internal_protocol
           option = {}
-          option['seq'] = chunk.object_id if @require_ack_response
+          option['chunk'] = Base64.encode64(chunk.unique_id) if @require_ack_response
           sock.write option.to_msgpack
 
           if @require_ack_response && @ack_response_timeout > 0
@@ -286,9 +287,9 @@ module Fluent
                 # Serialization type of the response is same as sent data.
                 res = MessagePack.unpack(raw_data)
 
-                if res['ack'] != option['seq']
-                  # Some errors may have occured when ack and seq are different, so send the chunk again.
-                  raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
+                if res['ack'] != option['chunk']
+                  # Some errors may have occured when ack and chunk id is different, so send the chunk again.
+                  raise ForwardOutputResponseError, "ack in response and chunk id in sent data are different"
                 end
               end
 

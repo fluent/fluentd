@@ -1,5 +1,6 @@
 require 'helper'
 require 'fluent/test'
+require 'base64'
 
 class ForwardInputTest < Test::Unit::TestCase
   def setup
@@ -214,8 +215,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       events.each {|tag,time,record|
-        op = { 'seq' => record.object_id }
-        expected_acks << op['seq']
+        op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
+        expected_acks << op['chunk']
         send_data [tag, time, record, op].to_msgpack, true
       }
     end
@@ -243,8 +244,8 @@ class ForwardInputTest < Test::Unit::TestCase
       events.each {|tag,time,record|
         entries << [time, record]
       }
-      op = { 'seq' => entries.object_id }
-      expected_acks << op['seq']
+      op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
+      expected_acks << op['chunk']
       send_data ["tag1", entries, op].to_msgpack, true
     end
 
@@ -270,8 +271,8 @@ class ForwardInputTest < Test::Unit::TestCase
       events.each {|tag,time,record|
         [time, record].to_msgpack(entries)
       }
-      op = { 'seq' => entries.object_id }
-      expected_acks << op['seq']
+      op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
+      expected_acks << op['chunk']
       send_data ["tag1", entries, op].to_msgpack, true
     end
 
@@ -294,8 +295,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       events.each {|tag,time,record|
-        op = { 'seq' => record.object_id }
-        expected_acks << op['seq']
+        op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
+        expected_acks << op['chunk']
         send_data [tag, time, record, op].to_json, true
       }
     end
