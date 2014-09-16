@@ -280,7 +280,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         @thread.kill
         @thread.join
       end
-    }.configure(conf)
+    }.configure(conf).inject_router()
   end
 
   class DummyEngineDriver < Fluent::Test::TestDriver
@@ -291,6 +291,11 @@ class ForwardOutputTest < Test::Unit::TestCase
       # To avoid accessing Fluent::Engine, set Engine as a plugin's class constant (Fluent::SomePlugin::Engine).
       # But this makes it impossible to run tests concurrently by threading in a process.
       @klass.const_set(:Engine, @engine)
+    end
+
+    def inject_router
+      @instance.router = @engine
+      self
     end
 
     def run(&block)
