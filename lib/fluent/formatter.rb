@@ -28,6 +28,7 @@ module Fluent
           config_param :include_tag_key, :bool, :default => false
           config_param :tag_key, :string, :default => 'tag'
           config_param :localtime, :bool, :default => true
+          config_param :timezone, :string, :default => nil
         }
       end
 
@@ -37,7 +38,7 @@ module Fluent
         if conf['utc']
           @localtime = false
         end
-        @timef = TimeFormatter.new(@time_format, @localtime)
+        @timef = TimeFormatter.new(@time_format, @localtime, @timezone)
       end
 
       def filter_record(tag, time, record)

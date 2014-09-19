@@ -63,6 +63,41 @@ class FileOutputTest < Test::Unit::TestCase
     d.run
   end
 
+  def test_timezone_1
+    d = create_driver %[
+      path #{TMP_DIR}/out_file_test
+      timezone Asia/Taipei
+    ]
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.emit({"a"=>1}, time)
+    d.expect_format %[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]
+    d.run
+  end
+
+  def test_timezone_2
+    d = create_driver %[
+      path #{TMP_DIR}/out_file_test
+      timezone -03:30
+    ]
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.emit({"a"=>1}, time)
+    d.expect_format %[2011-01-02T09:44:15-03:30\ttest\t{"a":1}\n]
+    d.run
+  end
+
+  def test_timezone_invalid
+    assert_raise(Fluent::ConfigError) do
+      create_driver %[
+        path #{TMP_DIR}/out_file_test
+        timezone Invalid/Invalid
+      ]
+    end
+  end
+
   def check_gzipped_result(path, expect)
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520

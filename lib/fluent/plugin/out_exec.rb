@@ -58,7 +58,7 @@ module Fluent
 
       if @time_key
         if @time_format
-          tf = TimeFormatter.new(@time_format, @localtime)
+          tf = TimeFormatter.new(@time_format, @localtime, @timezone)
           @time_format_proc = tf.method(:format)
         else
           @time_format_proc = Proc.new { |time| time.to_s }

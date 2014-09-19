@@ -453,6 +453,8 @@ module Fluent
 
 
   class TimeSlicedOutput < BufferedOutput
+    require 'fluent/timezone'
+
     def initialize
       super
       @localtime = true
@@ -461,6 +463,7 @@ module Fluent
 
     config_param :time_slice_format, :string, :default => '%Y%m%d'
     config_param :time_slice_wait, :time, :default => 10*60
+    config_param :timezone, :string, :default => nil
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
     config_set_default :flush_interval, nil
@@ -470,14 +473,20 @@ module Fluent
     def configure(conf)
       super
 
-      # TODO timezone
       if conf['utc']
         @localtime = false
       elsif conf['localtime']
         @localtime = true
       end
 
-      if @localtime
+      if conf['timezone']
+        @timezone = conf['timezone']
+        Fluent::Timezone.validate!(@timezone)
+      end
+
+      if @timezone
+        @time_slicer = Timezone.formatter(@timezone, @time_slice_format)
+      elsif @localtime
         @time_slicer = Proc.new {|time|
           Time.at(time).strftime(@time_slice_format)
         }

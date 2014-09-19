@@ -24,6 +24,8 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("cool.io", [">= 1.1.1", "!= 1.2.0", "< 2.0.0"])
   gem.add_runtime_dependency("http_parser.rb", [">= 0.5.1", "< 0.7.0"])
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
+  gem.add_runtime_dependency("tzinfo", [">= 1.0.0"])
+  gem.add_runtime_dependency("tzinfo-data", [">= 1.0.0"])
 
   gem.add_development_dependency("rake", [">= 0.9.2"])
   gem.add_development_dependency("flexmock")
