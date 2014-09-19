@@ -53,6 +53,10 @@ module Fluent
         @localtime = false
       end
 
+      if conf['timezone']
+        @timezone = conf['timezone']
+      end
+
       if !@tag && !@tag_key
         raise ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end

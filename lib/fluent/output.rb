@@ -467,23 +467,32 @@ module Fluent
 
     config_param :time_slice_format, :string, :default => '%Y%m%d'
     config_param :time_slice_wait, :time, :default => 10*60
+    config_param :timezone, :string, :default => nil
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
     config_set_default :flush_interval, nil
 
     attr_accessor :localtime
+    attr_accessor :timezone
 
     def configure(conf)
       super
 
-      # TODO timezone
       if conf['utc']
         @localtime = false
       elsif conf['localtime']
         @localtime = true
       end
 
-      if @localtime
+      if conf['timezone']
+        @timezone = conf['timezone']
+      end
+
+      if @timezone
+        @time_slicer = Proc.new {|time|
+          Time.at(time).localtime(@timezone).strftime(@time_slice_format)
+        }
+      elsif @localtime
         @time_slicer = Proc.new {|time|
           Time.at(time).strftime(@time_slice_format)
         }
