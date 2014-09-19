@@ -21,6 +21,7 @@ module Fluent
     def initialize
       super
       require 'fluent/plugin/exec_util'
+      require 'fluent/timezone'
     end
 
     SUPPORTED_FORMAT = {
@@ -51,6 +52,11 @@ module Fluent
         @localtime = true
       elsif utc = conf['utc']
         @localtime = false
+      end
+
+      if conf['timezone']
+        @timezone = conf['timezone']
+        Fluent::Timezone.validate!(@timezone)
       end
 
       if !@tag && !@tag_key
