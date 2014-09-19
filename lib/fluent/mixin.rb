@@ -16,11 +16,20 @@
 
 module Fluent
   class TimeFormatter
-    def initialize(format, localtime)
+    require 'fluent/timezone'
+
+    def initialize(format, localtime, timezone = nil)
       @tc1 = 0
       @tc1_str = nil
       @tc2 = 0
       @tc2_str = nil
+
+      if formatter = Fluent::Timezone.formatter(timezone, format)
+        define_singleton_method(:format_nocache) {|time|
+          formatter.call(time)
+        }
+        return
+      end
 
       if format
         if localtime
@@ -112,9 +121,10 @@ module Fluent
   end
 
   module SetTimeKeyMixin
+    require 'fluent/timezone'
     include RecordFilterMixin
 
-    attr_accessor :include_time_key, :time_key, :localtime
+    attr_accessor :include_time_key, :time_key, :localtime, :timezone
 
     def configure(conf)
       @include_time_key = false
@@ -138,7 +148,12 @@ module Fluent
           @localtime = false
         end
 
-        @timef = TimeFormatter.new(@time_format, @localtime)
+        if conf['timezone']
+          @timezone = conf['timezone']
+          Fluent::Timezone.validate!(@timezone)
+        end
+
+        @timef = TimeFormatter.new(@time_format, @localtime, @timezone)
       end
     end
 
