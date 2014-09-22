@@ -240,7 +240,7 @@ class HttpInputTest < Test::Unit::TestCase
           req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive", "content-type" => "application/json"})
           res = http.request(req)
 
-          req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive"})
+          req = Net::HTTP::Get.new("/foodb/bartbl", {"connection" => "keepalive"})
           res = http.request(req)
         end
 
