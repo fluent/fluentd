@@ -84,6 +84,10 @@ op.on('--use-v1-config', "Use v1 configuration format", TrueClass) {|b|
   opts[:use_v1_config] = b
 }
 
+op.on('--use-v0-config', "Use v0 configuration format (default)", TrueClass) {|b|
+  opts[:use_v1_config] = !b
+}
+
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
     opts[:log_level] = [opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max
