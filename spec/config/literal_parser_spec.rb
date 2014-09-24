@@ -134,6 +134,20 @@ describe Fluent::Config::LiteralParser do
     # empty
     it { expect('').to be_parsed_as(nil) }
 
+    it { expect('\\"').to be_parsed_as("\\\"") }
+    it { expect('\\t').to be_parsed_as("\\t") }
+    it { expect('\\n').to be_parsed_as("\\n") }
+    it { expect('\\r\\n').to be_parsed_as("\\r\\n") }
+    it { expect('\\f\\b').to be_parsed_as("\\f\\b") }
+    it { expect('\\.t').to be_parsed_as("\\.t") }
+    it { expect('\\$t').to be_parsed_as("\\$t") }
+    it { expect('\\#t').to be_parsed_as("\\") } # comment out
+    it { expect('\\z').to be_parsed_as("\\z") }
+    it { expect('\\0').to be_parsed_as("\\0") }
+    it { expect('\\1').to be_parsed_as("\\1") }
+    it { expect('\\#{test}').to be_parsed_as("\\") } # comment out
+    it { expect('\[').to be_parsed_as("\\[") }
+
     it { expect('t').to be_parsed_as('t') }
     it { expect('T').to be_parsed_as('T') }
     it { expect('_').to be_parsed_as('_') }
