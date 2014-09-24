@@ -459,6 +459,8 @@ module Fluent
 
 
   class TimeSlicedOutput < BufferedOutput
+    require 'fluent/timezone'
+
     def initialize
       super
       @localtime = true
@@ -473,7 +475,7 @@ module Fluent
     config_set_default :flush_interval, nil
 
     attr_accessor :localtime
-    attr_accessor :timezone
+    attr_accessor :timezone, :timezone_offset
 
     def configure(conf)
       super
@@ -485,12 +487,13 @@ module Fluent
       end
 
       if conf['timezone']
-        @timezone = conf['timezone']
+        @timezone        = conf['timezone']
+        @timezone_offset = Fluent::TimeZone.offset(@timezone)
       end
 
-      if @timezone
+      if @timezone_offset
         @time_slicer = Proc.new {|time|
-          Time.at(time).localtime(@timezone).strftime(@time_slice_format)
+          Time.at(time).localtime(@timezone_offset).strftime(@time_slice_format)
         }
       elsif @localtime
         @time_slicer = Proc.new {|time|
