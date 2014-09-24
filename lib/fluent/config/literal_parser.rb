@@ -113,9 +113,7 @@ module Fluent
 
         string = []
         while true
-          if s = scan(/\\./)
-            string << eval_escape_char(s[1,1])
-          elsif s = scan(charset)
+          if s = scan(charset)
             string << s
           else
             break
