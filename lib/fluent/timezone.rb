@@ -22,50 +22,37 @@ module Fluent
   class TimeZone
     class << TimeZone
       #
-      # Additional time zone abbreviations which are not listed in time.rb of
-      # Ruby source tree.
-      #
-      ZoneOffset = {
-        'JST' => 32400
-      }
-
-      #
       # Get the offset of the specified time zone in seconds.
       #
-      # Accepted formats are as follows.
+      # Accepted formats are as follows. Note that time zone abbreviations
+      # such as PST and JST are not supported intentionally.
       #
-      #   1. +HH:MM, -HH:MM  (e.g. "+09:00")
-      #   2. Some time zone abbreviations  (e.g. "JST")
-      #   3. Region/Zone  (e.g. "Asia/Tokyo")
+      #   1. [+-]HH:MM    (e.g. "+09:00")
+      #   2. [+-]HHMM     (e.g. "+0900")
+      #   3. [+-]HH       (e.g. "+09")
+      #   4. Region/Zone  (e.g. "Asia/Tokyo")
       #
-      # When the given time zone is unknown or nil, nil is returned.
+      # When the specified time zone is unknown or nil, nil is returned.
       #
       def offset(timezone)
-        if timezone == nil
-          return nil
+        # [+-]HH:MM, [+-]HH
+        if %r{\A[+-]\d\d(:?\d\d)?\z} =~ timezone
+          return Time.zone_offset(timezone)
         end
 
-        # First, try to get the offset of the specified time zone using
-        # Time.zone_offset method. This method understands [+-]HH:MM format
-        # and some time zone abbreviations listed in Time.ZoneOffset.
-        # See "lib/time.rb" in Ruby source tree for details.
-        offset = Time.zone_offset(timezone)
-        if offset != nil
-          return offset
+        # Region/Zone
+        if %r{\A[^/]+/[^/]+\z} =~ timezone
+          begin
+            # Get the offset using TZInfo library.
+            return TZInfo::Timezone.get(timezone).current_period.offset.utc_total_offset
+          rescue
+            # The specified time zone is unknown.
+            return nil
+          end
         end
 
-        # Second, check the additional time zone abbreviations.
-        if ZoneOffset.include?(timezone)
-          return ZoneOffset[timezone]
-        end
-
-        begin
-          # Get the offset using TZInfo library.
-          return TZInfo::Timezone.get(timezone).current_period.offset.utc_total_offset
-        rescue
-          # The specified time zone is unknown.
-          return nil
-        end
+        # The specified time zone is unknown or nil.
+        return nil
       end
     end
   end
