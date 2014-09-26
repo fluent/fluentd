@@ -29,6 +29,15 @@ module FormatterTest
     {'message' => 'awesome'}
   end
 
+  def set_tz(tz)
+    @old_tz = ENV['TZ']
+    ENV['TZ'] = tz
+  end
+
+  def restore_tz
+    ENV['TZ'] = @old_tz
+  end
+
   class OutFileFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
@@ -214,6 +223,183 @@ module FormatterTest
       assert_nothing_raised ConfigError do
         TextFormatter::TEMPLATE_REGISTRY.lookup('known')
       end
+    end
+  end
+
+  class TimeFormatterTest < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def setup
+      @time = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
+      @fmt  = "%Y%m%d %H%M%z"  # YYYYMMDD HHMM[+-]HHMM
+    end
+
+    def format(format, localtime, timezone)
+      formatter = Fluent::TimeFormatter.new(format, localtime, timezone)
+      formatter.format(@time)
+    end
+
+    def test_default_utc_nil
+      assert_equal("2014-09-27T00:00:00Z", format(nil, false, nil))
+    end
+
+    def test_default_utc_pHH_MM
+      assert_equal("2014-09-27T01:30:00+01:30", format(nil, false, "+01:30"))
+    end
+
+    def test_default_utc_nHH_MM
+      assert_equal("2014-09-26T22:30:00-01:30", format(nil, false, "-01:30"))
+    end
+
+    def test_default_utc_pHHMM
+      assert_equal("2014-09-27T02:30:00+02:30", format(nil, false, "+0230"))
+    end
+
+    def test_default_utc_nHHMM
+      assert_equal("2014-09-26T21:30:00-02:30", format(nil, false, "-0230"))
+    end
+
+    def test_default_utc_pHH
+      assert_equal("2014-09-27T03:00:00+03:00", format(nil, false, "+03"))
+    end
+
+    def test_default_utc_nHH
+      assert_equal("2014-09-26T21:00:00-03:00", format(nil, false, "-03"))
+    end
+
+    def test_default_utc_timezone_1
+      # Asia/Tokyo (+09:00) does not have daylight saving time.
+      assert_equal("2014-09-27T09:00:00+09:00", format(nil, false, "Asia/Tokyo"))
+    end
+
+    def test_default_utc_timezone_2
+      # Pacific/Honolulu (-10:00) does not have daylight saving time.
+      assert_equal("2014-09-26T14:00:00-10:00", format(nil, false, "Pacific/Honolulu"))
+    end
+
+    def test_default_utc_invalid
+      assert_equal("2014-09-27T00:00:00Z", format(nil, false, "Invalid"))
+    end
+
+    def test_default_localtime_nil_1
+      set_tz("UTC-04")
+      assert_equal("2014-09-27T04:00:00+04:00", format(nil, true, nil))
+      restore_tz()
+    end
+
+    def test_default_localtime_nil_2
+      set_tz("UTC+05")
+      assert_equal("2014-09-26T19:00:00-05:00", format(nil, true, nil))
+      restore_tz()
+    end
+
+    def test_default_localtime_timezone
+      # 'timezone' takes precedence over 'localtime'.
+      set_tz("UTC-06")
+      assert_equal("2014-09-27T07:00:00+07:00", format(nil, true, "+07"))
+      restore_tz()
+    end
+
+    def test_specific_utc_nil
+      assert_equal("20140927 0000+0000", format(@fmt, false, nil))
+    end
+
+    def test_specific_utc_pHH_MM
+      assert_equal("20140927 0830+0830", format(@fmt, false, "+08:30"))
+    end
+
+    def test_specific_utc_nHH_MM
+      assert_equal("20140926 1430-0930", format(@fmt, false, "-09:30"))
+    end
+
+    def test_specific_utc_pHHMM
+      assert_equal("20140927 1030+1030", format(@fmt, false, "+1030"))
+    end
+
+    def test_specific_utc_nHHMM
+      assert_equal("20140926 1230-1130", format(@fmt, false, "-1130"))
+    end
+
+    def test_specific_utc_pHH
+      assert_equal("20140927 1200+1200", format(@fmt, false, "+12"))
+    end
+
+    def test_specific_utc_nHH
+      assert_equal("20140926 1100-1300", format(@fmt, false, "-13"))
+    end
+
+    def test_specific_utc_timezone_1
+      # Europe/Moscow (+04:00) does not have daylight saving time.
+      assert_equal("20140927 0400+0400", format(@fmt, false, "Europe/Moscow"))
+    end
+
+    def test_specific_utc_timezone_2
+      # Pacific/Galapagos (-06:00) does not have daylight saving time.
+      assert_equal("20140926 1800-0600", format(@fmt, false, "Pacific/Galapagos"))
+    end
+
+    def test_specific_utc_invalid
+      assert_equal("20140927 0000+0000", format(@fmt, false, "Invalid"))
+    end
+
+    def test_specific_localtime_nil_1
+      set_tz("UTC-07")
+      assert_equal("20140927 0700+0700", format(@fmt, true, nil))
+      restore_tz()
+    end
+
+    def test_specific_localtime_nil_2
+      set_tz("UTC+08")
+      assert_equal("20140926 1600-0800", format(@fmt, true, nil))
+      restore_tz()
+    end
+
+    def test_specific_localtime_timezone
+      # 'timezone' takes precedence over 'localtime'.
+      set_tz("UTC-09")
+      assert_equal("20140926 1400-1000", format(@fmt, true, "-10"))
+      restore_tz()
+    end
+  end
+
+  class TimeConfigTest < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def setup
+      @formatter = TextFormatter::LabeledTSVFormatter.new
+      @time      = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
+      set_tz("UTC-01")
+    end
+
+    def teardown
+      restore_tz()
+    end
+
+    def format(conf)
+      @formatter.configure({'include_time_key' => true}.merge(conf))
+      formatted = @formatter.format("tag", @time, {})
+      # Drop the leading "time:" and the trailing "\n".
+      formatted[5..-2]
+    end
+
+    def test_none
+      # 'localtime' is true by default.
+      assert_equal("2014-09-27T01:00:00+01:00", format({}))
+    end
+
+    def test_utc
+      # 'utc' takes precedence over 'localtime'.
+      assert_equal("2014-09-27T00:00:00Z", format("utc" => true))
+    end
+
+    def test_timezone
+      # 'timezone' takes precedence over 'localtime'.
+      assert_equal("2014-09-27T02:00:00+02:00", format("timezone" => "+02"))
+    end
+
+    def test_utc_timezone
+      # 'timezone' takes precedence over 'utc'.
+      assert_equal("2014-09-27T09:00:00+09:00", format("utc" => true, "timezone" => "Asia/Tokyo"))
     end
   end
 end
