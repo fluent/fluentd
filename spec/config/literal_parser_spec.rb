@@ -2,6 +2,7 @@ require "config/helper"
 require "fluent/config/error"
 require "fluent/config/literal_parser"
 require "fluent/config/v1_parser"
+require 'json'
 
 describe Fluent::Config::LiteralParser do
   include_context 'config_helper'
@@ -75,7 +76,7 @@ describe Fluent::Config::LiteralParser do
     it { expect('-InfinityX').to be_parsed_as("-InfinityX") }
   end
 
-  describe 'quoted string' do
+  describe 'double quoted string' do
     it { expect('""').to be_parsed_as("") }
     it { expect('"text"').to be_parsed_as("text") }
     it { expect('"\\""').to be_parsed_as("\"") }
@@ -98,6 +99,35 @@ describe Fluent::Config::LiteralParser do
     it { expect('"$"').to be_parsed_as('$') }
     it { expect('"$t"').to be_parsed_as('$t') }
     it { expect('"$}"').to be_parsed_as('$}') }
+    it { expect('"\\\\"').to be_parsed_as("\\") }
+    it { expect('"\\["').to be_parsed_as("[") }
+  end
+
+  describe 'single quoted string' do
+    it { expect("''").to be_parsed_as("") }
+    it { expect("'text'").to be_parsed_as("text") }
+    it { expect("'\\''").to be_parsed_as('\'') }
+    it { expect("'\\t'").to be_parsed_as('\t') }
+    it { expect("'\\n'").to be_parsed_as('\n') }
+    it { expect("'\\r\\n'").to be_parsed_as('\r\n') }
+    it { expect("'\\f\\b'").to be_parsed_as('\f\b') }
+    it { expect("'\\.t'").to be_parsed_as('\.t') }
+    it { expect("'\\$t'").to be_parsed_as('\$t') }
+    it { expect("'\\#t'").to be_parsed_as('\#t') }
+    it { expect("'\\z'").to be_parsed_as('\z') }
+    it { expect("'\\0'").to be_parsed_as('\0') }
+    it { expect("'\\1'").to be_parsed_as('\1') }
+    it { expect("'t").to be_parse_error }  # non-terminated quoted character
+    it { expect("t'").to be_parsed_as("t'") }
+    it { expect("'.'").to be_parsed_as('.') }
+    it { expect("'*'").to be_parsed_as('*') }
+    it { expect("'@'").to be_parsed_as('@') }
+    it { expect(%q['#{test}']).to be_parsed_as('#{test}') }
+    it { expect("'$'").to be_parsed_as('$') }
+    it { expect("'$t'").to be_parsed_as('$t') }
+    it { expect("'$}'").to be_parsed_as('$}') }
+    it { expect("'\\\\'").to be_parsed_as('\\') }
+    it { expect("'\\['").to be_parsed_as('\[') }
   end
 
   describe 'nonquoted string parsing' do
