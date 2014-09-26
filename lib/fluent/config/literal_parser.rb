@@ -64,13 +64,15 @@ module Fluent
 
       def scan_string(string_boundary_charset = LINE_END)
         if skip(/\"/)
-          return scan_quoted_string
+          return scan_double_quoted_string
+        elsif skip(/\'/)
+          return scan_single_quoted_string
         else
           return scan_nonquoted_string(string_boundary_charset)
         end
       end
 
-      def scan_quoted_string
+      def scan_double_quoted_string
         string = []
         while true
           if skip(/\"/)
@@ -83,7 +85,24 @@ module Fluent
           elsif s = scan(/./)
             string << s
           else
-            parse_error! "unexpected end of file in a quoted string"
+            parse_error! "unexpected end of file in a double quoted string"
+          end
+        end
+      end
+
+      def scan_single_quoted_string
+        string = []
+        while true
+          if skip(/\'/)
+            return string.join
+          elsif s = scan(/\\'/)
+            string << "'"
+          elsif s = scan(/\\\\/)
+            string << "\\"
+          elsif s = scan(/./)
+            string << s
+          else
+            parse_error! "unexpected end of file in a signle quoted string"
           end
         end
       end
