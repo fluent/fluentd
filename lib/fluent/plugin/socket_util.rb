@@ -106,13 +106,21 @@ module Fluent
       end
 
       def run
-        @loop.run
+        if support_blocking_timeout?
+          @loop.run(0.5)
+        else
+          @loop.run
+        end
       rescue => e
         log.error "unexpected error", :error => e, :error_class => e.class
         log.error_backtrace
       end
 
       private
+
+      def support_blocking_timeout?
+        @loop.method(:run).arity.nonzero?
+      end
 
       def on_message(msg, addr)
         @parser.parse(msg) { |time, record|
