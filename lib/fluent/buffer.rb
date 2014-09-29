@@ -297,17 +297,18 @@ module Fluent
           write_chunk(chunk, out)
         end
 
-        empty = false
+        queue_empty = false
         @queue.synchronize do
           @queue.delete_if {|c|
             c.object_id == chunk.object_id
           }
-          empty = @queue.empty?
+          queue_empty = @queue.empty?
         end
 
         chunk.purge
 
-        return !empty
+        # return to be flushed once more immediately, or not
+        return !queue_empty
       ensure
         chunk.mon_exit
       end
