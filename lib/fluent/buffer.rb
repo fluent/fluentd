@@ -260,14 +260,14 @@ module Fluent
     # get the chunk specified by key, and push it into queue
     def push(key)
       synchronize do
-        top = @map[key]
-        if !top || top.empty?
+        chunk = @map[key]
+        if !chunk || chunk.empty?
           return false
         end
 
         @queue.synchronize do
-          enqueue(top)
-          @queue << top
+          enqueue(chunk)
+          @queue << chunk
           @map.delete(key)
         end
 
