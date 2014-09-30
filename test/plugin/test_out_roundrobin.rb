@@ -1,3 +1,4 @@
+require 'helper'
 require 'fluent/test'
 
 class RoundRobinOutputTest < Test::Unit::TestCase

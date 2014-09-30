@@ -1,3 +1,4 @@
+require 'helper'
 require 'fluent/test'
 
 class GCStatInputTest < Test::Unit::TestCase

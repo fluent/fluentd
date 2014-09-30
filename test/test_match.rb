@@ -1,5 +1,4 @@
-require File.dirname(__FILE__) + '/helper'
-
+require 'helper'
 require 'fluent/match'
 
 class MatchTest < Test::Unit::TestCase

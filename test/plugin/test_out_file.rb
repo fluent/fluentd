@@ -1,3 +1,4 @@
+require 'helper'
 require 'fluent/test'
 require 'fileutils'
 require 'time'

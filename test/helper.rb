@@ -1,3 +1,14 @@
+# simplecov must be loaded before any of target code
+if ENV['SIMPLE_COV']
+  require 'simplecov'
+  unless SimpleCov.running
+    SimpleCov.start do
+      add_filter '/test/'
+      add_filter '/gems/'
+    end
+  end
+end
+
 require 'test/unit'
 require 'fileutils'
 require 'fluent/log'
