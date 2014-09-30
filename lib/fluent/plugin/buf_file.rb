@@ -26,7 +26,7 @@ module Fluent
       FileUtils.ln_sf(@path, symlink_path) if symlink_path
     end
 
-    attr_reader :unique_id
+    attr_reader :unique_id, :path
 
     def <<(data)
       @file.write(data)
@@ -64,8 +64,6 @@ module Fluent
       yield @file
     end
 
-    attr_reader :path
-
     def mv(path)
       File.rename(@path, path)
       @path = path
@@ -84,6 +82,9 @@ module Fluent
 
     config_param :buffer_path, :string
 
+    # 'symlink_path' is currently only for out_file.
+    # That is the reason why this is not config_param, but attr_accessor.
+    # See: https://github.com/fluent/fluentd/pull/181
     attr_accessor :symlink_path
 
     def configure(conf)
@@ -96,10 +97,10 @@ module Fluent
       end
 
       if pos = @buffer_path.index('*')
-        @buffer_path_prefix = @buffer_path[0,pos]
-        @buffer_path_suffix = @buffer_path[pos+1..-1]
+        @buffer_path_prefix = @buffer_path[0, pos]
+        @buffer_path_suffix = @buffer_path[(pos + 1)..-1]
       else
-        @buffer_path_prefix = @buffer_path+"."
+        @buffer_path_prefix = @buffer_path + "."
         @buffer_path_suffix = ".log"
       end
 
@@ -111,7 +112,7 @@ module Fluent
     end
 
     def start
-      FileUtils.mkdir_p File.dirname(@buffer_path_prefix+"path")
+      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path")
       super
     end
 
@@ -199,7 +200,7 @@ module Fluent
 
     def make_path(encoded_key, bq)
       now = Time.now.utc
-      timestamp = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff))
+      timestamp = ((now.to_i * 1000 * 1000 + now.usec) << 12 | rand(0xfff))
       tsuffix = timestamp.to_s(16)
       path = "#{@buffer_path_prefix}#{encoded_key}.#{bq}#{tsuffix}#{@buffer_path_suffix}"
       return path, tsuffix
