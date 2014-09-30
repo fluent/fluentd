@@ -1,5 +1,5 @@
-require 'fluent/test'
 require 'helper'
+require 'fluent/test'
 
 module StreamOutputTest
   def setup

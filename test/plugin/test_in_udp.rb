@@ -1,5 +1,5 @@
-require 'fluent/test'
 require 'helper'
+require 'fluent/test'
 
 class UdpInputTest < Test::Unit::TestCase
   def setup

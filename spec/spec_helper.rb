@@ -1,11 +1,4 @@
-
-require 'fluent/load'
-require 'fileutils'
-
-src_root = File.expand_path('..', File.dirname(__FILE__))
-$LOAD_PATH << File.join(src_root, "lib")
-$LOAD_PATH << src_root
-
+# simplecov must be loaded any of target code
 if ENV['SIMPLE_COV']
   require 'simplecov'
   if defined?(SimpleCov::SourceFile)
@@ -22,12 +15,20 @@ if ENV['SIMPLE_COV']
       m
     end
   end
-  SimpleCov.start do
-    add_filter 'spec/'
-    add_filter 'pkg/'
-    add_filter 'vendor/'
+  unless SimpleCov.running
+    SimpleCov.start do
+      add_filter '/spec/'
+      add_filter '/gems/'
+    end
   end
 end
+
+require 'fluent/load'
+require 'fileutils'
+
+src_root = File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH << File.join(src_root, "lib")
+$LOAD_PATH << src_root
 
 if ENV['GC_STRESS']
   STDERR.puts "enable GC.stress"
