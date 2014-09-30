@@ -1,5 +1,5 @@
-require 'fluent/test'
 require 'helper'
+require 'fluent/test'
 require 'net/http'
 
 class HttpInputTest < Test::Unit::TestCase

@@ -33,10 +33,10 @@ RSpec::Core::RakeTask.new(:spec) do |t|
   t.verbose = true
 end
 
-desc 'Run rspec with simplecov'
+desc 'Run test and rspec with simplecov'
 task :coverage do |t|
   ENV['SIMPLE_COV'] = '1'
-  Rake::Task["spec"].invoke
+  Rake::Task["test"].invoke
 end
 
 task :default => [:test, :build]

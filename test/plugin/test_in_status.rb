@@ -1,3 +1,4 @@
+require 'helper'
 require 'fluent/test'
 
 class StatusInputTest < Test::Unit::TestCase

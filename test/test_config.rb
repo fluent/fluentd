@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/helper'
+require 'helper'
 require 'fluent/config'
 require 'fluent/config/parser'
 require 'fluent/supervisor'
