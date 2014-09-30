@@ -177,17 +177,13 @@ module Fluent
       key = key.to_s
 
       synchronize do
-        top = (@map[key] ||= new_chunk(key))  # TODO generate unique chunk id
+        # chunk unique id is generated in #new_chunk
+        chunk = (@map[key] ||= new_chunk(key))
 
-        if storable?(top, data)
+        if storable?(chunk, data)
           chain.next
-          top << data
+          chunk << data
           return false
-
-          ## FIXME
-          #elsif data.bytesize > @buffer_chunk_limit
-          #  # TODO
-          #  raise BufferChunkLimitError, "received data too large"
 
         elsif @queue.size >= @buffer_queue_limit
           raise BufferQueueLimitError, "queue size exceeds limit"
@@ -198,9 +194,12 @@ module Fluent
           $log.warn "This may occur problems in the output plugins ``at this server.``"
           $log.warn "To avoid problems, set a smaller number to the buffer_chunk_limit"
           $log.warn "in the forward output ``at the log forwarding server.``"
+          ### TODO
+          # raise BufferChunkLimitError, "received data too large"
         end
 
-        nc = new_chunk(key)  # TODO generate unique chunk id
+        # chunk unique id is generated in #new_chunk
+        nc = new_chunk(key)
         ok = false
 
         begin
@@ -209,13 +208,17 @@ module Fluent
 
           flush_trigger = false
           @queue.synchronize {
-            enqueue(top)
+            enqueue(chunk) # this is buffer enqueue *hook*
             flush_trigger = @queue.empty?
-            @queue << top
+            @queue << chunk # actual enqueue
             @map[key] = nc
           }
 
           ok = true
+          # false: queue have 1 or more chunks before this emit
+          #        so this enqueue is not a trigger to flush
+          # true: queue have no chunks before this emit
+          #       so this enqueue is a trigger to flush this buffer ASAP
           return flush_trigger
         ensure
           nc.purge unless ok
