@@ -44,6 +44,10 @@ module FluentBufferTest
       @size = size
     end
 
+    def <<(data)
+      @size += data.bytesize
+    end
+
     def open(&block)
       StringIO.open(@data, &block)
     end
@@ -128,7 +132,7 @@ module FluentBufferTest
   end
 
   class DummyBuffer < Fluent::BasicBuffer
-    attr_accessor :queue, :map
+    attr_accessor :queue, :map, :enqueue_hook_times
 
     def initialize
       super
@@ -240,7 +244,76 @@ module FluentBufferTest
     end
 
     def test_emit
-      # db.emit(key, data, chain)
+      db = DummyBuffer.new
+      db.configure({})
+      db.start
+
+      chain = DummyChain.new
+
+      assert_equal 8 * 1024 * 1024, db.buffer_chunk_limit
+      assert_equal 256, db.buffer_queue_limit
+
+      assert_equal 0, db.enqueue_hook_times
+
+      s1m = "a" * 1024 * 1024
+
+      d1 = s1m * 4
+      d2 = s1m * 4 #=> 8
+      d3 = s1m * 1 #=> 9, 1
+      d4 = s1m * 6 #=> 7
+      d5 = s1m * 2 #=> 9, 2
+      d6 = s1m * 9 #=> 11, 9
+      d7 = s1m * 9 #=> 18, 9
+      d8 = s1m * 1 #=> 10, 1
+      d9 = s1m * 2 #=> 3
+
+      assert !(db.emit('key', d1, chain)) # stored in new chunk, and queue is empty
+      assert !(db.map['key'].empty?)
+      assert_equal 0, db.queue.size
+      assert_equal 0, db.enqueue_hook_times
+
+      assert !(db.emit('key', d2, chain)) # just storable, not queued yet.
+      assert_equal 0, db.queue.size
+      assert_equal 0, db.enqueue_hook_times
+
+      assert db.emit('key', d3, chain) # not storable, so old chunk is enqueued & new chunk size is 1m and to be flushed
+      assert_equal 1, db.queue.size
+      assert_equal 1, db.enqueue_hook_times
+
+      assert !(db.emit('key', d4, chain)) # stored in chunk
+      assert_equal 1, db.queue.size
+      assert_equal 1, db.enqueue_hook_times
+
+      assert !(db.emit('key', d5, chain)) # not storable, old chunk is enqueued & new chunk size is 2m
+                                          # not to be flushed (queue is not empty)
+      assert_equal 2, db.queue.size
+      assert_equal 2, db.enqueue_hook_times
+
+      db.queue.reject!{|v| true } # flush
+
+      assert db.emit('key', d6, chain) # not storable, old chunk is enqueued
+                                       # new chunk is larger than buffer_chunk_limit
+                                       # to be flushed
+      assert_equal 1, db.queue.size
+      assert_equal 3, db.enqueue_hook_times
+
+      assert !(db.emit('key', d7, chain)) # chunk before emit is already larger than buffer_chunk_limit, so enqueued
+                                          # not to be flushed
+      assert_equal 2, db.queue.size
+      assert_equal 4, db.enqueue_hook_times
+
+      db.queue.reject!{|v| true } # flush
+
+      assert db.emit('key', d8, chain) # chunk before emit is already larger than buffer_chunk_limit, so enqueued
+                                       # to be flushed because just after flushing
+      assert_equal 1, db.queue_size
+      assert_equal 5, db.enqueue_hook_times
+
+      db.queue.reject!{|v| true } # flush
+
+      assert !(db.emit('key', d9, chain)) # stored in chunk
+      assert_equal 0, db.queue_size
+      assert_equal 5, db.enqueue_hook_times
     end
 
     def test_keys
