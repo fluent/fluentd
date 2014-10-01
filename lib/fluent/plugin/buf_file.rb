@@ -207,6 +207,7 @@ module Fluent
     end
 
     def tsuffix_to_unique_id(tsuffix)
+      # why *2 ? frsyuki said that I forgot why completely.
       tsuffix.scan(/../).map {|x| x.to_i(16) }.pack('C*') * 2
     end
   end
