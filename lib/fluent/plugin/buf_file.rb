@@ -191,11 +191,11 @@ module Fluent
     protected
 
     def encode_key(key)
-      URI.escape(key, /[^-_.a-zA-Z0-9]/n)
+      URI::Parser.new.escape(key, /[^-_.a-zA-Z0-9]/n) # //n switch means explicit 'ASCII-8BIT' pattern
     end
 
     def decode_key(encoded_key)
-      URI.unescape(encoded_key)
+      URI::Parser.new.unescape(encoded_key)
     end
 
     def make_path(encoded_key, bq)
