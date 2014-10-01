@@ -130,8 +130,8 @@ module Fluent
       queues = []
 
       Dir.glob("#{@buffer_path_prefix}*#{@buffer_path_suffix}") {|path|
-        match = path[@buffer_path_prefix.length..-(@buffer_path_suffix.length+1)]
-        if m = PATH_MATCH.match(match)
+        identifier_part = chunk_identifier_in_path(path)
+        if m = PATH_MATCH.match(identifier_part)
           key = decode_key(m[1])
           bq = m[2]
           tsuffix = m[3]
@@ -164,11 +164,18 @@ module Fluent
       return queue, map
     end
 
+    def chunk_identifier_in_path(path)
+      pos_after_prefix = @buffer_path_prefix.length
+      pos_before_suffix = @buffer_path_suffix.length + 1 # from tail of path
+
+      path.slice(pos_after_prefix..-pos_before_suffix)
+    end
+
     def enqueue(chunk)
       path = chunk.path
-      mp = path[@buffer_path_prefix.length..-(@buffer_path_suffix.length+1)]
+      identifier_part = chunk_identifier_in_path(path)
 
-      m = PATH_MATCH.match(mp)
+      m = PATH_MATCH.match(identifier_part)
       encoded_key = m ? m[1] : ""
       tsuffix = m[3]
       npath = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"

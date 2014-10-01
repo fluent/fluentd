@@ -335,6 +335,24 @@ module FluentFileBufferTest
       chunk.close
     end
 
+    def test_chunk_identifier_in_path
+      buf1 = Fluent::FileBuffer.new
+      buf1.configure({'buffer_path' => bufpath('chunkid1')})
+      prefix1 = buf1.instance_eval{ @buffer_path_prefix }
+      suffix1 = buf1.instance_eval{ @buffer_path_suffix }
+
+      chunk1 = buf1.new_chunk('key1')
+      assert_equal chunk1.path, prefix1 + buf1.chunk_identifier_in_path(chunk1.path) + suffix1
+
+      buf2 = Fluent::FileBuffer.new
+      buf2.configure({'buffer_path' => bufpath('chunkid2')})
+      prefix2 = buf2.instance_eval{ @buffer_path_prefix }
+      suffix2 = buf2.instance_eval{ @buffer_path_suffix }
+
+      chunk2 = buf2.new_chunk('key2')
+      assert_equal chunk2.path, prefix2 + buf2.chunk_identifier_in_path(chunk2.path) + suffix2
+    end
+
     def test_enqueue_moves_chunk_from_b_to_q
       buf = Fluent::FileBuffer.new
       buf.configure({'buffer_path' => bufpath('enqueue1')})
