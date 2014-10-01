@@ -117,13 +117,22 @@ module Fluent
     end
 
     def run
-      @loop.run
+      if support_blocking_timeout?
+        @loop.run(0.5)
+      else
+        @loop.run
+      end
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace
     end
 
     protected
+
+    def support_blocking_timeout?
+      @loop.method(:run).arity.nonzero?
+    end
+
     def receive_data_parser(data, addr)
       m = SYSLOG_REGEXP.match(data)
       unless m
