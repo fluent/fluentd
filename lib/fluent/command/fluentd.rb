@@ -70,7 +70,8 @@ op.on('--emit-error-log-interval SECONDS', "suppress interval seconds of emit er
   opts[:suppress_interval] = s.to_i
 }
 
-op.on('--suppress-repeated-stacktrace', "suppress repeated stacktrace", TrueClass) {|b|
+op.on('--suppress-repeated-stacktrace [VALUE]', "suppress repeated stacktrace", TrueClass) {|b|
+  b = true if b.nil?
   opts[:suppress_repeated_stacktrace] = b
 }
 
