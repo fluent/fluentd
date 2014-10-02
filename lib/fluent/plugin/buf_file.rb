@@ -116,7 +116,9 @@ module Fluent
       super
     end
 
-    PATH_MATCH = /^(.*)[\._](b|q)([0-9a-fA-F]{1,32})$/
+    # Dots are separator for many cases:
+    #   we should have to escape dots in keys...
+    PATH_MATCH = /^([-_.%0-9a-zA-Z]+)\.(b|q)([0-9a-fA-F]{1,32})$/
 
     def new_chunk(key)
       encoded_key = encode_key(key)
@@ -197,6 +199,8 @@ module Fluent
 
     protected
 
+    # Dots are separator for many cases:
+    #   we should have to escape dots in keys...
     def encode_key(key)
       URI::Parser.new.escape(key, /[^-_.a-zA-Z0-9]/n) # //n switch means explicit 'ASCII-8BIT' pattern
     end

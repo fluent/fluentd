@@ -513,5 +513,38 @@ module FluentFileBufferTest
       assert_equal "data1\ndata2\n", resumed_chunk1.read
       assert_equal "data3\ndata4\n", resumed_chunk2.read
     end
+
+    class DummyChain
+      def next
+        true
+      end
+    end
+
+    def test_resume_only_for_my_buffer_path
+      chain = DummyChain.new
+
+      buffer_path_for_resume_test_1 = bufpath('resume_fix.1.*.log')
+      buffer_path_for_resume_test_2 = bufpath('resume_fix.*.log')
+
+      buf1 = Fluent::FileBuffer.new
+      buf1.configure({'buffer_path' => buffer_path_for_resume_test_1})
+      buf1.start
+
+      buf1.emit('key1', "x1\ty1\tz1\n", chain)
+      buf1.emit('key1', "x2\ty2\tz2\n", chain)
+
+      assert buf1.instance_eval{ @map['key1'] }
+
+      buf1.shutdown
+
+      buf2 = Fluent::FileBuffer.new
+      buf2.configure({'buffer_path' => buffer_path_for_resume_test_2}) # other buffer_path
+
+      queue, map = buf2.resume
+
+      assert_equal 0, queue.size
+      # TODO: This map size MUST be 0, but actually, 1
+      assert_equal 1, map.size
+    end
   end
 end
