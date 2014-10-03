@@ -157,7 +157,7 @@ class HttpInputTest < Test::Unit::TestCase
 
   def test_with_regexp
     d = create_driver(CONFIG + %[
-      format /^(?<field_1>\\\\d+):(?<field_2>\\\\w+)$/
+      format /^(?<field_1>\\d+):(?<field_2>\\w+)$/
       types field_1:integer
     ])
 
