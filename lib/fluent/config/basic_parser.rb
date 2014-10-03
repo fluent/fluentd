@@ -27,6 +27,7 @@ module Fluent
 
       LINE_END = /(?:[ \t]*(?:\#.*)?(?:\z|[\r\n]))+/
       SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
+      SPACING_WITHOUT_COMMENT = /(?:[ \t\r\n]|\z)+/
 
       module ClassMethods
         def symbol(string)
@@ -76,6 +77,10 @@ module Fluent
 
       def spacing
         skip(SPACING)
+      end
+
+      def spacing_without_comment
+        skip(SPACING_WITHOUT_COMMENT)
       end
 
       def parse_error!(message)

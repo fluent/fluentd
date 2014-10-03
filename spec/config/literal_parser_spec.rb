@@ -131,22 +131,34 @@ describe Fluent::Config::LiteralParser do
   end
 
   describe 'nonquoted string parsing' do
-    # empty
     it { expect('').to be_parsed_as(nil) }
-
-    it { expect('\\"').to be_parsed_as("\\\"") }
-    it { expect('\\t').to be_parsed_as("\\t") }
-    it { expect('\\n').to be_parsed_as("\\n") }
-    it { expect('\\r\\n').to be_parsed_as("\\r\\n") }
-    it { expect('\\f\\b').to be_parsed_as("\\f\\b") }
-    it { expect('\\.t').to be_parsed_as("\\.t") }
-    it { expect('\\$t').to be_parsed_as("\\$t") }
-    it { expect('\\#t').to be_parsed_as("\\") } # comment out
-    it { expect('\\z').to be_parsed_as("\\z") }
-    it { expect('\\0').to be_parsed_as("\\0") }
-    it { expect('\\1').to be_parsed_as("\\1") }
-    it { expect('\\#{test}').to be_parsed_as("\\") } # comment out
-    it { expect('\[').to be_parsed_as("\\[") }
+    it { expect('text').to be_parsed_as('text') }
+    it { expect('\"').to be_parsed_as('\"') }
+    it { expect('\t').to be_parsed_as('\t') }
+    it { expect('\n').to be_parsed_as('\n') }
+    it { expect('\r\n').to be_parsed_as('\r\n') }
+    it { expect('\f\b').to be_parsed_as('\f\b') }
+    it { expect('\.t').to be_parsed_as('\.t') }
+    it { expect('\$t').to be_parsed_as('\$t') }
+    it { expect('\#t').to be_parsed_as('\#t') }
+    it { expect('\z').to be_parsed_as('\z') }
+    it { expect('\0').to be_parsed_as('\0') }
+    it { expect('\1').to be_parsed_as('\1') }
+    it { expect('.').to be_parsed_as('.') }
+    it { expect('*').to be_parsed_as('*') }
+    it { expect('@').to be_parsed_as('@') }
+    it { expect('#{test}').to be_parsed_as('#{test}') }
+    it { expect('$').to be_parsed_as('$') }
+    it { expect('$t').to be_parsed_as('$t') }
+    it { expect('$}').to be_parsed_as('$}') }
+    it { expect('\\\\').to be_parsed_as('\\\\') }
+    it { expect('\[').to be_parsed_as('\[') }
+    it { expect('#foo').to be_parsed_as('#foo') } # not comment out
+    it { expect('foo#bar').to be_parsed_as('foo#bar') } # not comment out
+    it { expect(' text').to be_parsed_as('text') } # remove starting spaces
+    it { expect(' #foo').to be_parsed_as('#foo') } # remove starting spaces
+    it { expect('foo #bar').to be_parsed_as('foo') } # comment out
+    it { expect("foo\t#bar").to be_parsed_as('foo') } # comment out
 
     it { expect('t').to be_parsed_as('t') }
     it { expect('T').to be_parsed_as('T') }

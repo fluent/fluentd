@@ -69,8 +69,31 @@ describe Fluent::Config::V1Parser do
       expect("k1 a  b  c").to be_parsed_as(e('ROOT', '', {"k1" => "a  b  c"}))
     end
 
-    it "ignores comments after value" do
-      expect("  k1 a#comment").to be_parsed_as(e('ROOT', '', {"k1" => "a"}))
+    context 'non-quoted string' do
+      it "remains text starting with '#'" do
+        expect("  k1 #not_comment").to be_parsed_as(e('ROOT', '', {"k1" => "#not_comment"}))
+      end
+
+      it "remains text just after '#'" do
+        expect("  k1 a#not_comment").to be_parsed_as(e('ROOT', '', {"k1" => "a#not_comment"}))
+      end
+
+      it "remove text after ` #` (comment)" do
+        expect("  k1 a #comment").to be_parsed_as(e('ROOT', '', {"k1" => "a"}))
+      end
+
+      it "does not require escaping backslash" do
+        expect("  k1 \\\\").to be_parsed_as(e('ROOT', '', {"k1" => "\\\\"}))
+        expect("  k1 \\").to be_parsed_as(e('ROOT', '', {"k1" => "\\"}))
+      end
+
+      it "remains backslash in front of a normal character" do
+        expect("  k1 \\[").to be_parsed_as(e('ROOT', '', {"k1" => '\['}))
+      end
+
+      it "does not accept escape characters" do
+        expect("  k1 \\n").to be_parsed_as(e('ROOT', '', {"k1" => '\n'}))
+      end
     end
 
     context 'double quoted string' do
@@ -348,10 +371,10 @@ describe Fluent::Config::V1Parser do
     # TODO: Add uri based include spec
   end
 
-  describe 'unescape parameter' do
+  describe '#to_s' do
     it 'parses dumpped configuration' do
-      original = %q!a\\\\\n\r\f\b\\'\\"z!
-      expected = %!a\\\n\r\f\b'"z!
+      original = %q!a\\\n\r\f\b'"z!
+      expected = %q!a\\\n\r\f\b'"z!
 
       conf = parse_text(%[k1 #{original}])
       expect(conf['k1']).to eq(expected) # escape check
