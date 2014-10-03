@@ -228,11 +228,13 @@ module Fluent
 
     # MessagePack FixArray length = 3 (if @extend_internal_protocol)
     #                             = 2 (else)
+    FORWARD_HEADER = [0x92].pack('C').freeze
+    FORWARD_HEADER_EXT = [0x93].pack('C').freeze
     def forward_header
       if @extend_internal_protocol
-        [0x93].pack('C')
+        FORWARD_HEADER_EXT
       else
-        [0x92].pack('C')
+        FORWARD_HEADER
       end
     end
 
