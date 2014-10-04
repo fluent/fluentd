@@ -1,3 +1,4 @@
+require 'spec_helper'
 require 'fluent/config/section'
 
 describe Fluent::Config::Section do
