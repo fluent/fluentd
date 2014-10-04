@@ -1,3 +1,4 @@
+require 'spec_helper'
 require "json"
 require "config/helper"
 require "fluent/config/error"

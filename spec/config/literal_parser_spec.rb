@@ -1,3 +1,4 @@
+require 'spec_helper'
 require "config/helper"
 require "fluent/config/error"
 require "fluent/config/literal_parser"
