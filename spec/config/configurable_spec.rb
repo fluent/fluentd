@@ -1,3 +1,4 @@
+require 'spec_helper'
 require 'fluent/configurable'
 require 'fluent/config/element'
 require 'fluent/config/section'
