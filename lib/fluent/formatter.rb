@@ -37,9 +37,6 @@ module Fluent
         if conf['utc']
           @localtime = false
         end
-        if conf['timezone']
-          @timezone = conf['timezone']
-        end
         @timef = TimeFormatter.new(@time_format, @localtime, @timezone)
       end
 
