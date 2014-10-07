@@ -488,7 +488,7 @@ module Fluent
 
       if conf['timezone']
         @timezone        = conf['timezone']
-        @timezone_offset = Fluent::TimeZone.offset(@timezone)
+        @timezone_offset = Fluent::TimeZone.offset_or_config_error(@timezone)
       end
 
       if @timezone_offset

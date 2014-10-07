@@ -22,6 +22,7 @@ module Fluent
 
     def initialize
       super
+      require 'fluent/timezone'
     end
 
     config_param :command, :string
@@ -99,6 +100,7 @@ module Fluent
 
       if conf['timezone']
         @timezone = conf['timezone']
+        Fluent::TimeZone.validate(@timezone)
       end
 
       if !@tag && !@out_tag_key
