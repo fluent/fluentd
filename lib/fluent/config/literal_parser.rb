@@ -51,7 +51,7 @@ module Fluent
       end
 
       def parse_literal(string_boundary_charset = LINE_END)
-        spacing
+        spacing_without_comment
 
         value = if skip(/\[/)
                   scan_json(true)
@@ -113,8 +113,8 @@ module Fluent
 
         string = []
         while true
-          if s = scan(/\\./)
-            string << eval_escape_char(s[1,1])
+          if s = scan(/\#/)
+            string << '#'
           elsif s = scan(charset)
             string << s
           else

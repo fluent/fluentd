@@ -102,11 +102,7 @@ module Fluent
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair { |k, v|
-          if @v1_config
-            out << "#{nindent}#{k} #{Element.unescape_parameter(v)}\n"
-          else
-            out << "#{nindent}#{k} #{v}\n"
-          end
+          out << "#{nindent}#{k} #{v}\n"
         }
         @elements.each { |e|
           out << e.to_s(nest + 1)
