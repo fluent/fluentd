@@ -475,7 +475,7 @@ module Fluent
     config_set_default :flush_interval, nil
 
     attr_accessor :localtime
-    attr_accessor :timezone, :timezone_offset
+    attr_accessor :timezone_offset
 
     def configure(conf)
       super
