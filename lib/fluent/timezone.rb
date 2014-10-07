@@ -83,6 +83,11 @@ module Fluent
         # Return the offset value of the time zone.
         return value
       end
+
+      #
+      # Validate the given time zone.
+      #
+      alias_method :validate, :offset_or_config_error
     end
   end
 end
