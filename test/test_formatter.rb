@@ -29,13 +29,11 @@ module FormatterTest
     {'message' => 'awesome'}
   end
 
-  def set_tz(tz)
-    @old_tz = ENV['TZ']
-    ENV['TZ'] = tz
-  end
-
-  def restore_tz
-    ENV['TZ'] = @old_tz
+  def with_timezone(tz)
+    oldtz, ENV['TZ'] = ENV['TZ'], tz
+    yield
+  ensure
+    ENV['TZ'] = oldtz
   end
 
   class OutFileFormatterTest < ::Test::Unit::TestCase
@@ -282,22 +280,22 @@ module FormatterTest
     end
 
     def test_default_localtime_nil_1
-      set_tz("UTC-04")
-      assert_equal("2014-09-27T04:00:00+04:00", format(nil, true, nil))
-      restore_tz()
+      with_timezone("UTC-04") do
+        assert_equal("2014-09-27T04:00:00+04:00", format(nil, true, nil))
+      end
     end
 
     def test_default_localtime_nil_2
-      set_tz("UTC+05")
-      assert_equal("2014-09-26T19:00:00-05:00", format(nil, true, nil))
-      restore_tz()
+      with_timezone("UTC+05") do
+        assert_equal("2014-09-26T19:00:00-05:00", format(nil, true, nil))
+      end
     end
 
     def test_default_localtime_timezone
       # 'timezone' takes precedence over 'localtime'.
-      set_tz("UTC-06")
-      assert_equal("2014-09-27T07:00:00+07:00", format(nil, true, "+07"))
-      restore_tz()
+      with_timezone("UTC-06") do
+        assert_equal("2014-09-27T07:00:00+07:00", format(nil, true, "+07"))
+      end
     end
 
     def test_specific_utc_nil
@@ -343,22 +341,22 @@ module FormatterTest
     end
 
     def test_specific_localtime_nil_1
-      set_tz("UTC-07")
-      assert_equal("20140927 0700+0700", format(@fmt, true, nil))
-      restore_tz()
+      with_timezone("UTC-07") do
+        assert_equal("20140927 0700+0700", format(@fmt, true, nil))
+      end
     end
 
     def test_specific_localtime_nil_2
-      set_tz("UTC+08")
-      assert_equal("20140926 1600-0800", format(@fmt, true, nil))
-      restore_tz()
+      with_timezone("UTC+08") do
+        assert_equal("20140926 1600-0800", format(@fmt, true, nil))
+      end
     end
 
     def test_specific_localtime_timezone
       # 'timezone' takes precedence over 'localtime'.
-      set_tz("UTC-09")
-      assert_equal("20140926 1400-1000", format(@fmt, true, "-10"))
-      restore_tz()
+      with_timezone("UTC-09") do
+        assert_equal("20140926 1400-1000", format(@fmt, true, "-10"))
+      end
     end
   end
 
@@ -368,11 +366,6 @@ module FormatterTest
     def setup
       @formatter = TextFormatter::LabeledTSVFormatter.new
       @time      = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
-      set_tz("UTC-01")
-    end
-
-    def teardown
-      restore_tz()
     end
 
     def format(conf)
@@ -383,23 +376,31 @@ module FormatterTest
     end
 
     def test_none
-      # 'localtime' is true by default.
-      assert_equal("2014-09-27T01:00:00+01:00", format({}))
+      with_timezone("UTC-01") do
+        # 'localtime' is true by default.
+        assert_equal("2014-09-27T01:00:00+01:00", format({}))
+      end
     end
 
     def test_utc
-      # 'utc' takes precedence over 'localtime'.
-      assert_equal("2014-09-27T00:00:00Z", format("utc" => true))
+      with_timezone("UTC-01") do
+        # 'utc' takes precedence over 'localtime'.
+        assert_equal("2014-09-27T00:00:00Z", format("utc" => true))
+      end
     end
 
     def test_timezone
-      # 'timezone' takes precedence over 'localtime'.
-      assert_equal("2014-09-27T02:00:00+02:00", format("timezone" => "+02"))
+      with_timezone("UTC-01") do
+        # 'timezone' takes precedence over 'localtime'.
+        assert_equal("2014-09-27T02:00:00+02:00", format("timezone" => "+02"))
+      end
     end
 
     def test_utc_timezone
-      # 'timezone' takes precedence over 'utc'.
-      assert_equal("2014-09-27T09:00:00+09:00", format("utc" => true, "timezone" => "Asia/Tokyo"))
+      with_timezone("UTC-01") do
+        # 'timezone' takes precedence over 'utc'.
+        assert_equal("2014-09-27T09:00:00+09:00", format("utc" => true, "timezone" => "Asia/Tokyo"))
+      end
     end
   end
 end
