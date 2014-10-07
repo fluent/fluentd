@@ -35,6 +35,11 @@ module Fluent
       # When the specified time zone is unknown or nil, nil is returned.
       #
       def offset(timezone)
+        # If the specified time zone is nil.
+        if timezone.nil?
+          return nil
+        end
+
         # [+-]HH:MM, [+-]HH
         if %r{\A[+-]\d\d(:?\d\d)?\z} =~ timezone
           return Time.zone_offset(timezone)
@@ -51,8 +56,32 @@ module Fluent
           end
         end
 
-        # The specified time zone is unknown or nil.
+        # The specified time zone is unknown.
         return nil
+      end
+
+      #
+      # Get the offset of the specified time zone in seconds.
+      #
+      # If the given time zone is not null and failed to be converted into
+      # an offset value, ConfigError is raised.
+      #
+      def offset_or_config_error(timezone)
+        # If the specified time zone is nil.
+        if timezone.nil?
+          return nil
+        end
+
+        # Get the offset value of the time zone.
+        value = offset(timezone)
+
+        # If the specified time zone failed to be parsed.
+        if value.nil?
+          raise ConfigError, "Unsupported timezone '#{timezone}'"
+        end
+
+        # Return the offset value of the time zone.
+        return value
       end
     end
   end
