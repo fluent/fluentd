@@ -125,6 +125,7 @@ module Fluent
   end
 
   module SetTimeKeyMixin
+    require 'fluent/timezone'
     include RecordFilterMixin
 
     attr_accessor :include_time_key, :time_key, :localtime, :timezone
@@ -153,6 +154,7 @@ module Fluent
 
         if conf['timezone']
           @timezone = conf['timezone']
+          Fluent::TimeZone.validate(@timezone)
         end
 
         @timef = TimeFormatter.new(@time_format, @localtime, @timezone)
