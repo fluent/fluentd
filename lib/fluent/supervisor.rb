@@ -85,7 +85,7 @@ module Fluent
         :chuser => nil,
         :chgroup => nil,
         :suppress_interval => 0,
-        :suppress_repeated_stacktrace => false,
+        :suppress_repeated_stacktrace => true,
         :without_source => false,
         :use_v1_config => true,
       }

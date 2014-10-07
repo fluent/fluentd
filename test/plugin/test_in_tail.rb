@@ -1,3 +1,4 @@
+require 'helper'
 require 'fluent/test'
 require 'net/http'
 require 'flexmock'

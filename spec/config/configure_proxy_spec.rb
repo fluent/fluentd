@@ -1,3 +1,4 @@
+require 'spec_helper'
 require 'fluent/config/configure_proxy'
 
 describe Fluent::Config::ConfigureProxy do

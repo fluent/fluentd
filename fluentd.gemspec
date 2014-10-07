@@ -34,4 +34,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("simplecov", ["~> 0.6.4"])
   gem.add_development_dependency("rr", [">= 1.0.0"])
   gem.add_development_dependency("timecop", [">= 0.3.0"])
+  gem.add_development_dependency("test-unit", ["~> 3.0"])
 end

@@ -1,3 +1,4 @@
+require 'spec_helper'
 require "json"
 require "config/helper"
 require "fluent/config/error"
@@ -73,12 +74,60 @@ describe Fluent::Config::V1Parser do
       expect("  k1 a#comment").to be_parsed_as(e('ROOT', '', {"k1" => "a"}))
     end
 
-    it "allows # in value if quoted" do
-      expect('  k1 "a#comment"').to be_parsed_as(e('ROOT', '', {"k1" => "a#comment"}))
+    context 'double quoted string' do
+      it "allows # in value" do
+        expect('  k1 "a#comment"').to be_parsed_as(e('ROOT', '', {"k1" => "a#comment"}))
+      end
+
+      it "rejects characters after double quoted string" do
+        expect('  k1 "a" 1').to be_parse_error
+      end
+
+      it "requires escaping backslash" do
+        expect('  k1 "\\\\"').to be_parsed_as(e('ROOT', '', {"k1" => "\\"}))
+        expect('  k1 "\\"').to be_parse_error
+      end
+
+      it "requires escaping double quote" do
+        expect('  k1 "\\""').to be_parsed_as(e('ROOT', '', {"k1" => '"'}))
+        expect('  k1 """').to be_parse_error
+      end
+
+      it "removes backslash in front of a normal character" do
+        expect('  k1 "\\["').to be_parsed_as(e('ROOT', '', {"k1" => '['}))
+      end
+
+      it "accepts escape characters" do
+        expect('  k1 "\\n"').to be_parsed_as(e('ROOT', '', {"k1" => "\n"}))
+      end
     end
 
-    it "rejects characters after quoted string" do
-      expect('  k1 "a" 1').to be_parse_error
+    context 'single quoted string' do
+      it "allows # in value" do
+        expect("  k1 'a#comment'").to be_parsed_as(e('ROOT', '', {"k1" => "a#comment"}))
+      end
+
+      it "rejects characters after single quoted string" do
+        expect("  k1 'a' 1").to be_parse_error
+      end
+
+      it "requires escaping backslash" do
+        expect("  k1 '\\\\'").to be_parsed_as(e('ROOT', '', {"k1" => "\\"}))
+        expect("  k1 '\\'").to be_parse_error
+      end
+
+      it "requires escaping single quote" do
+        expect("  k1 '\\''").to be_parsed_as(e('ROOT', '', {"k1" => "'"}))
+        expect("  k1 '''").to be_parse_error
+      end
+
+      it "remains backslash in front of a normal character" do
+        expect("  k1 '\\['").to be_parsed_as(e('ROOT', '', {"k1" => '\\['}))
+      end
+
+      it "does not accept escape characters" do
+        expect("  k1 '\\n'").to be_parsed_as(e('ROOT', '', {"k1" => "\\n"}))
+      end
     end
 
     it "rejects @ prefix in parameter name" do
