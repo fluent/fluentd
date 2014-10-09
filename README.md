@@ -30,6 +30,8 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
 
 [Fluentd UI](https://github.com/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
 
+<p align="center"><img width="500" src="http://www.fluentd.org/images/blog/fluentd-ui.gif"/></p>
+
 ## More Information
 
 - Website: http://fluentd.org/
