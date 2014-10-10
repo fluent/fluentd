@@ -99,24 +99,23 @@ module Fluent
             parse_include(attrs, elems)
 
           else
-            k = scan_string(SPACING)
+            k, quoted_type = scan_string(SPACING)
             spacing_without_comment
             if prev_match.include?("\n") # support 'tag_mapped' like "without value" configuration
               attrs[k] = ""
             else
-              if k == '@include'
+              is_nonquoted = nonquoted?(quoted_type)
+              if k == '@include' and is_nonquoted
                 parse_include(attrs, elems)
-              elsif k == '@label'
+              elsif k == '@label' and is_nonquoted
                 v = parse_literal
                 unless line_end
                   parse_error! "expected end of line"
                 end
                 attrs[k] = v
+              elsif k.start_with?('@') and is_nonquoted
+                parse_error! "'@' is reserved prefix. Don't use '@' in parameter name"
               else
-                if k.start_with?('@')
-                  parse_error! "'@' is reserved prefix. Don't use '@' in parameter name"
-                end
-
                 v = parse_literal
                 unless line_end
                   parse_error! "expected end of line"
@@ -131,7 +130,7 @@ module Fluent
       end
 
       def parse_include(attrs, elems)
-        uri = scan_string(LINE_END)
+        uri, _ = scan_string(LINE_END)
         eval_include(attrs, elems, uri)
         line_end
       end

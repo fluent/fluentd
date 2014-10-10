@@ -50,26 +50,38 @@ module Fluent
         @eval_context = eval_context
       end
 
+      def double_quoted?(quoted_type)
+        quoted_type == :double_quoted
+      end
+
+      def single_quoted?(quoted_type)
+        quoted_type == :single_quoted
+      end
+
+      def nonquoted?(quoted_type)
+        quoted_type == :nonquoted
+      end
+
       def parse_literal(string_boundary_charset = LINE_END)
         spacing_without_comment
 
-        value = if skip(/\[/)
-                  scan_json(true)
-                elsif skip(/\{/)
-                  scan_json(false)
-                else
-                  scan_string(string_boundary_charset)
-                end
+        if skip(/\[/)
+          value = scan_json(true)
+        elsif skip(/\{/)
+          value = scan_json(false)
+        else
+          value, _ = scan_string(string_boundary_charset)
+        end
         value
       end
 
       def scan_string(string_boundary_charset = LINE_END)
         if skip(/\"/)
-          return scan_double_quoted_string
+          return scan_double_quoted_string, :double_quoted
         elsif skip(/\'/)
-          return scan_single_quoted_string
+          return scan_single_quoted_string, :single_quoted
         else
-          return scan_nonquoted_string(string_boundary_charset)
+          return scan_nonquoted_string(string_boundary_charset), :nonquoted
         end
       end
 

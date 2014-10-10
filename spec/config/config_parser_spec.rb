@@ -95,6 +95,10 @@ describe Fluent::Config::V1Parser do
       it "does not accept escape characters" do
         expect("  k1 \\n").to be_parsed_as(e('ROOT', '', {"k1" => '\n'}))
       end
+
+      it "rejects @ prefix in parameter name" do
+        expect('  @k v').to be_parse_error
+      end
     end
 
     context 'double quoted string' do
@@ -122,6 +126,10 @@ describe Fluent::Config::V1Parser do
 
       it "accepts escape characters" do
         expect('  k1 "\\n"').to be_parsed_as(e('ROOT', '', {"k1" => "\n"}))
+      end
+
+      it "accepts @ prefix in parameter name" do
+        expect('  "@k" v').to be_parsed_as(e('ROOT', '', {"@k" => "v"}))
       end
     end
 
@@ -151,10 +159,10 @@ describe Fluent::Config::V1Parser do
       it "does not accept escape characters" do
         expect("  k1 '\\n'").to be_parsed_as(e('ROOT', '', {"k1" => "\\n"}))
       end
-    end
 
-    it "rejects @ prefix in parameter name" do
-      expect('  @k v').to be_parse_error
+      it "accepts @ prefix in parameter name" do
+        expect("  '@k' v").to be_parsed_as(e('ROOT', '', {"@k" => "v"}))
+      end
     end
   end
 
