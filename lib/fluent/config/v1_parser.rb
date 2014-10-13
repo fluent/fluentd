@@ -38,8 +38,8 @@ module Fluent
       end
 
       def parse!
-        attrs, elems = parse_element(true, nil)
-        root = Element.new('ROOT', '', attrs, elems)
+        attrs, elems, system_attrs = parse_element(true, nil)
+        root = Element.new('ROOT', '', attrs, elems, system_attrs)
         root.v1_config = true
 
         spacing
@@ -50,7 +50,7 @@ module Fluent
         return root
       end
 
-      def parse_element(root_element, elem_name, attrs = {}, elems = [])
+      def parse_element(root_element, elem_name, attrs = {}, elems = [], system_attrs = {})
         while true
           spacing
           if eof?
@@ -87,8 +87,8 @@ module Fluent
             end
             e_arg ||= ''
             # call parse_element recursively
-            e_attrs, e_elems = parse_element(false, e_name)
-            new_e = Element.new(e_name, e_arg, e_attrs, e_elems)
+            e_attrs, e_elems, e_system_attrs = parse_element(false, e_name)
+            new_e = Element.new(e_name, e_arg, e_attrs, e_elems, e_system_attrs)
             new_e.v1_config = true
             elems << new_e
 
@@ -112,7 +112,7 @@ module Fluent
                 unless line_end
                   parse_error! "expected end of line"
                 end
-                attrs[k] = v
+                system_attrs[k] = v
               elsif k.start_with?('@') and is_nonquoted
                 parse_error! "'@' is reserved prefix. Don't use '@' in parameter name"
               else
@@ -126,7 +126,7 @@ module Fluent
           end
         end
 
-        return attrs, elems
+        return attrs, elems, system_attrs
       end
 
       def parse_include(attrs, elems)

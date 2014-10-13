@@ -26,11 +26,12 @@ describe Fluent::Config::V1Parser do
     else
       attrs = elements.shift || {}
     end
-    Fluent::Config::Element.new('ROOT', '', attrs, elements)
+    system_attrs = {}
+    Fluent::Config::Element.new('ROOT', '', attrs, elements, system_attrs)
   end
 
-  def e(name, arg='', attrs={}, elements=[])
-    Fluent::Config::Element.new(name, arg, attrs, elements)
+  def e(name, arg='', attrs={}, elements=[], system_attrs={})
+    Fluent::Config::Element.new(name, arg, attrs, elements, system_attrs)
   end
 
   describe 'attribute parsing' do
@@ -99,6 +100,10 @@ describe Fluent::Config::V1Parser do
       it "rejects @ prefix in parameter name" do
         expect('  @k v').to be_parse_error
       end
+
+      it "takes a reserved system parameter" do
+        expect('  @label v').to be_parsed_as(e('ROOT', '', {}, [], {"@label" => "v"}))
+      end
     end
 
     context 'double quoted string' do
@@ -131,6 +136,10 @@ describe Fluent::Config::V1Parser do
       it "accepts @ prefix in parameter name" do
         expect('  "@k" v').to be_parsed_as(e('ROOT', '', {"@k" => "v"}))
       end
+
+      it "treats a reserved system parameter as a normal user parameter" do
+        expect('  "@label" v').to be_parsed_as(e('ROOT', '', {"@label" => "v"}))
+      end
     end
 
     context 'single quoted string' do
@@ -162,6 +171,10 @@ describe Fluent::Config::V1Parser do
 
       it "accepts @ prefix in parameter name" do
         expect("  '@k' v").to be_parsed_as(e('ROOT', '', {"@k" => "v"}))
+      end
+
+      it "treats a reserved system parameter as a normal user parameter" do
+        expect("  '@label' v").to be_parsed_as(e('ROOT', '', {"@label" => "v"}))
       end
     end
   end

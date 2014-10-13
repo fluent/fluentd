@@ -35,7 +35,7 @@ module Fluent
     end
 
     def self.new(name = '')
-      Element.new(name, '', {}, [])
+      Element.new(name, '', {}, [], {})
     end
   end
 

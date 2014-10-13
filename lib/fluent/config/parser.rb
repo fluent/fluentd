@@ -21,8 +21,8 @@ module Fluent
 
     class Parser
       def self.parse(io, fname, basepath = Dir.pwd)
-        attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)
-        Element.new('ROOT', '', attrs, elems)
+        attrs, elems, system_attrs = Parser.new(basepath, io.each_line, fname).parse!(true)
+        Element.new('ROOT', '', attrs, elems, system_attrs)
       end
 
       def initialize(basepath, iterator, fname, i = 0)
@@ -32,7 +32,7 @@ module Fluent
         @fname = fname
       end
 
-      def parse!(allow_include, elem_name = nil, attrs = {}, elems = [])
+      def parse!(allow_include, elem_name = nil, attrs = {}, elems = [], system_attrs = {})
         while line = @iterator.next
           line.force_encoding('UTF-8')
           @i += 1
@@ -46,8 +46,8 @@ module Fluent
           elsif m = /^\<([a-zA-Z0-9_]+)\s*(.+?)?\>$/.match(line)
             e_name = m[1]
             e_arg = m[2] || ""
-            e_attrs, e_elems = parse!(false, e_name)
-            elems << Element.new(e_name, e_arg, e_attrs, e_elems)
+            e_attrs, e_elems, e_system_attrs = parse!(false, e_name)
+            elems << Element.new(e_name, e_arg, e_attrs, e_elems, e_system_attrs)
           elsif line == "</#{elem_name}>"
             break
           elsif m = /^([a-zA-Z0-9_]+)\s*(.*)$/.match(line)
@@ -64,9 +64,9 @@ module Fluent
           end
         end
 
-        return attrs, elems
+        return attrs, elems, system_attrs
       rescue StopIteration
-        return attrs, elems
+        return attrs, elems, system_attrs
       end
 
       def process_include(attrs, elems, uri, allow_include = true)
