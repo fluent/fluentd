@@ -249,12 +249,12 @@ module Fluent
         if option && option['chunk']
           res = { 'ack' => option['chunk'] }
           write @serializer.call(res)
-          @log.trace { "sendt response to fluent socket" }
+          @log.trace { "sent response to fluent socket" }
         end
       end
 
       def on_close
-        @log.trace { "closing socket" }
+        @log.trace { "closed socket" }
       end
     end
 
