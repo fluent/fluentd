@@ -17,5 +17,5 @@ fluent-gem
 fluentd
 pkg/*
 test/tmp/*
-spec/config/tmp/*
+test/config/tmp/*
 make_dist.sh
