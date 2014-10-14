@@ -19,6 +19,9 @@ module Fluent
   require 'fluent/registry'
 
   class TextParser
+    class ParserError < StandardError
+    end
+
     class TimeParser
       def initialize(time_format)
         @cache1_key = nil
@@ -35,7 +38,7 @@ module Fluent
 
       def parse(value)
         unless value.is_a?(String)
-          raise ArgumentError, "Value must be string: #{value}"
+          raise ParserError, "value must be string: #{value}"
         end
 
         if @cache1_key == value
@@ -43,7 +46,11 @@ module Fluent
         elsif @cache2_key == value
           return @cache2_time
         else
-          time = @parser.call(value).to_i
+          begin
+            time = @parser.call(value).to_i
+          rescue => e
+            raise ParserError, "invalid time format: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
+          end
           @cache1_key = @cache2_key
           @cache1_time = @cache2_time
           @cache2_key = value
@@ -225,7 +232,11 @@ module Fluent
           if @time_format
             time = @mutex.synchronize { @time_parser.parse(value) }
           else
-            time = value.to_i
+            begin
+              time = value.to_i
+            rescue => e
+              raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
+            end
           end
         else
           if @estimate_current_event

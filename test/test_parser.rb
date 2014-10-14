@@ -34,7 +34,7 @@ module ParserTest
       parser = TextParser::TimeParser.new(nil)
 
       [[], {}, nil, true, 10000].each { |v|
-        assert_raise ArgumentError do
+        assert_raise Fluent::TextParser::ParserError do
           parser.parse(v)
         end
       }
@@ -287,6 +287,12 @@ module ParserTest
         }, record)
         assert_nil time, "parser return nil w/o time and if specified so"
       }
+    end
+
+    def test_call_with_invalid_time
+      assert_raise Fluent::TextParser::ParserError do
+        @parser.call('{"time":[],"k":"v"}') { |time, record| }
+      end
     end
   end
 
