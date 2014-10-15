@@ -100,7 +100,7 @@ module Fluent
 
           else
             k = scan_string(SPACING)
-            spacing
+            spacing_without_comment
             if prev_match.include?("\n") # support 'tag_mapped' like "without value" configuration
               attrs[k] = ""
             else
