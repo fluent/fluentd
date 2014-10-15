@@ -100,7 +100,7 @@ module Fluent
 
       if conf['timezone']
         @timezone = conf['timezone']
-        Fluent::TimeZone.validate(@timezone)
+        Fluent::Timezone.validate!(@timezone)
       end
 
       if !@tag && !@out_tag_key

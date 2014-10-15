@@ -14,80 +14,118 @@
 #    limitations under the License.
 #
 
-require 'time'
 require 'tzinfo'
-require 'tzinfo/timezone_offset'
 
 module Fluent
-  class TimeZone
-    class << TimeZone
-      #
-      # Get the offset of the specified time zone in seconds.
-      #
-      # Accepted formats are as follows. Note that time zone abbreviations
-      # such as PST and JST are not supported intentionally.
-      #
-      #   1. [+-]HH:MM    (e.g. "+09:00")
-      #   2. [+-]HHMM     (e.g. "+0900")
-      #   3. [+-]HH       (e.g. "+09")
-      #   4. Region/Zone  (e.g. "Asia/Tokyo")
-      #
-      # When the specified time zone is unknown or nil, nil is returned.
-      #
-      def offset(timezone)
-        # If the specified time zone is nil.
-        if timezone.nil?
-          return nil
-        end
+  class Timezone
+    # [+-]HH:MM, [+-]HHMM, [+-]HH
+    NUMERIC_PATTERN = %r{\A[+-]\d\d(:?\d\d)?\z}
 
-        # [+-]HH:MM, [+-]HH
-        if %r{\A[+-]\d\d(:?\d\d)?\z} =~ timezone
-          return Time.zone_offset(timezone)
-        end
+    # Region/Zone, Region/Zone/Zone
+    NAME_PATTERN = %r{\A[^/]+/[^/]+(/[^/]+)?\z}
 
-        # Region/Zone
-        if %r{\A[^/]+/[^/]+\z} =~ timezone
-          begin
-            # Get the offset using TZInfo library.
-            return TZInfo::Timezone.get(timezone).current_period.offset.utc_total_offset
-          rescue
-            # The specified time zone is unknown.
-            return nil
-          end
-        end
+    # Validate the format of the specified timezone.
+    #
+    # Valid formats are as follows. Note that timezone abbreviations
+    # such as PST and JST are not supported intentionally.
+    #
+    #   1. [+-]HH:MM         (e.g. "+09:00")
+    #   2. [+-]HHMM          (e.g. "+0900")
+    #   3. [+-]HH            (e.g. "+09")
+    #   4. Region/Zone       (e.g. "Asia/Tokyo")
+    #   5. Region/Zone/Zone  (e.g. "America/Argentina/Buenos_Aires")
+    #
+    # In the 4th and 5th cases, it is checked whether the specified
+    # timezone exists in the timezone database.
+    #
+    # When the given timezone is valid, true is returned. Otherwise,
+    # false is returned. When nil is given, false is returned.
+    def self.validate(timezone)
+      # If the specified timezone is nil.
+      if timezone.nil?
+        # Invalid.
+        return false
+      end
 
-        # The specified time zone is unknown.
+      # [+-]HH:MM, [+-]HHMM, [+-]HH
+      if NUMERIC_PATTERN === timezone
+        # Valid. It can be parsed by Time.zone_offset method.
+        return true
+      end
+
+      # Region/Zone, Region/Zone/Zone
+      if NAME_PATTERN === timezone
+        begin
+          # Get a Timezone instance for the specified timezone.
+          TZInfo::Timezone.get(timezone)
+        rescue
+          # Invalid. The string does not exist in the timezone database.
+          return false
+        else
+          # Valid. The string was found in the timezone database.
+          return true
+        end
+      else
+        # Invalid. Timezone abbreviations are not supported.
+        return false
+      end
+    end
+
+    # Validate the format of the specified timezone.
+    #
+    # The implementation of this method calls validate(timezone) method
+    # to check whether the given timezone is valid. When invalid, this
+    # method raises a ConfigError.
+    def self.validate!(timezone)
+      unless validate(timezone)
+        raise ConfigError, "Unsupported timezone '#{timezone}'"
+      end
+    end
+
+    # Create a formatter for a timezone and optionally a format.
+    #
+    # An Proc object is returned. If the given timezone is invalid,
+    # nil is returned.
+    def self.formatter(timezone, format = nil)
+      if timezone.nil?
         return nil
       end
 
-      #
-      # Get the offset of the specified time zone in seconds.
-      #
-      # If the given time zone is not null and failed to be converted into
-      # an offset value, ConfigError is raised.
-      #
-      def offset_or_config_error(timezone)
-        # If the specified time zone is nil.
-        if timezone.nil?
+      # [+-]HH:MM, [+-]HHMM, [+-]HH
+      if NUMERIC_PATTERN === timezone
+        offset = Time.zone_offset(timezone)
+
+        if format
+          return Proc.new {|time|
+            Time.at(time).localtime(offset).strftime(format)
+          }
+        else
+          return Proc.new {|time|
+            Time.at(time).localtime(offset).iso8601
+          }
+        end
+      end
+
+      # Region/Zone, Region/Zone/Zone
+      if NAME_PATTERN === timezone
+        begin
+          tz = TZInfo::Timezone.get(timezone)
+        rescue
           return nil
         end
 
-        # Get the offset value of the time zone.
-        value = offset(timezone)
-
-        # If the specified time zone failed to be parsed.
-        if value.nil?
-          raise ConfigError, "Unsupported timezone '#{timezone}'"
+        if format
+          return Proc.new {|time|
+            Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset).strftime(format)
+          }
+        else
+          return Proc.new {|time|
+            Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset).iso8601
+          }
         end
-
-        # Return the offset value of the time zone.
-        return value
       end
 
-      #
-      # Validate the given time zone.
-      #
-      alias_method :validate, :offset_or_config_error
+      return nil
     end
   end
 end

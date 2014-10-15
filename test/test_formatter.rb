@@ -275,6 +275,24 @@ module FormatterTest
       assert_equal("2014-09-26T14:00:00-10:00", format(nil, false, "Pacific/Honolulu"))
     end
 
+    def test_default_utc_timezone_3
+      # America/Argentina/Buenos_Aires (-03:00) does not have daylight saving time.
+      assert_equal("2014-09-26T21:00:00-03:00", format(nil, false, "America/Argentina/Buenos_Aires"))
+    end
+
+    def test_default_utc_timezone_4
+      # Europe/Paris has daylight saving time. Its UTC offset is +01:00 and its
+      # UTC offset in DST is +02:00. In September, Europe/Paris is in DST.
+      assert_equal("2014-09-27T02:00:00+02:00", format(nil, false, "Europe/Paris"))
+    end
+
+    def test_default_utc_timezone_5
+      # Europe/Paris has daylight saving time. Its UTC offset is +01:00 and its
+      # UTC offset in DST is +02:00. In January, Europe/Paris is not in DST.
+      @time = Time.new(2014, 1, 24, 0, 0, 0, 0).to_i
+      assert_equal("2014-01-24T01:00:00+01:00", format(nil, false, "Europe/Paris"))
+    end
+
     def test_default_utc_invalid
       assert_equal("2014-09-27T00:00:00Z", format(nil, false, "Invalid"))
     end
@@ -334,6 +352,24 @@ module FormatterTest
     def test_specific_utc_timezone_2
       # Pacific/Galapagos (-06:00) does not have daylight saving time.
       assert_equal("20140926 1800-0600", format(@fmt, false, "Pacific/Galapagos"))
+    end
+
+    def test_specific_utc_timezone_3
+      # America/Argentina/Buenos_Aires (-03:00) does not have daylight saving time.
+      assert_equal("20140926 2100-0300", format(@fmt, false, "America/Argentina/Buenos_Aires"))
+    end
+
+    def test_specific_utc_timezone_4
+      # America/Los_Angeles has daylight saving time. Its UTC offset is -08:00 and its
+      # UTC offset in DST is -07:00. In September, America/Los_Angeles is in DST.
+      assert_equal("20140926 1700-0700", format(@fmt, false, "America/Los_Angeles"))
+    end
+
+    def test_specific_utc_timezone_5
+      # America/Los_Angeles has daylight saving time. Its UTC offset is -08:00 and its
+      # UTC offset in DST is -07:00. In January, America/Los_Angeles is not in DST.
+      @time = Time.new(2014, 1, 24, 0, 0, 0, 0).to_i
+      assert_equal("20140123 1600-0800", format(@fmt, false, "America/Los_Angeles"))
     end
 
     def test_specific_utc_invalid

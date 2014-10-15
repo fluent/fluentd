@@ -24,15 +24,15 @@ module Fluent
       @tc2 = 0
       @tc2_str = nil
 
-      # Get the offset of the time zone in seconds.
-      offset = Fluent::TimeZone.offset(timezone)
+      if formatter = Fluent::Timezone.formatter(timezone, format)
+        define_singleton_method(:format_nocache) {|time|
+          formatter.call(time)
+        }
+        return
+      end
 
       if format
-        if offset
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).localtime(offset).strftime(format)
-          }
-        elsif localtime
+        if localtime
           define_singleton_method(:format_nocache) {|time|
             Time.at(time).strftime(format)
           }
@@ -42,11 +42,7 @@ module Fluent
           }
         end
       else
-        if offset
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).localtime(offset).iso8601
-          }
-        elsif localtime
+        if localtime
           define_singleton_method(:format_nocache) {|time|
             Time.at(time).iso8601
           }
@@ -154,7 +150,7 @@ module Fluent
 
         if conf['timezone']
           @timezone = conf['timezone']
-          Fluent::TimeZone.validate(@timezone)
+          Fluent::Timezone.validate!(@timezone)
         end
 
         @timef = TimeFormatter.new(@time_format, @localtime, @timezone)
