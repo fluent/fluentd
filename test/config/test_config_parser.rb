@@ -7,18 +7,7 @@ require "fluent/config/literal_parser"
 require "fluent/config/v1_parser"
 
 module Fluent::Config
-  class TestV1Parser < ::Test::Unit::TestCase
-    def read_config(path)
-      path = File.expand_path(path)
-      data = File.read(path)
-      Fluent::Config::V1Parser.parse(data, File.basename(path), File.dirname(path))
-    end
-
-    def parse_text(text)
-      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-      Fluent::Config::V1Parser.parse(text, '(test)', basepath, nil)
-    end
-
+  module V1TestHelper
     def root(*elements)
       if elements.first.is_a?(Fluent::Config::Element)
         attrs = {}
@@ -31,6 +20,22 @@ module Fluent::Config
     def e(name, arg='', attrs={}, elements=[])
       Fluent::Config::Element.new(name, arg, attrs, elements)
     end
+  end
+
+  class TestV1Parser < ::Test::Unit::TestCase
+    def read_config(path)
+      path = File.expand_path(path)
+      data = File.read(path)
+      Fluent::Config::V1Parser.parse(data, File.basename(path), File.dirname(path))
+    end
+
+    def parse_text(text)
+      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+      Fluent::Config::V1Parser.parse(text, '(test)', basepath, nil)
+    end
+
+    include V1TestHelper
+    extend V1TestHelper
 
     sub_test_case 'attribute parsing' do
       test "parses attributes" do
@@ -51,14 +56,11 @@ module Fluent::Config
         assert_text_parsed_as(e('ROOT', '', {"1" => "1"}), "1 1")
       end
 
-      [
-        "_.%$!,",
-        "/=~-~@\`:?",
-        "()*{}.[]",
-      ].each do |v|
-        test "parses a value with symbol #{v.inspect}" do
-          assert_text_parsed_as(e('ROOT', '', {"k" => v}), "k #{v}")
-        end
+      data("_.%$!,"     => "_.%$!,",
+           "/=~-~@\`:?" => "/=~-~@\`:?",
+           "()*{}.[]"   => "()*{}.[]")
+      test "parses a value with symbols" do |v|
+        assert_text_parsed_as(e('ROOT', '', {"k" => v}), "k #{v}")
       end
 
       test "ignores spacing around value" do
@@ -158,27 +160,18 @@ module Fluent::Config
     end
 
     sub_test_case 'element parsing' do
-      test 'root' do
-        assert_text_parsed_as(root, "")
-      end
-
-      test "accepts empty element" do
-        assert_text_parsed_as(root(e("test")), %[
+      data(
+        'root' => [root, ""],
+        "accepts empty element" => [root(e("test")), %[
           <test>
           </test>
-        ])
-      end
-
-      test "accepts argument and attributes" do
-        assert_text_parsed_as(root(e("test", 'var', {'key'=>"val"})), %[
+        ]],
+        "accepts argument and attributes" => [root(e("test", 'var', {'key'=>"val"})), %[
           <test var>
             key val
           </test>
-        ])
-      end
-
-      test "accepts nested elements" do
-        assert_text_parsed_as(root(
+        ]],
+        "accepts nested elements" => [root(
           e("test", 'var', {'key'=>'1'}, [
             e('nested1'),
             e('nested2')
@@ -190,19 +183,25 @@ module Fluent::Config
             <nested2>
             </nested2>
           </test>
-        ])
-      end
-
-      test "accepts multiline json values" do
-        assert_text_parsed_as(root(
-          e("test", 'var', {'key'=>"[\"a\",\"b\",\"c\",\"d\"]"})
-          ), %[
+        ]],
+        "accepts multiline json values" => [root(e("test", 'var', {'key'=>"[\"a\",\"b\",\"c\",\"d\"]"})), %[
           <test var>
             key ["a",
 "b", "c",
 "d"]
           </test>
-        ])
+        ]],
+        "parses empty element argument to nil" => [root(e("test", '')), %[
+          <test >
+          </test>
+        ]],
+        "ignores spacing around element argument" => [root(e("test", "a")), %[
+          <test    a    >
+          </test>
+        ]])
+      def test_parse_element(data)
+        expected, target = data
+        assert_text_parsed_as(expected, target)
       end
 
       [
@@ -213,7 +212,7 @@ module Fluent::Config
         "/",
         "()*{}.[]",
       ].each do |arg|
-        test "parses element argument #{arg.inspect}" do
+        test "parses symbol element argument:#{arg}" do
           assert_text_parsed_as(root(e("test", arg)), %[
             <test #{arg}>
             </test>
@@ -221,39 +220,21 @@ module Fluent::Config
         end
       end
 
-      test "parses empty element argument to nil" do
-        assert_text_parsed_as(root(e("test", '')), %[
-          <test >
-          </test>
-        ])
-      end
-
-      test "ignores spacing around element argument" do
-        assert_text_parsed_as(root(e("test", "a")), %[
-          <test    a    >
-          </test>
-        ])
-      end
-
-      test "considers comments in element argument" do
-        assert_parse_error(%[
+      data(
+        "considers comments in element argument" => %[
           <test #a>
           </test>
-        ])
-      end
-
-      test "requires line_end after begin tag" do
-        assert_parse_error(%[
+        ],
+        "requires line_end after begin tag" => %[
           <test></test>
-        ])
-      end
-
-      test "requires line_end after end tag" do
-        assert_parse_error(%[
+        ],
+        "requires line_end after end tag" => %[
           <test>
           </test><test>
           </test>
         ])
+      def test_parse_error(data)
+        assert_parse_error(data)
       end
     end
 

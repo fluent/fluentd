@@ -13,7 +13,7 @@ Rake::TestTask.new(:base_test) do |t|
   #  $ bundle exec rake base_test TEST=test/test_specified_path.rb
   #  $ bundle exec rake base_test TEST=test/test_*.rb
   t.libs << "test"
-  t.test_files = (Dir["test/test_*.rb"] + Dir["test/plugin/test_*.rb"] + Dir["test/config/test_*.rb"] - ["helper.rb"]).sort
+  t.test_files = Dir["test/**/test_*.rb"].sort
   t.verbose = true
   #t.warning = true
 end
