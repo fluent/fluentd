@@ -213,10 +213,10 @@ describe Fluent::Configurable do
     end
 
     describe '#configure' do
-      def e(name, arg = '', attrs = {}, elements = [])
+      def e(name, arg = '', attrs = {}, elements = [], system_attrs = {})
         attrs_str_keys = {}
         attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
-        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements, system_attrs)
       end
 
       BASE_ATTRS = {
@@ -505,10 +505,10 @@ describe Fluent::Configurable do
     end
 
     describe '#configure' do
-      def e(name, arg = '', attrs = {}, elements = [])
+      def e(name, arg = '', attrs = {}, elements = [], system_attrs = {})
         attrs_str_keys = {}
         attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
-        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements, system_attrs)
       end
 
       it 'provides accessible data for alias attribute keys' do

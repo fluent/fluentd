@@ -29,7 +29,7 @@ module Fluent
     def configure(conf)
       super
 
-      if label_name = conf['@label']
+      if label_name = conf.system['@label']
         label = Engine.root_agent.find_label(label_name)
         @router = label.event_router
       end

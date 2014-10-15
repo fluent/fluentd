@@ -19,19 +19,20 @@ module Fluent
 
   module Config
     class Element < Hash
-      def initialize(name, arg, attrs, elements, unused = nil)
+      def initialize(name, arg, attrs, elements, system_attrs, unused = nil)
         @name = name
         @arg = arg
         @elements = elements
+        @system = system_attrs
         super()
-        attrs.each { |k, v|
+        attrs.each {|k, v|
           self[k] = v
         }
         @unused = unused || attrs.keys
         @v1_config = false
       end
 
-      attr_accessor :name, :arg, :elements, :unused, :v1_config
+      attr_accessor :name, :arg, :elements, :system, :unused, :v1_config
 
       def add_element(name, arg='')
         e = Element.new(name, arg, {}, [])
@@ -42,7 +43,7 @@ module Fluent
 
       def inspect
         attrs = super
-        "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect
+        "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect + ", system:#{@system}"
       end
 
       def ==(o)
@@ -50,11 +51,13 @@ module Fluent
           self.keys.size == o.keys.size &&
           self.keys.reduce(true){|r, k| r && self[k] == o[k] } &&
           self.elements.size == o.elements.size &&
-          [self.elements, o.elements].transpose.reduce(true){|r, e| r && e[0] == e[1] }
+          [self.elements, o.elements].transpose.reduce(true){|r, e| r && e[0] == e[1] } &&
+          self.system.keys.size == o.system.keys.size &&
+          self.system.keys.reduce(true){|r, k| r && self.system[k] == o.system[k] }
       end
 
       def +(o)
-        e = Element.new(@name.dup, @arg.dup, o.merge(self), @elements + o.elements, (@unused + o.unused).uniq)
+        e = Element.new(@name.dup, @arg.dup, o.merge(self), @elements + o.elements, o.system.merge(@system), (@unused + o.unused).uniq)
         e.v1_config = @v1_config
         e
       end
@@ -101,6 +104,9 @@ module Fluent
         else
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
+        @system.each_pair { |k, v|
+          out << "#{nindent}#{k} #{v}\n"
+        }
         each_pair { |k, v|
           out << "#{nindent}#{k} #{v}\n"
         }

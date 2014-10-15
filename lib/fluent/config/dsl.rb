@@ -47,7 +47,7 @@ module Fluent
 
         def to_config_element
           @element.instance_eval do
-            Config::Element.new(@name, @arg, @attrs, @elements)
+            Config::Element.new(@name, @arg, @attrs, @elements, @system_attrs)
           end
         end
 
@@ -67,11 +67,12 @@ module Fluent
 
       class Element < BasicObject
         def initialize(name, arg, proxy)
-          @name     = name
-          @arg      = arg || ''
-          @attrs    = {}
-          @elements = []
-          @proxy    = proxy
+          @name         = name
+          @arg          = arg || ''
+          @attrs        = {}
+          @elements     = []
+          @system_attrs = {}
+          @proxy        = proxy
         end
 
         def method_missing(name, *args, &block)
