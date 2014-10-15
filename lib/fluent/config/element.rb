@@ -45,6 +45,7 @@ module Fluent
         "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect
       end
 
+      # This method assumes _o_ is an Element object. Should return false for nil or other object
       def ==(o)
         self.name == o.name && self.arg == o.arg &&
           self.keys.size == o.keys.size &&
