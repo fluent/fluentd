@@ -154,8 +154,39 @@ module Fluent::Config
         end
       end
 
-      test "rejects @ prefix in parameter name" do
-        assert_parse_error('  @k v')
+      data(
+        "in match" => %[
+          <match>
+            @k v
+          </match>
+        ],
+        "in source" => %[
+          <source>
+            @k v
+          </source>
+        ],
+        "in filter" => %[
+          <filter>
+            @k v
+          </filter>
+        ],
+        "in top-level" => '  @k v '
+        )
+      def test_rejects_at_prefix_in_the_parameter_name(data)
+        assert_parse_error(data)
+      end
+
+      data(
+        "in nested" => %[
+          <match>
+            <record>
+              @k v
+            </record>
+          </match>
+        ]
+        )
+      def test_not_reject_at_prefix_in_the_parameter_name(data)
+        assert_nothing_raised { parse_text(data) }
       end
     end
 

@@ -50,6 +50,8 @@ module Fluent
         return root
       end
 
+      ELEM_SYMBOLS = ['match', 'source', 'filter', 'system']
+
       def parse_element(root_element, elem_name, attrs = {}, elems = [])
         while true
           spacing
@@ -114,7 +116,12 @@ module Fluent
                 attrs[k] = v
               else
                 if k.start_with?('@')
-                  parse_error! "'@' is reserved prefix. Don't use '@' in parameter name"
+                  if root_element || ELEM_SYMBOLS.include?(elem_name)
+                    parse_error! "'@' is the system reserved prefix. Don't use '@' prefix parameter in the configuration: #{k}"
+                  else
+                    # TODO: This is for backward compatibility. It will throw an error in the future.
+                    $log.warn "'@' is the system reserved prefix. It works in the nested configuration for now but it will be rejected: #{k}"
+                  end
                 end
 
                 v = parse_literal
