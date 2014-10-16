@@ -1,3 +1,7 @@
+Release 0.10.55 - 2014/10/17
+
+* config: Relax '@' handling in the plugin configuration for backward compatibility
+
 Release 0.10.54 - 2014/10/17
 
 * config: Change v1's non-quoted string literal behaviour to v0's behaviour
