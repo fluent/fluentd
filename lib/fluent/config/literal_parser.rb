@@ -233,7 +233,7 @@ module Fluent
         end
 
         unless result
-          parse_error! "got incomplete #{is_array ? 'array' : 'hash'} configuration"
+          parse_error! "got incomplete JSON #{is_array ? 'array' : 'hash'} configuration"
         end
 
         JSON.dump(result)
