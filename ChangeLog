@@ -1,3 +1,13 @@
+Release 0.10.54 - 2014/10/17
+
+* config: Change v1's non-quoted string literal behaviour to v0's behaviour
+* config: Add --use-v0-config for keeping old configuration
+* config: Add single quoted literal in v1 configuration
+* config: Improve error message of Array / Hash parse error
+* input: Reduce shutdown time in some network related plugins when use Cool.io 1.2
+* parser: Use ParserError instead of general exception classes
+* Remove unused zfile buffer plugin
+
 Release 0.10.53 - 2014/08/21
 
 * in_tail: Fix forget to detach Closer timer object
