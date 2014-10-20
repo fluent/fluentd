@@ -78,6 +78,8 @@ module Fluent
     def initialize
       require 'uri'
       super
+
+      @uri_parser = URI::Parser.new
     end
 
     config_param :buffer_path, :string
@@ -202,11 +204,11 @@ module Fluent
     # Dots are separator for many cases:
     #   we should have to escape dots in keys...
     def encode_key(key)
-      URI::Parser.new.escape(key, /[^-_.a-zA-Z0-9]/n) # //n switch means explicit 'ASCII-8BIT' pattern
+      @uri_parser.escape(key, /[^-_.a-zA-Z0-9]/n) # //n switch means explicit 'ASCII-8BIT' pattern
     end
 
     def decode_key(encoded_key)
-      URI::Parser.new.unescape(encoded_key)
+      @uri_parser.unescape(encoded_key)
     end
 
     def make_path(encoded_key, bq)
