@@ -92,8 +92,13 @@ module FluentFileBufferTest
 
       chunk = filebufferchunk('a1', 'append1', mode: 'r')
       test_data = test_data1.force_encoding('ASCII-8BIT') + test_data2.force_encoding('ASCII-8BIT')
+
       #### TODO: This assertion currently fails. Oops.
+      # FileBuffer#read does NOT do force_encoding('ASCII-8BIT'). So encoding of output string instance are 'UTF-8'.
+      # I think it is a kind of bug, but fixing it may break some behavior of buf_file. So I cannot be sure to fix it just now.
+      #
       # assert_equal test_data, chunk.read
+
       chunk.purge
 
       assert !(File.exists?(bufpath('append1')))
@@ -543,7 +548,14 @@ module FluentFileBufferTest
       queue, map = buf2.resume
 
       assert_equal 0, queue.size
-      # TODO: This map size MUST be 0, but actually, 1
+
+      ### TODO: This map size MUST be 0, but actually, 1
+      # This is because 1.XXXXX is misunderstood like chunk key of resume_fix.*.log.
+      # This may be a kind of bug, but we cannot decide whether 1. is a part of chunk key or not,
+      # because current version of buffer plugin uses '.'(dot) as a one of chars for chunk encoding.
+      # I think that this is a mistake of design, but we cannot fix it because updated plugin become
+      # not to be able to resume existing file buffer chunk.
+      # We will fix it in next API version of buffer plugin.
       assert_equal 1, map.size
     end
   end
