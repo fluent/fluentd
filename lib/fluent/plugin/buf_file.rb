@@ -26,7 +26,7 @@ module Fluent
       FileUtils.ln_sf(@path, symlink_path) if symlink_path
     end
 
-    attr_reader :unique_id
+    attr_reader :unique_id, :path
 
     def <<(data)
       @file.write(data)
@@ -64,8 +64,6 @@ module Fluent
       yield @file
     end
 
-    attr_reader :path
-
     def mv(path)
       File.rename(@path, path)
       @path = path
@@ -80,10 +78,15 @@ module Fluent
     def initialize
       require 'uri'
       super
+
+      @uri_parser = URI::Parser.new
     end
 
     config_param :buffer_path, :string
 
+    # 'symlink_path' is currently only for out_file.
+    # That is the reason why this is not config_param, but attr_accessor.
+    # See: https://github.com/fluent/fluentd/pull/181
     attr_accessor :symlink_path
 
     def configure(conf)
@@ -96,10 +99,10 @@ module Fluent
       end
 
       if pos = @buffer_path.index('*')
-        @buffer_path_prefix = @buffer_path[0,pos]
-        @buffer_path_suffix = @buffer_path[pos+1..-1]
+        @buffer_path_prefix = @buffer_path[0, pos]
+        @buffer_path_suffix = @buffer_path[(pos + 1)..-1]
       else
-        @buffer_path_prefix = @buffer_path+"."
+        @buffer_path_prefix = @buffer_path + "."
         @buffer_path_suffix = ".log"
       end
 
@@ -111,11 +114,13 @@ module Fluent
     end
 
     def start
-      FileUtils.mkdir_p File.dirname(@buffer_path_prefix+"path")
+      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path")
       super
     end
 
-    PATH_MATCH = /^(.*)[\._](b|q)([0-9a-fA-F]{1,32})$/
+    # Dots are separator for many cases:
+    #   we should have to escape dots in keys...
+    PATH_MATCH = /^([-_.%0-9a-zA-Z]+)\.(b|q)([0-9a-fA-F]{1,32})$/
 
     def new_chunk(key)
       encoded_key = encode_key(key)
@@ -129,8 +134,8 @@ module Fluent
       queues = []
 
       Dir.glob("#{@buffer_path_prefix}*#{@buffer_path_suffix}") {|path|
-        match = path[@buffer_path_prefix.length..-(@buffer_path_suffix.length+1)]
-        if m = PATH_MATCH.match(match)
+        identifier_part = chunk_identifier_in_path(path)
+        if m = PATH_MATCH.match(identifier_part)
           key = decode_key(m[1])
           bq = m[2]
           tsuffix = m[3]
@@ -163,11 +168,18 @@ module Fluent
       return queue, map
     end
 
+    def chunk_identifier_in_path(path)
+      pos_after_prefix = @buffer_path_prefix.length
+      pos_before_suffix = @buffer_path_suffix.length + 1 # from tail of path
+
+      path.slice(pos_after_prefix..-pos_before_suffix)
+    end
+
     def enqueue(chunk)
       path = chunk.path
-      mp = path[@buffer_path_prefix.length..-(@buffer_path_suffix.length+1)]
+      identifier_part = chunk_identifier_in_path(path)
 
-      m = PATH_MATCH.match(mp)
+      m = PATH_MATCH.match(identifier_part)
       encoded_key = m ? m[1] : ""
       tsuffix = m[3]
       npath = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"
@@ -189,23 +201,26 @@ module Fluent
 
     protected
 
+    # Dots are separator for many cases:
+    #   we should have to escape dots in keys...
     def encode_key(key)
-      URI.escape(key, /[^-_.a-zA-Z0-9]/n)
+      @uri_parser.escape(key, /[^-_.a-zA-Z0-9]/n) # //n switch means explicit 'ASCII-8BIT' pattern
     end
 
     def decode_key(encoded_key)
-      URI.unescape(encoded_key)
+      @uri_parser.unescape(encoded_key)
     end
 
     def make_path(encoded_key, bq)
       now = Time.now.utc
-      timestamp = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff))
+      timestamp = ((now.to_i * 1000 * 1000 + now.usec) << 12 | rand(0xfff))
       tsuffix = timestamp.to_s(16)
       path = "#{@buffer_path_prefix}#{encoded_key}.#{bq}#{tsuffix}#{@buffer_path_suffix}"
       return path, tsuffix
     end
 
     def tsuffix_to_unique_id(tsuffix)
+      # why *2 ? frsyuki said that I forgot why completely.
       tsuffix.scan(/../).map {|x| x.to_i(16) }.pack('C*') * 2
     end
   end
