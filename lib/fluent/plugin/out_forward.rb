@@ -87,7 +87,7 @@ module Fluent
         node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
           @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector)
         @nodes << Node.new(log, node_conf)
-        log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight
+        log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight, :plugin_id=>plugin_id
       }
     end
 
