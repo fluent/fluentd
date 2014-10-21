@@ -45,6 +45,16 @@ module Fluent::Config
           end
         end
 
+        sub_test_case '#object_id' do
+          test 'returns its object id' do
+            s1 = Fluent::Config::Section.new({})
+            assert s1.object_id.is_a?(Fixnum)
+            s2 = Fluent::Config::Section.new({})
+            assert s1.object_id.is_a?(Fixnum)
+            assert_not_equal s1.object_id, s2.object_id
+          end
+        end
+
         sub_test_case '#to_h' do
           test 'returns internal hash itself' do
             hash = {
