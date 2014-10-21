@@ -48,9 +48,9 @@ module Fluent::Config
         sub_test_case '#object_id' do
           test 'returns its object id' do
             s1 = Fluent::Config::Section.new({})
-            assert s1.object_id.is_a?(Fixnum)
+            assert s1.object_id
             s2 = Fluent::Config::Section.new({})
-            assert s1.object_id.is_a?(Fixnum)
+            assert s2.object_id
             assert_not_equal s1.object_id, s2.object_id
           end
         end
