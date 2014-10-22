@@ -155,6 +155,45 @@ module MixinTest
       d.emit({'a' => 1})
       d.run
     end
+
+    def test_timezone_1
+      format_check({
+        'time' => "2010-05-03T17:02:01-10:00",
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTimeKeyMixin, %[
+      include_time_key true
+      timezone Pacific/Honolulu
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_timezone_2
+      format_check({
+        'time' => "2010-05-04T08:32:01+05:30",
+        'a' => 1
+      })
+
+      d = create_driver(Fluent::SetTimeKeyMixin, %[
+      include_time_key true
+      timezone +05:30
+      ])
+
+      d.emit({'a' => 1})
+      d.run
+    end
+
+    def test_timezone_invalid
+      assert_raise(Fluent::ConfigError) do
+        d = create_driver(Fluent::SetTimeKeyMixin, %[
+        include_time_key true
+        timezone Invalid/Invalid
+        ])
+      end
+    end
   end
 
   class HandleTagMixinTest < Test::Unit::TestCase

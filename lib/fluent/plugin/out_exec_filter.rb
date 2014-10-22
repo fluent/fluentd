@@ -22,6 +22,7 @@ module Fluent
 
     def initialize
       super
+      require 'fluent/timezone'
     end
 
     config_param :command, :string
@@ -59,6 +60,7 @@ module Fluent
     config_param :time_format, :string, :default => nil
 
     config_param :localtime, :bool, :default => true
+    config_param :timezone, :string, :default => nil
     config_param :num_children, :integer, :default => 1
 
     # nil, 'none' or 0: no respawn, 'inf' or -1: infinite times, positive integer: try to respawn specified times only
@@ -96,13 +98,18 @@ module Fluent
         @localtime = false
       end
 
+      if conf['timezone']
+        @timezone = conf['timezone']
+        Fluent::Timezone.validate!(@timezone)
+      end
+
       if !@tag && !@out_tag_key
         raise ConfigError, "'tag' or 'out_tag_key' option is required on exec_filter output"
       end
 
       if @in_time_key
         if f = @in_time_format
-          tf = TimeFormatter.new(f, @localtime)
+          tf = TimeFormatter.new(f, @localtime, @timezone)
           @time_format_proc = tf.method(:format)
         else
           @time_format_proc = Proc.new {|time| time.to_s }
