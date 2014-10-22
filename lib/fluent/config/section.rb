@@ -30,6 +30,10 @@ module Fluent
         @params = params
       end
 
+      def object_id
+        __id__
+      end
+
       def inspect
         "<Fluent::Config::Section #{@params.to_json}>"
       end
