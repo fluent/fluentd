@@ -1,13 +1,21 @@
 Release 0.10.55 - 2014/10/16
 
-* [config: Change v1's non-quoted string literal behaviour to v0's behaviour](https://github.com/fluent/fluentd/pull/436)
-* [config: Relax '@' handling in the plugin configuration for backward compatibility](https://github.com/fluent/fluentd/pull/455)
-* [config: Add --use-v0-config for keeping old configuration](https://github.com/fluent/fluentd/pull/434)
-* [config: Add single quoted literal in v1 configuration](https://github.com/fluent/fluentd/pull/437)
-* [config: Improve error message of Array / Hash parse error](https://github.com/fluent/fluentd/pull/457)
-* [input: Reduce shutdown time in some network related plugins when use Cool.io 1.2](https://github.com/fluent/fluentd/pull/440)
-* [parser: Use ParserError instead of general exception classes](https://github.com/fluent/fluentd/pull/453)
-* [Remove unused zfile buffer plugin](https://github.com/fluent/fluentd/pull/445)
+* config: Change v1's non-quoted string literal behaviour to v0's behaviour
+  https://github.com/fluent/fluentd/pull/436
+* config: Relax '@' handling in the plugin configuration for backward compatibility
+  https://github.com/fluent/fluentd/pull/455
+* config: Add --use-v0-config for keeping old configuration
+  https://github.com/fluent/fluentd/pull/434
+* config: Add single quoted literal in v1 configuration
+  https://github.com/fluent/fluentd/pull/437
+* config: Improve error message of Array / Hash parse error
+  https://github.com/fluent/fluentd/pull/457
+* input: Reduce shutdown time in some network related plugins when use Cool.io 1.2
+  https://github.com/fluent/fluentd/pull/440
+* parser: Use ParserError instead of general exception classes
+  https://github.com/fluent/fluentd/pull/453
+* Remove unused zfile buffer plugin
+  https://github.com/fluent/fluentd/pull/445
 
 Release 0.10.54 - skipped
 
