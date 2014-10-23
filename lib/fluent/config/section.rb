@@ -30,9 +30,7 @@ module Fluent
         @params = params
       end
 
-      def object_id
-        __id__
-      end
+      alias :object_id :__id__
 
       def inspect
         "<Fluent::Config::Section #{@params.to_json}>"
