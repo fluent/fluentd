@@ -117,9 +117,9 @@ module Fluent
     attr_accessor :include_time_key, :time_key, :localtime
 
     def configure(conf)
-      super
-
       @include_time_key = false
+
+      super
 
       if s = conf['include_time_key']
         include_time_key = Config.bool_value(s)
@@ -155,9 +155,9 @@ module Fluent
     attr_accessor :include_tag_key, :tag_key
 
     def configure(conf)
-      super
-
       @include_tag_key = false
+
+      super
 
       if s = conf['include_tag_key']
         include_tag_key = Config.bool_value(s)

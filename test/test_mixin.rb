@@ -27,15 +27,17 @@ module MixinTest
     end
 
     @@num = 0
+
     def create_register_output_name
-      "mixin_text_#{@@num+=1}"
+      @@num += 1
+      "mixin_text_#{@@num}"
     end
 
     def format_check(hash, tagname = 'test')
       mock(Checker).format_check(tagname, @time.to_i, hash)
     end
 
-    def create_driver(include_klass, conf = '', tag = "test")
+    def create_driver(include_klass, conf = '', tag = "test", &block)
       register_output_name = create_register_output_name
       include_klasses = [include_klass].flatten
 
@@ -50,6 +52,11 @@ module MixinTest
 
         def write(chunk); end
       }
+
+      if block
+        Utils.const_set("MixinTestClass#{@@num}", klass)
+        klass.module_eval(&block)
+      end
 
       Fluent::Test::BufferedOutputTestDriver.new(klass, tag) {
       }.configure("type #{register_output_name}" + conf)
@@ -110,6 +117,19 @@ module MixinTest
       d.emit({'a' => 1})
       d.run
     end
+
+    sub_test_case "mixin" do
+      data(
+        'true' => true,
+        'false' => false)
+      test 'include_tag_key' do |param|
+        d = create_driver(Fluent::SetTagKeyMixin) {
+          config_set_default :include_tag_key, param
+        }
+
+        assert_equal(param, d.instance.include_tag_key)
+      end
+    end
   end
 
   class SetTimeKeyMixinText < Test::Unit::TestCase
@@ -154,6 +174,19 @@ module MixinTest
 
       d.emit({'a' => 1})
       d.run
+    end
+
+    sub_test_case "mixin" do
+      data(
+        'true' => true,
+        'false' => false)
+      test 'include_time_key' do |param|
+        d = create_driver(Fluent::SetTimeKeyMixin) {
+          config_set_default :include_time_key, param
+        }
+
+        assert_equal(param, d.instance.include_time_key)
+      end
     end
   end
 
