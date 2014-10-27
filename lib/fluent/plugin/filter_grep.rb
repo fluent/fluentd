@@ -4,7 +4,6 @@ module Fluent
 
     REGEXP_MAX_NUM = 20
 
-    config_param :replace_invalid_sequence, :bool, :default => false
     (1..REGEXP_MAX_NUM).each {|i| config_param :"regexp#{i}",  :string, :default => nil }
     (1..REGEXP_MAX_NUM).each {|i| config_param :"exclude#{i}", :string, :default => nil }
 
@@ -49,8 +48,8 @@ module Fluent
       end
       result_es
     rescue => e
-      log.warn e.message
-      log.warn e.backtrace.join(', ')
+      log.warn "failed to grep events", :error_class => e.class, :error => e.message
+      log.warn_backtrace
     end
 
     private
@@ -60,19 +59,11 @@ module Fluent
         return regexp.match(string)
       rescue ArgumentError => e
         raise e unless e.message.index("invalid byte sequence in".freeze).zero?
-        string = replace_invalid_byte(string)
+        log.info "invalid byte sequence is replaced in `#{string}`"
+        string = string.scrub('?')
         retry
       end
       return true
-    end
-
-    REPLACE_OPTIONS = {invalid: :replace, undef: :replace, replace: '?'}
-
-    # TODO: replace with scrub?
-    def replace_invalid_byte(string)
-      original_encoding = string.encoding
-      temporal_encoding = (original_encoding == Encoding::UTF_8 ? Encoding::UTF_16BE : Encoding::UTF_8)
-      string.encode(temporal_encoding, original_encoding, REPLACE_OPTIONS).encode(original_encoding)
     end
   end
 end

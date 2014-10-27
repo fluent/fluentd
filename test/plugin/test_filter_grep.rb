@@ -6,6 +6,7 @@ require 'fluent/plugin/filter_grep'
 class GrepFilterTest < Test::Unit::TestCase
   setup do
     @filter = Fluent::GrepFilter.new
+    @time = Fluent::Engine.now
   end
 
   def configure(instance, conf, use_v1 = false)
@@ -21,7 +22,6 @@ class GrepFilterTest < Test::Unit::TestCase
   sub_test_case 'configure' do
     test 'check default' do
       configure(@filter, '')
-      assert_false(@filter.replace_invalid_sequence)
       assert_empty(@filter.regexps)
       assert_empty(@filter.excludes)
     end
@@ -38,10 +38,6 @@ class GrepFilterTest < Test::Unit::TestCase
   end
 
   sub_test_case 'filter_stream' do
-    setup do
-      @time = Fluent::Engine.now
-    end
-
     def messages
       [
         "2013/01/13T07:02:11.124202 INFO GET /ping",
@@ -61,58 +57,47 @@ class GrepFilterTest < Test::Unit::TestCase
       @filter.filter_stream('filter.test', es);
     end
 
-    sub_test_case 'default config' do
-      test 'test' do
-        es = emit('', messages)
-        assert_equal(4, es.instance_variable_get(:@record_array).size)
+    test 'empty config' do
+      es = emit('', messages)
+      assert_equal(4, es.instance_variable_get(:@record_array).size)
+    end
+
+    test 'regexpN' do
+      es = emit('regexp1 message WARN', messages)
+      assert_equal(3, es.instance_variable_get(:@record_array).size)
+      assert_block('only WARN logs') do
+        es.all? { |t, r|
+          !r['message'].include?('INFO')
+        }
       end
     end
 
-    sub_test_case 'regexpN' do
-      test 'test' do
-        es = emit('regexp1 message WARN', messages)
-        assert_equal(3, es.instance_variable_get(:@record_array).size)
-        assert_block('only WARN logs') do
-          es.all? { |t, r|
-            !r['message'].include?('INFO')
-          }
-        end
+    test 'excludeN' do
+      es = emit('exclude1 message favicon', messages)
+      assert_equal(3, es.instance_variable_get(:@record_array).size)
+      assert_block('remove favicon logs') do
+        es.all? { |t, r|
+          !r['message'].include?('favicon')
+        }
       end
     end
 
-    sub_test_case 'excludeN' do
-      test 'test' do
-        es = emit('exclude1 message favicon', messages)
-        assert_equal(3, es.instance_variable_get(:@record_array).size)
-        assert_block('remove favicon logs') do
-          es.all? { |t, r|
-            !r['message'].include?('favicon')
-          }
-        end
-      end
-    end
-
-    sub_test_case 'invalid sequence' do
+    sub_test_case 'with invalid sequence' do
       def messages
         [
           "\xff".force_encoding('UTF-8'),
         ]
       end
 
-      test 'with replace_invalid_sequence' do
+      test "don't raise an exception" do
         assert_nothing_raised { 
-          emit(%[regexp1 message WARN
-                 replace_invalid_sequence true], messages)
+          emit(%[regexp1 message WARN], ["\xff".force_encoding('UTF-8')])
         }
       end
     end
   end
 
   sub_test_case 'grep non-string jsonable values' do
-    setup do
-      @time = Fluent::Engine.now
-    end
-
     def emit(msg, config = 'regexp1 message 0')
       es = Fluent::MultiEventStream.new
       es.add(@time, {'foo' => 'bar', 'message' => msg})
@@ -121,27 +106,17 @@ class GrepFilterTest < Test::Unit::TestCase
       @filter.filter_stream('filter.test', es);
     end
 
-    test "array" do
-      es = emit(["0"])
+    data(
+      'array' => ["0"],
+      'hash' => ["0" => "0"],
+      'integer' => 0,
+      'float' => 0.1)
+    test "value" do |data|
+      es = emit(data)
       assert_equal(1, es.instance_variable_get(:@record_array).size)
     end
 
-    test "hash" do
-      es = emit(["0" => "0"])
-      assert_equal(1, es.instance_variable_get(:@record_array).size)
-    end
-
-    test "integer" do
-      es = emit(0)
-      assert_equal(1, es.instance_variable_get(:@record_array).size)
-    end
-
-    test "float" do
-      es = emit(0.1)
-      assert_equal(1, es.instance_variable_get(:@record_array).size)
-    end
-
-    test "boolean" do
+    test "value boolean" do
       es = emit(true, %[regexp1 message true])
       assert_equal(1, es.instance_variable_get(:@record_array).size)
     end
