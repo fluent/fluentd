@@ -1,3 +1,10 @@
+Release 0.10.56 - 2014/10/30
+
+* config: Add Fluent::Config::Section#object_id to avoid NoMethodError by object dump tools
+* mixin: Fix SetTagKeyMixin and SetTimeKeyMixin which ignores config_set_default since 0.10.53
+* input/output: Support 'timezone' configuration parameter (e.g. "+09:00" for JST).
+* log: Use plugin_id instead of object_id in log message for consistency with in_monitor_agent
+
 Release 0.10.55 - 2014/10/17
 
 * config: Relax '@' handling in the plugin configuration for backward compatibility
