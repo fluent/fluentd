@@ -120,7 +120,7 @@ module Fluent
 
     # Dots are separator for many cases:
     #   we should have to escape dots in keys...
-    PATH_MATCH = /^([-_.%0-9a-zA-Z]+)\.(b|q)([0-9a-fA-F]{1,32})$/
+    PATH_MATCH = /^([-_.%0-9a-zA-Z]*)\.(b|q)([0-9a-fA-F]{1,32})$/
 
     def new_chunk(key)
       encoded_key = encode_key(key)

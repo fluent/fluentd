@@ -104,6 +104,18 @@ module FluentFileBufferTest
       assert !(File.exists?(bufpath('append1')))
     end
 
+    def test_empty_chunk_key # for BufferedOutput#emit
+      chunk = filebufferchunk('', 'append1')
+      assert chunk.empty?
+
+      test_data1 = ("1" * 9 + "\n" + "2" * 9 + "\n").force_encoding('ASCII-8BIT')
+      test_data2 = "日本語Japanese\n".force_encoding('UTF-8')
+      chunk << test_data1
+      chunk << test_data2
+      assert_equal 38, chunk.size
+      chunk.close
+    end
+
     def test_read
       chunk = filebufferchunk('r1', 'read1')
       assert chunk.empty?
@@ -378,6 +390,36 @@ module FluentFileBufferTest
       assert File.exists?(chunk.path)
       assert !(File.exists?(old_path))
       assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.q[0-9a-f]+#{suffix}\Z/, "enqueued chunk's path must be a 'q' buffer chunk"
+
+      data = chunk.read
+      assert "data1\ndata2\n", data
+    end
+
+    # empty chunk keys are used w/ BufferedOutput
+    #  * ObjectBufferedOutput's keys are tag
+    #  * TimeSlicedOutput's keys are time_key
+    def test_enqueue_chunk_with_empty_key
+      buf = Fluent::FileBuffer.new
+      buf.configure({'buffer_path' => bufpath('enqueue2')})
+      prefix = buf.instance_eval{ @buffer_path_prefix }
+      suffix = buf.instance_eval{ @buffer_path_suffix }
+
+      chunk = buf.new_chunk('')
+      chunk << "data1\ndata2\n"
+
+      assert chunk
+      old_path = chunk.path.dup
+      assert File.exists?(chunk.path)
+      # chunk key is empty
+      assert chunk.path =~ /\A#{prefix}\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
+
+      buf.enqueue(chunk)
+
+      assert chunk
+      assert File.exists?(chunk.path)
+      assert !(File.exists?(old_path))
+      # chunk key is empty
+      assert chunk.path =~ /\A#{prefix}\.q[0-9a-f]+#{suffix}\Z/, "enqueued chunk's path must be a 'q' buffer chunk"
 
       data = chunk.read
       assert "data1\ndata2\n", data
