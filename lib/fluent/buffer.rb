@@ -237,11 +237,15 @@ module Fluent
 
     def total_queued_chunk_size
       total = 0
-      @map.each_value {|c|
-        total += c.size
-      }
-      @queue.each {|c|
-        total += c.size
+      synchronize {
+        @map.each_value {|c|
+          total += c.size
+        }
+        @queue.synchronize {
+          @queue.each {|c|
+            total += c.size
+          }
+        }
       }
       total
     end
