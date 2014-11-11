@@ -85,6 +85,22 @@ class MatchTest < Test::Unit::TestCase
     assert_glob_not_match('a.{b.**,c}', 'a.c.d')
   end
 
+  def test_multi_pattern_or
+    assert_or_match('a.b a.c', 'a.b')
+    assert_or_match('a.b a.c', 'a.c')
+    assert_or_not_match('a.b a.c', 'a.d')
+
+    assert_or_match('a.b.** a.c.**', 'a.b')
+    assert_or_match('a.b.** a.c.**', 'a.c')
+    assert_or_not_match('a.b.** a.c.**', 'a.d')
+    assert_or_not_match('a.b.** a.c.**', 'a.cd')
+
+    assert_or_match('a.b.** a.c', 'a.b')
+    assert_or_match('a.b.** a.c', 'a.b.c')
+    assert_or_match('a.b.** a.c', 'a.c')
+    assert_or_not_match('a.b.** a.c', 'a.c.d')
+  end
+
   #def test_character_class
   #  assert_match('[a]', 'a')
   #  assert_match('[ab]', 'a')
@@ -102,12 +118,20 @@ class MatchTest < Test::Unit::TestCase
   #end
 
   def assert_glob_match(pat, str)
-    m = GlobMatchPattern.new(pat)
-    assert_true m.match(str)
+    assert_true GlobMatchPattern.new(pat).match(str)
+    assert_true EventRouter::Rule.new(pat, nil).match?(str)
   end
 
   def assert_glob_not_match(pat, str)
-    m = GlobMatchPattern.new(pat)
-    assert_false m.match(str)
+    assert_false GlobMatchPattern.new(pat).match(str)
+    assert_false EventRouter::Rule.new(pat, nil).match?(str)
+  end
+
+  def assert_or_match(pats, str)
+    assert_true EventRouter::Rule.new(pats, nil).match?(str)
+  end
+
+  def assert_or_not_match(pats, str)
+    assert_false EventRouter::Rule.new(pats, nil).match?(str)
   end
 end
