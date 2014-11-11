@@ -38,7 +38,7 @@ module Fluent
   # Collector is either of Output, Filter or other EventRouter.
   #
   class EventRouter
-    def initialize(emit_error_handler, default_collector)
+    def initialize(default_collector, emit_error_handler)
       @match_rules = []
       @match_cache = MatchCache.new
       @default_collector = default_collector

@@ -37,7 +37,7 @@ module Fluent
       @started_filters = []
 
       @log = Engine.log
-      @event_router = EventRouter.new(self, NoMatchMatch.new(log))
+      @event_router = EventRouter.new(NoMatchMatch.new(log), self)
       @error_collector = nil
     end
 
