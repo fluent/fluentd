@@ -34,7 +34,7 @@ module Fluent
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
     config_param :backlog, :integer, :default => nil
     config_param :add_http_headers, :bool, :default => false
-    config_param :add_remote_ip, :bool, :default => false
+    config_param :add_remote_addr, :bool, :default => false
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
     config_param :cors_allow_origins, :string, :default => nil
@@ -138,7 +138,7 @@ module Fluent
           }
         end
 
-        if @add_remote_ip
+        if @add_remote_addr
           record['REMOTE_ADDR'] = params['REMOTE_ADDR']
         end
 
