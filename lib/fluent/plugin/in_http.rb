@@ -37,7 +37,7 @@ module Fluent
     config_param :add_remote_addr, :bool, :default => false
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
-    config_param :cors_allow_origins, :string, :default => nil
+    config_param :cors_allow_origins, :array, :default => nil
 
     def configure(conf)
       super
@@ -52,11 +52,6 @@ module Fluent
           end
       (class << self; self; end).module_eval do
         define_method(:parse_params, m)
-      end
-
-      if @cors_allow_origins
-        cors_allow_origins = @cors_allow_origins.split(',').map(&:strip)
-        @cors_allow_origins = cors_allow_origins
       end
     end
 
