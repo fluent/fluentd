@@ -37,6 +37,7 @@ module Fluent
     config_param :add_remote_ip, :bool, :default => false
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
+    config_param :cors_allow_origins, :string, :default => nil
 
     def configure(conf)
       super
@@ -51,6 +52,11 @@ module Fluent
           end
       (class << self; self; end).module_eval do
         define_method(:parse_params, m)
+      end
+
+      if @cors_allow_origins
+        cors_allow_origins = @cors_allow_origins.split(',').map(&:strip)
+        @cors_allow_origins = cors_allow_origins
       end
     end
 
@@ -86,7 +92,9 @@ module Fluent
         super
         @km = KeepaliveManager.new(@keepalive_timeout)
         #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
-        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit, @format, log)
+        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request),
+                                       @body_size_limit, @format, log,
+                                       @cors_allow_origins)
         @lsock.listen(@backlog) unless @backlog.nil?
 
         @loop = Coolio::Loop.new
@@ -190,7 +198,7 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
-      def initialize(io, km, callback, body_size_limit, format, log)
+      def initialize(io, km, callback, body_size_limit, format, log, cors_allow_origins)
         super(io)
         @km = km
         @callback = callback
@@ -198,7 +206,7 @@ module Fluent
         @next_close = false
         @format = format
         @log = log
-
+        @cors_allow_origins = cors_allow_origins
         @idle = 0
         @km.add(self)
 
@@ -233,6 +241,7 @@ module Fluent
       def on_headers_complete(headers)
         expect = nil
         size = nil
+
         if @parser.http_version == [1, 1]
           @keep_alive = true
         else
@@ -255,6 +264,8 @@ module Fluent
             elsif v =~ /Keep-alive/i
               @keep_alive = true
             end
+          when /Origin/i
+            @origin  = v
           end
         }
         if expect
@@ -282,6 +293,17 @@ module Fluent
 
       def on_message_complete
         return if closing?
+
+        # CORS check
+        # ==========
+        # For every incoming request, we check if we have some CORS
+        # restrictions and white listed origins through @cors_allow_origins.
+        unless @cors_allow_origins.nil?
+          unless @cors_allow_origins.include?(@origin)
+            send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
+            return
+          end
+        end
 
         @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
 
