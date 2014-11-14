@@ -34,6 +34,7 @@ module Fluent
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
     config_param :backlog, :integer, :default => nil
     config_param :add_http_headers, :bool, :default => false
+    config_param :add_remote_ip, :bool, :default => false
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
 
@@ -129,6 +130,10 @@ module Fluent
           }
         end
 
+        if @add_remote_ip
+          record['REMOTE_ADDR'] = params['REMOTE_ADDR']
+        end
+
         time = if param_time = params['time']
                  param_time = param_time.to_i
                  param_time.zero? ? Engine.now : param_time
@@ -142,10 +147,10 @@ module Fluent
       # TODO server error
       begin
         # Support batched requests
-        if record.is_a?(Array)           
+        if record.is_a?(Array)
           mes = MultiEventStream.new
           record.each do |single_record|
-            single_time = single_record.delete("time") || time 
+            single_time = single_record.delete("time") || time
             mes.add(single_time, single_record)
           end
           router.emit_stream(tag, mes)
@@ -347,4 +352,3 @@ module Fluent
     end
   end
 end
-
