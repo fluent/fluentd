@@ -77,11 +77,12 @@ module Fluent
       end
     end
 
-    class JSONFormatter
-      include Configurable
-      include HandleTagAndTimeMixin
-
-      config_param :time_as_epoch, :bool, :default => false
+    module StructuredFormatMixin
+      def self.included(klass)
+        klass.instance_eval {
+          config_param :time_as_epoch, :bool, :default => false
+        }
+      end
 
       def configure(conf)
         super
@@ -99,6 +100,16 @@ module Fluent
       def format(tag, time, record)
         filter_record(tag, time, record)
         record[@time_key] = time if @time_as_epoch
+        format_record(record)
+      end
+    end
+
+    class JSONFormatter
+      include Configurable
+      include HandleTagAndTimeMixin
+      include StructuredFormatMixin
+
+      def format_record(record)
         "#{Yajl.dump(record)}\n"
       end
     end
