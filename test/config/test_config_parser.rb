@@ -1,6 +1,6 @@
-require 'helper'
+require_relative '../helper'
+require_relative "assertions"
 require "json"
-require "config/assertions"
 require "fluent/config/error"
 require "fluent/config/basic_parser"
 require "fluent/config/literal_parser"
@@ -228,6 +228,10 @@ module Fluent::Config
         ]],
         "ignores spacing around element argument" => [root(e("test", "a")), %[
           <test    a    >
+          </test>
+        ]],
+        "accepts spacing inside element argument (for multiple tags)" => [root(e("test", "a.** b.**")), %[
+          <test    a.** b.** >
           </test>
         ]])
       def test_parse_element(data)
