@@ -23,11 +23,12 @@ if ENV['SIMPLE_COV']
   end
 end
 
+require 'rr'
 require 'test/unit'
+require 'test/unit/rr'
 require 'fileutils'
 require 'fluent/log'
 require 'fluent/test'
-require 'rr'
 
 unless defined?(Test::Unit::AssertionFailedError)
   class Test::Unit::AssertionFailedError < StandardError

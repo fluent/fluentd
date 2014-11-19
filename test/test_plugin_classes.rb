@@ -16,16 +16,27 @@ module FluentTest
     end
   end
 
-  class FluentTestFilter < ::Fluent::Filter
-    def initialize
-      super
-      @num = 0
+  class FluentTestErrorOutput < ::Fluent::BufferedOutput
+    def format(tag, time, record)
+      raise "emit error!"
     end
 
-    attr_reader :events
+    def write(chunk)
+      raise "chunk error!"
+    end
+  end
+
+  class FluentTestFilter < ::Fluent::Filter
+    def initialize(field = '__test__')
+      super()
+      @num = 0
+      @field = field
+    end
+
+    attr_reader :num
 
     def filter(tag, time, record)
-      record['__test__'] = @num
+      record[@field] = @num
       @num += 1
       record
     end

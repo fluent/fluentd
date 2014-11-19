@@ -8,6 +8,9 @@ class EventRouterTest < ::Test::Unit::TestCase
   teardown do
     @output = nil
     @filter = nil
+    @error_output = nil
+    @emit_handler = nil
+    @default_collector = nil
   end
 
   def output
@@ -16,6 +19,18 @@ class EventRouterTest < ::Test::Unit::TestCase
 
   def filter
     @filter ||= FluentTestFilter.new
+  end
+
+  def error_output
+    @error_output ||= FluentTestErrorOutput.new
+  end
+
+  def emit_handler
+    @emit_handler ||= TestEmitErrorHandler.new
+  end
+
+  def default_collector
+    @default_collector ||= FluentTestOutput.new
   end
 
   def event(record, time = Engine.now)
@@ -111,5 +126,108 @@ class EventRouterTest < ::Test::Unit::TestCase
       end
     end
   end
-end
 
+  sub_test_case EventRouter do
+    teardown do
+      @event_router = nil
+    end
+
+    def event_router
+      @event_router ||= EventRouter.new(default_collector, emit_handler)
+    end
+
+    sub_test_case 'default collector' do
+      test 'call default collector when no output' do
+        assert_rr do
+          mock(default_collector).emit('test', is_a(OneEventStream), NullOutputChain.instance)
+          event_router.emit('test', Engine.now, 'k' => 'v')
+        end
+      end
+
+      test "call default collector when only filter" do
+        event_router.add_rule('test', filter)
+        assert_rr do
+          # After apply Filter, EventStream becomes MultiEventStream by default
+          mock(default_collector).emit('test', is_a(MultiEventStream), NullOutputChain.instance)
+          event_router.emit('test', Engine.now, 'k' => 'v')
+        end
+        assert_equal 1, filter.num
+      end
+
+      test "call default collector when no matched with output" do
+        event_router.add_rule('test', output)
+        assert_rr do
+          mock(default_collector).emit('dummy', is_a(OneEventStream), NullOutputChain.instance)
+          event_router.emit('dummy', Engine.now, 'k' => 'v')
+        end
+      end
+
+      test "don't call default collector when tag matched" do
+        event_router.add_rule('test', output)
+        assert_rr do
+          dont_allow(default_collector).emit('test', is_a(OneEventStream), NullOutputChain.instance)
+          event_router.emit('test', Engine.now, 'k' => 'v')
+        end
+        # check emit handler doesn't catch rr error
+        assert_empty emit_handler.events
+      end
+    end
+
+    sub_test_case 'filter' do
+      test 'filter should be called when tag matched' do
+        event_router.add_rule('test', filter)
+
+        assert_rr do
+          mock(filter).filter_stream('test', is_a(OneEventStream)) { events }
+          event_router.emit('test', Engine.now, 'k' => 'v')
+        end
+      end
+
+      test 'filter should not be called when tag mismatched' do
+        event_router.add_rule('test', filter)
+
+        assert_rr do
+          dont_allow(filter).filter_stream('test', is_a(OneEventStream)) { events }
+          event_router.emit('foo', Engine.now, 'k' => 'v')
+        end
+      end
+
+      test 'filter changes records' do
+        event_router.add_rule('test', filter)
+        event_router.add_rule('test', output)
+        event_router.emit('test', Engine.now, 'k' => 'v')
+
+        assert_equal 1, filter.num
+        assert_equal 1, output.events['test'].size
+        assert_equal 0, output.events['test'].first['__test__']
+        assert_equal 'v', output.events['test'].first['k']
+      end
+
+      test 'filter can be chained' do
+        other_filter = FluentTestFilter.new('__hoge__')
+        event_router.add_rule('test', filter)
+        event_router.add_rule('test', other_filter)
+        event_router.add_rule('test', output)
+        event_router.emit('test', Engine.now, 'k' => 'v')
+
+        assert_equal 1, filter.num
+        assert_equal 1, other_filter.num
+        assert_equal 1, output.events['test'].size
+        assert_equal 0, output.events['test'].first['__test__']
+        assert_equal 0, output.events['test'].first['__hoge__']
+        assert_equal 'v', output.events['test'].first['k']
+      end
+    end
+
+    sub_test_case 'emit_error_handler' do
+      test 'call handle_emits_error when emit failed' do
+        event_router.add_rule('test', error_output)
+
+        assert_rr do
+          mock(emit_handler).handle_emits_error('test', is_a(OneEventStream), is_a(RuntimeError))
+          event_router.emit('test', Engine.now, 'k' => 'v')
+        end
+      end
+    end
+  end
+end
