@@ -120,6 +120,49 @@ module FormatterTest
     end
   end
 
+  class MessagePackFormatterTest < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def setup
+      @formatter = TextFormatter::MessagePackFormatter.new
+      @time = Engine.now
+    end
+
+    def test_format
+      @formatter.configure({})
+      formatted = @formatter.format(tag, @time, record)
+
+      assert_equal(record.to_msgpack, formatted)
+    end
+
+    def test_format_with_include_tag
+      @formatter.configure('include_tag_key' => 'true', 'tag_key' => 'foo')
+      formatted = @formatter.format(tag, @time, record.dup)
+
+      r = record
+      r['foo'] = tag
+      assert_equal(r.to_msgpack, formatted)
+    end
+
+    def test_format_with_include_time
+      @formatter.configure('include_time_key' => 'true', 'localtime' => '')
+      formatted = @formatter.format(tag, @time, record.dup)
+
+      r = record
+      r['time'] = time2str(@time, true)
+      assert_equal(r.to_msgpack, formatted)
+    end
+
+    def test_format_with_include_time_as_number
+      @formatter.configure('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch')
+      formatted = @formatter.format(tag, @time, record.dup)
+
+      r = record
+      r['epoch'] = @time
+      assert_equal(r.to_msgpack, formatted)
+    end
+  end
+
   class LabeledTSVFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 

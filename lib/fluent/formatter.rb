@@ -114,6 +114,16 @@ module Fluent
       end
     end
 
+    class MessagePackFormatter
+      include Configurable
+      include HandleTagAndTimeMixin
+      include StructuredFormatMixin
+
+      def format_record(record)
+        record.to_msgpack
+      end
+    end
+
     class LabeledTSVFormatter
       include Configurable
       include HandleTagAndTimeMixin
@@ -149,6 +159,7 @@ module Fluent
     {
       'out_file' => Proc.new { OutFileFormatter.new },
       'json' => Proc.new { JSONFormatter.new },
+      'msgpack' => Proc.new { MessagePackFormatter.new },
       'ltsv' => Proc.new { LabeledTSVFormatter.new },
       'single_value' => Proc.new { SingleValueFormatter.new },
     }.each { |name, factory|
