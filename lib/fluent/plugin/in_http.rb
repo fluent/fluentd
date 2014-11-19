@@ -34,8 +34,10 @@ module Fluent
     config_param :keepalive_timeout, :time, :default => 10   # TODO default
     config_param :backlog, :integer, :default => nil
     config_param :add_http_headers, :bool, :default => false
+    config_param :add_remote_addr, :bool, :default => false
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
+    config_param :cors_allow_origins, :array, :default => nil
 
     def configure(conf)
       super
@@ -85,7 +87,9 @@ module Fluent
         super
         @km = KeepaliveManager.new(@keepalive_timeout)
         #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
-        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request), @body_size_limit, @format, log)
+        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request),
+                                       @body_size_limit, @format, log,
+                                       @cors_allow_origins)
         @lsock.listen(@backlog) unless @backlog.nil?
 
         @loop = Coolio::Loop.new
@@ -129,6 +133,10 @@ module Fluent
           }
         end
 
+        if @add_remote_addr
+          record['REMOTE_ADDR'] = params['REMOTE_ADDR']
+        end
+
         time = if param_time = params['time']
                  param_time = param_time.to_i
                  param_time.zero? ? Engine.now : param_time
@@ -142,10 +150,10 @@ module Fluent
       # TODO server error
       begin
         # Support batched requests
-        if record.is_a?(Array)           
+        if record.is_a?(Array)
           mes = MultiEventStream.new
           record.each do |single_record|
-            single_time = single_record.delete("time") || time 
+            single_time = single_record.delete("time") || time
             mes.add(single_time, single_record)
           end
           router.emit_stream(tag, mes)
@@ -185,7 +193,7 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
-      def initialize(io, km, callback, body_size_limit, format, log)
+      def initialize(io, km, callback, body_size_limit, format, log, cors_allow_origins)
         super(io)
         @km = km
         @callback = callback
@@ -193,7 +201,7 @@ module Fluent
         @next_close = false
         @format = format
         @log = log
-
+        @cors_allow_origins = cors_allow_origins
         @idle = 0
         @km.add(self)
 
@@ -228,6 +236,7 @@ module Fluent
       def on_headers_complete(headers)
         expect = nil
         size = nil
+
         if @parser.http_version == [1, 1]
           @keep_alive = true
         else
@@ -250,6 +259,8 @@ module Fluent
             elsif v =~ /Keep-alive/i
               @keep_alive = true
             end
+          when /Origin/i
+            @origin  = v
           end
         }
         if expect
@@ -277,6 +288,17 @@ module Fluent
 
       def on_message_complete
         return if closing?
+
+        # CORS check
+        # ==========
+        # For every incoming request, we check if we have some CORS
+        # restrictions and white listed origins through @cors_allow_origins.
+        unless @cors_allow_origins.nil?
+          unless @cors_allow_origins.include?(@origin)
+            send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
+            return
+          end
+        end
 
         @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
 
@@ -347,4 +369,3 @@ module Fluent
     end
   end
 end
-
