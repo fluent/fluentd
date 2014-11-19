@@ -16,7 +16,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.has_rdoc = false
 
-  gem.required_ruby_version = '>= 1.9.2'
+  gem.required_ruby_version = '>= 1.9.3'
 
   gem.add_runtime_dependency("msgpack", [">= 0.5.4", "< 0.6.0"])
   gem.add_runtime_dependency("json", [">= 1.4.3"])
