@@ -217,6 +217,121 @@ module FormatterTest
     end
   end
 
+  class CsvFormatterTest < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def setup
+      @formatter = TextFormatter::CsvFormatter.new
+      @time = Engine.now
+    end
+    
+    def test_config_params
+      assert_equal ',', @formatter.delimiter
+      assert_equal true, @formatter.force_quotes
+      assert_equal [], @formatter.fields
+    end
+
+    def test_config_params_with_customized_delimiters
+      @formatter.configure('delimiter' => '\t')
+      assert_equal "\t", @formatter.delimiter
+
+      @formatter.configure('delimiter' => 'TAB')
+      assert_equal "\t", @formatter.delimiter
+
+      @formatter.configure('delimiter' => '|')
+      assert_equal '|', @formatter.delimiter
+    end
+
+    def test_format
+      @formatter.configure('fields' => 'message,message2')
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => 'awesome2'
+      })
+      assert_equal("\"awesome\",\"awesome2\"\n", formatted)
+    end
+
+    def test_format_with_tag
+      @formatter.configure(
+        'fields' => 'tag,message,message2',
+        'include_tag_key' => 'true'
+      )
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => 'awesome2'
+      })
+      assert_equal("\"tag\",\"awesome\",\"awesome2\"\n", formatted)
+    end
+
+    def test_format_with_time
+      @formatter.configure(
+        'fields' => 'time,message,message2',
+        'include_time_key' => 'true',
+        'time_format' => '%Y'
+      )
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => 'awesome2'
+      })
+      assert_equal("\"#{Time.now.year}\",\"awesome\",\"awesome2\"\n",
+                   formatted)
+    end
+
+    def test_format_with_customized_delimiters
+      @formatter.configure(
+        'fields' => 'message,message2',
+        'delimiter' => '\t'
+      )
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => 'awesome2'
+      })
+      assert_equal("\"awesome\"\t\"awesome2\"\n", formatted)
+    end
+
+    def test_format_with_non_quote
+      @formatter.configure(
+        'fields' => 'message,message2',
+        'force_quotes' => 'false'
+      )
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => 'awesome2'
+      })
+      assert_equal("awesome,awesome2\n", formatted)
+    end
+
+    def test_format_with_empty_fields
+      @formatter.configure(
+        'fields' => 'message,message2,message3'
+      )
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => nil,
+        'message3' => 'awesome3'
+      })
+      assert_equal("\"awesome\",\"\",\"awesome3\"\n", formatted)
+
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => '',
+        'message3' => 'awesome3'
+      })
+      assert_equal("\"awesome\",\"\",\"awesome3\"\n", formatted)
+    end
+
+    def test_config_params_with_fields
+      @formatter.configure('fields' => 'one,two,three')
+      assert_equal %w(one two three), @formatter.fields
+
+      @formatter.configure('fields' => 'one , two , three')
+      assert_equal %w(one two three), @formatter.fields
+
+      @formatter.configure('fields' => 'one,,two,three')
+      assert_equal %w(one two three), @formatter.fields
+    end
+  end
+
   class SingleValueFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
