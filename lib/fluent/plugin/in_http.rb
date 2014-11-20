@@ -38,6 +38,7 @@ module Fluent
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
     config_param :cors_allow_origins, :array, :default => nil
+    config_param :respond_with_empty_img, :bool, :default => 'false'
 
     def configure(conf)
       super
@@ -122,7 +123,11 @@ module Fluent
 
         # Skip nil record
         if record.nil?
-          return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+          if @respond_with_empty_img
+            return ["200 OK", {'Content-type'=>'image/gif'}, "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;"]
+          else
+            return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+          end
         end
 
         if @add_http_headers
@@ -157,14 +162,18 @@ module Fluent
             mes.add(single_time, single_record)
           end
           router.emit_stream(tag, mes)
-	else
+        else
           router.emit(tag, time, record)
         end
       rescue
         return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
       end
 
-      return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+      if @respond_with_empty_img
+        return ["200 OK", {'Content-type'=>'image/gif'}, "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;"]
+      else
+        return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+      end
     end
 
     private
@@ -367,5 +376,5 @@ module Fluent
         write data
       end
     end
-  end
+end
 end

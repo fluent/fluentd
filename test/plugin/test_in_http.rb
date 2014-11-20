@@ -13,6 +13,7 @@ class HttpInputTest < Test::Unit::TestCase
     bind "127.0.0.1"
     body_size_limit 10m
     keepalive_timeout 5
+    respond_with_empty_img true
   ]
 
   def create_driver(conf=CONFIG)
