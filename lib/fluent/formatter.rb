@@ -115,13 +115,12 @@ module Fluent
       def format(tag, time, record)
         filter_record(tag, time, record)
         formatted = record.inject('') { |result, pair|
-          if @output_tag == false && pair.first == 'tag'
-            result = ''
-          else
+          unless @output_tag == false && pair.first == 'tag'
             result << @delimiter if result.length.nonzero?
             result << "#{pair.first}#{@label_delimiter}" if @include_label
             result << "#{pair.last}"
           end
+          result
         }
         formatted << "\n"
         formatted
