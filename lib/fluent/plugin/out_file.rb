@@ -73,7 +73,7 @@ module Fluent
 
     def write(chunk)
       path = generate_path(chunk)
-      FileUtils.mkdir_p File.dirname(path)
+      FileUtils.mkdir_p File.dirname(path), :mode => DEFAULT_DIR_PERMISSION
 
       case @compress
       when nil
