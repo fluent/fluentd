@@ -21,9 +21,9 @@ module Fluent
     BIN_NUM = 10
 
     config_param :tag, :string
-    config_param :rate, :integer
+    config_param :rate, :integer, :default => 1
     config_param :auto_increment_key, :string, :default => nil
-    config_param :dummy do |val|
+    config_param :dummy, :default => [{"message"=>"dummy"}] do |val|
       begin
         parsed = JSON.parse(val)
       rescue JSON::ParserError => e
@@ -38,8 +38,6 @@ module Fluent
       end
       dummy
     end
-
-    attr_reader :dummy
 
     def configure(conf)
       super
