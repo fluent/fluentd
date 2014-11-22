@@ -1,3 +1,4 @@
+require_relative '../helper'
 require 'fluent/test'
 require 'fileutils'
 require 'time'
@@ -125,7 +126,7 @@ class FileOutputTest < Test::Unit::TestCase
 
     # FileOutput#write returns path
     path = d.run
-    expect_path = "#{TMP_DIR}/out_file_test._0.log.gz"
+    expect_path = "#{TMP_DIR}/out_file_test.20110102_0.log.gz"
     assert_equal expect_path, path
 
     check_gzipped_result(path, %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
@@ -177,13 +178,13 @@ class FileOutputTest < Test::Unit::TestCase
 
     # FileOutput#write returns path
     path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test._0.log.gz", path
+    assert_equal "#{TMP_DIR}/out_file_test.20110102_0.log.gz", path
     check_gzipped_result(path, formatted_lines)
     path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test._1.log.gz", path
+    assert_equal "#{TMP_DIR}/out_file_test.20110102_1.log.gz", path
     check_gzipped_result(path, formatted_lines)
     path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test._2.log.gz", path
+    assert_equal "#{TMP_DIR}/out_file_test.20110102_2.log.gz", path
     check_gzipped_result(path, formatted_lines)
   end
 
@@ -202,13 +203,13 @@ class FileOutputTest < Test::Unit::TestCase
 
     # FileOutput#write returns path
     path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
     check_gzipped_result(path, formatted_lines)
     path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
     check_gzipped_result(path, formatted_lines * 2)
     path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test..log.gz", path
+    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
     check_gzipped_result(path, formatted_lines * 3)
   end
 
@@ -238,6 +239,59 @@ class FileOutputTest < Test::Unit::TestCase
     ensure
       d.instance.shutdown
       FileUtils.rm_rf(symlink_path)
+    end
+  end
+
+  sub_test_case 'path' do
+    test 'normal' do
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test
+        time_slice_format %Y-%m-%d-%H
+        utc true
+      ])
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      d.emit({"a"=>1}, time)
+      # FileOutput#write returns path
+      path = d.run
+      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13_0.log", path
+    end
+
+    test 'normal with append' do
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test
+        time_slice_format %Y-%m-%d-%H
+        utc true
+        append true
+      ])
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      d.emit({"a"=>1}, time)
+      path = d.run
+      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13.log", path
+    end
+
+    test '*' do
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test.*.txt
+        time_slice_format %Y-%m-%d-%H
+        utc true
+      ])
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      d.emit({"a"=>1}, time)
+      path = d.run
+      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13_0.txt", path
+    end
+
+    test '* with append' do
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test.*.txt
+        time_slice_format %Y-%m-%d-%H
+        utc true
+        append true
+      ])
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      d.emit({"a"=>1}, time)
+      path = d.run
+      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13.txt", path
     end
   end
 end
