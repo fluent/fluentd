@@ -130,12 +130,18 @@ module Fluent
 
       config_param :delimiter, :string, :default => "\t"
       config_param :label_delimiter, :string, :default =>  ":"
+      config_param :include_label, :bool, :default => true
+      config_param :output_tag, :bool, :default => true
 
       def format(tag, time, record)
         filter_record(tag, time, record)
         formatted = record.inject('') { |result, pair|
-          result << @delimiter if result.length.nonzero?
-          result << "#{pair.first}#{@label_delimiter}#{pair.last}"
+          unless @output_tag == false && pair.first == 'tag'
+            result << @delimiter if result.length.nonzero?
+            result << "#{pair.first}#{@label_delimiter}" if @include_label
+            result << "#{pair.last}"
+          end
+          result
         }
         formatted << "\n"
         formatted
