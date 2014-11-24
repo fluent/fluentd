@@ -231,15 +231,14 @@ module FormatterTest
       assert_equal [], @formatter.fields
     end
 
-    def test_config_params_with_customized_delimiters
-      @formatter.configure('delimiter' => '\t')
-      assert_equal "\t", @formatter.delimiter
-
-      @formatter.configure('delimiter' => 'TAB')
-      assert_equal "\t", @formatter.delimiter
-
-      @formatter.configure('delimiter' => '|')
-      assert_equal '|', @formatter.delimiter
+    data(
+      'tab_char' => ["\t", '\t'],
+      'tab_string' => ["\t", 'TAB'],
+      'pipe' => ['|', '|'])
+    def test_config_params_with_customized_delimiters(data)
+      expected, target = data
+      @formatter.configure('delimiter' => target)
+      assert_equal expected, @formatter.delimiter
     end
 
     def test_format
@@ -301,33 +300,31 @@ module FormatterTest
       assert_equal("awesome,awesome2\n", formatted)
     end
 
-    def test_format_with_empty_fields
-      @formatter.configure(
-        'fields' => 'message,message2,message3'
-      )
-      formatted = @formatter.format(tag, @time, {
+    data(
+      'nil' => {
         'message' => 'awesome',
         'message2' => nil,
         'message3' => 'awesome3'
-      })
-      assert_equal("\"awesome\",\"\",\"awesome3\"\n", formatted)
-
-      formatted = @formatter.format(tag, @time, {
+      },
+      'blank' => {
         'message' => 'awesome',
         'message2' => '',
         'message3' => 'awesome3'
       })
+    def test_format_with_empty_fields(data)
+      @formatter.configure(
+        'fields' => 'message,message2,message3'
+      )
+      formatted = @formatter.format(tag, @time, data)
       assert_equal("\"awesome\",\"\",\"awesome3\"\n", formatted)
     end
 
-    def test_config_params_with_fields
-      @formatter.configure('fields' => 'one,two,three')
-      assert_equal %w(one two three), @formatter.fields
-
-      @formatter.configure('fields' => 'one , two , three')
-      assert_equal %w(one two three), @formatter.fields
-
-      @formatter.configure('fields' => 'one,,two,three')
+    data(
+      'normally' => 'one,two,three',
+      'white_space' => 'one , two , three',
+      'blank' => 'one,,two,three')
+    def test_config_params_with_fields(data)
+      @formatter.configure('fields' => data)
       assert_equal %w(one two three), @formatter.fields
     end
   end
