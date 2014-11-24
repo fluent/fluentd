@@ -143,6 +143,37 @@ module Fluent
       end
     end
 
+    class CsvFormatter
+      include Configurable
+      include HandleTagAndTimeMixin
+
+      config_param :delimiter, :default => ',' do |val|
+        ['\t', 'TAB'].include?(val) ? "\t" : val
+      end
+      config_param :force_quotes, :bool, :default => true
+      config_param :fields, :default => [] do |val|
+        val.split(',').map do |f|
+          f.strip!
+          f.size > 0 ? f : nil
+        end.compact
+      end
+
+      def initialize
+        super
+        require 'csv'
+      end
+
+      def format(tag, time, record)
+        filter_record(tag, time, record)
+        row = @fields.inject([]) do |memo, key|
+            memo << record[key]
+            memo
+        end
+        CSV.generate_line(row, :col_sep => @delimiter,
+                          :force_quotes => @force_quotes)
+      end
+    end
+
     class SingleValueFormatter
       include Configurable
 
@@ -162,6 +193,7 @@ module Fluent
       'json' => Proc.new { JSONFormatter.new },
       'msgpack' => Proc.new { MessagePackFormatter.new },
       'ltsv' => Proc.new { LabeledTSVFormatter.new },
+      'csv' => Proc.new { CsvFormatter.new },
       'single_value' => Proc.new { SingleValueFormatter.new },
     }.each { |name, factory|
       TEMPLATE_REGISTRY.register(name, factory)
