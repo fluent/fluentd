@@ -137,6 +137,7 @@ module Fluent
       log.info "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       filter = Plugin.new_filter(type)
+      filter.router = @event_router
       filter.configure(conf)
       @filters << filter
       @event_router.add_rule(pattern, filter)
