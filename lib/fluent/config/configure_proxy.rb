@@ -68,13 +68,13 @@ module Fluent
           elsif a.is_a?(Hash)
             opts.merge!(a)
           else
-            raise ArgumentError, "wrong number of arguments (#{1 + args.length} for #{block ? 2 : 3})"
+            raise ArgumentError, "#{self.name}: wrong number of arguments (#{1 + args.length} for #{block ? 2 : 3})"
           end
         }
 
         type = opts[:type]
         if block && type
-          raise ArgumentError, "both of block and type cannot be specified"
+          raise ArgumentError, "#{self.name}: both of block and type cannot be specified"
         end
 
         begin
@@ -82,7 +82,7 @@ module Fluent
           block ||= Configurable.lookup_type(type)
         rescue ConfigError
           # override error message
-          raise ArgumentError, "unknown config_argument type `#{type}'"
+          raise ArgumentError, "#{self.name}: unknown config_argument type `#{type}'"
         end
 
         if opts.has_key?(:default)
@@ -94,7 +94,7 @@ module Fluent
 
       def config_argument(name, *args, &block)
         if @argument
-          raise ArgumentError, "config_argument called twice"
+          raise ArgumentError, "#{self.name}: config_argument called twice"
         end
         name, block, opts = parameter_configuration(name, *args, &block)
 
@@ -114,7 +114,7 @@ module Fluent
         name = name.to_sym
 
         if @defaults.has_key?(name)
-          raise ArgumentError, "default value specified twice for #{name}"
+          raise ArgumentError, "#{self.name}: default value specified twice for #{name}"
         end
 
         @defaults[name] = defval
@@ -123,13 +123,13 @@ module Fluent
 
       def config_section(name, *args, &block)
         unless block_given?
-          raise ArgumentError, "config_section requires block parameter"
+          raise ArgumentError, "#{self.name}: config_section requires block parameter"
         end
         name = name.to_sym
 
         opts = {}
         unless args.empty? || args.size == 1 && args.first.is_a?(Hash)
-          raise ArgumentError, "unknown config_section arguments: #{args.inspect}"
+          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{args.inspect}"
         end
 
         sub_proxy = ConfigureProxy.new(name, *args)
