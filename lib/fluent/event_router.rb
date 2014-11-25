@@ -73,7 +73,7 @@ module Fluent
       end
 
       attr_reader :collector
-      attr_reader :patatern_str
+      attr_reader :pattern_str
     end
 
     # called by Agent to add new match pattern and collector
