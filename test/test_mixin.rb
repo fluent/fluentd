@@ -1,4 +1,4 @@
-require 'helper'
+require_relative 'helper'
 require 'fluent/mixin'
 require 'fluent/env'
 require 'fluent/plugin'

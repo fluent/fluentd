@@ -1,5 +1,5 @@
-require "helper"
-require 'config/assertions'
+require_relative "../helper"
+require_relative 'assertions'
 require "fluent/config/error"
 require "fluent/config/literal_parser"
 require "fluent/config/v1_parser"

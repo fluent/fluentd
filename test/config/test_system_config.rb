@@ -1,4 +1,4 @@
-require 'helper'
+require_relative '../helper'
 require 'fluent/configurable'
 require 'fluent/config/element'
 require 'fluent/config/section'

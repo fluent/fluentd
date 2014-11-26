@@ -1,4 +1,4 @@
-require 'helper'
+require_relative 'helper'
 require 'fluent/config'
 require 'fluent/config/parser'
 require 'fluent/supervisor'

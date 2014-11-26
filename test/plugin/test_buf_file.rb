@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-require 'helper'
+require_relative '../helper'
 require 'fluent/test'
 require 'fluent/plugin/buf_file'
 
