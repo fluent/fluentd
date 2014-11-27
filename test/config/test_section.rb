@@ -1,4 +1,4 @@
-require 'helper'
+require_relative '../helper'
 require 'fluent/config/section'
 
 module Fluent::Config

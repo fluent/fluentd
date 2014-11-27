@@ -1,4 +1,4 @@
-require 'fluent/test'
+require_relative '../helper'
 
 class StatusInputTest < Test::Unit::TestCase
   def setup

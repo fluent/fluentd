@@ -1,4 +1,4 @@
-require 'fluent/test'
+require_relative '../helper'
 
 class GCStatInputTest < Test::Unit::TestCase
   def setup

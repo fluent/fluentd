@@ -1,4 +1,4 @@
-require 'fluent/test'
+require_relative '../helper'
 require 'net/http'
 require 'flexmock'
 

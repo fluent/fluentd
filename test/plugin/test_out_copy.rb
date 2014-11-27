@@ -1,4 +1,4 @@
-require 'fluent/test'
+require_relative '../helper'
 
 class CopyOutputTest < Test::Unit::TestCase
   def setup

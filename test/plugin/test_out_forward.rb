@@ -1,5 +1,4 @@
-require 'fluent/test'
-require 'helper'
+require_relative '../helper'
 
 class ForwardOutputTest < Test::Unit::TestCase
   def setup

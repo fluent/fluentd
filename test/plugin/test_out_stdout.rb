@@ -1,4 +1,4 @@
-require 'fluent/test'
+require_relative '../helper'
 
 class StdoutOutputTest < Test::Unit::TestCase
   def setup

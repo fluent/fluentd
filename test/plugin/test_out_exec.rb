@@ -1,4 +1,4 @@
-require 'fluent/test'
+require_relative '../helper'
 require 'fileutils'
 
 class ExecOutputTest < Test::Unit::TestCase
