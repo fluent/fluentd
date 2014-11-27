@@ -1,4 +1,4 @@
-require 'helper'
+require_relative 'helper'
 require 'fluent/match'
 
 class MatchTest < Test::Unit::TestCase
