@@ -75,7 +75,7 @@ module Fluent
     end
 
     def emit(num)
-      num.times { router.emit(@tag, Fluent::Engine.now, generate()) }
+      num.times { Fluent::Engine.emit(@tag, Fluent::Engine.now, generate()) }
     end
 
     def generate
