@@ -168,6 +168,18 @@ module Fluent
       end
     end
 
+    def emit_error_event(tag, time, record, error)
+      error_info = {:error_class => error.class, :error => error.to_s, :tag => tag, :time => time}
+      if @error_collector
+        # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
+        log.warn "send an error event to @ERROR:", error_info
+        @error_collector.emit(tag, time, record)
+      else
+        error_info[:record] = record
+        log.warn "dump an error event:", error_info
+      end
+    end
+
     def handle_emits_error(tag, es, error)
       error_info = {:error_class => error.class, :error => error.to_s, :tag => tag}
       if @error_collector

@@ -97,6 +97,10 @@ module Fluent
       @emit_error_handler.handle_emits_error(tag, es, e)
     end
 
+    def emit_error_event(tag, time, record, error)
+      @emit_error_handler.emit_error_event(tag, time, record, error)
+    end
+
     def match?(tag)
       !!find(tag)
     end
