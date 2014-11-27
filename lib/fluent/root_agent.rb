@@ -168,20 +168,22 @@ module Fluent
       end
     end
 
-    def handle_emits_error(tag, es, e)
+    def handle_emits_error(tag, es, error)
+      error_info = {:error_class => error.class, :error => error.to_s, :tag => tag}
       if @error_collector
+        log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
       else
         now = Engine.now
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
-          log.warn "emit transaction failed ", :error_class => e.class, :error => e
+          log.warn "emit transaction failed:", error_info
           log.warn_backtrace
           # log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
           # log.debug "next emit failure log suppressed"
           # log.debug "next logged time is #{Time.at(@next_emit_error_log_time)}"
         end
-        raise e
+        raise error
       end
     end
 
