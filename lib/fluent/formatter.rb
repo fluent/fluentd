@@ -186,6 +186,19 @@ module Fluent
       end
     end
 
+    class ProcWrappedFormatter
+      def initialize(proc)
+        @proc = proc
+      end
+
+      def configure(conf)
+      end
+
+      def format(tag, time, record)
+        @proc.call(tag, time, record)
+      end
+    end
+
     TEMPLATE_REGISTRY = Registry.new(:formatter_type, 'fluent/plugin/formatter_')
     {
       'out_file' => Proc.new { OutFileFormatter.new },
@@ -202,7 +215,7 @@ module Fluent
       factory = if factory_or_proc.is_a?(Class) # XXXFormatter
                   Proc.new { factory_or_proc.new }
                 elsif factory_or_proc.arity == 3 # Proc.new { |tag, time, record| }
-                  Proc.new { factory_or_proc }
+                  Proc.new { ProcWrappedFormatter.new(factory_or_proc) }
                 else # Proc.new { XXXFormatter.new }
                   factory_or_proc
                 end
@@ -210,20 +223,18 @@ module Fluent
       TEMPLATE_REGISTRY.register(name, factory)
     end
 
+    def self.lookup(format)
+      TEMPLATE_REGISTRY.lookup(format).call
+    end
+
+    # Keep backward-compatibility
     def self.create(conf)
       format = conf['format']
       if format.nil?
         raise ConfigError, "'format' parameter is required"
       end
 
-      # built-in template
-      begin
-        factory = TEMPLATE_REGISTRY.lookup(format)
-      rescue ConfigError => e
-        raise ConfigError, "unknown format: '#{format}'"
-      end
-
-      formatter = factory.call
+      formatter = lookup(format)
       if formatter.respond_to?(:configure)
         formatter.configure(conf)
       end
