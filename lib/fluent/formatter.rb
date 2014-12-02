@@ -200,9 +200,11 @@ module Fluent
     }
 
     def self.register_template(name, factory_or_proc)
-      factory = if factory_or_proc.arity == 3
+      factory = if factory_or_proc.is_a?(Class) # XXXFormatter
+                  Proc.new { factory_or_proc.new }
+                elsif factory_or_proc.arity == 3 # Proc.new { |tag, time, record| }
                   Proc.new { factory_or_proc }
-                else
+                else # Proc.new { XXXFormatter.new }
                   factory_or_proc
                 end
 
@@ -223,7 +225,9 @@ module Fluent
       end
 
       formatter = factory.call
-      formatter.configure(conf)
+      if formatter.respond_to?(:configure)
+        formatter.configure(conf)
+      end
       formatter
     end
   end

@@ -648,7 +648,9 @@ module Fluent
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
-      if regexp_or_proc.is_a?(Regexp)
+      if regexp_or_proc.is_a?(Class)
+        factory = Proc.new { regexp_or_proc.new }
+      elsif regexp_or_proc.is_a?(Regexp)
         regexp = regexp_or_proc
         factory = Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
       else

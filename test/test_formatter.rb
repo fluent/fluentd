@@ -371,11 +371,13 @@ module FormatterTest
       end
     end
 
-    def test_find_formatter
+    data('register_formatter' => 'known', 'register_template' => 'known_old')
+    def test_find_formatter(data)
       $LOAD_PATH.unshift(File.join(File.expand_path(File.dirname(__FILE__)), 'scripts'))
       assert_nothing_raised ConfigError do
-        TextFormatter::TEMPLATE_REGISTRY.lookup('known')
+        TextFormatter::TEMPLATE_REGISTRY.lookup(data)
       end
+      $LOAD_PATH.shift
     end
   end
 
