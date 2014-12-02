@@ -212,10 +212,15 @@ module Fluent
         suppress_interval(interval_time) unless interval_time.zero?
       end
 
+      def emit_error_event(tag, time, record, error)
+        error_info = {:error_class => error.class, :error => error.to_s, :tag => tag, :time => time, :record => record}
+        log.warn "dump an error event in @ERROR:", error_info
+      end
+
       def handle_emits_error(tag, es, e)
         now = Engine.now
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
-          log.warn "emit transaction failed ", :error_class => e.class, :error => e
+          log.warn "emit transaction failed in @ERROR:", :error_class => e.class, :error => e
           log.warn_backtrace
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end
