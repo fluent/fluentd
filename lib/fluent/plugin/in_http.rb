@@ -45,9 +45,8 @@ module Fluent
       m = if @format == 'default'
             method(:parse_params_default)
           else
-            parser = TextParser.new
-            parser.configure(conf)
-            @parser = parser
+            @parser = Plugin.new_parser(@format)
+            @parser.configure(conf)
             method(:parse_params_with_parser)
           end
       (class << self; self; end).module_eval do
@@ -184,7 +183,7 @@ module Fluent
 
     def parse_params_with_parser(params)
       if content = params[EVENT_RECORD_PARAMETER]
-        time, record = @parser.parse(content)
+        time, record = @parser.call(content)
         raise "Received event is not #{@format}: #{content}" if record.nil?
         return time, record
       else

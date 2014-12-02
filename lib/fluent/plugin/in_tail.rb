@@ -58,7 +58,7 @@ module Fluent
     end
 
     def configure_parser(conf)
-      @parser = TextParser.new
+      @parser = Plugin.new_parser(conf['format'])
       @parser.configure(conf)
     end
 
@@ -192,7 +192,7 @@ module Fluent
     def flush_buffer(tw)
       if lb = tw.line_buffer
         lb.chomp!
-        @parser.parse(lb) { |time, record|
+        @parser.call(lb) { |time, record|
           if time && record
             tag = if @tag_prefix || @tag_suffix
                     @tag_prefix + tw.tag + @tag_suffix
@@ -233,7 +233,7 @@ module Fluent
     def convert_line_to_event(line, es)
       begin
         line.chomp!  # remove \n
-        @parser.parse(line) { |time, record|
+        @parser.call(line) { |time, record|
           if time && record
             es.add(time, record)
           else
@@ -257,9 +257,9 @@ module Fluent
     def parse_multilines(lines, tail_watcher)
       lb = tail_watcher.line_buffer
       es = MultiEventStream.new
-      if @parser.parser.has_firstline?
+      if @parser.has_firstline?
         lines.each { |line|
-          if @parser.parser.firstline?(line)
+          if @parser.firstline?(line)
             if lb
               convert_line_to_event(lb, es)
             end
@@ -276,7 +276,7 @@ module Fluent
         lb ||= ''
         lines.each do |line|
           lb << line
-          @parser.parse(lb) { |time, record|
+          @parser.call(lb) { |time, record|
             if time && record
               convert_line_to_event(lb, es)
               lb = ''
