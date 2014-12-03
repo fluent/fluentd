@@ -14,11 +14,20 @@
 #    limitations under the License.
 #
 
-require 'test/unit'
-require 'fluent/load'
-require 'fluent/test/base'
-require 'fluent/test/input_test'
-require 'fluent/test/output_test'
-require 'fluent/test/filter_test'
+module Fluent
+  module Test
+    class FilterTestDriver < TestDriver
+      def initialize(klass, &block)
+        super(klass, &block)
+      end
 
-$log ||= Fluent::Log.new(Fluent::Test::DummyLogDevice.new)
+      def filter(tag, time, record)
+        @instance.filter(tag, time, record)
+      end
+
+      def filter_stream(tag, es)
+        @instance.filter_stream(tag, es)
+      end
+    end
+  end
+end

@@ -1,39 +1,33 @@
 require_relative '../helper'
-require 'fluent/test'
 require 'fluent/plugin/filter_grep'
 
-# TODO: Replace with FilterTestDriver
 class GrepFilterTest < Test::Unit::TestCase
+  include Fluent
+
   setup do
-    @filter = Fluent::GrepFilter.new
+    Fluent::Test.setup
     @time = Fluent::Engine.now
   end
 
-  def configure(instance, conf, use_v1 = false)
-    config = if conf.is_a?(Fluent::Config::Element)
-               str
-             else
-               Fluent::Config.parse(conf, "(test)", "(test_dir)", use_v1)
-             end
-    instance.configure(config)
-    instance
+  def create_driver(conf = '')
+    Test::FilterTestDriver.new(GrepFilter).configure(conf, true)
   end
 
   sub_test_case 'configure' do
     test 'check default' do
-      configure(@filter, '')
-      assert_empty(@filter.regexps)
-      assert_empty(@filter.excludes)
+      d = create_driver
+      assert_empty(d.instance.regexps)
+      assert_empty(d.instance.excludes)
     end
 
     test "regexpN can contain a space" do
-      configure(@filter, %[regexp1 message  foo])
-      assert_equal(Regexp.compile(/ foo/), @filter.regexps['message'])
+      d = create_driver(%[regexp1 message  foo])
+      assert_equal(Regexp.compile(/ foo/), d.instance.regexps['message'])
     end
 
     test "excludeN can contain a space" do
-      configure(@filter, %[exclude1 message  foo])
-      assert_equal(Regexp.compile(/ foo/), @filter.excludes['message'])
+      d = create_driver(%[exclude1 message  foo])
+      assert_equal(Regexp.compile(/ foo/), d.instance.excludes['message'])
     end
   end
 
@@ -53,8 +47,8 @@ class GrepFilterTest < Test::Unit::TestCase
         es.add(@time, {'foo' => 'bar', 'message' => msg})
       }
 
-      configure(@filter, config)
-      @filter.filter_stream('filter.test', es);
+      d = create_driver(config)
+      d.filter_stream('filter.test', es);
     end
 
     test 'empty config' do
@@ -102,8 +96,8 @@ class GrepFilterTest < Test::Unit::TestCase
       es = Fluent::MultiEventStream.new
       es.add(@time, {'foo' => 'bar', 'message' => msg})
 
-      configure(@filter, config)
-      @filter.filter_stream('filter.test', es);
+      d = create_driver(config)
+      d.filter_stream('filter.test', es);
     end
 
     data(
