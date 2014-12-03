@@ -352,30 +352,4 @@ module Fluent
   end
 
   Engine = EngineClass.new
-
-
-  module Test
-    @@test = false
-
-    def test?
-      @@test
-    end
-
-    def self.setup
-      @@test = true
-
-      Fluent.__send__(:remove_const, :Engine)
-      engine = Fluent.const_set(:Engine, EngineClass.new).init
-
-      engine.define_singleton_method(:now=) {|n|
-        @now = n.to_i
-      }
-      engine.define_singleton_method(:now) {
-        @now || super()
-      }
-
-      nil
-    end
-  end
 end
-

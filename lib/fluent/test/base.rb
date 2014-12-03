@@ -17,6 +17,20 @@
 #
 module Fluent
   module Test
+    def self.setup
+      Fluent.__send__(:remove_const, :Engine)
+      engine = Fluent.const_set(:Engine, EngineClass.new).init
+
+      engine.define_singleton_method(:now=) {|n|
+        @now = n.to_i
+      }
+      engine.define_singleton_method(:now) {
+        @now || super()
+      }
+
+      nil
+    end
+
     class TestDriver
       include ::Test::Unit::Assertions
 
