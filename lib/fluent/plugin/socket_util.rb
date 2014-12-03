@@ -87,7 +87,7 @@ module Fluent
       def configure(conf)
         super
 
-        @parser = TextParser.new
+        @parser = Plugin.new_parser(@format)
         @parser.configure(conf)
       end
 
@@ -123,7 +123,7 @@ module Fluent
       end
 
       def on_message(msg, addr)
-        @parser.parse(msg) { |time, record|
+        @parser.call(msg) { |time, record|
           unless time && record
             log.warn "pattern not match: #{msg.inspect}"
             return

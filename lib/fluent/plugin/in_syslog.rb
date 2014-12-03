@@ -84,9 +84,9 @@ module Fluent
     def configure(conf)
       super
 
-      parser = TextParser.new
-      if parser.configure(conf, false)
-        @parser = parser
+      if conf.has_key?('format')
+        @parser = Plugin.new_parser(conf['format'])
+        @parser.configure(conf)
       else
         conf['with_priority'] = true
         @parser = TextParser::SyslogParser.new
@@ -142,7 +142,7 @@ module Fluent
       pri = m[1].to_i
       text = m[2]
 
-      @parser.parse(text) { |time, record|
+      @parser.call(text) { |time, record|
         unless time && record
           log.warn "pattern not match: #{text.inspect}"
           return

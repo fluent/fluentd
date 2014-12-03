@@ -62,8 +62,8 @@ module Fluent
 
       super
 
-      conf['format'] = @format
-      @formatter = TextFormatter.create(conf)
+      @formatter = Plugin.new_formatter(@format)
+      @formatter.configure(conf)
 
       @buffer.symlink_path = @symlink_path if @symlink_path
     end

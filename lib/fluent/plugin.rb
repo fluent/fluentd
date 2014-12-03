@@ -57,6 +57,14 @@ module Fluent
       new_impl('buffer', @buffer, type)
     end
 
+    def new_parser(type)
+      TextParser.lookup(type)
+    end
+
+    def new_formatter(type)
+      TextFormatter.lookup(type)
+    end
+
     def load_plugins
       dir = File.join(File.dirname(__FILE__), "plugin")
       load_plugin_dir(dir)
