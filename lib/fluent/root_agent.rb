@@ -73,7 +73,7 @@ module Fluent
         if name == ERROR_LABEL
           error_label_config = e
         else
-          add_label(name, e)
+          add_label(name)
           label_configs[name] = e
         end
       }
@@ -96,7 +96,7 @@ module Fluent
 
     def setup_error_label(e)
       # initialize built-in ERROR label
-      error_label = add_label(ERROR_LABEL, e)
+      error_label = add_label(ERROR_LABEL)
       error_label.configure(e)
       error_label.root_agent = RootAgentProxyWithoutErrorCollector.new(self)
       @error_collector = error_label.event_router
@@ -154,7 +154,7 @@ module Fluent
       input
     end
 
-    def add_label(name, e)
+    def add_label(name)
       label = Label.new(name)
       label.root_agent = self
       @labels[name] = label
