@@ -659,6 +659,35 @@ module Fluent
       TEMPLATE_REGISTRY.register(name, factory)
     end
 
+    def self.lookup(format)
+      if format.nil?
+        raise ConfigError, "'format' parameter is required"
+      end
+
+      if format[0] == ?/ && format[format.length-1] == ?/
+        # regexp
+        begin
+          regexp = Regexp.new(format[1..-2])
+          if regexp.named_captures.empty?
+            raise "No named captures"
+          end
+        rescue
+          raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
+        end
+
+        RegexpParser.new(regexp)
+      else
+        # built-in template
+        begin
+          factory = TEMPLATE_REGISTRY.lookup(format)
+        rescue ConfigError => e # keep same error message
+          raise ConfigError, "Unknown format template '#{format}'"
+        end
+
+        factory.call
+      end
+    end
+
     def initialize
       @parser = nil
       @estimate_current_event = nil
@@ -673,36 +702,7 @@ module Fluent
     def configure(conf, required=true)
       format = conf['format']
 
-      if format == nil
-        if required
-          raise ConfigError, "'format' parameter is required"
-        else
-          return nil
-        end
-      end
-
-      if format[0] == ?/ && format[format.length-1] == ?/
-        # regexp
-        begin
-          regexp = Regexp.new(format[1..-2])
-          if regexp.named_captures.empty?
-            raise "No named captures"
-          end
-        rescue
-          raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
-        end
-
-        @parser = RegexpParser.new(regexp, conf)
-      else
-        # built-in template
-        begin
-          factory = TEMPLATE_REGISTRY.lookup(format)
-        rescue ConfigError => e # keep same error message
-          raise ConfigError, "Unknown format template '#{format}'"
-        end
-        @parser = factory.call
-      end
-
+      @parser = TextParser.lookup(format)
       if ! @estimate_current_event.nil? && @parser.respond_to?(:'estimate_current_event=')
         @parser.estimate_current_event = @estimate_current_event
       end
