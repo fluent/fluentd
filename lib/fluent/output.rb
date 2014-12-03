@@ -475,6 +475,7 @@ module Fluent
     config_set_default :flush_interval, nil
 
     attr_accessor :localtime
+    attr_reader :time_slicer # for test
 
     def configure(conf)
       super

@@ -73,7 +73,7 @@ module Fluent
         if name == ERROR_LABEL
           error_label_config = e
         else
-          add_label(name, e)
+          add_label(name)
           label_configs[name] = e
         end
       }
@@ -96,7 +96,7 @@ module Fluent
 
     def setup_error_label(e)
       # initialize built-in ERROR label
-      error_label = add_label(ERROR_LABEL, e)
+      error_label = add_label(ERROR_LABEL)
       error_label.configure(e)
       error_label.root_agent = RootAgentProxyWithoutErrorCollector.new(self)
       @error_collector = error_label.event_router
@@ -154,7 +154,7 @@ module Fluent
       input
     end
 
-    def add_label(name, e)
+    def add_label(name)
       label = Label.new(name)
       label.root_agent = self
       @labels[name] = label
@@ -168,20 +168,34 @@ module Fluent
       end
     end
 
-    def handle_emits_error(tag, es, e)
+    def emit_error_event(tag, time, record, error)
+      error_info = {:error_class => error.class, :error => error.to_s, :tag => tag, :time => time}
       if @error_collector
+        # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
+        log.warn "send an error event to @ERROR:", error_info
+        @error_collector.emit(tag, time, record)
+      else
+        error_info[:record] = record
+        log.warn "dump an error event:", error_info
+      end
+    end
+
+    def handle_emits_error(tag, es, error)
+      error_info = {:error_class => error.class, :error => error.to_s, :tag => tag}
+      if @error_collector
+        log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
       else
         now = Engine.now
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
-          log.warn "emit transaction failed ", :error_class => e.class, :error => e
+          log.warn "emit transaction failed:", error_info
           log.warn_backtrace
           # log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
           # log.debug "next emit failure log suppressed"
           # log.debug "next logged time is #{Time.at(@next_emit_error_log_time)}"
         end
-        raise e
+        raise error
       end
     end
 
@@ -198,10 +212,15 @@ module Fluent
         suppress_interval(interval_time) unless interval_time.zero?
       end
 
+      def emit_error_event(tag, time, record, error)
+        error_info = {:error_class => error.class, :error => error.to_s, :tag => tag, :time => time, :record => record}
+        log.warn "dump an error event in @ERROR:", error_info
+      end
+
       def handle_emits_error(tag, es, e)
         now = Engine.now
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
-          log.warn "emit transaction failed ", :error_class => e.class, :error => e
+          log.warn "emit transaction failed in @ERROR:", :error_class => e.class, :error => e
           log.warn_backtrace
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end

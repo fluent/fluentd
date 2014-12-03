@@ -1,4 +1,4 @@
-require 'helper'
+require_relative 'helper'
 require 'fluent/test'
 require 'fluent/parser'
 
@@ -667,11 +667,13 @@ EOS
       end
     end
 
-    def test_lookup_known_parser
+    data('register_formatter' => 'known', 'register_template' => 'known_old')
+    def test_lookup_known_parser(data)
       $LOAD_PATH.unshift(File.join(File.expand_path(File.dirname(__FILE__)), 'scripts'))
       assert_nothing_raised ConfigError do
-        TextParser::TEMPLATE_REGISTRY.lookup('known')
+        TextParser::TEMPLATE_REGISTRY.lookup(data)
       end
+      $LOAD_PATH.shift
     end
 
     def test_parse_with_return

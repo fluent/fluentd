@@ -1,4 +1,4 @@
-require 'helper'
+require_relative '../helper'
 require 'fluent/test'
 
 class SyslogInputTest < Test::Unit::TestCase

@@ -57,34 +57,16 @@ module Fluent
         return
       end
 
-      # search gems
-      if defined?(::Gem::Specification) && ::Gem::Specification.respond_to?(:find_all)
-        specs = Gem::Specification.find_all { |spec|
-          spec.contains_requirable_file? path
-        }
+      specs = Gem::Specification.find_all { |spec|
+        spec.contains_requirable_file? path
+      }
 
-        # prefer newer version
-        specs = specs.sort_by { |spec| spec.version }
-        if spec = specs.last
-          spec.require_paths.each { |lib|
-            file = "#{spec.full_gem_path}/#{lib}/#{path}"
-            require file
-          }
-        end
-
-        # backward compatibility for rubygems < 1.8
-      elsif defined?(::Gem) && ::Gem.respond_to?(:searcher)
-        #files = Gem.find_files(path).sort
-        specs = Gem.searcher.find_all(path)
-
-        # prefer newer version
-        specs = specs.sort_by { |spec| spec.version }
-        specs.reverse_each { |spec|
-          files = Gem.searcher.matching_files(spec, path)
-          unless files.empty?
-            require files.first
-            break
-          end
+      # prefer newer version
+      specs = specs.sort_by { |spec| spec.version }
+      if spec = specs.last
+        spec.require_paths.each { |lib|
+          file = "#{spec.full_gem_path}/#{lib}/#{path}"
+          require file
         }
       end
     end

@@ -19,5 +19,6 @@ require 'fluent/load'
 require 'fluent/test/base'
 require 'fluent/test/input_test'
 require 'fluent/test/output_test'
+require 'fluent/test/filter_test'
 
 $log ||= Fluent::Log.new(Fluent::Test::DummyLogDevice.new)

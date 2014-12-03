@@ -16,6 +16,8 @@
 
 module Fluent
   class PluginClass
+    # This class is refactored using Fluent::Registry at v0.14
+
     def initialize
       @input = {}
       @output = {}
@@ -39,6 +41,14 @@ module Fluent
       register_impl('buffer', @buffer, type, klass)
     end
 
+    def register_parser(type, klass)
+      TextParser.register_template(type, klass)
+    end
+
+    def register_formatter(type, klass)
+      TextFormatter.register_template(type, klass)
+    end
+
     def new_input(type)
       new_impl('input', @input, type)
     end
@@ -53,6 +63,14 @@ module Fluent
 
     def new_buffer(type)
       new_impl('buffer', @buffer, type)
+    end
+
+    def new_parser(type)
+      TextParser.lookup(type)
+    end
+
+    def new_formatter(type)
+      TextFormatter.lookup(type)
     end
 
     def load_plugins

@@ -1,12 +1,12 @@
 require_relative '../helper'
 require 'timecop'
-require 'fluent/test'
 require 'fluent/plugin/filter_record_transformer'
 
-# TODO: Replace with FilterTestDriver
 class RecordTransformerFilterTest < Test::Unit::TestCase
+  include Fluent
+
   setup do
-    @instance = Fluent::RecordTransformerFilter.new
+    Test.setup
     @hostname = Socket.gethostname.chomp
     @tag = 'test.tag'
     @tag_parts = @tag.split('.')
@@ -18,26 +18,20 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     Timecop.return
   end
 
-  def configure(instance, conf, use_v1 = false)
-    config = if conf.is_a?(Fluent::Config::Element)
-               str
-             else
-               Fluent::Config.parse(conf, "(test)", "(test_dir)", use_v1)
-             end
-    instance.configure(config)
-    instance
+  def create_driver(conf = '')
+    Test::FilterTestDriver.new(RecordTransformerFilter).configure(conf, true)
   end
 
   sub_test_case 'configure' do
     test 'check default' do
       assert_nothing_raised do
-        configure(@instance, '')
+        create_driver
       end
     end
 
     test "keep_keys must be specified together with renew_record true" do
       assert_raise(Fluent::ConfigError) do
-        configure(@instance, %[keep_keys a])
+        create_driver(%[keep_keys a])
       end
     end
   end
@@ -49,8 +43,8 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         es.add(@time, {'foo' => 'bar', 'message' => msg})
       end
 
-      configure(@instance, config)
-      @instance.filter_stream(@tag, es)
+      d = create_driver(config)
+      d.filter_stream(@tag, es)
     end
 
     CONFIG = %[
@@ -131,8 +125,9 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         es.add(@time, {'eventType0' => 'bar', 'message' => msg})
       end
 
-      configure(@instance, config)
-      @instance.filter_stream(@tag, es)
+      d = create_driver(config)
+      yield d if block_given?
+      d.filter_stream(@tag, es)
     end
 
     %w[yes no].each do |enable_ruby|
@@ -230,8 +225,9 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           message ${unknown}
         </record>
       ]
-      mock(@instance.log).warn("unknown placeholder `${unknown}` found")
-      emit(config)
+      emit(config) { |d|
+        mock(d.instance.log).warn("unknown placeholder `${unknown}` found")
+      }
     end
 
     test 'failed to expand (enable_ruby yes)' do
@@ -241,8 +237,9 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           message ${unknown['bar']}
         </record>
       ]
-      mock(@instance.log).warn("failed to expand `${unknown['bar']}`", anything)
-      es = emit(config)
+      es = emit(config) { |d|
+        mock(d.instance.log).warn("failed to expand `${unknown['bar']}`", anything)
+      }
       es.each do |t, r|
         assert_nil(r['message'])
       end

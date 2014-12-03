@@ -1,7 +1,18 @@
-require 'helper'
+require_relative '../helper'
 require 'fluent/test'
 
 class CopyOutputTest < Test::Unit::TestCase
+  class << self
+    def startup
+      $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts'))
+      require 'fluent/plugin/out_test'
+    end
+
+    def shutdown
+      $LOAD_PATH.shift
+    end
+  end
+
   def setup
     Fluent::Test.setup
   end

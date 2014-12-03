@@ -49,6 +49,7 @@ module Fluent
     end
 
     def self.bool_value(str)
+      return nil if str.nil?
       case str.to_s
       when 'true', 'yes'
         true

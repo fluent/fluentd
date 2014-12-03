@@ -73,7 +73,7 @@ module Fluent
       end
 
       attr_reader :collector
-      attr_reader :patatern_str
+      attr_reader :pattern_str
     end
 
     # called by Agent to add new match pattern and collector
@@ -95,6 +95,10 @@ module Fluent
       match(tag).emit(tag, es, @chain)
     rescue => e
       @emit_error_handler.handle_emits_error(tag, es, e)
+    end
+
+    def emit_error_event(tag, time, record, error)
+      @emit_error_handler.emit_error_event(tag, time, record, error)
     end
 
     def match?(tag)

@@ -1,4 +1,4 @@
-require 'helper'
+require_relative '../helper'
 require 'fluent/test'
 
 class ObjectSpaceInputTest < Test::Unit::TestCase

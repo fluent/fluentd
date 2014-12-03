@@ -61,8 +61,8 @@ module Fluent
 
       super
 
-      conf['format'] = @format
-      @formatter = TextFormatter.create(conf)
+      @formatter = Plugin.new_formatter(@format)
+      @formatter.configure(conf)
 
       @buffer.symlink_path = @symlink_path if @symlink_path
     end
@@ -73,7 +73,7 @@ module Fluent
 
     def write(chunk)
       path = generate_path(chunk)
-      FileUtils.mkdir_p File.dirname(path)
+      FileUtils.mkdir_p File.dirname(path), :mode => DEFAULT_DIR_PERMISSION
 
       case @compress
       when nil
