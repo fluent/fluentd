@@ -13,6 +13,26 @@ module ParserTest
     end
   end
 
+  class BaseParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def create_parser
+      parser = Parser.new
+      parser.configure({})
+      parser
+    end
+
+    def test_init
+      assert_true create_parser.estimate_current_event
+    end
+
+    def test_call
+      assert_raise NotImplementedError do
+        create_parser.call('')
+      end
+    end
+  end
+
   class TimeParserTest < ::Test::Unit::TestCase
     include ParserTest
 
@@ -34,7 +54,7 @@ module ParserTest
       parser = TextParser::TimeParser.new(nil)
 
       [[], {}, nil, true, 10000].each { |v|
-        assert_raise Fluent::TextParser::ParserError do
+        assert_raise Fluent::ParserError do
           parser.parse(v)
         end
       }
@@ -290,7 +310,7 @@ module ParserTest
     end
 
     def test_call_with_invalid_time
-      assert_raise Fluent::TextParser::ParserError do
+      assert_raise Fluent::ParserError do
         @parser.call('{"time":[],"k":"v"}') { |time, record| }
       end
     end

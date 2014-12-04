@@ -17,9 +17,33 @@
 module Fluent
   require 'fluent/registry'
 
-  class TextParser
-    class ParserError < StandardError
+  class ParserError < StandardError
+  end
+
+  class Parser
+    include Configurable
+
+    # SET false BEFORE CONFIGURE, to return nil when time not parsed
+    # 'configure()' may raise errors for unexpected configurations
+    attr_accessor :estimate_current_event
+
+    def initialize
+      super
+      @estimate_current_event = true
     end
+
+    def configure(conf)
+      super
+    end
+
+    def call(text)
+      raise NotImplementedError, "Implement this method in child class"
+    end
+  end
+
+  class TextParser
+    # Keep backward compatibility for existing plugins
+    ParserError = ::Fluent::ParserError
 
     class TimeParser
       def initialize(time_format)
@@ -128,15 +152,10 @@ module Fluent
       end
     end
 
-    class RegexpParser
-      include Configurable
+    class RegexpParser < Parser
       include TypeConverter
 
       config_param :time_format, :string, :default => nil
-
-      # SET false BEFORE CONFIGURE, to return nil when time not parsed
-      # 'configure()' may raise errors for unexpected configurations
-      attr_accessor :estimate_current_event
 
       def initialize(regexp, conf={})
         super()
@@ -146,7 +165,6 @@ module Fluent
         end
 
         @time_parser = TimeParser.new(@time_format)
-        @estimate_current_event = true
         @mutex = Mutex.new
       end
 
@@ -200,20 +218,9 @@ module Fluent
       end
     end
 
-    class JSONParser
-      include Configurable
-
+    class JSONParser < Parser
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
-
-      # SET false BEFORE CONFIGURE, to return nil when time not parsed
-      # 'configure()' may raise errors for unexpected configurations
-      attr_accessor :estimate_current_event
-
-      def initialize
-        super
-        @estimate_current_event = true
-      end
 
       def configure(conf)
         super
@@ -259,20 +266,12 @@ module Fluent
       end
     end
 
-    class ValuesParser
-      include Configurable
+    class ValuesParser < Parser
       include TypeConverter
 
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
-
-      attr_accessor :estimate_current_event
-
-      def initialize
-        super
-        @estimate_current_event = true
-      end
 
       def configure(conf)
         super
@@ -382,17 +381,8 @@ module Fluent
       end
     end
 
-    class NoneParser
-      include Configurable
-
+    class NoneParser < Parser
       config_param :message_key, :string, :default => 'message'
-
-      attr_accessor :estimate_current_event
-
-      def initialize
-        super
-        @estimate_current_event = true
-      end
 
       def call(text)
         record = {}
@@ -406,13 +396,12 @@ module Fluent
       end
     end
 
-    class ApacheParser
-      include Configurable
-
+    class ApacheParser < Parser
       REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
       TIME_FORMAT = "%d/%b/%Y:%H:%M:%S %z"
 
       def initialize
+        super
         @time_parser = TimeParser.new(TIME_FORMAT)
         @mutex = Mutex.new
       end
@@ -475,9 +464,7 @@ module Fluent
       end
     end
 
-    class SyslogParser
-      include Configurable
-
+    class SyslogParser < Parser
       # From existence TextParser pattern
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
@@ -486,11 +473,8 @@ module Fluent
       config_param :time_format, :string, :default => "%b %d %H:%M:%S"
       config_param :with_priority, :bool, :default => false
 
-      attr_accessor :estimate_current_event
-
       def initialize
         super
-        @estimate_current_event = true
         @mutex = Mutex.new
       end
 
@@ -544,9 +528,7 @@ module Fluent
       end
     end
 
-    class MultilineParser
-      include Configurable
-
+    class MultilineParser < Parser
       config_param :format_firstline, :string, :default => nil
 
       FORMAT_MAX_NUM = 20
