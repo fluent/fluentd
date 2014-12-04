@@ -183,9 +183,10 @@ module Fluent
 
     def parse_params_with_parser(params)
       if content = params[EVENT_RECORD_PARAMETER]
-        time, record = @parser.call(content)
-        raise "Received event is not #{@format}: #{content}" if record.nil?
-        return time, record
+        @parser.parse(content) { |time, record|
+          raise "Received event is not #{@format}: #{content}" if record.nil?
+          return time, record
+        }
       else
         raise "'#{EVENT_RECORD_PARAMETER}' parameter is required"
       end
