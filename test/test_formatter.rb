@@ -36,7 +36,7 @@ module FormatterTest
     ENV['TZ'] = oldtz
   end
 
-  class OutFileFormatterTest < ::Test::Unit::TestCase
+  class BaseFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
     def test_call

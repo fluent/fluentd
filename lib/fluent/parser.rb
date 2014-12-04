@@ -36,8 +36,13 @@ module Fluent
       super
     end
 
-    def call(text)
+    def parse(text)
       raise NotImplementedError, "Implement this method in child class"
+    end
+
+    # Keep backward compatibility for existing plugins
+    def call(*a, &b)
+      parse(*a, &b)
     end
   end
 
@@ -177,7 +182,7 @@ module Fluent
         {'format' => @regexp, 'time_format' => @time_format}
       end
 
-      def call(text)
+      def parse(text)
         m = @regexp.match(text)
         unless m
           if block_given?
@@ -231,7 +236,7 @@ module Fluent
         end
       end
 
-      def call(text)
+      def parse(text)
         record = Yajl.load(text)
 
         if value = record.delete(@time_key)
@@ -329,7 +334,7 @@ module Fluent
     class TSVParser < ValuesParser
       config_param :delimiter, :string, :default => "\t"
 
-      def call(text)
+      def parse(text)
         if block_given?
           yield values_map(text.split(@delimiter))
         else
@@ -348,7 +353,7 @@ module Fluent
         super(conf)
       end
 
-      def call(text)
+      def parse(text)
         @keys  = []
         values = []
 
@@ -372,7 +377,7 @@ module Fluent
         require 'csv'
       end
 
-      def call(text)
+      def parse(text)
         if block_given?
           yield values_map(CSV.parse_line(text))
         else
@@ -384,7 +389,7 @@ module Fluent
     class NoneParser < Parser
       config_param :message_key, :string, :default => 'message'
 
-      def call(text)
+      def parse(text)
         record = {}
         record[@message_key] = text
         time = @estimate_current_event ? Engine.now : nil
@@ -410,7 +415,7 @@ module Fluent
         {'format' => REGEXP, 'time_format' => TIME_FORMAT}
       end
 
-      def call(text)
+      def parse(text)
         m = REGEXP.match(text)
         unless m
           if block_given?
@@ -489,7 +494,7 @@ module Fluent
         {'format' => @regexp, 'time_format' => @time_format}
       end
 
-      def call(text)
+      def parse(text)
         m = @regexp.match(text)
         unless m
           if block_given?
@@ -553,7 +558,7 @@ module Fluent
         end
       end
 
-      def call(text, &block)
+      def parse(text, &block)
         if block
           @parser.call(text, &block)
         else
@@ -698,9 +703,9 @@ module Fluent
 
     def parse(text, &block)
       if block
-        @parser.call(text, &block)
+        @parser.parse(text, &block)
       else # keep backward compatibility. Will be removed at v1
-        return @parser.call(text)
+        return @parser.parse(text)
       end
     end
   end
