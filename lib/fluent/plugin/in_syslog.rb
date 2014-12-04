@@ -142,7 +142,7 @@ module Fluent
       pri = m[1].to_i
       text = m[2]
 
-      @parser.call(text) { |time, record|
+      @parser.parse(text) { |time, record|
         unless time && record
           log.warn "pattern not match: #{text.inspect}"
           return
@@ -157,7 +157,7 @@ module Fluent
     end
 
     def receive_data(data, addr)
-      @parser.call(data) { |time, record|
+      @parser.parse(data) { |time, record|
         unless time && record
           log.warn "invalid syslog message", :data => data
           return

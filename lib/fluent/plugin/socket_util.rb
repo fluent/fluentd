@@ -123,7 +123,7 @@ module Fluent
       end
 
       def on_message(msg, addr)
-        @parser.call(msg) { |time, record|
+        @parser.parse(msg) { |time, record|
           unless time && record
             log.warn "pattern not match: #{msg.inspect}"
             return

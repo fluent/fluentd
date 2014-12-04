@@ -18,6 +18,18 @@
 module Fluent
   require 'fluent/registry'
 
+  class Formatter
+    include Configurable
+
+    def configure(conf)
+      super
+    end
+
+    def format(tag, time, record)
+      raise NotImplementedError, "Implement this method in child class"
+    end
+  end
+
   module TextFormatter
     module HandleTagAndTimeMixin
       def self.included(klass)
@@ -51,8 +63,7 @@ module Fluent
       end
     end
 
-    class OutFileFormatter
-      include Configurable
+    class OutFileFormatter < Formatter
       include HandleTagAndTimeMixin
 
       config_param :output_time, :bool, :default => true
@@ -63,10 +74,6 @@ module Fluent
         when /COMMA/i then ','
         else "\t"
         end
-      end
-
-      def configure(conf)
-        super
       end
 
       def format(tag, time, record)
@@ -105,8 +112,7 @@ module Fluent
       end
     end
 
-    class JSONFormatter
-      include Configurable
+    class JSONFormatter < Formatter
       include HandleTagAndTimeMixin
       include StructuredFormatMixin
 
@@ -115,8 +121,7 @@ module Fluent
       end
     end
 
-    class MessagePackFormatter
-      include Configurable
+    class MessagePackFormatter < Formatter
       include HandleTagAndTimeMixin
       include StructuredFormatMixin
 
@@ -125,8 +130,7 @@ module Fluent
       end
     end
 
-    class LabeledTSVFormatter
-      include Configurable
+    class LabeledTSVFormatter < Formatter
       include HandleTagAndTimeMixin
 
       config_param :delimiter, :string, :default => "\t"
@@ -143,8 +147,7 @@ module Fluent
       end
     end
 
-    class CsvFormatter
-      include Configurable
+    class CsvFormatter < Formatter
       include HandleTagAndTimeMixin
 
       config_param :delimiter, :default => ',' do |val|
@@ -174,9 +177,7 @@ module Fluent
       end
     end
 
-    class SingleValueFormatter
-      include Configurable
-
+    class SingleValueFormatter < Formatter
       config_param :message_key, :string, :default => 'message'
       config_param :add_newline, :bool, :default => true
 
@@ -187,7 +188,7 @@ module Fluent
       end
     end
 
-    class ProcWrappedFormatter
+    class ProcWrappedFormatter < Formatter
       def initialize(proc)
         @proc = proc
       end
