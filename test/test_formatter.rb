@@ -39,6 +39,18 @@ module FormatterTest
   class OutFileFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
+    def test_call
+      formatter = Formatter.new
+      formatter.configure({})
+      assert_raise NotImplementedError do
+        formatter.format('tag', Engine.now, {})
+      end
+    end
+  end
+
+  class OutFileFormatterTest < ::Test::Unit::TestCase
+    include FormatterTest
+
     def setup
       @formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('out_file').call
       @time = Engine.now
