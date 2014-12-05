@@ -27,6 +27,7 @@ module Fluent
 
       LINE_END = /(?:[ \t]*(?:\#.*)?(?:\z|[\r\n]))+/
       SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
+      ZERO_OR_MORE_SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))*/
       SPACING_WITHOUT_COMMENT = /(?:[ \t\r\n]|\z)+/
 
       module ClassMethods

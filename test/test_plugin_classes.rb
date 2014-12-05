@@ -1,4 +1,4 @@
-require 'helper'
+require_relative 'helper'
 
 module FluentTest
   class FluentTestOutput < ::Fluent::Output

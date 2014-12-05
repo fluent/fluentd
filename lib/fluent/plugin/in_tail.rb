@@ -58,7 +58,7 @@ module Fluent
     end
 
     def configure_parser(conf)
-      @parser = TextParser.new
+      @parser = Plugin.new_parser(conf['format'])
       @parser.configure(conf)
     end
 
@@ -257,9 +257,9 @@ module Fluent
     def parse_multilines(lines, tail_watcher)
       lb = tail_watcher.line_buffer
       es = MultiEventStream.new
-      if @parser.parser.has_firstline?
+      if @parser.has_firstline?
         lines.each { |line|
-          if @parser.parser.firstline?(line)
+          if @parser.firstline?(line)
             if lb
               convert_line_to_event(lb, es)
             end

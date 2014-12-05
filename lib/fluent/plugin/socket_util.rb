@@ -104,7 +104,7 @@ module Fluent
       def configure(conf)
         super
 
-        @parser = TextParser.new
+        @parser = Plugin.new_parser(@format)
         @parser.configure(conf)
       end
 

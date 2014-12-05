@@ -71,6 +71,11 @@ module Fluent
         end
         self
       end
+
+      def level=(level)
+        @level = level
+        $log.level = level
+      end
     end
 
     def self.default_options
@@ -105,8 +110,6 @@ module Fluent
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
 
-      apply_system_config(opt)
-
       @log_level = opt[:log_level]
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
@@ -120,6 +123,8 @@ module Fluent
 
     def start
       @log.init
+      read_config
+      apply_system_config
 
       dry_run if @dry_run
       start_daemonize if @daemonize
@@ -127,7 +132,6 @@ module Fluent
         install_supervisor_signal_handlers
         until @finished
           supervise do
-            read_config
             change_privilege
             init_engine
             install_main_process_signal_handlers
@@ -141,7 +145,6 @@ module Fluent
       else
         $log.info "starting fluentd-#{Fluent::VERSION} without supervision"
         main_process do
-          read_config
           change_privilege
           init_engine
           install_main_process_signal_handlers
@@ -167,7 +170,6 @@ module Fluent
     def dry_run
       $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode"
 
-      read_config
       change_privilege
       init_engine
       install_main_process_signal_handlers
@@ -345,6 +347,7 @@ module Fluent
       elsif @inline_config
         @config_data << "\n" << @inline_config.gsub("\\n","\n")
       end
+      @conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
     end
 
     class SystemConfig
@@ -363,37 +366,31 @@ module Fluent
         configure(conf)
       end
 
-      def to_opt
-        opt = {}
-        opt[:log_level] = @log_level unless @log_level.nil?
-        opt[:suppress_interval] = @emit_error_log_interval unless @emit_error_log_interval.nil?
-        opt[:suppress_config_dump] = @suppress_config_dump unless @suppress_config_dump.nil?
-        opt[:suppress_repeated_stacktrace] = @suppress_repeated_stacktrace unless @suppress_repeated_stacktrace.nil?
-        opt[:without_source] = @without_source unless @without_source.nil?
-        opt
+      def apply(supervisor)
+        system = self
+        supervisor.instance_eval {
+          @log.level = @log_level = system.log_level unless system.log_level.nil?
+          @suppress_interval = system.emit_error_log_interval unless system.emit_error_log_interval.nil?
+          @suppress_config_dump = system.suppress_config_dump unless system.suppress_config_dump.nil?
+          @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
+          @without_source = system.without_source unless system.without_source.nil?
+        }
       end
     end
 
     # TODO: this method should be moved to SystemConfig class method
-    def apply_system_config(opt)
-      # Create NULL file to avoid $log uninitialized problem before call @log.init
-      file = File.open(File::NULL)
-      $log = Fluent::Log.new(file, Log::LEVEL_INFO)
-      read_config
-      systems = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config).elements.select { |e|
+    def apply_system_config
+      systems = @conf.elements.select { |e|
         e.name == 'system'
       }
       return if systems.empty?
       raise ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
 
-      opt.merge!(SystemConfig.new(systems.first).to_opt)
-    ensure
-      file.close
+      SystemConfig.new(systems.first).apply(self)
     end
 
     def run_configure
-      conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
-      Fluent::Engine.run_configure(conf)
+      Fluent::Engine.run_configure(@conf)
     end
 
     def change_privilege

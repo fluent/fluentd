@@ -15,7 +15,19 @@
 #
 
 module Fluent
+  module Test
+    class FilterTestDriver < TestDriver
+      def initialize(klass, &block)
+        super(klass, &block)
+      end
 
-  VERSION = '0.12.0.pre.3'
+      def filter(tag, time, record)
+        @instance.filter(tag, time, record)
+      end
 
+      def filter_stream(tag, es)
+        @instance.filter_stream(tag, es)
+      end
+    end
+  end
 end

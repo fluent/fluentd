@@ -84,9 +84,9 @@ module Fluent
     def configure(conf)
       super
 
-      parser = TextParser.new
-      if parser.configure(conf, false)
-        @parser = parser
+      if conf.has_key?('format')
+        @parser = Plugin.new_parser(conf['format'])
+        @parser.configure(conf)
       else
         conf['with_priority'] = true
         @parser = TextParser::SyslogParser.new
@@ -148,7 +148,7 @@ module Fluent
     end
 
     def receive_data(data, addr)
-      @parser.call(data) { |time, record|
+      @parser.parse(data) { |time, record|
         unless time && record
           log.warn "invalid syslog message", :data => data
           return

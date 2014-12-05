@@ -1,4 +1,4 @@
-require 'helper'
+require_relative '../helper'
 require 'fluent/config/configure_proxy'
 
 module Fluent::Config

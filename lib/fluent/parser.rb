@@ -17,9 +17,38 @@
 module Fluent
   require 'fluent/registry'
 
-  class TextParser
-    class ParserError < StandardError
+  class ParserError < StandardError
+  end
+
+  class Parser
+    include Configurable
+
+    # SET false BEFORE CONFIGURE, to return nil when time not parsed
+    # 'configure()' may raise errors for unexpected configurations
+    attr_accessor :estimate_current_event
+
+    def initialize
+      super
+      @estimate_current_event = true
     end
+
+    def configure(conf)
+      super
+    end
+
+    def parse(text)
+      raise NotImplementedError, "Implement this method in child class"
+    end
+
+    # Keep backward compatibility for existing plugins
+    def call(*a, &b)
+      parse(*a, &b)
+    end
+  end
+
+  class TextParser
+    # Keep backward compatibility for existing plugins
+    ParserError = ::Fluent::ParserError
 
     class TimeParser
       def initialize(time_format)
@@ -128,15 +157,10 @@ module Fluent
       end
     end
 
-    class RegexpParser
-      include Configurable
+    class RegexpParser < Parser
       include TypeConverter
 
       config_param :time_format, :string, :default => nil
-
-      # SET false BEFORE CONFIGURE, to return nil when time not parsed
-      # 'configure()' may raise errors for unexpected configurations
-      attr_accessor :estimate_current_event
 
       def initialize(regexp, conf={})
         super()
@@ -146,7 +170,6 @@ module Fluent
         end
 
         @time_parser = TimeParser.new(@time_format)
-        @estimate_current_event = true
         @mutex = Mutex.new
       end
 
@@ -159,7 +182,7 @@ module Fluent
         {'format' => @regexp, 'time_format' => @time_format}
       end
 
-      def call(text)
+      def parse(text)
         m = @regexp.match(text)
         unless m
           if block_given?
@@ -200,20 +223,9 @@ module Fluent
       end
     end
 
-    class JSONParser
-      include Configurable
-
+    class JSONParser < Parser
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
-
-      # SET false BEFORE CONFIGURE, to return nil when time not parsed
-      # 'configure()' may raise errors for unexpected configurations
-      attr_accessor :estimate_current_event
-
-      def initialize
-        super
-        @estimate_current_event = true
-      end
 
       def configure(conf)
         super
@@ -224,7 +236,7 @@ module Fluent
         end
       end
 
-      def call(text)
+      def parse(text)
         record = Yajl.load(text)
 
         if value = record.delete(@time_key)
@@ -259,20 +271,12 @@ module Fluent
       end
     end
 
-    class ValuesParser
-      include Configurable
+    class ValuesParser < Parser
       include TypeConverter
 
       config_param :keys, :string
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
-
-      attr_accessor :estimate_current_event
-
-      def initialize
-        super
-        @estimate_current_event = true
-      end
 
       def configure(conf)
         super
@@ -330,7 +334,7 @@ module Fluent
     class TSVParser < ValuesParser
       config_param :delimiter, :string, :default => "\t"
 
-      def call(text)
+      def parse(text)
         if block_given?
           yield values_map(text.split(@delimiter))
         else
@@ -349,7 +353,7 @@ module Fluent
         super(conf)
       end
 
-      def call(text)
+      def parse(text)
         @keys  = []
         values = []
 
@@ -373,7 +377,7 @@ module Fluent
         require 'csv'
       end
 
-      def call(text)
+      def parse(text)
         if block_given?
           yield values_map(CSV.parse_line(text))
         else
@@ -382,19 +386,10 @@ module Fluent
       end
     end
 
-    class NoneParser
-      include Configurable
-
+    class NoneParser < Parser
       config_param :message_key, :string, :default => 'message'
 
-      attr_accessor :estimate_current_event
-
-      def initialize
-        super
-        @estimate_current_event = true
-      end
-
-      def call(text)
+      def parse(text)
         record = {}
         record[@message_key] = text
         time = @estimate_current_event ? Engine.now : nil
@@ -406,13 +401,12 @@ module Fluent
       end
     end
 
-    class ApacheParser
-      include Configurable
-
+    class ApacheParser < Parser
       REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
       TIME_FORMAT = "%d/%b/%Y:%H:%M:%S %z"
 
       def initialize
+        super
         @time_parser = TimeParser.new(TIME_FORMAT)
         @mutex = Mutex.new
       end
@@ -421,7 +415,7 @@ module Fluent
         {'format' => REGEXP, 'time_format' => TIME_FORMAT}
       end
 
-      def call(text)
+      def parse(text)
         m = REGEXP.match(text)
         unless m
           if block_given?
@@ -475,9 +469,7 @@ module Fluent
       end
     end
 
-    class SyslogParser
-      include Configurable
-
+    class SyslogParser < Parser
       # From existence TextParser pattern
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
@@ -486,11 +478,8 @@ module Fluent
       config_param :time_format, :string, :default => "%b %d %H:%M:%S"
       config_param :with_priority, :bool, :default => false
 
-      attr_accessor :estimate_current_event
-
       def initialize
         super
-        @estimate_current_event = true
         @mutex = Mutex.new
       end
 
@@ -505,7 +494,7 @@ module Fluent
         {'format' => @regexp, 'time_format' => @time_format}
       end
 
-      def call(text)
+      def parse(text)
         m = @regexp.match(text)
         unless m
           if block_given?
@@ -544,9 +533,7 @@ module Fluent
       end
     end
 
-    class MultilineParser
-      include Configurable
-
+    class MultilineParser < Parser
       config_param :format_firstline, :string, :default => nil
 
       FORMAT_MAX_NUM = 20
@@ -571,7 +558,7 @@ module Fluent
         end
       end
 
-      def call(text, &block)
+      def parse(text, &block)
         if block
           @parser.call(text, &block)
         else
@@ -647,7 +634,9 @@ module Fluent
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
-      if regexp_or_proc.is_a?(Regexp)
+      if regexp_or_proc.is_a?(Class)
+        factory = Proc.new { regexp_or_proc.new }
+      elsif regexp_or_proc.is_a?(Regexp)
         regexp = regexp_or_proc
         factory = Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
       else
@@ -655,6 +644,35 @@ module Fluent
       end
 
       TEMPLATE_REGISTRY.register(name, factory)
+    end
+
+    def self.lookup(format)
+      if format.nil?
+        raise ConfigError, "'format' parameter is required"
+      end
+
+      if format[0] == ?/ && format[format.length-1] == ?/
+        # regexp
+        begin
+          regexp = Regexp.new(format[1..-2])
+          if regexp.named_captures.empty?
+            raise "No named captures"
+          end
+        rescue
+          raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
+        end
+
+        RegexpParser.new(regexp)
+      else
+        # built-in template
+        begin
+          factory = TEMPLATE_REGISTRY.lookup(format)
+        rescue ConfigError => e # keep same error message
+          raise ConfigError, "Unknown format template '#{format}'"
+        end
+
+        factory.call
+      end
     end
 
     def initialize
@@ -671,36 +689,7 @@ module Fluent
     def configure(conf, required=true)
       format = conf['format']
 
-      if format == nil
-        if required
-          raise ConfigError, "'format' parameter is required"
-        else
-          return nil
-        end
-      end
-
-      if format[0] == ?/ && format[format.length-1] == ?/
-        # regexp
-        begin
-          regexp = Regexp.new(format[1..-2])
-          if regexp.named_captures.empty?
-            raise "No named captures"
-          end
-        rescue
-          raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
-        end
-
-        @parser = RegexpParser.new(regexp, conf)
-      else
-        # built-in template
-        begin
-          factory = TEMPLATE_REGISTRY.lookup(format)
-        rescue ConfigError => e # keep same error message
-          raise ConfigError, "Unknown format template '#{format}'"
-        end
-        @parser = factory.call
-      end
-
+      @parser = TextParser.lookup(format)
       if ! @estimate_current_event.nil? && @parser.respond_to?(:'estimate_current_event=')
         @parser.estimate_current_event = @estimate_current_event
       end
@@ -714,9 +703,9 @@ module Fluent
 
     def parse(text, &block)
       if block
-        @parser.call(text, &block)
+        @parser.parse(text, &block)
       else # keep backward compatibility. Will be removed at v1
-        return @parser.call(text)
+        return @parser.parse(text)
       end
     end
   end

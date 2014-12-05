@@ -17,6 +17,18 @@
 module Fluent
   require 'fluent/registry'
 
+  class Formatter
+    include Configurable
+
+    def configure(conf)
+      super
+    end
+
+    def format(tag, time, record)
+      raise NotImplementedError, "Implement this method in child class"
+    end
+  end
+
   module TextFormatter
     module HandleTagAndTimeMixin
       def self.included(klass)
@@ -50,8 +62,7 @@ module Fluent
       end
     end
 
-    class OutFileFormatter
-      include Configurable
+    class OutFileFormatter < Formatter
       include HandleTagAndTimeMixin
 
       config_param :output_time, :bool, :default => true
@@ -64,10 +75,6 @@ module Fluent
         end
       end
 
-      def configure(conf)
-        super
-      end
-
       def format(tag, time, record)
         filter_record(tag, time, record)
         header = ''
@@ -77,11 +84,12 @@ module Fluent
       end
     end
 
-    class JSONFormatter
-      include Configurable
-      include HandleTagAndTimeMixin
-
-      config_param :time_as_epoch, :bool, :default => false
+    module StructuredFormatMixin
+      def self.included(klass)
+        klass.instance_eval {
+          config_param :time_as_epoch, :bool, :default => false
+        }
+      end
 
       def configure(conf)
         super
@@ -99,12 +107,29 @@ module Fluent
       def format(tag, time, record)
         filter_record(tag, time, record)
         record[@time_key] = time if @time_as_epoch
+        format_record(record)
+      end
+    end
+
+    class JSONFormatter < Formatter
+      include HandleTagAndTimeMixin
+      include StructuredFormatMixin
+
+      def format_record(record)
         "#{Yajl.dump(record)}\n"
       end
     end
 
-    class LabeledTSVFormatter
-      include Configurable
+    class MessagePackFormatter < Formatter
+      include HandleTagAndTimeMixin
+      include StructuredFormatMixin
+
+      def format_record(record)
+        record.to_msgpack
+      end
+    end
+
+    class LabeledTSVFormatter < Formatter
       include HandleTagAndTimeMixin
 
       config_param :delimiter, :string, :default => "\t"
@@ -121,9 +146,37 @@ module Fluent
       end
     end
 
-    class SingleValueFormatter
-      include Configurable
+    class CsvFormatter < Formatter
+      include HandleTagAndTimeMixin
 
+      config_param :delimiter, :default => ',' do |val|
+        ['\t', 'TAB'].include?(val) ? "\t" : val
+      end
+      config_param :force_quotes, :bool, :default => true
+      config_param :fields, :default => [] do |val|
+        val.split(',').map do |f|
+          f.strip!
+          f.size > 0 ? f : nil
+        end.compact
+      end
+
+      def initialize
+        super
+        require 'csv'
+      end
+
+      def format(tag, time, record)
+        filter_record(tag, time, record)
+        row = @fields.inject([]) do |memo, key|
+            memo << record[key]
+            memo
+        end
+        CSV.generate_line(row, :col_sep => @delimiter,
+                          :force_quotes => @force_quotes)
+      end
+    end
+
+    class SingleValueFormatter < Formatter
       config_param :message_key, :string, :default => 'message'
       config_param :add_newline, :bool, :default => true
 
@@ -134,41 +187,58 @@ module Fluent
       end
     end
 
+    class ProcWrappedFormatter < Formatter
+      def initialize(proc)
+        @proc = proc
+      end
+
+      def configure(conf)
+      end
+
+      def format(tag, time, record)
+        @proc.call(tag, time, record)
+      end
+    end
+
     TEMPLATE_REGISTRY = Registry.new(:formatter_type, 'fluent/plugin/formatter_')
     {
       'out_file' => Proc.new { OutFileFormatter.new },
       'json' => Proc.new { JSONFormatter.new },
+      'msgpack' => Proc.new { MessagePackFormatter.new },
       'ltsv' => Proc.new { LabeledTSVFormatter.new },
+      'csv' => Proc.new { CsvFormatter.new },
       'single_value' => Proc.new { SingleValueFormatter.new },
     }.each { |name, factory|
       TEMPLATE_REGISTRY.register(name, factory)
     }
 
     def self.register_template(name, factory_or_proc)
-      factory = if factory_or_proc.arity == 3
-                  Proc.new { factory_or_proc }
-                else
+      factory = if factory_or_proc.is_a?(Class) # XXXFormatter
+                  Proc.new { factory_or_proc.new }
+                elsif factory_or_proc.arity == 3 # Proc.new { |tag, time, record| }
+                  Proc.new { ProcWrappedFormatter.new(factory_or_proc) }
+                else # Proc.new { XXXFormatter.new }
                   factory_or_proc
                 end
 
       TEMPLATE_REGISTRY.register(name, factory)
     end
 
+    def self.lookup(format)
+      TEMPLATE_REGISTRY.lookup(format).call
+    end
+
+    # Keep backward-compatibility
     def self.create(conf)
       format = conf['format']
       if format.nil?
         raise ConfigError, "'format' parameter is required"
       end
 
-      # built-in template
-      begin
-        factory = TEMPLATE_REGISTRY.lookup(format)
-      rescue ConfigError => e
-        raise ConfigError, "unknown format: '#{format}'"
+      formatter = lookup(format)
+      if formatter.respond_to?(:configure)
+        formatter.configure(conf)
       end
-
-      formatter = factory.call
-      formatter.configure(conf)
       formatter
     end
   end
