@@ -200,6 +200,24 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_resonse_with_empty_img
+    d = create_driver(CONFIG + "respond_with_empty_img true")
+    assert_equal true, d.instance.respond_with_empty_img
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
+
+    d.run do
+      d.expected_emits.each {|tag,time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+        assert_equal "200", res.code
+        assert_equal Fluent::HttpInput::EMPTY_GIF_IMAGE, res.body
+      }
+    end
+  end
+
   def test_if_content_type_is_initialized_properly
     # This test is to check if Fluent::HttpInput::Handler's @content_type is initialized properly.
     # Especially when in Keep-Alive and the second request has no 'Content-Type'.
@@ -215,17 +233,17 @@ class HttpInputTest < Test::Unit::TestCase
     begin
       # Create the extended Handler which can store @content_type per request
       ext_handler = Class.new(Fluent::HttpInput::Handler) do
-          @@content_types = []
+        @@content_types = []
 
-          def self.content_types
-            @@content_types
-          end
-
-          def on_message_complete
-            @@content_types << @content_type
-            super
-          end
+        def self.content_types
+          @@content_types
         end
+
+        def on_message_complete
+          @@content_types << @content_type
+          super
+        end
+      end
 
       # Replace the original Handler temporally with the extended one
       Fluent::HttpInput.module_eval do

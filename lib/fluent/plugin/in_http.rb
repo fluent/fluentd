@@ -28,6 +28,8 @@ module Fluent
       super
     end
 
+    EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;"
+
     config_param :port, :integer, :default => 9880
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
@@ -123,7 +125,7 @@ module Fluent
         # Skip nil record
         if record.nil?
           if @respond_with_empty_img
-            return ["200 OK", {'Content-type'=>'image/gif'}, "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;"]
+            return ["200 OK", {'Content-type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
             return ["200 OK", {'Content-type'=>'text/plain'}, ""]
           end
@@ -161,7 +163,7 @@ module Fluent
             mes.add(single_time, single_record)
           end
           router.emit_stream(tag, mes)
-        else
+	else
           router.emit(tag, time, record)
         end
       rescue
@@ -169,7 +171,7 @@ module Fluent
       end
 
       if @respond_with_empty_img
-        return ["200 OK", {'Content-type'=>'image/gif'}, "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;"]
+        return ["200 OK", {'Content-type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
         return ["200 OK", {'Content-type'=>'text/plain'}, ""]
       end
@@ -376,5 +378,5 @@ module Fluent
         write data
       end
     end
-end
+  end
 end
