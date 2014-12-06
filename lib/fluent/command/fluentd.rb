@@ -20,6 +20,8 @@ require 'optparse'
 require 'fluent/log'
 require 'fluent/env'
 require 'fluent/version'
+require 'windows/library'
+include Windows::Library
 
 $fluentdargv = Marshal.load(Marshal.dump(ARGV))
 
@@ -125,8 +127,8 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
   opts[:gem_install_path] = s
 }
 
-op.on('-u', '--usespwan', "*** internal use only *** use spawn instead of fork (Windows only)", TrueClass) {|b|
-  opts[:usespawn] = 1
+op.on('-U SUPERPID', "*** internal use only *** use spawn instead of fork (Windows only)") {|s|
+  opts[:usespawn] = s.to_i
 }
 
 op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
@@ -199,7 +201,9 @@ if winsvcinstmode = opts[:winsvcreg]
   case winsvcinstmode
   when 'i'
     binary_path = File.join(File.dirname(__FILE__), "..")
-    ruby_path = Fluent::Win32Dll.getmodulefilename
+    ruby_path = "\0" * 256
+    GetModuleFileName.call(0,ruby_path,256)
+    ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
     
     Service.create(
       :service_name => FLUENTD_WINSVC_NAME, 

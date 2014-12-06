@@ -15,6 +15,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+require 'windows/library'
+require 'windows/system_info'
+include Windows::Library
+include Windows::SystemInfo
+
 module Fluent
   class Supervisor
     class LoggerInitializer
@@ -78,10 +83,11 @@ module Fluent
         $platformwin = true
       end
       if $platformwin
-        require 'fluent/win32api_syncobj'
-        ruby_path = Fluent::Win32Dll.getmodulefilename
+        ruby_path = "\0" * 256
+        GetModuleFileName.call(0,ruby_path,256)
+        ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
         @rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
-        @winosvi = Fluent::Win32Base.getversionex
+        @winosvi = windows_version
       end
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -207,7 +213,7 @@ module Fluent
           $fluentdargv.each{|a|
             fluentd_spawn_cmd << (a + " ")
           }
-          fluentd_spawn_cmd << "-u"
+          fluentd_spawn_cmd << ("-U " + Process.pid.to_s)
           $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
           @main_pid = Process.spawn(fluentd_spawn_cmd)
         else
@@ -275,6 +281,8 @@ module Fluent
       exit! 1
     end
 
+    require 'win32/ipc'
+    require 'win32/event'
     def install_supervisor_signal_handlers
       trap :INT do
         $log.debug "fluentd supervisor process get SIGINT"
@@ -291,7 +299,7 @@ module Fluent
             end
           end
         else
-          @winsigintevt.signal_on
+          @evtend.set
         end
       end
 
@@ -414,7 +422,7 @@ module Fluent
             Fluent::Engine.stop
           end
         else
-          @winsigintevt.signal_on
+          @evtend.set
         end
       end
 
@@ -458,29 +466,29 @@ module Fluent
       Fluent::Engine.run
     end
 
-    #
-    require 'Win32API'
-    require 'fluent/win32api_syncobj.rb'
-
     def install_supervisor_winsigint_handler
       @winintname = "fluentdwinsigint_#{Process.pid}"
       if @usespawn == 0 && @signame != nil
         @winintname = @signame
       end
       @th_sv = Thread.new do 
-        @winsigintevt = Win32SyncObj.createevent(1,0,@winintname)
-        @winsigintevt.wait(0)
-        @winsigintevt.close
+        @evtend = Win32::Event.new(@winintname, true)
+        until @evtend.signaled?
+          sleep(1)
+        end
+        @evtend.close
         winsigint_supervisor 
       end
-
     end
 
     def install_main_process_winsigint_handler
+      @winintname = "fluentdwinsigint_#{@usespawn}"
       @th_ma = Thread.new do
-        @winsigintevt = Win32SyncObj.createevent(1,0,"fluentdwinsigint_#{Process.pid}")
-        @winsigintevt.wait(0)
-        @winsigintevt.close
+        @evtend = Win32::Event.open(@winintname)
+        until @evtend.signaled?
+          sleep(1)
+        end
+        @evtend.close
         winsigint_main_process 
       end
       $log.debug "install_main_process_winsigint_handler***** installed main winsiginthandler"
@@ -490,7 +498,7 @@ module Fluent
       @finished = true
       if pid = @main_pid
         unless Process.waitpid(pid, Process::WNOHANG)
-          sigx = (@winosvi[1] >= 6 && @winosvi[2] >=2) ? (:INT) : (:KILL)
+          sigx = (@winosvi >= 6.2) ? (:INT) : (:KILL)
           begin
             Process.kill(sigx, pid)
           rescue Errno::ESRCH

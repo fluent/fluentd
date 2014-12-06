@@ -15,6 +15,16 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
+require 'windows/error'
+require 'windows/file'
+require 'windows/handle'
+require 'windows/nio'
+include Windows::Error
+include Windows::File
+include Windows::Handle
+include Windows::NIO
+
 module Fluent
   class NewTailInput < Input
     Plugin.register_input('tail', self)
@@ -1263,54 +1273,37 @@ module Fluent
   end
   
   #temporary code for win32 platform
-  require 'Win32API'
-  require 'fluent/win32api_constants.rb'
   class Win32File
-    @@api_getlasterror = nil
     def initialize
       super
     end 
 
     def Win32File.open(path, *mode)
-      @@api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @@api_getlasterror
-      access = GENERIC_READ
+      @@modemap = {"r"  => [FILE_GENERIC_READ                     , OPEN_EXISTING, false], 
+                   "r+" => [FILE_GENERIC_READ | FILE_GENERIC_WRITE, OPEN_ALWAYS  , false],
+                   "w"  => [FILE_GENERIC_WRITE                    , CREATE_ALWAYS, false],
+                   "w+" => [FILE_GENERIC_READ | FILE_GENERIC_WRITE, CREATE_ALWAYS, false],
+                   "a"  => [FILE_GENERIC_WRITE                    , OPEN_ALWAYS  , true],
+                   "a+" => [FILE_GENERIC_READ | FILE_GENERIC_WRITE, OPEN_ALWAYS  , true]}
+
+      access = FILE_GENERIC_READ
       sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
       creationdisposition = OPEN_EXISTING
       seektoend = false
       if mode.size > 0
-         if mode[0] == "r"
-           access = GENERIC_READ
-           creationdisposition = OPEN_EXISTING
-         elsif mode[0] == "r+"
-           access = GENERIC_READ | GENERIC_WRITE
-           creationdisposition = OPEN_ALWAYS
-         elsif mode[0] == "w"
-           access = GENERIC_WRITE
-           creationdisposition = CREATE_ALWAYS
-         elsif mode[0] == "w+"
-           access = GENERIC_READ | GENERIC_WRITE
-           creationdisposition = CREATE_ALWAYS
-         elsif mode[0] == "a"
-           access = GENERIC_WRITE
-           creationdisposition = OPEN_ALWAYS
-           seektoend = true
-         elsif mode[0] == "a+"
-           access = GENERIC_READ | GENERIC_WRITE
-           creationdisposition = OPEN_ALWAYS
-           seektoend = true
-         else
-           access = GENERIC_READ
-           creationdisposition = OPEN_EXISTING
-         end
-         if mode.size > 1
-           sharemode = mode[1]
-         end
+        access = (@@modemap[mode[0]])[0]
+        creationdisposition = (@@modemap[mode[0]])[1]
+        seektoend = (@@modemp[mode[0]])[2]
       end
+      if mode.size > 1
+        sharemode = mode[1]
+      end
+
       w32io = Win32Io.new
       hFile = w32io.createfile(path, access, sharemode, creationdisposition, FILE_ATTRIBUTE_NORMAL)
-      dwerr = @@api_getlasterror.call
+      err = GetLastError.call
       if hFile == INVALID_HANDLE_VALUE
-        if dwerr == ERROR_FILE_NOT_FOUND || dwerr == ERROR_ACCESS_DENIED
+        if err == ERROR_FILE_NOT_FOUND || err == ERROR_ACCESS_DENIED
           raise SystemCallError.new(2)
         end
         return nil
@@ -1327,13 +1320,6 @@ module Fluent
       super
       @path = nil
       @file_handle = INVALID_HANDLE_VALUE
-      @api_createfile = nil
-      @api_closehandle = nil
-      @api_setfilepointer = nil
-      @api_getfilesize = nil
-      @api_getlasterror = nil
-      @api_readfile = nil
-      @api_getfileinformationbyhandle = nil
       @currentPos = 0
       @file_size = 0
     end
@@ -1342,52 +1328,36 @@ module Fluent
     
     def createfile(file_path, file_access, file_sharemode, file_creationdisposition, file_flagsandattrs)
       @path = file_path
-      @api_createfile = Win32API.new('kernel32', 'CreateFile', %w(p i i i i i i), 'i') unless @api_createfile
-      @file_handle = @api_createfile.call(file_path, file_access, file_sharemode, 0, file_creationdisposition, file_flagsandattrs, 0 )
+      @file_handle = CreateFile.call(file_path, file_access, file_sharemode, 0, file_creationdisposition, file_flagsandattrs, 0)
     end
     
     def close
-      unless @api_closehandle
-        @api_closehandle = Win32API.new('kernel32', 'CloseHandle', 'i', 'i')
-      end
-      @api_closehandle.call(@file_handle)
+      CloseHandle.call(@file_handle)
       @file_handle = INVALID_HANDLE_VALUE
     end
 
     def closed?
-      if @file_handle == INVALID_HANDLE_VALUE
-         return false
-      end
-      return true
+      return (@file_handle == INVALID_HANDLE_VALUE) ? true : false
     end
 
     def seek(offset, whence = IO::SEEK_SET)
-      @api_setfilepointer = Win32API.new('kernel32', 'SetFilePointer', %w(i i p i), 'i') unless @api_setfilepointer
-      @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
-      case whence
-      when IO::SEEK_CUR
-        win32seek = FILE_CURRENT
-      when IO::SEEK_END
-        win32seek = FILE_END
-      else
-        win32seek = FILE_BEGIN
-      end
+      @@seekmap = {IO::SEEK_CUR => FILE_CURRENT, 
+                   IO::SEEK_END => FILE_END, 
+                   IO::SEEK_SET => FILE_CURRENT}
+      win32seek = @@seekmap[whence]
       
-      offsetlow = 0
+      offsetlo = offset
       offsethi = 0
       if (offset > 0xFFFFFFFF)
-        offsetlow = offset & 0x00000000FFFFFFFF
+        offsetlo = offset & 0x00000000FFFFFFFF
         offsethi = offset >> 32
-      else
-        offsetlow = offset
       end
       offsethi_p = [offsethi].pack("I")
-      pos = @api_setfilepointer.call(@file_handle, offsetlow, offsethi_p, win32seek)
-      err = @api_getlasterror.call
+      pos = SetFilePointer.call(@file_handle, offsetlo, offsethi_p, win32seek)
+      err = GetLastError.call
       if pos == -1 && err != 0
         return @currentPos
-      end
-      
+      end      
       pos = [pos].pack("i").unpack("I")[0]
       offsethi = offsethi_p.unpack("I")[0]
       @currentPos = pos
@@ -1403,21 +1373,22 @@ module Fluent
     end
     
     def size
-      sizelow = 0
+      sizelo = 0
       sizehi_p = "\0" * 4
-      @api_getfilesize = Win32API.new('kernel32', 'GetFileSize', %w(i p), 'i') unless @api_getfilesize
-      @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
-      sizelow = @api_getfilesize.call(@file_handle, sizehi_p)
-      err = @api_getlasterror.call
-      if sizelow == -1 && err != 0
+
+      sizelo = GetFileSize.call(@file_handle, sizehi_p)
+      err = GetLastError.call
+      if sizelo == -1 && err != 0
         return @file_size
       end
-      sizelow = [sizelow].pack("i").unpack("I")[0]
+
+      sizelo = [sizelo].pack("i").unpack("I")[0]
       sizehi = sizehi_p.unpack("I")[0]
-      @file_size = sizelow
+      @file_size = sizelo
       if sizehi > 0
-        @file_size = @file_size + sizehi
+        @file_size = @file_size + (sizehi << 32)
       end
+      
       return @file_size
     end
     
@@ -1425,29 +1396,28 @@ module Fluent
       raise ArgumentError if maxlen < 0
       buf = "\0" * maxlen
       readbytes_p = "\0" * 4
-      @api_readfile = Win32API.new('kernel32', 'ReadFile', %w(i p i p i), 'i') unless @api_readfile
-      @api_getlasterror = Win32API.new('kernel32','GetLastError','v','i') unless @api_getlasterror
-      ret = @api_readfile.call(@file_handle, buf, maxlen, readbytes_p, 0)
-      err = @api_getlasterror.call
-      if ret == 0
-        raise IOError
+
+      unless ReadFile.call(@file_handle, buf, maxlen, readbytes_p, 0)
+        raise IOError 
       end
+
       readbytes = readbytes_p.unpack("I")[0]
       if readbytes == 0
         raise EOFError
       end
+
       buf_sliced = buf.slice(0, readbytes)
       outbuf << buf_sliced
       return buf_sliced
     end
 
     def ino
-      @api_getfileinformationbyhandle = Win32API.new('kernel32', 'GetFileInformationByHandle', %w(i p), 'i') unless @api_getfileinformationbyhandle
       by_handle_file_information = '\0'*(4+8+8+8+4+4+4+4+4+4)   #72bytes
-      ret = @api_getfileinformationbyhandle.call(@file_handle, by_handle_file_information)
-      unless ret
+
+      unless GetFileInformationByHandle.call(@file_handle, by_handle_file_information)
         return 0
       end
+
       volumeserial = by_handle_file_information.unpack("I11Q1")[7]
       fileindex = by_handle_file_information.unpack("I11Q1")[11]
       return (volumeserial << 64) | fileindex

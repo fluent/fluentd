@@ -25,7 +25,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("http_parser.rb", [">= 0.5.1", "< 0.7.0"])
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
   gem.add_runtime_dependency("win32-service", ["~> 0.8.3"])
-
+  gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
+  gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
+  gem.add_runtime_dependency("windows-pr", ["~> 1.2.3"])
 
   gem.add_development_dependency("rake", [">= 0.9.2"])
   gem.add_development_dependency("flexmock")
