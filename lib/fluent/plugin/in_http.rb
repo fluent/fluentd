@@ -29,6 +29,8 @@ module Fluent
       super
     end
 
+    EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
+
     config_param :port, :integer, :default => 9880
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
@@ -38,6 +40,7 @@ module Fluent
     config_param :add_remote_addr, :bool, :default => false
     config_param :format, :string, :default => 'default'
     config_param :cors_allow_origins, :array, :default => nil
+    config_param :respond_with_empty_img, :bool, :default => false
 
     def configure(conf)
       super
@@ -129,7 +132,11 @@ module Fluent
 
         # Skip nil record
         if record.nil?
-          return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+          if @respond_with_empty_img
+            return ["200 OK", {'Content-type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
+          else
+            return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+          end
         end
 
         if @add_http_headers
@@ -171,7 +178,11 @@ module Fluent
         return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
       end
 
-      return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+      if @respond_with_empty_img
+        return ["200 OK", {'Content-type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
+      else
+        return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+      end
     end
 
     private
@@ -206,7 +217,6 @@ module Fluent
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
-        @content_type = ""
         @next_close = false
         @format = format
         @log = log
@@ -252,6 +262,7 @@ module Fluent
           @keep_alive = false
         end
         @env = {}
+        @content_type = ""
         headers.each_pair {|k,v|
           @env["HTTP_#{k.gsub('-','_').upcase}"] = v
           case k
