@@ -212,13 +212,10 @@ module Fluent
     end
 
     MONITOR_INFO = {
-      'plugin_id' => 'plugin_id',
-      'type' => 'config["type"]',
       'output_plugin' => 'is_a?(::Fluent::Output)',
       'buffer_queue_length' => '@buffer.queue_size',
       'buffer_total_queued_size' => '@buffer.total_queued_chunk_size',
       'retry_count' => '@num_errors',
-      'config' => 'config',
     }
 
     def all_plugins
@@ -292,6 +289,12 @@ module Fluent
     def get_monitor_info(pe, opts={})
       obj = {}
 
+      # Common plugin information
+      obj['plugin_id'] = pe.plugin_id
+      obj['plugin_category'] = plugin_category(pe)
+      obj['type'] = pe.config['type']
+      obj['config'] = pe.config
+
       # run MONITOR_INFO in plugins' instance context and store the info to obj
       MONITOR_INFO.each_pair {|key,code|
         begin
@@ -313,6 +316,17 @@ module Fluent
       end
 
       obj
+    end
+
+    def plugin_category(pe)
+      case pe
+      when Fluent::Input
+        'input'.freeze
+      when Fluent::Output
+        'output'.freeze
+      else
+        'unknown'.freeze
+      end
     end
 
     def fluentd_opts
