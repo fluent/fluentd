@@ -40,7 +40,7 @@ module Fluent
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
     config_param :cors_allow_origins, :array, :default => nil
-    config_param :respond_with_empty_img, :bool, :default => 'false'
+    config_param :respond_with_empty_img, :bool, :default => false
 
     def configure(conf)
       super

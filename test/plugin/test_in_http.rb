@@ -213,7 +213,8 @@ class HttpInputTest < Test::Unit::TestCase
       d.expected_emits.each {|tag,time,record|
         res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
         assert_equal "200", res.code
-        assert_equal Fluent::HttpInput::EMPTY_GIF_IMAGE, res.body
+        # Ruby returns ASCII-8 encoded string for GIF.
+        assert_equal Fluent::HttpInput::EMPTY_GIF_IMAGE, res.body.force_encoding("UTF-8")
       }
     end
   end
