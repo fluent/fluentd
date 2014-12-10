@@ -33,7 +33,7 @@ module Fluent
       conf.elements.select {|e|
         e.name == 'store'
       }.each {|e|
-        type = e['type']
+        type = e['@type'] || e['type']
         unless type
           raise ConfigError, "Missing 'type' parameter on <store> directive"
         end

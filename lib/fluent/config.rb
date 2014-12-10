@@ -44,7 +44,7 @@ module Fluent
 
   module PluginId
     def configure(conf)
-      @id = conf['id']
+      @id = conf['@id'] || conf['id']
       super
     end
 
