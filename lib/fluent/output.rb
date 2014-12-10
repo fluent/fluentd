@@ -208,7 +208,7 @@ module Fluent
       }
 
       if sconf = conf.elements.select {|e| e.name == 'secondary' }.first
-        type = sconf['type'] || conf['type']
+        type = sconf['@type'] || conf['@type'] || sconf['type'] || conf['type']
         @secondary = Plugin.new_output(type)
         @secondary.configure(sconf)
 
