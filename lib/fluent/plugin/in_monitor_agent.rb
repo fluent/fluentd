@@ -76,7 +76,7 @@ module Fluent
           opts[:pretty_json] = true
         end
 
-        if tags = qs['tag'] and tag = tags[0]
+        if tag = get_search_parameter(qs, 'tag'.freeze)
           # ?tag= to search an output plugin by match pattern
           if obj = @agent.plugin_info_by_tag(tag, opts)
             list = [obj]
@@ -84,17 +84,29 @@ module Fluent
             list = []
           end
 
-        elsif plugin_ids = qs['id'] and plugin_id = plugin_ids[0]
-          # ?id= to search a plugin by 'id <plugin_id>' config param
+        elsif plugin_id = get_search_parameter(qs, '@id'.freeze)
+          # ?@id= to search a plugin by 'id <plugin_id>' config param
           if obj = @agent.plugin_info_by_id(plugin_id, opts)
             list = [obj]
           else
             list = []
           end
 
-        elsif types = qs['type'] and type = types[0]
-          # ?type= to search plugins by 'type <type>' config param
-          list = @agent.plugins_info_by_type(type, opts)
+        elsif plugin_id = get_search_parameter(qs, 'id'.freeze)
+          # Without @ version of ?@id= for backward compatibility
+          if obj = @agent.plugin_info_by_id(plugin_id, opts)
+            list = [obj]
+          else
+            list = []
+          end
+
+        elsif plugin_type = get_search_parameter(qs, '@type'.freeze)
+          # ?@type= to search plugins by 'type <type>' config param
+          list = @agent.plugins_info_by_type(plugin_type, opts)
+
+        elsif plugin_type = get_search_parameter(qs, 'type'.freeze)
+          # Without @ version of ?@type= for backward compatibility
+          list = @agent.plugins_info_by_type(plugin_type, opts)
 
         else
           # otherwise show all plugins
@@ -102,6 +114,11 @@ module Fluent
         end
 
         return list, opts
+      end
+
+      def get_search_parameter(qs, param_name)
+        return nil unless qs.has_key?(param_name)
+        qs[param_name].first
       end
 
       def render_json(obj, opts={})
@@ -277,7 +294,7 @@ module Fluent
     # multiple plugins could have the same type
     def plugins_info_by_type(type, opts={})
       array = all_plugins.select {|pe|
-        (pe.config['type'] == type || pe.config['@type'] == type) rescue nil
+        (pe.config['@type'] == type || pe.config['type'] == type) rescue nil
       }
       array.map {|pe|
         get_monitor_info(pe, opts)
@@ -297,7 +314,7 @@ module Fluent
       # Common plugin information
       obj['plugin_id'] = pe.plugin_id
       obj['plugin_category'] = plugin_category(pe)
-      obj['type'] = pe.config['type'] || pe.config['@type']
+      obj['type'] = pe.config['@type'] || pe.config['type']
       obj['config'] = pe.config
 
       # run MONITOR_INFO in plugins' instance context and store the info to obj
