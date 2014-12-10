@@ -401,7 +401,7 @@ module Fluent
                # secondary retry
                @retry_wait * (2 ** (@num_errors - 2 - @retry_limit))
              end
-      retry_wait = wait + (rand * (wait / 4.0) - (wait / 8.0))
+      retry_wait = wait.finite? ? wait + (rand * (wait / 4.0) - (wait / 8.0)) : wait
       @max_retry_wait ? [retry_wait, @max_retry_wait].min : retry_wait
     end
 
