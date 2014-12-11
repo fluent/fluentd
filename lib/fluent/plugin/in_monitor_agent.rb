@@ -266,16 +266,18 @@ module Fluent
       array
     end
 
-    # try to match the tag and get the info from the
-    # matched output plugin
+    # try to match the tag and get the info from the matched output plugin
+    # TODO: Support output in label
     def plugin_info_by_tag(tag, opts={})
-      m = Engine.match(tag)
-      if m
-        pe = m.output
-        get_monitor_info(pe, opts)
-      else
-        nil
-      end
+      matches = Engine.root_agent.event_router.instance_variable_get(:@match_rules)
+      matches.each { |rule|
+        if rule.match?(tag)
+          if rule.collector.is_a?(Output)
+            return get_monitor_info(rule.collector, opts)
+          end
+        end
+      }
+      nil
     end
 
     # search a plugin by plugin_id
