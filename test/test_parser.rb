@@ -408,6 +408,23 @@ module ParserTest
         assert_nil time, "parser returns nil w/o time and if configured so"
       }
     end
+
+    data(
+      'left blank column' => ["\t@\t@", {"1" => "","2" => "@","3" => "@"}],
+      'center blank column' => ["@\t\t@", {"1" => "@","2" => "","3" => "@"}],
+      'right blank column' => ["@\t@\t", {"1" => "@","2" => "@","3" => ""}],
+      '2 right blank columns' => ["@\t\t", {"1" => "@","2" => "","3" => ""}],
+      'left blank columns' => ["\t\t@", {"1" => "","2" => "","3" => "@"}],
+      'all blank columns' => ["\t\t", {"1" => "","2" => "","3" => ""}])
+    def test_black_column(data)
+      line, expected = data
+
+      parser = TextParser::TSVParser.new
+      parser.configure('keys' => '1,2,3')
+      parser.parse(line) { |time, record|
+        assert_equal(expected, record)
+      }
+    end
   end
 
   class CSVParserTest < ::Test::Unit::TestCase
