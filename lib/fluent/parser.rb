@@ -335,11 +335,16 @@ module Fluent
     class TSVParser < ValuesParser
       config_param :delimiter, :string, :default => "\t"
 
+      def configure(conf)
+        super
+        @key_num = @keys.length
+      end
+
       def parse(text)
         if block_given?
-          yield values_map(text.split(@delimiter))
+          yield values_map(text.split(@delimiter, @key_num))
         else
-          return values_map(text.split(@delimiter))
+          return values_map(text.split(@delimiter, @key_num))
         end
       end
     end
