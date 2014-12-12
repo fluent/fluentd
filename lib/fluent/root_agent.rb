@@ -34,14 +34,14 @@ module Fluent
   #     <filter>   <match>
   #
   # Relation:
-  # * RootAgent has many <label>, <source> and <match>
+  # * RootAgent has many <label>, <source>, <filter> and <match>
   # * <label>   has many <match> and <filter>
   #
   # Next step: `fluentd/agent.rb`
   # Next step: 'fluentd/label.rb'
   #
   class RootAgent < Agent
-    ERROR_LABEL = "@ERROR".freeze
+    ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
     def initialize(opts = {})
       super
@@ -94,7 +94,6 @@ module Fluent
     end
 
     def setup_error_label(e)
-      # initialize built-in ERROR label
       error_label = add_label(ERROR_LABEL)
       error_label.configure(e)
       error_label.root_agent = RootAgentProxyWithoutErrorCollector.new(self)
@@ -189,10 +188,7 @@ module Fluent
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed:", error_info
           log.warn_backtrace
-          # log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
-          # log.debug "next emit failure log suppressed"
-          # log.debug "next logged time is #{Time.at(@next_emit_error_log_time)}"
         end
         raise error
       end

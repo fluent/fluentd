@@ -42,15 +42,8 @@ module Fluent
       @match_rules = []
       @match_cache = MatchCache.new
       @default_collector = default_collector
-      @emit_error_handler = emit_error_handler || RaiseEmitErrorHandler.new
+      @emit_error_handler = emit_error_handler
       @chain = NullOutputChain.instance
-    end
-
-    # Agent implements EmitErrorHandler. See 'fluentd/agent.rb'
-    class RaiseEmitErrorHandler
-      def handle_emits_error(tag, es, error)
-        raise error
-      end
     end
 
     attr_accessor :default_collector

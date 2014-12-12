@@ -27,7 +27,6 @@ module Fluent
     include Configurable
 
     def initialize(opts = {})
-      # initialize Configurable
       super()
 
       @context = nil
@@ -63,7 +62,6 @@ module Fluent
       }
     end
 
-    # agent API called by Worker
     def start
       @outputs.each { |o|
         o.start
@@ -76,7 +74,6 @@ module Fluent
       }
     end
 
-    # agent API called by Worker
     def shutdown
       @started_filters.map { |f|
         Thread.new do
@@ -146,7 +143,11 @@ module Fluent
       filter
     end
 
-    def handle_emits_error(tag, es, e)
+    # For handling invalid record
+    def emit_error_event(tag, time, record, error)
+    end
+
+    def handle_emits_error(tag, es, error)
     end
 
     class NoMatchMatch
