@@ -60,11 +60,9 @@ module Fluent
     attr_reader :labels
 
     def configure(conf)
-      super
-
       error_label_config = nil
 
-      # initialize <label> elements
+      # initialize <label> elements before configuring all plugins to avoid 'label not found' in input, filter and output.
       label_configs = {}
       conf.elements.select { |e| e.name == 'label' }.each { |e|
         name = e.arg
@@ -79,6 +77,9 @@ module Fluent
       }
       # Call 'configure' here to avoid 'label not found'
       label_configs.each { |name, e| @labels[name].configure(e) }
+      setup_error_label(error_label_config) if error_label_config
+
+      super
 
       # initialize <source> elements
       if @without_source
@@ -90,8 +91,6 @@ module Fluent
           add_source(type, e)
         }
       end
-
-      setup_error_label(error_label_config) if error_label_config
     end
 
     def setup_error_label(e)
