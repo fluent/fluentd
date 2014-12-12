@@ -27,7 +27,6 @@ module Fluent
     include Configurable
 
     def initialize(opts = {})
-      # initialize Configurable
       super()
 
       @context = nil
@@ -43,6 +42,7 @@ module Fluent
 
     attr_reader :log
     attr_reader :outputs
+    attr_reader :filters
     attr_reader :context
     attr_reader :event_router
     attr_reader :error_collector
@@ -53,7 +53,7 @@ module Fluent
       # initialize <match> and <filter> elements
       conf.elements.select { |e| e.name == 'filter' || e.name == 'match' }.each { |e|
         pattern = e.arg.empty? ? '**' : e.arg
-        type = e['type']
+        type = e['@type'] || e['type']
         if e.name == 'filter'
           add_filter(type, pattern, e)
         else
@@ -62,7 +62,6 @@ module Fluent
       }
     end
 
-    # agent API called by Worker
     def start
       @outputs.each { |o|
         o.start
@@ -75,7 +74,6 @@ module Fluent
       }
     end
 
-    # agent API called by Worker
     def shutdown
       @started_filters.map { |f|
         Thread.new do
@@ -145,7 +143,11 @@ module Fluent
       filter
     end
 
-    def handle_emits_error(tag, es, e)
+    # For handling invalid record
+    def emit_error_event(tag, time, record, error)
+    end
+
+    def handle_emits_error(tag, es, error)
     end
 
     class NoMatchMatch

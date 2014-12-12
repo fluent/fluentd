@@ -192,7 +192,7 @@ module Fluent
     def flush_buffer(tw)
       if lb = tw.line_buffer
         lb.chomp!
-        @parser.call(lb) { |time, record|
+        @parser.parse(lb) { |time, record|
           if time && record
             tag = if @tag_prefix || @tag_suffix
                     @tag_prefix + tw.tag + @tag_suffix
@@ -233,7 +233,7 @@ module Fluent
     def convert_line_to_event(line, es)
       begin
         line.chomp!  # remove \n
-        @parser.call(line) { |time, record|
+        @parser.parse(line) { |time, record|
           if time && record
             es.add(time, record)
           else
@@ -276,7 +276,7 @@ module Fluent
         lb ||= ''
         lines.each do |line|
           lb << line
-          @parser.call(lb) { |time, record|
+          @parser.parse(lb) { |time, record|
             if time && record
               convert_line_to_event(lb, es)
               lb = ''

@@ -62,6 +62,22 @@ module FluentOutputTest
       assert_equal 4, d.instance.calc_retry_wait
     end
 
+    def test_large_num_retries
+      # Test that everything works properly after a very large number of
+      # retries and we hit the expected max_retry_wait.
+      exp_max_retry_wait = 300
+      d = create_driver(CONFIG + %[
+        disable_retry_limit true
+        max_retry_wait #{exp_max_retry_wait}
+      ])
+      d.instance.instance_eval { @num_errors += 1000 }
+      assert_equal exp_max_retry_wait, d.instance.calc_retry_wait
+      d.instance.instance_eval { @num_errors += 1000 }
+      assert_equal exp_max_retry_wait, d.instance.calc_retry_wait
+      d.instance.instance_eval { @num_errors += 1000 }
+      assert_equal exp_max_retry_wait, d.instance.calc_retry_wait
+    end
+
     def create_mock_driver(conf=CONFIG)
       Fluent::Test::BufferedOutputTestDriver.new(Fluent::BufferedOutput) do
         attr_accessor :submit_flush_threads

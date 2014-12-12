@@ -51,6 +51,7 @@ module Fluent
       end
 
       ELEM_SYMBOLS = ['match', 'source', 'filter', 'system']
+      RESERVED_PARAMS = %W(@type @id @label)
 
       def parse_element(root_element, elem_name, attrs = {}, elems = [])
         while true
@@ -108,7 +109,7 @@ module Fluent
             else
               if k == '@include'
                 parse_include(attrs, elems)
-              elsif k == '@label'
+              elsif RESERVED_PARAMS.include?(k)
                 v = parse_literal
                 unless line_end
                   parse_error! "expected end of line"

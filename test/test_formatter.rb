@@ -36,6 +36,18 @@ module FormatterTest
     ENV['TZ'] = oldtz
   end
 
+  class BaseFormatterTest < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def test_call
+      formatter = Formatter.new
+      formatter.configure({})
+      assert_raise NotImplementedError do
+        formatter.format('tag', Engine.now, {})
+      end
+    end
+  end
+
   class OutFileFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 

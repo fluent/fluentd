@@ -76,7 +76,7 @@ module Fluent
           opts[:pretty_json] = true
         end
 
-        if tags = qs['tag'] and tag = tags[0]
+        if tag = get_search_parameter(qs, 'tag'.freeze)
           # ?tag= to search an output plugin by match pattern
           if obj = @agent.plugin_info_by_tag(tag, opts)
             list = [obj]
@@ -84,17 +84,29 @@ module Fluent
             list = []
           end
 
-        elsif plugin_ids = qs['id'] and plugin_id = plugin_ids[0]
-          # ?id= to search a plugin by 'id <plugin_id>' config param
+        elsif plugin_id = get_search_parameter(qs, '@id'.freeze)
+          # ?@id= to search a plugin by 'id <plugin_id>' config param
           if obj = @agent.plugin_info_by_id(plugin_id, opts)
             list = [obj]
           else
             list = []
           end
 
-        elsif types = qs['type'] and type = types[0]
-          # ?type= to search plugins by 'type <type>' config param
-          list = @agent.plugins_info_by_type(type, opts)
+        elsif plugin_id = get_search_parameter(qs, 'id'.freeze)
+          # Without @ version of ?@id= for backward compatibility
+          if obj = @agent.plugin_info_by_id(plugin_id, opts)
+            list = [obj]
+          else
+            list = []
+          end
+
+        elsif plugin_type = get_search_parameter(qs, '@type'.freeze)
+          # ?@type= to search plugins by 'type <type>' config param
+          list = @agent.plugins_info_by_type(plugin_type, opts)
+
+        elsif plugin_type = get_search_parameter(qs, 'type'.freeze)
+          # Without @ version of ?@type= for backward compatibility
+          list = @agent.plugins_info_by_type(plugin_type, opts)
 
         else
           # otherwise show all plugins
@@ -102,6 +114,11 @@ module Fluent
         end
 
         return list, opts
+      end
+
+      def get_search_parameter(qs, param_name)
+        return nil unless qs.has_key?(param_name)
+        qs[param_name].first
       end
 
       def render_json(obj, opts={})
@@ -211,13 +228,10 @@ module Fluent
     end
 
     MONITOR_INFO = {
-      'plugin_id' => 'plugin_id',
-      'type' => 'config["type"]',
       'output_plugin' => 'is_a?(::Fluent::Output)',
       'buffer_queue_length' => '@buffer.queue_size',
       'buffer_total_queued_size' => '@buffer.total_queued_chunk_size',
       'retry_count' => '@num_errors',
-      'config' => 'config',
     }
 
     def all_plugins
@@ -252,16 +266,18 @@ module Fluent
       array
     end
 
-    # try to match the tag and get the info from the
-    # matched output plugin
+    # try to match the tag and get the info from the matched output plugin
+    # TODO: Support output in label
     def plugin_info_by_tag(tag, opts={})
-      m = Engine.match(tag)
-      if m
-        pe = m.output
-        get_monitor_info(pe, opts)
-      else
-        nil
-      end
+      matches = Engine.root_agent.event_router.instance_variable_get(:@match_rules)
+      matches.each { |rule|
+        if rule.match?(tag)
+          if rule.collector.is_a?(Output)
+            return get_monitor_info(rule.collector, opts)
+          end
+        end
+      }
+      nil
     end
 
     # search a plugin by plugin_id
@@ -280,7 +296,7 @@ module Fluent
     # multiple plugins could have the same type
     def plugins_info_by_type(type, opts={})
       array = all_plugins.select {|pe|
-        pe.config['type'] == type rescue nil
+        (pe.config['@type'] == type || pe.config['type'] == type) rescue nil
       }
       array.map {|pe|
         get_monitor_info(pe, opts)
@@ -296,6 +312,12 @@ module Fluent
     # get monitor info from the plugin `pe` and return a hash object
     def get_monitor_info(pe, opts={})
       obj = {}
+
+      # Common plugin information
+      obj['plugin_id'] = pe.plugin_id
+      obj['plugin_category'] = plugin_category(pe)
+      obj['type'] = pe.config['@type'] || pe.config['type']
+      obj['config'] = pe.config
 
       # run MONITOR_INFO in plugins' instance context and store the info to obj
       MONITOR_INFO.each_pair {|key,code|
@@ -318,6 +340,17 @@ module Fluent
       end
 
       obj
+    end
+
+    def plugin_category(pe)
+      case pe
+      when Fluent::Input
+        'input'.freeze
+      when Fluent::Output
+        'output'.freeze
+      else
+        'unknown'.freeze
+      end
     end
 
     def fluentd_opts
