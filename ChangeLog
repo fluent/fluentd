@@ -1,3 +1,23 @@
+Release 0.10.57 - 2014/11/13
+
+* buffer: Make `total_queued_chunk_size` thread-safe to avoid race condition with `in_monitor_agent`
+   https://github.com/fluent/fluentd/pull/469
+* Add `--no-supervisor` option to disable the supervisor for supervision tools like runit
+   https://github.com/fluent/fluentd/pull/449
+
+0.10.57 was a bug fix release.
+
+Release 0.10.56 - 2014/10/31
+
+* config: Add Fluent::Config::Section#object_id to avoid NoMethodError by object dump tools
+  https://github.com/fluent/fluentd/pull/460
+* mixin: Fix SetTagKeyMixin and SetTimeKeyMixin which ignores config_set_default since 0.10.53
+  https://github.com/fluent/fluentd/pull/462
+* input/output: Support 'timezone' configuration parameter (e.g. "+09:00" for JST)
+  https://github.com/fluent/fluentd/pull/430
+* log: Use plugin_id instead of object_id in log message for consistency with in_monitor_agent
+  https://github.com/fluent/fluentd/pull/459
+
 Release 0.10.55 - 2014/10/16
 
 * config: Change v1's non-quoted string literal behaviour to v0's behaviour
