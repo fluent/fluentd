@@ -32,6 +32,8 @@ module Fluent
       if label_name = conf['@label']
         label = Engine.root_agent.find_label(label_name)
         @router = label.event_router
+      elsif @router.nil?
+        @router = Engine.root_agent.event_router
       end
     end
 

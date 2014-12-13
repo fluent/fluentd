@@ -39,6 +39,7 @@ module Fluent
         log.debug "adding store type=#{type.dump}"
 
         output = Plugin.new_output(type)
+        output.router = router
         output.configure(e)
         @outputs << output
       }
