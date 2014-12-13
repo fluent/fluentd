@@ -1,3 +1,60 @@
+# v0.12
+
+## Release 0.12.0 - 2014/12/12
+
+### New Features
+
+* config: Introduce @type and @id parameter for system parameter. type and id are still valid.
+* Filter: old tag trick of "using output plugins as filter" is no longer needed
+  v0.12.0 ships with grep and record_transformer filter plugins
+* Label: grouping Filter and Output plugins to reduce the complexity of event routing
+  @ERROR built-in label is also added to handle errors in emit
+  Add emit_error_event API to send invalid record to @ERROR
+* in_forward/out_forward: Add require_ack_response and ack_response_timeout for At-least-once semantics
+
+Here is the announcement for above new features: http://www.fluentd.org/blog/fluentd-v0.12-is-released
+
+* parser/formatter: Add base class and Plugin.new_xxx/Plugin.register_xxx APIs
+  https://github.com/fluent/fluentd/pull/495
+  https://github.com/fluent/fluentd/pull/497
+* formatter: Add new CSV formatter
+  https://github.com/fluent/fluentd/pull/489
+* formatter: Add msgpack format to built-in Formatter to dump records
+  https://github.com/fluent/fluentd/pull/479
+* input: Add in_dummy plugin
+  https://github.com/fluent/fluentd/pull/484
+* in_http: Add respond_with_empty_img parameter to return empty gif image
+  https://github.com/fluent/fluentd/pull/480
+* in_http: Add cors_allow_origins parameter to support CORS request
+  https://github.com/fluent/fluentd/pull/473
+* output: Add relable output plugin
+  https://github.com/fluent/fluentd/pull/417
+
+### Enhancement
+
+* config: Add self.name to configure_proxy error message
+  https://github.com/fluent/fluentd/pull/490
+* log: --suppress-repeated-stacktrace is true by default
+  https://github.com/fluent/fluentd/pull/446
+* Update msgpack to v0.5 and cool.io to v1.2
+
+### Bug fixes
+
+* config: Fix system config using double memory
+  https://github.com/fluent/fluentd/pull/496
+* config: Fix v1 config to support multiple tag match
+  https://github.com/fluent/fluentd/pull/478
+* config: Fix Config.bool_value regression for nil value
+  https://github.com/fluent/fluentd/pull/477
+* parser: Fix blank column handling of TSVParser
+  https://github.com/fluent/fluentd/pull/506
+* buffer: Prevent an exception with large num_retries
+  https://github.com/fluent/fluentd/pull/502
+* out_file: Don't create world writable directory in daemon mode
+  https://github.com/fluent/fluentd/pull/483
+
+# v0.10
+
 Release 0.10.57 - 2014/11/13
 
 * buffer: Make `total_queued_chunk_size` thread-safe to avoid race condition with `in_monitor_agent`
