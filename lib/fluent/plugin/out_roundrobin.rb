@@ -44,6 +44,7 @@ module Fluent
         log.debug "adding store type=#{type.dump}, weight=#{weight}"
 
         output = Plugin.new_output(type)
+        output.router = router
         output.configure(e)
         @outputs << output
         @weights << weight

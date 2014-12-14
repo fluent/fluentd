@@ -113,6 +113,10 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     assert_equal [
         [time, {"a"=>3}],
       ], os[2].events
+
+    d.instance.outputs.each {|o|
+      assert_not_nil o.router
+    }
   end
 
   def test_emit_weighted

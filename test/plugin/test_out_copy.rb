@@ -62,6 +62,10 @@ class CopyOutputTest < Test::Unit::TestCase
           [time, {"a"=>2}],
         ], o.events
     }
+
+    d.instance.outputs.each {|o|
+      assert_not_nil o.router
+    }
   end
 
   def test_msgpack_es_emit_bug

@@ -72,6 +72,8 @@ module Fluent
       if label_name = conf['@label']
         label = Engine.root_agent.find_label(label_name)
         @router = label.event_router
+      elsif @router.nil?
+        @router = Engine.root_agent.event_router
       end
     end
 
@@ -210,6 +212,7 @@ module Fluent
       if sconf = conf.elements.select {|e| e.name == 'secondary' }.first
         type = sconf['@type'] || conf['@type'] || sconf['type'] || conf['type']
         @secondary = Plugin.new_output(type)
+        @secondary.router = router
         @secondary.configure(sconf)
 
         if secondary_limit = conf['secondary_limit']

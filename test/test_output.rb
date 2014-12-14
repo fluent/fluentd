@@ -8,6 +8,17 @@ module FluentOutputTest
   class BufferedOutputTest < ::Test::Unit::TestCase
     include FluentOutputTest
 
+    class << self
+      def startup
+        $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), 'scripts'))
+        require 'fluent/plugin/out_test'
+      end
+
+      def shutdown
+        $LOAD_PATH.shift
+      end
+    end
+
     def setup
       Fluent::Test.setup
     end
@@ -137,6 +148,16 @@ module FluentOutputTest
       assert_equal 0, d.instance.instance_variable_get('@writer_current_position')
       d.instance.shutdown
       assert (d.instance.submit_flush_threads.size > 1), "fails if only one thread works to submit flush"
+    end
+
+    def test_secondary
+      d = create_driver(CONFIG + %[
+        <secondary>
+          type test
+          name c0
+        </secondary>
+      ])
+      assert_not_nil d.instance.instance_variable_get(:@secondary).router
     end
   end
 end
