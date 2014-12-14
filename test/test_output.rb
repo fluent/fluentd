@@ -138,5 +138,13 @@ module FluentOutputTest
       d.instance.shutdown
       assert (d.instance.submit_flush_threads.size > 1), "fails if only one thread works to submit flush"
     end
+
+    # for v0.12 compatibility
+    def test_router_emit
+      d = create_driver
+      assert_true d.instance.respond_to?(:router)
+      assert_true d.instance.respond_to?(:router=)
+      assert_true d.instance.router.respond_to?(:emit)
+    end
   end
 end

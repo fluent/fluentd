@@ -21,12 +21,16 @@ module Fluent
     include PluginId
     include PluginLoggerMixin
 
+    attr_accessor :router
+
     def initialize
       super
     end
 
     def configure(conf)
       super
+
+      @router = Engine
     end
 
     def start
