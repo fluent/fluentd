@@ -123,7 +123,8 @@ module Fluent
       log.error_backtrace
     end
 
-    protected
+    private
+
     def receive_data_parser(data, addr)
       m = SYSLOG_REGEXP.match(data)
       unless m

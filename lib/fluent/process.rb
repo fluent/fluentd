@@ -279,7 +279,8 @@ module Fluent
     def on_detach_process(i)
     end
 
-    protected
+    private
+
     def detach_process_impl(num, &block)
       children = []
 
@@ -461,7 +462,8 @@ module Fluent
       end
     end
 
-    protected
+    private
+
     def detach_multi_process(&block)
       if @detach_process
         detach_process_impl(@detach_process_num, &block)

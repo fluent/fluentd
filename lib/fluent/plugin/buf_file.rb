@@ -199,7 +199,7 @@ module Fluent
       end
     end
 
-    protected
+    private
 
     # Dots are separator for many cases:
     #   we should have to escape dots in keys...

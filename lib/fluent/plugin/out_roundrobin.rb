@@ -71,7 +71,8 @@ module Fluent
       next_output.emit(tag, es, chain)
     end
 
-    protected
+    private
+
     def next_output
       @rr = 0 if (@rr += 1) >= @weight_array.size
       @weight_array[@rr]

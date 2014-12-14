@@ -94,7 +94,7 @@ module Fluent
       log.error_backtrace
     end
 
-    protected
+    private
 
     # message Entry {
     #   1: long time
