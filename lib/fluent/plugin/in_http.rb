@@ -170,9 +170,9 @@ module Fluent
             single_time = single_record.delete("time") || time
             mes.add(single_time, single_record)
           end
-          Engine.emit_stream(tag, mes)
+          router.emit_stream(tag, mes)
 	else
-          Engine.emit(tag, time, record)
+          router.emit(tag, time, record)
         end
       rescue
         return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
