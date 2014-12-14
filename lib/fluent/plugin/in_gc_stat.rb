@@ -69,7 +69,7 @@ module Fluent
     def on_timer
       now = Engine.now
       record = GC.stat
-      Engine.emit(@tag, now, record)
+      router.emit(@tag, now, record)
     end
   end
 end

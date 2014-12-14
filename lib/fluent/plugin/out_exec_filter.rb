@@ -353,7 +353,7 @@ module Fluent
         tag = @tag
       end
 
-      Engine.emit(tag, time, record)
+      router.emit(tag, time, record)
 
     rescue
       if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time

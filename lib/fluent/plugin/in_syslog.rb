@@ -192,7 +192,7 @@ module Fluent
 
       tag = "#{@tag}.#{facility}.#{priority}"
 
-      Engine.emit(tag, time, record)
+      router.emit(tag, time, record)
     rescue => e
       log.error "syslog failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
     end

@@ -130,7 +130,7 @@ module Fluent
           end
 
           record[@source_host_key] = addr[3] if @source_host_key
-          Engine.emit(@tag, time, record)
+          router.emit(@tag, time, record)
         }
       rescue => e
         log.error msg.dump, :error => e, :error_class => e.class, :host => addr[3]
