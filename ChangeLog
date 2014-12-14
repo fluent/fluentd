@@ -1,3 +1,21 @@
+Release 0.10.58 - 2014/12/14
+
+* parser/formatter: Add base class and Plugin.new_xxx/Plugin.register_xxx APIs
+* parser: Fix blank column handling of TSVParser
+* formatter: Add new CSV formatter
+* formatter: Add msgpack format to built-in Formatter to dump records
+* input: Add in_dummy plugin
+* in_http: Add respond_with_empty_img parameter to return empty gif image
+* in_http: Add cors_allow_origins parameter to support CORS request
+* config: Add self.name to configure_proxy error message
+* config: Fix system config using double memory
+* config: Fix v1 config to support multiple tag match
+* config: Fix Config.bool_value regression for nil value
+* buffer: Prevent an exception with large num_retries
+* out_file: Don't create world writable directory in daemon mode
+* add router.emit and router= for compatibility with v0.12
+* Use router instead of Engine.emit
+
 Release 0.10.57 - 2014/11/12
 
 * buffer: Make total_queued_chunk_size thread-safe to avoid race condition with in_monitor_agent
