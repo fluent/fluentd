@@ -1,5 +1,12 @@
 # v0.12
 
+## Release 0.12.1 - 2014/12/14
+
+### Bug fixes
+
+* plugin: Fix router is nil inside out_copy, out_roundrobin, and BufferedOutput secondary
+  https://github.com/fluent/fluentd/pull/508
+
 ## Release 0.12.0 - 2014/12/12
 
 ### New Features
