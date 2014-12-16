@@ -59,6 +59,9 @@ module Fluent
         else
           @config = Config.parse(str, "(test)", "(test_dir)", use_v1)
         end
+        if label_name = @config['@label']
+          Engine.root_agent.add_label(label_name)
+        end
         @instance.configure(@config)
         self
       end
