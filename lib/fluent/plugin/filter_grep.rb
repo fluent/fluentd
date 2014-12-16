@@ -49,9 +49,9 @@ module Fluent
       end
     end
 
-    def filter_stream(tag, es)
-      result_es = MultiEventStream.new
-      es.each do |time, record|
+    def filter(tag, time, record)
+      result = nil
+      begin
         catch(:break_loop) do
           @regexps.each do |key, regexp|
             throw :break_loop unless match(regexp, record[key].to_s)
@@ -59,13 +59,13 @@ module Fluent
           @excludes.each do |key, exclude|
             throw :break_loop if match(exclude, record[key].to_s)
           end
-          result_es.add(time, record)
+          result = record
         end
+      rescue => e
+        log.warn "failed to grep events", :error_class => e.class, :error => e.message
+        log.warn_backtrace
       end
-      result_es
-    rescue => e
-      log.warn "failed to grep events", :error_class => e.class, :error => e.message
-      log.warn_backtrace
+      result
     end
 
     private
