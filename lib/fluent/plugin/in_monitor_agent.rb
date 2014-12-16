@@ -228,7 +228,7 @@ module Fluent
     end
 
     MONITOR_INFO = {
-      'output_plugin' => 'is_a?(::Fluent::Output)',
+      'output_plugin' => 'is_a?(::Fluent::Output)', # deprecated. Use plugin_category instead
       'buffer_queue_length' => '@buffer.queue_size',
       'buffer_total_queued_size' => '@buffer.total_queued_chunk_size',
       'retry_count' => '@num_errors',
@@ -244,11 +244,14 @@ module Fluent
       Engine.root_agent.outputs.each { |o|
         MonitorAgentInput.collect_children(o, array)
       }
+      # get all filter plugins
+      Engine.root_agent.filters.each { |f|
+        MonitorAgentInput.collect_children(f, array)
+      }
       Engine.root_agent.labels.each { |name, l|
-        # TODO: Add label name to outputs for identifing plugins
-        l.outputs.each { |o|
-          MonitorAgentInput.collect_children(o, array)
-        }
+        # TODO: Add label name to outputs / filters for identifing plugins
+        l.outputs.each { |o| MonitorAgentInput.collect_children(o, array) }
+        l.filters.each { |f| MonitorAgentInput.collect_children(f, array) }
       }
 
       array
@@ -348,6 +351,8 @@ module Fluent
         'input'.freeze
       when Fluent::Output
         'output'.freeze
+      when Fluent::Filter
+        'filter'.freeze
       else
         'unknown'.freeze
       end
