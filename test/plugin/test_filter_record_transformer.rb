@@ -19,7 +19,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
   end
 
   def create_driver(conf = '')
-    Test::FilterTestDriver.new(RecordTransformerFilter).configure(conf, true)
+    Test::FilterTestDriver.new(RecordTransformerFilter, @tag).configure(conf, true)
   end
 
   sub_test_case 'configure' do
@@ -38,13 +38,12 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
 
   sub_test_case "test options" do
     def emit(config, msgs = [''])
-      es = Fluent::MultiEventStream.new
-      msgs.each do |msg|
-        es.add(@time, {'foo' => 'bar', 'message' => msg})
-      end
-
       d = create_driver(config)
-      d.filter_stream(@tag, es)
+      d.run {
+        msgs.each { |msg|
+          d.emit({'foo' => 'bar', 'message' => msg}, @time)
+        }
+      }.filtered
     end
 
     CONFIG = %[
@@ -120,14 +119,13 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
 
   sub_test_case 'test placeholders' do
     def emit(config, msgs = [''])
-      es = Fluent::MultiEventStream.new
-      msgs.each do |msg|
-        es.add(@time, {'eventType0' => 'bar', 'message' => msg})
-      end
-
       d = create_driver(config)
       yield d if block_given?
-      d.filter_stream(@tag, es)
+      d.run {
+        msgs.each do |msg|
+          d.emit({'eventType0' => 'bar', 'message' => msg}, @time)
+        end
+      }.filtered
     end
 
     %w[yes no].each do |enable_ruby|

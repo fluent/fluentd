@@ -14,13 +14,12 @@ class FilterTest < Test::Unit::TestCase
   end
 
   def emit(klass, msgs, conf = '')
-    es = Fluent::MultiEventStream.new
-    msgs.each {|msg|
-      es.add(@time, {'message' => msg})
-    }
-
     d = create_driver(klass, conf)
-    d.filter_stream('filter.test', es)
+    d.run {
+      msgs.each {|msg|
+        d.emit({'message' => msg}, @time)
+      }
+    }.filtered
   end
 
   sub_test_case 'configure' do
