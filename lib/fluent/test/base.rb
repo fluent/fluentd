@@ -66,11 +66,12 @@ module Fluent
         self
       end
 
-      def run(&block)
+      # num_waits is for checking thread status. This will be removed after improved plugin API
+      def run(num_waits = 10, &block)
         @instance.start
         begin
           # wait until thread starts
-          10.times { sleep 0.05 }
+          num_waits.times { sleep 0.05 }
           return yield
         ensure
           @instance.shutdown

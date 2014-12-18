@@ -42,13 +42,12 @@ class GrepFilterTest < Test::Unit::TestCase
     end
 
     def emit(config, msgs)
-      es = Fluent::MultiEventStream.new
-      msgs.each { |msg|
-        es.add(@time, {'foo' => 'bar', 'message' => msg})
-      }
-
       d = create_driver(config)
-      d.filter_stream('filter.test', es);
+      d.run {
+        msgs.each { |msg|
+          d.emit({'foo' => 'bar', 'message' => msg}, @time)
+        }
+      }.filtered
     end
 
     test 'empty config' do
@@ -93,11 +92,9 @@ class GrepFilterTest < Test::Unit::TestCase
 
   sub_test_case 'grep non-string jsonable values' do
     def emit(msg, config = 'regexp1 message 0')
-      es = Fluent::MultiEventStream.new
-      es.add(@time, {'foo' => 'bar', 'message' => msg})
-
       d = create_driver(config)
-      d.filter_stream('filter.test', es);
+      d.emit({'foo' => 'bar', 'message' => msg}, @time)
+      d.run.filtered
     end
 
     data(
