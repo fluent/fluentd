@@ -106,7 +106,7 @@ module Fluent
         @buffer_path_suffix = ".log"
       end
 
-      if flush_at_shutdown = conf['flush_at_shutdown']
+      if conf['flush_at_shutdown']
         @flush_at_shutdown = true
       else
         @flush_at_shutdown = false
