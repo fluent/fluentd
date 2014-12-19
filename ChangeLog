@@ -2,6 +2,21 @@
 
 ## Release 0.12.1 - 2014/12/14
 
+### New Features
+
+* filter: Change filter behaviour. If filter method returns nil, its record is removed from stream.
+
+### Enhancement
+
+* in_monitor_agent: Render filter plugins
+* test: FilterTestDriver has run, emit and getting result methods
+
+### Bug fixes
+
+* test: Support @label by TestDriver
+
+## Release 0.12.1 - 2014/12/14
+
 ### Bug fixes
 
 * plugin: Fix router is nil inside out_copy, out_roundrobin, and BufferedOutput secondary
