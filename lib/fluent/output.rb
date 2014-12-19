@@ -383,6 +383,7 @@ module Fluent
     end
 
     def force_flush
+      @next_retry_time = Engine.now
       enqueue_buffer
       submit_flush
     end
