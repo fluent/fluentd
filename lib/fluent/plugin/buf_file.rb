@@ -83,6 +83,7 @@ module Fluent
     end
 
     config_param :buffer_path, :string
+    config_param :flush_at_shutdown, :bool, :default => false
 
     # 'symlink_path' is currently only for out_file.
     # That is the reason why this is not config_param, but attr_accessor.
@@ -106,11 +107,6 @@ module Fluent
         @buffer_path_suffix = ".log"
       end
 
-      if conf['flush_at_shutdown']
-        @flush_at_shutdown = true
-      else
-        @flush_at_shutdown = false
-      end
     end
 
     def start
