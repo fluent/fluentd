@@ -20,6 +20,7 @@ module Fluent
 
     def initialize
       require 'drb/drb'
+      require 'fluent/plugin/file_util'
       super
     end
 
@@ -31,6 +32,11 @@ module Fluent
 
     def configure(conf)
       super
+      if @unix_path
+        unless ::Fluent::FileUtil.writable?(@unix_path)
+          raise ConfigError, "in_debug_agent: `#{@unix_path}` is not writable"
+        end
+      end
     end
 
     def start

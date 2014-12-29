@@ -38,6 +38,7 @@ module Fluent
     def initialize
       require 'zlib'
       require 'time'
+      require 'fluent/plugin/file_util'
       super
     end
 
@@ -59,6 +60,11 @@ module Fluent
         conf['buffer_path'] ||= "#{@path}.*"
       end
 
+      test_path = generate_path(Time.now.strftime(@time_slice_format))
+      unless ::Fluent::FileUtil.writable?(test_path)
+        raise ConfigError, "out_file: `#{test_path}` is not writable"
+      end
+
       super
 
       @formatter = Plugin.new_formatter(@format)
@@ -72,7 +78,7 @@ module Fluent
     end
 
     def write(chunk)
-      path = generate_path(chunk)
+      path = generate_path(chunk.key)
       FileUtils.mkdir_p File.dirname(path), :mode => DEFAULT_DIR_PERMISSION
 
       case @compress
@@ -97,21 +103,23 @@ module Fluent
 
     private
 
-    def generate_path(chunk)
+    def suffix
       case @compress
       when nil
-        suffix = ''
+        ''
       when :gz
-        suffix = ".gz"
+        ".gz"
       end
+    end
 
+    def generate_path(time_string)
       if @append
-        "#{@path_prefix}#{chunk.key}#{@path_suffix}#{suffix}"
+        "#{@path_prefix}#{time_string}#{@path_suffix}#{suffix}"
       else
         path = nil
         i = 0
         begin
-          path = "#{@path_prefix}#{chunk.key}_#{i}#{@path_suffix}#{suffix}"
+          path = "#{@path_prefix}#{time_string}_#{i}#{@path_suffix}#{suffix}"
           i += 1
         end while File.exist?(path)
         path
