@@ -53,6 +53,10 @@ module FluentOutputTest
       # disable_retry_limit
       d = create_driver(CONFIG + %[disable_retry_limit true])
       assert_equal true, d.instance.disable_retry_limit
+
+      # retry_wait is converted to Float for calc_retry_wait
+      d = create_driver(CONFIG + %[retry_wait 1s])
+      assert_equal Float, d.instance.retry_wait.class
     end
 
     def test_calc_retry_wait
@@ -71,6 +75,14 @@ module FluentOutputTest
         d.instance.instance_eval { @num_errors += 1 }
       }
       assert_equal 4, d.instance.calc_retry_wait
+    end
+
+    def test_calc_retry_wait_with_integer_retry_wait
+      d = create_driver(CONFIG + %[retry_wait 2s])
+      d.instance.retry_limit.times {
+        d.instance.instance_eval { @num_errors += 1 }
+      }
+      assert_equal true, d.instance.calc_retry_wait.finite?
     end
 
     def test_large_num_retries
