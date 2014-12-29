@@ -115,6 +115,45 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal("#{@hostname} #{@tag_parts[-1]} #{msgs[i]}", r['message'])
       end
     end
+
+    test 'hash_value' do
+      config = %[
+        <record>
+          hash_field {"k1":100, "k2":"foobar"}
+        </record>
+      %]
+      msgs = ['1', '2']
+      es = emit(config, msgs)
+      es.each_with_index do |(t, r), i|
+        assert_equal({"k1"=>100, "k2"=>"foobar"}, r['hash_field'])
+      end
+    end
+
+    test 'array_value' do
+      config = %[
+        <record>
+          array_field [1, 2, 3]
+        </record>
+      %]
+      msgs = ['1', '2']
+      es = emit(config, msgs)
+      es.each_with_index do |(t, r), i|
+        assert_equal([1,2,3], r['array_field'])
+      end
+    end
+
+    test 'array_hash_mixed' do
+      config = %[
+        <record>
+          mixed_field {"hello":[1,2,3], "world":{"foo":"bar"}}
+        </record>
+      %]
+      msgs = ['1', '2']
+      es = emit(config, msgs)
+      es.each_with_index do |(t, r), i|
+        assert_equal({"hello"=>[1,2,3], "world"=>{"foo"=>"bar"}}, r['mixed_field'])
+      end
+    end
   end
 
   sub_test_case 'test placeholders' do
@@ -212,6 +251,50 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           assert_not_include(r, 'eventType0')
           assert_equal("bar", r['eventtype'])
           assert_equal("bar #{msgs[i]}", r['message'])
+        end
+      end
+
+      test "hash values with placeholders with enable_ruby #{enable_ruby}" do
+        config = %[
+          enable_ruby #{enable_ruby}
+          <record>
+            hash_field {
+              "hostname":"${hostname}",
+              "tag":"${tag}",
+              "${tag}":100
+            }
+          </record>
+        ]
+        msgs = ['1', '2']
+        es = emit(config, msgs)
+        es.each_with_index do |(t, r), i|
+          assert_equal({"hostname" => @hostname, "tag" => @tag, "#{@tag}" => 100}, r['hash_field'])
+        end
+      end
+      test "array values with placeholders with enable_ruby #{enable_ruby}" do
+        config = %[
+          enable_ruby #{enable_ruby}
+          <record>
+            array_field ["${hostname}", "${tag}"]
+          </record>
+        ]
+        msgs = ['1', '2']
+        es = emit(config, msgs)
+        es.each_with_index do |(t, r), i|
+          assert_equal([@hostname, @tag], r['array_field'])
+        end
+      end
+      test "array and hash values with placeholders with enable_ruby #{enable_ruby}" do
+        config = %[
+          enable_ruby #{enable_ruby}
+          <record>
+            mixed_field [{"tag":"${tag}"}]
+          </record>
+        ]
+        msgs = ['1', '2']
+        es = emit(config, msgs)
+        es.each_with_index do |(t, r), i|
+          assert_equal([{"tag" => @tag}], r['mixed_field'])
         end
       end
     end
