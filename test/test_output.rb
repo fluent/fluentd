@@ -1,6 +1,8 @@
 require_relative 'helper'
 require 'fluent/test'
 require 'fluent/output'
+require 'timecop'
+require 'flexmock'
 
 module FluentOutputTest
   include Fluent
@@ -158,6 +160,51 @@ module FluentOutputTest
         </secondary>
       ])
       assert_not_nil d.instance.instance_variable_get(:@secondary).router
+    end
+  end
+
+  class TimeSlicedOutputTest < ::Test::Unit::TestCase
+    include FluentOutputTest
+    include FlexMock::TestCase
+
+    def setup
+      Fluent::Test.setup
+      FileUtils.rm_rf(TMP_DIR)
+      FileUtils.mkdir_p(TMP_DIR)
+    end
+
+    TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/time_sliced_output")
+
+    CONFIG = %[]
+
+    def create_driver(conf=CONFIG)
+      Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::TimeSlicedOutput).configure(conf, true)
+    end
+
+    sub_test_case "test_force_flush" do
+      setup do
+        time = Time.parse("2011-01-02 13:14:15 UTC")
+        Timecop.freeze(time)
+        @es = OneEventStream.new(time.to_i, {"message" => "foo"})
+      end
+
+      teardown do
+        Timecop.return
+      end
+
+      test "force_flush immediately flushes" do
+        d = create_driver(CONFIG + %[
+          time_format %Y%m%d%H%M%S
+          buffer_path #{TMP_DIR}/foo
+        ])
+        d.instance.start
+        # buffer should be popped (flushed) immediately
+        flexmock(d.instance.instance_variable_get(:@buffer)).should_receive(:pop).once
+        # force_flush
+        d.instance.emit('test', @es, NullOutputChain.instance)
+        d.instance.force_flush
+        10.times { sleep 0.05 }
+      end
     end
   end
 end
