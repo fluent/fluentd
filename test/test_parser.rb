@@ -356,6 +356,38 @@ module ParserTest
     end
   end
 
+  class NginxErrorParserTest < ::Test::Unit::TestCase
+    include ParserTest
+
+    def setup
+      @parser = TextParser::TEMPLATE_REGISTRY.lookup('nginx_error').call
+    end
+
+    def test_parse_access_error
+      @parser.parse('2015/01/10 19:30:53 [error] 21229#0: *1 open() "/usr/share/nginx/html/not_found" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /not_found HTTP/1.1", host: "localhost"') { |time, record|
+        assert_equal(str2time('2015/01/10 19:30:53'), time)
+        assert_equal({
+          'level' => 'error',
+          'pid' => '21229',
+          'tid' => '0',
+          'message' => '*1 open() "/usr/share/nginx/html/not_found" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /not_found HTTP/1.1", host: "localhost"'
+        }, record)
+      }
+    end
+
+    def test_parse_config_error
+      @parser.parse('2015/01/10 19:31:12 [emerg] 21317#0: unexpected "}" in /etc/nginx/sites-enabled/default:73') { |time, record|
+        assert_equal(str2time('2015/01/10 19:31:12'), time)
+        assert_equal({
+          'level' => 'emerg',
+          'pid' => '21317',
+          'tid' => '0',
+          'message' => 'unexpected "}" in /etc/nginx/sites-enabled/default:73'
+        }, record)
+      }
+    end
+  end
+
   class TSVParserTest < ::Test::Unit::TestCase
     include ParserTest
 
