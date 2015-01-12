@@ -321,6 +321,8 @@ module Fluent
       trap :HUP do
         $log.debug "fluentd supervisor process get SIGHUP"
         $log.info "restarting"
+        read_config
+        apply_system_config
         if pid = @main_pid
           Process.kill(:TERM, pid)
           # don't resuce Erro::ESRSH here (invalid status)
