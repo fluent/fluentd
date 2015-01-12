@@ -188,6 +188,7 @@ module Fluent
     def configure(conf)
       super
 
+      @retry_wait = @retry_wait.to_f # converted to Float for calc_retry_wait
       @buffer = Plugin.new_buffer(@buffer_type)
       @buffer.configure(conf)
 
