@@ -84,6 +84,7 @@ module Fluent
     end
 
     config_param :buffer_path, :string
+    config_param :flush_at_shutdown, :bool, :default => false
 
     attr_accessor :symlink_path
 
@@ -104,11 +105,6 @@ module Fluent
         @buffer_path_suffix = ".log"
       end
 
-      if flush_at_shutdown = conf['flush_at_shutdown']
-        @flush_at_shutdown = true
-      else
-        @flush_at_shutdown = false
-      end
     end
 
     def start
