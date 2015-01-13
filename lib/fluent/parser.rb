@@ -632,6 +632,7 @@ module Fluent
       'ltsv' => Proc.new { LabeledTSVParser.new },
       'csv' => Proc.new { CSVParser.new },
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
+      'nginx_error' => Proc.new { RegexpParser.new(/^(?<time>[^ ]+ [^ ]+) \[(?<level>.*)\] (?<pid>\d*).(?<tid>[^:]*): (?<message>.*)$/) },
       'none' => Proc.new { NoneParser.new },
       'multiline' => Proc.new { MultilineParser.new },
     }.each { |name, factory|
