@@ -6,6 +6,7 @@ require 'flexmock'
 
 module FluentOutputTest
   include Fluent
+  include FlexMock::TestCase
 
   class BufferedOutputTest < ::Test::Unit::TestCase
     include FluentOutputTest
@@ -172,6 +173,33 @@ module FluentOutputTest
         </secondary>
       ])
       assert_not_nil d.instance.instance_variable_get(:@secondary).router
+    end
+
+    sub_test_case "test_force_flush" do
+      setup do
+        time = Time.parse("2011-01-02 13:14:15 UTC")
+        Timecop.freeze(time)
+        @time = time.to_i
+      end
+
+      teardown do
+        Timecop.return
+      end
+
+      test "force_flush works on retrying" do
+        d = create_driver(CONFIG)
+        d.instance.start
+        buffer = d.instance.instance_variable_get(:@buffer)
+        # imitate 10 failures
+        d.instance.instance_variable_set(:@num_errors, 10)
+        d.instance.instance_variable_set(:@next_retry_time, @time + d.instance.calc_retry_wait)
+        # buffer should be popped (flushed) immediately
+        flexmock(buffer).should_receive(:pop).once
+        # force_flush
+        buffer.emit("test", 'test', NullOutputChain.instance)
+        d.instance.force_flush
+        10.times { sleep 0.05 }
+      end
     end
   end
 

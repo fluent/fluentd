@@ -384,6 +384,9 @@ module Fluent
     end
 
     def force_flush
+      @num_errors_lock.synchronize do
+        @next_retry_time = Engine.now - 1
+      end
       enqueue_buffer(true)
       submit_flush
     end
