@@ -273,7 +273,7 @@ module Fluent
     #def write(chunk)
     #end
 
-    def enqueue_buffer
+    def enqueue_buffer(force = false)
       @buffer.keys.each {|key|
         @buffer.push(key)
       }
@@ -384,7 +384,7 @@ module Fluent
     end
 
     def force_flush
-      enqueue_buffer
+      enqueue_buffer(true)
       submit_flush
     end
 
@@ -552,8 +552,14 @@ module Fluent
       }
     end
 
-    def enqueue_buffer
-      @enqueue_buffer_proc.call
+    def enqueue_buffer(force = false)
+      if force
+        @buffer.keys.each {|key|
+          @buffer.push(key)
+        }
+      else
+        @enqueue_buffer_proc.call
+      end
     end
 
     #def format(tag, event)
