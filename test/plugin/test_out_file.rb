@@ -40,6 +40,16 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal :gz, d.instance.compress
   end
 
+  def test_path_writable
+    assert_nothing_raised do
+      create_driver %[path #{TMP_DIR}/test_path]
+    end
+
+    assert_raise(Fluent::ConfigError) do
+      create_driver %[path #{TMP_DIR}/does_not_exist/test_path]
+    end
+  end
+
   def test_default_localtime
     d = create_driver(%[path #{TMP_DIR}/out_file_test])
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
