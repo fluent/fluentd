@@ -14,18 +14,30 @@
 #    limitations under the License.
 #
 
-system("bundle install")
-unless $?.success?
-  exit $?.exitstatus
+if ENV['BUNDLE_BIN_PATH']
+  puts 'error: You seem to use `bundle exec` already.'
+  exit 1
+else
+  begin
+    bundle_bin = Gem::Specification.find_by_name('bundler').bin_file('bundle')
+  rescue Gem::LoadError => e
+    puts "error: #{e}"
+    exit 1
+  end
+  ruby_bin = RbConfig.ruby
+  system("#{ruby_bin} #{bundle_bin} install")
+  unless $?.success?
+    exit $?.exitstatus
+  end
+
+  cmdline = [
+    ruby_bin,
+    bundle_bin,
+    'exec',
+    ruby_bin,
+    File.expand_path(File.join(File.dirname(__FILE__), 'fluentd.rb')),
+  ] + ARGV
+
+  exec *cmdline
+  exit! 127
 end
-
-cmdline = [
-  'bundle',
-  'exec',
-  RbConfig.ruby,
-  File.expand_path(File.join(File.dirname(__FILE__), 'fluentd.rb')),
-] + ARGV
-
-exec *cmdline
-exit! 127
-
