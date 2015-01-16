@@ -5,31 +5,40 @@
 ### New features / Enhancement
 
 * parser: nginx and apache2 format can now parse access log without http-version
+  https://github.com/fluent/fluentd/pull/535
 * filter_record_transformer: Allow non-string values like array / hash
+  https://github.com/fluent/fluentd/pull/530
 * plugin: Add writable check for path related parameter
+  https://github.com/fluent/fluentd/pull/401
 * command: -g and -G now works in embedded Ruby environment like Treasure Agent
+  https://github.com/fluent/fluentd/pull/423
 
 ### Bug fixes
 
 * buffer: Fix to flush a buffer by USR1 signal even on retrying
+  https://github.com/fluent/fluentd/pull/531
 * buffer: Fix TimeSlicedOutput doesn't flush with SIGUSR1
+  https://github.com/fluent/fluentd/pull/533
 * buffer: Fix broken calc_retry_wait if Integer is used for retry_wait parameter
+  https://github.com/fluent/fluentd/pull/529
 * engine: Fix SIGHUP does not reload config
+  https://github.com/fluent/fluentd/pull/537
 
 ## Release 0.12.2 - 2014/12/20
 
-### New Features
+### New Features / Enhancement
 
 * filter: Change filter behaviour. If filter method returns nil, its record is removed from stream.
-
-### Enhancement
-
+  https://github.com/fluent/fluentd/pull/515
 * in_monitor_agent: Render filter plugins
+  https://github.com/fluent/fluentd/pull/514
 * test: FilterTestDriver has run, emit and getting result methods
+  https://github.com/fluent/fluentd/pull/519
 
 ### Bug fixes
 
 * test: Support @label by TestDriver
+  https://github.com/fluent/fluentd/pull/517
 
 ## Release 0.12.1 - 2014/12/14
 
@@ -40,7 +49,7 @@
 
 ## Release 0.12.0 - 2014/12/12
 
-### New Features
+### New Features / Enhancement
 
 * config: Introduce @type and @id parameter for system parameter. type and id are still valid.
 * Filter: old tag trick of "using output plugins as filter" is no longer needed
@@ -67,9 +76,6 @@ Here is the announcement for above new features: http://www.fluentd.org/blog/flu
   https://github.com/fluent/fluentd/pull/473
 * output: Add relable output plugin
   https://github.com/fluent/fluentd/pull/417
-
-### Enhancement
-
 * config: Add self.name to configure_proxy error message
   https://github.com/fluent/fluentd/pull/490
 * log: --suppress-repeated-stacktrace is true by default
