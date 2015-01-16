@@ -1,6 +1,22 @@
 # v0.12
 
-## Release 0.12.1 - 2014/12/14
+## Release 0.12.3 - 2015/01/16
+
+### New features / Enhancement
+
+* parser: nginx and apache2 format can now parse access log without http-version
+* filter_record_transformer: Allow non-string values like array / hash
+* plugin: Add writable check for path related parameter
+* command: -g and -G now works in embedded Ruby environment like Treasure Agent
+
+### Bug fixes
+
+* buffer: Fix to flush a buffer by USR1 signal even on retrying
+* buffer: Fix TimeSlicedOutput doesn't flush with SIGUSR1
+* buffer: Fix broken calc_retry_wait if Integer is used for retry_wait parameter
+* engine: Fix SIGHUP does not reload config
+
+## Release 0.12.2 - 2014/12/20
 
 ### New Features
 
