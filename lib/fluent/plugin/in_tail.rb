@@ -150,7 +150,13 @@ module Fluent
         if @pf
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
-            pe.update(File::Stat.new(path).ino, 0)
+            unless $platformwin
+              pe.update(File::Stat.new(path).ino, 0)
+            else
+              Win32File.open(path) { |io| 
+                pe.update(io.ino, 0)
+              }
+            end
           end
         end
 
@@ -1311,7 +1317,12 @@ module Fluent
       if seektoend
         w32io.seek(0, IO::SEEK_END)
       end
-      return w32io
+      if block_given?
+        yield w32io
+        w32io.close
+      else
+        return w32io
+      end
     end
   end
 
