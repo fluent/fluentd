@@ -323,12 +323,16 @@ module Fluent
       trap :HUP do
         $log.debug "fluentd supervisor process get SIGHUP"
         $log.info "restarting"
-        read_config
-        apply_system_config
-        if pid = @main_pid
-          Process.kill(:TERM, pid)
-          # don't resuce Erro::ESRSH here (invalid status)
-        end
+        # Creating new thread due to mutex can't lock
+        # in main thread during trap context
+        Thread.new {
+          read_config
+          apply_system_config
+          if pid = @main_pid
+            Process.kill(:TERM, pid)
+            # don't resuce Erro::ESRSH here (invalid status)
+          end
+        }.run
       end
 
       trap :USR1 do
