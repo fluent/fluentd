@@ -13,6 +13,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
 module Fluent
   module Config
 
@@ -108,6 +109,12 @@ module Fluent
             else
               if k == '@include'
                 parse_include(attrs, elems)
+              elsif RESERVED_PARAMS.include?(k)
+                v = parse_literal
+                unless line_end
+                  parse_error! "expected end of line"
+                end
+                attrs[k] = v
               else
                 if k.start_with?('@')
                   if root_element || ELEM_SYMBOLS.include?(elem_name)
