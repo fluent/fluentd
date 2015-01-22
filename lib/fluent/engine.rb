@@ -100,7 +100,7 @@ module Fluent
         conf.elements.select {|e|
           e.name == 'source'
         }.each {|e|
-          type = e['type']
+          type = e['@type'] || e['type']
           unless type
             raise ConfigError, "Missing 'type' parameter on <source> directive"
           end
@@ -116,7 +116,7 @@ module Fluent
       conf.elements.select {|e|
         e.name == 'match'
       }.each {|e|
-        type = e['type']
+        type = e['@type'] || e['type']
         pattern = e.arg
         unless type
           raise ConfigError, "Missing 'type' parameter on <match #{e.arg}> directive"
