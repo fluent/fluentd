@@ -598,7 +598,7 @@ module Fluent
         @file.write path
         @file.write "\t"
         seek = @file.pos
-        @file.write "0000000000000000\t00000000\n"
+        @file.write "0000000000000000\t0000000000000000\n"
         @last_pos = @file.pos
 
         @map[path] = FilePositionEntry.new(@file, seek)
@@ -624,12 +624,15 @@ module Fluent
       # Clean up unwatched file entries
       def self.compact(file)
         file.pos = 0
-        existent_entries = file.each_line.select { |line|
+        existent_entries = file.each_line.map { |line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
           next unless m
+          path = m[1]
           pos = m[2].to_i(16)
-          pos == UNWATCHED_POSITION ? nil : line
-        }
+          ino = m[3].to_i(16)
+          # 32bit inode converted to 64bit at this phase
+          pos == UNWATCHED_POSITION ? nil : ("%s\t%016x\t%016x\n" % [path, pos, ino])
+        }.compact
 
         file.pos = 0
         file.truncate(0)
@@ -638,13 +641,13 @@ module Fluent
     end
 
     # pos               inode
-    # ffffffffffffffff\tffffffff\n
+    # ffffffffffffffff\tffffffffffffffff\n
     class FilePositionEntry
       POS_SIZE = 16
       INO_OFFSET = 17
-      INO_SIZE = 8
-      LN_OFFSET = 25
-      SIZE = 26
+      INO_SIZE = 16
+      LN_OFFSET = 33
+      SIZE = 34
 
       def initialize(file, seek)
         @file = file
@@ -653,7 +656,7 @@ module Fluent
 
       def update(ino, pos)
         @file.pos = @seek
-        @file.write "%016x\t%08x" % [pos, ino]
+        @file.write "%016x\t%016x" % [pos, ino]
       end
 
       def update_pos(pos)
@@ -663,7 +666,7 @@ module Fluent
 
       def read_inode
         @file.pos = @seek + INO_OFFSET
-        raw = @file.read(8)
+        raw = @file.read(16)
         raw ? raw.to_i(16) : 0
       end
 
