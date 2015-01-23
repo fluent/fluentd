@@ -1,3 +1,15 @@
+Release 0.10.59 - 2014/01/23
+
+* in_tail: Support 64bit inode environment in in_tail
+* parser: nginx and apache2 format can now parse access log without http-version
+* buffer: Fix broken calc_retry_wait if Integer is used for retry_wait parameter
+* buffer: Fix to flush a buffer by USR1 signal even on retrying
+* buffer: Fix TimeSlicedOutput doesn't flush with SIGUSR1
+* config: Support @ prefix build-in parameters
+* engine:Fix ThreadError occuring on Signal.trap SIGHUP
+* engine: Fix SIGHUP does not reload config
+* Revert fluent.conf since @type, @id are not available with v0 config
+
 Release 0.10.58 - 2014/12/14
 
 * parser/formatter: Add base class and Plugin.new_xxx/Plugin.register_xxx APIs
