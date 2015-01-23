@@ -1,5 +1,17 @@
 # v0.12
 
+## Release 0.12.4 - 2015/01/23
+
+### New features / Enhancement
+
+* Support 64bit inode environment in in_tail
+  https://github.com/fluent/fluentd/pull/542
+
+### Bug fixes
+
+* Fix ThreadError occuring on Signal.trap SIGHUP
+  https://github.com/fluent/fluentd/pull/541
+
 ## Release 0.12.3 - 2015/01/16
 
 ### New features / Enhancement
