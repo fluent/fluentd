@@ -135,9 +135,14 @@ op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Se
   opts[:signame] = s
 }
 
-op.on('-w', '--winsvcinst MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
-  opts[:winsvcreg] = s
+op.on('--reg-winsvc MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
+  opts[:regwinsvc] = s
 }
+
+op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
+  opts[:fluentdopt] = s
+}
+
 
 (class<<self;self;end).module_eval do
   define_method(:usage) do |msg|
@@ -188,16 +193,15 @@ if setup_path = opts[:setup_path]
   exit 0
 end
 
-if winsvcinstmode = opts[:winsvcreg]
-  require 'fileutils'
-  require "win32/service"
-  require 'fluent/win32api_syncobj'
-  include Win32
-  
-  FLUENTD_WINSVC_NAME="fluentdsvc"
+  FLUENTD_WINSVC_NAME="fluentdwinsvc"
   FLUENTD_WINSVC_DISPLAYNAME="Fluentd Windows Service"
   FLUENTD_WINSVC_DESC="Fluentd is an event collector system."
-  
+  require 'fileutils'
+  require "win32/service"
+  require "win32/registry"
+  include Win32
+
+if winsvcinstmode = opts[:regwinsvc]
   case winsvcinstmode
   when 'i'
     binary_path = File.join(File.dirname(__FILE__), "..")
@@ -212,7 +216,7 @@ if winsvcinstmode = opts[:winsvcreg]
       :description => FLUENTD_WINSVC_DESC,
       :start_type => Service::DEMAND_START,
       :error_control => Service::ERROR_NORMAL,
-      :binary_path_name => rub_path+" -C "+binary_path+" winsvc.rb",
+      :binary_path_name => ruby_path+" -C "+binary_path+" winsvc.rb",
       :load_order_group => "",
       :dependencies => [""],
       :display_name => FLUENTD_WINSVC_DISPLAYNAME
@@ -222,6 +226,13 @@ if winsvcinstmode = opts[:winsvcreg]
   else
     # none
   end 
+  exit 0
+end
+
+if fluentdopt = opts[:fluentdopt]
+  Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc", Win32::Registry::KEY_ALL_ACCESS) do |reg|
+    reg['fluentdopt', Win32::Registry::REG_SZ] = fluentdopt
+  end
   exit 0
 end
 

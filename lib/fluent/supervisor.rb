@@ -467,10 +467,7 @@ module Fluent
     end
 
     def install_supervisor_winsigint_handler
-      @winintname = "fluentdwinsigint_#{Process.pid}"
-      if @usespawn == 0 && @signame != nil
-        @winintname = @signame
-      end
+      @winintname = (@signame == nil) ? "fluentdwinsigint_#{Process.pid}" : @signame
       @th_sv = Thread.new do 
         @evtend = Win32::Event.new(@winintname, true)
         until @evtend.signaled?
@@ -482,7 +479,7 @@ module Fluent
     end
 
     def install_main_process_winsigint_handler
-      @winintname = "fluentdwinsigint_#{@usespawn}"
+      @winintname = (@signame == nil) ? "fluentdwinsigint_#{@usespawn}" : @signame
       @th_ma = Thread.new do
         @evtend = Win32::Event.open(@winintname)
         until @evtend.signaled?
