@@ -6,6 +6,7 @@ begin
 require 'windows/debug'
 require 'Windows/Library'
 require 'win32/daemon'
+require 'win32/event'
 
 include Win32
 include Windows::Library
