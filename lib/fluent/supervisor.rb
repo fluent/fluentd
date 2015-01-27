@@ -299,7 +299,11 @@ module Fluent
             end
           end
         else
-          @evtend.set
+          begin
+            @evtend.set
+          rescue
+            # nothing to do.
+          end
         end
       end
 
@@ -422,7 +426,11 @@ module Fluent
             Fluent::Engine.stop
           end
         else
-          @evtend.set
+          begin
+            @evtend.set
+          rescue
+            # nothing to do.
+          end
         end
       end
 
