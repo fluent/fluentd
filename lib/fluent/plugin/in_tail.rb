@@ -49,7 +49,7 @@ module Fluent
       configure_parser(conf)
       configure_tag
 
-      @multiline_mode = conf['format'] == 'multiline'
+      @multiline_mode = conf['format'] =~ /multiline/
       @receive_handler = if @multiline_mode
                            method(:parse_multilines)
                          else
