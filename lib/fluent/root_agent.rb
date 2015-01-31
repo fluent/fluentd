@@ -215,7 +215,7 @@ module Fluent
       def handle_emits_error(tag, es, e)
         now = Engine.now
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
-          log.warn "emit transaction failed in @ERROR:", :error_class => e.class, :error => e
+          log.warn "emit transaction failed in @ERROR:", :error_class => e.class, :error => e, :tag => tag
           log.warn_backtrace
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end
