@@ -160,7 +160,7 @@ module Fluent
       target.emit(tag, es)
     rescue => e
       if @suppress_emit_error_log_interval == 0 || now > @next_emit_error_log_time
-        $log.warn "emit transaction failed ", :error_class=>e.class, :error=>e
+        $log.warn "emit transaction failed ", :error_class=>e.class, :error=>e, :tag=>tag
         $log.warn_backtrace
         # $log.debug "current next_emit_error_log_time: #{Time.at(@next_emit_error_log_time)}"
         @next_emit_error_log_time = Time.now.to_i + @suppress_emit_error_log_interval
