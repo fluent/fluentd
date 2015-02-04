@@ -66,7 +66,7 @@ module Fluent
     end
 
     def dup
-      entries = @entries.map(:dup)
+      entries = @entries.map { |entry| entry.dup } # @entries.map(:dup) doesn't work by ArgumentError
       ArrayEventStream.new(entries)
     end
 
