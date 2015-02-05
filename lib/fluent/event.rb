@@ -27,11 +27,11 @@ module Fluent
     end
 
     def to_msgpack_stream
-      out = ''
+      out = MessagePack::Packer.new # MessagePack::Packer is fastest way to serialize events
       each {|time,record|
-        [time,record].to_msgpack(out)
+        out.write([time,record])
       }
-      out
+      out.to_s
     end
   end
 
@@ -66,7 +66,7 @@ module Fluent
     end
 
     def dup
-      entries = @entries.map(:dup)
+      entries = @entries.map { |entry| entry.dup } # @entries.map(:dup) doesn't work by ArgumentError
       ArrayEventStream.new(entries)
     end
 
