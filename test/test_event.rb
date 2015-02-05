@@ -48,7 +48,7 @@ module EventTest
     end
 
     test 'repeatable?' do
-      assert_equal true, @es.repeatable?
+      assert_true @es.repeatable?
     end
 
     test 'dup' do
@@ -58,7 +58,7 @@ module EventTest
     end
 
     test 'empty?' do
-      assert_false @es.empty?
+      assert_not_empty @es
       assert_true ArrayEventStream.new([]).empty?
     end
 
@@ -95,7 +95,7 @@ module EventTest
     end
 
     test 'repeatable?' do
-      assert_equal true, @es.repeatable?
+      assert_true @es.repeatable?
     end
 
     test 'dup' do
@@ -105,7 +105,7 @@ module EventTest
     end
 
     test 'empty?' do
-      assert_false @es.empty?
+      assert_not_empty @es
       assert_true MultiEventStream.new.empty?
     end
 
@@ -143,7 +143,7 @@ module EventTest
     end
 
     test 'repeatable?' do
-      assert_equal true, @es.repeatable?
+      assert_true @es.repeatable?
     end
 
     test 'each' do
