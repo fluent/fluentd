@@ -1,5 +1,20 @@
 # v0.12
 
+## Release 0.12.5 - 2014/02/09
+
+### New features / Enhancement
+
+* in_tail: Enable multiline mode if format contains 'multiline'
+  https://github.com/fluent/fluentd/pull/545
+* event: Improve EventStream#to_msgpack_stream performance
+  https://github.com/fluent/fluentd/pull/549
+* engine: Add tag information emit log
+
+### Bug fixes
+
+* Update msgpack dependency to avoid incompatible encoding problem
+  https://github.com/fluent/fluentd/pull/550
+
 ## Release 0.12.4 - 2015/01/23
 
 ### New features / Enhancement
