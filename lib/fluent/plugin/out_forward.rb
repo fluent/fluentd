@@ -361,7 +361,7 @@ module Fluent
           else
             @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
           end
-        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
+        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED
           # TODO log
           log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s
         end
