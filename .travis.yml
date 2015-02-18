@@ -22,6 +22,8 @@ gemfile:
 
 script: bundle exec rake
 
+sudo: false
+
 matrix:
   allow_failures:
     - rvm: ruby-head
