@@ -1,11 +1,11 @@
-Release 0.10.60 - 2014/02/06
+Release 0.10.60 - 2015/02/06
 
 * in_tail: Enable multiline mode if format contains 'multiline'
 * event: Improve EventStream#to_msgpack_stream performance
 * engine: Add tag information emit log
 * Update msgpack dependency to avoid incompatible encoding problem
 
-Release 0.10.59 - 2014/01/23
+Release 0.10.59 - 2015/01/23
 
 * in_tail: Support 64bit inode environment in in_tail
 * parser: nginx and apache2 format can now parse access log without http-version
