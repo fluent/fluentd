@@ -53,6 +53,10 @@ module Fluent
         @entries = []
         @expected_buffer = nil
         @tag = tag
+
+        def @instance.buffer
+          @buffer
+        end
       end
 
       attr_accessor :tag
@@ -84,8 +88,13 @@ module Fluent
             time, record = @entries.first
             key = @instance.time_slicer.call(time)
           end
-          chunk = MemoryBufferChunk.new(key, buffer)
-          result = @instance.write(chunk)
+          chunk = @instance.buffer.new_chunk(key)
+          chunk << buffer
+          begin
+            result = @instance.write(chunk)
+          ensure
+            chunk.purge
+          end
         }
         result
       end
