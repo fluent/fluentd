@@ -1,3 +1,8 @@
+Release 0.10.61 - 2015/03/03
+
+* out_forward: Should handle ECONNREFUSED exeception on TCP heartbeat
+* test: BufferedOutputTestDriver must use correct buffer chunk type
+
 Release 0.10.60 - 2015/02/06
 
 * in_tail: Enable multiline mode if format contains 'multiline'
