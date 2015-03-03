@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'fileutils'
+require 'fluent/plugin/out_exec'
 
 class ExecOutputTest < Test::Unit::TestCase
   def setup

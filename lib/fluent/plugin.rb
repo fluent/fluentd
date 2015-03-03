@@ -15,161 +15,82 @@
 #
 
 module Fluent
-  class PluginClass
-    # This class is refactored using Fluent::Registry at v0.14
+  module Plugin
+    SEARCH_PATHS = []
 
-    def initialize
-      @input = {}
-      @output = {}
-      @filter = {}
-      @buffer = {}
+    INPUT_REGISTRY = Registry.new(:input_type, 'fluent/plugin/in_')
+    OUTPUT_REGISTRY = Registry.new(:output_type, 'fluent/plugin/out_')
+    FILTER_REGISTRY = Registry.new(:filter_type, 'fluent/plugin/filter_')
+    BUFFER_REGISTRY = Registry.new(:buffer_type, 'fluent/plugin/buf_')
+
+    REGISTRIES = [INPUT_REGISTRY, OUTPUT_REGISTRY, FILTER_REGISTRY, BUFFER_REGISTRY]
+
+    def self.add_plugin_dir(dir)
+      REGISTRIES.each do |r|
+        r.paths.push(dir)
+      end
+      nil
     end
 
-    def register_input(type, klass)
-      register_impl('input', @input, type, klass)
+    def self.register_input(type, klass)
+      register_impl('input', INPUT_REGISTRY, type, klass)
     end
 
-    def register_output(type, klass)
-      register_impl('output', @output, type, klass)
+    def self.register_output(type, klass)
+      register_impl('output', OUTPUT_REGISTRY, type, klass)
     end
 
-    def register_filter(type, klass)
-      register_impl('filter', @filter, type, klass)
+    def self.register_filter(type, klass)
+      register_impl('filter', FILTER_REGISTRY, type, klass)
     end
 
-    def register_buffer(type, klass)
-      register_impl('buffer', @buffer, type, klass)
+    def self.register_buffer(type, klass)
+      register_impl('buffer', BUFFER_REGISTRY, type, klass)
     end
 
-    def register_parser(type, klass)
+    def self.register_parser(type, klass)
       TextParser.register_template(type, klass)
     end
 
-    def register_formatter(type, klass)
+    def self.register_formatter(type, klass)
       TextFormatter.register_template(type, klass)
     end
 
-    def new_input(type)
-      new_impl('input', @input, type)
+    def self.new_input(type)
+      new_impl('input', INPUT_REGISTRY, type)
     end
 
-    def new_output(type)
-      new_impl('output', @output, type)
+    def self.new_output(type)
+      new_impl('output', OUTPUT_REGISTRY, type)
     end
 
-    def new_filter(type)
-      new_impl('filter', @filter, type)
+    def self.new_filter(type)
+      new_impl('filter', FILTER_REGISTRY, type)
     end
 
-    def new_buffer(type)
-      new_impl('buffer', @buffer, type)
+    def self.new_buffer(type)
+      new_impl('buffer', BUFFER_REGISTRY, type)
     end
 
-    def new_parser(type)
+    def self.new_parser(type)
       TextParser.lookup(type)
     end
 
-    def new_formatter(type)
+    def self.new_formatter(type)
       TextFormatter.lookup(type)
     end
 
-    def load_plugins
-      dir = File.join(File.dirname(__FILE__), "plugin")
-      load_plugin_dir(dir)
-    end
-
-    def load_plugin_dir(dir)
-      dir = File.expand_path(dir)
-      Dir.entries(dir).sort.each {|fname|
-        if fname =~ /\.rb$/
-          require File.join(dir, fname)
-        end
-      }
-      nil
-    end
-
-    def load_plugin(type, name)
-      try_load_plugin(name, type)
-    end
-
-    def lookup_name_from_class(klass_or_str)
-      klass = if klass_or_str.class == String
-                eval(klass_or_str) # const_get can't handle A::B
-              else
-                klass_or_str
-              end
-
-      @input.each { |name, plugin|
-        return name if plugin == klass
-      }
-      @output.each { |name, plugin|
-        return name if plugin == klass
-      }
-      @filter.each { |name, plugin|
-        return name if plugin == klass
-      }
-
-      nil
-    end
-
-    private
-    def register_impl(name, map, type, klass)
-      map[type] = klass
+    def self.register_impl(name, registry, type, klass)
+      registry.register(type, klass)
       $log.trace { "registered #{name} plugin '#{type}'" }
       nil
     end
 
-    def new_impl(name, map, type)
-      if klass = map[type]
-        return klass.new
-      end
-      try_load_plugin(name, type)
-      if klass = map[type]
+    def self.new_impl(name, registry, type)
+      if klass = registry.lookup(type)
         return klass.new
       end
       raise ConfigError, "Unknown #{name} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"
     end
-
-    def try_load_plugin(name, type)
-      case name
-      when 'input'
-        path = "fluent/plugin/in_#{type}"
-      when 'output'
-        path = "fluent/plugin/out_#{type}"
-      when 'filter'
-        path = "fluent/plugin/filter_#{type}"
-      when 'buffer'
-        path = "fluent/plugin/buf_#{type}"
-      else
-        return
-      end
-
-      # prefer LOAD_PATH than gems
-      files = $LOAD_PATH.map {|lp|
-        lpath = File.join(lp, "#{path}.rb")
-        File.exist?(lpath) ? lpath : nil
-      }.compact
-      unless files.empty?
-        # prefer newer version
-        require File.expand_path(files.sort.last)
-        return
-      end
-
-      # search gems
-      specs = Gem::Specification.find_all { |spec|
-        spec.contains_requirable_file? path
-      }
-
-      # prefer newer version
-      specs = specs.sort_by { |spec| spec.version }
-      if spec = specs.last
-        spec.require_paths.each { |lib|
-          file = "#{spec.full_gem_path}/#{lib}/#{path}"
-          require file
-        }
-      end
-    end
   end
-
-  Plugin = PluginClass.new
 end
