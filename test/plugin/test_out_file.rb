@@ -2,6 +2,7 @@ require_relative '../helper'
 require 'fluent/test'
 require 'fileutils'
 require 'time'
+require 'fluent/plugin/out_file'
 
 class FileOutputTest < Test::Unit::TestCase
   def setup

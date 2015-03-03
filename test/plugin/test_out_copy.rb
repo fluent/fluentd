@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/out_copy'
 
 class CopyOutputTest < Test::Unit::TestCase
   class << self

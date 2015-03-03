@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/out_stdout'
 
 class StdoutOutputTest < Test::Unit::TestCase
   def setup

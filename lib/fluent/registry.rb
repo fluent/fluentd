@@ -22,9 +22,10 @@ module Fluent
       @kind = kind
       @search_prefix = search_prefix
       @map = {}
+      @paths = []
     end
 
-    attr_reader :kind
+    attr_reader :kind, :paths
 
     def register(type, value)
       type = type.to_sym
@@ -47,7 +48,7 @@ module Fluent
       path = "#{@search_prefix}#{type}"
 
       # prefer LOAD_PATH than gems
-      files = $LOAD_PATH.map { |lp|
+      files = ($LOAD_PATH + @paths).map { |lp|
         lpath = File.expand_path(File.join(lp, "#{path}.rb"))
         File.exist?(lpath) ? lpath : nil
       }.compact

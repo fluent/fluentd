@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/in_status'
 
 class StatusInputTest < Test::Unit::TestCase
   def setup
