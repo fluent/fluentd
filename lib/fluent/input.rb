@@ -14,33 +14,10 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin/input'
+
 module Fluent
-  class Input
-    include Configurable
-    include PluginId
-    include PluginLoggerMixin
-
-    attr_accessor :router
-
-    def initialize
-      super
-    end
-
-    def configure(conf)
-      super
-
-      if label_name = conf['@label']
-        label = Engine.root_agent.find_label(label_name)
-        @router = label.event_router
-      elsif @router.nil?
-        @router = Engine.root_agent.event_router
-      end
-    end
-
-    def start
-    end
-
-    def shutdown
-    end
+  class Input < Plugin::Input
+    # TODO: add interoperability layer
   end
 end
