@@ -271,6 +271,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           assert_equal({"hostname" => @hostname, "tag" => @tag, "#{@tag}" => 100}, r['hash_field'])
         end
       end
+
       test "array values with placeholders with enable_ruby #{enable_ruby}" do
         config = %[
           enable_ruby #{enable_ruby}
@@ -284,6 +285,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           assert_equal([@hostname, @tag], r['array_field'])
         end
       end
+
       test "array and hash values with placeholders with enable_ruby #{enable_ruby}" do
         config = %[
           enable_ruby #{enable_ruby}
@@ -295,6 +297,22 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         es = emit(config, msgs)
         es.each_with_index do |(t, r), i|
           assert_equal([{"tag" => @tag}], r['mixed_field'])
+        end
+      end
+
+      test "keys with placeholders with enable_ruby #{enable_ruby}" do
+        config = %[
+          enable_ruby #{enable_ruby}
+          renew_record true
+          <record>
+            ${hostname} hostname
+            foo.${tag}  tag
+          </record>
+        ]
+        msgs = ['1', '2']
+        es = emit(config, msgs)
+        es.each_with_index do |(t, r), i|
+          assert_equal({@hostname=>'hostname',"foo.#{@tag}"=>'tag'}, r)
         end
       end
     end
