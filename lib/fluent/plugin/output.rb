@@ -14,44 +14,30 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin'
-require 'fluent/configurable'
-require 'fluent/config' # for PluginId
-require 'fluent/log'
+require 'fluent/plugin/base'
 
 module Fluent
   module Plugin
-    class Output
-      include Configurable
-      include PluginId
-      include PluginLoggerMixin
-
-      attr_accessor :router
-
+    class Output < Base
       def initialize
         super
       end
 
       def configure(conf)
         super
-
-        if label_name = conf['@label']
-          label = Engine.root_agent.find_label(label_name)
-          @router = label.event_router
-        elsif @router.nil?
-          @router = Engine.root_agent.event_router
-        end
       end
 
       def start
+        super
       end
 
       def shutdown
+        super
       end
 
-      #def emit(tag, es, chain)
-      # # TODO
-      #end
+      def emit(tag, es, chain)
+        #### TODO:
+      end
 
       def secondary_init(primary)
         if primary.class != self.class
