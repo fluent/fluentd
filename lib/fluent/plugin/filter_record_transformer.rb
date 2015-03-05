@@ -108,27 +108,29 @@ module Fluent
 
       new_record = @renew_record ? {} : record.dup
       @keep_keys.each {|k| new_record[k] = record[k]} if @keep_keys and @renew_record
-      @map.each_pair {|k, v| new_record[k] = interpolate(v)}
+      new_record.merge!(expand_placeholders(@map))
       @remove_keys.each {|k| new_record.delete(k) } if @remove_keys
 
       new_record
     end
 
-    def interpolate(value)
+    def expand_placeholders(value)
       if value.is_a?(String)
-        value = @placeholder_expander.expand(value)
+        new_value = @placeholder_expander.expand(value)
       elsif value.is_a?(Hash)
         new_value = {}
         value.each_pair do |k, v|
-          new_value[@placeholder_expander.expand(k)] = interpolate(v)
+          new_value[@placeholder_expander.expand(k)] = expand_placeholders(v)
         end
-        value = new_value
       elsif value.is_a?(Array)
+        new_value = []
         value.each_with_index do |v, i|
-          value[i] = interpolate(v)
+          new_value[i] = expand_placeholders(v)
         end
+      else
+        new_value = value
       end
-      value
+      new_value
     end
 
     def tag_prefix(tag_parts)
