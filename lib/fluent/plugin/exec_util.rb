@@ -98,4 +98,8 @@ module Fluent
       end
     end
   end
+
+  module Plugin
+    ExecUtil = Fluent::ExecUtil
+  end
 end

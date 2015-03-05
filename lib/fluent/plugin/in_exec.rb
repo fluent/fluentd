@@ -14,9 +14,13 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class ExecInput < Input
-    Plugin.register_input('exec', self)
+require 'fluent/plugin_support/child_process'
+
+module Fluent::Plugin
+  class ExecInput < Fluent::Plugin::Input
+    include Fluent::PluginSupport::ChildProcess
+
+    Fluent::Plugin.register_input('exec', self)
 
     def initialize
       super
@@ -31,19 +35,20 @@ module Fluent
     }
 
     config_param :command, :string
-    config_param :format, :default => :tsv do |val|
+    config_param :format, default: :tsv do |val|
       f = SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported format '#{val}'" unless f
       f
     end
-    config_param :keys, :default => [] do |val|
+    config_param :keys, default: [] do |val|
       val.split(',')
     end
-    config_param :tag, :string, :default => nil
-    config_param :tag_key, :string, :default => nil
-    config_param :time_key, :string, :default => nil
-    config_param :time_format, :string, :default => nil
-    config_param :run_interval, :time, :default => nil
+    config_param :tag, :string, default: nil
+    config_param :tag_key, :string, default: nil
+    config_param :time_key, :string, default: nil
+    config_param :time_format, :string, default: nil
+    config_param :run_interval, :time, default: nil
+    config_param :run_immediately, :bool, default: false
 
     def configure(conf)
       super
@@ -86,53 +91,15 @@ module Fluent
     end
 
     def start
-      if @run_interval
-        @finished = false
-        @thread = Thread.new(&method(:run_periodic))
-      else
-        @io = IO.popen(@command, "r")
-        @pid = @io.pid
-        @thread = Thread.new(&method(:run))
+      super
+
+      child_process(@command, read: true, write: false, interval: @run_interval, immediate: @run_immediately) do |io|
+        @parser.call(io)
       end
     end
 
     def shutdown
-      if @run_interval
-        @finished = true
-        @thread.join
-      else
-        begin
-          Process.kill(:TERM, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        if @thread.join(60)  # TODO wait time
-          return
-        end
-
-        begin
-          Process.kill(:KILL, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        @thread.join
-      end
-    end
-
-    def run
-      @parser.call(@io)
-    end
-
-    def run_periodic
-      until @finished
-        begin
-          sleep @run_interval
-          io = IO.popen(@command, "r")
-          @parser.call(io)
-          Process.waitpid(io.pid)
-        rescue
-          log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
-          log.warn_backtrace $!.backtrace
-        end
-      end
+      super
     end
 
     private
@@ -152,7 +119,7 @@ module Fluent
 
       router.emit(tag, time, record)
     rescue => e
-      log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
+      log.error "exec failed to emit", error: e.to_s, error_class: e.class.to_s, tag: tag, record: Yajl.dump(record)
     end
   end
 end
