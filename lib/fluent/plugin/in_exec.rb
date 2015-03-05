@@ -14,9 +14,13 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class ExecInput < Input
-    Plugin.register_input('exec', self)
+require 'fluent/plugin_support/child_process'
+
+module Fluent::Plugin
+  class ExecInput < Fluent::Plugin::Input
+    include Fluent::PluginSupport::ChildProcess
+
+    Fluent::Plugin.register_input('exec', self)
 
     def initialize
       super
@@ -27,21 +31,23 @@ module Fluent
     desc 'The command (program) to execute.'
     config_param :command, :string
     desc 'The format used to map the program output to the incoming event.(tsv,json,msgpack)'
-    config_param :format, :string, :default => 'tsv'
+    config_param :format, default: 'tsv'
     desc 'Specify the comma-separated keys when using the tsv format.'
-    config_param :keys, :default => [] do |val|
+    config_param :keys, default: [] do |val|
       val.split(',')
     end
     desc 'Tag of the output events.'
-    config_param :tag, :string, :default => nil
+    config_param :tag, :string, default: nil
     desc 'The key to use as the event tag instead of the value in the event record. '
-    config_param :tag_key, :string, :default => nil
+    config_param :tag_key, :string, default: nil
     desc 'The key to use as the event time instead of the value in the event record.'
-    config_param :time_key, :string, :default => nil
+    config_param :time_key, :string, default: nil
     desc 'The format of the event time used for the time_key parameter.'
-    config_param :time_format, :string, :default => nil
+    config_param :time_format, :string, default: nil
     desc 'The interval time between periodic program runs.'
-    config_param :run_interval, :time, :default => nil
+    config_param :run_interval, :time, default: nil
+    desc 'The flag to execute command immediately after startup'
+    config_param :run_immediately, :bool, default: false
 
     def configure(conf)
       super
@@ -96,56 +102,15 @@ module Fluent
     end
 
     def start
-      if @run_interval
-        @finished = false
-        @thread = Thread.new(&method(:run_periodic))
-      else
-        @io = IO.popen(@command, "r")
-        @pid = @io.pid
-        @thread = Thread.new(&method(:run))
+      super
+
+      child_process(@command, read: true, write: false, interval: @run_interval, immediate: @run_immediately) do |io|
+        @parser.call(io)
       end
     end
 
     def shutdown
-      if @run_interval
-        @finished = true
-        # call Thread#run which interupts sleep in order to stop run_periodic thread immediately.
-        @thread.run
-        @thread.join
-      else
-        begin
-          Process.kill(:TERM, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        if @thread.join(60)  # TODO wait time
-          return
-        end
-
-        begin
-          Process.kill(:KILL, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        @thread.join
-      end
-    end
-
-    def run
-      @parser.call(@io)
-    end
-
-    def run_periodic
-      sleep @run_interval
-      until @finished
-        begin
-          io = IO.popen(@command, "r")
-          @parser.call(io)
-          Process.waitpid(io.pid)
-          sleep @run_interval
-        rescue
-          log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
-          log.warn_backtrace $!.backtrace
-        end
-      end
+      super
     end
 
     private
@@ -169,7 +134,7 @@ module Fluent
 
       router.emit(tag, time, record)
     rescue => e
-      log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
+      log.error "exec failed to emit", error: e.to_s, error_class: e.class.to_s, tag: tag, record: Yajl.dump(record)
     end
   end
 end

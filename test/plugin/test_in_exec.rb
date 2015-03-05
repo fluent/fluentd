@@ -10,8 +10,8 @@ class ExecInputTest < Test::Unit::TestCase
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
-  def create_driver(conf = tsv_config)
-    Fluent::Test::InputTestDriver.new(Fluent::ExecInput).configure(conf)
+  def create_driver(conf=tsv_config)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ExecInput).configure(conf)
   end
 
   def tsv_config
