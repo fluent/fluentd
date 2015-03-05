@@ -14,11 +14,9 @@
 #    limitations under the License.
 #
 
-require 'test/unit'
-require 'fluent/load'
-require 'fluent/test/base'
-require 'fluent/test/input_test'
-require 'fluent/test/output_test'
-require 'fluent/test/filter_test'
-
-require 'fluent/test/driver/input'
+module Fluent
+  module Test
+    module Driver
+    end
+  end
+end

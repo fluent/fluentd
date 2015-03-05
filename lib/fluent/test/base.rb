@@ -30,6 +30,7 @@ module Fluent
       nil
     end
 
+    # obsolete for v0.14
     class TestDriver
       include ::Test::Unit::Assertions
 
