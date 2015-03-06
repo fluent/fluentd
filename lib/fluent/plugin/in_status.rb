@@ -14,62 +14,35 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class StatusInput < Input
-    Plugin.register_input('status', self)
+require 'fluent/status'
+require 'fluent/plugin_support/timer'
+
+module Fluent::Plugin
+  class StatusInput < Fluent::Plugin::Input
+    include Fluent::PluginSupport::Timer
+
+    Fluent::Plugin.register_input('status', self)
 
     def initialize
       super
     end
 
-    config_param :emit_interval, :time, :default => 60
+    config_param :emit_interval, :time, default: 60
     config_param :tag, :string
 
-    class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, repeat, log, &callback)
-        @callback = callback
-        @log = log
-        super(interval, repeat)
-      end
-
-      def on_timer
-        @callback.call
-      rescue
-        # TODO log?
-        @log.error $!.to_s
-        @log.error_backtrace
-      end
-    end
-
-    def configure(conf)
-      super
-    end
-
     def start
-      @loop = Coolio::Loop.new
-      @timer = TimerWatcher.new(@emit_interval, true, log, &method(:on_timer))
-      @loop.attach(@timer)
-      @thread = Thread.new(&method(:run))
+      super
+
+      timer_execute(interval: @emit_interval, repeat: true) do
+        now = Fluent::Engine.now
+        Fluent::Status.each do |record|
+          router.emit(@tag, now, record)
+        end
+      end
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @thread.join
-    end
-
-    def run
-      @loop.run
-    rescue
-      log.error "unexpected error", :error=>$!.to_s
-      log.error_backtrace
-    end
-
-    def on_timer
-      now = Engine.now
-      Status.each {|record|
-        router.emit(@tag, now, record)
-      }
+      super
     end
   end
 end
