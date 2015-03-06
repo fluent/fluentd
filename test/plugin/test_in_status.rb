@@ -13,7 +13,7 @@ class StatusInputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::StatusInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::StatusInput).configure(conf)
   end
 
   def test_configure
@@ -28,9 +28,9 @@ class StatusInputTest < Test::Unit::TestCase
     }
 
     d = create_driver
-    d.run do
-      sleep 2
-    end
+    d.run_timeout = 2
+    d.expected_emits_length = 1
+    d.run
 
     emits = d.emits
     assert(emits.length > 0)
