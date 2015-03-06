@@ -59,8 +59,12 @@ module Fluent
         end
         @child_process.processes.keys.each do |pid|
           thread = @child_process.processes[pid]
-          thread.join(@child_process.kill_timeout)
-          @child_process.processes.delete(pid) unless thread.alive?
+          if thread
+            thread.join(@child_process.kill_timeout)
+            @child_process.processes.delete(pid) unless thread.alive?
+          else
+            @child_process.processes.delete(pid)
+          end
         end
 
         @child_process.processes.keys.each do |pid|
