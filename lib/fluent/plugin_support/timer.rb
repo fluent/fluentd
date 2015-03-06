@@ -50,7 +50,7 @@ module Fluent
       end
 
       # interval: integer, repeat: true/false
-      def timer_execute(interval: , repeat: , &block)
+      def timer_execute(interval: 60, repeat: true, &block)
         timer = TimerWatcher.new(interval, repeat, log, &block)
         @_timer_mutex.synchronize do
           @_timer_loop.attach(timer)
