@@ -70,10 +70,9 @@ class ExecInputTest < Test::Unit::TestCase
 
   def test_emit
     d = create_driver
-
-    d.run do
-      sleep 2
-    end
+    d.run_timeout = 2
+    d.expected_emits_length = 1
+    d.run
 
     emits = d.emits
     assert_equal true, emits.length > 0
@@ -82,10 +81,9 @@ class ExecInputTest < Test::Unit::TestCase
 
   def test_emit_json
     d = create_driver json_config
-
-    d.run do
-      sleep 2
-    end
+    d.run_timeout = 2
+    d.expected_emits_length = 1
+    d.run
 
     emits = d.emits
     assert_equal true, emits.length > 0
@@ -94,10 +92,9 @@ class ExecInputTest < Test::Unit::TestCase
 
   def test_emit_msgpack
     d = create_driver msgpack_config
-
-    d.run do
-      sleep 2
-    end
+    d.run_timeout = 2
+    d.expected_emits_length = 1
+    d.run
 
     emits = d.emits
     assert_equal true, emits.length > 0
