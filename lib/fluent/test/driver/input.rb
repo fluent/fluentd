@@ -27,7 +27,7 @@ module Fluent
   module Test
     module Driver
       class Input < Base
-        attr_accessor :run_timeout
+        attr_accessor :run_timeout, :expected_emits_length
         attr_reader :emit_streams
 
         def initialize(klass, &block)
@@ -36,6 +36,8 @@ module Fluent
           super(klass, &block)
 
           @emit_streams = []
+          @run_timeout = 60
+          @expected_emits_length = nil
         end
 
         def emits
@@ -49,7 +51,7 @@ module Fluent
         end
 
         def events
-          emits.map{|tag, time record| [time, record] }
+          emits.map{|tag, time, record| [time, record] }
         end
 
         def records
@@ -74,14 +76,14 @@ module Fluent
 
               # Events of expected length will be emitted at the end.
               if @expected_emits_length
-                register_run_post_condition do
-                  emitted_count >= max_length
+                end_if do
+                  emitted_count >= @expected_emits_length
                 end
               end
 
               # Set runnning timeout to avoid infinite loop caused by some errors.
               started_at = Time.now
-              register_run_breaking_condition do
+              break_if do
                 Time.now >= started_at + @run_timeout
               end
 
@@ -91,7 +93,7 @@ module Fluent
                   next
                 end
 
-                tag, events = @emit_streams[j]
+                tag, events = @emit_streams[emit_times_count]
                 emitted_count += events.length
               end
             end
