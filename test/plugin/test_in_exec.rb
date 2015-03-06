@@ -6,55 +6,48 @@ require 'fluent/plugin/in_exec'
 class ExecInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @test_time = Fluent::EventTime.parse("2011-01-02 13:14:15")
-    @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
-  def create_driver(conf=tsv_config)
+  def create_driver(conf=TSV_CONFIG)
     Fluent::Test::Driver::Input.new(Fluent::Plugin::ExecInput).configure(conf)
   end
 
-  def tsv_config
-    %[
-      command ruby #{@script} "2011-01-02 13:14:15" 0
+  TEST_TIME = Time.parse("2011-01-02 13:14:15").to_i
+  SCRIPT = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
+
+  TSV_CONFIG = %[
+      command ruby #{SCRIPT} #{TEST_TIME} 0
       keys time,tag,k1
       time_key time
       tag_key tag
       time_format %Y-%m-%d %H:%M:%S
       run_interval 1s
-    ]
-  end
+  ]
 
-  def json_config
-    %[
-      command ruby #{@script} #{@test_time} 1
+  JSON_CONFIG = %[
+      command ruby #{SCRIPT} #{TEST_TIME} 1
       format json
       tag_key tag
       time_key time
       run_interval 1s
-    ]
-  end
+  ]
 
-  def msgpack_config
-    %[
-      command ruby #{@script} #{@test_time} 2
+  MSGPACK_CONFIG = %[
+      command ruby #{SCRIPT} #{TEST_TIME} 2
       format msgpack
       tag_key tagger
       time_key datetime
       run_interval 1s
-    ]
-  end
+  ]
 
-  def regexp_config
-    %[
-      command ruby #{@script} "2011-01-02 13:14:15" 3
+  REGEXP_CONFIG = %[
+      command ruby #{SCRIPT} #{TEST_TIME} 3
       format /(?<time>[^\\\]]*) (?<message>[^ ]*)/
       tag regex_tag
       run_interval 1s
-    ]
-  end
+  ]
 
-  def test_configure
+  test "configure with basic configuration" do
     d = create_driver
     assert_equal 'tsv', d.instance.format
     assert_equal ["time","tag","k1"], d.instance.keys
@@ -63,72 +56,39 @@ class ExecInputTest < Test::Unit::TestCase
     assert_equal "%Y-%m-%d %H:%M:%S", d.instance.time_format
   end
 
-  def test_configure_with_json
-    d = create_driver json_config
-    assert_equal 'json', d.instance.format
+  test "configure with json configuration" do
+    d = create_driver JSON_CONFIG
+    assert_equal :json, d.instance.format
     assert_equal [], d.instance.keys
   end
 
-  def test_configure_with_msgpack
-    d = create_driver msgpack_config
-    assert_equal 'msgpack', d.instance.format
+  test "configure with msgpack configuration" do
+    d = create_driver MSGPACK_CONFIG
+    assert_equal :msgpack, d.instance.format
     assert_equal [], d.instance.keys
   end
 
-  def test_configure_with_regexp
-    d = create_driver regexp_config
+  test "configure with regexp configuration" do
+    d = create_driver REGEXP_CONFIG
     assert_equal '/(?<time>[^\]]*) (?<message>[^ ]*)/', d.instance.format
     assert_equal 'regex_tag', d.instance.tag
   end
 
-  # TODO: Merge following tests into one case with parameters
-
-  def test_emit
-    d = create_driver
+  data(
+    'tsv' => TSV_CONFIG,
+    'json' => JSON_CONFIG,
+    'msgpack' => MSGPACK_CONFIG,
+    'regexp' => REGEXP_CONFIG,
+  )
+  test "this plugin emits record from executed command output" do |data|
+    d = create_driver data
     d.run_timeout = 2
     d.expected_emits_length = 1
     d.run
 
     emits = d.emits
     assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
-  end
-
-  def test_emit_json
-    d = create_driver json_config
-    d.run_timeout = 2
-    d.expected_emits_length = 1
-    d.run
-
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
-  end
-
-  def test_emit_msgpack
-    d = create_driver msgpack_config
-    d.run_timeout = 2
-    d.expected_emits_length = 1
-    d.run
-
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
-  end
-
-  def test_emit_regexp
-    d = create_driver regexp_config
-
-    d.run do
-      sleep 2
-    end
-
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal ["tag1", TEST_TIME, {"k1"=>"ok"}], emits[0]
+    assert_equal_event_time(TEST_TIME, emits[0][1])
   end
 end
