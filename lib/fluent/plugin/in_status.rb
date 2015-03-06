@@ -23,10 +23,6 @@ module Fluent::Plugin
 
     Fluent::Plugin.register_input('status', self)
 
-    def initialize
-      super
-    end
-
     config_param :emit_interval, :time, default: 60
     config_param :tag, :string
 
@@ -39,10 +35,6 @@ module Fluent::Plugin
           router.emit(@tag, now, record)
         end
       end
-    end
-
-    def shutdown
-      super
     end
   end
 end
