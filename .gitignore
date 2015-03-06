@@ -20,3 +20,4 @@ test/tmp/*
 test/config/tmp/*
 make_dist.sh
 Gemfile.local
+.ruby-version
