@@ -42,11 +42,11 @@ module Fluent
 
         def emits
           all = []
-          @emit_streams.each {|tag,events|
-            events.each {|time,record|
+          @emit_streams.each do |tag,events|
+            events.each do |time,record|
               all << [tag, time, record]
-            }
-          }
+            end
+          end
           all
         end
 
@@ -60,13 +60,13 @@ module Fluent
 
         def run(&block)
           m = method(:emit_stream)
-          Engine.define_singleton_method(:emit_stream) {|tag,es|
+          Engine.define_singleton_method(:emit_stream) do |tag,es|
             m.call(tag, es)
-          }
-          instance.router.define_singleton_method(:emit_stream) {|tag,es|
+          end
+          instance.router.define_singleton_method(:emit_stream) do |tag,es|
             m.call(tag, es)
-          }
-          super {
+          end
+          super do
             block.call if block
 
             if @expected_emits_length || @run_post_conditions
@@ -92,12 +92,14 @@ module Fluent
                   sleep 0.01
                   next
                 end
-
-                tag, events = @emit_streams[emit_times_count]
-                emitted_count += events.length
+                while emit_times_count < @emit_streams.length
+                  tag, events = @emit_streams[emit_times_count]
+                  emitted_count += events.length
+                  emit_times_count += 1
+                end
               end
             end
-          }
+          end
           self
         end
 
