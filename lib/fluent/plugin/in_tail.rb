@@ -101,7 +101,7 @@ module Fluent
       date = Time.now
       paths = []
 
-      @excluded = @exclude.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
+      excluded = @exclude.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
@@ -111,7 +111,7 @@ module Fluent
           paths << path
         end
       }
-      paths - @excluded
+      paths - excluded
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
