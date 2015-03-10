@@ -253,9 +253,17 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal expected[1], d.emits[1]
   end
 
+  $test_in_http_connection_object_ids = []
   $test_in_http_content_types = []
   $test_in_http_content_types_flag = false
   module ContentTypeHook
+    def on_message_begin
+      super
+      if $test_in_http_content_types_flag
+        $test_in_http_connection_object_ids << @io_handler.object_id
+      end
+    end
+
     def on_headers_complete(headers)
       super
       if $test_in_http_content_types_flag
@@ -285,12 +293,13 @@ class HttpInputTest < Test::Unit::TestCase
           req = Net::HTTP::Get.new("/foodb/bartbl", {"connection" => "keepalive"})
           res = http.request(req)
         end
-
-        assert_equal(['application/json', ''], $test_in_http_content_types)
       end
     ensure
       $test_in_http_content_types_flag = false
     end
+    assert_equal(['application/json', ''], $test_in_http_content_types)
+    # Asserting keepalive
+    assert_equal $test_in_http_connection_object_ids[0], $test_in_http_connection_object_ids[1]
   end
 
   def post(path, params, header = {})
