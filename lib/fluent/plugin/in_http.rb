@@ -14,42 +14,54 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class HttpInput < Input
-    Plugin.register_input('http', self)
+require 'fluent/plugin/input'
+require 'fluent/process'
+require 'fluent/plugin_support/tcp_server'
 
-    include DetachMultiProcessMixin
+require 'http/parser'
+require 'webrick/httputils'
+require 'uri'
 
-    require 'http/parser'
+module Fluent::Plugin
+  class HttpInput < Fluent::Plugin::Input
+    include Fluent::DetachMultiProcessMixin
+    include Fluent::PluginSupport::TCPServer
 
-    def initialize
-      require 'webrick/httputils'
-      require 'uri'
-      super
-    end
+    Fluent::Plugin.register_input('http', self)
 
     EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
 
     desc 'The port to listen to.'
-    config_param :port, :integer, :default => 9880
+    config_param :port, :integer, default: 9880
+
     desc 'The bind address to listen to.'
-    config_param :bind, :string, :default => '0.0.0.0'
+    config_param :bind, :string, default: '0.0.0.0'
+
+    # request/response options
+    desc 'The format of the HTTP request content body, or "default" (query params).'
+    config_param :format, :string, default: 'default'
+
     desc 'The size limit of the POSTed element. Default is 32MB.'
-    config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
-    desc 'The timeout limit for keeping the connection alive.'
-    config_param :keepalive_timeout, :time, :default => 10   # TODO default
-    config_param :backlog, :integer, :default => nil
-    desc 'Add HTTP_ prefix headers to the record.'
-    config_param :add_http_headers, :bool, :default => false
-    desc 'Add REMOTE_ADDR header to the record.'
-    config_param :add_remote_addr, :bool, :default => false
-    desc 'The format of the HTTP body.'
-    config_param :format, :string, :default => 'default'
-    config_param :blocking_timeout, :time, :default => 0.5
+    config_param :body_size_limit, :size, default: 32*1024*1024  # 32MB
+
     desc 'Set a white list of domains that can do CORS (Cross-Origin Resource Sharing)'
-    config_param :cors_allow_origins, :array, :default => nil
+    config_param :cors_allow_origins, :array, default: nil
+
     desc 'Respond with empty gif image of 1x1 pixel.'
-    config_param :respond_with_empty_img, :bool, :default => false
+    config_param :respond_with_empty_img, :bool, default: false
+
+    # emit data options
+    desc 'Add HTTP_ prefix headers to the record.'
+    config_param :add_http_headers, :bool, default: false
+
+    desc 'Add REMOTE_ADDR header to the record.'
+    config_param :add_remote_addr, :bool, default: false
+
+    # server options
+    desc 'The timeout limit for keeping the connection alive.'
+    config_param :keepalive_timeout, :time, default: 10
+
+    config_param :backlog, :integer, default: nil
 
     def configure(conf)
       super
@@ -57,7 +69,7 @@ module Fluent
       m = if @format == 'default'
             method(:parse_params_default)
           else
-            @parser = Plugin.new_parser(@format)
+            @parser = Fluent::Plugin.new_parser(@format)
             @parser.configure(conf)
             method(:parse_params_with_parser)
           end
@@ -66,63 +78,30 @@ module Fluent
       end
     end
 
-    class KeepaliveManager < Coolio::TimerWatcher
-      def initialize(timeout)
-        super(1, true)
-        @cons = {}
-        @timeout = timeout.to_i
-      end
-
-      def add(sock)
-        @cons[sock] = sock
-      end
-
-      def delete(sock)
-        @cons.delete(sock)
-      end
-
-      def on_timer
-        @cons.each_pair {|sock,val|
-          if sock.step_idle > @timeout
-            sock.close
-          end
-        }
-      end
-    end
-
     def start
+      super
+
       log.debug "listening http on #{@bind}:#{@port}"
-      lsock = TCPServer.new(@bind, @port)
 
-      detach_multi_process do
-        super
-        @km = KeepaliveManager.new(@keepalive_timeout)
-        #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
-        @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request),
-                                       @body_size_limit, @format, log,
-                                       @cors_allow_origins)
-        @lsock.listen(@backlog) unless @backlog.nil?
+      tcp_server_listen(port: @port, bind: @bind, keepalive: @keepalive_timeout, backlog: @backlog) do |conn_handler|
+        http_parser_handler = HttpParserHandler.new(
+          io_handler: conn_handler,
+          callback: method(:on_request),
+          format: format,
+          body_size_limit: @body_size_limit,
+          cors_allow_origins: @cors_allow_origins
+        )
+        http_parser = Http::Parser.new(http_parser_handler)
+        http_parser_handler.http_parser = http_parser
 
-        @loop = Coolio::Loop.new
-        @loop.attach(@km)
-        @loop.attach(@lsock)
-
-        @thread = Thread.new(&method(:run))
+        conn_handler.on_data do |data|
+          http_parser << data
+        end
       end
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @lsock.close
-      @thread.join
-    end
-
-    def run
-      @loop.run(@blocking_timeout)
-    rescue
-      log.error "unexpected error", :error=>$!.to_s
-      log.error_backtrace
+      super
     end
 
     def on_request(path_info, params)
@@ -154,11 +133,12 @@ module Fluent
         end
         time = if param_time = params['time']
                  param_time = param_time.to_f
-                 param_time.zero? ? Engine.now : Fluent::EventTime.from_time(Time.at(param_time))
+                 param_time.zero? ? Fluent::Engine.now : Fluent::EventTime.from_time(Time.at(param_time))
                else
-                 record_time.nil? ? Engine.now : record_time
+                 record_time.nil? ? Fluent::Engine.now : record_time
                end
-      rescue
+      rescue => e
+        # TODO: debug/trace logging
         return ["400 Bad Request", {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
       end
 
@@ -166,7 +146,7 @@ module Fluent
       begin
         # Support batched requests
         if record.is_a?(Array)
-          mes = MultiEventStream.new
+          mes = Fluent::MultiEventStream.new
           record.each do |single_record|
             if @add_http_headers
               params.each_pair { |k,v|
@@ -204,7 +184,7 @@ module Fluent
                elsif js = params['json']
                  JSON.parse(js)
                else
-                 raise "'json' or 'msgpack' parameter is required"
+                 raise "'json' or 'msgpack' parameter is required for 'default' format"
                end
       return nil, record
     end
@@ -213,68 +193,51 @@ module Fluent
 
     def parse_params_with_parser(params)
       if content = params[EVENT_RECORD_PARAMETER]
-        @parser.parse(content) { |time, record|
+        @parser.parse(content) do |time, record|
           raise "Received event is not #{@format}: #{content}" if record.nil?
           return time, record
-        }
+        end
       else
         raise "'#{EVENT_RECORD_PARAMETER}' parameter is required"
       end
     end
 
-    class Handler < Coolio::Socket
-      def initialize(io, km, callback, body_size_limit, format, log, cors_allow_origins)
-        super(io)
-        @km = km
+    class HttpParserHandler
+      attr_accessor :http_parser
+      attr_reader :content_type, :origin
+
+      def initialize(io_handler: nil, callback: ->(path_infor, params){}, body_size_limit: nil, format: 'default', cors_allow_origins: nil)
+        @io_handler = io_handler
+        @http_parser = nil # to be set after instanciation
+
         @callback = callback
+
         @body_size_limit = body_size_limit
-        @next_close = false
         @format = format
-        @log = log
         @cors_allow_origins = cors_allow_origins
-        @idle = 0
-        @km.add(self)
 
-        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
-      end
-
-      def step_idle
-        @idle += 1
-      end
-
-      def on_close
-        @km.delete(self)
-      end
-
-      def on_connect
-        @parser = Http::Parser.new(self)
-      end
-
-      def on_read(data)
-        @idle = 0
-        @parser << data
-      rescue
-        @log.warn "unexpected error", :error=>$!.to_s
-        @log.warn_backtrace
-        close
+        @closing = false
       end
 
       def on_message_begin
         @body = ''
+        @env = {}
+        @content_type = ''
+        @origin = nil
+
+        @closing = false
       end
 
       def on_headers_complete(headers)
         expect = nil
         size = nil
 
-        if @parser.http_version == [1, 1]
+        if @http_parser.http_version == [1, 1] # TODO: HTTP/2.0
           @keep_alive = true
         else
           @keep_alive = false
         end
-        @env = {}
-        @content_type = ""
-        headers.each_pair {|k,v|
+        headers.each_pair do |k,v|
           @env["HTTP_#{k.gsub('-','_').upcase}"] = v
           case k
           when /Expect/i
@@ -292,24 +255,24 @@ module Fluent
           when /Origin/i
             @origin  = v
           end
-        }
+        end
         if expect
           if expect == '100-continue'
             if !size || size < @body_size_limit
-              send_response_nobody("100 Continue", {})
+              send_response("100 Continue", {}, nil)
             else
-              send_response_and_close("413 Request Entity Too Large", {}, "Too large")
+              send_response("413 Request Entity Too Large", {}, "Too large")
             end
           else
-            send_response_and_close("417 Expectation Failed", {}, "")
+            send_response("417 Expectation Failed", {}, "")
           end
         end
       end
 
       def on_body(chunk)
         if @body.bytesize + chunk.bytesize > @body_size_limit
-          unless closing?
-            send_response_and_close("413 Request Entity Too Large", {}, "Too large")
+          unless @closing
+            send_response("413 Request Entity Too Large", {}, "Too large")
           end
           return
         end
@@ -317,7 +280,7 @@ module Fluent
       end
 
       def on_message_complete
-        return if closing?
+        return if @closing
 
         # CORS check
         # ==========
@@ -325,14 +288,14 @@ module Fluent
         # restrictions and white listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
           unless @cors_allow_origins.include?(@origin)
-            send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
+            send_response("403 Forbidden", {'Connection' => 'close'}, "")
             return
           end
         end
 
-        @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
+        @env['REMOTE_ADDR'] = @io_handler.remote_addr if @io_handler.remote_addr
 
-        uri = URI.parse(@parser.request_url)
+        uri = URI.parse(@http_parser.request_url)
         params = WEBrick::HTTPUtils.parse_query(uri.query)
 
         if @format != 'default'
@@ -355,46 +318,30 @@ module Fluent
 
         if @keep_alive
           header['Connection'] = 'Keep-Alive'
-          send_response(code, header, body)
-        else
-          send_response_and_close(code, header, body)
         end
-      end
-
-      def on_write_complete
-        close if @next_close
-      end
-
-      def send_response_and_close(code, header, body)
         send_response(code, header, body)
-        @next_close = true
       end
 
-      def closing?
-        @next_close
-      end
+      def send_response(code, header, body=nil)
+        unless @keep_alive
+          @io_handler.closing = true # keepalive disabled for HTTP/1.0 (or earlier)
+        end
 
-      def send_response(code, header, body)
-        header['Content-length'] ||= body.bytesize
-        header['Content-type'] ||= 'text/plain'
+        if body
+          header['Content-length'] ||= body.bytesize
+          header['Content-type'] ||= 'text/plain'
+        end
 
         data = %[HTTP/1.1 #{code}\r\n]
-        header.each_pair {|k,v|
+        header.each_pair do |k,v|
           data << "#{k}: #{v}\r\n"
-        }
+        end
         data << "\r\n"
-        write data
+        @io_handler.write data
 
-        write body
-      end
-
-      def send_response_nobody(code, header)
-        data = %[HTTP/1.1 #{code}\r\n]
-        header.each_pair {|k,v|
-          data << "#{k}: #{v}\r\n"
-        }
-        data << "\r\n"
-        write data
+        if body
+          @io_handler.write body
+        end
       end
     end
   end
