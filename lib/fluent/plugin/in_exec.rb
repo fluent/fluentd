@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin/input'
 require 'fluent/plugin_support/child_process'
 
 module Fluent::Plugin

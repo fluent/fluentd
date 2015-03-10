@@ -16,6 +16,7 @@
 
 # TODO remove this plugin
 
+require 'fluent/plugin/input'
 require 'fluent/status'
 require 'fluent/plugin_support/timer'
 
