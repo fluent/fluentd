@@ -391,7 +391,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     # Test exclusion
-    exclude_config = EX_CONFIG + "  exclude [\"#{EX_PATHS.last}\"]"
+    exclude_config = EX_CONFIG + "  exclude_path [\"#{EX_PATHS.last}\"]"
     plugin = create_driver(exclude_config, false).instance
     assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
   end

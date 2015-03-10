@@ -26,7 +26,7 @@ module Fluent
 
     config_param :path, :string
     config_param :tag, :string
-    config_param :exclude, :array, :default => []
+    config_param :exclude_path, :array, :default => []
     config_param :rotate_wait, :time, :default => 5
     config_param :pos_file, :string, :default => nil
     config_param :read_from_head, :bool, :default => false
@@ -101,7 +101,7 @@ module Fluent
       date = Time.now
       paths = []
 
-      excluded = @exclude.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
+      excluded = @exclude_path.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
