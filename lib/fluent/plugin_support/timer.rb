@@ -14,47 +14,17 @@
 #    limitations under the License.
 #
 
-require 'cool.io'
-require 'fluent/plugin_support/thread'
+require 'fluent/plugin_support/event_loop'
 
 module Fluent
   module PluginSupport
     module Timer
-      include Fluent::PluginSupport::Thread
-
-      def initialize
-        super
-        @_timer_loop = nil
-        @_timer_mutex = Mutex.new
-      end
-
-      def start
-        super
-
-        @_timer_loop = Coolio::Loop.new
-        default_watcher = TimerWatcher.new(1, true, log) do
-          # do nothing
-        end
-        @_timer_loop.attach(default_watcher)
-
-        thread_create do
-          @_timer_loop.run
-        end
-      end
-
-      def shutdown
-        @_timer_loop.watchers.each {|w| w.detach if w.attached? }
-        @_timer_loop.stop
-
-        super
-      end
+      include Fluent::PluginSupport::EventLoop
 
       # interval: integer, repeat: true/false
       def timer_execute(interval: 60, repeat: true, &block)
         timer = TimerWatcher.new(interval, repeat, log, &block)
-        @_timer_mutex.synchronize do
-          @_timer_loop.attach(timer)
-        end
+        event_loop_attach(timer)
       end
 
       class TimerWatcher < Coolio::TimerWatcher
