@@ -38,9 +38,7 @@ module Fluent
       def start
         super
 
-        default_watcher = Fluent::PluginSupport::Timer::TimerWatcher.new(1, true, log) do
-          # do nothing... blank watcher to run event loop
-        end
+        default_watcher = DefaultWatcher.new
         # event loop does not run here, so mutex lock is not required
         @_event_loop.attach( default_watcher )
         thread_create do
@@ -62,6 +60,17 @@ module Fluent
         end
         @_event_loop.stop
       end
+
+      class DefaultWatcher < Coolio::TimerWatcher
+        def initialize
+          super(1, true) # interval: 1, repeat: true
+        end
+
+        def on_timer
+          # do nothing
+        end
+      end
+
     end
   end
 end
