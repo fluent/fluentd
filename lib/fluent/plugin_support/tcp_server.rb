@@ -18,6 +18,7 @@ require 'fluent/plugin_support/event_loop'
 require 'fluent/plugin_support/timer'
 
 require 'socket'
+require 'cool.io'
 
 module Fluent
   module PluginSupport
@@ -29,9 +30,8 @@ module Fluent
 
       def initialize
         super
-        @_tcp_server_listen_sock = nil
+        @_tcp_server_listen_socks = []
         @_tcp_server_connections = {}
-        @_tcp_server_keepalive = nil
       end
 
       def configure(conf)
@@ -43,18 +43,17 @@ module Fluent
         raise "BUG: specify port for tcp_server_listen" unless port
 
         bind_sock = ::TCPServer.new(bind, port)
-        @_tcp_server_keepalive = keepalive # seconds or nil
 
         if self.respond_to?(:detach_multi_process)
           detach_multi_process do
-            tcp_server_listen_impl(bind_sock, backlog, &block)
+            tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
           end
         elsif self.respond_to?(:detach_process)
           detach_process do
-            tcp_server_listen_impl(bind_sock, backlog, &block)
+            tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
           end
         else
-          tcp_server_listen_impl(bind_sock, backlog, &block)
+          tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
         end
       end
 
@@ -63,21 +62,22 @@ module Fluent
         @_tcp_server_connections.keys.each do |sock|
           sock.close unless sock.closed?
         end
-        @_tcp_server_listen_sock.close
+        @_tcp_server_listen_socks.each{|s| s.close }
       end
 
-      def tcp_server_listen_impl(bind_sock, backlog, &block)
+      def tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
         register_new_connection = ->(sock){ @_tcp_server_connections[sock] = sock }
-        @_tcp_server_listen_sock = Coolio::TCPServer.new(bind_sock, nil, Handler, register_new_connection, block)
+        sock = Coolio::TCPServer.new(bind_sock, nil, Handler, register_new_connection, block)
         if backlog
-          @_tcp_server_listen_sock.listen(backlog)
+          sock.listen(backlog)
         end
-        event_loop_attach( @_tcp_server_listen_sock )
+        @_tcp_server_listen_socks << sock
+        event_loop_attach( sock )
 
         timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
           # copy keys at first (to delete it in loop)
           @_tcp_server_connections.keys.each do |sock|
-            if !sock.writing && @_tcp_server_keepalive && sock.idle > @_tcp_server_keepalive
+            if !sock.writing && keepalive && sock.idle > keepalive
               @_tcp_server_connections.delete(sock)
               sock.close
             elsif sock.closed?
