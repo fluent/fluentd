@@ -5,7 +5,6 @@ require 'fluent/plugin/in_syslog'
 class SyslogInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    require 'fluent/plugin/socket_util'
   end
 
   PORT = unused_port
@@ -22,7 +21,7 @@ class SyslogInputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::SyslogInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::SyslogInput).configure(conf)
   end
 
   def test_configure
@@ -48,13 +47,17 @@ class SyslogInputTest < Test::Unit::TestCase
         {'msg' => '<6>Sep  1 00:00:00 localhost logger: foo', 'expected' => Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S').to_i},
       ]
 
+      d.expected_emits_length = 1
       d.run do
-        u = Fluent::SocketUtil.create_udp_socket(k)
+        u = if IPAddr.new(IPSocket.getaddress(k)).ipv4?
+              UDPSocket.new
+            else
+              UDPSocket.new(Socket::AF_INET6)
+            end
         u.connect(k, PORT)
         tests.each {|test|
           u.send(test['msg'], 0)
         }
-        sleep 1
       end
 
       emits = d.emits
@@ -68,13 +71,13 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver
     tests = create_test_case
 
+    d.expected_emits_length = 1
     d.run do
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
       tests.each {|test|
         u.send(test['msg'], 0)
       }
-      sleep 1
     end
 
     compare_test_result(d.emits, tests)
@@ -84,13 +87,13 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
     tests = create_test_case
 
+    d.expected_emits_length = 2
     d.run do
       tests.each {|test|
         TCPSocket.open('127.0.0.1', PORT) do |s|
           s.send(test['msg'], 0)
         end
       }
-      sleep 1
     end
 
     compare_test_result(d.emits, tests)
@@ -100,13 +103,13 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
     tests = create_test_case
 
+    d.expected_emits_length = 2
     d.run do
       TCPSocket.open('127.0.0.1', PORT) do |s|
         tests.each {|test|
           s.send(test['msg'], 0)
         }
       end
-      sleep 1
     end
 
     compare_test_result(d.emits, tests)
@@ -120,23 +123,24 @@ class SyslogInputTest < Test::Unit::TestCase
       {'msg' => '<6>' + event.to_json + "\n", 'expected' => msg}
     }
 
+    d.expected_emits_length = 2
     d.run do
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
       tests.each {|test|
         u.send(test['msg'], 0)
       }
-      sleep 1
     end
 
     compare_test_result(d.emits, tests)
   end
 
   def test_msg_size_with_include_source_host
-    d = create_driver([CONFIG, 'include_source_host'].join("\n"))
+    d = create_driver([CONFIG, 'include_source_host yes'].join("\n"))
     tests = create_test_case
 
     host = nil
+    d.expected_emits_length = 2
     d.run do
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
@@ -144,7 +148,6 @@ class SyslogInputTest < Test::Unit::TestCase
       tests.each {|test|
         u.send(test['msg'], 0)
       }
-      sleep 1
     end
 
     compare_test_result(d.emits, tests, host)
