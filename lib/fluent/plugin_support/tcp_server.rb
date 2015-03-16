@@ -100,9 +100,18 @@ module Fluent
           @on_connect_callback = on_connect_callback
           @on_read_callback = nil
 
+          @buffer = nil # for on_data with delimiter
+
           @idle = 0
           @closing = false
           @writing = false
+
+          ### TODO: address/name, socket option
+          #
+          # PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+          # @addr = (io.peeraddr rescue PEERADDR_FAILED)
+          # opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          # io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
           @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
         end
@@ -111,8 +120,23 @@ module Fluent
           @on_connect_callback.call(self)
         end
 
-        def on_data(&block) # API to register callback for data arrival
-          @on_read_callback = block
+        # API to register callback for data arrival
+        def on_data(delimiter: nil, &callback)
+          if delimiter.nil?
+            @on_read_callback = callback
+          else
+            @buffer = "".force_encoding("ASCII-8BIT")
+            @on_read_callback = ->(data) {
+              @buffer << data
+              pos = 0
+              while i = @buffer.index(delimiter, pos)
+                msg = @buffer[pos...i]
+                callback.call(msg)
+                pos = i + delimiter.length
+              end
+              @buffer.slice!(0, pos) if pos > 0
+            }
+          end
         end
 
         def on_read(data)
