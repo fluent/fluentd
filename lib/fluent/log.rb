@@ -65,6 +65,9 @@ module Fluent
       # TODO: This variable name is unclear so we should change to better name.
       @threads_exclude_events = []
 
+      @optional_header = nil
+      @optional_attrs = nil
+
       if opts.has_key?(:suppress_repeated_stacktrace)
         @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
       end
@@ -74,6 +77,7 @@ module Fluent
     attr_accessor :level
     attr_accessor :tag
     attr_accessor :time_format
+    attr_accessor :optional_header, :optional_attrs
 
     def enable_debug(b=true)
       @debug_mode = b
@@ -263,8 +267,8 @@ module Fluent
 
     def event(level, args)
       time = Time.now
-      message = ''
-      map = {}
+      message = @optional_header ? @optional_header.dup : ''
+      map = @optional_attrs ? @optional_attrs.dup : {}
       args.each {|a|
         if a.is_a?(Hash)
           a.each_pair {|k,v|
@@ -363,6 +367,13 @@ module Fluent
           @log = PluginLogger.new($log)
         end
         @log.level = @log_level
+        @log.optional_header = "[#{self.class.name}#{@_id_configured ? "(" + @id + ")" : ""}] "
+        @log.optional_attrs = {
+          'plugin_type' => self.class.name,
+        }
+        if @_id_configured
+          @log.optional_attrs.update({'plugin_id' => @id})
+        end
       end
     end
   end
