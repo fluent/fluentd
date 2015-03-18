@@ -16,7 +16,7 @@
 
 require 'fluent/plugin'
 require 'fluent/configurable'
-require 'fluent/config' # for PluginId
+require 'fluent/plugin_id'
 require 'fluent/log'
 
 module Fluent
