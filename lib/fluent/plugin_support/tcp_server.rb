@@ -40,6 +40,7 @@ module Fluent
 
       # keepalive: seconds, (default: nil [inf])
       def tcp_server_listen(port: nil, bind: '0.0.0.0', keepalive: nil, backlog: nil, &block)
+        raise "BUG: callback block is not specified for tcp_server_listen" unless block_given?
         raise "BUG: specify port for tcp_server_listen" unless port
 
         bind_sock = ::TCPServer.new(bind, port)
@@ -60,6 +61,7 @@ module Fluent
       def shutdown
         super
         @_tcp_server_connections.keys.each do |sock|
+          sock.detach if sock.attached?
           sock.close unless sock.closed?
         end
         @_tcp_server_listen_socks.each{|s| s.close }
@@ -77,21 +79,23 @@ module Fluent
         timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
           # copy keys at first (to delete it in loop)
           @_tcp_server_connections.keys.each do |sock|
-            if !sock.writing && keepalive && sock.idle > keepalive
+            if !sock.writing && keepalive && sock.idle_seconds > keepalive
               @_tcp_server_connections.delete(sock)
               sock.close
             elsif sock.closed?
               @_tcp_server_connections.delete(sock)
             else
-              sock.idle += TCP_SERVER_KEEPALIVE_CHECK_INTERVAL
+              sock.idle_seconds += TCP_SERVER_KEEPALIVE_CHECK_INTERVAL
             end
           end
         end
       end
 
       class Handler < Coolio::Socket
-        attr_accessor :idle, :closing
-        attr_reader :remote_port, :remote_addr
+        attr_accessor :idle_seconds, :closing
+        attr_reader :protocol, :remote_port, :remote_addr, :remote_host
+
+        PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
         def initialize(io, register, on_connect_callback)
           super(io)
@@ -102,18 +106,24 @@ module Fluent
 
           @buffer = nil # for on_data with delimiter
 
-          @idle = 0
+          @idle_seconds = 0
           @closing = false
           @writing = false
 
-          ### TODO: address/name, socket option
+          ### TODO: disabling name rev resolv
+          proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
+          @protocol = proto
+          @remote_port = port
+          @remote_addr = addr
+          @remote_host = host
+          ## which is better?
+          # @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
+
+          ### TODO: socket option
           #
           # PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-          # @addr = (io.peeraddr rescue PEERADDR_FAILED)
           # opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           # io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-
-          @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
         end
 
         def on_connect
@@ -124,7 +134,7 @@ module Fluent
         def on_data(delimiter: nil, &callback)
           if delimiter.nil?
             @on_read_callback = callback
-          else
+          else # buffering and splitting
             @buffer = "".force_encoding("ASCII-8BIT")
             @on_read_callback = ->(data) {
               @buffer << data
@@ -140,7 +150,7 @@ module Fluent
         end
 
         def on_read(data)
-          @idle = 0
+          @idle_seconds = 0
           @on_read_callback.call(data)
         rescue => e
           close
@@ -155,6 +165,13 @@ module Fluent
           @writing = false
           if @closing
             close
+          end
+        end
+
+        def close
+          @closing = true
+          unless @writing
+            super
           end
         end
       end
