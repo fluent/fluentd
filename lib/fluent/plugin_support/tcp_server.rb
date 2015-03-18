@@ -154,6 +154,8 @@ module Fluent
           @on_read_callback.call(data)
         rescue => e
           close
+          #### TODO: error handling & logging
+          raise
         end
 
         def write(data)
