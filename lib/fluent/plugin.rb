@@ -14,6 +14,10 @@
 #    limitations under the License.
 #
 
+require 'fluent/registry'
+require 'fluent/parser'
+require 'fluent/config/error'
+
 module Fluent
   module Plugin
     SEARCH_PATHS = []

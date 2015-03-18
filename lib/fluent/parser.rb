@@ -14,8 +14,10 @@
 #    limitations under the License.
 #
 
+require 'fluent/registry'
+require 'fluent/configurable'
+
 module Fluent
-  require 'fluent/registry'
 
   class ParserError < StandardError
   end
