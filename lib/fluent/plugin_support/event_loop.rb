@@ -27,6 +27,7 @@ module Fluent
       def initialize
         super
         @_event_loop = Coolio::Loop.new
+        @_event_loop_running = false
         @_event_loop_mutex = Mutex.new
         @_event_loop_run_timeout = EVENT_LOOP_RUN_DEFAULT_TIMEOUT
       end
@@ -38,11 +39,17 @@ module Fluent
       def start
         super
 
-        default_watcher = DefaultWatcher.new
         # event loop does not run here, so mutex lock is not required
-        @_event_loop.attach( default_watcher )
+
         thread_create do
+          default_watcher = DefaultWatcher.new
+          @_event_loop.attach( default_watcher )
+
+          @_event_loop_running = true
+
           @_event_loop.run( @_event_loop_run_timeout )
+
+          @_event_loop_running = false
         end
       end
 
@@ -58,7 +65,13 @@ module Fluent
         @_event_loop_mutex.synchronize do
           @_event_loop.watchers.each {|w| w.detach if w.attached? }
         end
-        @_event_loop.stop
+        if @_event_loop_running
+          begin
+            @_event_loop.stop # we cannot check loop is running or not
+          rescue RuntimeError => e
+            raise if e.message != 'loop not running'
+          end
+        end
       end
 
       class DefaultWatcher < Coolio::TimerWatcher
