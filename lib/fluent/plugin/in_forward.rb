@@ -14,87 +14,159 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class ForwardInput < Input
-    Plugin.register_input('forward', self)
+require 'fluent/plugin/input'
+require 'fluent/plugin_support/tcp_server'
+require 'fluent/plugin_support/udp_server'
+# require ''
 
-    def initialize
-      super
-      require 'fluent/plugin/socket_util'
+module Fluent::Plugin
+  class ForwardInput < Fluent::Plugin::Input
+    DEFAULT_FORWARD_PORT = 24224
+
+    include Fluent::PluginSupport::TCPServer
+    include Fluent::PluginSupport::UDPServer
+    # include Fluent::PluginSupport::SSLServer
+
+    Fluent::Plugin.register_input('forward', self)
+
+    config_param :port, :integer, default: DEFAULT_FORWARD_PORT
+    config_param :bind, :string, default: '0.0.0.0'
+
+    config_param :keepalive, :integer, default: nil # nil: don't allowed, -1: not to timeout, [1-] seconds
+
+    config_param :disable_udp_heartbeat, :bool, default: false
+
+    config_param :chunk_size_warn_limit, :size, default: nil
+    config_param :chunk_size_limit, :size, default: nil
+
+    config_section :ssl, param_name: :ssl_options, required: false, multi: false do
+      config_param :cert_auto_generate, :bool, default: false
+
+      #### TODO: private key algorithm, hash method, .....
+
+      # cert auto generation
+      config_param :generate_cert_country, :string, default: 'US'
+      config_param :generate_cert_state, :string, default: 'CA'
+      config_param :generate_cert_locality, :string, default: 'Mountain View'
+      config_param :generate_cert_common_name, :string, default: 'Fluentd forward plugin'
+
+      # cert file
+      config_param :cert_file_path, :string, default: nil
+      config_param :private_key_file, :string, default: nil
+      config_param :private_key_passphrase, :string, default: nil # you can use ENV w/ in-place ruby code
     end
 
-    config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
-    config_param :bind, :string, :default => '0.0.0.0'
-    config_param :backlog, :integer, :default => nil
+    config_section :security, required: false, multi: false do
+      config_param :shared_key, :string
+      config_param :user_auth, :bool, default: false
+    end
+
+    ### User based authentication
+    config_section :user, param_name: :users do
+      config_param :username, :string
+      config_param :password, :string
+    end
+
+    ### Client ip/network authentication & per_host shared key
+    config_section :client, param_name: :clients do
+      config_param :host, :string, default: nil
+      config_param :network, :string, default: nil
+      config_param :shared_key, :string, default: nil
+      config_param :users, :array, default: [] # array of string
+    end
+
     # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
-    config_param :linger_timeout, :integer, :default => 0
-    # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
-    config_param :blocking_timeout, :time, :default => 0.5
-
-    config_param :chunk_size_warn_limit, :size, :default => nil
-    config_param :chunk_size_limit, :size, :default => nil
-
-    def configure(conf)
-      super
-    end
+    config_param :linger_timeout, :integer, default: 0
+    config_param :backlog, :integer, default: nil
 
     def start
-      @loop = Coolio::Loop.new
+      super
 
-      @lsock = listen
-      @loop.attach(@lsock)
+      server_keepalive = if @keepalive && @keepalive == -1
+                               nil
+                             else
+                               @keepalive
+                             end
 
-      @usock = SocketUtil.create_udp_socket(@bind)
-      @usock.bind(@bind, @port)
-      @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-      @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
-      @loop.attach(@hbr)
+      connection_handler = ->(conn){
+        # TODO: trace logging to be connected this host!
+        read_messages(conn) do |msg, chunk_size, serializer|
+          # TODO: auth! auth!
 
-      @thread = Thread.new(&method(:run))
+          options = emit_message(msg, chunk_size, conn.remote_addr)
+          if options && r = response(options)
+            conn.write(serializer.call(r))
+            # TODO: logging message content
+            # log.trace "sent response to fluent socket"
+          end
+          unless @keepalive
+            conn.close
+          end
+        end
+      }
+
+      if @ssl # TCP+SSL
+        ssl_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
+      else # TCP
+        tcp_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
+      end
+
+      unless @disable_udp_heartbeat
+        # UDP heartbeat
+        udp_server_listen(port: @port, bind: @bind) do |sock|
+          sock.read(size_limit: 1024) do |remote_addr, remote_port, data|
+            # TODO: log heartbeat arrived
+            sock.send(host: remote_addr, port: remote_port, data: "\0")
+            # rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
+          end
+        end
+      end
     end
 
     def shutdown
-      # In test cases it occasionally appeared that when detaching a watcher, another watcher is also detached.
-      # In the case in the iteration of watchers, a watcher that has been already detached is intended to be detached
-      # and therfore RuntimeError occurs saying that it is not attached to a loop.
-      # It occures only when testing for sending responses to ForwardOutput.
-      # Sending responses needs to write the socket that is previously used only to read
-      # and a handler has 2 watchers that is used to read and to write.
-      # This problem occurs possibly because those watchers are thought to be related to each other
-      # and when detaching one of them the other is also detached for some reasons.
-      # As a workaround, check if watchers are attached before detaching them.
-      @loop.watchers.each {|w| w.detach if w.attached? }
-      @loop.stop
-      @usock.close
-      @thread.join
-      @lsock.close
+      super
+      # nothing to do (maybe)
     end
 
-    def listen
-      log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
-      s.listen(@backlog) unless @backlog.nil?
-      s
+    def read_messages(conn, &block)
+      feeder = nil
+      serializer = nil
+      bytes = 0
+      conn.on_data do |data|
+        # only for first call of callback
+        unless feeder
+          first = data[0]
+          if first == '{' || first == '[' # json
+            parser = Yajl::Parser.new
+            parser.on_parse_complete = ->(obj){
+              block.call(obj, bytes, serializer)
+              bytes = 0
+            }
+            serializer = :to_json.to_proc
+            feeder = ->(data){ parser << data }
+          else # msgpack
+            parser = MessagePack::Unpacker.new
+            serializer = :to_msgpack.to_proc
+            feeder = ->(data){
+              parser.feed_each(data){|obj|
+                block.call(obj, bytes, serializer)
+                bytes = 0
+              }
+            }
+          end
+        end
+
+        bytes += data.bytesize
+        feeder.call(data)
+      end
     end
 
-    #config_param :path, :string, :default => DEFAULT_SOCKET_PATH
-    #def listen
-    #  if File.exist?(@path)
-    #    File.unlink(@path)
-    #  end
-    #  FileUtils.mkdir_p File.dirname(@path)
-    #  log.debug "listening fluent socket on #{@path}"
-    #  Coolio::UNIXServer.new(@path, Handler, method(:on_message))
-    #end
-
-    def run
-      @loop.run(@blocking_timeout)
-    rescue => e
-      log.error "unexpected error", :error => e, :error_class => e.class
-      log.error_backtrace
+    def response(option)
+      if option && option['chunk']
+        return { 'ack' => option['chunk'] }
+      end
+      nil
     end
-
-    private
 
     # message Entry {
     #   1: long time
@@ -119,13 +191,16 @@ module Fluent
     #   3: object record
     #   4: object option (optional)
     # }
-    def on_message(msg, chunk_size, source)
-      if msg.nil?
-        # for future TCP heartbeat_request
+
+    def emit_message(msg, chunk_size, source) # TODO: fix my name
+      if msg.nil? # TCP heartbeat
         return
       end
 
-      # TODO format error
+      unless msg.is_a? Array
+        log.warn "Invalid format for input data", source: source, type: msg.class.name
+      end
+
       tag = msg[0].to_s
       entries = msg[1]
 
@@ -138,18 +213,18 @@ module Fluent
 
       if entries.class == String
         # PackedForward
-        es = MessagePackEventStream.new(entries)
+        es = Fluent::MessagePackEventStream.new(entries)
         router.emit_stream(tag, es)
         option = msg[2]
 
       elsif entries.class == Array
         # Forward
-        es = MultiEventStream.new
+        es = Fluent::MultiEventStream.new
         entries.each {|e|
           record = e[1]
           next if record.nil?
           time = e[0].to_i
-          time = (now ||= Engine.now) if time == 0
+          time = (now ||= Fluent::Engine.now) if time == 0
           es.add(time, record)
         }
         router.emit_stream(tag, es)
@@ -160,7 +235,7 @@ module Fluent
         record = msg[2]
         return if record.nil?
         time = msg[1]
-        time = Engine.now if time == 0
+        time = Fluent::Engine.now if time == 0
         router.emit(tag, time, record)
         option = msg[3]
       end
@@ -168,123 +243,6 @@ module Fluent
       # return option for response
       option
     end
-
-    class Handler < Coolio::Socket
-      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-
-      def initialize(io, linger_timeout, log, on_message)
-        super(io)
-
-        if io.is_a?(TCPSocket) # for unix domain socket support in the future
-          proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
-          @source = "host: #{host}, addr: #{addr}, port: #{port}"
-
-          opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
-          io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-        end
-
-        @chunk_counter = 0
-        @on_message = on_message
-        @log = log
-        @log.trace {
-          begin
-            remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername)
-          rescue => e
-            remote_port = nil
-            remote_addr = nil
-          end
-          "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
-        }
-      end
-
-      def on_connect
-      end
-
-      def on_read(data)
-        first = data[0]
-        if first == '{' || first == '['
-          m = method(:on_read_json)
-          @serializer = :to_json.to_proc
-          @y = Yajl::Parser.new
-          @y.on_parse_complete = lambda { |obj|
-            option = @on_message.call(obj, @chunk_counter, @source)
-            respond option if option
-            @chunk_counter = 0
-          }
-        else
-          m = method(:on_read_msgpack)
-          @serializer = :to_msgpack.to_proc
-          @u = MessagePack::Unpacker.new
-        end
-
-        (class << self; self; end).module_eval do
-          define_method(:on_read, m)
-        end
-        m.call(data)
-      end
-
-      def on_read_json(data)
-        @chunk_counter += data.bytesize
-        @y << data
-      rescue => e
-        @log.error "forward error", :error => e, :error_class => e.class
-        @log.error_backtrace
-        close
-      end
-
-      def on_read_msgpack(data)
-        @chunk_counter += data.bytesize
-        @u.feed_each(data) do |obj|
-          option = @on_message.call(obj, @chunk_counter, @source)
-          respond option if option
-          @chunk_counter = 0
-        end
-      rescue => e
-        @log.error "forward error", :error => e, :error_class => e.class
-        @log.error_backtrace
-        close
-      end
-
-      def respond(option)
-        if option && option['chunk']
-          res = { 'ack' => option['chunk'] }
-          write @serializer.call(res)
-          @log.trace { "sent response to fluent socket" }
-        end
-      end
-
-      def on_close
-        @log.trace { "closed socket" }
-      end
-    end
-
-    class HeartbeatRequestHandler < Coolio::IO
-      def initialize(io, callback)
-        super(io)
-        @io = io
-        @callback = callback
-      end
-
-      def on_readable
-        begin
-          msg, addr = @io.recvfrom(1024)
-        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
-          return
-        end
-        host = addr[3]
-        port = addr[1]
-        @callback.call(host, port, msg)
-      rescue
-        # TODO log?
-      end
-    end
-
-    def on_heartbeat_request(host, port, msg)
-      #log.trace "heartbeat request from #{host}:#{port}"
-      begin
-        @usock.send "\0", 0, host, port
-      rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
-      end
-    end
   end
 end
+
