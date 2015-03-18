@@ -110,7 +110,7 @@ module Fluent::Plugin
       super
 
       if @protocol_type == :udp
-        udp_server_listen(port: @port, bind: @bind, size_limit: 4096) do |remote_addr, remote_port, data| # UDP 1 data is 1 line
+        udp_server_read(port: @port, bind: @bind, size_limit: 4096) do |remote_addr, remote_port, data| # UDP 1 data is 1 line
           data.chomp!
           receive_data(data, remote_addr)
         end
