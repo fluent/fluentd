@@ -389,6 +389,11 @@ class TailInputTest < Test::Unit::TestCase
       timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
       assert_equal EX_PATHS, plugin.expand_paths.sort
     end
+
+    # Test exclusion
+    exclude_config = EX_CONFIG + "  exclude_path [\"#{EX_PATHS.last}\"]"
+    plugin = create_driver(exclude_config, false).instance
+    assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
   end
 
   def test_refresh_watchers
