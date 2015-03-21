@@ -1,5 +1,15 @@
 # v0.12
 
+## Release 0.12.7 - 2015/03/22
+
+### New features / Enhancement
+
+* in_tail: Add exclude_path option to support exclusion of files
+  https://github.com/fluent/fluentd/pull/561
+* filter_record_transformer: Support placeholders in record keys
+  https://github.com/fluent/fluentd/pull/558
+
+
 ## Release 0.12.6 - 2015/03/03
 
 ### Bug fixes
