@@ -94,7 +94,7 @@ module Fluent::Plugin
     def start
       super
 
-      child_process(@command, read: true, write: false, interval: @run_interval, immediate: @run_immediately) do |io|
+      child_process_execute(@command, read: true, write: false, interval: @run_interval, immediate: @run_immediately) do |io|
         @parser.call(io)
       end
     end
