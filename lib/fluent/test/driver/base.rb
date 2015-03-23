@@ -57,13 +57,23 @@ module Fluent
 
         def run(&block)
           @instance.start
-          until @instance._threads.values.all?(&:alive?)
-            sleep 0.01
+          if @instance.respond_to?(:event_loop_running?)
+            until @instance.event_loop_running?
+              sleep 0.01
+            end
+          end
+          if @instance.respond_to?(:_threads)
+            until @instance._threads.values.all?(&:alive?)
+              sleep 0.01
+            end
           end
           begin
             yield
           ensure
+            @instance.stop
             @instance.shutdown
+            @instance.close
+            @instance.terminate
           end
         end
 
