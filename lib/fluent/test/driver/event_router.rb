@@ -14,28 +14,30 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/base'
-require 'fluent/plugin_support/emitter'
-
 module Fluent
-  module Plugin
-    class Input < Base
-      include Fluent::PluginSupport::Emitter
+  module Test
+    module Driver
+      class EventRouter
+        def initialize(&block)
+          @block = block
+          # TODO: emit_error_handler -> logger
+        end
 
-      def initialize
-        super
-      end
+        def emit(tag, time, record)
+          unless record.nil?
+            emit_stream(tag, OneEventStream.new(time, record))
+          end
+        end
 
-      def configure(conf)
-        super
-      end
+        def emit_array(tag, array)
+          emit_stream(tag, ArrayEventStream.new(array))
+        end
 
-      def start
-        super
-      end
-
-      def shutdown
-        super
+        def emit_stream(tag, es)
+          @block.call(tag, es)
+        rescue => e
+          @emit_error_handler.handle_emits_error(tag, es, e)
+        end
       end
     end
   end

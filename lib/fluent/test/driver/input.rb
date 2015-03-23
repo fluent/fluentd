@@ -15,6 +15,7 @@
 #
 
 require 'fluent/test/driver/base'
+require 'fluent/test/driver/event_router'
 
 module Fluent
   # TODO: Chekc What is this for?
@@ -60,12 +61,10 @@ module Fluent
 
         def run(&block)
           m = method(:emit_stream)
-          Engine.define_singleton_method(:emit_stream) do |tag,es|
+          r = Fluent::Test::Driver::EventRouter.new do |tag, es|
             m.call(tag, es)
           end
-          instance.router.define_singleton_method(:emit_stream) do |tag,es|
-            m.call(tag, es)
-          end
+          instance.router = r
           super do
             block.call if block
 
@@ -94,7 +93,9 @@ module Fluent
                 end
                 while emit_times_count < @emit_streams.length
                   tag, events = @emit_streams[emit_times_count]
-                  emitted_count += events.length
+                  events.each do |e| # EventStream doesn't have #size/#length
+                    emitted_count += 1
+                  end
                   emit_times_count += 1
                 end
               end
@@ -105,7 +106,7 @@ module Fluent
 
         private
         def emit_stream(tag, es)
-          @emit_streams << [tag, es.to_a]
+          @emit_streams << [tag, es]
         end
       end
     end
