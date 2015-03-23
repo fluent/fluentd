@@ -22,22 +22,28 @@ require 'fluent/plugin/time_sliced_output'
 # This classes are for compatibility.
 # Fluent::Input (or other plugin base classes) are obsolete in v0.14.
 
+require 'fluent/plugin_support/emitter'
+
 module Fluent
   class Output < Plugin::Output
     # TODO: add interoperability layer (especially for chain)
+    include Fluent::PluginSupport::Emitter
   end
 
 
   class BufferedOutput < Plugin::BufferedOutput
     # TODO: add interoperability layer (especially for chain)
+    include Fluent::PluginSupport::Emitter
   end
 
   class ObjectBufferedOutput < Plugin::ObjectBufferedOutput
     # TODO: add interoperability layer (especially for chain)
+    include Fluent::PluginSupport::Emitter
   end
 
   class TimeSlicedOutput < Plugin::TimeSlicedOutput
     # TODO: add interoperability layer (especially for chain)
+    include Fluent::PluginSupport::Emitter
   end
 
   class MultiOutput < Output
