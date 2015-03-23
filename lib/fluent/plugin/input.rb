@@ -34,7 +34,19 @@ module Fluent
         super
       end
 
+      def stop
+        super
+      end
+
       def shutdown
+        super
+      end
+
+      def close
+        super
+      end
+
+      def terminate
         super
       end
     end

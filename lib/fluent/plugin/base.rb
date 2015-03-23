@@ -36,9 +36,28 @@ module Fluent
       end
 
       def start
+        @_plugin_running = true
+      end
+
+      def emits?
+        false # overwritten by Emitter mixin
+      end
+
+      def running?
+        @_plugin_running
+      end
+
+      def stop
+        @_plugin_running = false
       end
 
       def shutdown
+      end
+
+      def close
+      end
+
+      def terminate
       end
     end
   end

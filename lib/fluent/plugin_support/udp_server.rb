@@ -24,15 +24,6 @@ module Fluent
     module UDPServer
       include Fluent::PluginSupport::EventLoop
 
-      def initialize
-        super
-        @_udp_server_socks = []
-      end
-
-      def configure(conf)
-        super
-      end
-
       def udp_server_listen(port: nil, bind: '0.0.0.0', &block)
         raise "BUG: callback block is not specified for udp_server_listen" unless block_given?
         raise "BUG: specify port for udp_server_listen" unless port
@@ -66,12 +57,38 @@ module Fluent
         end
       end
 
-      def shutdown
+      def initialize
         super
+        @_udp_server_socks = []
+      end
+
+      def configure(conf)
+        super
+      end
+
+      def stop
+        super
+      end
+
+      def shutdown
         @_udp_server_socks.each do |s|
           s.detach if s.attached?
+        end
+
+        super
+      end
+
+      def close
+        @_udp_server_socks.each do |s|
           s.close unless s.closed?
         end
+
+        super
+      end
+
+      def terminate
+        @_udp_server_socks = []
+        super
       end
 
       def udp_server_listen_impl(sock, &block)

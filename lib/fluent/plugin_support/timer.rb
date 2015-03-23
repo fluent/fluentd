@@ -27,6 +27,26 @@ module Fluent
         event_loop_attach(timer)
       end
 
+      def initialize
+        super
+      end
+
+      def stop
+        super
+      end
+
+      def shutdown
+        super
+      end
+
+      def close
+        super
+      end
+
+      def terminate
+        super
+      end
+
       class TimerWatcher < Coolio::TimerWatcher
         def initialize(interval, repeat, log, &callback)
           @callback = callback
