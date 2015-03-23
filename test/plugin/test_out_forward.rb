@@ -88,10 +88,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 2, d.instance.ack_response_timeout
   end
 
-  def test_send_to_a_node_supporting_responses
-    target_input_driver = create_target_input_driver(true)
+  def test_events_forwarding_with_ack
+    target_input_driver = create_target_input_driver()
+    target_input_driver.expected_emits_length = 2
+    target_input_driver.run_timeout = 3
 
-    d = create_driver(CONFIG + %[flush_interval 1s])
+    d = create_driver(CONFIG + %[flush_interval 0s])
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
@@ -100,7 +102,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 2}
     ]
     d.register_run_post_condition do
-      d.instance.responses.length == 1
+      d.instance.responses.length > 0
     end
 
     target_input_driver.run do
@@ -120,7 +122,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_to_a_node_not_supporting_responses
-    target_input_driver = create_target_input_driver
+    target_input_driver = create_target_input_driver(->(options){ nil })
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -151,7 +153,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_supporting_responses_to_respond_with_ack
-    target_input_driver = create_target_input_driver(true)
+    target_input_driver = create_target_input_driver()
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -188,7 +190,9 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_require_a_node_not_supporting_responses_to_respond_with_ack
     # in_forward, that doesn't support ack feature, and keep connection alive
-    target_input_driver = create_target_input_driver
+    target_input_driver = create_target_input_driver(->(options){ sleep 5 })
+    target_input_driver.expected_emits_length = 2
+    target_input_driver.run_timeout = 5
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -229,7 +233,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   # bdf1f4f104c00a791aa94dc20087fe2011e1fd83
   def test_require_a_node_not_supporting_responses_2_to_respond_with_ack
     # in_forward, that doesn't support ack feature, and disconnect immediately
-    target_input_driver = create_target_input_driver(false, true)
+    target_input_driver = create_target_input_driver(nil, true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -267,8 +271,19 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
   end
 
-  def create_target_input_driver(do_respond=false, disconnect=false, conf=TARGET_CONFIG)
+  def create_target_input_driver(response_stub=nil, disconnect=false, conf=TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
+
+    driver = Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput) {
+      if response_stub.nil?
+        # do nothing because in_forward responds for ack option in default
+      else
+        define_method(:response) do |options|
+          return response_stub.(options)
+        end
+      end
+    }.configure(conf)
+    return driver
 
     DummyEngineDriver.new(Fluent::ForwardInput) {
       handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
@@ -328,7 +343,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     }.configure(conf).inject_router()
   end
 
-  class DummyEngineDriver < Fluent::Test::TestDriver
+  class DummyEngineDriver < Fluent::Test::Driver::Input
     def initialize(klass, &block)
       super(klass, &block)
       @engine = DummyEngineClass.new
