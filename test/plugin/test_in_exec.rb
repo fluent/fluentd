@@ -87,7 +87,7 @@ class ExecInputTest < Test::Unit::TestCase
     d.run
 
     emits = d.emits
-    assert_equal true, emits.length > 0
+    assert emits.length > 0
     assert_equal ["tag1", TEST_TIME, {"k1"=>"ok"}], emits[0]
     assert_equal_event_time(TEST_TIME, emits[0][1])
   end
