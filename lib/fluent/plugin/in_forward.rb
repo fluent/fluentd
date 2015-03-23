@@ -17,7 +17,9 @@
 require 'fluent/plugin/input'
 require 'fluent/plugin_support/tcp_server'
 require 'fluent/plugin_support/udp_server'
-# require ''
+require 'fluent/plugin_support/ssl_server'
+
+require 'openssl'
 
 module Fluent::Plugin
   class ForwardInput < Fluent::Plugin::Input
@@ -25,14 +27,14 @@ module Fluent::Plugin
 
     include Fluent::PluginSupport::TCPServer
     include Fluent::PluginSupport::UDPServer
-    # include Fluent::PluginSupport::SSLServer
+    include Fluent::PluginSupport::SSLServer
 
     Fluent::Plugin.register_input('forward', self)
 
     config_param :port, :integer, default: DEFAULT_FORWARD_PORT
     config_param :bind, :string, default: '0.0.0.0'
 
-    config_param :keepalive, :integer, default: nil # nil: don't allowed, -1: not to timeout, [1-] seconds
+    config_param :keepalive, :integer, default: nil # [1-] seconds, 0/nil: don't allowed, -1: not to timeout
 
     config_param :disable_udp_heartbeat, :bool, default: false
 
@@ -40,20 +42,41 @@ module Fluent::Plugin
     config_param :chunk_size_limit, :size, default: nil
 
     config_section :ssl, param_name: :ssl_options, required: false, multi: false do
+      config_param :version, default: :TLSv1_2 do |val|
+        ver = val.sub('.', '_').to_sym
+        unless OpenSSL::SSL::SSLContext::METHODS.include?(ver)
+          raise Fluent::ConfigError, "Invalid SSL version in this environment:'#{val}'"
+        end
+        ver
+      end
+      config_param :ciphers, :string, default: nil
       config_param :cert_auto_generate, :bool, default: false
 
-      #### TODO: private key algorithm, hash method, .....
-
       # cert auto generation
-      config_param :generate_cert_country, :string, default: 'US'
-      config_param :generate_cert_state, :string, default: 'CA'
-      config_param :generate_cert_locality, :string, default: 'Mountain View'
-      config_param :generate_cert_common_name, :string, default: 'Fluentd forward plugin'
+      config_param :digest, default: OpenSSL::Digest::SHA256 do |val|
+        begin
+          eval("OpenSSL::Digest::#{val}")
+        rescue NameError => e
+          raise Fluent::ConfigError, "Invalid digest method name in this environment:'#{val}'"
+        end
+      end
+      config_param :algorithm, default: OpenSSL::PKey::RSA do |val|
+        begin
+          eval("OpenSSL::PKey::#{val}")
+        rescue NameError => e
+          raise Fluent::ConfigError, "Invalid name for public key encryption in this environment:'#{val}'"
+        end
+      end
+      config_param :key_length, :integer, default: 2048
+      config_param :cert_country, :string, default: 'US'
+      config_param :cert_state, :string, default: 'CA'
+      config_param :cert_locality, :string, default: 'Mountain View'
+      config_param :cert_common_name, :string, default: 'Fluentd forward plugin'
 
       # cert file
-      config_param :cert_file_path, :string, default: nil
-      config_param :private_key_file, :string, default: nil
-      config_param :private_key_passphrase, :string, default: nil # you can use ENV w/ in-place ruby code
+      config_param :cert_file, :string, default: nil
+      config_param :key_file, :string, default: nil
+      config_param :key_passphrase, :string, default: nil # you can use ENV w/ in-place ruby code
     end
 
     config_section :security, required: false, multi: false do
@@ -83,10 +106,13 @@ module Fluent::Plugin
       super
 
       server_keepalive = if @keepalive && @keepalive == -1
-                               nil
-                             else
-                               @keepalive
-                             end
+                           nil # infinity
+                         elsif @keepalive.nil? || @keepalive == 0
+                           @keepalive = nil
+                           1 # don't do keepalive, but wait 1 second to read at least
+                         else
+                           @keepalive
+                         end
 
       connection_handler = ->(conn){
         # TODO: trace logging to be connected this host!
@@ -105,8 +131,29 @@ module Fluent::Plugin
         end
       }
 
-      if @ssl # TCP+SSL
-        ssl_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
+      if @ssl_options # TCP+SSL
+        cert = key = nil
+        opts = @ssl_options
+        if @cert_auto_generate
+          cert, key = ssl_server_generate_cert_key(
+            digest: opts.digest,
+            algorithm: opts.algorithm,
+            key_length: opts.key_length,
+            cert_country: opts.cert_country,
+            cert_state: opts.cert_state,
+            cert_locality: opts.cert_locality,
+            cert_common_name: opts.cert_common_name
+          )
+        else
+          cert, key = ssl_server_load_cert_key(
+            cert_file_path: opts.cert_file,
+            algorithm: opts.algorithm,
+            key_file_path: opts.key_file,
+            key_passphrase: opts.key_passphrase
+          )
+        end
+        version = opts.version
+        ssl_server_listen(ssl_version: version, ciphers: opts.ciphers, cert: cert, key: key, port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
       else # TCP
         tcp_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
       end
@@ -116,7 +163,7 @@ module Fluent::Plugin
         udp_server_listen(port: @port, bind: @bind) do |sock|
           sock.read(size_limit: 1024) do |remote_addr, remote_port, data|
             # TODO: log heartbeat arrived
-            sock.send(host: remote_addr, port: remote_port, data: "\0")
+            ##### sock.send(host: remote_addr, port: remote_port, data: "\0")
             # rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
           end
         end
