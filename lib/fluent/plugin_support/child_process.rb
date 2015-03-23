@@ -14,18 +14,33 @@
 #    limitations under the License.
 #
 
-require 'fluent/configurable'
 require 'fluent/plugin_support/thread'
+require 'fluent/plugin_support/timer'
 
 module Fluent
   module PluginSupport
     module ChildProcess
       include Fluent::PluginSupport::Thread
+      include Fluent::PluginSupport::Timer
 
-      CHILD_PROCESS_LOOP_CHECK_INTERVAL = 0.2
+      CHILD_PROCESS_LOOP_CHECK_INTERVAL = 0.2 # sec
+      CHILD_PROCESS_DEFAULT_KILL_TIMEOUT = 60 # sec
 
-      ChildProcessStat = Struct.new(:processes, :kill_timeout, :periodics, :loop, :shutdown, :mutex)
-      PeriodicProc = Struct.new(:spec, :block, :interval, :last_executed)
+      def child_process_execute(command, arguments: nil, subprocess_name: nil, read: true, write: true, encoding: 'utf-8', interval: nil, immediate: false, &block)
+        raise "BUG: illegal specification to disable both of input and output file handle" if !read && !write
+        raise "BUG: block not specified which receive i/o object" unless block_given?
+
+        if interval
+          if immediate
+            child_process_execute_once(command, arguments, subprocess_name, read, write, encoding, &block)
+          end
+          timer_execute(interval: interval, repeat: true) do
+            child_process_execute_once(command, arguments, subprocess_name, read, write, encoding, &block)
+          end
+        else
+          child_process_execute_once(command, arguments, subprocess_name, read, write, encoding, &block)
+        end
+      end
 
       def initialize
         super
@@ -33,78 +48,67 @@ module Fluent
 
       def start
         super
+        @_child_process_processes = {} # pid => thread
+      end
 
-        @child_process = ChildProcessStat.new
-        @child_process.processes = {} # pid => thread
-        @child_process.kill_timeout = 60
-        @child_process.periodics = []
-        @child_process.loop = nil
-        @child_process.shutdown = false
-
-        @child_process.mutex = Mutex.new
+      def stop
+        super
       end
 
       def shutdown
-        @child_process.shutdown = true
-        if @child_process.loop
-          @child_process.loop.join
-        end
-
-        @child_process.processes.keys.each do |pid|
+        @_child_process_processes.keys.each do |pid|
+          process_alive = true
           begin
-            Process.kill(:TERM, pid)
+            if Process.waitpid(pid, Process::WNOHANG)
+              Process.kill(:TERM, pid)
+              process_alive = false
+            end
           rescue
             # Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+            # child process already doesn't exist
+            process_alive = false
           end
-        end
-        @child_process.processes.keys.each do |pid|
-          thread = @child_process.processes[pid]
-          if thread
-            thread.join(@child_process.kill_timeout)
-            @child_process.processes.delete(pid) unless thread.alive?
-          else
-            @child_process.processes.delete(pid)
+          unless process_alive
+            begin
+              @_child_process_processes[pid][:io].close
+            rescue
+              # ignore
+            end
+            @_child_process_processes.delete(pid)
           end
-        end
-
-        @child_process.processes.keys.each do |pid|
-          thread = @child_process.processes[pid]
-          begin
-            Process.kill(:KILL, pid)
-          rescue
-            # Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-          end
-          thread.join
         end
 
         super
       end
 
-      def child_process(command, arguments: nil, subprocess_name: nil, read: true, write: true, encoding: 'utf-8', interval: nil, immediate: false, &block)
-        raise "BUG: illegal specification to disable both of input and output file handle" if !read && !write
-        raise "BUG: block not specified which receive i/o object" unless block_given?
-        if interval
-          child_process_execute_loop
+      def close
+        super
 
-          periodic = PeriodicProc.new
-          periodic.spec = [command, arguments, subprocess_name, read, write, encoding]
-          periodic.block = block
-          periodic.interval = interval
-          periodic.last_executed = if immediate
-                                     Time.now - (interval + 1)
-                                   else
-                                     Time.now
-                                   end
-          @child_process.mutex.synchronize do
-            @child_process.periodics.push(periodic)
+        @_child_process_processes.keys.each do |pid|
+          io = @_child_process_processes[pid][:io]
+          begin
+            io.close
+          rescue => e
+            # just ignore
           end
-        else
-          child_process_once(command, arguments, subprocess_name, read, write, encoding, &block)
         end
       end
 
+      def terminate
+        @_child_process_processes.keys.each do |pid|
+          begin
+            Process.kill(:KILL, pid)
+          rescue
+            # ignore even if process already doesn't exist
+          end
+          @_child_process_processes.delete(pid)
+        end
+
+        super
+      end
+
       # for private use
-      def child_process_once(command, arguments, subprocess_name, read, write, encoding, &block)
+      def child_process_execute_once(command, arguments, subprocess_name, read, write, encoding, &block)
         ext_enc = encoding
         int_enc = "utf-8"
         mode = case
@@ -125,36 +129,30 @@ module Fluent
         end
         io = IO.popen(cmd, mode, external_encoding: ext_enc, internal_encoding: int_enc)
         pid = io.pid
+
         thread = thread_create do
           block.call(io) # TODO: rescue and log? or kill entire process?
 
           # child process probablly ended if sequence reaches here
-          Process.waitpid(pid)
-          @child_process.processes.delete(pid)
-        end
-        @child_process.processes[pid] = thread
-      end
-
-      # for private use
-      def child_process_execute_loop
-        return if @child_process.loop
-
-        thread = thread_create do
-          while sleep(CHILD_PROCESS_LOOP_CHECK_INTERVAL)
-            break if @child_process.shutdown
-            now = Time.now
-            periodics = @child_process.mutex.synchronize do
-              @child_process.periodics.dup
+          begin
+            while thread_current_running? && Process.waitpid(pid, Process::WNOHANG)
+              sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
             end
-            periodics.each do |periodic|
-              if now - periodic.last_executed >= periodic.interval
-                spec = periodic.spec
-                block = periodic.block
-                child_process_once(*spec, &block)
-              end
+            if Process.waitpid(pid, Process::WNOHANG)
+              Process.kill(:TERM, pid)
             end
+          rescue Errno::ECHILD, Errno::ESRCH => e
+            # child process already died
           end
+          begin
+            io.close
+          rescue => e
+            # ignore all errors because io already isn't connected anywhere
+          end
+          @_child_process_processes.delete(pid)
         end
+
+        @_child_process_processes[pid] = {thread: thread, io: io}
       end
     end
   end

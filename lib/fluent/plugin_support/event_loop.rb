@@ -24,6 +24,16 @@ module Fluent
 
       EVENT_LOOP_RUN_DEFAULT_TIMEOUT = 0.2
 
+      def event_loop_attach(watcher)
+        @_event_loop_mutex.synchronize do
+          @_event_loop.attach(watcher)
+        end
+      end
+
+      def event_loop_running?
+        @_event_loop_running
+      end
+
       def initialize
         super
         @_event_loop = Coolio::Loop.new
@@ -36,35 +46,43 @@ module Fluent
         super
       end
 
+      class DefaultWatcher < Coolio::TimerWatcher
+        def initialize
+          super(1, true) # interval: 1, repeat: true
+        end
+        # do nothing
+        def on_timer; end
+      end
+
       def start
         super
 
         # event loop does not run here, so mutex lock is not required
-
         thread_create do
           default_watcher = DefaultWatcher.new
           @_event_loop.attach( default_watcher )
 
           @_event_loop_running = true
 
-          @_event_loop.run( @_event_loop_run_timeout )
+          @_event_loop.run( @_event_loop_run_timeout ) # this method blocks
 
           @_event_loop_running = false
         end
       end
 
-      def event_loop_attach(watcher)
-        @_event_loop_mutex.synchronize do
-          @_event_loop.attach(watcher)
-        end
+      def stop
+        super
       end
 
       def shutdown
-        super
-
         @_event_loop_mutex.synchronize do
           @_event_loop.watchers.each {|w| w.detach if w.attached? }
         end
+
+        super
+      end
+
+      def close
         if @_event_loop_running
           begin
             @_event_loop.stop # we cannot check loop is running or not
@@ -72,18 +90,18 @@ module Fluent
             raise if e.message != 'loop not running'
           end
         end
+
+        super
       end
 
-      class DefaultWatcher < Coolio::TimerWatcher
-        def initialize
-          super(1, true) # interval: 1, repeat: true
-        end
+      def terminate
+        @_event_loop = nil
+        @_event_loop_running = false
+        @_event_loop_mutex = nil
+        @_event_loop_run_timeout = EVENT_LOOP_RUN_DEFAULT_TIMEOUT
 
-        def on_timer
-          # do nothing
-        end
+        super
       end
-
     end
   end
 end

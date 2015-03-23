@@ -28,16 +28,6 @@ module Fluent
 
       TCP_SERVER_KEEPALIVE_CHECK_INTERVAL = 1
 
-      def initialize
-        super
-        @_tcp_server_listen_socks = []
-        @_tcp_server_connections = {}
-      end
-
-      def configure(conf)
-        super
-      end
-
       # keepalive: seconds, (default: nil [inf])
       def tcp_server_listen(port: nil, bind: '0.0.0.0', keepalive: nil, backlog: nil, &block)
         raise "BUG: callback block is not specified for tcp_server_listen" unless block_given?
@@ -58,37 +48,70 @@ module Fluent
         end
       end
 
-      def shutdown
+      def initialize
         super
+        @_tcp_server_listen_socks = []
+        @_tcp_server_connections = {}
+      end
+
+      def configure(conf)
+        super
+      end
+
+      def stop
+        super
+      end
+
+      def shutdown
+        @_tcp_server_listen_socks.each do |s|
+          s.detach if s.attached?
+        end
         @_tcp_server_connections.keys.each do |sock|
           sock.detach if sock.attached?
+        end
+
+        super
+      end
+
+      def close
+        @_tcp_server_connections.keys.each do |sock|
           sock.close unless sock.closed?
         end
         @_tcp_server_listen_socks.each{|s| s.close }
+
+        super
+      end
+
+      def terminate
+        @_tcp_server_listen_socks = []
+        @_tcp_server_connections = {}
+
+        super
       end
 
       def tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
-        register_new_connection = ->(sock){ @_tcp_server_connections[sock] = sock }
+        register_new_connection = ->(conn){ @_tcp_server_connections[conn] = conn }
+
+        timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
+          # copy keys at first (to delete it in loop)
+          @_tcp_server_connections.keys.each do |conn|
+            if !conn.writing && keepalive && conn.idle_seconds > keepalive
+              @_tcp_server_connections.delete(conn)
+              conn.close
+            elsif conn.closed?
+              @_tcp_server_connections.delete(conn)
+            else
+              conn.idle_seconds += TCP_SERVER_KEEPALIVE_CHECK_INTERVAL
+            end
+          end
+        end
+
         sock = Coolio::TCPServer.new(bind_sock, nil, Handler, register_new_connection, block)
         if backlog
           sock.listen(backlog)
         end
-        @_tcp_server_listen_socks << sock
         event_loop_attach( sock )
-
-        timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
-          # copy keys at first (to delete it in loop)
-          @_tcp_server_connections.keys.each do |sock|
-            if !sock.writing && keepalive && sock.idle_seconds > keepalive
-              @_tcp_server_connections.delete(sock)
-              sock.close
-            elsif sock.closed?
-              @_tcp_server_connections.delete(sock)
-            else
-              sock.idle_seconds += TCP_SERVER_KEEPALIVE_CHECK_INTERVAL
-            end
-          end
-        end
+        @_tcp_server_listen_socks << sock
       end
 
       class Handler < Coolio::Socket
@@ -122,7 +145,9 @@ module Fluent
           ### TODO: socket option
           #
           # PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-          # opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
+          # lingr_timeout = 0
+          # opt = [1, lingr_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           # io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
 
