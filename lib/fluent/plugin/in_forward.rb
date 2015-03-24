@@ -102,6 +102,19 @@ module Fluent::Plugin
     config_param :linger_timeout, :integer, default: 0
     config_param :backlog, :integer, default: nil
 
+    def configure(conf)
+      super
+
+      if @ssl_options
+        unless @ssl_options.cert_auto_generate
+          opts = @ssl_options
+          unless opts.cert_file && opts.key_file && opts.key_passphrase
+            raise Fluent::ConfigError, "cert_file, key_file and key_passphrase are needed"
+          end
+        end
+      end
+    end
+
     def start
       super
 
