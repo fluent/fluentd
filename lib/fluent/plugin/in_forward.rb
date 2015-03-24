@@ -147,7 +147,7 @@ module Fluent::Plugin
       if @ssl_options # TCP+SSL
         cert = key = nil
         opts = @ssl_options
-        if @cert_auto_generate
+        if opts.cert_auto_generate
           cert, key = ssl_server_generate_cert_key(
             digest: opts.digest,
             algorithm: opts.algorithm,
@@ -166,7 +166,7 @@ module Fluent::Plugin
           )
         end
         version = opts.version
-        ssl_server_listen(ssl_version: version, ciphers: opts.ciphers, cert: cert, key: key, port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
+        ssl_server_listen(ssl_version: version, ciphers: opts.ciphers, cert: cert, key: key, port: @port, bind: @bind, keepalive: server_keepalive, &connection_handler)
       else # TCP
         tcp_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &connection_handler)
       end
