@@ -62,6 +62,9 @@ module Fluent
         begin
           @u.each(&@on_message)
         rescue EOFError
+          # ignore
+        rescue IOError => e
+          raise unless e.message == 'stream closed'
         end
       end
     end
