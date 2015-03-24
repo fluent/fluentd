@@ -84,7 +84,13 @@ module Fluent
 
         ctx.cert = cert
         ctx.key = key
-        ctx.ciphers = ciphers if ciphers
+        if ciphers
+          ctx.ciphers = ciphers
+        else
+          ### follow httpclient configuration by nahi
+          # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
+          ctx.ciphers = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
+        end
         ctx.timeout = keepalive || 86400 * 365 * 5 # 5 years is like infinity
 
         server = TCPServer.new(bind, port)
