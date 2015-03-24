@@ -36,7 +36,6 @@ module Fluent
       def ssl_server_generate_cert_key(digest: OpenSSL::Digest::SHA256, algorithm: OpenSSL::PKey::RSA, key_length: 2048, cert_country: 'US', cert_state: 'CA', cert_locality: 'Mountain View', cert_common_name: "Fluentd #{self.class} SSLServer")
         key = algorithm.generate(key_length)
 
-        digest = digest_method.new
         issuer = subject = OpenSSL::X509::Name.new
         subject.add_entry('C', cert_country)
         subject.add_entry('ST', cert_state)
@@ -50,7 +49,9 @@ module Fluent
         cert.serial = 1
         cert.issuer = issuer
         cert.subject  = subject
-        cert.sign(key, digest)
+
+        digest_obj = digest.new
+        cert.sign(key, digest_obj)
 
         return cert, key
       end
@@ -93,27 +94,22 @@ module Fluent
         end
         ctx.timeout = keepalive || 86400 * 365 * 5 # 5 years is like infinity
 
-        server = TCPServer.new(bind, port)
-        sock = OpenSSL::SSL::SSLServer.new(server, ctx)
-        # delay SSL session establishment not to do it when sock.accept
-        # SSL session establishment is heavy, and it should be executed on child thread
-        sock.start_immediately = false
-
         if self.respond_to?(:detach_multi_process)
           detach_multi_process do
-            ssl_server_listen_impl(sock, keepalive, read_length, read_interval, socket_restart_interval, &block)
+            ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
           end
         elsif self.respond_to?(:detach_process)
           detach_process do
-            ssl_server_listen_impl(sock, keepalive, read_length, read_interval, socket_restart_interval, &block)
+            ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
           end
         else
-          ssl_server_listen_impl(sock, keepalive, read_length, read_interval, socket_restart_interval, &block)
+          ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
         end
       end
 
       def initialize
         super
+        @_ssl_server_listen_servers = []
         @_ssl_server_listen_socks = []
         @_ssl_server_listen_threads = []
         @_ssl_server_connections = {}
@@ -128,7 +124,7 @@ module Fluent
         OpenSSL::Random.seed(SecureRandom.random_bytes(16))
       end
 
-      def ssl_server_listen_impl(sock, keepalive, read_length, read_interval, socket_restart_interval, &block)
+      def ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
         register_new_connection = ->(conn){ @_ssl_server_connections[conn] = conn }
 
         timer_execute(interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
@@ -146,17 +142,26 @@ module Fluent
         end
 
         listener_thread = thread_create do
+          server = ::TCPServer.new(bind, port)
+          sock = OpenSSL::SSL::SSLServer.new(server, ctx)
+          # delay SSL session establishment not to do it when sock.accept
+          # SSL session establishment is heavy, and it should be executed on child thread
+          sock.start_immediately = false
+
+          @_ssl_server_listen_servers << server
+          @_ssl_server_listen_socks << sock
+
           while socket = sock.accept
-            thread_create do
+            socket.sync = true
+            thread_create(socket) do |socket|
               running_check = ->(){ thread_current_running? }
-              conn = Handler.new(socket, register, running_check, read_length, read_interval, socket_restart_interval, block)
+              conn = Handler.new(socket, register_new_connection, running_check, read_length, read_interval, socket_restart_interval, block)
               @_ssl_server_connections[conn] = conn
               conn.run
             end
           end
         end
 
-        @_ssl_server_listen_socks << sock
         @_ssl_server_listen_threads << listener_thread
       end
 
@@ -165,21 +170,22 @@ module Fluent
       end
 
       def shutdown
+        super
+
+        # listen threads are blocking on accept. So killing them is an only way to stop it
         @_ssl_server_listen_threads.each do |thread|
           thread.kill
           thread.join
         end
-        @_ssl_server_connections.keys.each do |conn|
-          conn.shutdown
-        end
-
-        super
-      end
-
-      def close
         @_ssl_server_listen_socks.each do |sock|
           sock.close
         end
+        @_ssl_server_listen_servers.each do |server|
+          server.close unless server.closed?
+        end
+      end
+
+      def close
         @_ssl_server_connections.keys.each do |conn|
           conn.close
         end
@@ -188,6 +194,7 @@ module Fluent
       end
 
       def terminate
+        @_ssl_server_listen_servers = []
         @_ssl_server_listen_socks = []
         @_ssl_server_listen_threads = []
         @_ssl_server_connections = {}
@@ -226,7 +233,6 @@ module Fluent
 
           begin
             socket.sync = true
-            puts "[#{i}:#{Thread.current.object_id}] accept in thread"
             socket.accept
             buf = ''
 
@@ -265,8 +271,15 @@ module Fluent
                 end
               rescue OpenSSL::SSL::SSLError => e
                 sleep @socket_restart_interval
+              rescue EOFError => e
+                # TODO: log
+                break
+              rescue IOError => e
+                raise unless e.message == 'closed stream'
+                break
               end
             end
+          ensure
             @io.close
           end
         end
