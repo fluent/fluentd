@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin_support/event_loop'
+require 'fluent/plugin_support/socket'
 
 require 'socket'
 require 'ipaddr'
@@ -23,28 +24,31 @@ module Fluent
   module PluginSupport
     module UDPServer
       include Fluent::PluginSupport::EventLoop
+      include Fluent::PluginSupport::Socket
 
       def udp_server_listen(port: nil, bind: '0.0.0.0', &block)
         raise "BUG: callback block is not specified for udp_server_listen" unless block_given?
         raise "BUG: specify port for udp_server_listen" unless port
 
+        socket_listener_add('udp', bind, port)
+
         bind_sock = if IPAddr.new(IPSocket.getaddress(bind)).ipv4?
                       UDPSocket.new
                     else
-                      UDPSocket.new(Socket::AF_INET6)
+                      UDPSocket.new(::Socket::AF_INET6)
                     end
         bind_sock.bind(bind, port)
 
         if self.respond_to?(:detach_multi_process)
           detach_multi_process do
-            udp_server_listen_impl(bind_sock, &block)
+            udp_server_listen_impl(bind, port, bind_sock, &block)
           end
         elsif self.respond_to?(:detach_process)
           detach_process do
-            udp_server_listen_impl(bind_sock, &block)
+            udp_server_listen_impl(bind, port, bind_sock, &block)
           end
         else
-          udp_server_listen_impl(bind_sock, &block)
+          udp_server_listen_impl(bind, port, bind_sock, &block)
         end
       end
 
@@ -91,10 +95,11 @@ module Fluent
         super
       end
 
-      def udp_server_listen_impl(sock, &block)
+      def udp_server_listen_impl(bind, port, sock, &block)
         sock = Handler.new(sock)
         block.call sock
         @_udp_server_socks << sock
+        socket_listener_listen('udp', bind, port)
         event_loop_attach( sock )
       end
 
