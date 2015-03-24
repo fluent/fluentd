@@ -16,6 +16,7 @@
 
 require 'fluent/plugin_support/event_loop'
 require 'fluent/plugin_support/timer'
+require 'fluent/plugin_support/socket'
 
 require 'socket'
 require 'cool.io'
@@ -25,6 +26,7 @@ module Fluent
     module TCPServer
       include Fluent::PluginSupport::EventLoop
       include Fluent::PluginSupport::Timer
+      include Fluent::PluginSupport::Socket
 
       TCP_SERVER_KEEPALIVE_CHECK_INTERVAL = 1
 
@@ -33,18 +35,20 @@ module Fluent
         raise "BUG: callback block is not specified for tcp_server_listen" unless block_given?
         raise "BUG: specify port for tcp_server_listen" unless port
 
+        socket_listener_add('tcp', bind, port)
+
         bind_sock = ::TCPServer.new(bind, port)
 
         if self.respond_to?(:detach_multi_process)
           detach_multi_process do
-            tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
+            tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
           end
         elsif self.respond_to?(:detach_process)
           detach_process do
-            tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
+            tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
           end
         else
-          tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
+          tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
         end
       end
 
@@ -89,7 +93,7 @@ module Fluent
         super
       end
 
-      def tcp_server_listen_impl(bind_sock, keepalive, backlog, &block)
+      def tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
         register_new_connection = ->(conn){ @_tcp_server_connections[conn] = conn }
 
         timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
@@ -110,6 +114,7 @@ module Fluent
         if backlog
           sock.listen(backlog)
         end
+        socket_listener_listen('tcp', bind, port)
         event_loop_attach( sock )
         @_tcp_server_listen_socks << sock
       end

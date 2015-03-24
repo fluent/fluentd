@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin_support/socket'
 require 'fluent/plugin_support/timer'
 
 require 'ipaddr'
@@ -25,6 +26,7 @@ require 'securerandom'
 module Fluent
   module PluginSupport
     module SSLServer
+      include Fluent::PluginSupport::Socket
       include Fluent::PluginSupport::Thread
       include Fluent::PluginSupport::Timer
 
@@ -76,6 +78,8 @@ module Fluent
         raise "BUG: specify cert & key for ssl_server_listen" unless cert && key
 
         raise "BUG: specified SSL/TLS version '#{ssl_method}' is not supported in this environment" unless OpenSSL::SSL::SSLContext::METHODS.include?(ssl_version)
+
+        socket_listener_add('tcp', bind, port)
 
         ctx = OpenSSL::SSL::SSLContext.new(ssl_version)
 
@@ -151,6 +155,7 @@ module Fluent
           @_ssl_server_listen_servers << server
           @_ssl_server_listen_socks << sock
 
+          socket_listener_listen('tcp', bind, port)
           while socket = sock.accept
             socket.sync = true
             thread_create(socket) do |socket|

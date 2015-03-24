@@ -57,6 +57,11 @@ module Fluent
 
         def run(&block)
           @instance.start
+          if @instance.respond_to?(:_listener_states)
+            until @instance._listener_states.values.all?
+              sleep 0.01
+            end
+          end
           if @instance.respond_to?(:event_loop_running?)
             until @instance.event_loop_running?
               sleep 0.01
