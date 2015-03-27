@@ -146,7 +146,7 @@ module Fluent
 
         @ss.pos += code.length
 
-        code
+        '"#{' + code + '}"'
       end
 
       def eval_embedded_code(code)
