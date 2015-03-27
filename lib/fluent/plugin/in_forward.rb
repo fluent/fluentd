@@ -175,9 +175,12 @@ module Fluent::Plugin
         # UDP heartbeat
         udp_server_listen(port: @port, bind: @bind) do |sock|
           sock.read(size_limit: 1024) do |remote_addr, remote_port, data|
-            # TODO: log heartbeat arrived
-            ##### sock.send(host: remote_addr, port: remote_port, data: "\0")
-            # rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
+            begin
+              sock.send(host: remote_addr, port: remote_port, data: "\0")
+            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
+              # ignore errors
+              # TODO debug log?
+            end
           end
         end
       end
