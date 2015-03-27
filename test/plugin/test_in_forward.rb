@@ -12,7 +12,7 @@ class ForwardInputTest < Test::Unit::TestCase
     @responses = []  # for testing responses after sending data
   end
 
-  PORT = unused_port
+  PORT, REMOTE_PORT = unused_port(2) # REMOTE_PORT is used for dummy source of heartbeat
   CONFIG = %[
     port #{PORT}
     bind 127.0.0.1
@@ -491,6 +491,46 @@ class ForwardInputTest < Test::Unit::TestCase
     assert_equal ["", ""], @responses
   end
 
+  # TODO heartbeat
+  def test_heartbeat_reply
+    heartbeat_data = nil
+    heartbeat_addr = nil
+
+    bind = '0.0.0.0'
+    listener_thread = Thread.new {
+      usock = if IPAddr.new(IPSocket.getaddress(bind)).ipv4?
+                    UDPSocket.new
+                  else
+                    UDPSocket.new(::Socket::AF_INET6)
+                  end
+      usock.bind(bind, REMOTE_PORT)
+      heartbeat_arrived = false
+      until heartbeat_arrived
+        if IO.select([usock])
+          heartbeat_data, heartbeat_addr = usock.recvfrom_nonblock(1024)
+          heartbeat_arrived = true
+        end
+      end
+    }
+    until listener_thread.alive?
+      sleep 0.01
+    end
+
+    d = create_driver
+    d.end_if { ! heartbeat_data.nil? }
+    d.run do
+      sock = if IPAddr.new(IPSocket.getaddress(bind)).ipv4?
+               UDPSocket.new
+             else
+               UDPSocket.new(::Socket::AF_INET6)
+             end
+      sock.send("\0", 0, '127.0.0.1', REMOTE_PORT)
+    end
+
+    assert_equal "\0", heartbeat_data
+    assert_equal "127.0.0.1", heartbeat_addr[2]
+  end
+
   def send_data(ssl, data, try_to_receive_response=false, response_timeout=5)
     io = ssl ? connect_ssl : connect
     res = ''
@@ -528,5 +568,4 @@ class ForwardInputTest < Test::Unit::TestCase
     @responses << res if try_to_receive_response
   end
 
-  # TODO heartbeat
 end
