@@ -17,6 +17,8 @@
 require 'cool.io'
 
 module Fluent
+  # Obsolete in v0.14
+  #   Use TCPServer / UDPServer of PluginSupport instead
   module SocketUtil
     def create_udp_socket(host)
       require 'ipaddr'
@@ -29,6 +31,7 @@ module Fluent
     end
     module_function :create_udp_socket
 
+    # obsolete in v0.14
     class UdpHandler < Coolio::IO
       def initialize(io, log, body_size_limit, callback)
         super(io)
@@ -47,6 +50,7 @@ module Fluent
       end
     end
 
+    # obsolete in v0.14
     class TcpHandler < Coolio::Socket
       PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
@@ -88,6 +92,7 @@ module Fluent
       end
     end
 
+    # obsolete in v0.14
     class BaseInput < Fluent::Input
       def initialize
         super

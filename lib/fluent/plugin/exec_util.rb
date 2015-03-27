@@ -15,6 +15,8 @@
 #
 
 module Fluent
+  # Obsolete in v0.14
+  #  Use ChildProcess of PluginSupport and Parser instead
   module ExecUtil
     SUPPORTED_FORMAT = {
       'tsv' => :tsv,
@@ -63,8 +65,6 @@ module Fluent
           @u.each(&@on_message)
         rescue EOFError
           # ignore
-        rescue IOError => e
-          raise unless e.message == 'stream closed'
         end
       end
     end
