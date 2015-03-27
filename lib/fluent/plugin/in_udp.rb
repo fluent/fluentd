@@ -14,20 +14,50 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/socket_util'
+require 'fluent/plugin_support/udp_server'
+require 'fluent/parser'
 
-module Fluent
-  class UdpInput < SocketUtil::BaseInput
-    Plugin.register_input('udp', self)
+module Fluent::Plugin
+  class UdpInput < Fluent::Plugin::Input
+    include Fluent::PluginSupport::UDPServer
 
-    config_set_default :port, 5160
-    config_param :body_size_limit, :size, :default => 4096
+    Fluent::Plugin.register_input('udp', self)
 
-    def listen(callback)
-      log.info "listening udp socket on #{@bind}:#{@port}"
-      @usock = SocketUtil.create_udp_socket(@bind)
-      @usock.bind(@bind, @port)
-      SocketUtil::UdpHandler.new(@usock, log, @body_size_limit, callback)
+    desc 'Tag of output events.'
+    config_param :tag, :string
+    desc 'The format of the payload.'
+    config_param :format, :string
+    desc 'The port to listen to.'
+    config_param :port, :integer, default: 5160
+    desc 'The bind address to listen to.'
+    config_param :bind, :string, default: '0.0.0.0'
+    desc "The field name of the client's hostname."
+    config_param :source_host_key, :string, default: nil
+    desc "The body size limit in UDP packet"
+    config_param :body_size_limit, :size, default: 4096
+
+    def configure(conf)
+      super
+
+      @parser = Fluent::Plugin.new_parser(@format)
+      @parser.configure(conf)
+    end
+
+    def start
+      super
+
+      udp_server_read(port: @port, bind: @bind, size_limit: @body_size_limit) do |remote_addr, remote_port, data| # UDP 1 data is 1 line
+        @parser.parse(data) do |time, record|
+          data.chomp!
+          unless time && record
+            log.warn "pattern not match: #{data.inspect}"
+            return
+          end
+
+          record[@source_host_key] = remote_host if @source_host_key
+          router.emit(@tag, time, record)
+        end
+      end
     end
   end
 end

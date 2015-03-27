@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'fluent/plugin/in_udp'
+require 'fluent/plugin/socket_util'
 
 class UdpInputTest < Test::Unit::TestCase
   def setup
@@ -22,7 +23,7 @@ class UdpInputTest < Test::Unit::TestCase
   !
 
   def create_driver(conf)
-    Fluent::Test::InputTestDriver.new(Fluent::UdpInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::UdpInput).configure(conf)
   end
 
   def test_configure

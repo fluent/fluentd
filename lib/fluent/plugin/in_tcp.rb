@@ -14,19 +14,51 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/socket_util'
+require 'fluent/plugin_support/tcp_server'
+require 'fluent/parser'
 
-module Fluent
-  class TcpInput < SocketUtil::BaseInput
-    Plugin.register_input('tcp', self)
+module Fluent::Plugin
+  class TcpInput < Fluent::Plugin::Input
+    include Fluent::PluginSupport::TCPServer
 
-    config_set_default :port, 5170
+    Fluent::Plugin.register_input('tcp', self)
+
+    desc 'Tag of output events.'
+    config_param :tag, :string
+    desc 'The format of the payload.'
+    config_param :format, :string
+    desc 'The port to listen to.'
+    config_param :port, :integer, default: 5170
+    desc 'The bind address to listen to.'
+    config_param :bind, :string, default: '0.0.0.0'
+    desc "The field name of the client's hostname."
+    config_param :source_host_key, :string, default: nil
     desc 'The payload is read up to this character.'
-    config_param :delimiter, :string, :default => "\n" # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
+    config_param :delimiter, :string, default: "\n" # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
 
-    def listen(callback)
-      log.info "listening tcp socket on #{@bind}:#{@port}"
-      Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, @delimiter, callback)
+    def configure(conf)
+      super
+
+      @parser = Fluent::Plugin.new_parser(@format)
+      @parser.configure(conf)
+    end
+
+    def start
+      super
+
+      tcp_server_listen(port: @port, bind: @bind, keepalive: false) do |conn|
+        conn.on_data(delimiter: @delimiter) do |msg|
+          @parser.parse(msg) do |time, record|
+            unless time && record
+              log.warn "pattern not match: #{msg.inspect}"
+              return
+            end
+
+            record[@source_host_key] = addr[3] if @source_host_key
+            router.emit(@tag, time, record)
+          end
+        end
+      end
     end
   end
 end
