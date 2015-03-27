@@ -57,6 +57,7 @@ module Fluent
         def on_timer
           @callback.call
         rescue => e
+          # TODO: raise in tests?
           @log.error "Something wrong in timer callback", error: e, error_class: e.class
           @log.error_backtrace
         end

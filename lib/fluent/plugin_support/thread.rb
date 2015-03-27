@@ -36,7 +36,8 @@ module Fluent
           rescue => e # ThreadKilledError => e
             ### TODO: log that this thread is killed forcely
             # plugin author should refer thread_current_running? method
-            ### TODO:
+            ### TODO: logging or raise or ...
+            ###       raise in tests?
             raise
           ensure
             @_threads.delete(::Thread.current.object_id)
