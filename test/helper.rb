@@ -35,11 +35,16 @@ unless defined?(Test::Unit::AssertionFailedError)
   end
 end
 
-def unused_port
-  s = TCPServer.open(0)
-  port = s.addr[1]
-  s.close
-  port
+def unused_port(num)
+  ports = []
+  sockets = []
+  num.times do
+    s = TCPServer.open(0)
+    sockets << s
+    ports << s.addr[1]
+  end
+  sockets.each{|s| s.close }
+  return *ports
 end
 
 def ipv6_enabled?
