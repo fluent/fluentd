@@ -35,7 +35,7 @@ unless defined?(Test::Unit::AssertionFailedError)
   end
 end
 
-def unused_port(num)
+def unused_port(num=1)
   ports = []
   sockets = []
   num.times do
