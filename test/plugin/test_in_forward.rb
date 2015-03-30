@@ -640,12 +640,11 @@ class ForwardInputTest < Test::Unit::TestCase
       io = ssl ? connect_ssl : connect
       begin
         simulate_auth_sequence(io, SHARED_KEY, USER_NAME, 'fake-password')
-      rescue => e
+      rescue RuntimeError => e
         error = e
         # "assert_raise" raises LocalJumpError here
       end
     end
-    assert_equal RuntimeError, error.class
     assert_equal "Authentication Failure: username/password mismatch", error.message
   end
 
@@ -685,12 +684,11 @@ class ForwardInputTest < Test::Unit::TestCase
       io = ssl ? connect_ssl : connect
       begin
         simulate_auth_sequence(io, SHARED_KEY, 'frsyuki', 'embulk')
-      rescue => e
+      rescue RuntimeError => e
         error = e
         # "assert_raise" raises LocalJumpError here
       end
     end
-    assert_equal RuntimeError, error.class
     assert_equal "Authentication Failure: username/password mismatch", error.message
   end
 
@@ -727,12 +725,11 @@ class ForwardInputTest < Test::Unit::TestCase
       io = ssl ? connect_ssl : connect
       begin
         simulate_auth_sequence(io, SHARED_KEY, 'frsyuki', 'embulk')
-      rescue => e
+      rescue RuntimeError => e
         error = e
         # "assert_raise" raises LocalJumpError here
       end
     end
-    assert_equal RuntimeError, error.class
     assert_equal "Authentication Failure: anonymous source host '127.0.0.1' denied", error.message
   end
 
