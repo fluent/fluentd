@@ -369,11 +369,13 @@ class ForwardInputTest < Test::Unit::TestCase
       ["tag1", time, {"a"=>1}],
       ["tag2", time, {"a"=>2}],
     ]
+    p({before: records})
 
     d.expected_emits_length = records.length
     d.run_timeout = 2
     d.run do
       records.each {|tag,time,record|
+        p({emit: [tag, time, record]})
         send_data auth, ssl, [tag, time, record].to_json
       }
     end
@@ -986,6 +988,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     res = nil
+    p({send: data}) if $json_ssl
     io.write data
     if try_to_receive_response
       @responses << read_data(io, response_timeout)
