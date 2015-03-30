@@ -140,6 +140,9 @@ module Fluent
 
           ### TODO: disabling name rev resolv
           proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
+          if addr == '?'
+            port, addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
+          end
           @protocol = proto
           @remote_port = port
           @remote_addr = addr
