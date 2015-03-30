@@ -65,7 +65,7 @@ module Fluent
       end
 
       # keepalive: seconds, (default: nil [inf])
-      def ssl_server_listen(ssl_version: :TLSv1_2, ciphers: nil, cert:, key:, port:, bind: '0.0.0.0', keepalive: nil, read_length: SSL_SERVER_DEFAULT_READ_LENGTH, read_interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, socket_restart_interval: SSL_SERVER_DEFAULT_SOCKET_RESTART_INTERVAL, &block)
+      def ssl_server_listen(ssl_version: :TLSv1_2, ciphers: nil, cert:, key:, port:, bind: '0.0.0.0', keepalive: nil, linger_timeout: nil, backlog: nil, read_length: SSL_SERVER_DEFAULT_READ_LENGTH, read_interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, socket_restart_interval: SSL_SERVER_DEFAULT_SOCKET_RESTART_INTERVAL, &block)
         raise "BUG: callback block is not specified for ssl_server_listen" unless block_given?
         raise "BUG: specified SSL/TLS version '#{ssl_method}' is not supported in this environment" unless OpenSSL::SSL::SSLContext::METHODS.include?(ssl_version)
         port = port.to_i
@@ -91,14 +91,14 @@ module Fluent
 
         if self.respond_to?(:detach_multi_process)
           detach_multi_process do
-            ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
+            ssl_server_listen_impl(bind, port, ctx, keepalive, linger_timeout, backlog, read_length, read_interval, socket_restart_interval, &block)
           end
         elsif self.respond_to?(:detach_process)
           detach_process do
-            ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
+            ssl_server_listen_impl(bind, port, ctx, keepalive, linger_timeout, backlog, read_length, read_interval, socket_restart_interval, &block)
           end
         else
-          ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
+          ssl_server_listen_impl(bind, port, ctx, keepalive, linger_timeout, backlog, read_length, read_interval, socket_restart_interval, &block)
         end
       end
 
@@ -119,7 +119,7 @@ module Fluent
         OpenSSL::Random.seed(SecureRandom.random_bytes(16))
       end
 
-      def ssl_server_listen_impl(bind, port, ctx, keepalive, read_length, read_interval, socket_restart_interval, &block)
+      def ssl_server_listen_impl(bind, port, ctx, keepalive, linger_timeout, backlog, read_length, read_interval, socket_restart_interval, &block)
         register_new_connection = ->(conn){ @_ssl_server_connections[conn] = conn }
 
         timer_execute(interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
@@ -138,6 +138,9 @@ module Fluent
 
         listener_thread = thread_create do
           server = ::TCPServer.new(bind, port)
+          if backlog
+            server.listen(backlog)
+          end
           sock = OpenSSL::SSL::SSLServer.new(server, ctx)
           # delay SSL session establishment not to do it when sock.accept
           # SSL session establishment is heavy, and it should be executed on child thread
@@ -148,6 +151,10 @@ module Fluent
 
           socket_listener_listen('tcp', bind, port)
           while socket = sock.accept
+            if linger_timeout
+              opt = [1, lingr_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
+              socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+            end
             socket.sync = true
             thread_create(socket) do |socket|
               running_check = ->(){ thread_current_running? }
@@ -230,30 +237,22 @@ module Fluent
           begin
             socket.sync = true
             socket.accept
-            buf = ''
 
             ### TODO: disabling name rev resolv
-            proto, port, host, addr = ( @io.peeraddr rescue PEERADDR_FAILED )
+            proto, port, host, addr = ( socket.peeraddr rescue PEERADDR_FAILED )
             if addr == '?'
-              port, addr = *Socket.unpack_sockaddr_in(@io.getpeername) rescue nil
+              port, addr = *Socket.unpack_sockaddr_in(socket.getpeername) rescue nil
             end
             @protocol = proto
             @remote_port = port
             @remote_addr = addr
             @remote_host = host
-            ## which is better?
-            # @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
-
-            ### TODO: socket option
-            #
-            # PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-            # opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-            # io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
             @on_connect_callback.call(self)
             raise "BUG: register on_data callback" unless @on_read_callback
 
             @idle_seconds = 0
+            buf = ''
             loop do
               begin
                 while socket.read_nonblock(@read_length, buf)
