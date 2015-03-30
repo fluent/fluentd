@@ -573,13 +573,19 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d = create_driver
     d.end_if { ! heartbeat_data.nil? }
+    d.run_timeout = 60
     d.run do
       sock = if IPAddr.new(IPSocket.getaddress(bind)).ipv4?
                UDPSocket.new
              else
                UDPSocket.new(::Socket::AF_INET6)
              end
-      sock.send("\0", 0, '127.0.0.1', REMOTE_PORT)
+      until heartbeat_data
+        sock.send("\0", 0, '127.0.0.1', REMOTE_PORT)
+        unless heartbeat_data
+          sleep 1
+        end
+      end
     end
 
     assert_equal "\0", heartbeat_data
