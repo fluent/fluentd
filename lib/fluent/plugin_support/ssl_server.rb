@@ -274,7 +274,10 @@ module Fluent
                 buf = ''
               end
             rescue OpenSSL::SSL::SSLError => e
-              p({sslerror: buf}) if $json_ssl
+              if $json_ssl
+                p e
+                p({error: e, buf: buf})
+              end
               sleep @socket_restart_interval
             rescue EOFError => e
               # TODO: log
