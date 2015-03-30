@@ -112,8 +112,6 @@ module Fluent
           ### TODO: address/name, socket option
           #
           ###### from tcp server
-          # PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-          # @addr = (io.peeraddr rescue PEERADDR_FAILED)
           # opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           # io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
           ####### from in_forward
