@@ -152,8 +152,8 @@ module Fluent
           socket_listener_listen('tcp', bind, port)
           while socket = sock.accept
             if linger_timeout
-              opt = [1, lingr_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
-              socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+              opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
+              socket.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, opt)
             end
             socket.sync = true
             thread_create(socket) do |socket|

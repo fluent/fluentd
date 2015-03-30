@@ -150,8 +150,8 @@ module Fluent
 
           if linger_timeout
             # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
-            opt = [1, lingr_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
-            io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+            opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
+            io.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, opt)
           end
         end
 
