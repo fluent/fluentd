@@ -293,7 +293,7 @@ module Fluent::Plugin
           end
         end
 
-        p({reader: obj}) if $json_ssl
+        p({reader: data}) if $json_ssl
         bytes += data.bytesize
         feeder.call(data)
       end
