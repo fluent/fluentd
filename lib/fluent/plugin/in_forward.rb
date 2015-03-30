@@ -100,15 +100,6 @@ module Fluent::Plugin
         config_param :host, :string, default: nil
         config_param :network, :string, default: nil
         config_param :shared_key, :string, default: nil
-        # config_param :users, default: [] do |val| # array of string
-        #   if val.is_a? Array
-        #     val
-        #   elsif val.is_a? String
-        #     val.strip.split(/ *, */)
-        #   else
-        #     raise Fluent::ConfigError, "users must be array of string, or string(comma separated usernames)"
-        #   end
-        # end
         config_param :users, :array, default: []
       end
     end
