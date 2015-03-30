@@ -269,10 +269,12 @@ module Fluent
                   sleep @read_interval
                   next
                 end
+                p({sslserver: buf}) if $json_ssl
                 @on_read_callback.call(buf)
                 buf = ''
               end
             rescue OpenSSL::SSL::SSLError => e
+              p({sslerror: buf}) if $json_ssl
               sleep @socket_restart_interval
             rescue EOFError => e
               # TODO: log
@@ -282,6 +284,7 @@ module Fluent
             end
           end
         rescue Errno::ECONNRESET => e
+          p({econnreset: buf, error: e}) if $json_ssl
           # disconnected from client
           # TODO: log
         ensure

@@ -215,6 +215,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
   data('tcp' => [CONFIG, false, false], 'ssl' => [SSL_CONFIG, false, true]) # with json, auth doesn't work
   def test_message_json(data)
+    $json_ssl = true
     conf, auth, ssl = data
     d = create_driver(conf)
 
@@ -234,6 +235,8 @@ class ForwardInputTest < Test::Unit::TestCase
     end
     assert_equal records[0], d.emits[0]
     assert_equal records[1], d.emits[1]
+  ensure
+    $json_ssl = nil
   end
 
   def test_send_large_chunk_warning
