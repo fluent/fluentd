@@ -31,9 +31,9 @@ module Fluent
       TCP_SERVER_KEEPALIVE_CHECK_INTERVAL = 1
 
       # keepalive: seconds, (default: nil [inf])
-      def tcp_server_listen(port: nil, bind: '0.0.0.0', keepalive: nil, backlog: nil, &block)
+      def tcp_server_listen(port:, bind: '0.0.0.0', keepalive: nil, backlog: nil, &block)
         raise "BUG: callback block is not specified for tcp_server_listen" unless block_given?
-        raise "BUG: specify port for tcp_server_listen" unless port
+        port = port.to_i
 
         socket_listener_add('tcp', bind, port)
 

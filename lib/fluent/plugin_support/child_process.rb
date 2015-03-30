@@ -26,7 +26,7 @@ module Fluent
       CHILD_PROCESS_LOOP_CHECK_INTERVAL = 0.2 # sec
       CHILD_PROCESS_DEFAULT_KILL_TIMEOUT = 60 # sec
 
-      def child_process_execute(command, arguments: nil, subprocess_name: nil, read: true, write: true, encoding: 'utf-8', interval: nil, immediate: false, &block)
+      def child_process_execute(command:, arguments: nil, subprocess_name: nil, read: true, write: true, encoding: 'utf-8', interval: nil, immediate: false, &block)
         raise "BUG: illegal specification to disable both of input and output file handle" if !read && !write
         raise "BUG: block not specified which receive i/o object" unless block_given?
 
