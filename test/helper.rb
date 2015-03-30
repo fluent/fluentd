@@ -44,7 +44,11 @@ def unused_port(num=1)
     ports << s.addr[1]
   end
   sockets.each{|s| s.close }
-  return *ports
+  if num == 1
+    ports.first
+  else
+    ports
+  end
 end
 
 def ipv6_enabled?
