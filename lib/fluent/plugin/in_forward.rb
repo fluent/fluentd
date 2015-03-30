@@ -278,12 +278,12 @@ module Fluent::Plugin
               bytes = 0
             }
             serializer = :to_json.to_proc
-            feeder = ->(data){ parser << data }
+            feeder = ->(d){ parser << d }
           else # msgpack
             parser = MessagePack::Unpacker.new
             serializer = :to_msgpack.to_proc
-            feeder = ->(data){
-              parser.feed_each(data){|obj|
+            feeder = ->(d){
+              parser.feed_each(d){|obj|
                 block.call(obj, bytes, serializer)
                 bytes = 0
               }
