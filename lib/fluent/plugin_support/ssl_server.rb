@@ -273,11 +273,8 @@ module Fluent
                 @on_read_callback.call(buf)
                 buf = ''
               end
-            rescue OpenSSL::SSL::SSLError => e
-              if $json_ssl
-                p e
-                p({error: e, buf: buf})
-              end
+            rescue OpenSSL::SSL::SSLErrorWaitReadable # read would block
+              buf = ''
               sleep @socket_restart_interval
             rescue EOFError => e
               # TODO: log
