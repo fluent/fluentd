@@ -31,7 +31,7 @@ module Fluent
       TCP_SERVER_KEEPALIVE_CHECK_INTERVAL = 1
 
       # keepalive: seconds, (default: nil [inf])
-      def tcp_server_listen(port:, bind: '0.0.0.0', keepalive: nil, backlog: nil, &block)
+      def tcp_server_listen(port:, bind: '0.0.0.0', keepalive: nil, linger_timeout: nil, backlog: nil, &block)
         raise "BUG: callback block is not specified for tcp_server_listen" unless block_given?
         port = port.to_i
 
@@ -41,14 +41,14 @@ module Fluent
 
         if self.respond_to?(:detach_multi_process)
           detach_multi_process do
-            tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
+            tcp_server_listen_impl(bind, port, bind_sock, keepalive, linger_timeout, backlog, &block)
           end
         elsif self.respond_to?(:detach_process)
           detach_process do
-            tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
+            tcp_server_listen_impl(bind, port, bind_sock, keepalive, linger_timeout, backlog, &block)
           end
         else
-          tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
+          tcp_server_listen_impl(bind, port, bind_sock, keepalive, linger_timeout, backlog, &block)
         end
       end
 
@@ -93,7 +93,7 @@ module Fluent
         super
       end
 
-      def tcp_server_listen_impl(bind, port, bind_sock, keepalive, backlog, &block)
+      def tcp_server_listen_impl(bind, port, bind_sock, keepalive, linger_timeout, backlog, &block)
         register_new_connection = ->(conn){ @_tcp_server_connections[conn] = conn }
 
         timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
@@ -110,7 +110,7 @@ module Fluent
           end
         end
 
-        sock = Coolio::TCPServer.new(bind_sock, nil, Handler, register_new_connection, block)
+        sock = Coolio::TCPServer.new(bind_sock, nil, Handler, register_new_connection, linger_timeout, block)
         if backlog
           sock.listen(backlog)
         end
@@ -125,7 +125,7 @@ module Fluent
 
         PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
-        def initialize(io, register, on_connect_callback)
+        def initialize(io, register, linger_timeout, on_connect_callback)
           super(io)
 
           register.call(self)
@@ -147,16 +147,12 @@ module Fluent
           @remote_port = port
           @remote_addr = addr
           @remote_host = host
-          ## which is better?
-          # @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
 
-          ### TODO: socket option
-          #
-          # PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-          # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
-          # lingr_timeout = 0
-          # opt = [1, lingr_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
-          # io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+          if linger_timeout
+            # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
+            opt = [1, lingr_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
+            io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+          end
         end
 
         def on_connect

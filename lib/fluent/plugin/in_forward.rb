@@ -105,7 +105,6 @@ module Fluent::Plugin
     end
 
     # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
-    # TODO: lingr/backlog in *_server?
     config_param :linger_timeout, :integer, default: 0
     config_param :backlog, :integer, default: nil
 
@@ -174,9 +173,9 @@ module Fluent::Plugin
       if @ssl_options # TCP+SSL
         cert, key = prepare_cert_key_pair(@ssl_options)
         version = @ssl_options.version
-        ssl_server_listen(ssl_version: version, ciphers: @ssl_options.ciphers, cert: cert, key: key, port: @port, bind: @bind, keepalive: server_keepalive, &method(:handle_connection))
+        ssl_server_listen(ssl_version: version, ciphers: @ssl_options.ciphers, cert: cert, key: key, port: @port, bind: @bind, keepalive: server_keepalive, linger_timeout: @linger_timeout, backlog: @backlog, &method(:handle_connection))
       else # TCP
-        tcp_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, backlog: @backlog, &method(:handle_connection))
+        tcp_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, linger_timeout: @linger_timeout, backlog: @backlog, &method(:handle_connection))
       end
 
       unless @disable_udp_heartbeat
