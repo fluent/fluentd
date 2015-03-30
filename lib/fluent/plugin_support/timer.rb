@@ -21,9 +21,9 @@ module Fluent
     module Timer
       include Fluent::PluginSupport::EventLoop
 
-      # interval: integer, repeat: true/false
+      # interval: integer/float, repeat: true/false
       def timer_execute(interval:, repeat: true, &block)
-        timer = TimerWatcher.new(interval.to_i, repeat, log, &block)
+        timer = TimerWatcher.new(interval, repeat, log, &block)
         event_loop_attach(timer)
       end
 
