@@ -26,9 +26,9 @@ module Fluent
       include Fluent::PluginSupport::EventLoop
       include Fluent::PluginSupport::Socket
 
-      def udp_server_listen(port: nil, bind: '0.0.0.0', &block)
+      def udp_server_listen(port:, bind: '0.0.0.0', &block)
         raise "BUG: callback block is not specified for udp_server_listen" unless block_given?
-        raise "BUG: specify port for udp_server_listen" unless port
+        port = port.to_i
 
         socket_listener_add('udp', bind, port)
 
@@ -52,9 +52,8 @@ module Fluent
         end
       end
 
-      def udp_server_read(port: nil, bind: '0.0.0.0', size_limit: 2048, &block)
+      def udp_server_read(port:, bind: '0.0.0.0', size_limit: 2048, &block)
         raise "BUG: callback block is not specified for udp_server_read" unless block_given?
-        raise "BUG: specify port for udp_server_read" unless port
 
         udp_server_listen(port: port, bind: bind) do |sock|
           sock.read(size_limit: size_limit, &block)
@@ -123,8 +122,8 @@ module Fluent
           @callback = callback
         end
 
-        def send(host: nil, port: nil, data: nil, flags: 0)
-          @io.send(data, flags, port, host)
+        def send(host:, port:, data:, flags: 0)
+          @io.send(data, flags, host, port)
         end
 
         def on_readable

@@ -58,26 +58,17 @@ module Fluent
         return cert, key
       end
 
-      def ssl_server_load_cert_key(cert_file_path: nil, algorithm: OpenSSL::PKey::RSA, key_file_path: nil, key_passphrase: nil)
-        # TODO: remove argument check if issue #563 resolved https://github.com/fluent/fluentd/issues/563
-        raise "BUG: cert_file_path is not specified for ssl_server_load_cert_key" unless cert_file_path
-        raise "BUG: key_file_path is not specified for ssl_server_load_cert_key" unless key_file_path
-        raise "BUG: key_passphrase is not specified for ssl_server_load_cert_key" unless key_passphrase
-
+      def ssl_server_load_cert_key(cert_file_path:, algorithm: OpenSSL::PKey::RSA, key_file_path:, key_passphrase:)
         cert = OpenSSL::X509::Certificate.new(File.read(cert_file_path))
         key = algorithm.new(File.read(key_file_path), key_passphrase)
         return cert, key
       end
 
       # keepalive: seconds, (default: nil [inf])
-      def ssl_server_listen(ssl_version: :TLSv1_2, ciphers: nil, cert: nil, key: nil, port: nil, bind: '0.0.0.0', keepalive: nil, read_length: SSL_SERVER_DEFAULT_READ_LENGTH, read_interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, socket_restart_interval: SSL_SERVER_DEFAULT_SOCKET_RESTART_INTERVAL, &block)
+      def ssl_server_listen(ssl_version: :TLSv1_2, ciphers: nil, cert:, key:, port:, bind: '0.0.0.0', keepalive: nil, read_length: SSL_SERVER_DEFAULT_READ_LENGTH, read_interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, socket_restart_interval: SSL_SERVER_DEFAULT_SOCKET_RESTART_INTERVAL, &block)
         raise "BUG: callback block is not specified for ssl_server_listen" unless block_given?
-
-        # TODO: remove argument check if issue #563 resolved https://github.com/fluent/fluentd/issues/563
-        raise "BUG: specify port for ssl_server_listen" unless port
-        raise "BUG: specify cert & key for ssl_server_listen" unless cert && key
-
         raise "BUG: specified SSL/TLS version '#{ssl_method}' is not supported in this environment" unless OpenSSL::SSL::SSLContext::METHODS.include?(ssl_version)
+        port = port.to_i
 
         socket_listener_add('tcp', bind, port)
 
