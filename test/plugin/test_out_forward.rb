@@ -8,7 +8,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   TARGET_HOST = '127.0.0.1'
-  TARGET_PORT = 13999
+  TARGET_PORT = unused_port
   CONFIG = %[
     send_timeout 51
     heartbeat_type udp
@@ -59,7 +59,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     node = nodes.first
     assert_equal "test", node.name
     assert_equal '127.0.0.1', node.host
-    assert_equal 13999, node.port
+    assert_equal TARGET_PORT, node.port
   end
 
   def test_configure_udp_heartbeat
@@ -372,10 +372,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
   end
 
+  ## TODO: check this works well or not...
   def create_target_input_driver(response_stub=nil, disconnect=false, conf=TARGET_CONFIG)
+    ## TODO: disconnect
     require 'fluent/plugin/in_forward'
 
-    driver = Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput) {
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput) {
       if response_stub.nil?
         # do nothing because in_forward responds for ack option in default
       else
@@ -384,127 +386,5 @@ class ForwardOutputTest < Test::Unit::TestCase
         end
       end
     }.configure(conf)
-    return driver
-
-    DummyEngineDriver.new(Fluent::ForwardInput) {
-      handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
-        attr_reader :chunk_counter # for checking if received data is successfully deserialized
-
-        def initialize(sock, log, on_message)
-          @sock = sock
-          @log = log
-          @chunk_counter = 0
-          @on_message = on_message
-        end
-
-        if do_respond
-          def write(data)
-            @sock.write data
-          rescue => e
-            @sock.close_write
-            @sock.close
-          end
-        else
-          def write(data)
-            # do nothing
-          end
-        end
-
-        def close
-          @sock.close_write
-          @sock.close
-        end
-      }
-
-      define_method(:start) do
-        @thread = Thread.new do
-          Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
-            begin
-              handler = handler_class.new(sock, @log, method(:on_message))
-              loop do
-                raw_data = sock.recv(1024)
-                handler.on_read(raw_data)
-                # chunk_counter is reset to zero only after all the data have been received and successfully deserialized.
-                break if handler.chunk_counter == 0
-              end
-              if disconnect
-                handler.close
-                sock = nil
-              end
-              sleep  # wait for connection to be closed by client
-            ensure
-              if sock
-                sock.close_write
-                sock.close
-              end
-            end
-          end
-        end
-      end
-
-      def shutdown
-        @thread.kill
-        @thread.join
-      end
-    }.configure(conf).inject_router()
-  end
-
-  def test_heartbeat_type_none
-    d = create_driver(CONFIG + "\nheartbeat_type none")
-    node = d.instance.nodes.first
-    assert_equal Fluent::ForwardOutput::NoneHeartbeatNode, node.class
-
-    d.instance.start
-    assert_nil d.instance.instance_variable_get(:@loop)   # no HeartbeatHandler, or HeartbeatRequestTimer
-    assert_nil d.instance.instance_variable_get(:@thread) # no HeartbeatHandler, or HeartbeatRequestTimer
-
-    stub(node.failure).phi { raise 'Should not be called' }
-    node.tick
-    assert_equal node.available, true
-  end
-
-  class DummyEngineDriver < Fluent::Test::Driver::Input
-    def initialize(klass, &block)
-      super(klass, &block)
-      @engine = DummyEngineClass.new
-      @klass = klass
-      # To avoid accessing Fluent::Engine, set Engine as a plugin's class constant (Fluent::SomePlugin::Engine).
-      # But this makes it impossible to run tests concurrently by threading in a process.
-      @klass.const_set(:Engine, @engine)
-    end
-
-    def inject_router
-      @instance.router = @engine
-      self
-    end
-
-    def run(&block)
-      super(&block)
-      @klass.class_eval do
-        remove_const(:Engine)
-      end
-    end
-
-    def emits
-      all = []
-      @engine.emit_streams.each {|tag,events|
-        events.each {|time,record|
-          all << [tag, time, record]
-        }
-      }
-      all
-    end
-
-    class DummyEngineClass
-      attr_reader :emit_streams
-
-      def initialize
-        @emit_streams ||= []
-      end
-
-      def emit_stream(tag, es)
-        @emit_streams << [tag, es.to_a]
-      end
-    end
   end
 end
