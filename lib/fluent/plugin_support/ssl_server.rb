@@ -156,6 +156,7 @@ module Fluent
               socket.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, opt)
             end
             socket.sync = true
+            socket.sync_close = true
             thread_create(socket) do |socket|
               running_check = ->(){ thread_current_running? }
               conn = Handler.new(socket, register_new_connection, running_check, read_length, read_interval, socket_restart_interval, block)
@@ -235,51 +236,56 @@ module Fluent
           socket = @io
 
           begin
-            socket.sync = true
             socket.accept
-
-            ### TODO: disabling name rev resolv
-            proto, port, host, addr = ( socket.peeraddr rescue PEERADDR_FAILED )
-            if addr == '?'
-              port, addr = *Socket.unpack_sockaddr_in(socket.getpeername) rescue nil
-            end
-            @protocol = proto
-            @remote_port = port
-            @remote_addr = addr
-            @remote_host = host
-
-            @on_connect_callback.call(self)
-            raise "BUG: register on_data callback" unless @on_read_callback
-
-            @idle_seconds = 0
-            buf = ''
-            loop do
-              begin
-                while socket.read_nonblock(@read_length, buf)
-                  if buf.empty?
-                    unless @running_check.call()
-                      break
-                    end
-                    @idle_seconds += @read_interval
-                    sleep @read_interval
-                    next
-                  end
-                  @on_read_callback.call(buf)
-                  buf = ''
-                end
-              rescue OpenSSL::SSL::SSLError => e
-                sleep @socket_restart_interval
-              rescue EOFError => e
-                # TODO: log
-                break
-              rescue IOError => e
-                raise unless e.message == 'closed stream'
-                break
-              end
-            end
-          ensure
-            @io.close
+          rescue OpenSSL::SSL::SSLError => e
+            # TODO: log
+            self.close rescue nil
+            return
           end
+
+          ### TODO: disabling name rev resolv
+          proto, port, host, addr = ( socket.peeraddr rescue PEERADDR_FAILED )
+          if addr == '?'
+            port, addr = *Socket.unpack_sockaddr_in(socket.getpeername) rescue nil
+          end
+          @protocol = proto
+          @remote_port = port
+          @remote_addr = addr
+          @remote_host = host
+
+          @on_connect_callback.call(self)
+          raise "BUG: register on_data callback" unless @on_read_callback
+
+          @idle_seconds = 0
+          buf = ''
+          loop do
+            begin
+              while socket.read_nonblock(@read_length, buf)
+                if buf.empty?
+                  unless @running_check.call()
+                    break
+                  end
+                  @idle_seconds += @read_interval
+                  sleep @read_interval
+                  next
+                end
+                @on_read_callback.call(buf)
+                buf = ''
+              end
+            rescue OpenSSL::SSL::SSLError => e
+              sleep @socket_restart_interval
+            rescue EOFError => e
+              # TODO: log
+              break
+            rescue IOError => e
+              break if e.message == 'closed stream'
+            end
+          end
+        rescue Errno::ECONNRESET => e
+          # disconnected from client
+          # TODO: log
+        ensure
+          self.close rescue nil
         end
 
         # API to register callback for data arrival
