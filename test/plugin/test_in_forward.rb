@@ -808,6 +808,10 @@ class ForwardInputTest < Test::Unit::TestCase
     true
   end
 
+  # Data ordering is not assured:
+  #  Records in different sockets are processed on different thread, so its scheduling make effect
+  #  on order of emitted records.
+  #  So, we MUST sort emitted records in different `send_data` before assertion.
   def send_data(auth, ssl, data, try_to_receive_response=false, response_timeout=5)
     io = ssl ? connect_ssl : connect
 
