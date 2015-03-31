@@ -802,6 +802,7 @@ class ForwardInputTest < Test::Unit::TestCase
       ping.push('', '')
     end
     io.write ping.to_msgpack
+    io.flush
 
     # reading pong
     pong_data = read_data(io, auth_response_timeout)
@@ -826,6 +827,7 @@ class ForwardInputTest < Test::Unit::TestCase
     res = nil
     p({send: data}) if $json_ssl
     io.write data
+    io.flush
     if try_to_receive_response
       @responses << read_data(io, response_timeout)
     end
