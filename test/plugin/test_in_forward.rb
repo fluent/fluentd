@@ -116,6 +116,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def connect_ssl
     sock = OpenSSL::SSL::SSLSocket.new(TCPSocket.new('127.0.0.1', PORT))
     sock.sync = true
+    sock.sync_close = true
     sock.connect
     sock
   end
@@ -138,8 +139,7 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data false, false, Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
       }
     end
-    assert_equal records[0], d.emits[0]
-    assert_equal records[1], d.emits[1]
+    assert_equal records, d.emits.sort{|a,b| a[0] <=> b[0] }
   end
 
   data('tcp' => [CONFIG, false], 'ssl' => [SSL_CONFIG, true])
@@ -171,7 +171,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     records = [
       ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}],
+      ["tag2", time+1, {"a"=>2}],
     ]
 
     d.expected_emits_length = records.length
@@ -243,7 +243,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     records = [
       ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}],
+      ["tag1", time+1, {"a"=>2}],
     ]
 
     d.expected_emits_length = records.length
@@ -313,7 +313,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     records = [
       ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}],
+      ["tag1", time+1, {"a"=>2}],
     ]
 
     d.expected_emits_length = records.length
@@ -367,7 +367,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     records = [
       ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}],
+      ["tag2", time+1, {"a"=>2}],
     ]
     p({before: records})
 
@@ -379,8 +379,7 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data auth, ssl, [tag, time, record].to_json
       }
     end
-    assert_equal records[0], d.emits[0]
-    assert_equal records[1], d.emits[1]
+    assert_equal records, d.emits.sort{|a,b| a[1] <=> b[1] }
   ensure
     $json_ssl = nil
   end
@@ -509,7 +508,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
+      ["tag2", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -524,7 +523,7 @@ class ForwardInputTest < Test::Unit::TestCase
       }
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
   end
 
@@ -537,7 +536,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
+      ["tag1", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -554,7 +553,7 @@ class ForwardInputTest < Test::Unit::TestCase
       send_data auth, ssl, ["tag1", entries, op].to_msgpack, true
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
   end
 
@@ -567,7 +566,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
+      ["tag1", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -584,7 +583,7 @@ class ForwardInputTest < Test::Unit::TestCase
       send_data auth, ssl, ["tag1", entries, op].to_msgpack, true
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
   end
 
@@ -597,7 +596,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
+      ["tag2", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -612,7 +611,7 @@ class ForwardInputTest < Test::Unit::TestCase
       }
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal expected_acks, @responses.map { |res| JSON.parse(res)['ack'] }
   end
 
@@ -625,7 +624,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
+      ["tag2", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -636,7 +635,7 @@ class ForwardInputTest < Test::Unit::TestCase
       }
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal ["", ""], @responses
   end
 
@@ -649,7 +648,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
+      ["tag1", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -662,7 +661,7 @@ class ForwardInputTest < Test::Unit::TestCase
       send_data auth, ssl, ["tag1", entries].to_msgpack, true
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal [""], @responses
   end
 
@@ -675,7 +674,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
+      ["tag1", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -688,7 +687,7 @@ class ForwardInputTest < Test::Unit::TestCase
       send_data auth, ssl, ["tag1", entries].to_msgpack, true
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal [""], @responses
   end
 
@@ -701,7 +700,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     events = [
       ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
+      ["tag2", time+1, {"a"=>2}]
     ]
     d.expected_emits_length = events.length
     d.run_timeout = 2
@@ -712,7 +711,7 @@ class ForwardInputTest < Test::Unit::TestCase
       }
     end
 
-    assert_equal events, d.emits
+    assert_equal events, d.emits.sort{|a,b| a[1] <=> b[1] }
     assert_equal ["", ""], @responses
   end
 
