@@ -293,7 +293,6 @@ module Fluent::Plugin
       feeder = nil
       serializer = nil
       bytes = 0
-      $json_ssl ||= nil
       conn.on_data do |data|
         # only for first call of callback
         unless feeder
@@ -301,12 +300,11 @@ module Fluent::Plugin
           if first == '{' || first == '[' # json
             parser = Yajl::Parser.new
             parser.on_parse_complete = ->(obj){
-              p({parser: obj}) if $json_ssl
               block.call(obj, bytes, serializer)
               bytes = 0
             }
             serializer = :to_json.to_proc
-            feeder = ->(d){ p({feeder: d}) if $json_ssl; parser << d }
+            feeder = ->(d){ parser << d }
           else # msgpack
             parser = MessagePack::Unpacker.new
             serializer = :to_msgpack.to_proc
@@ -319,7 +317,6 @@ module Fluent::Plugin
           end
         end
 
-        p({reader: data}) if $json_ssl
         bytes += data.bytesize
         feeder.call(data)
       end
