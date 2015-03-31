@@ -212,7 +212,6 @@ class ForwardInputTest < Test::Unit::TestCase
 
   data('tcp' => [CONFIG, false, false], 'ssl' => [SSL_CONFIG, false, true]) # with json, auth doesn't work
   def test_message_json(data)
-    $json_ssl = true
     conf, auth, ssl = data
     d = create_driver(conf)
 
@@ -222,19 +221,15 @@ class ForwardInputTest < Test::Unit::TestCase
       ["tag1", time, {"a"=>1}],
       ["tag2", time+1, {"a"=>2}],
     ]
-    p({before: records})
 
     d.expected_emits_length = records.length
     d.run_timeout = 2
     d.run do
       records.each {|tag,time,record|
-        p({emit: [tag, time, record]})
         send_data auth, ssl, [tag, time, record].to_json
       }
     end
     assert_equal records, d.emits.sort{|a,b| a[1] <=> b[1] }
-  ensure
-    $json_ssl = nil
   end
 
   def test_send_large_chunk_warning
@@ -821,7 +816,6 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     res = nil
-    p({send: data}) if $json_ssl
     io.write data
     io.flush
     if try_to_receive_response
