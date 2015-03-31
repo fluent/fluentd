@@ -260,6 +260,7 @@ module Fluent
           buf = ''
           loop do
             begin
+              buf = ''
               while socket.read_nonblock(@read_length, buf)
                 if buf.empty?
                   unless @running_check.call()
@@ -273,7 +274,8 @@ module Fluent
                 @on_read_callback.call(buf)
                 buf = ''
               end
-            rescue OpenSSL::SSL::SSLErrorWaitReadable # read would block
+            rescue OpenSSL::SSL::SSLErrorWaitReadable => e # read would block
+              p({error: e, msg: e.message, buf: (buf.size > 1024 ? "size > 1024" : buf)}) if $json_ssl
               buf = ''
               sleep @socket_restart_interval
             rescue EOFError => e
