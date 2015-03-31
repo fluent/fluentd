@@ -131,7 +131,15 @@ module Fluent
         pid = io.pid
 
         thread = thread_create do
-          block.call(io) # TODO: rescue and log? or kill entire process?
+          begin
+            block.call(io) # TODO: rescue and log? or kill entire process?
+          rescue EOFError => e
+            # io closed (process exit)
+            ## TODO: log
+          rescue IOError => e
+            raise unless e.message == 'stream closed'
+            ## TODO: log
+          end
 
           # child process probablly ended if sequence reaches here
           begin
