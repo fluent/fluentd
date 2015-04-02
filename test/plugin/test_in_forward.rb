@@ -6,8 +6,11 @@ class ForwardInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
     @responses = []  # for testing responses after sending data
+    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.mkdir_p(TMP_DIR)
   end
 
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/in_forward")
   PORT = unused_port
   CONFIG = %[
     port #{PORT}
@@ -25,6 +28,12 @@ class ForwardInputTest < Test::Unit::TestCase
     assert_equal 0, d.instance.linger_timeout
     assert_equal 0.5, d.instance.blocking_timeout
     assert !d.instance.backlog
+  end
+
+  def test_stop_configure
+    d = create_driver(CONFIG + %[stop_file #{TMP_DIR}/stop\nstop_check_interval 1])
+    assert_equal "#{TMP_DIR}/stop", d.instance.stop_file
+    assert_equal 1, d.instance.stop_check_interval
   end
 
   # TODO: Will add Loop::run arity check with stub/mock library
@@ -408,6 +417,20 @@ class ForwardInputTest < Test::Unit::TestCase
       io.close
     end
     @responses << res if try_to_receive_response
+  end
+
+  def test_stop
+    d = create_driver(CONFIG + %[stop_file #{TMP_DIR}/stop])
+
+    File.open("#{TMP_DIR}/stop", "w").close
+    stub(d.instance).active? { true }
+    mock(d.instance).deactivate
+    d.instance.send(:on_stop_check_timer)
+
+    File.unlink("#{TMP_DIR}/stop")
+    stub(d.instance).active? { false }
+    mock(d.instance).activate
+    d.instance.send(:on_stop_check_timer)
   end
 
   # TODO heartbeat
