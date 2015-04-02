@@ -54,6 +54,8 @@ module Fluent
 
       suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
       @without_source = opts[:without_source] if opts[:without_source]
+      @stop_source = opts[:stop_source] if opts[:stop_source]
+      @stop_source_interval = opts[:stop_source_interval]
     end
 
     attr_reader :inputs
@@ -100,21 +102,54 @@ module Fluent
       @error_collector = error_label.event_router
     end
 
+    def on_stop_source_timer
+      if File.exist?(@stop_source)
+        shutdown_inputs
+      else
+        start_inputs
+      end
+    end
+
     def start
       super
 
-      @labels.each { |n, l|
-        l.start
-      }
+      start_labels
+      if @stop_source
+        start_inputs unless File.exist?(@stop_source)
+        @default_loop = Coolio::Loop.default
+        @timer = TimerWatcher.new(@stop_source_interval, true, $log, &method(:on_stop_source_timer))
+        @default_loop.attach(@timer) # engine takes care of default_loop
+      else
+        start_inputs
+      end
+    end
 
+    def shutdown
+      # Shutdown Input plugin first to prevent emitting to terminated Output plugin
+      shutdown_inputs
+      shutdown_labels
+
+      super
+    end
+
+    def start_inputs
+      return if inputs_running?
+      $log.info "start input plugins"
       @inputs.each { |i|
         i.start
         @started_inputs << i
       }
     end
 
-    def shutdown
-      # Shutdown Input plugin first to prevent emitting to terminated Output plugin
+    def start_labels
+      @labels.each { |n, l|
+        l.start
+      }
+    end
+
+    def shutdown_inputs
+      return unless inputs_running?
+      $log.info "shutdown input plugins"
       @started_inputs.map { |i|
         Thread.new do
           begin
@@ -125,12 +160,17 @@ module Fluent
           end
         end
       }.each { |t| t.join }
+      @started_inputs = []
+    end
 
+    def shutdown_labels
       @labels.each { |n, l|
         l.shutdown
       }
+    end
 
-      super
+    def inputs_running?
+      !@started_inputs.empty?
     end
 
     def suppress_interval(interval_time)
@@ -191,6 +231,21 @@ module Fluent
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end
         raise error
+      end
+    end
+
+    class TimerWatcher < Coolio::TimerWatcher
+      def initialize(interval, repeat, log, &callback)
+        @callback = callback
+        @log = log
+        super(interval, repeat)
+      end
+
+      def on_timer
+        @callback.call
+      rescue
+        @log.error $!.to_s
+        @log.error_backtrace
       end
     end
 

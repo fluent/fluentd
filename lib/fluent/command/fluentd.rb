@@ -83,6 +83,14 @@ op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {
   opts[:without_source] = b
 }
 
+op.on('--stop-source PATH', "stop input plugins if specified file exists") {|s|
+  opts[:stop_source] = s
+}
+
+op.on('--stop-source-interval SECONDS', "check the stop file every specified seconds") {|s|
+  opts[:stop_source_interval] = s.to_i
+}
+
 op.on('--use-v1-config', "Use v1 configuration format (default)", TrueClass) {|b|
   opts[:use_v1_config] = b
 }

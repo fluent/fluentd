@@ -92,6 +92,8 @@ module Fluent
         :suppress_interval => 0,
         :suppress_repeated_stacktrace => true,
         :without_source => false,
+        :stop_source => nil,
+        :stop_source_interval => 5,
         :use_v1_config => true,
         :supervise => true,
       }
@@ -114,6 +116,8 @@ module Fluent
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
       @without_source = opt[:without_source]
+      @stop_source = opt[:stop_source]
+      @stop_source_interval = opt[:stop_source_interval]
 
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -366,6 +370,8 @@ module Fluent
       config_param :emit_error_log_interval, :time, :default => nil
       config_param :suppress_config_dump, :bool, :default => nil
       config_param :without_source, :bool, :default => nil
+      config_param :stop_source, :string, :default => nil
+      config_param :stop_source_interval, :time, :default => nil
 
       def initialize(conf)
         super()
@@ -380,6 +386,8 @@ module Fluent
           @suppress_config_dump = system.suppress_config_dump unless system.suppress_config_dump.nil?
           @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
           @without_source = system.without_source unless system.without_source.nil?
+          @stop_source = system.stop_source unless system.stop_source.nil?
+          @stop_source_interval = system.stop_source_interval
         }
       end
     end
@@ -417,7 +425,13 @@ module Fluent
     end
 
     def init_engine
-      init_opts = {:suppress_interval => @suppress_interval, :suppress_config_dump => @suppress_config_dump, :without_source => @without_source}
+      init_opts = {
+        :suppress_interval => @suppress_interval,
+        :suppress_config_dump => @suppress_config_dump,
+        :without_source => @without_source,
+        :stop_source => @stop_source,
+        :stop_source_interval => @stop_source_interval,
+      }
       Fluent::Engine.init(init_opts)
 
       @libs.each {|lib|

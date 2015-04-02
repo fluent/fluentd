@@ -20,6 +20,8 @@ module Fluent::Config
       @suppress_config_dump = nil
       @suppress_repeated_stacktrace = nil
       @without_source = nil
+      @stop_source = nil
+      @stop_source_interval = nil
     end
   end
 
@@ -43,11 +45,15 @@ module Fluent::Config
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
+      assert_nil(sc.stop_source)
+      assert_nil(sc.stop_source_interval)
       assert_nil(s.instance_variable_get(:@log_level))
       assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
       assert_nil(s.instance_variable_get(:@emit_error_log_interval))
       assert_nil(s.instance_variable_get(:@suppress_config_dump))
       assert_nil(s.instance_variable_get(:@without_source))
+      assert_nil(s.instance_variable_get(:@stop_source))
+      assert_nil(s.instance_variable_get(:@stop_source_interval))
     end
 
     {'log_level' => 'error',
@@ -55,6 +61,8 @@ module Fluent::Config
      'emit_error_log_interval' => 60,
      'suppress_config_dump' => true,
      'without_source' => true,
+     'stop_source' => "/path/to/stop",
+     'stop_source_interval' => 10,
     }.each { |k, v|
       test "accepts #{k} parameter" do
         conf = parse_text(<<-EOS)
@@ -81,6 +89,8 @@ module Fluent::Config
         assert_nil(s.instance_variable_get(:@emit_error_log_interval))
         assert_nil(s.instance_variable_get(:@suppress_config_dump))
         assert_nil(s.instance_variable_get(:@without_source))
+        assert_nil(s.instance_variable_get(:@stop_source))
+        assert_nil(s.instance_variable_get(:@stop_source_interval))
       end
     }
 
