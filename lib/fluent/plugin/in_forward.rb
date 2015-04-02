@@ -34,6 +34,9 @@ module Fluent
     config_param :chunk_size_warn_limit, :size, :default => nil
     config_param :chunk_size_limit, :size, :default => nil
 
+    config_param :stop_file, :string, :default => nil
+    config_param :stop_check_interval, :time, :default => 5
+
     def configure(conf)
       super
     end
@@ -44,11 +47,15 @@ module Fluent
       @lsock = listen
       @loop.attach(@lsock)
 
-      @usock = SocketUtil.create_udp_socket(@bind)
-      @usock.bind(@bind, @port)
-      @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-      @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
+      @hbr = listen_heartbeat
       @loop.attach(@hbr)
+
+      if @stop_file
+        @active = true
+        on_stop_check_timer # initial check on booting up
+        @timer = TimerWatcher.new(@stop_check_interval, true, log, &method(:on_stop_check_timer))
+        @loop.attach(@timer)
+      end
 
       @thread = Thread.new(&method(:run))
     end
@@ -65,9 +72,9 @@ module Fluent
       # As a workaround, check if watchers are attached before detaching them.
       @loop.watchers.each {|w| w.detach if w.attached? }
       @loop.stop
-      @usock.close
+      @usock.close unless @usock.closed?
       @thread.join
-      @lsock.close
+      @lsock.close unless @lsock.instance_variable_get(:@listen_socket).closed?
     end
 
     def listen
@@ -75,6 +82,13 @@ module Fluent
       s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s
+    end
+
+    def listen_heartbeat
+      @usock = SocketUtil.create_udp_socket(@bind)
+      @usock.bind(@bind, @port)
+      @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+      HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
     end
 
     #config_param :path, :string, :default => DEFAULT_SOCKET_PATH
@@ -167,6 +181,52 @@ module Fluent
 
       # return option for response
       option
+    end
+
+    class TimerWatcher < Coolio::TimerWatcher
+      def initialize(interval, repeat, log, &callback)
+        @callback = callback
+        @log = log
+        super(interval, repeat)
+      end
+
+      def on_timer
+        @callback.call
+      rescue
+        # TODO log?
+        @log.error $!.to_s
+        @log.error_backtrace
+      end
+    end
+
+    def active?
+      @active
+    end
+
+    def activate
+      @lsock = listen
+      @hbr   = listen_heartbeat
+      @active = true
+    end
+
+    def deactivate
+      @hbr.close
+      @lsock.close
+      @active = false
+    end
+
+    def on_stop_check_timer
+      if File.exist?(stop_file)
+        if active?
+          log.info "deactivate"
+          deactivate
+        end
+      else
+        unless active?
+          log.info "activate"
+          activate
+        end
+      end
     end
 
     class Handler < Coolio::Socket
