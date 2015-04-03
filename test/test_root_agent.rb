@@ -20,9 +20,9 @@ class RootAgentTest < ::Test::Unit::TestCase
 
   data(
     'suppress interval' => [{:suppress_interval => 30}, {:@suppress_emit_error_log_interval => 30}],
-    'without source' => [{:without_source => true}, {:@without_source => true}],
-    'stop source' => [{:stop_source => "#{TMP_DIR}/stop"}, {:@stop_source => "#{TMP_DIR}/stop"}],
-    'stop source interval' => [{:stop_source_interval=> 1}, {:@stop_source_interval => 1}]
+    'without source' => [{:without_source => ""}, {:@without_source => ""}],
+    'without source file' => [{:without_source => "#{TMP_DIR}/without"}, {:@without_source => "#{TMP_DIR}/without"}],
+    'without source interval' => [{:without_source_interval=> 1}, {:@without_source_interval => 1}]
     )
   def test_initialize_with_opt(data)
     opt, expected = data
@@ -142,21 +142,39 @@ EOC
     end
   end
 
-  sub_test_case 'stop_source' do
-    def stop_file
-      "#{TMP_DIR}/stop"
-    end
-
+  sub_test_case 'without_source' do
     setup do
       File.unlink(stop_file) rescue nil
-      @ra = RootAgent.new(:stop_source => stop_file)
+      @ra = RootAgent.new(:without_source => "")
       @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
         <source>
           @type test_in
           @id test_in
         </source>
       EOC
-      @ra
+    end
+
+    test 'invoke a fluentd without input plugins' do
+      @ra.start
+      assert_empty @ra.inputs
+      @ra.shutdown
+    end
+  end
+
+  sub_test_case 'without_source file' do
+    def stop_file
+      "#{TMP_DIR}/stop"
+    end
+
+    setup do
+      File.unlink(stop_file) rescue nil
+      @ra = RootAgent.new(:without_source => stop_file)
+      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+        <source>
+          @type test_in
+          @id test_in
+        </source>
+      EOC
     end
 
     test 'stop file does not exist on bootup' do
@@ -175,15 +193,15 @@ EOC
     test 'stop file appear => disappear => appear' do
       @ra.start
       File.open(stop_file, "w").close
-      @ra.on_stop_source_timer
+      @ra.on_without_source_timer
       assert_not_equal true, @ra.inputs.first.started
 
       File.unlink(stop_file)
-      @ra.on_stop_source_timer
+      @ra.on_without_source_timer
       assert_true @ra.inputs.first.started
 
       File.open(stop_file, "w").close
-      @ra.on_stop_source_timer
+      @ra.on_without_source_timer
       assert_not_equal true, @ra.inputs.first.started
     end
   end

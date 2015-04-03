@@ -54,8 +54,7 @@ module Fluent
 
       suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
       @without_source = opts[:without_source] if opts[:without_source]
-      @stop_source = opts[:stop_source] if opts[:stop_source]
-      @stop_source_interval = opts[:stop_source_interval]
+      @without_source_interval = opts[:without_source_interval]
     end
 
     attr_reader :inputs
@@ -84,7 +83,7 @@ module Fluent
       super
 
       # initialize <source> elements
-      if @without_source
+      if @without_source and @without_source.empty?
         log.info "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements.select { |e| e.name == 'source' }.each { |e|
@@ -102,8 +101,8 @@ module Fluent
       @error_collector = error_label.event_router
     end
 
-    def on_stop_source_timer
-      if File.exist?(@stop_source)
+    def on_without_source_timer
+      if File.exist?(@without_source)
         shutdown_inputs
       else
         start_inputs
@@ -114,11 +113,13 @@ module Fluent
       super
 
       start_labels
-      if @stop_source
-        start_inputs unless File.exist?(@stop_source)
-        @default_loop = Coolio::Loop.default
-        @timer = TimerWatcher.new(@stop_source_interval, true, $log, &method(:on_stop_source_timer))
-        @default_loop.attach(@timer) # engine takes care of default_loop
+      if @without_source
+        unless @without_source.empty? # PATH is given
+          start_inputs unless File.exist?(@without_source)
+          @default_loop = Coolio::Loop.default
+          @timer = TimerWatcher.new(@without_source_interval, true, $log, &method(:on_without_source_timer))
+          @default_loop.attach(@timer) # engine takes care of default_loop
+        end
       else
         start_inputs
       end
@@ -139,6 +140,7 @@ module Fluent
         i.start
         @started_inputs << i
       }
+      $log.debug "started input plugins"
     end
 
     def start_labels
@@ -161,6 +163,7 @@ module Fluent
         end
       }.each { |t| t.join }
       @started_inputs = []
+      $log.debug "shutdowned input plugins"
     end
 
     def shutdown_labels

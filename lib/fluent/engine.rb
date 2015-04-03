@@ -49,8 +49,7 @@ module Fluent
       suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
       @suppress_config_dump = opts[:suppress_config_dump] if opts[:suppress_config_dump]
       @without_source = opts[:without_source] if opts[:without_source]
-      @stop_source = opts[:stop_source] if opts[:stop_source]
-      @stop_source_interval = opts[:stop_source_interval]
+      @without_source_interval = opts[:without_source_interval]
 
       @root_agent = RootAgent.new(opts)
 
