@@ -68,14 +68,15 @@ module Fluent
         return merge_for_finalized(other) if self.final?
 
         options = {
-          param_name: other.param_name,
-          required: (other.required.nil? ? self.required : other.required),
-          multi: (other.multi.nil? ? self.multi : other.multi)
+          param_name: other.param_name, # param_name is used not to ovewrite plugin's instance varible, so this should be able to be overwritten
+          required: (@required.nil? ? other.required : self.required), # subclass cannot overwrite base class's definition
+          multi: (@multi.nil? ? other.multi : self.multi),
+          alias: (@alias.nil? ? other.alias : self.alias),
         }
         merged = self.class.new(other.name, options)
 
         merged.argument = other.argument || self.argument
-        merged.params = self.params.merge(other.params)
+        merged.params = other.params.merge(self.params)
         merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = {}
         (self.sections.keys + other.sections.keys).uniq.each do |section_key|
@@ -225,11 +226,16 @@ module Fluent
           raise ArgumentError, "#{self.name}: unknown config_section arguments: #{args.inspect}"
         end
 
-        sub_proxy = ConfigureProxy.new(name, *args)
-        sub_proxy.instance_exec(&block)
+        # if @sections[name]
+        #   @sections[name].instance_exec(&block)
+        # else
+          sub_proxy = ConfigureProxy.new(name, *args)
+          sub_proxy.instance_exec(&block)
+
+          @sections[name] = sub_proxy
+        # end
 
         @params.delete(name)
-        @sections[name] = sub_proxy
 
         name
       end

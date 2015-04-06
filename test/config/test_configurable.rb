@@ -573,7 +573,7 @@ module Fluent::Config
           Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
         end
 
-        test 'subclass configuration spec can overwrite superclass specs' do
+        test 'adds only config_param definitions into configuration without overwriting existing configuration elements' do
           # conf0 = e('ROOT', '', {}, [])
 
           conf1 = e('ROOT', '', {
