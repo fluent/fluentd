@@ -23,12 +23,14 @@ module Fluent
 
       # interval: integer/float, repeat: true/false
       def timer_execute(interval:, repeat: true, &block)
-        timer = TimerWatcher.new(interval, repeat, log, &block)
+        checker = ->(){ @_timer_running }
+        timer = TimerWatcher.new(interval, repeat, log, checker, &block)
         event_loop_attach(timer)
       end
 
       def initialize
         super
+        @_timer_running = true
       end
 
       def stop
@@ -36,6 +38,7 @@ module Fluent
       end
 
       def shutdown
+        @_timer_running = false
         super
       end
 
@@ -48,14 +51,15 @@ module Fluent
       end
 
       class TimerWatcher < Coolio::TimerWatcher
-        def initialize(interval, repeat, log, &callback)
+        def initialize(interval, repeat, log, checker, &callback)
           @callback = callback
           @log = log
+          @checker = checker
           super(interval, repeat)
         end
 
         def on_timer
-          @callback.call
+          @callback.call if @checker.call()
         rescue => e
           # TODO: raise in tests?
           @log.error "Something wrong in timer callback", error: e, error_class: e.class
