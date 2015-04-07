@@ -16,6 +16,7 @@
 
 require 'fluent/registry'
 require 'fluent/parser'
+require 'fluent/storage'
 require 'fluent/config/error'
 
 module Fluent
@@ -60,6 +61,10 @@ module Fluent
       TextFormatter.register_template(type, klass)
     end
 
+    def self.register_storage(type, klass)
+      Storage.register(type, klass)
+    end
+
     def self.new_input(type)
       new_impl('input', INPUT_REGISTRY, type)
     end
@@ -82,6 +87,13 @@ module Fluent
 
     def self.new_formatter(type)
       TextFormatter.lookup(type)
+    end
+
+    def self.new_storage(type)
+      if klass = Storage.lookup(type)
+        return klass.new
+      end
+      raise ConfigError, "Unknown storage plugin '#{type}'"
     end
 
     def self.register_impl(name, registry, type, klass)
