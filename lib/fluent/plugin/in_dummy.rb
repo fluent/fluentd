@@ -14,8 +14,15 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class DummyInput < Input
+require 'fluent/plugin/input'
+require 'fluent/plugin_support/thread'
+# require 'fluent/plugin_support/storage'
+
+module Fluent::Plugin
+  class DummyInput < Fluent::Plugin::Input
+    include Fluent::PluginSupport::Thread
+    # include Fluent::PluginSupport::Storage
+
     Fluent::Plugin.register_input('dummy', self)
 
     BIN_NUM = 10
@@ -23,11 +30,11 @@ module Fluent
     desc "The value is the tag assigned to the generated events."
     config_param :tag, :string
     desc "It configures how many events to generate per second."
-    config_param :rate, :integer, :default => 1
+    config_param :rate, :integer, default: 1
     desc "If specified, each generated event has an auto-incremented key field."
-    config_param :auto_increment_key, :string, :default => nil
+    config_param :auto_increment_key, :string, default: nil
     desc "The dummy data to be generated. An array of JSON hashes or a single JSON hash."
-    config_param :dummy, :default => [{"message"=>"dummy"}] do |val|
+    config_param :dummy, default: [{"message"=>"dummy"}] do |val|
       begin
         parsed = JSON.parse(val)
       rescue JSON::ParserError => e
@@ -52,30 +59,28 @@ module Fluent
 
     def start
       super
-      @running = true
-      @thread = Thread.new(&method(:run))
+
+      batch_num    = (@rate / BIN_NUM).to_i
+      residual_num = (@rate % BIN_NUM)
+
+      thread_create do
+        while thread_current_running?
+          current_time = Time.now.to_i
+          BIN_NUM.times do
+            break unless (thread_current_running? && Time.now.to_i <= current_time)
+            wait(0.1) { emit(batch_num) }
+          end
+          emit(residual_num)
+          # wait for next second
+          while thread_current_running? && Time.now.to_i <= current_time
+            sleep 0.01
+          end
+        end
+      end
     end
 
     def shutdown
-      @running = false
-      @thread.join
-    end
-
-    def run
-      batch_num    = (@rate / BIN_NUM).to_i
-      residual_num = (@rate % BIN_NUM)
-      while @running
-        current_time = Time.now.to_i
-        BIN_NUM.times do
-          break unless (@running && Time.now.to_i <= current_time)
-          wait(0.1) { emit(batch_num) }
-        end
-        emit(residual_num)
-        # wait for next second
-        while @running && Time.now.to_i <= current_time
-          sleep 0.01
-        end
-      end
+      super
     end
 
     def emit(num)

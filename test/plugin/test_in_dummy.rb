@@ -8,7 +8,7 @@ class DummyTest < Test::Unit::TestCase
   end
 
   def create_driver(conf)
-    Fluent::Test::InputTestDriver.new(Fluent::DummyInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::DummyInput).configure(conf)
   end
 
   sub_test_case 'configure' do
