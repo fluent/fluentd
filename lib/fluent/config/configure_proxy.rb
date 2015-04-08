@@ -67,29 +67,16 @@ module Fluent
         return merge_for_finalized(other) if self.final?
 
         options = {
-          param_name: other.param_name, # param_name is used not to ovewrite plugin's instance varible, so this should be able to be overwritten
-          required: (@required.nil? ? other.required : self.required), # subclass cannot overwrite base class's definition
-          multi: (@multi.nil? ? other.multi : self.multi),
-          alias: (@alias.nil? ? other.alias : self.alias),
+          param_name: other.param_name,
+          required: (other.required.nil? ? self.required : other.required),
+          multi: (other.multi.nil? ? self.multi : other.multi)
         }
         merged = self.class.new(other.name, options)
 
         merged.argument = other.argument || self.argument
-        merged.params = other.params.merge(self.params)
+        merged.params = self.params.merge(other.params)
         merged.defaults = self.defaults.merge(other.defaults)
-        merged.sections = {}
-        (self.sections.keys + other.sections.keys).uniq.each do |section_key|
-          self_section = self.sections[section_key]
-          other_section = other.sections[section_key]
-          merged_section = if self_section && other_section
-                             self_section.merge(other_section)
-                           elsif self_section || other_section
-                             self_section || other_section
-                           else
-                             raise "BUG: both of self and other section are nil"
-                           end
-          merged.sections[section_key] = merged_section
-        end
+        merged.sections = self.sections.merge(other.sections)
 
         merged
       end
@@ -201,16 +188,11 @@ module Fluent
           raise ArgumentError, "#{self.name}: unknown config_section arguments: #{args.inspect}"
         end
 
-        # if @sections[name]
-        #   @sections[name].instance_exec(&block)
-        # else
-          sub_proxy = ConfigureProxy.new(name, *args)
-          sub_proxy.instance_exec(&block)
-
-          @sections[name] = sub_proxy
-        # end
+        sub_proxy = ConfigureProxy.new(name, *args)
+        sub_proxy.instance_exec(&block)
 
         @params.delete(name)
+        @sections[name] = sub_proxy
 
         name
       end
