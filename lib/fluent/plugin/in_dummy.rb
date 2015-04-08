@@ -16,17 +16,18 @@
 
 require 'fluent/plugin/input'
 require 'fluent/plugin_support/thread'
-# require 'fluent/plugin_support/storage'
+require 'fluent/plugin_support/storage'
 
 module Fluent::Plugin
   class DummyInput < Fluent::Plugin::Input
     include Fluent::PluginSupport::Thread
-    # include Fluent::PluginSupport::Storage
+    include Fluent::PluginSupport::Storage
 
     Fluent::Plugin.register_input('dummy', self)
 
     BIN_NUM = 10
 
+    config_param :suspend, :bool, default: false
     config_param :tag, :string
     config_param :rate, :integer, default: 1
     config_param :auto_increment_key, :string, default: nil
@@ -49,12 +50,17 @@ module Fluent::Plugin
     def configure(conf)
       super
 
-      @increment_value = 0
-      @dummy_index = 0
+      unless @suspend
+        storage.autosave = false
+        storage.save_at_shutdown = false
+      end
     end
 
     def start
       super
+
+      storage.put(:increment_value, 0) unless storage.get(:increment_value)
+      storage.put(:dummy_index, 0) unless storage.get(:dummy_index)
 
       batch_num    = (@rate / BIN_NUM).to_i
       residual_num = (@rate % BIN_NUM)
@@ -75,27 +81,29 @@ module Fluent::Plugin
       end
     end
 
-    def shutdown
-      super
-    end
-
     def emit(num)
       num.times { router.emit(@tag, Fluent::Engine.now, generate()) }
     end
 
     def generate
-      d = @dummy[@dummy_index]
-      unless d
-        @dummy_index = 0
-        d = @dummy[0]
+      storage.synchronize do
+        index = storage.get(:dummy_index)
+        d = @dummy[index]
+        unless d
+          index = 0
+          d = @dummy[index]
+        end
+        storage.put(:dummy_index, index + 1)
+
+        if @auto_increment_key
+          d = d.dup
+          inc_value = storage.get(:increment_value)
+          d[@auto_increment_key] = inc_value
+          storage.put(:increment_value, inc_value + 1)
+        end
+
+        d
       end
-      @dummy_index += 1
-      if @auto_increment_key
-        d = d.dup
-        d[@auto_increment_key] = @increment_value
-        @increment_value += 1
-      end
-      d
     end
 
     def wait(time)
