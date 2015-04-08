@@ -16,17 +16,17 @@
 
 require 'fluent/storage'
 require 'fluent/configurable'
+require 'fluent/storage/base'
 
 require 'json'
+require 'fileutils'
 
 module Fluent
   module Storage
     class JSON < Base
-      include Configurable
-
       Fluent::Plugin.register_storage('json', self)
 
-      config_section :storage do
+      config_section :storage, required: false, multi: false, param_name: :storage_config do
         config_param :path, :string
         config_param :pretty_print, :bool, default: true
       end
@@ -38,9 +38,10 @@ module Fluent
 
       def configure(conf)
         super
-        @path = @storage.path
+
+        @path = @storage_config.path
         @tmp_path = @path + '.tmp'
-        @pretty_print = @storage.pretty_print
+        @pretty_print = @storage_config.pretty_print
       end
 
       def load
@@ -80,6 +81,7 @@ module Fluent
                           else
                             ::JSON.generate(@store)
                           end
+            FileUtils.mkdir_p(File.dirname(@tmp_path))
             open(@tmp_path, 'w:utf-8') do |io|
               io.write json_string
             end
@@ -111,6 +113,12 @@ module Fluent
       def fetch(key, default_value)
         synchronize do
           @store.fetch(key.to_sym, default_value)
+        end
+      end
+
+      def delete(key)
+        synchronize do
+          @store.delete(key.to_sym)
         end
       end
     end

@@ -70,9 +70,9 @@ module Fluent::Storage
           assert !(File.exist?(test_path))
 
           @storage.configure(e('ROOT', '', {}, [e('storage', '', {'path' => test_path, 'pretty_print' => 'false'}, [])]))
-          assert_equal test_path, @storage.storage.path
+          assert_equal test_path, @storage.storage_config.path
           assert_equal test_path + '.tmp', @storage.instance_eval{ @tmp_path }
-          assert_equal false, @storage.storage.pretty_print
+          assert_equal false, @storage.storage_config.pretty_print
 
           assert_equal({}, @storage.instance_eval{ @store })
 
