@@ -32,6 +32,10 @@ module Fluent
 
       alias :object_id :__id__
 
+      def to_s
+        inspect
+      end
+
       def inspect
         "<Fluent::Config::Section #{@params.to_json}>"
       end
@@ -61,6 +65,19 @@ module Fluent
         @params[key.to_sym]
       end
 
+      def respond_to?(symbol, include_all=false)
+        case symbol
+        when :inspect, :nil?, :to_h, :+, :instance_of?, :kind_of?, :[], :respond_to?, :respond_to_missing?, :method_missing,
+          true
+        when :!, :!= , :==, :equal?, :instance_eval, :instane_exec
+          true
+        when :method_missing, :singleton_method_added, :singleton_method_removed, :singleton_method_undefined
+          include_all
+        else
+          false
+        end
+      end
+
       def respond_to_missing?(symbol, include_private)
         @params.has_key?(symbol)
       end
@@ -69,7 +86,7 @@ module Fluent
         if @params.has_key?(name)
           @params[name]
         else
-          super
+          ::Kernel.raise ::NoMethodError, "undefined method `#{name}' for #{self.inspect}"
         end
       end
     end
