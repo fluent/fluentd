@@ -17,6 +17,7 @@
 require 'fluent/plugin'
 require 'fluent/configurable'
 require 'fluent/plugin_id'
+require 'fluent/system_config'
 require 'fluent/log'
 
 module Fluent
@@ -25,6 +26,7 @@ module Fluent
       include Configurable
       include PluginId
       include PluginLoggerMixin
+      include SystemConfigMixin
 
       def initialize
         super
