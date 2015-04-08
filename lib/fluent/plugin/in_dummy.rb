@@ -18,9 +18,14 @@ require 'json'
 
 require 'fluent/plugin/input'
 require 'fluent/config/error'
+require 'fluent/plugin_helper/thread'
+require 'fluent/plugin_helper/storage'
 
 module Fluent::Plugin
   class DummyInput < Input
+    include Fluent::PluginHelper::Thread
+    include Fluent::PluginHelper::Storage
+
     Fluent::Plugin.register_input('dummy', self)
 
     helpers :thread, :storage
@@ -33,6 +38,8 @@ module Fluent::Plugin
     config_param :rate, :integer, default: 1
     desc "If specified, each generated event has an auto-incremented key field."
     config_param :auto_increment_key, :string, default: nil
+    desc "The boolean to suspend-and-resume incremental value after restart"
+    config_param :suspend, :bool, default: false
     desc "The dummy data to be generated. An array of JSON hashes or a single JSON hash."
     config_param :dummy, default: [{"message"=>"dummy"}] do |val|
       begin
@@ -58,11 +65,20 @@ module Fluent::Plugin
     def configure(conf)
       super
       @dummy_index = 0
+      unless @suspend
+        storage.autosave = false
+        storage.save_at_shutdown = false
+      end
     end
 
     def start
       super
 
+      storage.put(:increment_value, 0) unless storage.get(:increment_value)
+      storage.put(:dummy_index, 0) unless storage.get(:dummy_index)
+
+      @running = true
+      @thread = Thread.new(&method(:run))
       @storage = storage_create(type: 'local')
       if @auto_increment_key && !@storage.get(:auto_increment_value)
         @storage.put(:auto_increment_value, -1)
@@ -97,17 +113,26 @@ module Fluent::Plugin
     end
 
     def generate
-      d = @dummy[@dummy_index]
-      unless d
-        @dummy_index = 0
-        d = @dummy[0]
+      storage.synchronize do
+        d = @dummy[@dummy_index]
+        unless d
+          @dummy_index = 0
+          d = @dummy[0]
+        end
+        @dummy_index += 1
+        if @auto_increment_key
+          d = d.dup
+          d[@auto_increment_key] = @storage.update(:auto_increment_value){|v| v + 1 }
+
+          if @auto_increment_key
+            d = d.dup
+            inc_value = storage.get(:increment_value)
+            d[@auto_increment_key] = inc_value
+            storage.put(:increment_value, inc_value + 1)
+          end
+          d
+        end
       end
-      @dummy_index += 1
-      if @auto_increment_key
-        d = d.dup
-        d[@auto_increment_key] = @storage.update(:auto_increment_value){|v| v + 1 }
-      end
-      d
     end
 
     def wait(time)
