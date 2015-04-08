@@ -83,6 +83,10 @@ op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {
   opts[:without_source] = b
 }
 
+op.on('--plugin-storage-path DIR_PATH', "directory path which is used for storages of plugin internal data") {|s|
+  opts[:plugin_storage_path] = s
+}
+
 op.on('--use-v1-config', "Use v1 configuration format (default)", TrueClass) {|b|
   opts[:use_v1_config] = b
 }

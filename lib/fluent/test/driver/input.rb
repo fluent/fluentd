@@ -31,10 +31,10 @@ module Fluent
         attr_accessor :run_timeout, :expected_emits_length
         attr_reader :emit_streams
 
-        def initialize(klass, &block)
+        def initialize(klass, opts={}, &block)
           FileBuffer.clear_buffer_paths
 
-          super(klass, &block)
+          super
 
           @emit_streams = []
           @run_timeout = 60

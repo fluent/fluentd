@@ -15,6 +15,7 @@
 #
 
 require 'fluent/load'
+require 'fluent/system_config'
 require 'etc'
 
 module Fluent
@@ -92,6 +93,7 @@ module Fluent
         :suppress_interval => 0,
         :suppress_repeated_stacktrace => true,
         :without_source => false,
+        :plugin_storage_path => nil,
         :use_v1_config => true,
         :supervise => true,
       }
@@ -115,6 +117,7 @@ module Fluent
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
       @without_source = opt[:without_source]
+      @plugin_storage_path = opt[:plugin_storage_path]
 
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
@@ -125,7 +128,8 @@ module Fluent
     def start
       @log.init
       read_config
-      apply_system_config
+      @system_config = SystemConfig.create(@conf) # @conf is set in read_config
+      @system_config.apply(self)
 
       dry_run if @dry_run
       start_daemonize if @daemonize
@@ -412,36 +416,6 @@ module Fluent
       @conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
     end
 
-    class SystemConfig
-      include Configurable
-
-      config_param :log_level, :default => nil do |level|
-        Log.str_to_level(level)
-      end
-      config_param :suppress_repeated_stacktrace, :bool, :default => nil
-      config_param :emit_error_log_interval, :time, :default => nil
-      config_param :suppress_config_dump, :bool, :default => nil
-      config_param :without_source, :bool, :default => nil
-      config_param :rpc_endpoint, :string, :default => nil
-
-      def initialize(conf)
-        super()
-        configure(conf)
-      end
-
-      def apply(supervisor)
-        system = self
-        supervisor.instance_eval {
-          @log.level = @log_level = system.log_level unless system.log_level.nil?
-          @suppress_interval = system.emit_error_log_interval unless system.emit_error_log_interval.nil?
-          @suppress_config_dump = system.suppress_config_dump unless system.suppress_config_dump.nil?
-          @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
-          @without_source = system.without_source unless system.without_source.nil?
-          @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
-        }
-      end
-    end
-
     # TODO: this method should be moved to SystemConfig class method
     def apply_system_config
       systems = @conf.elements.select { |e|
@@ -475,7 +449,7 @@ module Fluent
     end
 
     def init_engine
-      init_opts = {:suppress_interval => @suppress_interval, :suppress_config_dump => @suppress_config_dump, :without_source => @without_source}
+      init_opts = {:suppress_interval => @suppress_interval, :suppress_config_dump => @suppress_config_dump, :without_source => @without_source, :plugin_storage_path => @plugin_storage_path, :system_config => @system_config}
       Fluent::Engine.init(init_opts)
 
       @libs.each {|lib|

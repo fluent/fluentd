@@ -2,7 +2,7 @@ require_relative '../helper'
 require 'fluent/configurable'
 require 'fluent/config/element'
 require 'fluent/config/section'
-require 'fluent/supervisor'
+require 'fluent/system_config'
 
 module Fluent::Config
   class FakeLoggerInitializer
@@ -36,7 +36,7 @@ module Fluent::Config
         </system>
       EOS
       s = FakeSupervisor.new
-      sc = Fluent::Supervisor::SystemConfig.new(conf)
+      sc = Fluent::SystemConfig.new(conf)
       sc.apply(s)
       assert_nil(sc.log_level)
       assert_nil(sc.suppress_repeated_stacktrace)
@@ -63,7 +63,7 @@ module Fluent::Config
           </system>
         EOS
         s = FakeSupervisor.new
-        sc = Fluent::Supervisor::SystemConfig.new(conf)
+        sc = Fluent::SystemConfig.new(conf)
         sc.apply(s)
         assert_not_nil(sc.instance_variable_get("@#{k}"))
         key = (k == 'emit_error_log_interval' ? 'suppress_interval' : k)
@@ -74,7 +74,7 @@ module Fluent::Config
     {'foo' => 'bar', 'hoge' => 'fuga'}.each { |k, v|
       test "should not affect settable parameters with unknown #{k} parameter" do
         s = FakeSupervisor.new
-        sc = Fluent::Supervisor::SystemConfig.new({k => v})
+        sc = Fluent::SystemConfig.new({k => v})
         sc.apply(s)
         assert_nil(s.instance_variable_get(:@log_level))
         assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
@@ -91,7 +91,7 @@ module Fluent::Config
         </system>
       EOS
       s = FakeSupervisor.new
-      sc = Fluent::Supervisor::SystemConfig.new(conf)
+      sc = Fluent::SystemConfig.new(conf)
       sc.apply(s)
       assert_equal(Fluent::Log::LEVEL_WARN, s.instance_variable_get("@log").level)
     end

@@ -22,7 +22,7 @@ module Fluent
       class Base
         include ::Test::Unit::Assertions
 
-        def initialize(klass, &block)
+        def initialize(klass, opts={}, &block)
           if klass.is_a?(Class)
             if block
               # Create new class for test w/ overwritten methods
@@ -33,6 +33,9 @@ module Fluent
             @instance = klass.new
           else
             @instance = klass
+          end
+          if opts
+            @instance.system_config_override(opts)
           end
           @instance.router = Engine.root_agent.event_router
           @instance.log = TestLogger.new

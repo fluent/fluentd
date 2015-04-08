@@ -17,6 +17,7 @@
 module Fluent
   require 'fluent/event_router'
   require 'fluent/root_agent'
+  require 'fluent/system_config'
 
   class EngineClass
     def initialize
@@ -30,11 +31,14 @@ module Fluent
       @log_event_queue = []
 
       @suppress_config_dump = false
+
+      @system_config = SystemConfig.new({})
     end
 
     MATCH_CACHE_SIZE = 1024
     LOG_EMIT_INTERVAL = 0.1
 
+    attr_reader :system_config
     attr_reader :root_agent
     attr_reader :matches, :sources
 
@@ -45,9 +49,12 @@ module Fluent
         Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
       end
 
+      @system_config = opts[:system_config] if opts[:system_config]
+
       suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
       @suppress_config_dump = opts[:suppress_config_dump] if opts[:suppress_config_dump]
       @without_source = opts[:without_source] if opts[:without_source]
+      @plugin_storage_path = opts[:plugin_storage_path] if opts[:plugin_storage_path]
 
       @root_agent = RootAgent.new(opts)
 
