@@ -24,6 +24,10 @@ module Fluent
       super
     end
 
+    def plugin_id_configured?
+      @_id_configured
+    end
+
     def plugin_id
       @id ? @id : "object:#{object_id.to_s(16)}"
     end
