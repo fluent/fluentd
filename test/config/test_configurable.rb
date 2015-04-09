@@ -108,6 +108,12 @@ module ConfigurableSpec
       [@name, @detail]
     end
   end
+
+  class Example2 < Example1
+    config_section :detail, required: false, multi: false, alias: "information2" do
+      config_param :phone_no, :string
+    end
+  end
 end
 
 module Fluent::Config
@@ -491,6 +497,59 @@ module Fluent::Config
 
           ex5 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => false}))
           assert_false(ex5.boolvalue)
+        end
+      end
+
+      sub_test_case '.config_section' do
+        def e(name, arg = '', attrs = {}, elements = [])
+          attrs_str_keys = {}
+          attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
+          Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+        end
+
+        test 'adds only config_param definitions into configuration without overwriting existing configuration elements' do
+          # conf0 = e('ROOT', '', {}, [])
+
+          conf1 = e('ROOT', '', {
+              'name' => 'tagomoris',
+              'bool' => true,
+            },
+          )
+          # <detail> section is required by Example1 config_section spec
+          assert_raise(Fluent::ConfigError.new("'<detail>' sections are required")) { ConfigurableSpec::Example1.new.configure(conf1) }
+          assert_raise(Fluent::ConfigError.new("'<detail>' sections are required")) { ConfigurableSpec::Example2.new.configure(conf1) }
+
+          conf2 = e('ROOT', '', {
+              'name' => 'tagomoris',
+              'bool' => true,
+            },
+            [e('detail', '', { 'phone_no' => "+81-00-0000-0000" }, [])],
+          )
+          # <detail> address </detail> is required by Example1 config_param spec
+          assert_raise(Fluent::ConfigError.new("'address' parameter is required, in section detail")) { ConfigurableSpec::Example2.new.configure(conf2) }
+
+          conf3 = e('ROOT', '', {
+              'name' => 'tagomoris',
+              'bool' => true,
+            },
+            [e('detail', '', { 'address' => "Chiyoda Tokyo Japan" }, [])],
+          )
+          # <detail> phone_no </detail> is required by Example2 config_param spec
+          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(conf3) }
+          assert_raise(Fluent::ConfigError.new("'phone_no' parameter is required, in section detail")) { ConfigurableSpec::Example2.new.configure(conf3) }
+
+          conf4 = e('ROOT', '', {
+              'name' => 'tagomoris',
+              'bool' => true,
+            },
+            [e('detail', '', { 'address' => "Chiyoda Tokyo Japan", 'phone_no' => '+81-00-0000-0000' }, [])],
+          )
+          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(conf4) } # phone_no is not used
+          assert_nothing_raised { ConfigurableSpec::Example2.new.configure(conf4) }
+
+          ex2 = ConfigurableSpec::Example2.new.configure(conf4)
+          assert_equal "Chiyoda Tokyo Japan", ex2.detail.address
+          assert_equal "+81-00-0000-0000", ex2.detail.phone_no
         end
       end
     end
