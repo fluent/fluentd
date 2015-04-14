@@ -109,17 +109,15 @@ module Fluent
     end
 
     def emit(tag, time, record)
-      unless record.nil?
-        emit_stream tag, OneEventStream.new(time, record)
-      end
+      raise "BUG: use router.emit instead of Engine.emit"
     end
 
     def emit_array(tag, array)
-      emit_stream tag, ArrayEventStream.new(array)
+      raise "BUG: use router.emit_array instead of Engine.emit_array"
     end
 
     def emit_stream(tag, es)
-      @event_router.emit_stream(tag, es)
+      raise "BUG: use router.emit_stream instead of Engine.emit_stream"
     end
 
     def flush!
