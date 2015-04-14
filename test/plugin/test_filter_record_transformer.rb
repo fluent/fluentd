@@ -343,5 +343,35 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_nil(r['message'])
       end
     end
+
+    test 'expand fields starting with @ (enable_ruby no)' do
+      config = %[
+        enable_ruby no
+        <record>
+          foo ${@timestamp}
+        </record>
+      ]
+      d = create_driver(config)
+      message = {"@timestamp" => "foo"}
+      es = d.run { d.emit(message, @time) }.filtered
+      es.each do |t, r|
+        assert_equal(message["@timestamp"], r['foo'])
+      end
+    end
+
+    test 'expand fields starting with @ (enable_ruby yes)' do
+      config = %[
+        enable_ruby yes
+        <record>
+          foo ${__send__("@timestamp")}
+        </record>
+      ]
+      d = create_driver(config)
+      message = {"@timestamp" => "foo"}
+      es = d.run { d.emit(message, @time) }.filtered
+      es.each do |t, r|
+        assert_equal(message["@timestamp"], r['foo'])
+      end
+    end
   end
 end

@@ -179,7 +179,7 @@ module Fluent
       end
 
       def expand(str)
-        str.gsub(/(\${[a-zA-Z0-9_]+(\[-?[0-9]+\])?}|__[A-Z_]+__)/) {
+        str.gsub(/(\${[^}]+}|__[A-Z_]+__)/) {
           log.warn "unknown placeholder `#{$1}` found" unless @placeholders.include?($1)
           @placeholders[$1]
         }
