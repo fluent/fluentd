@@ -99,7 +99,7 @@ module Fluent
         timer_execute(interval: TCP_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
           # copy keys at first (to delete it in loop)
           @_tcp_server_connections.keys.each do |conn|
-            if !conn.writing && keepalive && conn.idle_seconds > keepalive
+            if !conn.writing? && keepalive && conn.idle_seconds > keepalive
               @_tcp_server_connections.delete(conn)
               conn.close
             elsif conn.closed?
@@ -190,6 +190,10 @@ module Fluent
         def write(data)
           @writing = true
           super
+        end
+
+        def writing?
+          @writing
         end
 
         def on_write_complete
