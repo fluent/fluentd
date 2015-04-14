@@ -125,7 +125,7 @@ module Fluent
         timer_execute(interval: SSL_SERVER_KEEPALIVE_CHECK_INTERVAL, repeat: true) do
           # copy keys at first to delete it in loop
           @_ssl_server_connections.keys.each do |conn|
-            if !conn.writing && keepalive && conn.idle_seconds > keepalive
+            if !conn.writing? && keepalive && conn.idle_seconds > keepalive
               @_ssl_server_connections.delete(conn)
               conn.close
             elsif conn.closed?
@@ -318,6 +318,10 @@ module Fluent
           if @closing
             close
           end
+        end
+
+        def writing?
+          @writing
         end
 
         def close
