@@ -14,9 +14,9 @@
 #    limitations under the License.
 #
 
-require 'fluent/storage'
-require 'fluent/configurable'
 require 'fluent/storage/base'
+require 'fluent/plugin'
+require 'fluent/env'
 
 require 'json'
 require 'fileutils'
@@ -28,6 +28,8 @@ module Fluent
 
       config_section :storage, required: false, multi: false, param_name: :storage_config do
         config_param :path, :string
+        config_param :permission, :integer, default: DEFAULT_FILE_PERMISSION
+        config_param :directory_permission, :integer, default: DEFAULT_DIR_PERMISSION
         config_param :pretty_print, :bool, default: true
       end
 
@@ -40,6 +42,8 @@ module Fluent
         super
 
         @path = @storage_config.path
+        @perm = @storage_config.permission
+        @dirperm = @storage_config.directory_permission
         @tmp_path = @path + '.tmp'
         @pretty_print = @storage_config.pretty_print
       end
@@ -81,8 +85,8 @@ module Fluent
                           else
                             ::JSON.generate(@store)
                           end
-            FileUtils.mkdir_p(File.dirname(@tmp_path))
-            open(@tmp_path, 'w:utf-8') do |io|
+            FileUtils.mkdir_p(File.dirname(@tmp_path), mode: @dirperm)
+            open(@tmp_path, 'w:utf-8', @perm) do |io|
               io.write json_string
             end
             File.rename(@tmp_path, @path)
