@@ -79,9 +79,6 @@ module Fluent
 
       # override target.emit_stream to write event stream to the pipe
       fwd = new_forwarder(ipw, 0.5)  # TODO interval
-      Engine.define_singleton_method(:emit_stream) do |tag,es|
-        fwd.emit(tag, es)
-      end
 
       # read event stream from the pipe and forward to target.emit
       forward_thread = Thread.new(opr, delegate_object, &method(:output_forward_main))

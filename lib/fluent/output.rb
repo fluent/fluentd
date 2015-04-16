@@ -25,25 +25,60 @@ require 'fluent/plugin/time_sliced_output'
 require 'fluent/plugin_support/emitter'
 
 module Fluent
-  class Output < Plugin::Output
-    # TODO: add interoperability layer (especially for chain)
-    include Fluent::PluginSupport::Emitter
+  class EngineCompat
+    def initialize
+      @router = nil
+    end
+
+    def reconfigure
+      @router = Fluent::Engine.root_agent.event_router
+    end
+
+    def emit(tag, time, record)
+      @router.emit(tag, time, record)
+    end
+
+    def emit_array(tag, array)
+      @router.emit(tag, array)
+    end
+
+    def emit_stream(tag, es)
+      @router.emit_stream(tag, es)
+    end
   end
 
+  module OutputPluginCompat
+    # TODO: add interoperability layer (especially for chain)
+
+    # All traditional output plugins can emit events
+    include Fluent::PluginSupport::Emitter
+
+    # to overwrite Fluent::Engine in traditional plugin code
+    module Fluent; end
+
+    Fluent::Engine = Engine = EngineCompat.new # Engine.root_agent is not initialized yet
+
+    def configure(conf)
+      super
+      # set root_agent.event_router here
+      Engine.reconfigure
+    end
+  end
+
+  class Output < Plugin::Output
+    include OutputPluginCompat
+  end
 
   class BufferedOutput < Plugin::BufferedOutput
-    # TODO: add interoperability layer (especially for chain)
-    include Fluent::PluginSupport::Emitter
+    include OutputPluginCompat
   end
 
   class ObjectBufferedOutput < Plugin::ObjectBufferedOutput
-    # TODO: add interoperability layer (especially for chain)
-    include Fluent::PluginSupport::Emitter
+    include OutputPluginCompat
   end
 
   class TimeSlicedOutput < Plugin::TimeSlicedOutput
-    # TODO: add interoperability layer (especially for chain)
-    include Fluent::PluginSupport::Emitter
+    include OutputPluginCompat
   end
 
   class MultiOutput < Output
