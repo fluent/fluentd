@@ -14,16 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/storage'
-require 'fluent/configurable'
+require 'fluent/storage/base'
+require 'fluent/plugin'
 
 module Fluent
   module Storage
     class Memory < Base
       # This is on-memory Hash object itself, to provide same API as plugin storage
-
-      include Configurable
-
       Fluent::Plugin.register_storage('memory', self)
 
       config_section :storage, required: false, multi: false, param_name: :storage_config do

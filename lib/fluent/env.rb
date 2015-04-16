@@ -19,8 +19,8 @@ module Fluent
   DEFAULT_PLUGIN_DIR = ENV['FLUENT_PLUGIN'] || '/etc/fluent/plugin'
   DEFAULT_SOCKET_PATH = ENV['FLUENT_SOCKET'] || '/var/run/fluent/fluent.sock'
   DEFAULT_LISTEN_PORT = 24224 # TODO: obsolete
-  DEFAULT_FILE_PERMISSION = 0644
-  DEFAULT_DIR_PERMISSION = 0755
+  DEFAULT_FILE_PERMISSION = 0644 # TODO: configurable w/ <system>
+  DEFAULT_DIR_PERMISSION = 0755 # TODO: configurable w/ <system>
   IS_WINDOWS = /mswin|mingw/ === RUBY_PLATFORM
   private_constant :IS_WINDOWS
 
