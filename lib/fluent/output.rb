@@ -94,7 +94,7 @@ module Fluent
     def initialize(output)
       @output = output
       @finish = false
-      @next_time = Engine.now + 1.0
+      @next_time = Time.now.to_f + 1.0
     end
 
     def configure(conf)
@@ -128,7 +128,7 @@ module Fluent
       @mutex.lock
       begin
         until @finish
-          time = Engine.now
+          time = Time.now.to_f
 
           if @next_time <= time
             @mutex.unlock
@@ -137,7 +137,7 @@ module Fluent
             ensure
               @mutex.lock
             end
-            next_wait = @next_time - Engine.now
+            next_wait = @next_time - Time.now.to_f
           else
             next_wait = @next_time - time
           end
@@ -226,7 +226,7 @@ module Fluent
     end
 
     def start
-      @next_flush_time = Engine.now + @flush_interval
+      @next_flush_time = Time.now.to_f + @flush_interval
       @buffer.start
       @secondary.start if @secondary
       @writers.each {|writer| writer.start }
@@ -275,10 +275,10 @@ module Fluent
     end
 
     def try_flush
-      time = Engine.now
+      time = Time.now.to_f
 
       empty = @buffer.queue_size == 0
-      if empty && @next_flush_time < (now = Engine.now)
+      if empty && @next_flush_time < (now = Time.now.to_f)
         @buffer.synchronize do
           if @next_flush_time < now
             enqueue_buffer
@@ -325,7 +325,7 @@ module Fluent
         end
 
         if has_next
-          return Engine.now + @queued_chunk_flush_interval
+          return Time.now.to_f + @queued_chunk_flush_interval
         else
           return time + @try_flush_interval
         end
@@ -380,7 +380,7 @@ module Fluent
 
     def force_flush
       @num_errors_lock.synchronize do
-        @next_retry_time = Engine.now - 1
+        @next_retry_time = Time.now.to_f - 1
       end
       enqueue_buffer(true)
       submit_flush
