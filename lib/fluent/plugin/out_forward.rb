@@ -298,10 +298,12 @@ module Fluent
               raw_data = sock.recv(1024)
 
               # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
-              # In this case, the node is available and successfully close connection without sending responses.
-              # ForwardInput is not expected to do so, but some alternatives may do so.
-              # Therefore do not send the chunk again.
-              unless raw_data.empty?
+              # If this happens we assume the data wasn't delivered and retry it.
+              if raw_data.empty?
+                @log.warn "node #{node.host}:#{node.port} closed the connection. regard it as unavailable."
+                node.disable!
+                raise ForwardOutputConnectionClosedError, "node #{node.host}:#{node.port} closed connection"
+              else
                 # Serialization type of the response is same as sent data.
                 res = MessagePack.unpack(raw_data)
 
