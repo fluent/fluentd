@@ -259,12 +259,11 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
 
+    assert_equal 0, d.instance.responses.size
+    assert_equal 1, d.instance.exceptions.size # send_data() fails and to be retried
+
     node = d.instance.nodes.first
-
-    assert_equal 1, d.instance.responses.size
-    assert_equal nil, d.instance.responses.first # send_data() returns nil for unexpected EOF
-
-    assert_equal true, node.available # out_forward seems target node is alive because it sends EOF
+    assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
   end
 
   def create_target_input_driver(do_respond=false, disconnect=false, conf=TARGET_CONFIG)
