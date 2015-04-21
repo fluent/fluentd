@@ -1,5 +1,23 @@
 # v0.12
 
+## Release 0.12.8 - 2015/04/22
+
+### New features / Enhancement
+
+* output: Support millisecond for try_flush_interval and queued_chunk_flush_interval
+  https://github.com/fluent/fluentd/pull/568
+* filter_record_transformer: Support fields which start with @
+  https://github.com/fluent/fluentd/pull/574
+* config: Add final attribute to prevent config overwritten by subclass
+  https://github.com/fluent/fluentd/pull/583
+
+### Bug fixes
+
+* config: fix embedded code parsing
+  https://github.com/fluent/fluentd/pull/564
+* out_forward: Resend chunks on dropped connection when wait ACK
+  https://github.com/fluent/fluentd/pull/580
+
 ## Release 0.12.7 - 2015/03/22
 
 ### New features / Enhancement
