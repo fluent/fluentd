@@ -186,6 +186,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_not_supporting_responses_to_respond_with_ack
+    # in_forward, that doesn't support ack feature, and keep connection alive
     target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[
@@ -203,6 +204,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.register_run_post_condition do
       d.instance.responses.length == 1
     end
+    d.run_timeout = 2
 
     target_input_driver.run do
       d.run do
@@ -223,7 +225,49 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 1, d.instance.exceptions.size
   end
 
-  def create_target_input_driver(do_respond=false, conf=TARGET_CONFIG)
+  # bdf1f4f104c00a791aa94dc20087fe2011e1fd83
+  def test_require_a_node_not_supporting_responses_2_to_respond_with_ack
+    # in_forward, that doesn't support ack feature, and disconnect immediately
+    target_input_driver = create_target_input_driver(false, true)
+
+    d = create_driver(CONFIG + %[
+      flush_interval 1s
+      require_ack_response true
+      ack_response_timeout 5s
+    ])
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
+    d.run_timeout = 2
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+
+    node = d.instance.nodes.first
+
+    assert_equal 1, d.instance.responses.size
+    assert_equal nil, d.instance.responses.first # send_data() returns nil for unexpected EOF
+
+    assert_equal true, node.available # out_forward seems target node is alive because it sends EOF
+  end
+
+  def create_target_input_driver(do_respond=false, disconnect=false, conf=TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
     DummyEngineDriver.new(Fluent::ForwardInput) {
@@ -265,9 +309,13 @@ class ForwardOutputTest < Test::Unit::TestCase
                 # chunk_counter is reset to zero only after all the data have been received and successfully deserialized.
                 break if handler.chunk_counter == 0
               end
+              if disconnect
+                handler.close
+                sock = nil
+              end
               sleep  # wait for connection to be closed by client
             ensure
-              sock.close
+              sock.close if sock
             end
           end
         end
