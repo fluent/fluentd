@@ -1,7 +1,7 @@
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :sections
+      attr_accessor :name, :final, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
@@ -22,6 +22,7 @@ module Fluent
 
       def initialize(name, opts = {})
         @name = name.to_sym
+        @final = opts.fetch(:final, false)
 
         @param_name = (opts[:param_name] || @name).to_sym
         @required = opts[:required]
@@ -42,17 +43,22 @@ module Fluent
         @multi.nil? ? true : @multi
       end
 
+      def final?
+        @final
+      end
+
       def merge(other) # self is base class, other is subclass
+        return merge_for_finalized(other) if self.final?
+
         options = {
-          param_name: other.param_name, # param_name is used not to ovewrite plugin's instance varible, so this should be able to be overwritten
-          required: (@required.nil? ? other.required : self.required), # subclass cannot overwrite base class's definition
-          multi: (@multi.nil? ? other.multi : self.multi),
-          alias: (@alias.nil? ? other.alias : self.alias),
+          param_name: other.param_name,
+          required: (other.required.nil? ? self.required : other.required),
+          multi: (other.multi.nil? ? self.multi : other.multi)
         }
         merged = self.class.new(other.name, options)
 
         merged.argument = other.argument || self.argument
-        merged.params = other.params.merge(self.params)
+        merged.params = self.params.merge(other.params)
         merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = {}
         (self.sections.keys + other.sections.keys).uniq.each do |section_key|
@@ -60,6 +66,39 @@ module Fluent
           other_section = other.sections[section_key]
           merged_section = if self_section && other_section
                              self_section.merge(other_section)
+                           elsif self_section || other_section
+                             self_section || other_section
+                           else
+                             raise "BUG: both of self and other section are nil"
+                           end
+          merged.sections[section_key] = merged_section
+        end
+
+        merged
+      end
+
+      def merge_for_finalized(other)
+        # list what subclass can do for finalized section
+        #  * overwrite param_name to escape duplicated name of instance variable
+        #  * append params/defaults/sections which are missing in superclass
+
+        options = {
+          param_name: other.param_name,
+          required: (self.required.nil? ? other.required : self.required),
+          multi: (self.multi.nil? ? other.multi : self.multi),
+          final: true,
+        }
+        merged = self.class.new(other.name, options)
+
+        merged.argument = self.argument || other.argument
+        merged.params = other.params.merge(self.params)
+        merged.defaults = other.defaults.merge(self.defaults)
+        merged.sections = {}
+        (self.sections.keys + other.sections.keys).uniq.each do |section_key|
+          self_section = self.sections[section_key]
+          other_section = other.sections[section_key]
+          merged_section = if self_section && other_section
+                             other_section.merge(self_section)
                            elsif self_section || other_section
                              self_section || other_section
                            else
