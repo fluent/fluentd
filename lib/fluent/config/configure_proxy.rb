@@ -69,7 +69,19 @@ module Fluent
         merged.argument = other.argument || self.argument
         merged.params = self.params.merge(other.params)
         merged.defaults = self.defaults.merge(other.defaults)
-        merged.sections = self.sections.merge(other.sections)
+        merged.sections = {}
+        (self.sections.keys + other.sections.keys).uniq.each do |section_key|
+          self_section = self.sections[section_key]
+          other_section = other.sections[section_key]
+          merged_section = if self_section && other_section
+                             self_section.merge(other_section)
+                           elsif self_section || other_section
+                             self_section || other_section
+                           else
+                             raise "BUG: both of self and other section are nil"
+                           end
+          merged.sections[section_key] = merged_section
+        end
 
         merged
       end
