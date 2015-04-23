@@ -51,8 +51,10 @@ module Fluent
             @meta_path = @path + '.meta'
             @chunk = File.open(@path, mode, perm)
             @chunk.sync = true
+            @chunk.binmode
             @meta = File.open(@meta_path, 'w', perm)
             @meta.sync = true
+            @meta.binmode
 
             @state = :staged
             @bytesize = 0
@@ -71,11 +73,13 @@ module Fluent
               @chunk = File.open(@path, mode)
               @chunk.sync = true
               @chunk.seek(0, IO::SEEK_END)
+              @chunk.binmode
 
               @meta = File.open(@meta_path, 'r+')
               @meta.sync = true
               restore_metadata(@meta.read)
               @meta.seek(0, IO::SEEK_SET)
+              @meta.binmode
 
               @state = :staged
               @bytesize = @chunk.size
@@ -85,6 +89,7 @@ module Fluent
             else
               # classic buffer chunk - read only chunk
               @chunk = File.open(@path, 'r')
+              @chunk.binmode
               @state = :queued
               @bytesize = @chunk.size
 
@@ -96,11 +101,12 @@ module Fluent
           when 'r'  # already exists / enqueued
             @path = path
             @chunk = File.open(@path, mode)
+            @chunk.binmode
             @bytesize = @chunk.size
 
             @meta_path = @path + '.meta'
             if File.readable?(@meta_path)
-              restore_metadata(File.open(@meta_path){|f| f.read })
+              restore_metadata(File.open(@meta_path){|f| f.binmode; f.read })
             else
               restore_metadata_partially(@chunk)
             end
@@ -287,12 +293,27 @@ module Fluent
 
           write_metadata # re-write metadata w/ finalized records
 
-          @chunk.rename(new_chunk_path)
-          @meta.rename(new_meta_path)
-
+          file_rename(@chunk, @path, new_chunk_path, ->(size){ @size = size })
           @path = new_chunk_path
+
+          file_rename(@meta, @meta_path, new_meta_path)
           @meta_path = new_meta_path
+
           @state = :queued
+        end
+
+        def file_rename(file, old_path, new_path, callback)
+          if Fluent.windows?
+            pos = file.pos
+            file.close
+            File.rename(old_path, new_path)
+            file = File.open(new_path, 'rb', DEFAULT_FILE_PERMISSION)
+            file.sync = true
+            file.pos = pos
+          else
+            file.rename(new_path)
+          end
+          callback.call(file.size) if callback
         end
       end
     end
