@@ -31,14 +31,16 @@ module Fluent
           @adding_records = 0
         end
 
+        # MUST be called in critical section
         def append(data)
           adding = data.join.force_encoding('ASCII-8BIT')
           @chunk << adding
-          @adding_bytes = adding.bytesize
-          @adding_records = data.size
+          @adding_bytes += adding.bytesize
+          @adding_records += data.size
           true
         end
 
+        # MUST be called in critical section
         def commit
           @records += @adding_records
           @chunk_bytes += @adding_bytes
@@ -47,6 +49,7 @@ module Fluent
           true
         end
 
+        # MUST be called in critical section
         def rollback
           @chunk.slice!(@chunk_bytes, @adding_bytes)
           @adding_bytes = @adding_records = 0
@@ -69,6 +72,7 @@ module Fluent
           true
         end
 
+        # MUST be called in critical section
         def purge
           @chunk = ''.force_encoding("ASCII-8BIT")
           @chunk_bytes = @adding_bytes = @adding_records = 0
