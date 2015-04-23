@@ -28,27 +28,28 @@ module Fluent
         ### buffer chunk metadata path : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log.meta
 
         # NOTE: Old style buffer path of time sliced output plugins had a part of key: prefix.20150414.b513b61...suffix
-        #       But this part is not used for any purpose. (Now metadata variable is used instead.)
+        #       But this part is not used for any purpose. (Now metadata is used instead.)
 
         # state: b/q - 'b'(on stage), 'q'(enqueued)
         # path_prefix: path prefix string, ended with '.'
         # path_suffix: path suffix string, like '.log' (or any other user specified)
 
+        attr_reader :path, :state
+
         # mode: 'w+'(newly created/on stage), 'r+'(already exists/on stage), 'r'(already exists/enqueued)
         def initialize(metadata, path, mode, perm=DEFAULT_FILE_PERMISSION) # TODO: DEFAULT_FILE_PERMISSION is obsolete
           super
 
-          # state: stage/blocked/queued
+          # state: staged/queued/closed
           #   blocked is internal status for chunks waiting to be enqueued
 
-          @path = path
           @state = nil
 
           case mode
           when 'w+' # newly created / on stage
-            @chunk_path = generate_stage_chunk_path(path)
-            @meta_path = @chunk_path + '.meta'
-            @chunk = File.open(@chunk_path, mode, perm)
+            @path = generate_stage_chunk_path(path)
+            @meta_path = @path + '.meta'
+            @chunk = File.open(@path, mode, perm)
             @chunk.sync = true
             @meta = File.open(@meta_path, 'w', perm)
             @meta.sync = true
@@ -60,42 +61,48 @@ module Fluent
             @adding_records = 0
 
           when 'r+' # already exists / on stage
-            @chunk_path = path
-            @meta_path = @chunk_path + '.meta'
-
-            @chunk = File.open(@chunk_path, mode)
-            @chunk.sync = true
-            @chunk.seek(0, IO::SEEK_END)
-
-            @bytesize = @chunk.size
+            @path = path
+            @meta_path = @path + '.meta'
 
             @meta = nil
             # staging buffer chunk without metadata is classic buffer chunk file
             # and it should be enqueued immediately
             if File.exist?(@meta_path)
+              @chunk = File.open(@path, mode)
+              @chunk.sync = true
+              @chunk.seek(0, IO::SEEK_END)
+
               @meta = File.open(@meta_path, 'r+')
-              data = MessagePack.unpack(@meta.read)
-              restore_metadata(data)
-              @meta.seek(0, IO::SEEK_SET)
               @meta.sync = true
+              restore_metadata(@meta.read)
+              @meta.seek(0, IO::SEEK_SET)
+
               @state = :staged
+              @bytesize = @chunk.size
               @commit_position = @chunk.pos
               @adding_bytes = 0
               @adding_records = 0
             else
-              @state = :blocked # for writing
-              @unique_id = unique_id_from_path(@chunk_path) || @unique_id
+              # classic buffer chunk - read only chunk
+              @chunk = File.open(@path, 'r')
+              @state = :queued
+              @bytesize = @chunk.size
+
+              restore_metadata_partially(@chunk)
+
+              @unique_id = unique_id_from_path(@path) || @unique_id
             end
 
           when 'r'  # already exists / enqueued
-            @chunk_path = path
-            @chunk = File.open(@chunk_path, mode)
+            @path = path
+            @chunk = File.open(@path, mode)
             @bytesize = @chunk.size
 
-            @meta_path = @chunk_path + '.meta'
+            @meta_path = @path + '.meta'
             if File.readable?(@meta_path)
-              data = MessagePack.unpack(File.open(@meta_path){|f| f.read })
-              restore_metadata(data)
+              restore_metadata(File.open(@meta_path){|f| f.read })
+            else
+              restore_metadata_partially(@chunk)
             end
             @state = :queued
           end
@@ -154,7 +161,7 @@ module Fluent
           @chunk.close
           @meta.close
           if size == 0
-            File.unlink(@chunk_path, @meta_path)
+            File.unlink(@path, @meta_path)
           end
         end
 
@@ -163,7 +170,7 @@ module Fluent
           @state = :closed
           @chunk.close
           @meta.close
-          File.unlink(@chunk_path, @meta_path)
+          File.unlink(@path, @meta_path)
         end
 
         def read
@@ -174,7 +181,7 @@ module Fluent
         def open(&block) # TODO: check whether used or not
           @chunk.seek(0, IO::SEEK_SET)
           val = yield @chunk
-          @chunk.seek(0, IO::SEEK_END) if @state == :stage
+          @chunk.seek(0, IO::SEEK_END) if @state == :staged
           val
         end
 
@@ -198,13 +205,20 @@ module Fluent
 
         # methods for FileBuffer operations
 
-        def generate_stage_chunk_path(path)
-          prefix = path
-          suffix = '.log'
-          if pos = path.index('*')
-            prefix = path[0...pos]
-            suffix = path[(pos+1)..-1]
+        def self.assume_chunk_state(path)
+          if /\.(b|q)([0-9a-f]+)\.[^\/]*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern
+            $1 == 'b' ? :staged : :queued
+          else
+            :queued
           end
+        end
+
+        def generate_stage_chunk_path(path)
+          pos = path.index('*')
+          raise "BUG: buffer chunk path on stage MUST have '*'" unless pos
+
+          prefix = path[0...pos]
+          suffix = path[(pos+1)..-1]
 
           chunk_id = @unique_id.unpack('N*').map{|n| n.to_s(16)}.join
           state = 'b'
@@ -212,43 +226,63 @@ module Fluent
         end
 
         def generate_queued_chunk_path(path)
-          if pos = path.index('b' + @unique_id)
-            path.sub('b' + @unique_id, 'q' + @unique_id)
-          else
-            path + 'q' + @unique_id + '.log'
+          chunk_id = @unique_id.unpack('N*').map{|n| n.to_s(16)}.join
+          if pos = path.index('b' + chunk_id)
+            path.sub('b' + chunk_id, 'q' + chunk_id)
+          else # for unexpected cases (ex: users rename files while opened by fluentd)
+            path + 'q' + chunk_id + '.log'
           end
         end
 
         # used only for queued buffer path
         def unique_id_from_path(path)
-          if /\.q([0-9a-f]+)\.[a-zA-Z]\Z/ =~ path
-            return $1.scan(/../).map{|x| x.to_i(16) }.pack('C*')
+          if /\.(b|q)([0-9a-f]+)\.[^\/]*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern
+            return $2.scan(/../).map{|x| x.to_i(16) }.pack('C*')
           end
           nil
         end
 
-        def restore_metadata(data)
-          @unique_id = data.delete('id') || unique_id_from_path(@chunk_path) || @unique_id
-          @records = data.delete('r') || 0
-          @created_at = Time.at(data.delete('c') || Time.now.to_i)
-          @modified_at = Time.at(data.delete('m') || Time.now.to_i)
-          @metadata.update(data)
+        def restore_metadata(bindata)
+          # Any input errors are ignored
+          data = MessagePack.unpack(bindata, symbolize_keys: true) rescue {}
+
+          @unique_id = data[:id] || unique_id_from_path(@path) || @unique_id
+          @records = data[:r] || 0
+          @created_at = Time.at(data.fetch(:c, Time.now.to_i))
+          @modified_at = Time.at(data.fetch(:m, Time.now.to_i))
+
+          @metadata.timekey = data[:timekey]
+          @metadata.tag = data[:tag]
+          @metadata.variables = data.fetch(:variables, [])
+        end
+
+        def restore_metadata_partially(chunk)
+          @unique_id = unique_id_from_path(chunk.path) || @unique_id
+          @records = 0
+          @created_at = chunk.birthtime rescue chunk.ctime # birthtime isn't supported on Windows
+          @modified_at = chunk.mtime
+
+          @metadata.timekey = nil
+          @metadata.tag = nil
+          @metadata.variables = []
         end
 
         def write_metadata(try_update: false)
-          data = @metadata.merge({
-              'id' => @unique_id,
-              'r' => (try_update ? @records + @adding_records : @records),
-              'c' => @created_at.to_i,
-              'm' => (try_update ? Time.now.to_i : @modified_at.to_i)
+          data = @metadata.to_h.merge({
+              id: @unique_id,
+              r: (try_update ? @records + @adding_records : @records),
+              c: @created_at.to_i,
+              m: (try_update ? Time.now.to_i : @modified_at.to_i)
           })
           @meta.seek(0, IO::SEEK_SET)
           @meta.truncate(0)
-          @meta.write data
+          @meta.write MessagePack.pack(data)
         end
 
         def enqueued!
-          new_chunk_path = generate_queued_chunk_path(@chunk_path)
+          return unless @state == :staged
+
+          new_chunk_path = generate_queued_chunk_path(@path)
           new_meta_path = new_chunk_path + '.meta'
 
           write_metadata # re-write metadata w/ finalized records
@@ -256,9 +290,9 @@ module Fluent
           @chunk.rename(new_chunk_path)
           @meta.rename(new_meta_path)
 
-          @chunk_path = new_chunk_path
+          @path = new_chunk_path
           @meta_path = new_meta_path
-          @state = :enqueued
+          @state = :queued
         end
       end
     end
