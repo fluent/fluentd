@@ -18,9 +18,15 @@ require 'fluent/configurable'
 
 module Fluent
   module PluginId
+    @@_id_configured = {}
+
     def configure(conf)
       @id = conf['@id'] || conf['id']
       @_id_configured = !!@id # plugin id is explicitly configured by users (or not)
+      if @@_id_configured[@id]
+        raise Fluent::ConfigError, "Duplicated plugin id `#{@id}`. Check whole configuration and fix it."
+      end
+      @@configured_ids[@id] = self
       super
     end
 
@@ -30,6 +36,10 @@ module Fluent
 
     def plugin_id
       @id ? @id : "object:#{object_id.to_s(16)}"
+    end
+
+    def configured_plugin_id
+      @_id_configured && @id || nil
     end
   end
 end
