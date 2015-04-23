@@ -15,6 +15,10 @@
 #
 
 require 'monitor'
+require 'fluent/configurable'
+require 'fluent/system_config'
+
+require 'fluent/plugin'
 
 module Fluent
   module Plugin
@@ -35,13 +39,16 @@ module Fluent
     #           Queue of a Buffer instance is shared by variations of metadata
     class Buffer
       include Configurable
+      include SystemConfigMixin
       include MonitorMixin
 
-      config_section :buffer, param_name: :buffer_config, required: false, multi: false do
+      config_section :buffer, param_name: :buffer_config, required: false, multi: false, final: true do
+        config_argument :type, :string, default: nil
         config_param :chunk_bytes_limit, :size, default: DEFAULT_CHUNK_BYTES_LIMIT
         config_param :total_bytes_limit, :size, default: DEFAULT_CHUNK_BYTES_LIMIT * DEFAULT_QUEUE_LENGTH_LIMIT
 
         config_param :flush_interval, :time, default: nil
+        config_param :flush_at_shutdown, :bool, default: false
 
         # If user specify this value and (chunk_size * queue_length) is smaller than total_size,
         # then total_size is automatically configured to that value
@@ -68,8 +75,10 @@ module Fluent
         @flush_interval = nil
       end
 
-      def configure(conf)
+      def configure(plugin_id, conf)
         super
+
+        @plugin_id = plugin_id # this is only something specified by user explicitly
 
         if @buffer_config
           @chunk_bytes_limit = @buffer_config.chunk_bytes_limit
@@ -92,6 +101,7 @@ module Fluent
       def start
         super
         @stage, @queue = resume
+        @dequeued = {} # unique_id => chunk
         @queue.extend(MonitorMixin)
 
         @stage_size = @queue_size = 0
@@ -107,6 +117,10 @@ module Fluent
       end
 
       def resume
+        raise NotImplementedError, "Implement this method in child class"
+      end
+
+      def generate_chunk(metadata)
         raise NotImplementedError, "Implement this method in child class"
       end
 
@@ -153,24 +167,39 @@ module Fluent
         emit_step_by_step(metadata, data)
       end
 
-      def generate_chunk(metadata)
-        raise NotImplementedError, "Implement this method in child class"
-      end
-
       def enqueue_chunk(metadata)
-        raise NotImplementedError, "Implement this method in child class"
+        synchronize do
+          chunk = @stage.delete(metadata)
+          @queue << chunk if chunk
+          nil
+        end
       end
 
       def dequeue_chunk
-        raise NotImplementedError, "Implement this method in child class"
+        return nil if @queue.empty?
+        synchronize do
+          chunk = @queue.shift
+          return nil unless chunk # queue is empty
+          @dequeued[chunk.unique_id] = chunk
+          chunk
+        end
+      end
+
+      def takeback_chunk(chunk_id)
+        synchronize do
+          chunk = @dequeued.delete(chunk_id)
+          return nil unless chunk # already purged by other thread
+          @queue.unshift(chunk)
+          nil
+        end
       end
 
       def purge_chunk(chunk_id)
-        raise NotImplementedError, "Implement this method in child class"
-      end
-
-      def clear!
-        raise NotImplementedError, "Implement this method in child class"
+        synchronize do
+          chunk = @dequeued.delete(chunk_id)
+          chunk.purge
+          nil
+        end
       end
 
       def stop
@@ -178,6 +207,14 @@ module Fluent
 
       def before_shutdown(out)
         # at here, buffer may be flushed w/ flush_at_shutdown
+        if @flush_at_shutdown
+          synchronize do
+            @stage.each_key do |metadata|
+              enqueue_chunk(metadata)
+            end
+            # TODO: flush forcely... in buffered output?
+          end
+        end
       end
 
       def shutdown
@@ -185,12 +222,17 @@ module Fluent
 
       def close
         synchronize do
+          @dequeued.synchronize do
+            @dequeued.each_pair do |chunk_id, chunk|
+              chunk.close
+            end
+          end
           @queue.synchronize do
             until @queue.empty?
               @queue.shift.close
             end
           end
-          @stage.each_pair do |key, chunk|
+          @stage.each_pair do |metadata, chunk|
             chunk.close
           end
         end
