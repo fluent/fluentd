@@ -14,210 +14,105 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class FileBufferChunk < BufferChunk
-    def initialize(key, path, unique_id, mode="a+", symlink_path = nil)
-      super(key)
-      @path = path
-      @unique_id = unique_id
-      @file = File.open(@path, mode, DEFAULT_FILE_PERMISSION)
-      @file.sync = true
-      @size = @file.stat.size
-      FileUtils.ln_sf(@path, symlink_path) if symlink_path
-    end
+require 'uri'
+require 'fileutils'
+require 'fluent/plugin/buffer'
+require 'fluent/plugin/buffer/file_chunk'
 
-    attr_reader :unique_id, :path
-
-    def <<(data)
-      @file.write(data)
-      @size += data.bytesize
-    end
-
-    def size
-      @size
-    end
-
-    def empty?
-      @size == 0
-    end
-
-    def close
-      stat = @file.stat
-      @file.close
-      if stat.size == 0
-        File.unlink(@path)
-      end
-    end
-
-    def purge
-      @file.close
-      File.unlink(@path) rescue nil  # TODO rescue?
-    end
-
-    def read
-      @file.pos = 0
-      @file.read
-    end
-
-    def open(&block)
-      @file.pos = 0
-      yield @file
-    end
-
-    def mv(path)
-      File.rename(@path, path)
-      @path = path
-    end
-  end
-
-  class FileBuffer < BasicBuffer
-    Plugin.register_buffer('file', self)
+module Fluent::Plugin
+  class FileBuffer < Buffer
+    Fluent::Plugin.register_buffer('file', self)
 
     @@buffer_paths = {}
 
-    def initialize
-      require 'uri'
-      super
-
-      @uri_parser = URI::Parser.new
+    config_section :buffer, param_name: :buffer_config do
+      config_param :path, :string, default: nil # buffer plugin refers system configuration and generate path for each plugin, if `@id` specified
+      config_set_default :flush_at_shutdown, :bool, default: false
     end
+    # permission?
 
-    config_param :buffer_path, :string
-    config_param :flush_at_shutdown, :bool, :default => false
+    ##TODO: Buffer plugin cannot handle symlinks because new API @stage has many writing buffer chunks
+    ##      re-implement this feature on out_file, w/ enqueue_chunk(or generate_chunk) hook + chunk.path
+    # attr_accessor :symlink_path
 
-    # 'symlink_path' is currently only for out_file.
-    # That is the reason why this is not config_param, but attr_accessor.
-    # See: https://github.com/fluent/fluentd/pull/181
-    attr_accessor :symlink_path
-
-    def configure(conf)
+    def configure(plugin_id, conf)
       super
+      @uri_parser = URI::Parser.new
 
-      if @@buffer_paths.has_key?(@buffer_path)
-        raise ConfigError, "Other '#{@@buffer_paths[@buffer_path]}' plugin already use same buffer_path: type = #{conf['@type'] || conf['type']}, buffer_path = #{@buffer_path}"
-      else
-        @@buffer_paths[@buffer_path] = conf['@type'] || conf['type']
+      buffer_path = @buffer_config.path
+
+      unless buffer_path
+        if !plugin_id || !system_config.buffer_dir_path
+          raise Fluent::ConfigError, "Cannot determine path for file buffer plugin!"
+        end
+        buffer_path = File.join(system_config.buffer_dir_path, plugin_id, 'buffer.*.log')
       end
 
-      if pos = @buffer_path.index('*')
-        @buffer_path_prefix = @buffer_path[0, pos]
-        @buffer_path_suffix = @buffer_path[(pos + 1)..-1]
-      else
-        @buffer_path_prefix = @buffer_path + "."
-        @buffer_path_suffix = ".log"
+      if @@buffer_paths.has_key?(buffer_path)
+        raise Fluent::ConfigError, "Duplicated buffer file path '#{buffer_path}'"
       end
+      @@buffer_paths[buffer_path] = self
 
+      @path = if buffer_path.index('*')
+                buffer_path
+              else
+                buffer_path + '.*.log'
+              end
+
+      @flush_at_shutdown = @buffer_config.flush_at_shutdown
     end
 
     def start
-      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path"), :mode => DEFAULT_DIR_PERMISSION
+      FileUtils.mkdir_p File.dirname(@path), mode: DEFAULT_DIR_PERMISSION
       super
     end
 
-    # Dots are separator for many cases:
-    #   we should have to escape dots in keys...
-    PATH_MATCH = /^([-_.%0-9a-zA-Z]*)\.(b|q)([0-9a-fA-F]{1,32})$/
-
-    def new_chunk(key)
-      encoded_key = encode_key(key)
-      path, tsuffix = make_path(encoded_key, "b")
-      unique_id = tsuffix_to_unique_id(tsuffix)
-      FileBufferChunk.new(key, path, unique_id, "a+", @symlink_path)
-    end
-
     def resume
-      maps = []
-      queues = []
+      stage = {}
+      queue = []
 
-      Dir.glob("#{@buffer_path_prefix}*#{@buffer_path_suffix}") {|path|
-        identifier_part = chunk_identifier_in_path(path)
-        if m = PATH_MATCH.match(identifier_part)
-          key = decode_key(m[1])
-          bq = m[2]
-          tsuffix = m[3]
-          timestamp = m[3].to_i(16)
-          unique_id = tsuffix_to_unique_id(tsuffix)
+      Dir.glob(@path) do |path|
+        m = metadata()
+        assumed_state = Fluent::Plugin::Buffer::FileChunk.assume_chunk_state(path)
+        mode = case assumed_state
+               when :staged then 'r+'
+               when :queued then 'r'
+               else
+                 raise "BUG: unexpected chunk state from assume_chunk_state: #{assumed_state}"
+               end
+        chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode)
 
-          if bq == 'b'
-            chunk = FileBufferChunk.new(key, path, unique_id, "a+")
-            maps << [timestamp, chunk]
-          elsif bq == 'q'
-            chunk = FileBufferChunk.new(key, path, unique_id, "r")
-            queues << [timestamp, chunk]
-          end
-        end
-      }
-
-      map = {}
-      maps.sort_by {|(timestamp,chunk)|
-        timestamp
-      }.each {|(timestamp,chunk)|
-        map[chunk.key] = chunk
-      }
-
-      queue = queues.sort_by {|(timestamp,chunk)|
-        timestamp
-      }.map {|(timestamp,chunk)|
-        chunk
-      }
-
-      return queue, map
-    end
-
-    def chunk_identifier_in_path(path)
-      pos_after_prefix = @buffer_path_prefix.length
-      pos_before_suffix = @buffer_path_suffix.length + 1 # from tail of path
-
-      path.slice(pos_after_prefix..-pos_before_suffix)
-    end
-
-    def enqueue(chunk)
-      path = chunk.path
-      identifier_part = chunk_identifier_in_path(path)
-
-      m = PATH_MATCH.match(identifier_part)
-      encoded_key = m ? m[1] : ""
-      tsuffix = m[3]
-      npath = "#{@buffer_path_prefix}#{encoded_key}.q#{tsuffix}#{@buffer_path_suffix}"
-
-      chunk.mv(npath)
-    end
-
-    def before_shutdown(out)
-      if @flush_at_shutdown
-        synchronize do
-          @map.each_key {|key|
-            push(key)
-          }
-          while pop(out)
-          end
+        case chunk.state
+        when :staged
+          stage[chunk.metadata] = chunk
+        when :queued, :blocked
+          queue << chunk
+        else
+          raise "BUG: unexpected chunk state '#{chunk.state}' for path '#{path}'"
         end
       end
+
+      queue.sort_by!{ |chunk| chunk.modified_at }
+
+      return stage, queue
     end
 
-    private
-
-    # Dots are separator for many cases:
-    #   we should have to escape dots in keys...
-    def encode_key(key)
-      @uri_parser.escape(key, /[^-_.a-zA-Z0-9]/n) # //n switch means explicit 'ASCII-8BIT' pattern
+    def generate_chunk(metadata)
+      Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, 'w+')
     end
 
-    def decode_key(encoded_key)
-      @uri_parser.unescape(encoded_key)
-    end
-
-    def make_path(encoded_key, bq)
-      now = Time.now.utc
-      timestamp = ((now.to_i * 1000 * 1000 + now.usec) << 12 | rand(0xfff))
-      tsuffix = timestamp.to_s(16)
-      path = "#{@buffer_path_prefix}#{encoded_key}.#{bq}#{tsuffix}#{@buffer_path_suffix}"
-      return path, tsuffix
-    end
-
-    def tsuffix_to_unique_id(tsuffix)
-      # why *2 ? frsyuki said that I forgot why completely.
-      tsuffix.scan(/../).map {|x| x.to_i(16) }.pack('C*') * 2
+    # overwrite to call `chunk.enqueued!`
+    def enqueue_chunk(metadata)
+      synchronize do
+        chunk = @stage.delete(metadata)
+        if chunk
+          chunk.synchronize do
+            chunk.enqueued!
+          end
+          @queue << chunk
+        end
+        nil
+      end
     end
   end
 end

@@ -14,97 +14,36 @@
 #    limitations under the License.
 #
 
-module Fluent
-  class MemoryBufferChunk < BufferChunk
-    def initialize(key, data='')
-      @data = data
-      @data.force_encoding('ASCII-8BIT')
-      now = Time.now.utc
-      u1 = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff))
-      @unique_id = [u1 >> 32, u1 & 0xffffffff, rand(0xffffffff), rand(0xffffffff)].pack('NNNN')
-      super(key)
-    end
+require 'fluent/plugin/buffer'
+require 'fluent/plugin/buffer/memory_chunk'
 
-    attr_reader :unique_id
-
-    def <<(data)
-      data.force_encoding('ASCII-8BIT')
-      @data << data
-    end
-
-    def size
-      @data.bytesize
-    end
-
-    def close
-    end
-
-    def purge
-    end
-
-    def read
-      @data
-    end
-
-    def open(&block)
-      StringIO.open(@data, &block)
-    end
-
-    # optimize
-    def write_to(io)
-      io.write @data
-    end
-
-    # optimize
-    def msgpack_each(&block)
-      u = MessagePack::Unpacker.new
-      u.feed_each(@data, &block)
-    end
-  end
-
-
-  class MemoryBuffer < BasicBuffer
-    Plugin.register_buffer('memory', self)
+module Fluent::Plugin
+  class MemoryBuffer < Buffer
+    Fluent::Plugin.register_buffer('memory', self)
 
     def initialize
       super
     end
 
-    config_param :flush_at_shutdown, :bool, :default => true
-    # Overwrite default BasicBuffer#buffer_queue_limit
-    # to limit total memory usage upto 512MB.
-    config_set_default :buffer_queue_limit, 64
+    config_section :buffer, param_name: :buffer_config do
+      config_set_default :flush_at_shutdown, true
+      config_set_default :chunk_bytes_limit, 512*1024*1024 # 512MB
+    end
 
-    def configure(conf)
+    def configure(plugin_id, conf)
       super
 
       unless @flush_at_shutdown
-        $log.warn "When flush_at_shutdown is false, buf_memory discards buffered chunks at shutdown."
-        $log.warn "Please confirm 'flush_at_shutdown false' configuration is correct or not."
+        @log.warn "Confirm whether `flush_at_shutdown false` is correct or not. Chunk contents of memory buffer will be discarded at shutdown without flushing."
       end
-    end
-
-    def before_shutdown(out)
-      if @flush_at_shutdown
-        synchronize do
-          @map.each_key {|key|
-            push(key)
-          }
-          while pop(out)
-          end
-        end
-      end
-    end
-
-    def new_chunk(key)
-      MemoryBufferChunk.new(key)
     end
 
     def resume
-      return [], {}
+      return {}, [] # stage, queue
     end
 
-    def enqueue(chunk)
+    def generate_chunk(metadata)
+      Fluent::Plugin::Buffer::MemoryChunk.new(metadata)
     end
   end
 end
