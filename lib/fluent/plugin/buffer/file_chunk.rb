@@ -23,9 +23,6 @@ module Fluent
   module Plugin
     class Buffer
       class FileChunk < Chunk
-        ### TODO: buf_file MUST refer the process global buffer directory path configuration, ex: <system>buffer_storage_path</system>
-
-
         ### buffer path user specified : /path/to/directory/user_specified_prefix.*.log
         ### buffer chunk path          : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log
         ### buffer chunk metadata path : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log.meta
@@ -38,7 +35,7 @@ module Fluent
         # path_suffix: path suffix string, like '.log' (or any other user specified)
 
         # mode: 'w+'(newly created/on stage), 'r+'(already exists/on stage), 'r'(already exists/enqueued)
-        def initialize(metadata, path, mode, perm=DEFAULT_FILE_PERMISSION)
+        def initialize(metadata, path, mode, perm=DEFAULT_FILE_PERMISSION) # TODO: DEFAULT_FILE_PERMISSION is obsolete
           super
 
           # state: stage/blocked/queued
@@ -104,6 +101,103 @@ module Fluent
           end
         end
 
+        # MUST be called in critical section
+        def append(data)
+          raise "BUG: appending to non-staged chunk, now '#{@state}'" unless @state == :staged
+
+          adding = data.join.force_encoding('ASCII-8BIT')
+          @chunk.write adding
+
+          @adding_bytes += adding.bytesize
+          @adding_records += data.size
+          write_metadata(try_update: true) # of course, this operation may fail
+
+          true
+        end
+
+        # MUST be called in critical section
+        def commit
+          @commit_position = @chunk.pos
+          @records += @adding_records
+          @bytesize += @adding_bytes
+          @modified_at = Time.now
+
+          @adding_bytes = @adding_records = 0
+          true
+        end
+
+        # MUST be called in critical section
+        def rollback
+          if @chunk.pos == @commit_position
+            @chunk.seek(@commit_position, IO::SEEK_SET)
+            @chunk.truncate(@commit_position)
+          end
+          @adding_bytes = @adding_records = 0
+          true
+        end
+
+        def size
+          @bytesize
+        end
+
+        def records
+          @records + @adding_records
+        end
+
+        def empty?
+          @bytesize == 0
+        end
+
+        def close
+          @state = :closed
+          size = @chunk.size
+          @chunk.close
+          @meta.close
+          if size == 0
+            File.unlink(@chunk_path, @meta_path)
+          end
+        end
+
+        # MUST be called in critical section
+        def purge
+          @state = :closed
+          @chunk.close
+          @meta.close
+          File.unlink(@chunk_path, @meta_path)
+        end
+
+        def read
+          @chunk.seek(0, IO::SEEK_SET)
+          @chunk.read
+        end
+
+        def open(&block) # TODO: check whether used or not
+          @chunk.seek(0, IO::SEEK_SET)
+          val = yield @chunk
+          @chunk.seek(0, IO::SEEK_END) if @state == :stage
+          val
+        end
+
+        ### TODO: fixit
+        def write_to(io)
+          open {|i|
+            FileUtils.copy_stream(i, io)
+          }
+        end
+
+        ### TODO: fixit
+        def msgpack_each(&block)
+          open {|io|
+            u = MessagePack::Unpacker.new(io)
+            begin
+              u.each(&block)
+            rescue EOFError
+            end
+          }
+        end
+
+        # methods for FileBuffer operations
+
         def generate_stage_chunk_path(path)
           prefix = path
           suffix = '.log'
@@ -165,95 +259,6 @@ module Fluent
           @chunk_path = new_chunk_path
           @meta_path = new_meta_path
           @state = :enqueued
-        end
-
-        def append(data)
-          raise "BUG: appending to non-staged chunk, now '#{@state}'" unless @state == :staged
-
-          adding = data.join.force_encoding('ASCII-8BIT')
-          @chunk.write adding
-
-          @adding_bytes = adding.bytesize
-          @adding_records = data.size
-          write_metadata(try_update: true) # of course, this operation may fail
-
-          true
-        end
-
-        def commit
-          @commit_position = @chunk.pos
-          @records += @adding_records
-          @bytesize += @adding_bytes
-          @modified_at = Time.now
-
-          @adding_bytes = @adding_records = 0
-          true
-        end
-
-        def rollback
-          @chunk.seek(@commit_position, IO::SEEK_SET)
-          @chunk.truncate(@commit_position)
-          @adding_bytes = @adding_records = 0
-          true
-        end
-
-        def size
-          @bytesize
-        end
-
-        def records
-          @records + @adding_records
-        end
-
-        def empty?
-          @bytesize == 0
-        end
-
-        def close
-          @state = :closed
-          size = @chunk.size
-          @chunk.close
-          @meta.close
-          if size == 0
-            File.unlink(@chunk_path, @meta_path)
-          end
-        end
-
-        def purge
-          @state = :closed
-          @chunk.close
-          @meta.close
-          File.unlink(@chunk_path, @meta_path)
-        end
-
-        def read
-          @chunk.seek(0, IO::SEEK_SET)
-          @chunk.read
-        end
-
-        def open(&block) # TODO: check whether used or not
-          @chunk.seek(0, IO::SEEK_SET)
-          val = yield @chunk
-          @chunk.seek(0, IO::SEEK_END) if @state == :stage
-          val
-        end
-
-        ### TODO: fixit
-        def write_to(io)
-          open {|i|
-            FileUtils.copy_stream(i, io)
-          }
-        end
-
-        ### TODO: fixit
-        def msgpack_each(&block)
-          open {|io|
-            u = MessagePack::Unpacker.new(io)
-            begin
-              u.each(&block)
-            rescue EOFError
-            end
-          }
         end
       end
     end
