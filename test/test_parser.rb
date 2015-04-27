@@ -131,6 +131,31 @@ module ParserTest
         assert_nil time, "parser returns nil if configured so"
       }
     end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::RegexpParser.new(
+        Regexp.new(%q!(?<time>.*)!),
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+      )
+      text = '28/Feb/2013:12:00:00 +0900'
+      parser.parse(text) do |time, record|
+        assert_equal text, record['time']
+      end
+    end
+
+    def test_parse_with_keep_time_key_with_typecast
+      parser = TextParser::RegexpParser.new(
+        Regexp.new(%q!(?<time>.*)!),
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+        'types'=>'time:time:%d/%b/%Y:%H:%M:%S %z',
+      )
+      text = '28/Feb/2013:12:00:00 +0900'
+      parser.parse(text) do |time, record|
+        assert_equal 1362020400, record['time']
+      end
+    end
   end
 
   class ApacheParserTest < ::Test::Unit::TestCase
@@ -154,6 +179,18 @@ module ParserTest
           'path'    => '/'
         }, record)
       }
+    end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::ApacheParser.new
+      parser.configure(
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+      )
+      text = '192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777'
+      parser.parse(text) do |time, record|
+        assert_equal "28/Feb/2013:12:00:00 +0900", record['time']
+      end
     end
   end
 
@@ -279,6 +316,17 @@ module ParserTest
       assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
       assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
     end
+
+    def test_parse_with_keep_time_key
+      @parser.configure(
+        'time_format' => '%b %d %M:%S:%H',
+        'keep_time_key'=>'true',
+      )
+      text = 'Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test'
+      @parser.parse(text) do |time, record|
+        assert_equal "Feb 28 00:00:12", record['time']
+      end
+    end
   end
 
   class JsonParserTest < ::Test::Unit::TestCase
@@ -327,6 +375,18 @@ module ParserTest
     def test_parse_with_invalid_time
       assert_raise Fluent::ParserError do
         @parser.parse('{"time":[],"k":"v"}') { |time, record| }
+      end
+    end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::JSONParser.new
+      parser.configure(
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+      )
+      text = "28/Feb/2013:12:00:00 +0900"
+      parser.parse("{\"time\":\"#{text}\"}") do |time, record|
+        assert_equal text, record['time']
       end
     end
   end
@@ -440,6 +500,20 @@ module ParserTest
         assert_equal(expected, record)
       }
     end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::TSVParser.new
+      parser.configure(
+        'keys'=>'time',
+        'time_key'=>'time',
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+      )
+      text = '28/Feb/2013:12:00:00 +0900'
+      parser.parse(text) do |time, record|
+        assert_equal text, record['time']
+      end
+    end
   end
 
   class CSVParserTest < ::Test::Unit::TestCase
@@ -480,6 +554,20 @@ module ParserTest
         }, record)
         assert_nil time, "parser returns nil w/o time and if configured so"
       }
+    end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::CSVParser.new
+      parser.configure(
+        'keys'=>'time',
+        'time_key'=>'time',
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+      )
+      text = '28/Feb/2013:12:00:00 +0900'
+      parser.parse(text) do |time, record|
+        assert_equal text, record['time']
+      end
     end
   end
 
@@ -567,7 +655,19 @@ module ParserTest
         assert_nil time, "parser returns nil w/o time and if configured so"
       }
     end
- end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure(
+        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key'=>'true',
+      )
+      text = '28/Feb/2013:12:00:00 +0900'
+      parser.parse("time:#{text}") do |time, record|
+        assert_equal text, record['time']
+      end
+    end
+  end
 
   class NoneParserTest < ::Test::Unit::TestCase
     include ParserTest
@@ -698,6 +798,18 @@ EOS
           "view_runtime" => "3.2",
           "ar_runtime" => "0.0"
         }, record)
+      }
+    end
+
+    def test_parse_with_keep_time_key
+      parser = TextParser::MultilineParser.new
+      parser.configure(
+        'format1' => '/^(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2})/',
+        'keep_time_key' => 'true'
+      )
+      text = '2013-3-03 14:27:33'
+      parser.parse(text) { |time, record|
+        assert_equal text, record['time']
       }
     end
   end

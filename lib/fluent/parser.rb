@@ -27,6 +27,8 @@ module Fluent
     # 'configure()' may raise errors for unexpected configurations
     attr_accessor :estimate_current_event
 
+    config_param :keep_time_key, :bool, :default => false
+
     def initialize
       super
       @estimate_current_event = true
@@ -201,6 +203,13 @@ module Fluent
             case name
             when "time"
               time = @mutex.synchronize { @time_parser.parse(value) }
+              if @keep_time_key
+                record[name] = if @type_converters.nil?
+                                 value
+                               else
+                                 convert_type(name, value)
+                               end
+              end
             else
               record[name] = if @type_converters.nil?
                                value
@@ -239,7 +248,8 @@ module Fluent
       def parse(text)
         record = Yajl.load(text)
 
-        if value = record.delete(@time_key)
+        value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
+        if value
           if @time_format
             time = @mutex.synchronize { @time_parser.parse(value) }
           else
@@ -299,7 +309,7 @@ module Fluent
         record = Hash[keys.zip(values)]
 
         if @time_key
-          value = record.delete(@time_key)
+          value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
           time = if value.nil?
                    if @estimate_current_event
                      Engine.now
@@ -465,6 +475,7 @@ module Fluent
           "referer" => referer,
           "agent" => agent,
         }
+        record["time"] = m['time'] if @keep_time_key
 
         if block_given?
           yield time, record
@@ -520,6 +531,7 @@ module Fluent
               record['pri'] = value.to_i
             when "time"
               time = @mutex.synchronize { @time_parser.parse(value.gsub(/ +/, ' ')) }
+              record[name] = value if @keep_time_key
             else
               record[name] = value
             end
