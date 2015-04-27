@@ -84,6 +84,22 @@ module Fluent
       end
     end
 
+    class OutStdoutFormatter < Formatter
+      config_param :output_type, :string, :default => 'json'
+
+      def configure(conf)
+        super
+
+        @formatter = Plugin.new_formatter(@output_type)
+        @formatter.configure(conf)
+      end
+
+      def format(tag, time, record)
+        header = "#{Time.now.localtime} #{tag}: "
+        "#{header}#{@formatter.format(tag, time, record)}"
+      end
+    end
+
     module StructuredFormatMixin
       def self.included(klass)
         klass.instance_eval {
@@ -117,6 +133,15 @@ module Fluent
 
       def format_record(record)
         "#{Yajl.dump(record)}\n"
+      end
+    end
+
+    class HashFormatter < Formatter
+      include HandleTagAndTimeMixin
+      include StructuredFormatMixin
+
+      def format_record(record)
+        "#{record.to_s}\n"
       end
     end
 
@@ -203,7 +228,9 @@ module Fluent
     TEMPLATE_REGISTRY = Registry.new(:formatter_type, 'fluent/plugin/formatter_')
     {
       'out_file' => Proc.new { OutFileFormatter.new },
+      'out_stdout' => Proc.new { OutStdoutFormatter.new },
       'json' => Proc.new { JSONFormatter.new },
+      'hash' => Proc.new { HashFormatter.new },
       'msgpack' => Proc.new { MessagePackFormatter.new },
       'ltsv' => Proc.new { LabeledTSVFormatter.new },
       'csv' => Proc.new { CsvFormatter.new },
