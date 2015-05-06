@@ -54,6 +54,7 @@ module Fluent
 
       suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
       @without_source = opts[:without_source] if opts[:without_source]
+      @without_source_interval = opts[:without_source_interval]
     end
 
     attr_reader :inputs
@@ -82,7 +83,7 @@ module Fluent
       super
 
       # initialize <source> elements
-      if @without_source
+      if @without_source and @without_source.empty?
         log.info "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements.select { |e| e.name == 'source' }.each { |e|
@@ -100,21 +101,57 @@ module Fluent
       @error_collector = error_label.event_router
     end
 
+    def on_without_source_timer
+      if File.exist?(@without_source)
+        shutdown_inputs
+      else
+        start_inputs
+      end
+    end
+
     def start
       super
 
-      @labels.each { |n, l|
-        l.start
-      }
-
-      @inputs.each { |i|
-        i.start
-        @started_inputs << i
-      }
+      start_labels
+      if @without_source
+        unless @without_source.empty? # PATH is given
+          start_inputs unless File.exist?(@without_source)
+          @default_loop = Coolio::Loop.default
+          @timer = TimerWatcher.new(@without_source_interval, true, $log, &method(:on_without_source_timer))
+          @default_loop.attach(@timer) # engine takes care of default_loop
+        end
+      else
+        start_inputs
+      end
     end
 
     def shutdown
       # Shutdown Input plugin first to prevent emitting to terminated Output plugin
+      shutdown_inputs
+      shutdown_labels
+
+      super
+    end
+
+    def start_inputs
+      return if inputs_running?
+      $log.info "start input plugins"
+      @inputs.each { |i|
+        i.start
+        @started_inputs << i
+      }
+      $log.debug "started input plugins"
+    end
+
+    def start_labels
+      @labels.each { |n, l|
+        l.start
+      }
+    end
+
+    def shutdown_inputs
+      return unless inputs_running?
+      $log.info "shutdown input plugins"
       @started_inputs.map { |i|
         Thread.new do
           begin
@@ -125,12 +162,18 @@ module Fluent
           end
         end
       }.each { |t| t.join }
+      @started_inputs = []
+      $log.debug "shutdowned input plugins"
+    end
 
+    def shutdown_labels
       @labels.each { |n, l|
         l.shutdown
       }
+    end
 
-      super
+    def inputs_running?
+      !@started_inputs.empty?
     end
 
     def suppress_interval(interval_time)
@@ -191,6 +234,21 @@ module Fluent
           @next_emit_error_log_time = now + @suppress_emit_error_log_interval
         end
         raise error
+      end
+    end
+
+    class TimerWatcher < Coolio::TimerWatcher
+      def initialize(interval, repeat, log, &callback)
+        @callback = callback
+        @log = log
+        super(interval, repeat)
+      end
+
+      def on_timer
+        @callback.call
+      rescue
+        @log.error $!.to_s
+        @log.error_backtrace
       end
     end
 

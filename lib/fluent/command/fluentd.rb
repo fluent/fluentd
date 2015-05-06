@@ -79,8 +79,14 @@ op.on('--suppress-repeated-stacktrace [VALUE]', "suppress repeated stacktrace", 
   opts[:suppress_repeated_stacktrace] = b
 }
 
-op.on('--without-source', "invoke a fluentd without input plugins", TrueClass) {|b|
-  opts[:without_source] = b
+op.on('--without-source [PATH]', "invoke a fluentd without input plugins. if a file is given, stop input plugins if the file appears, and restarts if the file disappears") {|s|
+  # empty:     invoke without input plugins
+  # file path: check file existence in interval seconds
+  opts[:without_source] = s || ""
+}
+
+op.on('--without-source-interval SECONDS', "check the file given by --without-source option every specified seconds") {|s|
+  opts[:without_source_interval] = s.to_i
 }
 
 op.on('--use-v1-config', "Use v1 configuration format (default)", TrueClass) {|b|
