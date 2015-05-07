@@ -31,6 +31,7 @@ module Fluent
     config_param :pos_file, :string, :default => nil
     config_param :read_from_head, :bool, :default => false
     config_param :refresh_interval, :time, :default => 60
+    config_param :suppress_parse_error_log, :bool, :default => false
 
     attr_reader :paths
 
@@ -239,7 +240,7 @@ module Fluent
         @parser.parse(line) { |time, record|
           if time && record
             es.add(time, record)
-          else
+          elsif !@suppress_parse_error_log
             log.warn "pattern not match: #{line.inspect}"
           end
         }
@@ -716,6 +717,7 @@ module Fluent
     config_param :tag, :string
     config_param :rotate_wait, :time, :default => 5
     config_param :pos_file, :string, :default => nil
+    config_param :suppress_parse_error_log, :bool, :default => false
 
     attr_reader :paths
 
@@ -784,7 +786,7 @@ module Fluent
           time, record = parse_line(line)
           if time && record
             es.add(time, record)
-          else
+          elsif !@suppress_parse_error_log
             log.warn "pattern not match: #{line.inspect}"
           end
         rescue

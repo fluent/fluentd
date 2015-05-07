@@ -241,6 +241,41 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "tab	"}, emits[5][2])
   end
 
+  def test_suppress_parse_error
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+      f.puts "test1"
+    }
+
+    config1 = %[
+      format /^foo (?<message>.*)$/
+    ]
+    config2 = config1 + '  suppress_parse_error_log'
+    d1 = create_driver(config1)
+    d2 = create_driver(config2)
+
+    [d1, d2].each do |d|
+      d.run do
+        sleep 1
+
+        File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+          f.puts "foo foo"
+          f.puts "bar bar"
+        }
+        sleep 1
+      end
+    end
+
+    emits = d1.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message" => "foo"}, emits[0][2])
+    assert_equal(true, d1.instance.log.logs.any?{|x| x.match(/pattern not match/)})
+
+    emits = d2.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message" => "foo"}, emits[0][2])
+    assert_equal(false, d2.instance.log.logs.any?{|x| x.match(/pattern not match/)})
+  end
+
   # multiline mode test
 
   def test_multiline
