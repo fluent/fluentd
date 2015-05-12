@@ -46,16 +46,22 @@ module Fluent
             @log.warn "failed to handle RPC request", :path => path, :error => e.to_s
             @log.warn_backtrace e.backtrace
 
-            code, header, body = render_json_error(500, {
+            code = 500
+            body = {
               'message '=> 'Internal Server Error',
               'error' => "#{e}",
-              'backgrace'=> e.backtrace,
-            })
+              'backtrace'=> e.backtrace,
+            }
           end
 
           code = 200 if code.nil?
           header = {'Content-Type' => 'application/json'} if header.nil?
-          body = '{}' if body.nil?
+          body = if body.nil?
+                   '{"ok":true}'
+                 else
+                   body['ok'] = code == 200
+                   body.to_json
+                 end
 
           res.status = code
           header.each_pair { |k, v|

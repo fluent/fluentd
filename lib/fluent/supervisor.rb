@@ -242,23 +242,23 @@ module Fluent
       @rpc_server = RPC::Server.new(@rpc_endpoint, $log)
 
       # built-in RPC for signals
-      @rpc_server.mount_proc('/processes/interrupt') { |req, res|
-        $log.debug "fluentd RPC got /processes/interrupt request"
+      @rpc_server.mount_proc('/api/processes.interruptWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/processes.interruptWorkers request"
         supervisor_sigint_handler
         nil
       }
-      @rpc_server.mount_proc('/processes/kill') { |req, res|
-        $log.debug "fluentd RPC got /processes/kill request"
+      @rpc_server.mount_proc('/api/processes.killWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/processes.killWorkers request"
         supervisor_sigterm_handler
         nil
       }
-      @rpc_server.mount_proc('/plugins/buffers/flush') { |req, res|
-        $log.debug "fluentd RPC got /plugins/buffers/flush request"
+      @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
+        $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
         supervisor_sigusr1_handler
         nil
       }
-      @rpc_server.mount_proc('/config/reload') { |req, res|
-        $log.debug "fluentd RPC got /config/reload request"
+      @rpc_server.mount_proc('/api/config.reload') { |req, res|
+        $log.debug "fluentd RPC got /api/config.reload request"
         $log.info "restarting"
         supervisor_sighup_handler
         nil
