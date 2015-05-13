@@ -109,6 +109,7 @@ module Fluent
       @plugin_dirs = opt[:plugin_dirs]
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
+      @rpc_server = nil
 
       @log_level = opt[:log_level]
       @suppress_interval = opt[:suppress_interval]
@@ -128,8 +129,10 @@ module Fluent
 
       dry_run if @dry_run
       start_daemonize if @daemonize
+      setup_rpc_server if @rpc_endpoint
       if @supervise
         install_supervisor_signal_handlers
+        run_rpc_server if @rpc_endpoint
         until @finished
           supervise do
             change_privilege
@@ -144,6 +147,7 @@ module Fluent
         end
       else
         $log.info "starting fluentd-#{Fluent::VERSION} without supervision"
+        run_rpc_server if @rpc_endpoint
         main_process do
           change_privilege
           init_engine
@@ -154,6 +158,7 @@ module Fluent
           exit 0
         end
       end
+      stop_rpc_server if @rpc_endpoint
     end
 
     def options
@@ -233,6 +238,41 @@ module Fluent
       end
     end
 
+    def setup_rpc_server
+      @rpc_server = RPC::Server.new(@rpc_endpoint, $log)
+
+      # built-in RPC for signals
+      @rpc_server.mount_proc('/api/processes.interruptWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/processes.interruptWorkers request"
+        supervisor_sigint_handler
+        nil
+      }
+      @rpc_server.mount_proc('/api/processes.killWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/processes.killWorkers request"
+        supervisor_sigterm_handler
+        nil
+      }
+      @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
+        $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
+        supervisor_sigusr1_handler
+        nil
+      }
+      @rpc_server.mount_proc('/api/config.reload') { |req, res|
+        $log.debug "fluentd RPC got /api/config.reload request"
+        $log.info "restarting"
+        supervisor_sighup_handler
+        nil
+      }
+    end
+
+    def run_rpc_server
+      @rpc_server.start
+    end
+
+    def stop_rpc_server
+      @rpc_server.shutdown
+    end
+
     def supervise(&block)
       start_time = Time.now
 
@@ -290,56 +330,72 @@ module Fluent
     def install_supervisor_signal_handlers
       trap :INT do
         $log.debug "fluentd supervisor process get SIGINT"
-        @finished = true
-        if pid = @main_pid
-          # kill processes only still exists
-          unless Process.waitpid(pid, Process::WNOHANG)
-            begin
-              Process.kill(:INT, pid)
-            rescue Errno::ESRCH
-              # ignore processes already died
-            end
-          end
-        end
+        supervisor_sigint_handler
       end
 
       trap :TERM do
         $log.debug "fluentd supervisor process get SIGTERM"
-        @finished = true
-        if pid = @main_pid
-          # kill processes only still exists
-          unless Process.waitpid(pid, Process::WNOHANG)
-            begin
-              Process.kill(:TERM, pid)
-            rescue Errno::ESRCH
-              # ignore processes already died
-            end
-          end
-        end
+        supervisor_sigterm_handler
       end
 
       trap :HUP do
         $log.debug "fluentd supervisor process get SIGHUP"
         $log.info "restarting"
-        # Creating new thread due to mutex can't lock
-        # in main thread during trap context
-        Thread.new {
-          read_config
-          apply_system_config
-          if pid = @main_pid
-            Process.kill(:TERM, pid)
-            # don't resuce Erro::ESRSH here (invalid status)
-          end
-        }.run
+        supervisor_sighup_handler
       end
 
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
-        @log.reopen!
+        supervisor_sigusr1_handler
+      end
+    end
+
+    def supervisor_sigint_handler
+      @finished = true
+      if pid = @main_pid
+        # kill processes only still exists
+        unless Process.waitpid(pid, Process::WNOHANG)
+          begin
+            Process.kill(:INT, pid)
+          rescue Errno::ESRCH
+            # ignore processes already died
+          end
+        end
+      end
+    end
+
+    def supervisor_sigterm_handler
+      @finished = true
+      if pid = @main_pid
+        # kill processes only still exists
+        unless Process.waitpid(pid, Process::WNOHANG)
+          begin
+            Process.kill(:TERM, pid)
+          rescue Errno::ESRCH
+            # ignore processes already died
+          end
+        end
+      end
+    end
+
+    def supervisor_sighup_handler
+      # Creating new thread due to mutex can't lock
+      # in main thread during trap context
+      Thread.new {
+        read_config
+        apply_system_config
         if pid = @main_pid
-          Process.kill(:USR1, pid)
+          Process.kill(:TERM, pid)
           # don't resuce Erro::ESRSH here (invalid status)
         end
+      }.run
+    end
+
+    def supervisor_sigusr1_handler
+      @log.reopen!
+      if pid = @main_pid
+        Process.kill(:USR1, pid)
+        # don't resuce Erro::ESRSH here (invalid status)
       end
     end
 
@@ -366,6 +422,7 @@ module Fluent
       config_param :emit_error_log_interval, :time, :default => nil
       config_param :suppress_config_dump, :bool, :default => nil
       config_param :without_source, :bool, :default => nil
+      config_param :rpc_endpoint, :string, :default => nil
 
       def initialize(conf)
         super()
@@ -380,6 +437,7 @@ module Fluent
           @suppress_config_dump = system.suppress_config_dump unless system.suppress_config_dump.nil?
           @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
           @without_source = system.without_source unless system.without_source.nil?
+          @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
         }
       end
     end
