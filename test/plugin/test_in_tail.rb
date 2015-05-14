@@ -40,6 +40,7 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal "t1", d.instance.tag
     assert_equal 2, d.instance.rotate_wait
     assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
+    assert_equal 1000, d.instance.read_lines_limit
   end
 
   # TODO: Should using more better approach instead of sleep wait
@@ -66,6 +67,30 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(true, emits.length > 0)
     assert_equal({"message" => "test3"}, emits[0][2])
     assert_equal({"message" => "test4"}, emits[1][2])
+    assert_equal(1, d.emit_streams.size)
+  end
+
+  data('1' => [1, 2], '10' => [10, 1])
+  def test_emit_with_read_lines_limit(data)
+    limit, num_emits = data
+    d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + "read_lines_limit #{limit}")
+    msg = 'test' * 500 # in_tail reads 2048 bytes at once.
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        f.puts msg
+        f.puts msg
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(true, emits.length > 0)
+    assert_equal({"message" => msg}, emits[0][2])
+    assert_equal({"message" => msg}, emits[1][2])
+    assert_equal(num_emits, d.emit_streams.size)
   end
 
   def test_emit_with_read_from_head
@@ -409,7 +434,7 @@ class TailInputTest < Test::Unit::TestCase
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, any, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, 1000, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:unwatched=).zero_or_more_times
@@ -425,7 +450,7 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, any, any).once.and_return do
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, 1000, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
             watcher.should_receive(:unwatched=).zero_or_more_times
