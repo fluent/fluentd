@@ -434,22 +434,25 @@ module ParserTest
   class TSVParserTest < ::Test::Unit::TestCase
     include ParserTest
 
-    def test_config_params
+    data('array param' => '["a","b"]', 'string param' => 'a,b')
+    def test_config_params(param)
       parser = TextParser::TSVParser.new
 
       assert_equal "\t", parser.delimiter
 
       parser.configure(
-        'keys' => 'a,b',
+        'keys' => param,
         'delimiter' => ',',
       )
 
+      assert_equal ['a', 'b'], parser.keys
       assert_equal ",", parser.delimiter
     end
 
-    def test_parse
+    data('array param' => '["time","a","b"]', 'string param' => 'time,a,b')
+    def test_parse(param)
       parser = TextParser::TSVParser.new
-      parser.configure('keys' => 'time,a,b', 'time_key' => 'time')
+      parser.configure('keys' => param, 'time_key' => 'time')
       parser.parse("2013/02/28 12:00:00\t192.168.0.1\t111") { |time, record|
         assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
         assert_equal({
@@ -519,9 +522,10 @@ module ParserTest
   class CSVParserTest < ::Test::Unit::TestCase
     include ParserTest
 
-    def test_parse
+    data('array param' => '["time","c","d"]', 'string param' => 'time,c,d')
+    def test_parse(param)
       parser = TextParser::CSVParser.new
-      parser.configure('keys' => 'time,c,d', 'time_key' => 'time')
+      parser.configure('keys' => param, 'time_key' => 'time')
       parser.parse("2013/02/28 12:00:00,192.168.0.1,111") { |time, record|
         assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
         assert_equal({
@@ -531,11 +535,12 @@ module ParserTest
       }
     end
 
-    def test_parse_without_time
+    data('array param' => '["c","d"]', 'string param' => 'c,d')
+    def test_parse_without_time(param)
       time_at_start = Time.now.to_i
 
       parser = TextParser::CSVParser.new
-      parser.configure('keys' => 'c,d')
+      parser.configure('keys' => param)
       parser.parse("192.168.0.1,111") { |time, record|
         assert time && time >= time_at_start, "parser puts current time without time input"
         assert_equal({
@@ -546,7 +551,7 @@ module ParserTest
 
       parser = TextParser::CSVParser.new
       parser.estimate_current_event = false
-      parser.configure('keys' => 'c,d', 'time_key' => 'time')
+      parser.configure('keys' => param, 'time_key' => 'time')
       parser.parse("192.168.0.1,111") { |time, record|
         assert_equal({
           'c' => '192.168.0.1',

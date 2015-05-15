@@ -284,14 +284,18 @@ module Fluent
     class ValuesParser < Parser
       include TypeConverter
 
-      config_param :keys, :string
+      config_param :keys, :default => [] do |val|
+        if val.start_with?('[') # This check is enough because keys parameter is simple. No '[' started column name.
+          JSON.load(val)
+        else
+          val.split(",")
+        end
+      end
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
 
       def configure(conf)
         super
-
-        @keys = @keys.split(",")
 
         if @time_key && !@keys.include?(@time_key) && @estimate_current_event
           raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
