@@ -31,6 +31,7 @@ module Fluent
     config_param :pos_file, :string, :default => nil
     config_param :read_from_head, :bool, :default => false
     config_param :refresh_interval, :time, :default => 60
+    config_param :read_lines_limit, :integer, :default => 1000
 
     attr_reader :paths
 
@@ -131,7 +132,7 @@ module Fluent
     end
 
     def setup_watcher(path, pe)
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, method(:update_watcher), &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), &method(:receive_lines))
       tw.attach(@loop)
       tw
     end
@@ -292,11 +293,12 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, update_watcher, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
+        @read_lines_limit = read_lines_limit
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
@@ -377,7 +379,7 @@ module Fluent
             end
             io.seek(pos)
 
-            @io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+            @io_handler = IOHandler.new(io, @pe, @log, @read_lines_limit, &method(:wrap_receive_lines))
           else
             @io_handler = NullIOHandler.new
           end
@@ -391,12 +393,12 @@ module Fluent
             inode = stat.ino
             if inode == @pe.read_inode # truncated
               @pe.update_pos(stat.size)
-              io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+              io_handler = IOHandler.new(io, @pe, @log, @read_lines_limit, &method(:wrap_receive_lines))
               @io_handler.close
               @io_handler = io_handler
             elsif @io_handler.io.nil? # There is no previous file. Reuse TailWatcher
               @pe.update(inode, io.pos)
-              io_handler = IOHandler.new(io, @pe, @log, &method(:wrap_receive_lines))
+              io_handler = IOHandler.new(io, @pe, @log, @read_lines_limit, &method(:wrap_receive_lines))
               @io_handler = io_handler
             else # file is rotated and new file found
               @update_watcher.call(@path, swap_state(@pe))
@@ -469,14 +471,13 @@ module Fluent
         end
       end
 
-      MAX_LINES_AT_ONCE = 1000
-
       class IOHandler
-        def initialize(io, pe, log, first = true, &receive_lines)
+        def initialize(io, pe, log, read_lines_limit, first = true, &receive_lines)
           @log = log
           @log.info "following tail of #{io.path}" if first
           @io = io
           @pe = pe
+          @read_lines_limit = read_lines_limit
           @receive_lines = receive_lines
           @buffer = ''.force_encoding('ASCII-8BIT')
           @iobuf = ''.force_encoding('ASCII-8BIT')
@@ -500,7 +501,7 @@ module Fluent
                 while line = @buffer.slice!(/.*?\n/m)
                   lines << line
                 end
-                if lines.size >= MAX_LINES_AT_ONCE
+                if lines.size >= @read_lines_limit
                   # not to use too much memory in case the file is very large
                   read_more = true
                   break
