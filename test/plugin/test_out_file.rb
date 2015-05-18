@@ -45,8 +45,16 @@ class FileOutputTest < Test::Unit::TestCase
       create_driver %[path #{TMP_DIR}/test_path]
     end
 
+    assert_nothing_raised do
+      FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+      File.chmod(0777, "#{TMP_DIR}/test_dir")
+      create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+    end
+
     assert_raise(Fluent::ConfigError) do
-      create_driver %[path #{TMP_DIR}/does_not_exist/test_path]
+      FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+      File.chmod(0555, "#{TMP_DIR}/test_dir")
+      create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
     end
   end
 

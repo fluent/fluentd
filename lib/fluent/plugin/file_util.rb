@@ -22,9 +22,31 @@ module Fluent
     # @param [String] path File path
     # @return [Boolean] file is writable or not
     def writable?(path)
-      path = File.exist?(path) ? path : File.dirname(path)
-      File.writable?(path)
+      return false if File.directory?(path)
+      return File.writable?(path) if File.exist?(path)
+
+      dirname = File.dirname(path)
+      return false if !File.directory?(dirname)
+      File.writable?(dirname)
     end
     module_function :writable?
+
+    # Check file is writable in conjunction wtih mkdir_p(dirname(path))
+    #
+    # @param [String] path File path
+    # @return [Boolean] file writable or not
+    def writable_p?(path)
+      return false if File.directory?(path)
+      return File.writable?(path) if File.exist?(path)
+
+      dirname = File.dirname(path)
+      until File.exist?(dirname)
+        dirname = File.dirname(dirname)
+      end
+
+      return false if !File.directory?(dirname)
+      File.writable?(dirname)
+    end
+    module_function :writable_p?
   end
 end

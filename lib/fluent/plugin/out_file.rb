@@ -61,7 +61,7 @@ module Fluent
       end
 
       test_path = generate_path(Time.now.strftime(@time_slice_format))
-      unless ::Fluent::FileUtil.writable?(test_path)
+      unless ::Fluent::FileUtil.writable_p?(test_path)
         raise ConfigError, "out_file: `#{test_path}` is not writable"
       end
 
