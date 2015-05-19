@@ -1,5 +1,25 @@
 # v0.12
 
+## Release 0.12.9 - 2015/05/19
+
+### New features / Enhancement
+
+* in_tail: Add read_lines_limit parameter to control chunk size
+  https://github.com/fluent/fluentd/pull/593
+* filter: add filter_stdout plugin
+  https://github.com/fluent/fluentd/pull/586
+* parser: add keep_time_key option
+  https://github.com/fluent/fluentd/pull/587
+* parser: keys parameter accepts json array configuration
+  https://github.com/fluent/fluentd/pull/592
+* Implement RPC server for better instance management
+  https://github.com/fluent/fluentd/pull/585
+
+### Bug fixes
+
+* out_file: Fix out_file can create directory recursively
+  https://github.com/fluent/fluentd/pull/595
+
 ## Release 0.12.8 - 2015/04/22
 
 ### New features / Enhancement
