@@ -239,6 +239,7 @@ module Fluent
       def configure(conf)
         super
 
+        @none_parser = TEMPLATE_REGISTRY.lookup("none").call
         unless @time_format.nil?
           @time_parser = TimeParser.new(@time_format)
           @mutex = Mutex.new
@@ -274,9 +275,9 @@ module Fluent
         end
       rescue Yajl::ParseError
         if block_given?
-          yield nil, nil
+          yield @none_parser.call(text)
         else
-          return nil, nil
+          return @none_parser.call(text)
         end
       end
     end
