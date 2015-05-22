@@ -69,7 +69,7 @@ module Fluent
 
   Configurable.register_type(:enum, Proc.new { |val, opts|
     s = val.to_sym
-    raise "Plugin BUG: config type 'enum' requires :list argument" if opts[:list].is_a?(Array)
+    raise "Plugin BUG: config type 'enum' requires :list argument" unless opts[:list].is_a?(Array)
     unless opts[:list].include?(s)
       raise ConfigError, "valid options are #{opts[:list].join(',')} but got #{val}"
     end
