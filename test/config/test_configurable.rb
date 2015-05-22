@@ -201,7 +201,7 @@ module Fluent::Config
 
         test 'can configure bool values' do
           b2a = ConfigurableSpec::Base2.new
-          assert_nothing_raised { b2a.configure({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5", "opt3" => "b"}) }
+          assert_nothing_raised { b2a.configure({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5", "opt3" => "a"}) }
           assert_true(b2a.flag1)
           assert_true(b2a.flag2)
 
