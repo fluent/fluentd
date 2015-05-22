@@ -16,6 +16,9 @@ module ConfigurableSpec
     config_param :name3, :string, :default => "base1"
     config_param :name4, :string, :default => "base1"
 
+    config_param :opt1, :enum, list: [:foo, :bar, :baz]
+    config_param :opt2, :enum, list: [:foo, :bar, :baz], default: :foo
+
     def get_all
       [@node, @flag1, @flag2, @name1, @name2, @name3, @name4]
     end
@@ -24,8 +27,10 @@ module ConfigurableSpec
   class Base2 < Base1
     config_set_default :name2, "base2"
     config_set_default :name4, "base2"
+    config_set_default :opt1, :bar
     config_param :name5, :string
     config_param :name6, :string, :default => "base2"
+    config_param :opt3, :enum, list: [:a, :b]
 
     def get_all
       ary = super
@@ -34,6 +39,7 @@ module ConfigurableSpec
   end
 
   class Base3 < Base2
+    config_set_default :opt3, :a
     config_section :node do
       config_param :name, :string, :default => "node"
       config_param :type, :string
@@ -56,6 +62,7 @@ module ConfigurableSpec
   end
 
   class Base4 < Base2
+    config_set_default :opt3, :a
     config_section :node, param_name: :nodes do
       config_argument :num, :integer
       config_param :name, :string, :default => "node"
@@ -154,6 +161,8 @@ module Fluent::Config
           assert_nil(obj1.name2)
           assert_equal("base1", obj1.name3)
           assert_equal("base1", obj1.name4)
+          assert_nil(obj1.opt1)
+          assert_equal(:foo, obj1.opt2)
         end
 
         test 'create instance methods and default values overwritten by sub class definition' do
@@ -167,13 +176,15 @@ module Fluent::Config
           assert_equal("base2", obj2.name4)
           assert_nil(obj2.name5)
           assert_equal("base2", obj2.name6)
+          assert_equal(:bar, obj2.opt1)
+          assert_equal(:foo, obj2.opt2)
         end
       end
 
       sub_test_case '#configure' do
         test 'returns configurable object itself' do
           b2 = ConfigurableSpec::Base2.new
-          assert_instance_of(ConfigurableSpec::Base2, b2.configure({"name1" => "t1", "name5" => "t5"}))
+          assert_instance_of(ConfigurableSpec::Base2, b2.configure({"name1" => "t1", "name5" => "t5", "opt3" => "a"}))
         end
 
         test 'raise errors without any specifications for param without defaults' do
@@ -181,34 +192,48 @@ module Fluent::Config
           assert_raise(Fluent::ConfigError) { b2.configure({}) }
           assert_raise(Fluent::ConfigError) { b2.configure({"name1" => "t1"}) }
           assert_raise(Fluent::ConfigError) { b2.configure({"name5" => "t5"}) }
-          assert_nothing_raised { b2.configure({"name1" => "t1", "name5" => "t5"}) }
+          assert_raise(Fluent::ConfigError) { b2.configure({"name1" => "t1", "name5" => "t5"}) }
+          assert_nothing_raised { b2.configure({"name1" => "t1", "name5" => "t5", "opt3" => "a"}) }
 
           assert_equal(["node", false, true, "t1", "base2", "base1", "base2", "t5", "base2"], b2.get_all)
+          assert_equal(:a, b2.opt3)
         end
 
         test 'can configure bool values' do
           b2a = ConfigurableSpec::Base2.new
-          assert_nothing_raised { b2a.configure({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5"}) }
+          assert_nothing_raised { b2a.configure({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5", "opt3" => "b"}) }
           assert_true(b2a.flag1)
           assert_true(b2a.flag2)
 
           b2b = ConfigurableSpec::Base2.new
-          assert_nothing_raised { b2b.configure({"flag1" => false, "flag2" => "no", "name1" => "t1", "name5" => "t5"}) }
+          assert_nothing_raised { b2b.configure({"flag1" => false, "flag2" => "no", "name1" => "t1", "name5" => "t5", "opt3" => "a"}) }
           assert_false(b2b.flag1)
           assert_false(b2b.flag2)
         end
 
         test 'overwrites values of defaults' do
           b2 = ConfigurableSpec::Base2.new
-          b2.configure({"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5"})
+          b2.configure({"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5", "opt1" => "foo", "opt3" => "b"})
           assert_equal("t1", b2.name1)
           assert_equal("t2", b2.name2)
           assert_equal("t3", b2.name3)
           assert_equal("t4", b2.name4)
           assert_equal("t5", b2.name5)
           assert_equal("base2", b2.name6)
+          assert_equal(:foo, b2.opt1)
+          assert_equal(:b, b2.opt3)
 
           assert_equal(["node", false, true, "t1", "t2", "t3", "t4", "t5", "base2"], b2.get_all)
+        end
+
+        test 'enum type rejects values which does not exist in list' do
+          default = {"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5", "opt1" => "foo", "opt3" => "b"}
+
+          b2 = ConfigurableSpec::Base2.new
+          assert_nothing_raised { b2.configure(default) }
+          assert_raise(Fluent::ConfigError) { b2.configure(default.merge({"opt1" => "bazz"})) }
+          assert_raise(Fluent::ConfigError) { b2.configure(default.merge({"opt2" => "fooooooo"})) }
+          assert_raise(Fluent::ConfigError) { b2.configure(default.merge({"opt3" => "c"})) }
         end
       end
     end

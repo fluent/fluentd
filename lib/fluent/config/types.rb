@@ -67,6 +67,14 @@ module Fluent
     val
   })
 
+  Configurable.register_type(:enum, Proc.new { |val, opts|
+    s = val.to_sym
+    unless opts[:list].include?(s)
+      raise ConfigError, "valid options are #{opts[:list].join(',')} but got #{val}"
+    end
+    s
+  })
+
   Configurable.register_type(:integer, Proc.new { |val, opts|
     val.to_i
   })
