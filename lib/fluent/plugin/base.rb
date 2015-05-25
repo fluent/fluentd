@@ -53,6 +53,9 @@ module Fluent
         @_plugin_running = false
       end
 
+      def before_shutdown
+      end
+
       def shutdown
       end
 

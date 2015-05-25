@@ -31,18 +31,28 @@ module Fluent
         super
       end
 
+      def stop
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
       def shutdown
         super
       end
 
-      def emit(tag, es, chain)
-        #### TODO:
+      def close
+        super
       end
 
-      def secondary_init(primary)
-        if primary.class != self.class
-          $log.warn "type of secondary output should be same as primary output", primary: primary.class.to_s, secondary: self.class.to_s
-        end
+      def terminate
+        super
+      end
+
+      def emit(tag, es)
+        raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
     end
   end
