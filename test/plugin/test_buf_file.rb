@@ -28,6 +28,7 @@ module FluentFileBufferTest
     end
 
     def test_init
+      omit "Windows doesn't spport symlink" if RUBY_PLATFORM.include?('mswin')
       chunk = filebufferchunk('key', 'init1')
       assert_equal 'key', chunk.key
       assert_equal 'init1', chunk.unique_id

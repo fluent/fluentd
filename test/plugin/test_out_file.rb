@@ -232,6 +232,7 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_symlink
+      omit "Windows doesn't spport symlink" if RUBY_PLATFORM.include?('mswin')
     conf = CONFIG + %[
       symlink_path #{SYMLINK_PATH}
     ]
