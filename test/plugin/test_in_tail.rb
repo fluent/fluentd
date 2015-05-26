@@ -52,7 +52,7 @@ class TailInputTest < Test::Unit::TestCase
   # TODO: Should using more better approach instead of sleep wait
 
   def test_emit
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
     }
@@ -62,7 +62,7 @@ class TailInputTest < Test::Unit::TestCase
     d.run do
       sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.puts "test3"
         f.puts "test4"
       }
@@ -85,7 +85,7 @@ class TailInputTest < Test::Unit::TestCase
     d.run do
       sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.puts msg
         f.puts msg
       }
@@ -100,7 +100,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_emit_with_read_from_head
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
     }
@@ -110,7 +110,7 @@ class TailInputTest < Test::Unit::TestCase
     d.run do
       sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.puts "test3"
         f.puts "test4"
       }
@@ -147,13 +147,13 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_rotate_file_with_write_old
     emits = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
-      File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
       rotated_file.puts "test7"
       rotated_file.puts "test8"
       rotated_file.flush
 
       sleep 1
-      File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "test5"
         f.puts "test6"
       }
@@ -181,7 +181,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def sub_test_rotate_file(config = nil)
-    file = File.open("#{TMP_DIR}/tail.txt", "w")
+    file = File.open("#{TMP_DIR}/tail.txt", "wb")
     file.puts "test1"
     file.puts "test2"
     file.flush
@@ -201,10 +201,10 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       else
         sleep 1
-        File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+        File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
         sleep 1
 
-        File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
           f.puts "test5"
           f.puts "test6"
         }
@@ -222,17 +222,17 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_lf
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
 
     d = create_driver
 
     d.run do
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.print "test3"
       }
       sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.puts "test4"
       }
       sleep 1
@@ -244,14 +244,14 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_whitespace
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
 
     d = create_driver
 
     d.run do
       sleep 1
 
-      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.puts "    "		# 4 spaces
         f.puts "    4 spaces"
         f.puts "4 spaces    "
@@ -275,7 +275,7 @@ class TailInputTest < Test::Unit::TestCase
   # multiline mode test
 
   def test_multiline
-    File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
     d = create_driver %[
       format multiline
@@ -283,7 +283,7 @@ class TailInputTest < Test::Unit::TestCase
       format_firstline /^[s]/
     ]
     d.run do
-      File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "f test1"
         f.puts "s test2"
         f.puts "f test3"
@@ -305,7 +305,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_multiline_with_multiple_formats
-    File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
     d = create_driver %[
       format multiline
@@ -315,7 +315,7 @@ class TailInputTest < Test::Unit::TestCase
       format_firstline /^[s]/
     ]
     d.run do
-      File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "f test1"
         f.puts "s test2"
         f.puts "f test3"
@@ -338,7 +338,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_multilinelog_with_multiple_paths
     files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
-    files.each { |file| File.open(file, "w") { |f| } }
+    files.each { |file| File.open(file, "wb") { |f| } }
 
     d = create_driver(%[
       path #{files[0]},#{files[1]}
@@ -349,7 +349,7 @@ class TailInputTest < Test::Unit::TestCase
     ], false)
     d.run do
       files.each do |file|
-        File.open(file, 'a') { |f|
+        File.open(file, 'ab') { |f|
           f.puts "f #{file} line should be ignored"
           f.puts "s test1"
           f.puts "f test2"
@@ -369,7 +369,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_multiline_without_firstline
-    File.open("#{TMP_DIR}/tail.txt", "w") { |f| }
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
     d = create_driver %[
       format multiline
@@ -378,7 +378,7 @@ class TailInputTest < Test::Unit::TestCase
       format3 /(?<var3>baz \\d)/
     ]
     d.run do
-      File.open("#{TMP_DIR}/tail.txt", "a") { |f|
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "foo 1"
         f.puts "bar 1"
         f.puts "baz 1"
@@ -534,7 +534,7 @@ class TailInputTest < Test::Unit::TestCase
   # Ensure that no fatal exception is raised when a file is missing and that
   # files that do exist are still tailed as expected.
   def test_missing_file
-    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
       f.puts "test2"
     }
@@ -553,7 +553,7 @@ class TailInputTest < Test::Unit::TestCase
       d = create_driver(config, false)
       d.run do
         sleep 1
-        File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
           f.puts "test3"
           f.puts "test4"
         }

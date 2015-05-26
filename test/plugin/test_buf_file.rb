@@ -22,7 +22,15 @@ module FluentFileBufferTest
     end
 
     def filebufferchunk(key, unique, opts={})
-      Fluent::FileBufferChunk.new(key, bufpath(unique), unique, opts[:mode] || "a+", opts[:symlink])
+      case mode=opts[:mode]
+      when String
+        mode += 'b'
+      when Integer
+        mode |= File::BINARY
+      when nil
+        mode = 'ab+'
+      end
+      Fluent::FileBufferChunk.new(key, bufpath(unique), unique, mode, opts[:symlink])
     end
 
     def test_init
@@ -236,7 +244,15 @@ module FluentFileBufferTest
     end
 
     def filebuffer(key, unique, opts={})
-      Fluent::FileBufferChunk.new(key, bufpath(unique), unique, opts[:mode] || "a+", opts[:symlink])
+      case mode=opts[:mode]
+      when String
+        mode += 'b'
+      when Integer
+        mode |= File::BINARY
+      when nil
+        mode = 'ab+'
+      end
+      Fluent::FileBufferChunk.new(key, bufpath(unique), unique, mode, opts[:symlink])
     end
 
     def test_init_configure

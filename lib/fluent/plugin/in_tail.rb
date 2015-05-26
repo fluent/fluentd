@@ -552,7 +552,7 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path)
+            io = File.open(@path, 'rb')
             stat = io.stat
             inode = stat.ino
             fsize = stat.size
@@ -1078,7 +1078,7 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path)
+            io = File.open(@path, 'rb')
             stat = io.stat
             inode = stat.ino
             fsize = stat.size

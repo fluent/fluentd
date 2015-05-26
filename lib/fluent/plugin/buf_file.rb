@@ -20,6 +20,12 @@ module Fluent
       super(key)
       @path = path
       @unique_id = unique_id
+      case mode
+      when String
+        mode += 'b'
+      when Integer
+       mode |= File::BINARY
+      end
       @file = File.open(@path, mode, DEFAULT_FILE_PERMISSION)
       @file.sync = true
       @size = @file.stat.size
