@@ -494,9 +494,9 @@ module Fluent
             begin
               while true
                 if @buffer.empty?
-                  @io.read_nonblock(2048, @buffer)
+                  @io.readpartial(2048, @buffer)
                 else
-                  @buffer << @io.read_nonblock(2048, @iobuf)
+                  @buffer << @io.readpartial(2048, @iobuf)
                 end
                 while line = @buffer.slice!(/.*?\n/m)
                   lines << line
@@ -1017,9 +1017,9 @@ module Fluent
             begin
               while true
                 if @buffer.empty?
-                  @io.read_nonblock(2048, @buffer)
+                  @io.readpartial(2048, @buffer)
                 else
-                  @buffer << @io.read_nonblock(2048, @iobuf)
+                  @buffer << @io.readpartial(2048, @iobuf)
                 end
                 while line = @buffer.slice!(/.*?\n/m)
                   lines << line
