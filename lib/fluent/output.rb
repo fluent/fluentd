@@ -91,6 +91,8 @@ module Fluent
         $log.warn "type of secondary output should be same as primary output", :primary=>primary.class.to_s, :secondary=>self.class.to_s
       end
     end
+
+    def inspect; "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__<<1)] end
   end
 
 
