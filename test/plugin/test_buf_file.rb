@@ -13,9 +13,7 @@ module FluentFileBufferTest
     BUF_FILE_TMPDIR = File.expand_path(File.join(File.dirname(__FILE__), '..', 'tmp', 'buf_file_chunk'))
 
     def setup
-      if Dir.exists? BUF_FILE_TMPDIR
-        FileUtils.remove_entry_secure BUF_FILE_TMPDIR
-      end
+      FileUtils.rm_rf(BUF_FILE_TMPDIR, secure: true)
       FileUtils.mkdir_p BUF_FILE_TMPDIR
     end
 
@@ -229,9 +227,7 @@ module FluentFileBufferTest
     BUF_FILE_TMPDIR = File.expand_path(File.join(File.dirname(__FILE__), '..', 'tmp', 'buf_file'))
 
     def setup
-      if Dir.exists? BUF_FILE_TMPDIR
-        FileUtils.remove_entry_secure BUF_FILE_TMPDIR
-      end
+      FileUtils.rm_rf(BUF_FILE_TMPDIR, secure: true)
       FileUtils.mkdir_p BUF_FILE_TMPDIR
     end
 

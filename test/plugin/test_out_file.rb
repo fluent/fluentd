@@ -6,7 +6,7 @@ require 'time'
 class FileOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.rm_rf(TMP_DIR, secure: true)
     FileUtils.mkdir_p(TMP_DIR)
   end
 

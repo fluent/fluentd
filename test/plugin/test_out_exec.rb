@@ -6,6 +6,12 @@ class ExecOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
     FileUtils.rm_rf(TMP_DIR)
+    if File.exist?(TMP_DIR)
+      # ensure files are closed for Windows, on which deleted files
+      # are still visible from filesystem
+      GC.start(full_mark: true)
+      FileUtils.rmdir(TMP_DIR)
+    end
     FileUtils.mkdir_p(TMP_DIR)
   end
 
