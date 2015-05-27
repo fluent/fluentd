@@ -28,6 +28,7 @@ module Fluent
     config_param :remove_keys, :string, :default => nil
     config_param :keep_keys, :string, :default => nil
     config_param :renew_record, :bool, :default => false
+    config_param :renew_time_key, :string, :default => nil
     config_param :enable_ruby, :bool, :default => false
 
     def configure(conf)
@@ -81,6 +82,9 @@ module Fluent
       es.each do |time, record|
         last_record = record # for debug log
         new_record = reform(time, record, placeholders)
+        if @renew_time_key && new_record.has_key?(@renew_time_key)
+          time = new_record[@renew_time_key].to_i
+        end
         new_es.add(time, new_record)
       end
       new_es

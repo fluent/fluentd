@@ -92,6 +92,16 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
 
+    test 'renew_time_key' do
+      config = %[renew_time_key message]
+      times = [ Time.local(2,2,3,4,5,2010,nil,nil,nil,nil), Time.local(3,2,3,4,5,2010,nil,nil,nil,nil) ]
+      msgs = times.map{|t| t.to_i.to_s }
+      es = emit(config, msgs)
+      es.each_with_index do |(time, record), i|
+        assert_equal(times[i].to_i, time)
+      end
+    end
+
     test 'keep_keys' do
       config = %[renew_record true\nkeep_keys foo,message]
       msgs = ['1', '2']
