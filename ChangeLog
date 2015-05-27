@@ -1,5 +1,14 @@
 # v0.12
 
+## Release 0.12.10 - 2015/05/28
+
+### New features / Enhancement
+
+* filter_record_transformer: add renew_time_key option to replace event time with processed field
+  https://github.com/fluent/fluentd/pull/602
+* config: add config_param `enum` type
+  https://github.com/fluent/fluentd/pull/600
+
 ## Release 0.12.9 - 2015/05/19
 
 ### New features / Enhancement
