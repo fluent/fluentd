@@ -317,7 +317,7 @@ module Fluent
         params = WEBrick::HTTPUtils.parse_query(uri.query)
 
         if @format != 'default'
-          params[EVENT_RECORD_PARAMETER] = @body
+          params[EVENT_RECORD_PARAMETER] = @body.empty? ? params : @body
         elsif @content_type =~ /^application\/x-www-form-urlencoded/
           params.update WEBrick::HTTPUtils.parse_query(@body)
         elsif @content_type =~ /^multipart\/form-data; boundary=(.+)/
