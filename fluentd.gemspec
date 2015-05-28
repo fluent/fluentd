@@ -27,6 +27,12 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("tzinfo", [">= 1.0.0"])
   gem.add_runtime_dependency("tzinfo-data", [">= 1.0.0"])
   gem.add_runtime_dependency("string-scrub", [">= 0.0.3"])
+  if /mswin|mingw/ =~ RUBY_PLATFORM
+    gem.add_runtime_dependency("win32-service", ["~> 0.8.3"])
+    gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
+    gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
+    gem.add_runtime_dependency("windows-pr", ["~> 1.2.3"])
+  end
 
   gem.add_development_dependency("rake", [">= 0.9.2"])
   gem.add_development_dependency("flexmock")

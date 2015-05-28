@@ -262,7 +262,7 @@ module Fluent
 
       def kill_child(join_wait)
         begin
-          signal = /mswin|mingw/ =~ RUBY_PLATFORM ? :KILL : :TERM
+          signal = $platformwin ? :KILL : :TERM
           Process.kill(signal, @pid)
         rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
           # Errno::ESRCH 'No such process', ignore

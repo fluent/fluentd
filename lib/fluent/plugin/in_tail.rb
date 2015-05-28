@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require_relative '../winfile'
+
 module Fluent
   class NewTailInput < Input
     Plugin.register_input('tail', self)
@@ -76,7 +78,7 @@ module Fluent
 
     def start
       if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, DEFAULT_FILE_PERMISSION)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
       end
@@ -144,7 +146,7 @@ module Fluent
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
             begin
-              pe.update(File::Stat.new(path).ino, 0)
+              pe.update(Win32File.stat(path).ino, 0)
             rescue Errno::ENOENT
               $log.warn "#{path} not found. Continuing without tailing it."
             end
@@ -161,7 +163,7 @@ module Fluent
         if tw
           tw.unwatched = unwatched
           if immediate
-            close_watcher(tw, false)
+            close_watcher(tw, true)
           else
             close_watcher_after_rotate_wait(tw)
           end
@@ -552,7 +554,7 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path, 'rb')
+            io = Win32File.open(@path)
             stat = io.stat
             inode = stat.ino
             fsize = stat.size
@@ -568,7 +570,6 @@ module Fluent
               @on_rotate.call(io)
               io = nil
             end
-
             @inode = inode
             @fsize = fsize
           ensure
@@ -743,7 +744,7 @@ module Fluent
 
     def start
       if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, DEFAULT_FILE_PERMISSION)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
       end
@@ -1078,7 +1079,7 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path, 'rb')
+            io = Win32File.open(@path)
             stat = io.stat
             inode = stat.ino
             fsize = stat.size

@@ -13,9 +13,13 @@ class TailInputTest < Test::Unit::TestCase
       # ensure files are closed for Windows, on which deleted files
       # are still visible from filesystem
       GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
-      FileUtils.rmdir(TMP_DIR)
+      FileUtils.remove_entry_secure(TMP_DIR)
     end
     FileUtils.mkdir_p(TMP_DIR)
+  end
+
+  def teardown
+    Fluent::Engine.stop
   end
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
@@ -181,7 +185,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def sub_test_rotate_file(config = nil)
-    file = File.open("#{TMP_DIR}/tail.txt", "wb")
+    file = Fluent::Win32File.open("#{TMP_DIR}/tail.txt", "wb")
     file.puts "test1"
     file.puts "test2"
     file.flush
@@ -218,7 +222,7 @@ class TailInputTest < Test::Unit::TestCase
 
     d.emits
   ensure
-    file.close
+    file.close if file
   end
 
   def test_lf
@@ -427,13 +431,13 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
   end
 
-  def test_refresh_watchers
+  def test_z_refresh_watchers
     plugin = create_driver(EX_CONFIG, false).instance
     sio = StringIO.new
     plugin.instance_eval do
       @pf = Fluent::NewTailInput::PositionFile.parse(sio)
       @loop = Coolio::Loop.new
-   end
+    end
 
     flexstub(Time) do |timeclass|
       timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6), Time.new(2010, 1, 2, 3, 4, 7))

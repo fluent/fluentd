@@ -15,6 +15,7 @@ rescue
   # ignore setup error on Win or similar platform which doesn't support signal
 end
 require 'cool.io'
+require_relative 'winfile'
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'
