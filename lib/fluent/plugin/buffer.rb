@@ -28,9 +28,6 @@ module Fluent
 
     # Buffer is to define an interface for all buffer plugins.
 
-    DEFAULT_CHUNK_BYTES_LIMIT = 8 * 1024 * 1024 # 8MB for memory
-    DEFAULT_QUEUE_LENGTH_LIMIT = 256 # (8MB * 256 ==) 2GB for memory
-
     MINIMUM_APPEND_ATTEMPT_SIZE = 10
 
     # Buffers are built on 2 element:
@@ -44,8 +41,8 @@ module Fluent
 
       config_section :buffer, param_name: :buffer_config, required: false, multi: false, final: true do
         config_argument :type, :string, default: nil
-        config_param :chunk_bytes_limit, :size, default: DEFAULT_CHUNK_BYTES_LIMIT
-        config_param :total_bytes_limit, :size, default: DEFAULT_CHUNK_BYTES_LIMIT * DEFAULT_QUEUE_LENGTH_LIMIT
+        config_param :chunk_bytes_limit, :size # default size is set by each buffer plugins
+        config_param :total_bytes_limit, :size
 
         # If user specify this value and (chunk_size * queue_length) is smaller than total_size,
         # then total_size is automatically configured to that value
@@ -85,9 +82,9 @@ module Fluent
             @total_bytes_limit = @chunk_bytes_limit * @queue_length_limit
           end
         else
-          @chunk_bytes_limit = DEFAULT_CHUNK_BYTES_LIMIT
-          @total_bytes_limit = DEFAULT_CHUNK_BYTES_LIMIT * DEFAULT_QUEUE_LENGTH_LIMIT
-          @queue_length_limit = DEFAULT_QUEUE_LENGTH_LIMIT
+          @chunk_bytes_limit = self.class.const_get(:DEFAULT_CHUNK_BYTES_LIMIT)
+          @total_bytes_limit = self.class.const_get(:DEFAULT_TOTAL_BYTES_LIMIT)
+          @chunk_records_limit = nil
         end
       end
 

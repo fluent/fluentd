@@ -21,6 +21,9 @@ module Fluent::Plugin
   class MemoryBuffer < Buffer
     Fluent::Plugin.register_buffer('memory', self)
 
+    DEFAULT_CHUNK_BYTES_LIMIT = 8 * 1024 * 1024 # 8MB for memory
+    DEFAULT_TOTAL_BYTES_LIMIT = 512 * 1024 * 1024 # 512MB
+
     def initialize
       super
     end
@@ -28,7 +31,8 @@ module Fluent::Plugin
     config_section :buffer, param_name: :buffer_config do
       desc 'If true, queued chunks are flushed at shutdown process. Otherwise queued chunks are discarded'
       config_set_default :flush_at_shutdown, true
-      config_set_default :chunk_bytes_limit, 512*1024*1024 # 512MB
+      config_set_default :chunk_bytes_limit, DEFAULT_CHUNK_BYTES_LIMIT
+      config_set_default :total_bytes_limit, DEFAULT_TOTAL_BYTES_LIMIT
     end
 
     def configure(plugin_id, conf)
