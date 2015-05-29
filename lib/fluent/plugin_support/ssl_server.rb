@@ -35,10 +35,16 @@ module Fluent
       SSL_SERVER_DEFAULT_READ_INTERVAL = 0.05 # [s], 50ms
       SSL_SERVER_DEFAULT_SOCKET_RESTART_INTERVAL = 0.2 # [s], 200ms
 
-      def ssl_server_generate_cert_key(digest: OpenSSL::Digest::SHA256, algorithm: OpenSSL::PKey::RSA, key_length: 2048, cert_country: 'US', cert_state: 'CA', cert_locality: 'Mountain View', cert_common_name: "Fluentd #{self.class} SSLServer")
+      def ssl_server_generate_cert_key(ca_cert: nil, ca_key: nil, digest: OpenSSL::Digest::SHA256, algorithm: OpenSSL::PKey::RSA, key_length: 2048, cert_country: 'US', cert_state: 'CA', cert_locality: 'Mountain View', cert_common_name: "Fluentd #{self.class} SSLServer")
+        if ca_cert && !ca_key || !ca_cert && ca_key
+          raise ArgumentError, "ca_cert and ca_key should be both specified, or both not specified"
+        end
+
         key = algorithm.generate(key_length)
 
-        issuer = subject = OpenSSL::X509::Name.new
+        subject = OpenSSL::X509::Name.new
+        issuer = ca_cert || subject # if @ca_cert is nil, then generate self-signed certificate
+
         subject.add_entry('C', cert_country)
         subject.add_entry('ST', cert_state)
         subject.add_entry('L', cert_locality)
@@ -53,7 +59,12 @@ module Fluent
         cert.subject  = subject
 
         digest_obj = digest.new
-        cert.sign(key, digest_obj)
+
+        if ca_key
+          cert.sign(ca_key, digest_obj)
+        else
+          cert.sign(key, digest_obj)
+        end
 
         return cert, key
       end
