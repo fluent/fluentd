@@ -121,6 +121,12 @@ module Fluent
         raise NotImplementedError, "Implement this method in child class"
       end
 
+      def metadata_list
+        synchronize do
+          @metadata_list.dup
+        end
+      end
+
       def metadata(timekey: nil, tag: nil, key_value_pairs={})
         meta = if key_value_pairs.empty?
                  Metadata.new(timekey, tag, [])
@@ -228,7 +234,12 @@ module Fluent
         synchronize do
           chunk = @dequeued.delete(chunk_id)
           begin
-            chunk.purge if chunk
+            if chunk
+              chunk.purge
+              if !@stage[chunk.metadata] && (!@queued_num[chunk.metadata] || @queued_num[chunk.metadata] < 1)
+                @metadata_list.delete(chunk.metadata)
+              end
+            end
           rescue => e
             @log.error "failed to purge buffer chunk", chunk_id: chunk_id, error_class: e.class, error: e
           end
