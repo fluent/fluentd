@@ -146,6 +146,13 @@ module ConfigurableSpec
       config_param :age, :integer, default: 10
     end
   end
+
+  class Example5
+    include Fluent::Configurable
+
+    config_param :normal_param, :string
+    config_param :secret_param, :string, :secret => true
+  end
 end
 
 module Fluent::Config
@@ -182,18 +189,22 @@ module Fluent::Config
       end
 
       sub_test_case '#configure' do
+        def e(attrs)
+          Fluent::Config::Element.new('', '', attrs, [])
+        end
+
         test 'returns configurable object itself' do
           b2 = ConfigurableSpec::Base2.new
-          assert_instance_of(ConfigurableSpec::Base2, b2.configure({"name1" => "t1", "name5" => "t5", "opt3" => "a"}))
+          assert_instance_of(ConfigurableSpec::Base2, b2.configure(e({"name1" => "t1", "name5" => "t5", "opt3" => "a"})))
         end
 
         test 'raise errors without any specifications for param without defaults' do
           b2 = ConfigurableSpec::Base2.new
-          assert_raise(Fluent::ConfigError) { b2.configure({}) }
-          assert_raise(Fluent::ConfigError) { b2.configure({"name1" => "t1"}) }
-          assert_raise(Fluent::ConfigError) { b2.configure({"name5" => "t5"}) }
-          assert_raise(Fluent::ConfigError) { b2.configure({"name1" => "t1", "name5" => "t5"}) }
-          assert_nothing_raised { b2.configure({"name1" => "t1", "name5" => "t5", "opt3" => "a"}) }
+          assert_raise(Fluent::ConfigError) { b2.configure(e({})) }
+          assert_raise(Fluent::ConfigError) { b2.configure(e({"name1" => "t1"})) }
+          assert_raise(Fluent::ConfigError) { b2.configure(e({"name5" => "t5"})) }
+          assert_raise(Fluent::ConfigError) { b2.configure(e({"name1" => "t1", "name5" => "t5"})) }
+          assert_nothing_raised { b2.configure(e({"name1" => "t1", "name5" => "t5", "opt3" => "a"})) }
 
           assert_equal(["node", false, true, "t1", "base2", "base1", "base2", "t5", "base2"], b2.get_all)
           assert_equal(:a, b2.opt3)
@@ -201,19 +212,19 @@ module Fluent::Config
 
         test 'can configure bool values' do
           b2a = ConfigurableSpec::Base2.new
-          assert_nothing_raised { b2a.configure({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5", "opt3" => "a"}) }
+          assert_nothing_raised { b2a.configure(e({"flag1" => "true", "flag2" => "yes", "name1" => "t1", "name5" => "t5", "opt3" => "a"})) }
           assert_true(b2a.flag1)
           assert_true(b2a.flag2)
 
           b2b = ConfigurableSpec::Base2.new
-          assert_nothing_raised { b2b.configure({"flag1" => false, "flag2" => "no", "name1" => "t1", "name5" => "t5", "opt3" => "a"}) }
+          assert_nothing_raised { b2b.configure(e({"flag1" => false, "flag2" => "no", "name1" => "t1", "name5" => "t5", "opt3" => "a"})) }
           assert_false(b2b.flag1)
           assert_false(b2b.flag2)
         end
 
         test 'overwrites values of defaults' do
           b2 = ConfigurableSpec::Base2.new
-          b2.configure({"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5", "opt1" => "foo", "opt3" => "b"})
+          b2.configure(e({"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5", "opt1" => "foo", "opt3" => "b"}))
           assert_equal("t1", b2.name1)
           assert_equal("t2", b2.name2)
           assert_equal("t3", b2.name3)
@@ -227,7 +238,7 @@ module Fluent::Config
         end
 
         test 'enum type rejects values which does not exist in list' do
-          default = {"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5", "opt1" => "foo", "opt3" => "b"}
+          default = e({"name1" => "t1", "name2" => "t2", "name3" => "t3", "name4" => "t4", "name5" => "t5", "opt1" => "foo", "opt3" => "b"})
 
           b2 = ConfigurableSpec::Base2.new
           assert_nothing_raised { b2.configure(default) }
@@ -467,12 +478,12 @@ module Fluent::Config
           ex01 = ConfigurableSpec::Example0.new
           assert_raise(Fluent::ConfigError) { ex01.configure(conf0) }
 
-          complete = {
+          complete = e('ROOT', '', {
             "stringvalue" => "s1", "boolvalue" => "yes", "integervalue" => "10",
             "sizevalue" => "10m", "timevalue" => "100s", "floatvalue" => "1.001",
             "hashvalue" => '{"foo":1, "bar":2}',
             "arrayvalue" => '[1,"ichi"]',
-          }
+          })
 
           checker = lambda { |conf| ConfigurableSpec::Example0.new.configure(conf) }
 
@@ -488,12 +499,12 @@ module Fluent::Config
         end
 
         test 'accepts configuration values as string representation' do
-          conf = {
+          conf = e('ROOT', '', {
             "stringvalue" => "s1", "boolvalue" => "yes", "integervalue" => "10",
             "sizevalue" => "10m", "timevalue" => "10m", "floatvalue" => "1.001",
             "hashvalue" => '{"foo":1, "bar":2}',
             "arrayvalue" => '[1,"ichi"]',
-          }
+          })
           ex = ConfigurableSpec::Example0.new.configure(conf)
           assert_equal("s1", ex.stringvalue)
           assert_true(ex.boolvalue)
@@ -506,12 +517,12 @@ module Fluent::Config
         end
 
         test 'accepts configuration values as ruby value representation (especially for DSL)' do
-          conf = {
+          conf = e('ROOT', '', {
             "stringvalue" => "s1", "boolvalue" => true, "integervalue" => 10,
             "sizevalue" => 10 * 1024 * 1024, "timevalue" => 10 * 60, "floatvalue" => 1.001,
             "hashvalue" => {"foo" => 1, "bar" => 2},
             "arrayvalue" => [1,"ichi"],
-          }
+          })
           ex = ConfigurableSpec::Example0.new.configure(conf)
           assert_equal("s1", ex.stringvalue)
           assert_true(ex.boolvalue)
@@ -524,12 +535,12 @@ module Fluent::Config
         end
 
         test 'gets both of true(yes) and false(no) for bool value parameter' do
-          conf = {
+          conf = e('ROOT', '', {
             "stringvalue" => "s1", "integervalue" => 10,
             "sizevalue" => 10 * 1024 * 1024, "timevalue" => 10 * 60, "floatvalue" => 1.001,
             "hashvalue" => {"foo" => 1, "bar" => 2},
             "arrayvalue" => [1,"ichi"],
-          }
+          })
           ex0 = ConfigurableSpec::Example0.new.configure(conf.merge({"boolvalue" => "true"}))
           assert_true(ex0.boolvalue)
 
@@ -670,6 +681,36 @@ module Fluent::Config
           assert_false(ex1.bool)
           assert_not_nil(ex1.detail)
           assert_equal("Mountain View 0", ex1.detail.address)
+        end
+      end
+    end
+
+    sub_test_case ':secret option' do
+      setup do
+        @conf = Fluent::Config::Element.new('ROOT', '', {'normal_param' => 'param1', 'secret_param' => 'param2'}, [])
+        @example = ConfigurableSpec::Example5.new
+        @example.configure(@conf)
+      end
+
+      test 'to_s hides secret config_param' do
+        @conf.to_s.each_line { |line|
+          key, value = line.strip.split(' ', 2)
+          assert_secret_param(key, value)
+        }
+      end
+
+      test 'config returns masked configuration' do
+        @example.config.each_pair { |key, value|
+          assert_secret_param(key, value)
+        }
+      end
+
+      def assert_secret_param(key, value)
+        case key
+        when 'normal_param'
+          assert_equal 'param1', value
+        when 'secret_param'
+          assert_equal 'xxxxxx', value
         end
       end
     end
