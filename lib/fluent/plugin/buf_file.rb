@@ -23,11 +23,16 @@ module Fluent::Plugin
   class FileBuffer < Buffer
     Fluent::Plugin.register_buffer('file', self)
 
+    DEFAULT_CHUNK_BYTES_LIMIT = 8 * 1024 * 1024 # 8MB for memory
+    DEFAULT_TOTAL_BYTES_LIMIT = 64 * 1024 * 1024 * 1024 # 64GB
+
     @@buffer_paths = {}
 
     config_section :buffer, param_name: :buffer_config do
       config_param :path, :string, default: nil # buffer plugin refers system configuration and generate path for each plugin, if `@id` specified
-      config_set_default :flush_at_shutdown, :bool, default: false
+      config_set_default :flush_at_shutdown, false
+      config_set_default :chunk_bytes_limit, DEFAULT_CHUNK_BYTES_LIMIT
+      config_set_default :total_bytes_limit, DEFAULT_TOTAL_BYTES_LIMIT
     end
     # permission?
 
