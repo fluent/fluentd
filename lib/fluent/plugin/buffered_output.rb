@@ -19,18 +19,15 @@ require 'fluent/plugin/output'
 module Fluent
   module Plugin
     class BufferedOutput < Output
-      def initialize
-        super
-      end
+      config_param :tag_chunked, :bool, default: false
 
       config_section :buffer, param_name: :buffer_config, required: false, multi: false, final: true do
-        desc 'The buffer type (memory, file)'
-        config_argument :type, :string, default: "memory"
+        config_set_default :type, "memory"
 
         # Buffer and its chunk configurations are defined in each buffer plugins
         # This plugin defines options for how to flush/retry
 
-        config_param :flush_at_shutdown, :bool, default: false
+        config_param :flush_at_shutdown, :bool # default should be set by Buffer plugins
 
         desc 'The interval between data flushes.'
         config_param :flush_interval, :time, default: 60
@@ -73,6 +70,17 @@ module Fluent
         config_section :buffer, required: false, multi: false do
           # this section must not be specified in configuration files
         end
+      end
+
+      def format(tag, time, record)
+        raise NotImplementedError, "BUG: buffered output plugins MUST implement this method"
+      end
+
+      ### Implement try_write if plugin does commit_flush under its own responsibility
+      # def try_write(chunk)
+
+      def write(chunk)
+        raise NotImplementedError, "BUG: buffered output plugins MUST implement this method"
       end
 
       def configure(conf)
@@ -126,6 +134,9 @@ module Fluent
       def start
         @num_errors = 0
         @emit_count = 0
+
+        @cached_metadata = []
+        @cached_metadata_mutex = Mutex.new
 
         @retry = nil # state machine
         @retry_mutex = Mutex.new
@@ -181,28 +192,28 @@ module Fluent
         @buffer.terminate
       end
 
-      # metadata() should be used only by myself
-      def metadata(*args)
-        @cached_metadata ||= @buffer.metadata()
-      end
-
-      # this should be overridden by child buffered_output class
-      def cached_metadata
-        [ metadata() ]
+      def metadata(tag)
+        @tag_chunked ? @buffer.metadata(tag: tag) : @buffer.metadata()
       end
 
       def emit(tag, es)
-        meta = metadata()
+        metalist = handle_stream(tag, es)
+        if @flush_immediately
+          matalist.each do |meta|
+            @buffer.enqueue_chunk(meta)
+          end
+        end
+        if !@retry && metalist.reduce(false){|r,m| r || @buffer.enqueued?(m) }
+          submit_flush
+        end
+      end
+
+      def handle_stream(tag, es)
+        meta = metadata(tag)
         @emit_count += 1
         data = format_stream(tag, es)
         @buffer.emit(meta, data)
-
-        if @flush_immediately
-          @buffer.enqueue_chunk(meta)
-        end
-        if !@retry && @buffer.enqueued?(meta)
-          submit_flush
-        end
+        [meta]
       end
 
       def format_stream(tag, es)
@@ -211,17 +222,6 @@ module Fluent
           out << format(tag, time, record)
         end
         out
-      end
-
-      def format(tag, time, record)
-        raise NotImplementedError, "BUG: buffered output plugins MUST implement this method"
-      end
-
-      ### Implement try_write if plugin does commit_flush under its own responsibility
-      # def try_write(chunk)
-
-      def write(chunk)
-        raise NotImplementedError, "BUG: buffered output plugins MUST implement this method"
       end
 
       def submit_flush
@@ -260,12 +260,13 @@ module Fluent
         end
       end
 
-      def enqueue_buffer(force: false)
+      def enqueue_buffer(force: false, test: ->(chunk){ chunk.created_at + @flush_interval > Time.now })
         if force
           @buffer.enqueue_all
         else
-          cached_metadata.each do |meta|
-            if @buffer.staged_chunk_test(meta){ |chunk| chunk.modified_at + @flush_interval > Fluent::Engine.now }
+          metalist = @buffer.metadata_list
+          metalist.each do |meta|
+            if @buffer.staged_chunk_test(meta, &test)
               @buffer.enqueue_chunk(meta)
             end
           end

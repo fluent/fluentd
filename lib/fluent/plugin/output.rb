@@ -19,6 +19,12 @@ require 'fluent/plugin/base'
 module Fluent
   module Plugin
     class Output < Base
+      # config_param ...
+
+      def emit(tag, es)
+        raise NotImplementedError, "BUG: output plugins MUST implement this method"
+      end
+
       def initialize
         super
       end
@@ -51,11 +57,9 @@ module Fluent
         super
       end
 
-      def emit(tag, es)
-        raise NotImplementedError, "BUG: output plugins MUST implement this method"
+      def inspect
+        "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__ << 1)]
       end
-
-      def inspect; "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__ << 1)] end
     end
   end
 end

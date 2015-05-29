@@ -128,6 +128,7 @@ module Fluent
       end
 
       def metadata(timekey: nil, tag: nil, key_value_pairs={})
+        # TODO cache metadata not to new it
         meta = if key_value_pairs.empty?
                  Metadata.new(timekey, tag, [])
                else
