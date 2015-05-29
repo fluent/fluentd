@@ -29,9 +29,10 @@ module Fluent
         }
         @unused = unused || attrs.keys
         @v1_config = false
+        @corresponding_proxies = [] # some plugins use flat parameters, e.g. in_http doesn't provide <format> section for parser.
       end
 
-      attr_accessor :name, :arg, :elements, :unused, :v1_config
+      attr_accessor :name, :arg, :elements, :unused, :v1_config, :corresponding_proxies
 
       def add_element(name, arg='')
         e = Element.new(name, arg, {}, [])
@@ -103,13 +104,31 @@ module Fluent
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair { |k, v|
-          out << "#{nindent}#{k} #{v}\n"
+          if secret_param?(k)
+            out << "#{nindent}#{k} xxxxxx\n"
+          else
+            out << "#{nindent}#{k} #{v}\n"
+          end
         }
         @elements.each { |e|
           out << e.to_s(nest + 1)
         }
         out << "#{indent}</#{@name}>\n"
         out
+      end
+
+      def secret_param?(key)
+        return false if @corresponding_proxies.empty?
+
+        param_key = key.to_sym
+        @corresponding_proxies.each { |proxy|
+          block, opts = proxy.params[param_key]
+          if opts
+            return opts[:secret]
+          end
+        }
+
+        false
       end
 
       def self.unescape_parameter(v)

@@ -90,12 +90,12 @@ module Fluent
         $log.info "gem '#{spec.name}' version '#{spec.version}'"
       end
 
+      @root_agent.configure(conf)
+      @event_router = @root_agent.event_router
+
       unless @suppress_config_dump
         $log.info "using configuration file: #{conf.to_s.rstrip}"
       end
-
-      @root_agent.configure(conf)
-      @event_router = @root_agent.event_router
     end
 
     def load_plugin_dir(dir)

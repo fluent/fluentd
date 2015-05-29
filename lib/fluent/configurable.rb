@@ -47,6 +47,7 @@ module Fluent
 
     def configure(conf)
       @config = conf
+      @config.corresponding_proxies << self.class.configure_proxy(self.class.name)
 
       logger = self.respond_to?(:log) ? log : $log
       proxy = self.class.merged_configure_proxy
