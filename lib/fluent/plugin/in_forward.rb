@@ -61,7 +61,6 @@ module Fluent::Plugin
         ver
       end
       config_param :ciphers, :string, default: nil
-      config_param :cert_auto_generate, :bool, default: false
 
       # cert auto generation
       config_param :digest, default: OpenSSL::Digest::SHA256 do |val|
@@ -85,9 +84,14 @@ module Fluent::Plugin
       config_param :cert_common_name, :string, default: 'Fluentd forward plugin'
 
       # cert file
-      config_param :cert_file, :string, default: nil
-      config_param :key_file, :string, default: nil
+      config_param :cert_path, :string, default: nil
+      config_param :key_path, :string, default: nil
       config_param :key_passphrase, :string, default: nil # you can use ENV w/ in-place ruby code
+
+      # CA cert to generate server certs
+      config_param :ca_cert_path, :string, default: nil
+      config_param :ca_key_path, :string, default: nil
+      config_param :ca_key_passphrase, :string, default: nil # you can use ENV w/ in-place ruby code
     end
 
     # TODO check recent fluent-plugin-secure-forward updates
@@ -137,6 +141,8 @@ module Fluent::Plugin
           raise Fluent::ConfigError, "<client> sections required if allow_anonymous_source disabled"
         end
 
+        @cert, @key = prepare_cert_key_pair(@ssl_options)
+
         @security.clients.each do |client|
           if client.host && client.network
             raise Fluent::ConfigError, "both of 'host' and 'network' are specified for client"
@@ -180,9 +186,8 @@ module Fluent::Plugin
                          end
 
       if @ssl_options # TCP+SSL
-        cert, key = prepare_cert_key_pair(@ssl_options)
         version = @ssl_options.version
-        ssl_server_listen(ssl_version: version, ciphers: @ssl_options.ciphers, cert: cert, key: key, port: @port, bind: @bind, keepalive: server_keepalive, linger_timeout: @linger_timeout, backlog: @backlog, &method(:handle_connection))
+        ssl_server_listen(ssl_version: version, ciphers: @ssl_options.ciphers, cert: @cert, key: @key, port: @port, bind: @bind, keepalive: server_keepalive, linger_timeout: @linger_timeout, backlog: @backlog, &method(:handle_connection))
       else # TCP
         tcp_server_listen(port: @port, bind: @bind, keepalive: server_keepalive, linger_timeout: @linger_timeout, backlog: @backlog, &method(:handle_connection))
       end
@@ -208,7 +213,20 @@ module Fluent::Plugin
     end
 
     def prepare_cert_key_pair(opts)
-      if opts.cert_auto_generate
+      if opts.cert_path
+        return ssl_server_load_cert_key(
+          cert_file_path: opts.cert_path,
+          algorithm: opts.algorithm,
+          key_file_path: opts.key_path,
+          key_passphrase: opts.key_passphrase,
+        )
+      elsif opts.ca_cert_path
+        ca_cert, ca_key = ssl_server_load_cert_key(
+          cert_file_path: opts.ca_cert_path,
+          algorithm: opts.algorithm,
+          key_file_path: opts.ca_key_path,
+          key_passphrase: opts.ca_key_passphrase,
+        )
         return ssl_server_generate_cert_key(
           digest: opts.digest,
           algorithm: opts.algorithm,
@@ -216,14 +234,19 @@ module Fluent::Plugin
           cert_country: opts.cert_country,
           cert_state: opts.cert_state,
           cert_locality: opts.cert_locality,
-          cert_common_name: opts.cert_common_name
+          cert_common_name: opts.cert_common_name,
+          ca_cert: ca_cert,
+          ca_key: ca_key,
         )
       else
-        return ssl_server_load_cert_key(
-          cert_file_path: opts.cert_file,
+        return ssl_server_generate_cert_key(
+          digest: opts.digest,
           algorithm: opts.algorithm,
-          key_file_path: opts.key_file,
-          key_passphrase: opts.key_passphrase
+          key_length: opts.key_length,
+          cert_country: opts.cert_country,
+          cert_state: opts.cert_state,
+          cert_locality: opts.cert_locality,
+          cert_common_name: opts.cert_common_name,
         )
       end
     end
@@ -233,13 +256,15 @@ module Fluent::Plugin
 
       # TODO: trace logging to be connected this host!
       state = :established
+      nonce = nil
       user_auth_salt = nil
 
       if @security
         # security enabled session MUST use MessagePack as serialization format
         state = :helo
+        nonce = generate_salt
         user_auth_salt = generate_salt
-        send_data.call( :to_msgpack.to_proc, generate_helo(user_auth_salt) )
+        send_data.call( :to_msgpack.to_proc, generate_helo(nonce, user_auth_salt) )
         state = :pingpong
       end
 
@@ -263,13 +288,13 @@ module Fluent::Plugin
       read_messages(conn) do |msg, chunk_size, serializer|
         case state
         when :pingpong
-          success, reason_or_salt, shared_key = self.check_ping(msg, conn.remote_addr, user_auth_salt)
+          success, reason_or_salt, shared_key = self.check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
           if not success
-            send_data.call( serializer, generate_pong(false, reason_or_salt, shared_key) )
+            send_data.call( serializer, generate_pong(false, reason_or_salt, nonce, shared_key) )
             conn.close
             next
           end
-          send_data.call( serializer, generate_pong(true, reason_or_salt, shared_key) )
+          send_data.call( serializer, generate_pong(true, reason_or_salt, nonce, shared_key) )
 
           # TODO: log.debug "connection established"
           state = :established
@@ -446,15 +471,15 @@ module Fluent::Plugin
       OpenSSL::Random.random_bytes(16)
     end
 
-    def generate_helo(user_auth_salt)
+    def generate_helo(nonce, user_auth_salt)
       log.debug "generating helo"
       # ['HELO', options(hash)]
-      [ 'HELO', {'auth' => (@security ? user_auth_salt : ''), 'keepalive' => @allow_keepalive } ]
+      [ 'HELO', {'nonce' => nonce, 'auth' => (@security ? user_auth_salt : ''), 'keepalive' => @allow_keepalive } ]
     end
 
-    def check_ping(message, remote_addr, user_auth_salt)
+    def check_ping(message, remote_addr, user_auth_salt, nonce)
       log.debug "checking ping"
-      # ['PING', self_hostname, shared_key_salt, sha512_hex(shared_key_salt + self_hostname + shared_key), username || '', sha512_hex(auth_salt + username + password) || '']
+      # ['PING', self_hostname, shared_key_salt, sha512_hex(shared_key_salt + self_hostname + nonce + shared_key), username || '', sha512_hex(auth_salt + username + password) || '']
       unless message.size == 6 && message[0] == 'PING'
         return false, 'invalid ping message'
       end
@@ -467,7 +492,7 @@ module Fluent::Plugin
       end
 
       shared_key = node ? node[:shared_key] : @security.shared_key
-      serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(shared_key).hexdigest
+      serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(nonce).update(shared_key).hexdigest
       if shared_key_hexdigest != serverside
         log.warn "Shared key mismatch", address: remote_addr, hostname: hostname
         return false, 'shared_key mismatch', nil
@@ -489,14 +514,14 @@ module Fluent::Plugin
       return true, shared_key_salt, node[:shared_key]
     end
 
-    def generate_pong(auth_result, reason_or_salt, shared_key)
+    def generate_pong(auth_result, reason_or_salt, nonce, shared_key)
       log.debug "generating pong"
-      # ['PONG', bool(authentication result), 'reason if authentication failed', self_hostname, sha512_hex(salt + self_hostname + sharedkey)]
+      # ['PONG', bool(authentication result), 'reason if authentication failed', self_hostname, sha512_hex(salt + self_hostname + nonce + sharedkey)]
       unless auth_result
         return ['PONG', false, reason_or_salt, '', '']
       end
 
-      shared_key_digest_hex = Digest::SHA512.new.update(reason_or_salt).update(@self_hostname).update(shared_key).hexdigest
+      shared_key_digest_hex = Digest::SHA512.new.update(reason_or_salt).update(@self_hostname).update(nonce).update(shared_key).hexdigest
       [ 'PONG', true, '', @self_hostname, shared_key_digest_hex ]
     end
   end
@@ -512,17 +537,18 @@ end
 # 3. (server) send HELO
 #   * ['HELO', options(hash)]
 #   * options:
+#     * nonce: string (required)
 #     * auth: string or blank_string (string: authentication required, and its salt is this value)
 #     * keepalive: bool (allowed or not)
 # 4. (client) send PING
-#   * ['PING', selfhostname, sharedkey_salt, sha512_hex(sharedkey_salt + selfhostname + sharedkey), username || '', sha512_hex(auth_salt + username + password) || '']
+#   * ['PING', selfhostname, sharedkey_salt, sha512_hex(sharedkey_salt + selfhostname + nonce + sharedkey), username || '', sha512_hex(auth_salt + username + password) || '']
 # 5. (server) check PING
 #   * check sharedkey
 #   * check username / password (if required)
 #   * send PONG FAILURE if failed
 #   * ['PONG', false, 'reason of authentication failure', '', '']
 # 6. (server) send PONG
-#   * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512_hex(salt + selfhostname + sharedkey)]
+#   * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512_hex(salt + selfhostname + nonce + sharedkey)]
 # 7. (client) check PONG
 #   * check sharedkey
 #   * disconnect when failed
