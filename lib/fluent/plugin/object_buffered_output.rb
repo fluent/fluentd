@@ -19,17 +19,24 @@ require 'fluent/plugin/buffered_output'
 module Fluent
   module Plugin
     class ObjectBufferedOutput < BufferedOutput
-      def initialize
-        super
+
+      config_param :tag_chunked, :bool, default: true # actually, always true (this configuration value is ignored)
+
+      def write_objects(chunk)
+        raise NotImplementedError
       end
 
-      def emit(tag, es, chain)
-        @emit_count += 1
-        data = es.to_msgpack_stream
-        key = tag
-        if @buffer.emit(key, data, chain)
-          submit_flush
-        end
+      def metadata(tag)
+        @buffer.metadata(tag: tag)
+      end
+
+      def format_stream(tag, es)
+        es.to_msgpack_stream
+      end
+
+      def write(chunk)
+        chunk.extend(BufferedEventStreamMixin)
+        write_objects(chunk)
       end
 
       module BufferedEventStreamMixin
@@ -46,11 +53,6 @@ module Fluent
         def to_msgpack_stream
           read
         end
-      end
-
-      def write(chunk)
-        chunk.extend(BufferedEventStreamMixin)
-        write_objects(chunk.key, chunk)
       end
     end
   end

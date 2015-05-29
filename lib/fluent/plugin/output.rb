@@ -19,6 +19,12 @@ require 'fluent/plugin/base'
 module Fluent
   module Plugin
     class Output < Base
+      # config_param ...
+
+      def emit(tag, es)
+        raise NotImplementedError, "BUG: output plugins MUST implement this method"
+      end
+
       def initialize
         super
       end
@@ -49,10 +55,6 @@ module Fluent
 
       def terminate
         super
-      end
-
-      def emit(tag, es)
-        raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
     end
   end

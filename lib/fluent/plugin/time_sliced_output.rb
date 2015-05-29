@@ -20,117 +20,105 @@ require 'fluent/timezone'
 module Fluent
   module Plugin
     class TimeSlicedOutput < BufferedOutput
+      DEFAULT_CHUNK_BYTES_LIMIT = 256 * 1024 * 1024 # 256MB for file
 
-      def initialize
-        super
-        @localtime = true
-        #@ignore_old = false   # TODO
+      config_param :time_slice_format, :string, default: '%Y%m%d'
+      config_param :time_slice_wait, :time, default: 10*60
+
+      config_param :timezone, :string, default: nil # most authoritive if specified
+      config_param :localtime, :bool, default: true # localtime and utc are exclusive
+      config_param :utc, :bool, default: false
+
+      config_section :buffer, param_name: :buffer_config do
+        config_set_default :type, 'file' # overwrite default buffer_type
+        config_set_default :chunk_bytes_limit, DEFAULT_CHUNK_BYTES_LIMIT
+        config_set_default :flush_interval, nil
       end
 
-      config_param :time_slice_format, :string, :default => '%Y%m%d'
-      config_param :time_slice_wait, :time, :default => 10*60
-      config_param :timezone, :string, :default => nil
-      config_set_default :buffer_type, 'file'  # overwrite default buffer_type
-      config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
-      config_set_default :flush_interval, nil
-
-      attr_accessor :localtime
       attr_reader :time_slicer # for test
 
       def configure(conf)
         super
 
-        if conf['utc']
-          @localtime = false
-        elsif conf['localtime']
-          @localtime = true
-        end
-
-        if conf['timezone']
-          @timezone = conf['timezone']
-          Fluent::Timezone.validate!(@timezone)
-        end
-
         if @timezone
+          Fluent::Timezone.validate!(@timezone)
           @time_slicer = Timezone.formatter(@timezone, @time_slice_format)
-        elsif @localtime
-          @time_slicer = Proc.new {|time|
-            Time.at(time).strftime(@time_slice_format)
-          }
         else
-          @time_slicer = Proc.new {|time|
-            Time.at(time).utc.strftime(@time_slice_format)
-          }
+          if @utc
+            @localtime = false # if utc is set true explicitly, @localtime should be false
+          elsif !@localtime # if localtime is set false explicitly, @utc should be true
+            @utc = true
+          end
+
+          if @localtime
+            @time_slicer = Proc.new {|time|
+              Time.at(time).strftime(@time_slice_format)
+            }
+          else # UTC
+            @time_slicer = Proc.new {|time|
+              Time.at(time).utc.strftime(@time_slice_format)
+            }
+          end
         end
 
         @time_slice_cache_interval = time_slice_cache_interval
         @before_tc = nil
         @before_key = nil
 
-        if @flush_interval
-          if conf['time_slice_wait']
-            $log.warn "time_slice_wait is ignored if flush_interval is specified: #{conf}"
-          end
-          @enqueue_buffer_proc = Proc.new do
-            @buffer.keys.each {|key|
-              @buffer.push(key)
-            }
-          end
+        @flush_interval = @buffer_config.flush_interval
 
+        if @flush_interval
+          if @time_slice_wait
+            log.warn "time_slice_wait is ignored if flush_interval is specified"
+          end
+          @chunk_enqueue_rule = ->(chunk){ chunk.created_at + @flush_interval > Time.now }
         else
           @flush_interval = [60, @time_slice_cache_interval].min
-          @enqueue_buffer_proc = Proc.new do
-            nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
-            @buffer.keys.each {|key|
-              if key < nowslice
-                @buffer.push(key)
-              end
-            }
-          end
-        end
-      end
-
-      def emit(tag, es, chain)
-        @emit_count += 1
-        es.each {|time,record|
-          tc = time / @time_slice_cache_interval
-          if @before_tc == tc
-            key = @before_key
-          else
-            @before_tc = tc
-            key = @time_slicer.call(time)
-            @before_key = key
-          end
-          data = format(tag, time, record)
-          if @buffer.emit(key, data, chain)
-            submit_flush
-          end
-        }
-      end
-
-      def enqueue_buffer(force = false)
-        if force
-          @buffer.keys.each {|key|
-            @buffer.push(key)
+          @chunk_enqueue_rule = ->(chunk){
+            current_slice = @time_slicer.call(Time.now.to_i - @time_slice_wait)
+            chunk.metadata.timekey < current_slice
           }
-        else
-          @enqueue_buffer_proc.call
         end
       end
 
-      #def format(tag, event)
-      #end
+      def metadata(timekey, tag)
+        @tag_chunked ? @buffer.metadata(timekey: timekey, tag: tag) : @buffer.metadata(timekey: timekey)
+      end
 
-      private
+      def handle_stream(tag, es)
+        @emit_count += 1
+        emitted_meta = {}
+
+        es.each do |time, record|
+          ts = time / @time_slice_cache_interval
+          timekey = if @before_tc == ts # same time_slice with event just before
+                      @before_key
+                    else # new time_slice, so update cache by calling @time_slicer (heavy)
+                      @before_tc = ts
+                      @before_key = @time_slicer.call(time)
+                    end
+          data = format(tag, time, record)
+          meta = metadata
+          @buffer.emit(meta, data)
+          emitted_meta[meta] = true
+        end
+
+        emitted_meta.keys
+      end
+
+      def enqueue_buffer(force: false, test: nil)
+        super(force: force, test: @chunk_enqueue_rule)
+      end
+
       def time_slice_cache_interval
-        if @time_slicer.call(0) != @time_slicer.call(60-1)
-          return 1
-        elsif @time_slicer.call(0) != @time_slicer.call(60*60-1)
-          return 30
-        elsif @time_slicer.call(0) != @time_slicer.call(24*60*60-1)
-          return 60*30
-        else
-          return 24*60*30
+        if @time_slicer.call(0) != @time_slicer.call(60-1) # time slice length is seconds (1-59)
+          1
+        elsif @time_slicer.call(0) != @time_slicer.call(60*60-1) # time slice length is minutes
+          30
+        elsif @time_slicer.call(0) != @time_slicer.call(24*60*60-1) # time slice length is hours
+          60*30
+        else # longer than day
+          24*60*30
         end
       end
     end
