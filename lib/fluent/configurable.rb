@@ -21,8 +21,6 @@ module Fluent
   require 'fluent/registry'
 
   module Configurable
-    attr_reader :config
-
     def self.included(mod)
       mod.extend(ClassMethods)
     end
@@ -47,7 +45,9 @@ module Fluent
 
     def configure(conf)
       @config = conf
-      @config.corresponding_proxies << self.class.configure_proxy(self.class.name)
+      if class_name = self.class.name # Class.new in tests returns nil so it should be skipped.
+        @config.corresponding_proxies << self.class.configure_proxy(class_name)
+      end
 
       logger = self.respond_to?(:log) ? log : $log
       proxy = self.class.merged_configure_proxy
@@ -63,6 +63,10 @@ module Fluent
       end
 
       self
+    end
+
+    def config
+      @masked_config ||= @config.to_masked_element
     end
 
     CONFIG_TYPE_REGISTRY = Registry.new(:config_type, 'fluent/plugin/type_')

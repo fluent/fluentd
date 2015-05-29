@@ -117,6 +117,14 @@ module Fluent
         out
       end
 
+      def to_masked_element
+        element = Element.new(@name, @arg, {}, @elements, @unused)
+        each_pair { |k, v|
+          element[k] = secret_param?(k) ? 'xxxxxx' : v
+        }
+        element
+      end
+
       def secret_param?(key)
         return false if @corresponding_proxies.empty?
 
