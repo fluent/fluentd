@@ -1,5 +1,14 @@
 # v0.12
 
+## Release 0.12.10 - 2015/06/01
+
+### New features / Enhancement
+
+* fluent-cat: Add none format
+  https://github.com/fluent/fluentd/pull/606
+* config: Add secret option
+  https://github.com/fluent/fluentd/pull/604
+
 ## Release 0.12.10 - 2015/05/28
 
 ### New features / Enhancement
