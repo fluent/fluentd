@@ -14,51 +14,6 @@
 #    limitations under the License.
 #
 
-# https://github.com/djberg96/win32-api
-require 'win32/api'
-module Win32
-  class API
-    DLL = {}
-    TYPEMAP = {
-      "0" => Fiddle::TYPE_VOID,
-      "V" => Fiddle::TYPE_VOID,
-      "S" => Fiddle::TYPE_VOIDP,
-      "I" => Fiddle::TYPE_LONG,
-      "L" => Fiddle::TYPE_LONG_LONG,
-      "P" => Fiddle::TYPE_VOIDP,
-      "B" => Fiddle::TYPE_CHAR,
-      "K" => Fiddle::TYPE_VOIDP, # callback
-    }
-    POINTER_TYPE = Fiddle::SIZEOF_VOIDP == 8 ? 'q*' : 'l!*'
-
-    def initialize(func, import, export = "0", dllname)
-      calltype = :stdcall
-      @proto = [import].join.tr("VPpNnLlIi", "0SSI").sub(/^(.)0*$/, '\1')
-      handle = DLL[dllname] ||= Fiddle.dlopen(dllname)
-      @func = Fiddle::Function.new(
-                handle[func],
-                @proto.chars.map { |win_type| TYPEMAP[win_type] },
-                TYPEMAP.fetch(export)
-                )
-    rescue Fiddle::DLError => e
-      raise RuntimeError, e.message, e.backtrace
-    end
-
-    def call(*args)
-      import = @proto.split("")
-      args.each_with_index do |x, i|
-        if TYPEMAP[import[i]] == Fiddle::TYPE_VOIDP
-          args[i], = [x == 0 ? nil : x].pack("p").unpack(POINTER_TYPE)
-        end
-        args[i], = [x].pack("I").unpack("i") if import[i] == "I"
-      end
-      args = [nil] if args.empty?
-      ret, = @func.call(*args)
-      ret || 0
-    end
-  end
-end
-
 module Fluent
   require 'windows/file'
   require 'windows/error'
