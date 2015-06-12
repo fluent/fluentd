@@ -1,6 +1,20 @@
 # v0.12
 
-## Release 0.12.10 - 2015/06/01
+## Release 0.12.12 - 2015/06/12
+
+### New features / Enhancement
+
+* in_forward: Add chunk format check
+  https://github.com/fluent/fluentd/pull/611
+
+### Bug fixes
+
+* formatter: Fix SingleValueFormatter to prevent record from modified
+  https://github.com/fluent/fluentd/pull/615
+* config: configure requires Config::Element, not Hash
+  https://github.com/fluent/fluentd/pull/616
+
+## Release 0.12.11 - 2015/06/01
 
 ### New features / Enhancement
 
