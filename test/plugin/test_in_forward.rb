@@ -200,6 +200,26 @@ class ForwardInputTest < Test::Unit::TestCase
     }.size == 1, "large chunk warning is not logged"
   end
 
+  data('string chunk' => 'broken string',
+       'integer chunk' => 10)
+  def test_send_broken_chunk(data)
+    d = create_driver
+
+    # d.run => send_data
+    d.run do
+      d.instance.send(:on_message, data, 1000000000, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+    end
+
+    # check emitted data
+    emits = d.emits
+    assert_equal 0, emits.size
+
+    # check log
+    assert d.instance.log.logs.select{|line|
+      line =~ / \[warn\]: incoming chunk is broken: source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" msg=#{data.inspect}/
+    }.size == 1, "should not accept broken chunk"
+  end
+
   def test_respond_to_message_requiring_ack
     d = create_driver
 
