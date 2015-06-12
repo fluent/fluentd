@@ -206,7 +206,7 @@ module Fluent
       config_param :add_newline, :bool, :default => true
 
       def format(tag, time, record)
-        text = record[@message_key].to_s
+        text = record[@message_key].to_s.dup
         text << "\n" if @add_newline
         text
       end
