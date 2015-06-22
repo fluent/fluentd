@@ -172,7 +172,12 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       yield d if block_given?
       d.run {
         msgs.each do |msg|
-          d.emit({'eventType0' => 'bar', 'message' => msg}, @time)
+          record = {
+            'eventType0' => 'bar',
+            'message'    => msg,
+          }
+          record = record.merge(msg) if msg.is_a?(Hash)
+          d.emit(record, @time)
         end
       }.filtered
     end
@@ -324,6 +329,112 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         es.each_with_index do |(t, r), i|
           assert_equal({@hostname=>'hostname',"foo.#{@tag}"=>'tag'}, r)
         end
+      end
+
+      test "disabled typecasting of values with enable_ruby #{enable_ruby}" do
+        config = %[
+          auto_typecast false
+          enable_ruby #{enable_ruby}
+          <record>
+            single      ${source}
+            multiple    ${source}${source}
+            with_prefix prefix-${source}
+            with_suffix ${source}-suffix
+          </record>
+        ]
+        msgs = [
+          { "source" => "string" },
+          { "source" => 123 },
+          { "source" => [1, 2] },
+          { "source" => {a:1, b:2} },
+          { "source" => nil },
+        ]
+        expected_results = [
+          { :single      => "string",
+            :multiple    => "stringstring",
+            :with_prefix => "prefix-string",
+            :with_suffix => "string-suffix" },
+          { :single      => 123.to_s,
+            :multiple    => "#{123.to_s}#{123.to_s}",
+            :with_prefix => "prefix-#{123.to_s}",
+            :with_suffix => "#{123.to_s}-suffix" },
+          { :single      => [1, 2].to_s,
+            :multiple    => "#{[1, 2].to_s}#{[1, 2].to_s}",
+            :with_prefix => "prefix-#{[1, 2].to_s}",
+            :with_suffix => "#{[1, 2].to_s}-suffix" },
+          { :single      => {a:1, b:2}.to_s,
+            :multiple    => "#{{a:1, b:2}.to_s}#{{a:1, b:2}.to_s}",
+            :with_prefix => "prefix-#{{a:1, b:2}.to_s}",
+            :with_suffix => "#{{a:1, b:2}.to_s}-suffix" },
+          { :single      => nil.to_s,
+            :multiple    => "#{nil.to_s}#{nil.to_s}",
+            :with_prefix => "prefix-#{nil.to_s}",
+            :with_suffix => "#{nil.to_s}-suffix" },
+        ]
+        actual_results = []
+        es = emit(config, msgs)
+        es.each_with_index do |(t, r), i|
+          actual_results << {
+            :single      => r["single"],
+            :multiple    => r["multiple"],
+            :with_prefix => r["with_prefix"],
+            :with_suffix => r["with_suffix"],
+          }
+        end
+        assert_equal(expected_results, actual_results)
+      end
+
+      test "enabled typecasting of values with enable_ruby #{enable_ruby}" do
+        config = %[
+          auto_typecast yes
+          enable_ruby #{enable_ruby}
+          <record>
+            single      ${source}
+            multiple    ${source}${source}
+            with_prefix prefix-${source}
+            with_suffix ${source}-suffix
+          </record>
+        ]
+        msgs = [
+          { "source" => "string" },
+          { "source" => 123 },
+          { "source" => [1, 2] },
+          { "source" => {a:1, b:2} },
+          { "source" => nil },
+        ]
+        expected_results = [
+          { :single      => "string",
+            :multiple    => "stringstring",
+            :with_prefix => "prefix-string",
+            :with_suffix => "string-suffix" },
+          { :single      => 123,
+            :multiple    => "#{123.to_s}#{123.to_s}",
+            :with_prefix => "prefix-#{123.to_s}",
+            :with_suffix => "#{123.to_s}-suffix" },
+          { :single      => [1, 2],
+            :multiple    => "#{[1, 2].to_s}#{[1, 2].to_s}",
+            :with_prefix => "prefix-#{[1, 2].to_s}",
+            :with_suffix => "#{[1, 2].to_s}-suffix" },
+          { :single      => {a:1, b:2},
+            :multiple    => "#{{a:1, b:2}.to_s}#{{a:1, b:2}.to_s}",
+            :with_prefix => "prefix-#{{a:1, b:2}.to_s}",
+            :with_suffix => "#{{a:1, b:2}.to_s}-suffix" },
+          { :single      => nil,
+            :multiple    => "#{nil.to_s}#{nil.to_s}",
+            :with_prefix => "prefix-#{nil.to_s}",
+            :with_suffix => "#{nil.to_s}-suffix" },
+        ]
+        actual_results = []
+        es = emit(config, msgs)
+        es.each_with_index do |(t, r), i|
+          actual_results << {
+            :single      => r["single"],
+            :multiple    => r["multiple"],
+            :with_prefix => r["with_prefix"],
+            :with_suffix => r["with_suffix"],
+          }
+        end
+        assert_equal(expected_results, actual_results)
       end
     end
 
