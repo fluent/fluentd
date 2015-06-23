@@ -29,19 +29,17 @@ module Fluent
 
         def self.parse(source, source_path="config.rb")
           confpath = File.dirname(File.expand_path(source_path))
-          endres = parse_include(source,confpath,[])
+          endres = parse_include(source, confpath, [])
           Proxy.new('ROOT', nil).eval(source, source_path).to_config_element
         end
         def self.parse_include(content,confpath=nil,attrs=[])
           attrs.push(content)
-          require 'httpclient'
-          clt = HTTPClient.new
           res = /(include|@include).*/m.match(content).to_s
           res.split("\n").each do |i|
             content.gsub!(i,"")
             i.strip!
-            if ! i.start_with?("#")
-              url=i.split(%r{\s+})[1]
+            unless i.start_with?("#")
+              url = i.split(%r{\s+})[1]
               url.gsub!("\"","")
               u = URI.parse(url)
               if u.scheme == 'file' || u.path == url
@@ -49,11 +47,11 @@ module Fluent
                 path = u.path
                 if path[0] != ?/ and path[-1] == ?/
                     pattern = File.join(File.join(confpath,path),"*.rb")
-                elsif path[0] == ?/ and  FileTest::directory? path
+                elsif path[0] == ?/ and  path[-1] == ?/
                     pattern = File.join(path,"*.rb")
-                elsif path[0] == ?/ and path[-1] != ?/  and FileTest::file? path
+                elsif path[0] == ?/ and path[-1] != ?/
                     pattern = path
-              end
+                end
                 files = Dir.glob(pattern.to_s)
                 if ! files.length.eql?(0) then
                   files.sort.each { |path|
@@ -65,18 +63,18 @@ module Fluent
                 else
                   raise ConfigParseError, "include error #{pattern} not exists!"
                 end
-            else
-              $log.info url,"parse_include"
-              out = clt.get(url)
-              attrs.push(out.content.force_encoding('utf-8'))
-              parse_include(out.content.force_encoding('utf-8'),nil,attrs=attrs)
+              else
+                require 'open-uri'
+                open(url) {|f|
+                  attrs.push(f.read.force_encoding('utf-8'))
+                  parse_include(f.read.force_encoding('utf-8'),nil,attrs=attrs)
+                }
             end
           end
           return attrs.uniq.join("\n")
-          rescue => e
-            raise ConfigParseError, "about include #{confpath} error "
         end
       end
+      
       class Proxy
         def initialize(name, arg)
           @element = Element.new(name, arg, self)
