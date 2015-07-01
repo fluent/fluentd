@@ -461,7 +461,7 @@ module Fluent
 
       def resolve_dns!
         # sample to support dns round robin
-        Socket.getaddrinfo(@host, @port).sample[3]
+        Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM).sample[3]
       end
       private :resolve_dns!
 
