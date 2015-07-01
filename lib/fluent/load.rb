@@ -1,6 +1,5 @@
 require 'thread'
 require 'socket'
-require 'resolv'
 require 'fcntl'
 require 'time'
 require 'monitor'

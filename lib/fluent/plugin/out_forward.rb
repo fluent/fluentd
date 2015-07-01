@@ -460,8 +460,8 @@ module Fluent
       end
 
       def resolve_dns!
-        # shuffle to support dns round robin
-        Resolv.getaddresses(@host).shuffle!.first
+        # sample to support dns round robin
+        Socket.getaddrinfo(@host, @port).sample[3]
       end
       private :resolve_dns!
 
