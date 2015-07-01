@@ -460,9 +460,8 @@ module Fluent
       end
 
       def resolve_dns!
-        @sockaddr = Socket.pack_sockaddr_in(@port, @host)
-        port, resolved_host = Socket.unpack_sockaddr_in(@sockaddr)
-        return resolved_host
+        # sample to support dns round robin
+        Socket.getaddrinfo(@host, @port).sample[3]
       end
       private :resolve_dns!
 
