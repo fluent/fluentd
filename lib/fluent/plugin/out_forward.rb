@@ -43,8 +43,10 @@ module Fluent
         :tcp
       when 'udp'
         :udp
+      when 'none'
+        :none
       else
-        raise ConfigError, "forward output heartbeat type should be 'tcp' or 'udp'"
+        raise ConfigError, "forward output heartbeat type should be 'tcp', 'udp', or 'none'"
       end
     end
     config_param :heartbeat_interval, :time, :default => 1
@@ -111,7 +113,12 @@ module Fluent
 
         node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
           @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector)
-        @nodes << Node.new(log, node_conf)
+
+        if @heartbeat_type == :none
+          @nodes << NoneHeartbeatNode.new(log, node_conf)
+        else
+          @nodes << Node.new(log, node_conf)
+        end
         log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight, :plugin_id=>plugin_id
       }
     end
@@ -123,32 +130,36 @@ module Fluent
       rebuild_weight_array
       @rr = 0
 
-      @loop = Coolio::Loop.new
+      unless @heartbeat_type == :none
+        @loop = Coolio::Loop.new
 
-      if @heartbeat_type == :udp
-        # assuming all hosts use udp
-        @usock = SocketUtil.create_udp_socket(@nodes.first.host)
-        @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-        @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-        @loop.attach(@hb)
+        if @heartbeat_type == :udp
+          # assuming all hosts use udp
+          @usock = SocketUtil.create_udp_socket(@nodes.first.host)
+          @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+          @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
+          @loop.attach(@hb)
+        end
+
+        @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
+        @loop.attach(@timer)
+
+        @thread = Thread.new(&method(:run))
       end
-
-      @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
-      @loop.attach(@timer)
-
-      @thread = Thread.new(&method(:run))
     end
 
     def shutdown
       @finished = true
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @thread.join
+      if @loop
+        @loop.watchers.each {|w| w.detach }
+        @loop.stop
+      end
+      @thread.join if @thread
       @usock.close if @usock
     end
 
     def run
-      @loop.run
+      @loop.run if @loop
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace
@@ -511,6 +522,21 @@ module Fluent
 
       def to_msgpack(out = '')
         [@host, @port, @weight, @available].to_msgpack(out)
+      end
+    end
+
+    # Override Node to disable heartbeat
+    class NoneHeartbeatNode < Node
+      def available?
+        true
+      end
+
+      def tick
+        false
+      end
+
+      def heartbeat(detect=true)
+        true
       end
     end
 
