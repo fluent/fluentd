@@ -59,6 +59,11 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal :tcp, d.instance.heartbeat_type
   end
 
+  def test_configure_none_heartbeat
+    d = create_driver(CONFIG + "\nheartbeat_type none")
+    assert_equal :none, d.instance.heartbeat_type
+  end
+
   def test_phi_failure_detector
     d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
     node = d.instance.nodes.first
@@ -325,6 +330,20 @@ class ForwardOutputTest < Test::Unit::TestCase
         @thread.join
       end
     }.configure(conf).inject_router()
+  end
+
+  def test_heartbeat_type_none
+    d = create_driver(CONFIG + "\nheartbeat_type none")
+    node = d.instance.nodes.first
+    assert_equal Fluent::ForwardOutput::NoneHeartbeatNode, node.class
+
+    d.instance.start
+    assert_nil d.instance.instance_variable_get(:@loop)   # no HeartbeatHandler, or HeartbeatRequestTimer
+    assert_nil d.instance.instance_variable_get(:@thread) # no HeartbeatHandler, or HeartbeatRequestTimer
+
+    stub(node.failure).phi { raise 'Should not be called' }
+    node.tick
+    assert_equal node.available, true
   end
 
   class DummyEngineDriver < Fluent::Test::TestDriver
