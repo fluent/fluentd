@@ -118,11 +118,12 @@ module Fluent
       end
 
       def to_masked_element
-        element = Element.new(@name, @arg, {}, @elements, @unused)
+        new_elems = @elements.map { |e| e.to_masked_element }
+        new_elem = Element.new(@name, @arg, {}, new_elems, @unused)
         each_pair { |k, v|
-          element[k] = secret_param?(k) ? 'xxxxxx' : v
+          new_elem[k] = secret_param?(k) ? 'xxxxxx' : v
         }
-        element
+        new_elem
       end
 
       def secret_param?(key)

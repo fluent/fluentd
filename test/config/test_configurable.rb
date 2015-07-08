@@ -152,6 +152,11 @@ module ConfigurableSpec
 
     config_param :normal_param, :string
     config_param :secret_param, :string, :secret => true
+
+    config_section :section  do
+      config_param :normal_param2, :string
+      config_param :secret_param2, :string, :secret => true
+    end
   end
 end
 
@@ -686,8 +691,14 @@ module Fluent::Config
     end
 
     sub_test_case ':secret option' do
+      def e(name, arg = '', attrs = {}, elements = [])
+        attrs_str_keys = {}
+        attrs.each { |key, value| attrs_str_keys[key.to_s] = value }
+        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+      end
+
       setup do
-        @conf = Fluent::Config::Element.new('ROOT', '', {'normal_param' => 'param1', 'secret_param' => 'param2'}, [])
+        @conf = e('ROOT', '', {'normal_param' => 'normal', 'secret_param' => 'secret'}, [e('section', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
         @example = ConfigurableSpec::Example5.new
         @example.configure(@conf)
       end
@@ -700,16 +711,22 @@ module Fluent::Config
       end
 
       test 'config returns masked configuration' do
-        @example.config.each_pair { |key, value|
+        conf = @example.config
+        conf.each_pair { |key, value|
           assert_secret_param(key, value)
+        }
+        conf.elements.each { |element|
+          element.each_pair { |key, value|
+            assert_secret_param(key, value)
+          }
         }
       end
 
       def assert_secret_param(key, value)
         case key
-        when 'normal_param'
-          assert_equal 'param1', value
-        when 'secret_param'
+        when 'normal_param', 'normal_param2'
+          assert_equal 'normal', value
+        when 'secret_param', 'secret_param2'
           assert_equal 'xxxxxx', value
         end
       end

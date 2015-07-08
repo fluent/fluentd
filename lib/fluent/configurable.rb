@@ -45,12 +45,10 @@ module Fluent
 
     def configure(conf)
       @config = conf
-      if class_name = self.class.name # Class.new in tests returns nil so it should be skipped.
-        @config.corresponding_proxies << self.class.configure_proxy(class_name)
-      end
 
       logger = self.respond_to?(:log) ? log : $log
       proxy = self.class.merged_configure_proxy
+      conf.corresponding_proxies << proxy
 
       root = Fluent::Config::SectionGenerator.generate(proxy, conf, logger)
       @config_root_section = root
