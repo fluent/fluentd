@@ -1,5 +1,23 @@
 # v0.12
 
+## Release 0.12.13 - 2015/07/09
+
+### New features / Enhancement
+
+* out_stdout: Support formatter plugins in out_stdout
+  https://github.com/fluent/fluentd/pull/617
+* filter_record_transformer: Add "auto_typecast" parameter
+  https://github.com/fluent/fluentd/pull/620
+* out_forward: Support DNS round robin
+  https://github.com/fluent/fluentd/pull/625
+* out_forward: Support heartbeat_type none to disable heartbeat
+  https://github.com/fluent/fluentd/pull/626
+
+### Bug fixes
+
+* config: Fix secret option to support config_section
+  https://github.com/fluent/fluentd/pull/628
+
 ## Release 0.12.12 - 2015/06/12
 
 ### New features / Enhancement
