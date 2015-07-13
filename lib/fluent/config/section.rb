@@ -118,6 +118,8 @@ module Fluent
           end
         end
 
+        check_unused_section(proxy, conf)
+
         proxy.sections.each do |name, subproxy|
           varname = subproxy.param_name.to_sym
           elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
@@ -142,6 +144,15 @@ module Fluent
         end
 
         Section.new(section_params)
+      end
+
+      def self.check_unused_section(proxy, conf)
+        elems = conf.respond_to?(:elements) ? conf.elements : []
+        elems.each { |e|
+          unless proxy.sections.any? { |name, subproxy| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
+            e.unused_in = Plugin.lookup_name_from_class(proxy.name.to_s)
+          end
+        }
       end
     end
   end

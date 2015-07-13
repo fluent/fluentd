@@ -76,6 +76,10 @@ module Fluent
     def run_configure(conf)
       configure(conf)
       conf.check_not_fetched { |key, e|
+        if plugin_name = e.unused_in
+          $log.warn "section <#{e.name}> is not used in #{plugin_name}."
+          next
+        end
         unless e.name == 'system'
           unless @without_source && e.name == 'source'
             $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
