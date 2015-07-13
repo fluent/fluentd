@@ -75,7 +75,7 @@ module Fluent
     end
 
     module SectionGenerator
-      def self.generate(proxy, conf, logger, stack = [])
+      def self.generate(proxy, conf, logger, plugin_class, stack = [])
         return nil if conf.nil?
 
         section_stack = ""
@@ -118,7 +118,7 @@ module Fluent
           end
         end
 
-        check_unused_section(proxy, conf)
+        check_unused_section(proxy, conf, plugin_class)
 
         proxy.sections.each do |name, subproxy|
           varname = subproxy.param_name.to_sym
@@ -133,24 +133,31 @@ module Fluent
             raise ConfigError, "'<#{subproxy.name}>' sections are required" + section_stack
           end
           if subproxy.multi?
-            section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, stack + [subproxy.name]) }
+            section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, stack + [subproxy.name]) }
           else
             if elements.size > 1
               logger.error "config error in:\n#{conf}"
               raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more" + section_stack
             end
-            section_params[varname] = generate(subproxy, elements.first, logger, stack + [subproxy.name])
+            section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, stack + [subproxy.name])
           end
         end
 
         Section.new(section_params)
       end
 
-      def self.check_unused_section(proxy, conf)
+      def self.check_unused_section(proxy, conf, plugin_class)
         elems = conf.respond_to?(:elements) ? conf.elements : []
         elems.each { |e|
+          next if plugin_class.nil? && Fluent::Config::V1Parser::ELEM_SYMBOLS.include?(e.name) # skip pre-defined non-plugin elements because it doens't have proxy section
+
           unless proxy.sections.any? { |name, subproxy| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
-            e.unused_in = Plugin.lookup_name_from_class(proxy.name.to_s)
+            parent_name = if conf.arg.empty?
+                            conf.name
+                          else
+                            "#{conf.name} #{conf.arg}"
+                          end
+            e.unused_in = [parent_name, plugin_class]
           end
         }
       end

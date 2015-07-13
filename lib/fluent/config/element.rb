@@ -30,7 +30,7 @@ module Fluent
         @unused = unused || attrs.keys
         @v1_config = false
         @corresponding_proxies = [] # some plugins use flat parameters, e.g. in_http doesn't provide <format> section for parser.
-        @unused_in = false # if this element is not used in plugins, correspoing plugin name is set. otherwise nil.
+        @unused_in = false # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
       end
 
       attr_accessor :name, :arg, :elements, :unused, :v1_config, :corresponding_proxies, :unused_in

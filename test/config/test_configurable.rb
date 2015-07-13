@@ -727,7 +727,7 @@ module Fluent::Config
         @example = ConfigurableSpec::Example5.new
         @example.configure(@conf)
         @conf.elements.each { |e|
-          assert_nil e.unused_in
+          assert_equal(['ROOT', nil], e.unused_in)
         }
       end
 
