@@ -92,6 +92,26 @@ module Fluent
       try_load_plugin(name, type)
     end
 
+    def lookup_name_from_class(klass_or_str)
+      klass = if klass_or_str.class == String
+                eval(klass_or_str) # const_get can't handle A::B
+              else
+                klass_or_str
+              end
+
+      @input.each { |name, plugin|
+        return name if plugin == klass
+      }
+      @output.each { |name, plugin|
+        return name if plugin == klass
+      }
+      @filter.each { |name, plugin|
+        return name if plugin == klass
+      }
+
+      nil
+    end
+
     private
     def register_impl(name, map, type, klass)
       map[type] = klass

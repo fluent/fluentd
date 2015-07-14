@@ -722,6 +722,15 @@ module Fluent::Config
         }
       end
 
+      test 'get plugin name when found unknown section' do
+        @conf = e('ROOT', '', {'normal_param' => 'normal', 'secret_param' => 'secret'}, [e('unknown', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
+        @example = ConfigurableSpec::Example5.new
+        @example.configure(@conf)
+        @conf.elements.each { |e|
+          assert_equal(['ROOT', nil], e.unused_in)
+        }
+      end
+
       def assert_secret_param(key, value)
         case key
         when 'normal_param', 'normal_param2'
