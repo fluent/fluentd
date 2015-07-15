@@ -62,6 +62,7 @@ module Fluent
     config_param :ack_response_timeout, :time, :default => 190  # 0 means do not wait for ack responses
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
+    config_param :dns_round_robin, :bool, :default => false # heartbeat_type 'udp' is not available for this
 
     attr_reader :nodes
 
@@ -92,6 +93,13 @@ module Fluent
                                   else
                                     false
                                   end
+
+      if @dns_round_robin
+        if @heartbeat_type == :udp
+          raise ConfigError, "forward output heartbeat type must be 'tcp' or 'none' to use dns_round_robin option"
+        end
+      end
+
       conf.elements.each {|e|
         next if e.name != "server"
 
@@ -112,7 +120,7 @@ module Fluent
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
 
         node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
-          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector)
+          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector, @dns_round_robin)
 
         if @heartbeat_type == :none
           @nodes << NoneHeartbeatNode.new(log, node_conf)
@@ -414,7 +422,7 @@ module Fluent
     end
 
     NodeConfig = Struct.new("NodeConfig", :name, :host, :port, :weight, :standby, :failure,
-      :phi_threshold, :recover_sample_size, :expire_dns_cache, :phi_failure_detector)
+      :phi_threshold, :recover_sample_size, :expire_dns_cache, :phi_failure_detector, :dns_round_robin)
 
     class Node
       def initialize(log, conf)
@@ -471,9 +479,9 @@ module Fluent
       end
 
       def resolve_dns!
-        # sample to support dns round robin
-        addrinfo = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM).sample
-        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3])
+        addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
+        addrinfo = @conf.dns_round_robin ? addrinfo_list.sample : addrinfo_list.first
+        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_heartbeat
         addrinfo[3]
       end
       private :resolve_dns!
