@@ -64,6 +64,20 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal :none, d.instance.heartbeat_type
   end
 
+  def test_configure_dns_round_robin
+    assert_raise(Fluent::ConfigError) do
+      create_driver(CONFIG + "\nheartbeat_type udp\ndns_round_robin true")
+    end
+
+    d = create_driver(CONFIG + "\nheartbeat_type tcp\ndns_round_robin true")
+    assert_equal true, d.instance.dns_round_robin
+    assert_equal true, d.instance.nodes.first.conf.dns_round_robin
+
+    d = create_driver(CONFIG + "\nheartbeat_type none\ndns_round_robin true")
+    assert_equal true, d.instance.dns_round_robin
+    assert_equal true, d.instance.nodes.first.conf.dns_round_robin
+  end
+
   def test_phi_failure_detector
     d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
     node = d.instance.nodes.first
