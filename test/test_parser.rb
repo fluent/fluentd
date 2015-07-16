@@ -105,6 +105,18 @@ module ParserTest
       internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer', 'types_label_delimiter'=>'|'))
     end
 
+    def test_parse_with_time_key
+      parser = TextParser::RegexpParser.new(/(?<logtime>[^\]]*)/)
+      parser.configure(
+        'time_format'=>"%Y-%m-%d %H:%M:%S %z",
+        'time_key'=>'logtime',
+      )
+      text = '2013-02-28 12:00:00 +0900'
+      parser.parse(text) do |time, record|
+        assert_equal Time.parse(text).to_i, time
+      end
+    end
+
     def test_parse_without_time
       time_at_start = Time.now.to_i
       text = "tagomori_satoshi tagomoris 34\n"
