@@ -1,5 +1,21 @@
 # v0.12
 
+## Release 0.12.14 - 2015/07/17
+
+### New features / Enhancement
+
+* config: Log unused section configuration as warn level
+  https://github.com/fluent/fluentd/pull/629
+* config: Add '@' to log_level. Keep log_level for backward compatibility
+  https://github.com/fluent/fluentd/pull/630
+* parser: Add time_key option for RegexpParser
+  https://github.com/fluent/fluentd/pull/588
+
+### Bug fixes
+
+* out_forward: Add 'dns_round_robin' option
+  https://github.com/fluent/fluentd/pull/632
+
 ## Release 0.12.13 - 2015/07/09
 
 ### New features / Enhancement
