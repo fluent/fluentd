@@ -43,6 +43,7 @@ module Fluent
 
     def configure(conf)
       super
+      $log.warn "in_status plugin will be removed v0.14 or later. Use in_monitor_agent instead"
     end
 
     def start
