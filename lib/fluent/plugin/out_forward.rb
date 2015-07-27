@@ -29,6 +29,7 @@ module Fluent
 
     def initialize
       super
+      require 'zlib'
       require "base64"
       require 'socket'
       require 'fileutils'
@@ -63,6 +64,7 @@ module Fluent
     config_param :phi_threshold, :integer, :default => 16
     desc 'Use the "Phi accrual failure detector" to detect server failure.'
     config_param :phi_failure_detector, :bool, :default => true
+    config_param :compress, :bool, :default => false
 
     # if any options added that requires extended forward api, fix @extend_internal_protocol
 
@@ -265,7 +267,7 @@ module Fluent
     FORWARD_HEADER = [0x92].pack('C').freeze
     FORWARD_HEADER_EXT = [0x93].pack('C').freeze
     def forward_header
-      if @extend_internal_protocol
+      if @extend_internal_protocol || @compress
         FORWARD_HEADER_EXT
       else
         FORWARD_HEADER
@@ -304,24 +306,43 @@ module Fluent
         # writeRaw(tag)
         sock.write tag.to_msgpack  # tag
 
-        # beginRaw(size)
-        sz = chunk.size
-        #if sz < 32
-        #  # FixRaw
-        #  sock.write [0xa0 | sz].pack('C')
-        #elsif sz < 65536
-        #  # raw 16
-        #  sock.write [0xda, sz].pack('Cn')
-        #else
-        # raw 32
-        sock.write [0xdb, sz].pack('CN')
-        #end
-
         # writeRawBody(packed_es)
-        chunk.write_to(sock)
+        option = nil
+        if @compress
+          tmp = Tempfile.new("forward-#{chunk.key}")
+          gz = Zlib::GzipWriter.new(tmp)
+          chunk.write_to(gz)
+          gz.finish
+          gz = nil
+
+          sock.write [0xdb, tmp.pos].pack('CN')
+
+          tmp.pos = 0
+          FileUtils.copy_stream(tmp, sock)
+
+          option = {'compress' => true}
+          unless @extend_internal_protocol
+            sock.write option.to_msgpack
+          end
+        else
+          # beginRaw(size)
+          sz = chunk.size
+          #if sz < 32
+          #  # FixRaw
+          #  sock.write [0xa0 | sz].pack('C')
+          #elsif sz < 65536
+          #  # raw 16
+          #  sock.write [0xda, sz].pack('Cn')
+          #else
+          # raw 32
+          sock.write [0xdb, sz].pack('CN')
+          #end
+
+          chunk.write_to(sock)
+        end
 
         if @extend_internal_protocol
-          option = {}
+          option ||= {}
           option['chunk'] = Base64.encode64(chunk.unique_id) if @require_ack_response
           sock.write option.to_msgpack
 
@@ -363,6 +384,7 @@ module Fluent
         node.heartbeat(false)
         return res  # for test
       ensure
+        tmp.close(true) if tmp
         sock.close_write
         sock.close
       end

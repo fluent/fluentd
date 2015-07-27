@@ -20,6 +20,8 @@ module Fluent
 
     def initialize
       super
+      require 'zlib'
+      require 'stringio'
       require 'fluent/plugin/socket_util'
     end
 
@@ -148,9 +150,14 @@ module Fluent
 
       if entries.class == String
         # PackedForward
+        option = msg[2]
+        if option && option['compress']
+          Zlib::GzipReader.wrap(StringIO.new(entries)) { |gz|
+            entries = gz.read
+          }
+        end
         es = MessagePackEventStream.new(entries)
         router.emit_stream(tag, es)
-        option = msg[2]
 
       elsif entries.class == Array
         # Forward
