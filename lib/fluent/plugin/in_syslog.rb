@@ -164,7 +164,20 @@ module Fluent
       log.error_backtrace
     end
 
-    private
+    def test(buffer, offset)
+      # If there's a <pri> then we will assume that a newline terminates the syslog message.
+      # Otherwise we can extract the message length from the first few characters and gobble
+      # up that amount of the message if we have it buffered.
+      if buffer[0] == '<'
+        i = buffer.index("\n", offset)
+        i ? [i, i + 1] :  [nil, nil]
+      else
+        s = buffer.to_i
+        s += s.to_s.length + 1
+        to = offset + s
+        s <= buffer.length ? [to, to] :  [nil, nil]
+      end
+    end
 
     def listen(callback)
       log.debug "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
@@ -173,8 +186,7 @@ module Fluent
         @usock.bind(@bind, @port)
         SocketUtil::UdpHandler.new(@usock, log, 2048, callback)
       else
-        # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
-        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback)
+        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, method(:test), callback)
       end
     end
 

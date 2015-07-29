@@ -50,7 +50,7 @@ module Fluent
     class TcpHandler < Coolio::Socket
       PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
-      def initialize(io, log, delimiter, callback)
+      def initialize(io, log, test, callback)
         super(io)
         if io.is_a?(TCPSocket)
           @addr = (io.peeraddr rescue PEERADDR_FAILED)
@@ -58,7 +58,7 @@ module Fluent
           opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
-        @delimiter = delimiter
+        @test = test
         @callback = callback
         @log = log
         @log.trace { "accepted fluent socket object_id=#{self.object_id}" }
@@ -70,12 +70,14 @@ module Fluent
 
       def on_read(data)
         @buffer << data
-        pos = 0
 
-        while i = @buffer.index(@delimiter, pos)
-          msg = @buffer[pos...i]
+        pfrom = 0
+        to, nfrom = @test.call(@buffer, 0)
+        while pbegin
+          msg = @buffer[pfrom...to]
+          pfrom = nfrom
           @callback.call(msg, @addr)
-          pos = i + @delimiter.length
+          to, nfrom = @test.call(@buffer, nfrom)
         end
         @buffer.slice!(0, pos) if pos > 0
       rescue => e

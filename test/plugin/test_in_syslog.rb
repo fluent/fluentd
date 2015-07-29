@@ -150,10 +150,10 @@ class SyslogInputTest < Test::Unit::TestCase
   end
 
   def create_test_case
-    # actual syslog message has "\n"
+    # actual syslog message has "\n" unless there is a message length header as per RFC 5425 and RFC 6587
     [
       {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024},
+      {'msg' => '1043 <6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024, 'expected' => 'x' * 1024},
     ]
   end
 
