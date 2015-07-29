@@ -1,5 +1,14 @@
 # v0.12
 
+## Release 0.12.15 - 2015/07/29
+
+### New features / Enhancement
+
+* in_status: Warn deprecation message
+  https://github.com/fluent/fluentd/pull/635
+* output: Modify TimeSlicedOutput#emit mechanizm to fit BufferedOutput#emit way
+  https://github.com/fluent/fluentd/pull/634
+
 ## Release 0.12.14 - 2015/07/17
 
 ### New features / Enhancement
