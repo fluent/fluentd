@@ -167,6 +167,7 @@ module Fluent
           change_privilege
           init_engine
           install_main_process_signal_handlers
+          install_main_process_winsigint_handler if $platformwin
           run_configure
           finish_daemonize if @daemonize
           run_engine
@@ -293,7 +294,7 @@ module Fluent
 
       $log.info "starting fluentd-#{Fluent::VERSION}"
 
-      unless $platformwin
+      if !$platformwin
         @main_pid = fork do
           main_process(&block)
         end
@@ -597,7 +598,7 @@ module Fluent
     end
 
     def install_supervisor_winsigint_handler
-      @winintname = @signame || "fluentdwinsigint_#{Process.ppid}"
+      @winintname = @signame || "fluentdwinsigint_#{Process.pid}"
       @th_sv = Thread.new do
         @evtend = Win32::Event.new(@winintname, true)
         until @evtend.signaled?
