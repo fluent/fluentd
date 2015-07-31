@@ -122,10 +122,6 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
   opts[:gem_install_path] = s
 }
 
-op.on('-U SUPERPID', "*** internal use only *** use spawn instead of fork (Windows only)") {|s|
-  opts[:usespawn] = s.to_i
-}
-
 op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
   opts[:signame] = s
 }

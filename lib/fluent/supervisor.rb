@@ -297,14 +297,16 @@ module Fluent
         @main_pid = fork do
           main_process(&block)
         end
-      else
+      elsif @supervise
         fluentd_spawn_cmd = @rubybin_dir+"/ruby.exe '"+@rubybin_dir+"/fluentd' "
         $fluentdargv.each{|a|
           fluentd_spawn_cmd << (a + " ")
         }
-        fluentd_spawn_cmd << ("-U " + Process.pid.to_s)
+        fluentd_spawn_cmd << ("--no-supervisor")
         $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
         @main_pid = Process.spawn(fluentd_spawn_cmd)
+      else
+        main_process(&block)
       end
 
       if @daemonize && @wait_daemonize_pipe_w
@@ -593,7 +595,7 @@ module Fluent
     end
 
     def install_supervisor_winsigint_handler
-      @winintname = @signame || "fluentdwinsigint_#{Process.pid}"
+      @winintname = @signame || "fluentdwinsigint_#{Process.ppid}"
       @th_sv = Thread.new do
         @evtend = Win32::Event.new(@winintname, true)
         until @evtend.signaled?
