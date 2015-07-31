@@ -297,16 +297,18 @@ module Fluent
         @main_pid = fork do
           main_process(&block)
         end
-      elsif @supervise
-        fluentd_spawn_cmd = @rubybin_dir+"/ruby.exe '"+@rubybin_dir+"/fluentd' "
-        $fluentdargv.each{|a|
-          fluentd_spawn_cmd << (a + " ")
-        }
-        fluentd_spawn_cmd << ("--no-supervisor")
-        $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
-        @main_pid = Process.spawn(fluentd_spawn_cmd)
       else
-        main_process(&block)
+        if @supervise
+          fluentd_spawn_cmd = @rubybin_dir+"/ruby.exe '"+@rubybin_dir+"/fluentd' "
+          $fluentdargv.each{|a|
+            fluentd_spawn_cmd << (a + " ")
+          }
+          fluentd_spawn_cmd << ("--no-supervisor")
+          $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
+          @main_pid = Process.spawn(fluentd_spawn_cmd)
+        else
+          main_process(&block)
+        end
       end
 
       if @daemonize && @wait_daemonize_pipe_w
