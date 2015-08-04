@@ -169,7 +169,7 @@ module Fluent
         super()
         @regexp = regexp
         unless conf.empty?
-          conf = Config::Element.new('default_regexp_conf', '', conf, [])
+          conf = Config::Element.new('default_regexp_conf', '', conf, []) unless conf.is_a?(Config::Element)
           configure(conf)
         end
 
