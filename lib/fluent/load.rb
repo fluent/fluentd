@@ -16,6 +16,7 @@ rescue
 end
 require 'cool.io'
 
+require 'fluent/ntime'
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'
