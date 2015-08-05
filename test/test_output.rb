@@ -213,7 +213,7 @@ module FluentOutputTest
       FileUtils.mkdir_p(TMP_DIR)
     end
 
-    TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/time_sliced_output")
+    TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/time_sliced_output")
 
     CONFIG = %[]
 
