@@ -24,6 +24,11 @@ class Fluent::NTime
     @sec
   end
 
+  # for Time.at
+  def to_r
+    Rational(@sec * 1_000_000_000 + @nsec, 1_000_000_000)
+  end
+
   # for > and others
   def coerce(other)
     [other, @sec]
