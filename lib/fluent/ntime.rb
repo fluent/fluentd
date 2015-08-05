@@ -36,9 +36,12 @@ class Fluent::NTime
     @sec * 1000000000 + @nsec
   end
 
-  def self.now
-    time = Time.now
+  def self.from_time(time)
     Fluent::NTime.new(time.to_i, time.nsec)
+  end
+
+  def self.now
+    from_time(Time.now)
   end
 
   def method_missing(name, *args, &block)
