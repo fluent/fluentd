@@ -24,6 +24,11 @@ class Fluent::NTime
     @sec
   end
 
+  # for > and others
+  def coerce(other)
+    [other, @sec]
+  end
+
   def to_msec
     to_nsec / 1000000
   end
