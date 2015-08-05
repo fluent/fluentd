@@ -42,7 +42,8 @@ module EventTest
     include Fluent
 
     def setup
-      @times = [Engine.now, Engine.now + 1]
+      time = Engine.now
+      @times = [Fluent::NTime.new(time.sec), Fluent::NTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
       @es = ArrayEventStream.new(@times.zip(@records))
     end
@@ -86,7 +87,8 @@ module EventTest
     include Fluent
 
     def setup
-      @times = [Engine.now, Engine.now + 1]
+      time = Engine.now
+      @times = [Fluent::NTime.new(time.sec), Fluent::NTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
       @es = MultiEventStream.new
       @times.zip(@records).each { |time, record|
@@ -134,7 +136,8 @@ module EventTest
 
     def setup
       pk = MessagePack::Packer.new
-      @times = [Engine.now, Engine.now + 1]
+      time = Engine.now
+      @times = [Fluent::NTime.new(time.sec), Fluent::NTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
       @times.zip(@records).each { |time, record|
         pk.write([time, record])
