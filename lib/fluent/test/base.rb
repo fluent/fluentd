@@ -21,7 +21,7 @@ module Fluent
       engine = Fluent.const_set(:Engine, EngineClass.new).init
 
       engine.define_singleton_method(:now=) {|n|
-        @now = n.to_i
+        @now = n
       }
       engine.define_singleton_method(:now) {
         @now || super()

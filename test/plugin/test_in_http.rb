@@ -3,6 +3,8 @@ require 'fluent/test'
 require 'net/http'
 
 class HttpInputTest < Test::Unit::TestCase
+  include Fluent
+
   def setup
     Fluent::Test.setup
   end
@@ -32,7 +34,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_time
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
     Fluent::Engine.now = time
 
     d.expect_emit "tag1", time, {"a"=>1}
@@ -49,7 +51,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_json
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     d.expect_emit "tag1", time, {"a"=>1}
     d.expect_emit "tag2", time, {"a"=>2}
@@ -69,7 +71,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_multi_json
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     events = [{"a"=>1},{"a"=>2}]
     tag = "tag1"
@@ -138,7 +140,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_json_with_add_http_headers
     d = create_driver(CONFIG + "add_http_headers true")
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     records = [["tag1", time, {"a"=>1}], ["tag2", time, {"a"=>2}]]
 
@@ -158,7 +160,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_application_json
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     d.expect_emit "tag1", time, {"a"=>1}
     d.expect_emit "tag2", time, {"a"=>2}
@@ -174,7 +176,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_msgpack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     d.expect_emit "tag1", time, {"a"=>1}
     d.expect_emit "tag2", time, {"a"=>2}
@@ -190,7 +192,7 @@ class HttpInputTest < Test::Unit::TestCase
   def test_multi_msgpack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     events = [{"a"=>1},{"a"=>2}]
     tag = "tag1"
@@ -212,7 +214,7 @@ class HttpInputTest < Test::Unit::TestCase
       types field_1:integer
     ])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     d.expect_emit "tag1", time, {"field_1" => 1, "field_2" => 'str'}
     d.expect_emit "tag2", time, {"field_1" => 2, "field_2" => 'str'}
@@ -236,7 +238,7 @@ class HttpInputTest < Test::Unit::TestCase
       keys foo,bar
     ])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     d.expect_emit "tag1", time, {"foo" => "1", "bar" => 'st"r'}
     d.expect_emit "tag2", time, {"foo" => "2", "bar" => 'str'}
@@ -254,7 +256,7 @@ class HttpInputTest < Test::Unit::TestCase
     d = create_driver(CONFIG + "respond_with_empty_img true")
     assert_equal true, d.instance.respond_with_empty_img
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = NTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
     d.expect_emit "tag1", time, {"a"=>1}
     d.expect_emit "tag2", time, {"a"=>2}
