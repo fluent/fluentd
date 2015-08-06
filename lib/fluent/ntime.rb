@@ -34,18 +34,6 @@ class Fluent::NTime
     [other, @sec]
   end
 
-  def to_msec
-    to_nsec / 1000000
-  end
-
-  def to_usec
-    to_nsec / 1000
-  end
-
-  def to_nsec
-    @sec * 1000000000 + @nsec
-  end
-
   def self.from_time(time)
     Fluent::NTime.new(time.to_i, time.nsec)
   end
