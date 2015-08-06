@@ -3,9 +3,11 @@ require 'fluent/test'
 require 'net/http'
 
 class ExecInputTest < Test::Unit::TestCase
+  include Fluent
+
   def setup
     Fluent::Test.setup
-    @test_time = Time.parse("2011-01-02 13:14:15").to_i
+    @test_time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
@@ -77,6 +79,8 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
+    assert_equal @test_time.sec, emits[0][1].sec
+    assert_equal @test_time.nsec, emits[0][1].nsec
   end
 
   def test_emit_json
@@ -89,6 +93,8 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
+    assert_equal @test_time.sec, emits[0][1].sec
+    assert_equal @test_time.nsec, emits[0][1].nsec
   end
 
   def test_emit_msgpack
@@ -101,5 +107,7 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
+    assert_equal @test_time.sec, emits[0][1].sec
+    assert_equal @test_time.nsec, emits[0][1].nsec
   end
 end

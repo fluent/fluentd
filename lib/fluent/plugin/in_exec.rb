@@ -66,9 +66,9 @@ module Fluent
       if @time_key
         if @time_format
           f = @time_format
-          @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
+          @time_parse_proc = Proc.new {|str| NTime.from_time(Time.strptime(str, f)) }
         else
-          @time_parse_proc = Proc.new {|str| str.to_i }
+          @time_parse_proc = Proc.new {|str| NTime.new(str.to_i) }
         end
       end
 
