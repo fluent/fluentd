@@ -42,6 +42,7 @@ class Fluent::NTime
     from_time(Time.now)
   end
 
+  ## TODO: For performance, implement +, -, and so on
   def method_missing(name, *args, &block)
     @sec.send(name, *args, &block)
   end
