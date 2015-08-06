@@ -34,5 +34,6 @@ class StatusInputTest < Test::Unit::TestCase
     emits = d.emits
     assert(emits.length > 0)
     assert_equal({"answer" => "42"}, emits[0][2])
+    assert(emits[0][1].is_a?(Fluent::NTime))
   end
 end

@@ -77,6 +77,7 @@ class DummyTest < Test::Unit::TestCase
       emits.each do |tag, time, record|
         assert_equal("dummy", tag)
         assert_equal({"foo"=>"bar"}, record)
+        assert(time.is_a?(Fluent::NTime))
       end
     end
 

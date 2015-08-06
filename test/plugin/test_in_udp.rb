@@ -2,6 +2,8 @@ require_relative '../helper'
 require 'fluent/test'
 
 class UdpInputTest < Test::Unit::TestCase
+  include Fluent
+
   def setup
     Fluent::Test.setup
   end
@@ -44,8 +46,8 @@ class UdpInputTest < Test::Unit::TestCase
       d = create_driver(v)
 
       tests = [
-        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S').to_i},
-        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S').to_i},
+        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => NTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
+        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => NTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
       ]
 
       d.run do
@@ -59,7 +61,8 @@ class UdpInputTest < Test::Unit::TestCase
 
       emits = d.emits
       emits.each_index {|i|
-        assert_equal(tests[i]['expected'], emits[i][1])
+        assert_equal(tests[i]['expected'].sec, emits[i][1].sec)
+        assert_equal(tests[i]['expected'].nsec, emits[i][1].nsec)
       }
     }
   end
@@ -99,6 +102,7 @@ class UdpInputTest < Test::Unit::TestCase
     assert_equal(2, emits.size)
     emits.each_index {|i|
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
+      assert(emits[i][1].is_a?(Fluent::NTime))
     }
   end
 end
