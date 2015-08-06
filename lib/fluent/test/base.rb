@@ -27,6 +27,13 @@ module Fluent
         @now || super()
       }
 
+      ::Test::Unit::Assertions.module_eval {
+        def assert_equal_ntime(a, b)
+          assert_equal(a.sec, b.sec)
+          assert_equal(a.nsec, b.nsec)
+        end
+      }
+
       nil
     end
 

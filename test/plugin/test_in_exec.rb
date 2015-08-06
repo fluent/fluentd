@@ -79,8 +79,7 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal @test_time.sec, emits[0][1].sec
-    assert_equal @test_time.nsec, emits[0][1].nsec
+    assert_equal_ntime(@test_time, emits[0][1])
   end
 
   def test_emit_json
@@ -93,8 +92,7 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal @test_time.sec, emits[0][1].sec
-    assert_equal @test_time.nsec, emits[0][1].nsec
+    assert_equal_ntime(@test_time, emits[0][1])
   end
 
   def test_emit_msgpack
@@ -107,7 +105,6 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal @test_time.sec, emits[0][1].sec
-    assert_equal @test_time.nsec, emits[0][1].nsec
+    assert_equal_ntime(@test_time, emits[0][1])
   end
 end

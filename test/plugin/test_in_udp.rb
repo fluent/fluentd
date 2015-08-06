@@ -61,8 +61,7 @@ class UdpInputTest < Test::Unit::TestCase
 
       emits = d.emits
       emits.each_index {|i|
-        assert_equal(tests[i]['expected'].sec, emits[i][1].sec)
-        assert_equal(tests[i]['expected'].nsec, emits[i][1].nsec)
+        assert_equal_ntime(tests[i]['expected'], emits[i][1])
       }
     }
   end

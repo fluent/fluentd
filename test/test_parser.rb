@@ -66,9 +66,7 @@ module ParserTest
       assert(parser.parse('28/Feb/2013:12:00:00:123456789 +0900').is_a?(Fluent::NTime))
 
       time = str2time('28/Feb/2013:12:00:00:123456789 +0900', '%d/%b/%Y:%H:%M:%S:%N %z')
-      assert_equal(time, parser.parse('28/Feb/2013:12:00:00:123456789 +0900'))
-
-      assert_equal(123456789, parser.parse('28/Feb/2013:12:00:00:123456789 +0900').nsec)
+      assert_equal_ntime(time, parser.parse('28/Feb/2013:12:00:00:123456789 +0900'))
     end
 
     def test_parse_with_invalid_argument

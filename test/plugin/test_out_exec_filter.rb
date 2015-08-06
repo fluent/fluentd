@@ -81,11 +81,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["test", time, {"k2"=>"1"}], emits[0]
-    assert_equal time.sec, emits[0][1].sec
-    assert_equal time.nsec, emits[0][1].nsec
+    assert_equal_ntime time, emits[0][1]
     assert_equal ["test", time, {"k2"=>"2"}], emits[1]
-    assert_equal time.sec, emits[1][1].sec
-    assert_equal time.nsec, emits[1][1].nsec
+    assert_equal_ntime time, emits[1][1]
   end
 
   def test_emit_2
@@ -108,11 +106,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["xxx", time, {"k2"=>"1"}], emits[0]
-    assert_equal time.sec, emits[0][1].sec
-    assert_equal time.nsec, emits[0][1].nsec
+    assert_equal_ntime time, emits[0][1]
     assert_equal ["xxx", time, {"k2"=>"2"}], emits[1]
-    assert_equal time.sec, emits[1][1].sec
-    assert_equal time.nsec, emits[1][1].nsec
+    assert_equal_ntime time, emits[1][1]
   end
 
   def test_emit_3
@@ -135,8 +131,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 1, emits.length
     assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], emits[0]
-    assert_equal time.sec, emits[0][1].sec
-    assert_equal time.nsec, emits[0][1].nsec
+    assert_equal_ntime time, emits[0][1]
 
     d = create_driver %[
       command sed #{sed_unbuffered_option} -l -e s/foo/bar/
@@ -157,11 +152,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["xxx", time, {"val2"=>"sed-ed value bar"}], emits[0]
-    assert_equal time.sec, emits[0][1].sec
-    assert_equal time.nsec, emits[0][1].nsec
+    assert_equal_ntime time, emits[0][1]
     assert_equal ["xxx", time, {"val2"=>"sed-ed value poo"}], emits[1]
-    assert_equal time.sec, emits[1][1].sec
-    assert_equal time.nsec, emits[1][1].nsec
+    assert_equal_ntime time, emits[1][1]
   end
 
   def test_emit_4
@@ -186,11 +179,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["output.test", time, {"val2"=>"sed-ed value bar"}], emits[0]
-    assert_equal time.sec, emits[0][1].sec
-    assert_equal time.nsec, emits[0][1].nsec
+    assert_equal_ntime time, emits[0][1]
     assert_equal ["output.test", time, {"val2"=>"sed-ed value poo"}], emits[1]
-    assert_equal time.sec, emits[1][1].sec
-    assert_equal time.nsec, emits[1][1].nsec
+    assert_equal_ntime time, emits[1][1]
   end
 
   def test_json_1
@@ -211,8 +202,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 1, emits.length
     assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
-    assert_equal time.sec, emits[0][1].sec
-    assert_equal time.nsec, emits[0][1].nsec
+    assert_equal_ntime time, emits[0][1]
   end
 end
 

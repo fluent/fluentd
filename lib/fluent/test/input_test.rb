@@ -142,10 +142,7 @@ module Fluent
               events.each do |time, record|
                 if @expects
                   assert_equal(@expects[i], [tag, time, record])
-                  if @expects[i][1].is_a?(NTime)
-                    assert_equal(@expects[i][1].sec, time.sec)
-                    assert_equal(@expects[i][1].nsec, time.nsec)
-                  end
+                  assert_equal_ntime(@expects[i][1], time) if @expects[i][1].is_a?(NTime)
                 end
                 i += 1
               end
