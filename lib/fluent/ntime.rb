@@ -1,5 +1,7 @@
 module Fluent
   class NTime
+    TYPE = 0
+
     def initialize(sec, nsec = 0)
       @sec = sec
       @nsec = nsec
@@ -37,6 +39,18 @@ module Fluent
 
     def to_s
       @sec.to_s
+    end
+
+    def to_msgpack(io = nil)
+      MessagePack::ExtensionValue.new(TYPE, [@sec, @nsec].pack('LL')).to_msgpack(io)
+    end
+
+    def to_msgpack_ext
+      [@sec, @nsec].pack('LL')
+    end
+
+    def self.from_msgpack_ext(data)
+      new(*data.unpack('LL'))
     end
 
     def self.from_time(time)

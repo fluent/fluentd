@@ -86,7 +86,7 @@ class CopyOutputTest < Test::Unit::TestCase
 
     es = if defined?(MessagePack::Packer)
            time = Time.parse("2013-05-26 06:37:22 UTC").to_i
-           packer = MessagePack::Packer.new
+           packer = Fluent::Engine.msgpack_factory.packer
            packer.pack([time, {"a" => 1}])
            packer.pack([time, {"a" => 2}])
            Fluent::MessagePackEventStream.new(packer.to_s)

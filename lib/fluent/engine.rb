@@ -30,6 +30,9 @@ module Fluent
       @log_event_queue = []
 
       @suppress_config_dump = false
+
+      @msgpack_factory = MessagePack::Factory.new
+      @msgpack_factory.register_type(NTime::TYPE, NTime)
     end
 
     MATCH_CACHE_SIZE = 1024
@@ -37,6 +40,7 @@ module Fluent
 
     attr_reader :root_agent
     attr_reader :matches, :sources
+    attr_reader :msgpack_factory
 
     def init(opts = {})
       BasicSocket.do_not_reverse_lookup = true
