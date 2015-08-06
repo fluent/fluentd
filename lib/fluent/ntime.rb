@@ -34,6 +34,10 @@ class Fluent::NTime
     [other, @sec]
   end
 
+  def to_s
+    @sec.to_s
+  end
+
   def self.from_time(time)
     Fluent::NTime.new(time.to_i, time.nsec)
   end

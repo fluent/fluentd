@@ -20,6 +20,12 @@ class NTimeTest < Test::Unit::TestCase
     assert_equal(Rational(1_000_000_002, 1_000_000_000), NTime.new(1, 2).to_r)
   end
 
+  test '#to_s' do
+    time = NTime.new(100)
+    assert_equal('100', time.to_s)
+    assert_equal('100', "#{time}")
+  end
+
   test '.from_time' do
     sec = 1000
     usec = 2
