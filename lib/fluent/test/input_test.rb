@@ -140,7 +140,13 @@ module Fluent
 
               tag, events = @emit_streams[j]
               events.each do |time, record|
-                assert_equal(@expects[i], [tag, time, record]) if @expects
+                if @expects
+                  assert_equal(@expects[i], [tag, time, record])
+                  if @expects[i][1].is_a?(NTime)
+                    assert_equal(@expects[i][1].sec, time.sec)
+                    assert_equal(@expects[i][1].nsec, time.nsec)
+                  end
+                end
                 i += 1
               end
               j += 1
