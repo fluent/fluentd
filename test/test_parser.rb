@@ -407,12 +407,26 @@ module ParserTest
 
     def test_parse_with_keep_time_key
       parser = TextParser::JSONParser.new
+      format = "%d/%b/%Y:%H:%M:%S %z"
       parser.configure(
-        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
+        'time_format'=>format,
         'keep_time_key'=>'true',
       )
       text = "28/Feb/2013:12:00:00 +0900"
       parser.parse("{\"time\":\"#{text}\"}") do |time, record|
+        assert_equal Time.strptime(text, format).to_i, time.sec
+        assert_equal text, record['time']
+      end
+    end
+
+    def test_parse_with_keep_time_key_without_time_format
+      parser = TextParser::JSONParser.new
+      parser.configure(
+        'keep_time_key'=>'true',
+      )
+      text = "100"
+      parser.parse("{\"time\":\"#{text}\"}") do |time, record|
+        assert_equal text.to_i, time.sec
         assert_equal text, record['time']
       end
     end
