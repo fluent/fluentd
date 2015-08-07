@@ -1,5 +1,5 @@
 module Fluent
-  class NTime
+  class NanoTime
     TYPE = 0
 
     def initialize(sec, nsec = 0)
@@ -8,7 +8,7 @@ module Fluent
     end
 
     def ==(other)
-      if other.is_a?(Fluent::NTime)
+      if other.is_a?(Fluent::NanoTime)
         @sec == other.sec
       else
         @sec == other
@@ -54,7 +54,7 @@ module Fluent
     end
 
     def self.from_time(time)
-      Fluent::NTime.new(time.to_i, time.nsec)
+      Fluent::NanoTime.new(time.to_i, time.nsec)
     end
 
     def self.now

@@ -33,6 +33,6 @@ class GCStatInputTest < Test::Unit::TestCase
     emits = d.emits
     assert(emits.length > 0)
     assert_equal(stat, emits[0][2])
-    assert(emits[0][1].is_a?(Fluent::NTime))
+    assert(emits[0][1].is_a?(Fluent::NanoTime))
   end
 end

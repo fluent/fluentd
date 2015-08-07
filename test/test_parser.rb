@@ -7,9 +7,9 @@ module ParserTest
 
   def str2time(str_time, format = nil)
     if format
-      NTime.from_time(Time.strptime(str_time, format))
+      NanoTime.from_time(Time.strptime(str_time, format))
     else
-      NTime.from_time(Time.parse(str_time))
+      NanoTime.from_time(Time.parse(str_time))
     end
   end
 
@@ -45,7 +45,7 @@ module ParserTest
     def test_call_with_parse
       parser = TextParser::TimeParser.new(nil)
 
-      assert(parser.parse('2013-09-18 12:00:00 +0900').is_a?(Fluent::NTime))
+      assert(parser.parse('2013-09-18 12:00:00 +0900').is_a?(Fluent::NanoTime))
 
       time = str2time('2013-09-18 12:00:00 +0900')
       assert_equal(time, parser.parse('2013-09-18 12:00:00 +0900'))
@@ -54,7 +54,7 @@ module ParserTest
     def test_parse_with_strptime
       parser = TextParser::TimeParser.new('%d/%b/%Y:%H:%M:%S %z')
 
-      assert(parser.parse('28/Feb/2013:12:00:00 +0900').is_a?(Fluent::NTime))
+      assert(parser.parse('28/Feb/2013:12:00:00 +0900').is_a?(Fluent::NanoTime))
 
       time = str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z')
       assert_equal(time, parser.parse('28/Feb/2013:12:00:00 +0900'))
@@ -63,10 +63,10 @@ module ParserTest
     def test_parse_nsec_with_strptime
       parser = TextParser::TimeParser.new('%d/%b/%Y:%H:%M:%S:%N %z')
 
-      assert(parser.parse('28/Feb/2013:12:00:00:123456789 +0900').is_a?(Fluent::NTime))
+      assert(parser.parse('28/Feb/2013:12:00:00:123456789 +0900').is_a?(Fluent::NanoTime))
 
       time = str2time('28/Feb/2013:12:00:00:123456789 +0900', '%d/%b/%Y:%H:%M:%S:%N %z')
-      assert_equal_ntime(time, parser.parse('28/Feb/2013:12:00:00:123456789 +0900'))
+      assert_equal_nano_time(time, parser.parse('28/Feb/2013:12:00:00:123456789 +0900'))
     end
 
     def test_parse_with_invalid_argument
@@ -126,7 +126,7 @@ module ParserTest
       )
       text = '2013-02-28 12:00:00 +0900'
       parser.parse(text) do |time, record|
-        assert_equal NTime.from_time(Time.parse(text)), time
+        assert_equal NanoTime.from_time(Time.parse(text)), time
       end
     end
 

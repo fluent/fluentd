@@ -7,7 +7,7 @@ class ExecInputTest < Test::Unit::TestCase
 
   def setup
     Fluent::Test.setup
-    @test_time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    @test_time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
@@ -79,7 +79,7 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_ntime(@test_time, emits[0][1])
+    assert_equal_nano_time(@test_time, emits[0][1])
   end
 
   def test_emit_json
@@ -92,7 +92,7 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_ntime(@test_time, emits[0][1])
+    assert_equal_nano_time(@test_time, emits[0][1])
   end
 
   def test_emit_msgpack
@@ -105,6 +105,6 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_ntime(@test_time, emits[0][1])
+    assert_equal_nano_time(@test_time, emits[0][1])
   end
 end

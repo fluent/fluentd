@@ -32,7 +32,7 @@ module Fluent
       @suppress_config_dump = false
 
       @msgpack_factory = MessagePack::Factory.new
-      @msgpack_factory.register_type(NTime::TYPE, NTime)
+      @msgpack_factory.register_type(NanoTime::TYPE, NanoTime)
     end
 
     MATCH_CACHE_SIZE = 1024
@@ -136,7 +136,7 @@ module Fluent
 
     def now
       # TODO thread update
-      Fluent::NTime.now
+      Fluent::NanoTime.now
     end
 
     def log_event_loop

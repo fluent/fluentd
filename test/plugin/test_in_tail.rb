@@ -77,8 +77,8 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(true, emits.length > 0)
     assert_equal({"message" => "test3"}, emits[0][2])
     assert_equal({"message" => "test4"}, emits[1][2])
-    assert(emits[0][1].is_a?(Fluent::NTime))
-    assert(emits[1][1].is_a?(Fluent::NTime))
+    assert(emits[0][1].is_a?(Fluent::NanoTime))
+    assert(emits[1][1].is_a?(Fluent::NanoTime))
     assert_equal(1, d.emit_streams.size)
   end
 

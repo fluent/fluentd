@@ -83,7 +83,7 @@ class TcpInputTest < Test::Unit::TestCase
     assert_equal(2, emits.size)
     emits.each_index {|i|
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
-      assert(emits[i][1].is_a?(Fluent::NTime))
+      assert(emits[i][1].is_a?(Fluent::NanoTime))
     }
   end
 end

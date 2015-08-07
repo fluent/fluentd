@@ -71,7 +71,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   def test_emit_1
     d = create_driver
 
-    time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
 
     d.run do
       d.emit({"k1"=>1}, time)
@@ -81,9 +81,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["test", time, {"k2"=>"1"}], emits[0]
-    assert_equal_ntime time, emits[0][1]
+    assert_equal_nano_time time, emits[0][1]
     assert_equal ["test", time, {"k2"=>"2"}], emits[1]
-    assert_equal_ntime time, emits[1][1]
+    assert_equal_nano_time time, emits[1][1]
   end
 
   def test_emit_2
@@ -96,7 +96,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ]
 
-    time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
 
     d.run do
       d.emit({"k1"=>1}, time)
@@ -106,9 +106,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["xxx", time, {"k2"=>"1"}], emits[0]
-    assert_equal_ntime time, emits[0][1]
+    assert_equal_nano_time time, emits[0][1]
     assert_equal ["xxx", time, {"k2"=>"2"}], emits[1]
-    assert_equal_ntime time, emits[1][1]
+    assert_equal_nano_time time, emits[1][1]
   end
 
   def test_emit_3
@@ -121,7 +121,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ]
 
-    time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
 
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
@@ -131,7 +131,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 1, emits.length
     assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], emits[0]
-    assert_equal_ntime time, emits[0][1]
+    assert_equal_nano_time time, emits[0][1]
 
     d = create_driver %[
       command sed #{sed_unbuffered_option} -l -e s/foo/bar/
@@ -142,7 +142,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ]
 
-    time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
 
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
@@ -152,9 +152,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["xxx", time, {"val2"=>"sed-ed value bar"}], emits[0]
-    assert_equal_ntime time, emits[0][1]
+    assert_equal_nano_time time, emits[0][1]
     assert_equal ["xxx", time, {"val2"=>"sed-ed value poo"}], emits[1]
-    assert_equal_ntime time, emits[1][1]
+    assert_equal_nano_time time, emits[1][1]
   end
 
   def test_emit_4
@@ -169,7 +169,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ], 'input.test')
 
-    time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
 
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
@@ -179,9 +179,9 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 2, emits.length
     assert_equal ["output.test", time, {"val2"=>"sed-ed value bar"}], emits[0]
-    assert_equal_ntime time, emits[0][1]
+    assert_equal_nano_time time, emits[0][1]
     assert_equal ["output.test", time, {"val2"=>"sed-ed value poo"}], emits[1]
-    assert_equal_ntime time, emits[1][1]
+    assert_equal_nano_time time, emits[1][1]
   end
 
   def test_json_1
@@ -193,7 +193,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       tag_key tag
     ], 'input.test')
 
-    time = NTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
 
     d.run do
       d.emit({"message"=>%[{"time":#{time},"tag":"t1","k1":"v1"}]}, time+10)
@@ -202,7 +202,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 1, emits.length
     assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
-    assert_equal_ntime time, emits[0][1]
+    assert_equal_nano_time time, emits[0][1]
   end
 end
 

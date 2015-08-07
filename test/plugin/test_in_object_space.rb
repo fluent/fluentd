@@ -41,7 +41,7 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
     emits.each { |tag, time, record|
       assert_equal d.instance.tag, tag
       assert_equal d.instance.top, record.keys.size
-      assert(time.is_a?(Fluent::NTime))
+      assert(time.is_a?(Fluent::NanoTime))
     }
   end
 end

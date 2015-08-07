@@ -142,7 +142,7 @@ module Fluent
               events.each do |time, record|
                 if @expects
                   assert_equal(@expects[i], [tag, time, record])
-                  assert_equal_ntime(@expects[i][1], time) if @expects[i][1].is_a?(NTime)
+                  assert_equal_nano_time(@expects[i][1], time) if @expects[i][1].is_a?(NanoTime)
                 end
                 i += 1
               end

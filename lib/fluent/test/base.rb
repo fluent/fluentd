@@ -28,7 +28,7 @@ module Fluent
       }
 
       ::Test::Unit::Assertions.module_eval {
-        def assert_equal_ntime(a, b)
+        def assert_equal_nano_time(a, b)
           assert_equal(a.sec, b.sec)
           assert_equal(a.nsec, b.nsec)
         end
