@@ -42,15 +42,15 @@ module Fluent
     end
 
     def to_msgpack(io = nil)
-      MessagePack::ExtensionValue.new(TYPE, [@sec, @nsec].pack('LL')).to_msgpack(io)
+      MessagePack::ExtensionValue.new(TYPE, [@sec, @nsec].pack('NN')).to_msgpack(io)
     end
 
     def to_msgpack_ext
-      [@sec, @nsec].pack('LL')
+      [@sec, @nsec].pack('NN')
     end
 
     def self.from_msgpack_ext(data)
-      new(*data.unpack('LL'))
+      new(*data.unpack('NN'))
     end
 
     def self.from_time(time)
