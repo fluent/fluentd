@@ -17,6 +17,7 @@
 module Fluent
   class TimeFormatter
     require 'fluent/timezone'
+    require 'fluent/time'
 
     def initialize(format, localtime, timezone = nil)
       @tc1 = 0
@@ -55,9 +56,9 @@ module Fluent
     end
 
     def format(time)
-      if @tc1 == time
+      if Fluent::NanoTime.eq?(@tc1, time)
         return @tc1_str
-      elsif @tc2 == time
+      elsif Fluent::NanoTime.eq?(@tc2, time)
         return @tc2_str
       else
         str = format_nocache(time)

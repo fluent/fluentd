@@ -61,6 +61,14 @@ module Fluent
       from_time(Time.now)
     end
 
+    def self.eq?(a, b)
+      if a.is_a?(Fluent::NanoTime) && b.is_a?(Fluent::NanoTime)
+        a.sec == b.sec && a.nsec == b.nsec
+      else
+        a == b
+      end
+    end
+
     ## TODO: For performance, implement +, -, and so on
     def method_missing(name, *args, &block)
       @sec.send(name, *args, &block)
