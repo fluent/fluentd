@@ -63,6 +63,7 @@ module Fluent
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
     config_param :dns_round_robin, :bool, :default => false # heartbeat_type 'udp' is not available for this
+    config_param :time_as_integer, :bool, :default => true
 
     attr_reader :nodes
 
@@ -171,6 +172,24 @@ module Fluent
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace
+    end
+
+    def emit(tag, es, chain)
+      @emit_count += 1
+      data = es.to_msgpack_stream
+      if @time_as_integer
+        # TODO: Implement in EventStream for optimization
+        unpacker = Fluent::Engine.msgpack_factory.unpacker
+        packer = Fluent::Engine.msgpack_factory.packer
+        unpacker.feed_each(data) {|time,record|
+          packer.write([time.to_i,record])
+        }
+        data = packer.to_s
+      end
+      key = tag
+      if @buffer.emit(key, data, chain)
+        submit_flush
+      end
     end
 
     def write_objects(tag, chunk)
