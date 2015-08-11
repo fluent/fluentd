@@ -66,6 +66,7 @@ module Fluent
           end
       end
 
+      # TODO: new cache mechanism using format string
       def parse(value)
         unless value.is_a?(String)
           raise ParserError, "value must be string: #{value}"

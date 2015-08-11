@@ -55,6 +55,7 @@ module Fluent
       end
     end
 
+    # TODO: new cache mechanism using format string
     def format(time)
       if Fluent::NanoTime.eq?(@tc1, time)
         return @tc1_str
