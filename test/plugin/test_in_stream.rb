@@ -19,7 +19,7 @@ module StreamInputTest
 
     d.run do
       d.expected_emits.each {|tag,time,record|
-        send_data [tag, 0, record].to_msgpack
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
       }
     end
   end
@@ -34,7 +34,7 @@ module StreamInputTest
 
     d.run do
       d.expected_emits.each {|tag,time,record|
-        send_data [tag, time, record].to_msgpack
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
       }
     end
   end
@@ -52,7 +52,7 @@ module StreamInputTest
       d.expected_emits.each {|tag,time,record|
         entries << [time, record]
       }
-      send_data ["tag1", entries].to_msgpack
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
   end
 
@@ -67,9 +67,9 @@ module StreamInputTest
     d.run do
       entries = ''
       d.expected_emits.each {|tag,time,record|
-        [time, record].to_msgpack(entries)
+        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
       }
-      send_data ["tag1", entries].to_msgpack
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
   end
 

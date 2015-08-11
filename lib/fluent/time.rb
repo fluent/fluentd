@@ -42,7 +42,7 @@ module Fluent
     end
 
     def to_msgpack(io = nil)
-      MessagePack::ExtensionValue.new(TYPE, [@sec, @nsec].pack('NN')).to_msgpack(io)
+      @sec.to_msgpack(io)
     end
 
     def to_msgpack_ext
