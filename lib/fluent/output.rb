@@ -529,7 +529,7 @@ module Fluent
       else
         @flush_interval = [60, @time_slice_cache_interval].min
         @enqueue_buffer_proc = Proc.new do
-          nowslice = @time_slicer.call(Engine.now - @time_slice_wait)
+          nowslice = @time_slicer.call(Time.now - @time_slice_wait)
           @buffer.keys.each {|key|
             if key < nowslice
               @buffer.push(key)
