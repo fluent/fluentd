@@ -34,16 +34,6 @@ class NanoTimeTest < Test::Unit::TestCase
     assert_equal(time.nsec, usec * 1000)
   end
 
-  test '.now' do
-    sec = 1000
-    usec = 2
-    time = Time.at(sec, usec)
-    Timecop.freeze(time)
-    assert_equal(sec, NanoTime.now.sec)
-    assert_equal(usec * 1000, NanoTime.now.nsec)
-    Timecop.return
-  end
-
   test '==' do
     assert(NanoTime.new(1, 2) == NanoTime.new(1, 2))
     assert(NanoTime.new(1, 2) == NanoTime.new(1, 3))

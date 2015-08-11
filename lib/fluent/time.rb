@@ -57,10 +57,6 @@ module Fluent
       Fluent::NanoTime.new(time.to_i, time.nsec)
     end
 
-    def self.now
-      from_time(Time.now)
-    end
-
     def self.eq?(a, b)
       if a.is_a?(Fluent::NanoTime) && b.is_a?(Fluent::NanoTime)
         a.sec == b.sec && a.nsec == b.nsec
