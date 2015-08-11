@@ -49,7 +49,7 @@ class NanoTimeTest < Test::Unit::TestCase
     assert(NanoTime.new(1, 2) == NanoTime.new(1, 3))
     refute(NanoTime.new(1, 2) == NanoTime.new(3, 2))
     refute(NanoTime.new(1, 2) == NanoTime.new(3, 4))
-    
+
     assert(NanoTime.new(1, 2) == 1)
     refute(NanoTime.new(1, 2) == 2)
 
