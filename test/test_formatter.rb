@@ -563,6 +563,12 @@ module FormatterTest
         assert_equal("20140926 1400-1000", format(@fmt, true, "-10"))
       end
     end
+
+    def test_format_with_subsec
+      time = Fluent::NanoTime.new(@time)
+      formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M.%N", false, nil)
+      assert_equal("20140927 0000.000000000", formatter.format(time))
+    end
   end
 
   class TimeConfigTest < ::Test::Unit::TestCase
