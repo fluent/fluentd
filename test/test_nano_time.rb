@@ -34,6 +34,19 @@ class NanoTimeTest < Test::Unit::TestCase
     assert_equal(time.nsec, usec * 1000)
   end
 
+  test 'eq?' do
+    assert(NanoTime.eq?(NanoTime.new(1, 2), NanoTime.new(1, 2)))
+    refute(NanoTime.eq?(NanoTime.new(1, 2), NanoTime.new(1, 3)))
+    refute(NanoTime.eq?(NanoTime.new(1, 2), NanoTime.new(3, 2)))
+    refute(NanoTime.eq?(NanoTime.new(1, 2), NanoTime.new(3, 4)))
+
+    assert(NanoTime.eq?(NanoTime.new(1, 2), 1))
+    refute(NanoTime.eq?(NanoTime.new(1, 2), 2))
+
+    assert(NanoTime.eq?(1, NanoTime.new(1, 2)))
+    refute(NanoTime.eq?(2, NanoTime.new(1, 2)))
+  end
+
   test '==' do
     assert(NanoTime.new(1, 2) == NanoTime.new(1, 2))
     assert(NanoTime.new(1, 2) == NanoTime.new(1, 3))
