@@ -431,6 +431,8 @@ module Fluent
 
 
   class ObjectBufferedOutput < BufferedOutput
+    config_param :time_as_integer, :bool, :default => true
+
     def initialize
       super
     end
@@ -438,6 +440,15 @@ module Fluent
     def emit(tag, es, chain)
       @emit_count += 1
       data = es.to_msgpack_stream
+      if @time_as_integer
+        # TODO: Implement in EventStream for optimization
+        unpacker = Fluent::Engine.msgpack_factory.unpacker
+        packer = Fluent::Engine.msgpack_factory.packer
+        unpacker.feed_each(data) {|time,record|
+          packer.write([time.to_i,record])
+        }
+        data = packer.to_s
+      end
       key = tag
       if @buffer.emit(key, data, chain)
         submit_flush
