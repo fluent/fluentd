@@ -2,8 +2,6 @@ require_relative '../helper'
 require 'fluent/test'
 
 class UdpInputTest < Test::Unit::TestCase
-  include Fluent
-
   def setup
     Fluent::Test.setup
   end
@@ -46,8 +44,8 @@ class UdpInputTest < Test::Unit::TestCase
       d = create_driver(v)
 
       tests = [
-        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => NanoTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
-        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => NanoTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
+        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => Fluent::NanoTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
+        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => Fluent::NanoTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
       ]
 
       d.run do

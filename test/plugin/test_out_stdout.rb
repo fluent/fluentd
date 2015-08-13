@@ -2,8 +2,6 @@ require_relative '../helper'
 require 'fluent/test'
 
 class StdoutOutputTest < Test::Unit::TestCase
-  include Fluent
-
   def setup
     Fluent::Test.setup
   end
@@ -35,7 +33,7 @@ class StdoutOutputTest < Test::Unit::TestCase
   def test_emit_json
     d = create_driver(CONFIG + "\noutput_type json")
     time = Time.now
-    out = capture_log { d.emit({'test' => 'test'}, NanoTime.from_time(time)) }
+    out = capture_log { d.emit({'test' => 'test'}, Fluent::NanoTime.from_time(time)) }
     assert_equal "#{time.localtime} test: {\"test\":\"test\"}\n", out
 
     # NOTE: Float::NAN is not jsonable
@@ -49,7 +47,7 @@ class StdoutOutputTest < Test::Unit::TestCase
     assert_equal "#{time.localtime} test: {\"test\"=>\"test\"}\n", out
 
     # NOTE: Float::NAN is not jsonable, but hash string can output it.
-    out = capture_log { d.emit({'test' => Float::NAN}, NanoTime.from_time(time)) }
+    out = capture_log { d.emit({'test' => Float::NAN}, Fluent::NanoTime.from_time(time)) }
     assert_equal "#{time.localtime} test: {\"test\"=>NaN}\n", out
   end
 

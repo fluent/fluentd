@@ -3,11 +3,9 @@ require 'fluent/test'
 require 'net/http'
 
 class ExecInputTest < Test::Unit::TestCase
-  include Fluent
-
   def setup
     Fluent::Test.setup
-    @test_time = NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
+    @test_time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15"))
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
