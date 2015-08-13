@@ -32,7 +32,7 @@ module Fluent
       @suppress_config_dump = false
 
       @msgpack_factory = MessagePack::Factory.new
-      @msgpack_factory.register_type(NanoTime::TYPE, NanoTime)
+      @msgpack_factory.register_type(Fluent::NanoTime::TYPE, Fluent::NanoTime)
     end
 
     MATCH_CACHE_SIZE = 1024

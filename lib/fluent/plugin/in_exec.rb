@@ -66,9 +66,9 @@ module Fluent
       if @time_key
         if @time_format
           f = @time_format
-          @time_parse_proc = Proc.new {|str| NanoTime.from_time(Time.strptime(str, f)) }
+          @time_parse_proc = Proc.new {|str| Fluent::NanoTime.from_time(Time.strptime(str, f)) }
         else
-          @time_parse_proc = Proc.new {|str| NanoTime.new(str.to_i) }
+          @time_parse_proc = Proc.new {|str| Fluent::NanoTime.new(str.to_i) }
         end
       end
 

@@ -60,9 +60,9 @@ module Fluent
         @cache2_time = nil
         @parser =
           if time_format
-            Proc.new { |value| NanoTime.from_time(Time.strptime(value, time_format)) }
+            Proc.new { |value| Fluent::NanoTime.from_time(Time.strptime(value, time_format)) }
           else
-            Proc.new { |value| NanoTime.from_time(Time.parse(value)) }
+            Proc.new { |value| Fluent::NanoTime.from_time(Time.parse(value)) }
           end
       end
 
@@ -257,7 +257,7 @@ module Fluent
             time = @mutex.synchronize { @time_parser.parse(value) }
           else
             begin
-              time = NanoTime.from_time(Time.at(value.to_f))
+              time = Fluent::NanoTime.from_time(Time.at(value.to_f))
             rescue => e
               raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
             end

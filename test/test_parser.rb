@@ -11,9 +11,9 @@ module ParserTest
 
   def str2time(str_time, format = nil)
     if format
-      NanoTime.from_time(Time.strptime(str_time, format))
+      Fluent::NanoTime.from_time(Time.strptime(str_time, format))
     else
-      NanoTime.from_time(Time.parse(str_time))
+      Fluent::NanoTime.from_time(Time.parse(str_time))
     end
   end
 
@@ -130,7 +130,7 @@ module ParserTest
       )
       text = '2013-02-28 12:00:00 +0900'
       parser.parse(text) do |time, record|
-        assert_equal NanoTime.from_time(Time.parse(text)), time
+        assert_equal Fluent::NanoTime.from_time(Time.parse(text)), time
       end
     end
 
