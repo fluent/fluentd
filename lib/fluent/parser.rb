@@ -257,7 +257,7 @@ module Fluent
             time = @mutex.synchronize { @time_parser.parse(value) }
           else
             begin
-              time = NanoTime.new(value.to_i)
+              time = NanoTime.from_time(Time.at(value.to_f))
             rescue => e
               raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
             end

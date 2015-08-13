@@ -5,6 +5,10 @@ require 'fluent/parser'
 module ParserTest
   include Fluent
 
+  def setup
+    Fluent::Test.setup
+  end
+
   def str2time(str_time, format = nil)
     if format
       NanoTime.from_time(Time.strptime(str_time, format))
@@ -400,6 +404,16 @@ module ParserTest
     def test_parse_with_invalid_time
       assert_raise Fluent::ParserError do
         @parser.parse('{"time":[],"k":"v"}') { |time, record| }
+      end
+    end
+
+    def test_parse_float_time
+      parser = TextParser::JSONParser.new
+      format = "%d/%b/%Y:%H:%M:%S %z"
+      text = "100.1"
+      parser.parse("{\"time\":\"#{text}\"}") do |time, record|
+        assert_equal Time.at(text.to_f).to_i, time.sec
+        assert_equal Time.at(text.to_f).nsec, time.nsec
       end
     end
 
