@@ -106,6 +106,75 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 2, d.instance.ack_response_timeout
   end
 
+  def test_send_with_time_as_integer
+    target_input_driver = create_target_input_driver
+
+    d = create_driver(CONFIG + %[flush_interval 1s])
+
+    time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+    assert(emits[0][1].is_a?(Integer))
+    assert(emits[1][1].is_a?(Integer))
+
+    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
+    assert_empty d.instance.exceptions
+  end
+
+  def test_send_without_time_as_integer
+    target_input_driver = create_target_input_driver
+
+    d = create_driver(CONFIG + %[
+      flush_interval 1s
+      time_as_integer false
+    ])
+
+    time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+    assert_equal_nano_time(time, emits[0][1])
+    assert_equal_nano_time(time, emits[1][1])
+
+    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
+    assert_empty d.instance.exceptions
+  end
+
   def test_send_to_a_node_supporting_responses
     target_input_driver = create_target_input_driver(true)
 

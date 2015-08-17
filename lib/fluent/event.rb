@@ -159,14 +159,6 @@ module Fluent
     def to_msgpack_stream
       @data
     end
-
-    def to_msgpack_stream_forced_integer
-      out = Fluent::Engine.msgpack_factory.packer
-      each {|time,record|
-        out.write([time.to_i,record])
-      }
-      out.to_s
-    end
   end
 end
 

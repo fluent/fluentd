@@ -203,6 +203,26 @@ module FluentOutputTest
     end
   end
 
+  class ObjectBufferedOutputTest < ::Test::Unit::TestCase
+    include FluentOutputTest
+
+    def setup
+      Fluent::Test.setup
+    end
+
+    CONFIG = %[]
+
+    def create_driver(conf=CONFIG)
+      Fluent::Test::OutputTestDriver.new(Fluent::ObjectBufferedOutput).configure(conf, true)
+    end
+
+    def test_configure
+      # default
+      d = create_driver
+      assert_equal true, d.instance.time_as_integer
+    end
+  end
+
   class TimeSlicedOutputTest < ::Test::Unit::TestCase
     include FluentOutputTest
     include FlexMock::TestCase
