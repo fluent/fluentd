@@ -202,5 +202,50 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
     assert_equal_nano_time time, emits[0][1]
   end
+
+  def test_json_with_float_time
+    d = create_driver(%[
+      command cat
+      in_keys message
+      out_format json
+      time_key time
+      tag_key tag
+    ], 'input.test')
+
+    float_time = Time.parse("2011-01-02 13:14:15").to_f
+    time = Fluent::NanoTime.from_time(Time.at(float_time))
+
+    d.run do
+      d.emit({"message"=>%[{"time":#{float_time},"tag":"t1","k1":"v1"}]}, time+10)
+    end
+
+    emits = d.emits
+    assert_equal 1, emits.length
+    assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
+    assert_equal_nano_time time, emits[0][1]
+  end
+
+  def test_json_with_time_format
+    d = create_driver(%[
+      command cat
+      in_keys message
+      out_format json
+      time_key time
+      time_format %d/%b/%Y %H:%M:%S.%N %z
+      tag_key tag
+    ], 'input.test')
+
+    time_str = "28/Feb/2013 12:00:00.123456789 +0900"
+    time = Fluent::NanoTime.from_time(Time.strptime(time_str, "%d/%b/%Y %H:%M:%S.%N %z"))
+
+    d.run do
+      d.emit({"message"=>%[{"time":"#{time_str}","tag":"t1","k1":"v1"}]}, time+10)
+    end
+
+    emits = d.emits
+    assert_equal 1, emits.length
+    assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
+    assert_equal_nano_time time, emits[0][1]
+  end
 end
 
