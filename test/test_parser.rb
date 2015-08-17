@@ -685,13 +685,29 @@ module ParserTest
       end
     end
 
-    def test_parse_with_nil_string
+    def test_parse_with_null_value_pattern
       parser = TextParser::LabeledTSVParser.new
       parser.configure(
-        'null_value'=>'-'
+        'null_value_pattern'=>'^(-|null|NULL)$'
       )
-      parser.parse("user_id:-") do |time, record|
-        assert_nil record['user_id']
+      parser.parse("a:-\tb:null\tc:NULL\td:\te:--\tf:nuLL") do |time, record|
+        assert_nil record['a']
+        assert_nil record['b']
+        assert_nil record['c']
+        assert_equal record['d'], ''
+        assert_equal record['e'], '--'
+        assert_equal record['f'], 'nuLL'
+      end
+    end
+
+    def test_parse_with_null_empty_string
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure(
+        'null_empty_string'=>true
+      )
+      parser.parse("a:\tb: ") do |time, record|
+        assert_nil record['a']
+        assert_equal record['b'], ' '
       end
     end
   end
