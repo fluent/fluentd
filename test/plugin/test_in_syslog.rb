@@ -58,7 +58,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
       emits = d.emits
       emits.each_index {|i|
-        assert_equal(tests[i]['expected'], emits[i][1])
+        assert_equal_nano_time(tests[i]['expected'], emits[i][1])
       }
     }
   end
