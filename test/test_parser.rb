@@ -684,6 +684,16 @@ module ParserTest
         assert_equal text, record['time']
       end
     end
+
+    def test_parse_with_nil_string
+      parser = TextParser::LabeledTSVParser.new
+      parser.configure(
+        'null_value'=>'-'
+      )
+      parser.parse("user_id:-") do |time, record|
+        assert_nil record['user_id']
+      end
+    end
   end
 
   class NoneParserTest < ::Test::Unit::TestCase

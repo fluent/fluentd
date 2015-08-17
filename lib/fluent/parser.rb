@@ -367,6 +367,7 @@ module Fluent
     class LabeledTSVParser < ValuesParser
       config_param :delimiter,       :string, :default => "\t"
       config_param :label_delimiter, :string, :default =>  ":"
+      config_param :null_value, :string, :default => nil
       config_param :time_key, :string, :default =>  "time"
 
       def configure(conf)
@@ -381,6 +382,9 @@ module Fluent
         text.split(delimiter).each do |pair|
           key, value = pair.split(label_delimiter, 2)
           @keys.push(key)
+          if null_value
+            value = (null_value == value) ? nil : value
+          end
           values.push(value)
         end
 
