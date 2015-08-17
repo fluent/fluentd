@@ -88,7 +88,7 @@ module Fluent
         last_record = record # for debug log
         new_record = reform(time, record, placeholders)
         if @renew_time_key && new_record.has_key?(@renew_time_key)
-          time = new_record[@renew_time_key].to_i
+          time = NanoTime.from_time(Time.at(new_record[@renew_time_key].to_f))
         end
         new_es.add(time, new_record)
       end
