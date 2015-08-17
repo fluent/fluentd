@@ -144,8 +144,8 @@ module Fluent
           end
         end
         time = if param_time = params['time']
-                 param_time = param_time.to_i
-                 param_time.zero? ? Engine.now : Fluent::NanoTime.new(param_time)
+                 param_time = param_time.to_f
+                 param_time.zero? ? Engine.now : Fluent::NanoTime.from_time(Time.at(param_time))
                else
                  record_time.nil? ? Engine.now : record_time
                end
