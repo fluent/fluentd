@@ -95,10 +95,11 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     test 'renew_time_key' do
       config = %[renew_time_key message]
       times = [ Time.local(2,2,3,4,5,2010,nil,nil,nil,nil), Time.local(3,2,3,4,5,2010,nil,nil,nil,nil) ]
-      msgs = times.map{|t| t.to_i.to_s }
+      msgs = times.map{|t| t.to_f.to_s }
       es = emit(config, msgs)
       es.each_with_index do |(time, record), i|
         assert_equal(times[i].to_i, time)
+        assert(time.is_a?(Fluent::NanoTime))
       end
     end
 
