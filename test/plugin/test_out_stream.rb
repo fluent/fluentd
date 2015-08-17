@@ -22,6 +22,23 @@ module StreamOutputTest
     assert_equal(expect, result)
   end
 
+  def test_write_nano_time
+    d = create_driver
+
+    time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+    d.emit({"a"=>1}, time)
+    d.emit({"a"=>2}, time)
+
+    expect = ["test",
+        Fluent::Engine.msgpack_factory.packer.write([time,{"a"=>1}]).to_s +
+        Fluent::Engine.msgpack_factory.packer.write([time,{"a"=>2}]).to_s
+      ]
+    expect = Fluent::Engine.msgpack_factory.packer.write(expect).to_s
+
+    result = d.run
+    assert_equal(expect, result)
+  end
+
   def create_driver(klass, conf)
     Fluent::Test::BufferedOutputTestDriver.new(klass) do
       def write(chunk)
