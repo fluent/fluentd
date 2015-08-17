@@ -64,6 +64,21 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_message_with_time_as_integer
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
+
+    d.run do
+      d.expected_emits.each {|tag,time,record|
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+      }
+    end
+  end
+
   def test_forward
     d = create_driver
 
@@ -81,10 +96,44 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_forward_with_time_as_integer
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag1", time, {"a"=>2}
+
+    d.run do
+      entries = []
+      d.expected_emits.each {|tag,time,record|
+        entries << [time, record]
+      }
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+    end
+  end
+
   def test_packed_forward
     d = create_driver
 
     time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag1", time, {"a"=>2}
+
+    d.run do
+      entries = ''
+      d.expected_emits.each {|tag,time,record|
+        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
+      }
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+    end
+  end
+
+  def test_packed_forward_with_time_as_integer
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
     d.expect_emit "tag1", time, {"a"=>1}
     d.expect_emit "tag1", time, {"a"=>2}
