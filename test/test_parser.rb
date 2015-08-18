@@ -529,6 +529,38 @@ module ParserTest
         assert_equal text, record['time']
       end
     end
+
+    data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
+    def test_parse_with_null_value_pattern
+      parser = TextParser::TSVParser.new
+      parser.configure(
+        'keys'=>param,
+        'time_key'=>'time',
+        'null_value_pattern'=>'^(-|null|NULL)$'
+      )
+      parser.parse("-\tnull\tNULL\t\t--\tnuLL") do |time, record|
+        assert_nil record['a']
+        assert_nil record['b']
+        assert_nil record['c']
+        assert_equal record['d'], ''
+        assert_equal record['e'], '--'
+        assert_equal record['f'], 'nuLL'
+      end
+    end
+
+    data('array param' => '["a","b"]', 'string param' => 'a,b')
+    def test_parse_with_null_empty_string
+      parser = TextParser::TSVParser.new
+      parser.configure(
+        'keys'=>param,
+        'time_key'=>'time',
+        'null_empty_string'=>true
+      )
+      parser.parse("\t ") do |time, record|
+        assert_nil record['a']
+        assert_equal record['b'], ' '
+      end
+    end
   end
 
   class CSVParserTest < ::Test::Unit::TestCase
@@ -584,6 +616,38 @@ module ParserTest
       text = '28/Feb/2013:12:00:00 +0900'
       parser.parse(text) do |time, record|
         assert_equal text, record['time']
+      end
+    end
+
+    data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
+    def test_parse_with_null_value_pattern
+      parser = TextParser::CSVParser.new
+      parser.configure(
+        'keys'=>param,
+        'time_key'=>'time',
+        'null_value_pattern'=>'^(-|null|NULL)$'
+      )
+      parser.parse("-,null,NULL,,--,nuLL") do |time, record|
+        assert_nil record['a']
+        assert_nil record['b']
+        assert_nil record['c']
+        assert_equal record['d'], ''
+        assert_equal record['e'], '--'
+        assert_equal record['f'], 'nuLL'
+      end
+    end
+
+    data('array param' => '["a","b"]', 'string param' => 'a,b')
+    def test_parse_with_null_empty_string
+      parser = TextParser::CSVParser.new
+      parser.configure(
+        'keys'=>param,
+        'time_key'=>'time',
+        'null_empty_string'=>true
+      )
+      parser.parse(", ") do |time, record|
+        assert_nil record['a']
+        assert_equal record['b'], ' '
       end
     end
   end
