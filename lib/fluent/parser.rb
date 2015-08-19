@@ -312,7 +312,7 @@ module Fluent
         @time_parser = TimeParser.new(@time_format)
 
         if @null_value_pattern
-          @null_value_pattern = /#{@null_value_pattern}/
+          @null_value_pattern = Regexp.new(@null_value_pattern)
         end
 
         @mutex = Mutex.new
@@ -358,7 +358,7 @@ module Fluent
           value = (value == '') ? nil : value
         end
         if @null_value_pattern
-          value = (value =~ @null_value_pattern) ? nil : value
+          value = (@null_value_pattern.match(value)) ? nil : value
         end
         value
       end
