@@ -354,10 +354,10 @@ module Fluent
       end
 
       def convert_value_to_nil(value)
-        if @null_empty_string
+        if value and @null_empty_string
           value = (value == '') ? nil : value
         end
-        if @null_value_pattern
+        if value and @null_value_pattern
           value = (@null_value_pattern.match(value)) ? nil : value
         end
         value
