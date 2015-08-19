@@ -358,21 +358,9 @@ module Fluent
           value = (value == '') ? nil : value
         end
         if value and @null_value_pattern
-          value = match(value) ? nil : value
+          value = ::Fluent::StringUtil.match_regexp(@null_value_pattern, value) ? nil : value
         end
         value
-      end
-
-      def match(string)
-       begin
-         return @null_value_pattern.match(string)
-       rescue ArgumentError => e
-         raise e unless e.message.index("invalid byte sequence in".freeze).zero?
-         log.info "invalid byte sequence is replaced in `#{string}`"
-         string = string.scrub('?')
-         retry
-       end
-       return true
       end
     end
 
