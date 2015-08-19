@@ -325,7 +325,8 @@ module Fluent
       ecode = $?.to_i
 
       if $platformwin
-        @th_sv.join
+        @th_sv.kill if @th_sv.alive?
+        @th_sv.join rescue nil
       end
 
       $log.info "process finished", :code=>ecode
