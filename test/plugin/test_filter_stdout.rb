@@ -84,7 +84,7 @@ class StdoutFilterTest < Test::Unit::TestCase
   def test_include_time_key
     d = create_driver(CONFIG + "\noutput_type json\ninclude_time_key true\nutc")
     time = Time.now
-    message_time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+    message_time = Fluent::NanoTime.parse("2011-01-02 13:14:15 UTC")
     out = capture_log(d) { emit(d, {'test' => 'test'}, message_time) }
     assert_equal "#{time.localtime} filter.test: {\"test\":\"test\",\"time\":\"2011-01-02T13:14:15Z\"}\n", out
   end

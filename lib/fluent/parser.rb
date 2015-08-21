@@ -62,7 +62,7 @@ module Fluent
           if time_format
             Proc.new { |value| Fluent::NanoTime.from_time(Time.strptime(value, time_format)) }
           else
-            Proc.new { |value| Fluent::NanoTime.from_time(Time.parse(value)) }
+            Proc.new { |value| Fluent::NanoTime.parse(value) }
           end
       end
 

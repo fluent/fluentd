@@ -111,7 +111,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
-    time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+    time = Fluent::NanoTime.parse("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
@@ -147,7 +147,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       time_as_integer false
     ])
 
-    time = Fluent::NanoTime.from_time(Time.parse("2011-01-02 13:14:15 UTC"))
+    time = Fluent::NanoTime.parse("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},

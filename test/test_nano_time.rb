@@ -47,6 +47,11 @@ class NanoTimeTest < Test::Unit::TestCase
     assert_equal(@now.nsec, Fluent::NanoTime.now.nsec)
   end
 
+  test 'parse' do
+    assert_equal(Time.parse("2011-01-02 13:14:15").to_i, Fluent::NanoTime.parse("2011-01-02 13:14:15").sec)
+    assert_equal(Time.parse("2011-01-02 13:14:15").nsec, Fluent::NanoTime.parse("2011-01-02 13:14:15").nsec)
+  end
+
   test 'eq?' do
     assert(Fluent::NanoTime.eq?(Fluent::NanoTime.new(1, 2), Fluent::NanoTime.new(1, 2)))
     refute(Fluent::NanoTime.eq?(Fluent::NanoTime.new(1, 2), Fluent::NanoTime.new(1, 3)))

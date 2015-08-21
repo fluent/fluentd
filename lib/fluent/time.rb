@@ -69,6 +69,10 @@ module Fluent
       from_time(Time.now)
     end
 
+    def self.parse(*args)
+      from_time(Time.parse(*args))
+    end
+
     ## TODO: For performance, implement +, -, and so on
     def method_missing(name, *args, &block)
       @sec.send(name, *args, &block)
