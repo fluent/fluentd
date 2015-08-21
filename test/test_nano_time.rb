@@ -1,6 +1,16 @@
 require_relative 'helper'
+require 'timecop'
 
 class NanoTimeTest < Test::Unit::TestCase
+  setup do
+    @now = Time.now
+    Timecop.freeze(@now)
+  end
+
+  teardown do
+    Timecop.return
+  end
+
   test '#sec' do
     assert_equal(1, Fluent::NanoTime.new(1, 2).sec)
   end
@@ -30,6 +40,11 @@ class NanoTimeTest < Test::Unit::TestCase
     time = Fluent::NanoTime.from_time(Time.at(sec, usec))
     assert_equal(time.sec, sec)
     assert_equal(time.nsec, usec * 1000)
+  end
+
+  test 'now' do
+    assert_equal(@now.to_i, Fluent::NanoTime.now.sec)
+    assert_equal(@now.nsec, Fluent::NanoTime.now.nsec)
   end
 
   test 'eq?' do

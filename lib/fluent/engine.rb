@@ -136,7 +136,7 @@ module Fluent
 
     def now
       # TODO thread update
-      Fluent::NanoTime.from_time(Time.now)
+      Fluent::NanoTime.now
     end
 
     def log_event_loop
