@@ -9,6 +9,7 @@ require 'json'
 require 'yajl'
 require 'uri'
 require 'msgpack'
+require 'strptime'
 begin
   require 'sigdump/setup'
 rescue
