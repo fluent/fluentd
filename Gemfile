@@ -2,6 +2,7 @@ source 'https://rubygems.org/'
 
 gemspec
 
+# These gems will move to gemspec when they is released.
 gem 'msgpack', github: 'msgpack/msgpack-ruby'
 gem 'strptime', github: 'nurse/strptime'
 
