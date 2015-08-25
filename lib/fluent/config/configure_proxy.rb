@@ -208,6 +208,18 @@ module Fluent
 
         name
       end
+
+      def dump(level = 0)
+        str = "\n"
+        indent = " " * level
+        @params.each do |key, config|
+          str << "#{indent}#{key}: #{config[1][:type]}: <#{config[1][:default].inspect}>\n"
+        end
+        @sections.each do |section_name, sub_proxy|
+          str << "#{indent}#{section_name}#{sub_proxy.dump(level + 1)}"
+        end
+        str
+      end
     end
   end
 end
