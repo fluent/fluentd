@@ -41,6 +41,10 @@ op.on('--dry-run', "Check fluentd setup is correct or not", TrueClass) {|b|
   opts[:dry_run] = b
 }
 
+op.on('--show-plugin-config=PLUGIN', "Show PLUGIN configuration and exit(ex: input:dummy)") {|plugin|
+  opts[:show_plugin_config] = plugin
+}
+
 op.on('-p', '--plugin DIR', "add plugin directory") {|s|
   opts[:plugin_dirs] << s
 }

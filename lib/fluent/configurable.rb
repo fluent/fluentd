@@ -121,6 +121,10 @@ module Fluent
         # p AnyGreatClass.dup.name #=> nil
         configurables.map{ |a| a.configure_proxy(a.name || a.object_id.to_s) }.reduce(:merge)
       end
+
+      def dump
+        configure_proxy_map[self.to_s].dump
+      end
     end
   end
 

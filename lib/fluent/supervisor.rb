@@ -115,6 +115,7 @@ module Fluent
       @use_v1_config = opt[:use_v1_config]
       @log_path = opt[:log_path]
       @dry_run = opt[:dry_run]
+      @show_plugin_config = opt[:show_plugin_config]
       @libs = opt[:libs]
       @plugin_dirs = opt[:plugin_dirs]
       @chgroup = opt[:chgroup]
@@ -142,6 +143,7 @@ module Fluent
 
     def start
       @log.init
+      show_plugin_config if @show_plugin_config
       read_config
       apply_system_config
 
@@ -201,6 +203,17 @@ module Fluent
       exit 0
     rescue => e
       $log.error "dry run failed: #{e}"
+      exit 1
+    end
+
+    def show_plugin_config
+      $log.info "Show config for #{@show_plugin_config}"
+      name, type = @show_plugin_config.split(":")
+      plugin = Plugin.__send__("new_#{name}", type)
+      $log.info plugin.class.dump
+      exit 0
+    rescue => e
+      $log.error "show config failed: #{e}"
       exit 1
     end
 
