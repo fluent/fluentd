@@ -115,7 +115,7 @@ CONFIG
           @proxy.config_param(:name, :string, default: "name1")
           assert_equal(<<CONFIG, @proxy.dump)
 
-name: string: <\"name1\">
+name: string: <"name1">
 CONFIG
         end
 
@@ -124,7 +124,7 @@ CONFIG
           @proxy.config_set_default(:name, "name1")
           assert_equal(<<CONFIG, @proxy.dump)
 
-name: string: <\"name1\">
+name: string: <"name1">
 CONFIG
         end
       end
