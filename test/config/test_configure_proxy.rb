@@ -127,6 +127,37 @@ CONFIG
 name: string: <"name1">
 CONFIG
         end
+
+        test 'single sub proxy' do
+          @proxy.config_section(:sub) do
+            config_param(:name, :string, default: "name1")
+          end
+          assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name: string: <"name1">
+CONFIG
+        end
+
+        test 'nested sub proxy' do
+          @proxy.config_section(:sub) do
+            config_param(:name1, :string, default: "name1")
+            config_param(:name2, :string, default: "name2")
+            config_section(:sub2) do
+              config_param(:name3, :string, default: "name3")
+              config_param(:name4, :string, default: "name4")
+            end
+          end
+          assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name1: string: <"name1">
+ name2: string: <"name2">
+ sub2
+  name3: string: <"name3">
+  name4: string: <"name4">
+CONFIG
+        end
       end
     end
   end
