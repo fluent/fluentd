@@ -94,6 +94,40 @@ module Fluent::Config
           assert_raise(ArgumentError) { proxy.config_argument(:name, default: "name2") }
         end
       end
+
+      sub_test_case '#dump' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+        end
+        test 'empty proxy' do
+          assert_equal("\n", @proxy.dump)
+        end
+
+        test 'plain proxy w/o default value' do
+          @proxy.config_param(:name, :string)
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <nil>
+CONFIG
+        end
+
+        test 'plain proxy w/ default value' do
+          @proxy.config_param(:name, :string, default: "name1")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <\"name1\">
+CONFIG
+        end
+
+        test 'plain proxy w/ default value using config_set_default' do
+          @proxy.config_param(:name, :string)
+          @proxy.config_set_default(:name, "name1")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <\"name1\">
+CONFIG
+        end
+      end
     end
   end
 end
