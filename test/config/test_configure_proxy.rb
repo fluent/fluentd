@@ -95,6 +95,23 @@ module Fluent::Config
         end
       end
 
+      sub_test_case '#config_set_desc' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+        end
+
+        test 'does not permit description specification twice w/ :desc option' do
+          @proxy.config_param(:name, :string, desc: "description")
+          assert_raise(ArgumentError) { @proxy.config_set_desc(:name, "description2") }
+        end
+
+        test 'does not permit description specification twice' do
+          @proxy.config_param(:name, :string)
+          @proxy.config_set_desc(:name, "description")
+          assert_raise(ArgumentError) { @proxy.config_set_desc(:name, "description2") }
+        end
+      end
+
       sub_test_case '#dump' do
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section)
