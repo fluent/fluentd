@@ -176,6 +176,45 @@ sub
   name4: string: <"name4">
 CONFIG
         end
+
+        sub_test_case 'w/ description' do
+          test 'single proxy' do
+            @proxy.config_param(:name, :string, desc: "description for name")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <nil> # description for name
+CONFIG
+          end
+
+          test 'single proxy using config_set_desc' do
+            @proxy.config_param(:name, :string)
+            @proxy.config_set_desc(:name, "description for name")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <nil> # description for name
+CONFIG
+          end
+
+          test 'sub proxy' do
+            @proxy.config_section(:sub) do
+              config_param(:name1, :string, default: "name1", desc: "desc1")
+              config_param(:name2, :string, default: "name2", desc: "desc2")
+              config_section(:sub2) do
+                config_param(:name3, :string, default: "name3")
+                config_param(:name4, :string, default: "name4", desc: "desc4")
+              end
+            end
+            assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name1: string: <"name1"> # desc1
+ name2: string: <"name2"> # desc2
+ sub2
+  name3: string: <"name3">
+  name4: string: <"name4"> # desc4
+CONFIG
+          end
+        end
       end
     end
   end
