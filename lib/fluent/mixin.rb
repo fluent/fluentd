@@ -25,13 +25,13 @@ module Fluent
       @tc2 = 0
       @tc2_str = nil
 
-      if !format || format !~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
+      if format && format =~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
         define_singleton_method(:format) {|time|
-          format_without_subsec(time)
+          format_with_subsec(time)
         }
       else
         define_singleton_method(:format) {|time|
-          format_with_subsec(time)
+          format_without_subsec(time)
         }
       end
 
