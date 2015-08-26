@@ -213,7 +213,7 @@ module Fluent
         dumped_config = "\n"
         indent = " " * level
         @params.each do |key, config|
-          dumped_config << "#{indent}#{key}: #{config[1][:type]}: <#{config[1][:default].inspect}>\n"
+          dumped_config << "#{indent}#{key}: #{config[1][:type]}: <#{@defaults[key].inspect}>\n"
         end
         @sections.each do |section_name, sub_proxy|
           dumped_config << "#{indent}#{section_name}#{sub_proxy.dump(level + 1)}"
