@@ -17,7 +17,7 @@
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :final, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :sections
+      attr_accessor :name, :final, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :descriptions, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
@@ -48,6 +48,7 @@ module Fluent
         @argument = nil # nil: ignore argument
         @params = {}
         @defaults = {}
+        @descriptions = {}
         @sections = {}
       end
 
@@ -157,6 +158,10 @@ module Fluent
           config_set_default(name, opts[:default])
         end
 
+        if opts.has_key?(:desc)
+          config_set_desc(name, opts[:desc])
+        end
+
         [name, block, opts]
       end
 
@@ -186,6 +191,17 @@ module Fluent
         end
 
         @defaults[name] = defval
+        nil
+      end
+
+      def config_set_desc(name, description)
+        name = name.to_sym
+
+        if @descriptions.has_key?(name)
+          raise ArgumentError, "#{self.name}: description specified twice for #{name}"
+        end
+
+        @descriptions[name] = description
         nil
       end
 
