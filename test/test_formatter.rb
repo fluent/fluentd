@@ -565,7 +565,7 @@ module FormatterTest
     end
 
     def test_format_with_subsec
-      time = Fluent::NanoTime.new(@time)
+      time = Fluent::EventTime.new(@time)
       formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M.%N", false, nil)
       assert_equal("20140927 0000.000000000", formatter.format(time))
     end

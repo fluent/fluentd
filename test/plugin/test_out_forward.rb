@@ -111,7 +111,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
-    time = Fluent::NanoTime.parse("2011-01-02 13:14:15 UTC")
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
@@ -147,7 +147,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       time_as_integer false
     ])
 
-    time = Fluent::NanoTime.parse("2011-01-02 13:14:15 UTC")
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
@@ -168,8 +168,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     emits = target_input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
-    assert_equal_nano_time(time, emits[0][1])
-    assert_equal_nano_time(time, emits[1][1])
+    assert_equal_event_time(time, emits[0][1])
+    assert_equal_event_time(time, emits[1][1])
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions

@@ -84,9 +84,9 @@ module Fluent
     end
 
     def format_with_subsec(time)
-      if Fluent::NanoTime.eq?(@tc1, time)
+      if Fluent::EventTime.eq?(@tc1, time)
         return @tc1_str
-      elsif Fluent::NanoTime.eq?(@tc2, time)
+      elsif Fluent::EventTime.eq?(@tc2, time)
         return @tc2_str
       else
         str = format_nocache(time)

@@ -69,12 +69,12 @@ module Fluent
           @time_parse_proc =
             begin
               strptime = Strptime.new(f)
-              Proc.new { |str| Fluent::NanoTime.from_time(strptime.exec(str)) }
+              Proc.new { |str| Fluent::EventTime.from_time(strptime.exec(str)) }
             rescue
-              Proc.new {|str| Fluent::NanoTime.from_time(Time.strptime(str, f)) }
+              Proc.new {|str| Fluent::EventTime.from_time(Time.strptime(str, f)) }
             end
         else
-          @time_parse_proc = Proc.new {|str| Fluent::NanoTime.from_time(Time.at(str.to_f)) }
+          @time_parse_proc = Proc.new {|str| Fluent::EventTime.from_time(Time.at(str.to_f)) }
         end
       end
 

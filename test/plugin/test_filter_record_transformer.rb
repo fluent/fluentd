@@ -99,7 +99,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       es = emit(config, msgs)
       es.each_with_index do |(time, record), i|
         assert_equal(times[i].to_i, time)
-        assert(time.is_a?(Fluent::NanoTime))
+        assert(time.is_a?(Fluent::EventTime))
       end
     end
 

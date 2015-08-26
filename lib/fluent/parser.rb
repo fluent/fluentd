@@ -62,12 +62,12 @@ module Fluent
           if time_format
             begin
               strptime = Strptime.new(time_format)
-              Proc.new { |value| Fluent::NanoTime.from_time(strptime.exec(value)) }
+              Proc.new { |value| Fluent::EventTime.from_time(strptime.exec(value)) }
             rescue
-              Proc.new { |value| Fluent::NanoTime.from_time(Time.strptime(value, time_format)) }
+              Proc.new { |value| Fluent::EventTime.from_time(Time.strptime(value, time_format)) }
             end
           else
-            Proc.new { |value| Fluent::NanoTime.parse(value) }
+            Proc.new { |value| Fluent::EventTime.parse(value) }
           end
       end
 
@@ -262,7 +262,7 @@ module Fluent
             time = @mutex.synchronize { @time_parser.parse(value) }
           else
             begin
-              time = Fluent::NanoTime.from_time(Time.at(value.to_f))
+              time = Fluent::EventTime.from_time(Time.at(value.to_f))
             rescue => e
               raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
             end

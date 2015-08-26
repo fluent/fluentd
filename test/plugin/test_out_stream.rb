@@ -22,10 +22,10 @@ module StreamOutputTest
     assert_equal(expect, result)
   end
 
-  def test_write_nano_time
+  def test_write_event_time
     d = create_driver
 
-    time = Fluent::NanoTime.parse("2011-01-02 13:14:15 UTC")
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
     d.emit({"a"=>1}, time)
     d.emit({"a"=>2}, time)
 

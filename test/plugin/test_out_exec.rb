@@ -97,7 +97,7 @@ class ExecOutputTest < Test::Unit::TestCase
     ]
     d = create_driver(config)
 
-    time = Fluent::NanoTime::from_time(Time.parse("2011-01-02 13:14:15.123"))
+    time = Fluent::EventTime::from_time(Time.parse("2011-01-02 13:14:15.123"))
     tests = [{"k1"=>"v1","kx"=>"vx"}, {"k1"=>"v2","kx"=>"vx"}]
 
     tests.each { |test|

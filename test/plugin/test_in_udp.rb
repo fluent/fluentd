@@ -44,8 +44,8 @@ class UdpInputTest < Test::Unit::TestCase
       d = create_driver(v)
 
       tests = [
-        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => Fluent::NanoTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
-        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => Fluent::NanoTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
+        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
+        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
       ]
 
       d.run do
@@ -59,7 +59,7 @@ class UdpInputTest < Test::Unit::TestCase
 
       emits = d.emits
       emits.each_index {|i|
-        assert_equal_nano_time(tests[i]['expected'], emits[i][1])
+        assert_equal_event_time(tests[i]['expected'], emits[i][1])
       }
     }
   end
@@ -99,7 +99,7 @@ class UdpInputTest < Test::Unit::TestCase
     assert_equal(2, emits.size)
     emits.each_index {|i|
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
-      assert(emits[i][1].is_a?(Fluent::NanoTime))
+      assert(emits[i][1].is_a?(Fluent::EventTime))
     }
   end
 end
