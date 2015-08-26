@@ -99,6 +99,7 @@ module Fluent::Config
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section)
         end
+
         test 'empty proxy' do
           assert_equal("\n", @proxy.dump)
         end
