@@ -295,6 +295,8 @@ module Fluent
       end
       config_param :time_key, :string, :default => nil
       config_param :time_format, :string, :default => nil
+      config_param :null_value_pattern, :string, :default => nil
+      config_param :null_empty_string, :bool, :default => false
 
       def configure(conf)
         super
@@ -308,11 +310,16 @@ module Fluent
         end
 
         @time_parser = TimeParser.new(@time_format)
+
+        if @null_value_pattern
+          @null_value_pattern = Regexp.new(@null_value_pattern)
+        end
+
         @mutex = Mutex.new
       end
 
       def values_map(values)
-        record = Hash[keys.zip(values)]
+        record = Hash[keys.zip(values.map { |value| convert_value_to_nil(value) })]
 
         if @time_key
           value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
@@ -344,6 +351,16 @@ module Fluent
             record[key] = convert_type(key, value)
           end
         }
+      end
+
+      def convert_value_to_nil(value)
+        if value and @null_empty_string
+          value = (value == '') ? nil : value
+        end
+        if value and @null_value_pattern
+          value = ::Fluent::StringUtil.match_regexp(@null_value_pattern, value) ? nil : value
+        end
+        value
       end
     end
 
