@@ -41,7 +41,7 @@ module Fluent
       def mount_proc(path, &block)
         @server.mount_proc(path) { |req, res|
           begin
-            code, header, body = block.call(req, res)
+            code, header, response = block.call(req, res)
           rescue => e
             @log.warn "failed to handle RPC request", :path => path, :error => e.to_s
             @log.warn_backtrace e.backtrace
@@ -56,11 +56,11 @@ module Fluent
 
           code = 200 if code.nil?
           header = {'Content-Type' => 'application/json'} if header.nil?
-          body = if body.nil?
+          body = if response.nil?
                    '{"ok":true}'
                  else
-                   body['ok'] = code == 200
-                   body.to_json
+                   response.body['ok'] = code == 200
+                   response.body.to_json
                  end
 
           res.status = code
