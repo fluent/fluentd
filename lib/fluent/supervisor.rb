@@ -263,6 +263,12 @@ module Fluent
         supervisor_sighup_handler
         nil
       }
+      @rpc_server.mount_proc('/api/config.dump') { |req, res|
+        $log.debug "fluentd RPC got /api/config.dump request"
+        $log.info "dump in-memory config"
+        supervisor_dump_config_handler
+        nil
+      }
     end
 
     def run_rpc_server
@@ -397,6 +403,10 @@ module Fluent
         Process.kill(:USR1, pid)
         # don't resuce Erro::ESRSH here (invalid status)
       end
+    end
+
+    def supervisor_dump_config_handler
+      $log.info @conf.to_s
     end
 
     def read_config
