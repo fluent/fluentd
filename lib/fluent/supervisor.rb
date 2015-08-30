@@ -448,7 +448,7 @@ module Fluent
       config_param :suppress_config_dump, :bool, :default => nil
       config_param :without_source, :bool, :default => nil
       config_param :rpc_endpoint, :string, :default => nil
-      config_param :enable_get_dump, :bool, :default => false
+      config_param :enable_get_dump, :bool, :default => nil
 
       def initialize(conf)
         super()
