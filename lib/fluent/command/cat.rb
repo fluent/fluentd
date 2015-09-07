@@ -28,6 +28,7 @@ socket_path = Fluent::DEFAULT_SOCKET_PATH
 
 config_path = Fluent::DEFAULT_CONFIG_PATH
 format = 'json'
+message_key = 'message'
 
 op.on('-p', '--port PORT', "fluent tcp port (default: #{port})", Integer) {|i|
   port = i
@@ -55,6 +56,14 @@ op.on('--json', "same as: -f json", TrueClass) {|b|
 
 op.on('--msgpack', "same as: -f msgpack", TrueClass) {|b|
   format = 'msgpack'
+}
+
+op.on('--none', "same as: -f none", TrueClass) {|b|
+  format = 'none'
+}
+
+op.on('--message-key KEY', "key field for none format (default: #{message_key})") {|s|
+  message_key = s
 }
 
 (class<<self;self;end).module_eval do
@@ -285,6 +294,17 @@ when 'msgpack'
       w.write(record)
     }
   rescue EOFError
+  rescue
+    $stderr.puts $!
+    exit 1
+  end
+
+when 'none'
+  begin
+    while line = $stdin.gets
+      record = { message_key => line.chomp }
+      w.write(record)
+    end
   rescue
     $stderr.puts $!
     exit 1

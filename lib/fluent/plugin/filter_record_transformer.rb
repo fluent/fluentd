@@ -28,7 +28,9 @@ module Fluent
     config_param :remove_keys, :string, :default => nil
     config_param :keep_keys, :string, :default => nil
     config_param :renew_record, :bool, :default => false
+    config_param :renew_time_key, :string, :default => nil
     config_param :enable_ruby, :bool, :default => false
+    config_param :auto_typecast, :bool, :default => false # false for lower version compatibility
 
     def configure(conf)
       super
@@ -51,15 +53,19 @@ module Fluent
         @keep_keys = @keep_keys.split(',')
       end
 
+      placeholder_expander_params = {
+        :log           => log,
+        :auto_typecast => @auto_typecast,
+      }
       @placeholder_expander =
         if @enable_ruby
           # require utilities which would be used in ruby placeholders
           require 'pathname'
           require 'uri'
           require 'cgi'
-          RubyPlaceholderExpander.new(log)
+          RubyPlaceholderExpander.new(placeholder_expander_params)
         else
-          PlaceholderExpander.new(log)
+          PlaceholderExpander.new(placeholder_expander_params)
         end
 
       @hostname = Socket.gethostname
@@ -81,6 +87,9 @@ module Fluent
       es.each do |time, record|
         last_record = record # for debug log
         new_record = reform(time, record, placeholders)
+        if @renew_time_key && new_record.has_key?(@renew_time_key)
+          time = new_record[@renew_time_key].to_i
+        end
         new_es.add(time, new_record)
       end
       new_es
@@ -120,7 +129,7 @@ module Fluent
       elsif value.is_a?(Hash)
         new_value = {}
         value.each_pair do |k, v|
-          new_value[@placeholder_expander.expand(k)] = expand_placeholders(v)
+          new_value[@placeholder_expander.expand(k, true)] = expand_placeholders(v)
         end
       elsif value.is_a?(Array)
         new_value = []
@@ -155,8 +164,9 @@ module Fluent
     class PlaceholderExpander
       attr_reader :placeholders, :log
 
-      def initialize(log)
-        @log = log
+      def initialize(params)
+        @log = params[:log]
+        @auto_typecast = params[:auto_typecast]
       end
 
       def prepare_placeholders(time, record, opts)
@@ -178,19 +188,34 @@ module Fluent
         @placeholders = placeholders
       end
 
-      def expand(str)
+      def expand(str, force_stringify=false)
+        if @auto_typecast and !force_stringify
+          single_placeholder_matched = str.match(/\A(\${[^}]+}|__[A-Z_]+__)\z/)
+          if single_placeholder_matched
+            log_unknown_placeholder($1)
+            return @placeholders[single_placeholder_matched[1]]
+          end
+        end
         str.gsub(/(\${[^}]+}|__[A-Z_]+__)/) {
-          log.warn "unknown placeholder `#{$1}` found" unless @placeholders.include?($1)
+          log_unknown_placeholder($1)
           @placeholders[$1]
         }
+      end
+
+      private
+      def log_unknown_placeholder(placeholder)
+        unless @placeholders.include?(placeholder)
+          log.warn "unknown placeholder `#{placeholder}` found"
+        end
       end
     end
 
     class RubyPlaceholderExpander
       attr_reader :placeholders, :log
 
-      def initialize(log)
-        @log = log
+      def initialize(params)
+        @log = params[:log]
+        @auto_typecast = params[:auto_typecast]
       end
 
       # Get placeholders as a struct
@@ -205,8 +230,15 @@ module Fluent
         @placeholders = struct
       end
 
-      def expand(str)
-        interpolated = str.gsub(/\$\{([^}]+)\}/, '#{\1}') # ${..} => #{..} 
+      def expand(str, force_stringify=false)
+        if @auto_typecast and !force_stringify
+          single_placeholder_matched = str.match(/\A\${([^}]+)}\z/)
+          if single_placeholder_matched
+            code = single_placeholder_matched[1]
+            return eval code, @placeholders.instance_eval { binding }
+          end
+        end
+        interpolated = str.gsub(/\$\{([^}]+)\}/, '#{\1}') # ${..} => #{..}
         eval "\"#{interpolated}\"", @placeholders.instance_eval { binding }
       rescue => e
         log.warn "failed to expand `#{str}`", :error_class => e.class, :error => e.message

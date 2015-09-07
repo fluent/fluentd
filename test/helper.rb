@@ -23,6 +23,18 @@ if ENV['SIMPLE_COV']
   end
 end
 
+# Some tests use Hash instead of Element for configure.
+# We should rewrite these tests in the future and remove this ad-hoc code
+class Hash
+  def corresponding_proxies
+    @corresponding_proxies ||= []
+  end
+
+  def to_masked_element
+    self
+  end
+end
+
 require 'rr'
 require 'test/unit'
 require 'test/unit/rr'
