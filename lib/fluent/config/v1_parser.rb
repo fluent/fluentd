@@ -51,7 +51,7 @@ module Fluent
       end
 
       ELEM_SYMBOLS = ['match', 'source', 'filter', 'system']
-      RESERVED_PARAMS = %W(@type @id @label)
+      RESERVED_PARAMS = %W(@type @id @label @log_level)
 
       def parse_element(root_element, elem_name, attrs = {}, elems = [])
         while true

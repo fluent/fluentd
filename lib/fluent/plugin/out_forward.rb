@@ -43,8 +43,10 @@ module Fluent
         :tcp
       when 'udp'
         :udp
+      when 'none'
+        :none
       else
-        raise ConfigError, "forward output heartbeat type should be 'tcp' or 'udp'"
+        raise ConfigError, "forward output heartbeat type should be 'tcp', 'udp', or 'none'"
       end
     end
     config_param :heartbeat_interval, :time, :default => 1
@@ -60,6 +62,7 @@ module Fluent
     config_param :ack_response_timeout, :time, :default => 190  # 0 means do not wait for ack responses
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
+    config_param :dns_round_robin, :bool, :default => false # heartbeat_type 'udp' is not available for this
 
     attr_reader :nodes
 
@@ -90,6 +93,13 @@ module Fluent
                                   else
                                     false
                                   end
+
+      if @dns_round_robin
+        if @heartbeat_type == :udp
+          raise ConfigError, "forward output heartbeat type must be 'tcp' or 'none' to use dns_round_robin option"
+        end
+      end
+
       conf.elements.each {|e|
         next if e.name != "server"
 
@@ -110,8 +120,13 @@ module Fluent
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
 
         node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
-          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector)
-        @nodes << Node.new(log, node_conf)
+          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector, @dns_round_robin)
+
+        if @heartbeat_type == :none
+          @nodes << NoneHeartbeatNode.new(log, node_conf)
+        else
+          @nodes << Node.new(log, node_conf)
+        end
         log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight, :plugin_id=>plugin_id
       }
     end
@@ -123,32 +138,36 @@ module Fluent
       rebuild_weight_array
       @rr = 0
 
-      @loop = Coolio::Loop.new
+      unless @heartbeat_type == :none
+        @loop = Coolio::Loop.new
 
-      if @heartbeat_type == :udp
-        # assuming all hosts use udp
-        @usock = SocketUtil.create_udp_socket(@nodes.first.host)
-        @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-        @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-        @loop.attach(@hb)
+        if @heartbeat_type == :udp
+          # assuming all hosts use udp
+          @usock = SocketUtil.create_udp_socket(@nodes.first.host)
+          @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+          @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
+          @loop.attach(@hb)
+        end
+
+        @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
+        @loop.attach(@timer)
+
+        @thread = Thread.new(&method(:run))
       end
-
-      @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
-      @loop.attach(@timer)
-
-      @thread = Thread.new(&method(:run))
     end
 
     def shutdown
       @finished = true
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @thread.join
+      if @loop
+        @loop.watchers.each {|w| w.detach }
+        @loop.stop
+      end
+      @thread.join if @thread
       @usock.close if @usock
     end
 
     def run
-      @loop.run
+      @loop.run if @loop
     rescue
       log.error "unexpected error", :error=>$!.to_s
       log.error_backtrace
@@ -405,7 +424,7 @@ module Fluent
     end
 
     NodeConfig = Struct.new("NodeConfig", :name, :host, :port, :weight, :standby, :failure,
-      :phi_threshold, :recover_sample_size, :expire_dns_cache, :phi_failure_detector)
+      :phi_threshold, :recover_sample_size, :expire_dns_cache, :phi_failure_detector, :dns_round_robin)
 
     class Node
       def initialize(log, conf)
@@ -462,9 +481,10 @@ module Fluent
       end
 
       def resolve_dns!
-        @sockaddr = Socket.pack_sockaddr_in(@port, @host)
-        port, resolved_host = Socket.unpack_sockaddr_in(@sockaddr)
-        return resolved_host
+        addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
+        addrinfo = @conf.dns_round_robin ? addrinfo_list.sample : addrinfo_list.first
+        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_heartbeat
+        addrinfo[3]
       end
       private :resolve_dns!
 
@@ -514,6 +534,21 @@ module Fluent
 
       def to_msgpack(out = '')
         [@host, @port, @weight, @available].to_msgpack(out)
+      end
+    end
+
+    # Override Node to disable heartbeat
+    class NoneHeartbeatNode < Node
+      def available?
+        true
+      end
+
+      def tick
+        false
+      end
+
+      def heartbeat(detect=true)
+        true
       end
     end
 

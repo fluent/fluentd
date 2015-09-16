@@ -529,7 +529,7 @@ module Fluent
       else
         @flush_interval = [60, @time_slice_cache_interval].min
         @enqueue_buffer_proc = Proc.new do
-          nowslice = @time_slicer.call(Engine.now.to_i - @time_slice_wait)
+          nowslice = @time_slicer.call(Engine.now - @time_slice_wait)
           @buffer.keys.each {|key|
             if key < nowslice
               @buffer.push(key)
@@ -541,6 +541,7 @@ module Fluent
 
     def emit(tag, es, chain)
       @emit_count += 1
+      formatted_data = {}
       es.each {|time,record|
         tc = time / @time_slice_cache_interval
         if @before_tc == tc
@@ -550,7 +551,10 @@ module Fluent
           key = @time_slicer.call(time)
           @before_key = key
         end
-        data = format(tag, time, record)
+        formatted_data[key] ||= ''
+        formatted_data[key] << format(tag, time, record)
+      }
+      formatted_data.each { |key, data|
         if @buffer.emit(key, data, chain)
           submit_flush
         end

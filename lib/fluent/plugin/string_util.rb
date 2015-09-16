@@ -15,7 +15,18 @@
 #
 
 module Fluent
-
-  VERSION = '0.12.15'
-
+  module StringUtil
+    def match_regexp(regexp, string)
+      begin
+        return regexp.match(string)
+      rescue ArgumentError => e
+        raise e unless e.message.index("invalid byte sequence in".freeze).zero?
+        log.info "invalid byte sequence is replaced in `#{string}`"
+        string = string.scrub('?')
+        retry
+      end
+      return true
+    end
+    module_function :match_regexp
+  end
 end
