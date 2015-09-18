@@ -16,10 +16,14 @@
 
 require 'fluent/load'
 require 'etc'
-require 'windows/library'
-require 'windows/system_info'
-include Windows::Library
-include Windows::SystemInfo
+if $platformwin
+  require 'windows/library'
+  require 'windows/system_info'
+  include Windows::Library
+  include Windows::SystemInfo
+  require 'win32/ipc'
+  require 'win32/event'
+end
 
 module Fluent
   class Supervisor
@@ -366,8 +370,6 @@ module Fluent
       exit! 1
     end
 
-    require 'win32/ipc'
-    require 'win32/event'
     def install_supervisor_signal_handlers
       install_supervisor_winsigint_handler
 
