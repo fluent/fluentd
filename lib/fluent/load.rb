@@ -15,7 +15,14 @@ rescue
   # ignore setup error on Win or similar platform which doesn't support signal
 end
 require 'cool.io'
-require_relative 'winfile'
+
+if $platformwin
+  require_relative 'winfile'
+else
+  module Fluent
+    Win32File = File
+  end
+end
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'
