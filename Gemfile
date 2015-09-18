@@ -2,10 +2,6 @@ source 'https://rubygems.org/'
 
 gemspec
 
-# These gems will move to gemspec when they are released.
-gem 'msgpack', github: 'msgpack/msgpack-ruby'
-gem 'strptime', github: 'nurse/strptime'
-
 local_gemfile = File.join(File.dirname(__FILE__), "Gemfile.local")
 if File.exist?(local_gemfile)
   puts "Loading Gemfile.local ..." if $DEBUG # `ruby -d` or `bundle -v`

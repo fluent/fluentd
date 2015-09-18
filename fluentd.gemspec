@@ -19,7 +19,7 @@ Gem::Specification.new do |gem|
 
   gem.required_ruby_version = '>= 1.9.3'
 
-  #gem.add_runtime_dependency("msgpack", [">= 0.5.11", "< 0.6.0"])
+  gem.add_runtime_dependency("msgpack", [">= 0.7.0dev1"])
   gem.add_runtime_dependency("json", [">= 1.4.3"])
   gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
   gem.add_runtime_dependency("cool.io", [">= 1.4.1", "< 2.0.0"])
@@ -34,6 +34,7 @@ Gem::Specification.new do |gem|
     gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
     gem.add_runtime_dependency("windows-pr", ["~> 1.2.3"])
   end
+  gem.add_runtime_dependency("strptime", [">= 0.1.0"])
 
   gem.add_development_dependency("rake", [">= 0.9.2"])
   gem.add_development_dependency("flexmock", ["~> 1.3.3"])
