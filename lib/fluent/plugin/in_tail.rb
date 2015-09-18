@@ -14,7 +14,6 @@
 #    limitations under the License.
 #
 
-require_relative '../winfile'
 
 module Fluent
   class NewTailInput < Input
