@@ -1,4 +1,5 @@
----
+version: '{build}'
+
 install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
   - "%devkit%\\devkitvars.bat"
