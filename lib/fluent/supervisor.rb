@@ -127,7 +127,6 @@ module Fluent
       @without_source = opt[:without_source]
       @signame = opt[:signame]
 
-      $platformwin = /mswin|mingw/ === RUBY_PLATFORM
       if $platformwin
         ruby_path = "\0" * 256
         GetModuleFileName.call(0,ruby_path,256)

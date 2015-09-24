@@ -16,6 +16,7 @@ rescue
 end
 require 'cool.io'
 
+$platformwin = /mswin|mingw/ === RUBY_PLATFORM
 if $platformwin
   require_relative 'winfile'
 else
