@@ -232,7 +232,7 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_symlink
-    omit "Windows doesn't spport symlink" if $platformwin
+    omit "Windows doesn't support symlink" if $platformwin
     conf = CONFIG + %[
       symlink_path #{SYMLINK_PATH}
     ]
