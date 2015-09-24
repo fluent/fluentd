@@ -85,6 +85,24 @@ class HttpInputTest < Test::Unit::TestCase
 
   end
 
+  def test_multi_json_with_add_http_headers
+    d = create_driver(CONFIG + "add_http_headers true")
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    events = [{"a"=>1},{"a"=>2}]
+    tag = "tag1"
+
+    d.run do
+      res = post("/#{tag}", {"json"=>events.to_json, "time"=>time.to_s})
+      assert_equal "200", res.code
+    end
+
+    d.emit_streams.each { |tag, es|
+      print es
+      assert include_http_header?(es.first[1])
+    }
+  end
+
   def test_json_with_add_http_headers
     d = create_driver(CONFIG + "add_http_headers true")
 
