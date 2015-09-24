@@ -68,14 +68,14 @@ module Fluent
     def mv(path)
       if defined?(Windows)
         pos = @file.pos
-	@file.close
+        @file.close
         File.rename(@path, path)
         @path = path
         @file = File.open(@path, 'rb', DEFAULT_FILE_PERMISSION)
-	@file.sync = true
-	@size = @file.size
-	@file.pos = pos
-      @size = @file.stat.size
+        @file.sync = true
+        @size = @file.size
+        @file.pos = pos
+        @size = @file.stat.size
       else
         File.rename(@path, path)
         @path = path
