@@ -94,6 +94,128 @@ module Fluent::Config
           assert_raise(ArgumentError) { proxy.config_argument(:name, default: "name2") }
         end
       end
+
+      sub_test_case '#config_set_desc' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+        end
+
+        test 'does not permit description specification twice w/ :desc option' do
+          @proxy.config_param(:name, :string, desc: "description")
+          assert_raise(ArgumentError) { @proxy.config_set_desc(:name, "description2") }
+        end
+
+        test 'does not permit description specification twice' do
+          @proxy.config_param(:name, :string)
+          @proxy.config_set_desc(:name, "description")
+          assert_raise(ArgumentError) { @proxy.config_set_desc(:name, "description2") }
+        end
+      end
+
+      sub_test_case '#dump' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+        end
+
+        test 'empty proxy' do
+          assert_equal("\n", @proxy.dump)
+        end
+
+        test 'plain proxy w/o default value' do
+          @proxy.config_param(:name, :string)
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <nil>
+CONFIG
+        end
+
+        test 'plain proxy w/ default value' do
+          @proxy.config_param(:name, :string, default: "name1")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <"name1">
+CONFIG
+        end
+
+        test 'plain proxy w/ default value using config_set_default' do
+          @proxy.config_param(:name, :string)
+          @proxy.config_set_default(:name, "name1")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <"name1">
+CONFIG
+        end
+
+        test 'single sub proxy' do
+          @proxy.config_section(:sub) do
+            config_param(:name, :string, default: "name1")
+          end
+          assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name: string: <"name1">
+CONFIG
+        end
+
+        test 'nested sub proxy' do
+          @proxy.config_section(:sub) do
+            config_param(:name1, :string, default: "name1")
+            config_param(:name2, :string, default: "name2")
+            config_section(:sub2) do
+              config_param(:name3, :string, default: "name3")
+              config_param(:name4, :string, default: "name4")
+            end
+          end
+          assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name1: string: <"name1">
+ name2: string: <"name2">
+ sub2
+  name3: string: <"name3">
+  name4: string: <"name4">
+CONFIG
+        end
+
+        sub_test_case 'w/ description' do
+          test 'single proxy' do
+            @proxy.config_param(:name, :string, desc: "description for name")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <nil> # description for name
+CONFIG
+          end
+
+          test 'single proxy using config_set_desc' do
+            @proxy.config_param(:name, :string)
+            @proxy.config_set_desc(:name, "description for name")
+          assert_equal(<<CONFIG, @proxy.dump)
+
+name: string: <nil> # description for name
+CONFIG
+          end
+
+          test 'sub proxy' do
+            @proxy.config_section(:sub) do
+              config_param(:name1, :string, default: "name1", desc: "desc1")
+              config_param(:name2, :string, default: "name2", desc: "desc2")
+              config_section(:sub2) do
+                config_param(:name3, :string, default: "name3")
+                config_param(:name4, :string, default: "name4", desc: "desc4")
+              end
+            end
+            assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name1: string: <"name1"> # desc1
+ name2: string: <"name2"> # desc2
+ sub2
+  name3: string: <"name3">
+  name4: string: <"name4"> # desc4
+CONFIG
+          end
+        end
+      end
     end
   end
 end

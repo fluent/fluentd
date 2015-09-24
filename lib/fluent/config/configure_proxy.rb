@@ -17,7 +17,7 @@
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :final, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :sections
+      attr_accessor :name, :final, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :descriptions, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
@@ -48,6 +48,7 @@ module Fluent
         @argument = nil # nil: ignore argument
         @params = {}
         @defaults = {}
+        @descriptions = {}
         @sections = {}
       end
 
@@ -157,6 +158,10 @@ module Fluent
           config_set_default(name, opts[:default])
         end
 
+        if opts.has_key?(:desc)
+          config_set_desc(name, opts[:desc])
+        end
+
         [name, block, opts]
       end
 
@@ -189,6 +194,17 @@ module Fluent
         nil
       end
 
+      def config_set_desc(name, description)
+        name = name.to_sym
+
+        if @descriptions.has_key?(name)
+          raise ArgumentError, "#{self.name}: description specified twice for #{name}"
+        end
+
+        @descriptions[name] = description
+        nil
+      end
+
       def config_section(name, *args, &block)
         unless block_given?
           raise ArgumentError, "#{self.name}: config_section requires block parameter"
@@ -207,6 +223,20 @@ module Fluent
         @sections[name] = sub_proxy
 
         name
+      end
+
+      def dump(level = 0)
+        dumped_config = "\n"
+        indent = " " * level
+        @params.each do |name, config|
+          dumped_config << "#{indent}#{name}: #{config[1][:type]}: <#{@defaults[name].inspect}>"
+          dumped_config << " # #{@descriptions[name]}" if @descriptions[name]
+          dumped_config << "\n"
+        end
+        @sections.each do |section_name, sub_proxy|
+          dumped_config << "#{indent}#{section_name}#{sub_proxy.dump(level + 1)}"
+        end
+        dumped_config
       end
     end
   end
