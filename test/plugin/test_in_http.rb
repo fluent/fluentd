@@ -98,7 +98,6 @@ class HttpInputTest < Test::Unit::TestCase
     end
 
     d.emit_streams.each { |tag, es|
-      print es
       assert include_http_header?(es.first[1])
     }
   end
