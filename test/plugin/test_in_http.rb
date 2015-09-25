@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'net/http'
+require 'socket'
 
 class HttpInputTest < Test::Unit::TestCase
   def setup
@@ -77,6 +78,39 @@ class HttpInputTest < Test::Unit::TestCase
     events.each { |ev|
       d.expect_emit tag, time, ev
     }
+
+    d.run do
+      res = post("/#{tag}", {"json"=>events.to_json, "time"=>time.to_s})
+      assert_equal "200", res.code
+    end
+
+  end
+
+  def test_json_with_add_remote_addr
+    d = create_driver(CONFIG + "add_remote_addr true")
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    d.expect_emit "tag1", time, {"REMOTE_ADDR"=>"127.0.0.1", "a"=>1}
+    d.expect_emit "tag2", time, {"REMOTE_ADDR"=>"127.0.0.1", "a"=>2}
+
+    d.run do
+      d.expected_emits.each {|tag,time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+        assert_equal "200", res.code
+      }
+    end
+
+  end
+
+  def test_multi_json_with_add_remote_addr
+    d = create_driver(CONFIG + "add_remote_addr true")
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    events = [{"a"=>1},{"a"=>2}]
+    tag = "tag1"
+
+    d.expect_emit "tag1", time, {"REMOTE_ADDR"=>"127.0.0.1", "a"=>1}
+    d.expect_emit "tag1", time, {"REMOTE_ADDR"=>"127.0.0.1", "a"=>2}
 
     d.run do
       res = post("/#{tag}", {"json"=>events.to_json, "time"=>time.to_s})
