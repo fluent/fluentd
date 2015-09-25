@@ -3,7 +3,7 @@ install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
   - ruby --version
   - gem --version
-  - bundle install
+  - bundle install --platform=ruby
 build: off
 test_script:
   - bundle exec rake -rdevkit
