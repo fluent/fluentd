@@ -1,7 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'net/http'
-require 'socket'
 
 class HttpInputTest < Test::Unit::TestCase
   def setup
