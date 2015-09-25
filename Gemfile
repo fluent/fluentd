@@ -3,6 +3,7 @@ source 'https://rubygems.org/'
 gemspec
 
 gem 'test-unit', github: 'nurse/test-unit', branch: 'code-snippet-fetcher-set_encoding'
+gem 'cool.io', github: 'nurse/cool.io', branch: 'windows-select-fix'
 
 local_gemfile = File.join(File.dirname(__FILE__), "Gemfile.local")
 if File.exist?(local_gemfile)
