@@ -6,7 +6,7 @@ install:
   - bundle install
 build: off
 test_script:
-  - bundle exec rake -rdevkit TESTOPTS=-v
+  - bundle exec rake -rdevkit
 
 environment:
   matrix:
