@@ -56,6 +56,7 @@ module Fluent
     end
 
     def read
+      @file.flush
       @file.pos = 0
       @file.read
     end
