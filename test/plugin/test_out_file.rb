@@ -151,6 +151,8 @@ class FileOutputTest < Test::Unit::TestCase
       f.puts "bar"
       p f.pos
       p f.rewind
+      p f.rewind
+      p f.flush
       p f.pos
       assert_equal "foo\nbar\n", f.read
     end
