@@ -88,13 +88,10 @@ module Fluent
         }
       when :gz
         File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
-          f.sync=true
           gz = Zlib::GzipWriter.new(f)
           chunk.write_to(gz)
           p gz.pos
-          gz.flush
-          p gz.pos
-          gz.flush(Zlib::FULL_FLUSH)
+          gz.write chunk.read
           p gz.pos
           gz.close
         }
