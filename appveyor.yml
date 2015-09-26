@@ -12,11 +12,11 @@ test_script:
 
 environment:
   matrix:
-    - ruby_version: "21"
-      devkit: C:\Ruby21\DevKit
     - ruby_version: "21-x64"
       devkit: C:\Ruby21-x64\DevKit
-    - ruby_version: "22"
+    - ruby_version: "21"
       devkit: C:\Ruby21\DevKit
     - ruby_version: "22-x64"
       devkit: C:\Ruby21-x64\DevKit
+    - ruby_version: "22"
+      devkit: C:\Ruby21\DevKit

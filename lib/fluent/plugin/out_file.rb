@@ -90,6 +90,9 @@ module Fluent
         File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
           gz = Zlib::GzipWriter.new(f)
           chunk.write_to(gz)
+          p chunk.read
+          p IO.read(chunk.path)
+          p gz.pos
           gz.close
         }
       end
