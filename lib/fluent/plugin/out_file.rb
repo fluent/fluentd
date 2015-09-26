@@ -91,7 +91,9 @@ module Fluent
           gz = Zlib::GzipWriter.new(f)
           chunk.write_to(gz)
           p gz.pos
-          gz.write chunk.read
+          str=chunk.read
+          p str
+          gz.write.str
           p gz.pos
           gz.close
         }
