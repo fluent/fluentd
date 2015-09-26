@@ -137,6 +137,8 @@ class FileOutputTest < Test::Unit::TestCase
 
   def test_write_append
     File.open("#{TMP_DIR}/foo", "a+") do |f|
+      f.binmode
+      f.sync = true
       f.puts "foo"
       f.puts "bar"
       f.pos = 0

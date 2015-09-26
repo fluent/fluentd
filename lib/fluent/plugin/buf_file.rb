@@ -56,9 +56,11 @@ module Fluent
     end
 
     def read
-      @file.flush
+      p @file.pos
       @file.pos = 0
+      p @file.pos
       @file.read
+      p @file.pos
     end
 
     def open(&block)
