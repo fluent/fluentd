@@ -90,10 +90,11 @@ module Fluent
         File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
           f.sync=true
           gz = Zlib::GzipWriter.new(f)
+          p chunk
           chunk.write_to(gz)
           gz.close
         }
-        p [path, File.stat(path),IO.read(path).dump]
+        p [path, File.stat(path)]
       end
 
       return path  # for test
