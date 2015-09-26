@@ -91,7 +91,11 @@ module Fluent
           f.sync=true
           gz = Zlib::GzipWriter.new(f)
           chunk.write_to(gz)
+          p gz.pos
           gz.flush
+          p gz.pos
+          gz.flush(Zlib::FULL_FLUSH)
+          p gz.pos
           gz.close
         }
         p [path, File.stat(path)]
