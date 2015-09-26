@@ -149,11 +149,9 @@ class FileOutputTest < Test::Unit::TestCase
     File.open("#{TMP_DIR}/foo", "a+b") do |f|
       f.puts "foo"
       f.puts "bar"
-      p f.pos
       p File.size("#{TMP_DIR}/foo")
-      p f.rewind
-      p f.pos
       sleep 1
+      p f.rewind
       assert_equal "foo\nbar\n", f.read
     end
   end
