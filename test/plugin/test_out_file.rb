@@ -150,9 +150,8 @@ class FileOutputTest < Test::Unit::TestCase
       f.puts "foo"
       f.puts "bar"
       p f.pos
+      p File.stat("#{TMP_DIR}/foo")
       p f.rewind
-      p f.rewind
-      p f.flush
       p f.pos
       assert_equal "foo\nbar\n", f.read
     end
