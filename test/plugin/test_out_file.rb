@@ -132,7 +132,7 @@ class FileOutputTest < Test::Unit::TestCase
       end
     }
 
-    assert_equal expect, result
+    assert_equal expect, result, File.stat(path).inspect
   end
 
   def test_write
