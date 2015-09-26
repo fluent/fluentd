@@ -96,6 +96,10 @@ module Fluent
           p str
           gz.write str
           p gz.pos
+          str=IO.read chunk.path
+          p str
+          gz.write str
+          p gz.pos
           gz.close
         }
         p [path, File.stat(path)]
