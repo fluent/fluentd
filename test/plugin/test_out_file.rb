@@ -135,10 +135,19 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal expect, result, IO.read(path).dump
   end
 
-  def test_write_append
+  def test_write_append_sync
+    File.open("#{TMP_DIR}/foo", "a+") do |f|
+      f.sync = true
+      f.puts "foo"
+      f.puts "bar"
+      f.pos = 0
+      assert_equal "foo\nbar\n", f.read
+    end
+  end
+
+  def test_write_append_binmode
     File.open("#{TMP_DIR}/foo", "a+") do |f|
       f.binmode
-      f.sync = true
       f.puts "foo"
       f.puts "bar"
       f.pos = 0
