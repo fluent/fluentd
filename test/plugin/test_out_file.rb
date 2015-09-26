@@ -150,7 +150,7 @@ class FileOutputTest < Test::Unit::TestCase
       f.puts "foo"
       f.puts "bar"
       p f.pos
-      p f.sysseek 0
+      p f.rewind
       p f.pos
       assert_equal "foo\nbar\n", f.read
     end
