@@ -153,6 +153,7 @@ class FileOutputTest < Test::Unit::TestCase
       p File.size("#{TMP_DIR}/foo")
       p f.rewind
       p f.pos
+      sleep 1
       assert_equal "foo\nbar\n", f.read
     end
   end

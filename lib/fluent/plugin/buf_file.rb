@@ -56,7 +56,7 @@ module Fluent
     end
 
     def read
-      p seek: @file.seek(0)
+      @file.pos = 0
       @file.read
     end
 
