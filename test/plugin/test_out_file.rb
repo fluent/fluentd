@@ -135,6 +135,15 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal expect, result, IO.read(path).dump
   end
 
+  def test_write_append
+    File.open("#{TMP_DIR}/foo", "a+") do |f|
+      f.puts "foo"
+      f.puts "bar"
+      f.pos = 0
+      assert_equal "foo\nbar\n", f.read
+    end
+  end
+
   def test_write
     d = create_driver
 
