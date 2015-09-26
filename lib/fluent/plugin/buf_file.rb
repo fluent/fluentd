@@ -56,11 +56,8 @@ module Fluent
     end
 
     def read
-      p @file.pos
-      @file.pos = 0
-      p @file.pos
+      p seek: @file.seek(0)
       @file.read
-      p @file.pos
     end
 
     def open(&block)
