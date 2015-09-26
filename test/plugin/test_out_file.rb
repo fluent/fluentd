@@ -145,6 +145,17 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
+  def test_write_append_b
+    File.open("#{TMP_DIR}/foo", "a+b") do |f|
+      f.puts "foo"
+      f.puts "bar"
+      p f.pos
+      p f.sysseek 0
+      p f.pos
+      assert_equal "foo\nbar\n", f.read
+    end
+  end
+
   def test_write_append_binmode
     File.open("#{TMP_DIR}/foo", "a+") do |f|
       f.binmode
