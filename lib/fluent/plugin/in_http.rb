@@ -132,7 +132,7 @@ module Fluent
         end
 
         unless record.is_a?(Array)
-          if @add_http_headers and 
+          if @add_http_headers
             params.each_pair { |k,v|
               if k.start_with?("HTTP_")
                 record[k] = v
