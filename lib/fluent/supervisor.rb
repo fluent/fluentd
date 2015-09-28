@@ -132,6 +132,8 @@ module Fluent
       dry_run if @dry_run
       start_daemonize if @daemonize
       setup_rpc_server if @rpc_endpoint
+      setup_rpc_get_dump if @enable_get_dump
+
       if @supervise
         install_supervisor_signal_handlers
         run_rpc_server if @rpc_endpoint
@@ -276,6 +278,21 @@ module Fluent
         supervisor_sighup_handler
         nil
       }
+      @rpc_server.mount_proc('/api/config.dump') { |req, res|
+        $log.debug "fluentd RPC got /api/config.dump request"
+        $log.info "dump in-memory config"
+        supervisor_dump_config_handler
+        nil
+      }
+    end
+
+    def setup_rpc_get_dump
+      @rpc_server.mount_proc('/api/config.getDump') { |req, res|
+        $log.debug "fluentd RPC got /api/config.dump request"
+        $log.info "get dump in-memory config via HTTP"
+        res.body = supervisor_get_dump_config_handler
+        [nil, nil, res]
+      }
     end
 
     def run_rpc_server
@@ -412,6 +429,14 @@ module Fluent
       end
     end
 
+    def supervisor_dump_config_handler
+      $log.info @conf.to_s
+    end
+
+    def supervisor_get_dump_config_handler
+      {conf: @conf.to_s}
+    end
+
     def read_config
       $log.info "reading config file", :path => @config_path
       @config_fname = File.basename(@config_path)
@@ -436,6 +461,7 @@ module Fluent
       config_param :suppress_config_dump, :bool, :default => nil
       config_param :without_source, :bool, :default => nil
       config_param :rpc_endpoint, :string, :default => nil
+      config_param :enable_get_dump, :bool, :default => nil
 
       def initialize(conf)
         super()
@@ -451,6 +477,7 @@ module Fluent
           @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
           @without_source = system.without_source unless system.without_source.nil?
           @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
+          @enable_get_dump = system.enable_get_dump unless system.enable_get_dump.nil?
         }
       end
     end
