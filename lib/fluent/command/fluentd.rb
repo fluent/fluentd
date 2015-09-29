@@ -188,6 +188,7 @@ if setup_path = opts[:setup_path]
   exit 0
 end
 
+if winsvcinstmode = opts[:regwinsvc]
   FLUENTD_WINSVC_NAME="fluentdwinsvc"
   FLUENTD_WINSVC_DISPLAYNAME="Fluentd Windows Service"
   FLUENTD_WINSVC_DESC="Fluentd is an event collector system."
@@ -196,7 +197,6 @@ end
   require "win32/registry"
   include Win32
 
-if winsvcinstmode = opts[:regwinsvc]
   case winsvcinstmode
   when 'i'
     binary_path = File.join(File.dirname(__FILE__), "..")
