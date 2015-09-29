@@ -185,7 +185,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def sub_test_rotate_file(config = nil)
-    file = Fluent::Win32File.open("#{TMP_DIR}/tail.txt", "wb")
+    file = Fluent::FileWrapper.open("#{TMP_DIR}/tail.txt", "wb")
     file.puts "test1"
     file.puts "test2"
     file.flush

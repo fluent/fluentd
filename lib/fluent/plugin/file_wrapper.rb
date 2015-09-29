@@ -15,20 +15,9 @@
 #
 
 module Fluent
-  require 'windows/file'
-  require 'windows/error'
-  require 'windows/handle'
-  require 'windows/nio'
-
-  class Win32File
-    include Windows::Error
-    include Windows::File
-    include Windows::Handle
-    include Windows::NIO
-
+  module FileWrapper
     def self.open(*args)
-      f = self.new(*args)
-      io = f.io
+      io = WindowsFile.new(*args).io
       if block_given?
         v = yield io
         io.close
@@ -37,6 +26,37 @@ module Fluent
         io
       end
     end
+
+    def self.stat(path)
+      f = WindowsFile.new(path)
+      s = f.stat
+      f.close
+      s
+    end
+  end
+
+  module WindowsFileExtension
+    attr_reader :path
+
+    def stat
+      s = super
+      s.instance_variable_set :@ino, @ino
+      def s.ino; @ino; end
+      s
+    end
+  end
+
+  # To open and get stat with setting FILE_SHARE_DELETE
+  class WindowsFile
+    require 'windows/file'
+    require 'windows/error'
+    require 'windows/handle'
+    require 'windows/nio'
+
+    include Windows::Error
+    include Windows::File
+    include Windows::Handle
+    include Windows::NIO
 
     def initialize(path, mode='r', sharemode=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE)
       @path = path
@@ -58,7 +78,7 @@ module Fluent
                      0, creationdisposition, FILE_ATTRIBUTE_NORMAL, 0)
       if @file_handle == INVALID_HANDLE_VALUE
         err = GetLastError.call
-	if err == ERROR_FILE_NOT_FOUND || err == ERROR_ACCESS_DENIED
+        if err == ERROR_FILE_NOT_FOUND || err == ERROR_ACCESS_DENIED
           raise SystemCallError.new(2)
         end
         raise SystemCallError.new(err)
@@ -74,19 +94,9 @@ module Fluent
       fd = _open_osfhandle(@file_handle, 0)
       raise Errno::ENOENT if fd == -1
       io = File.for_fd(fd, @mode)
-
       io.instance_variable_set :@ino, self.ino
       io.instance_variable_set :@path, @path
-      class << io
-        alias orig_stat stat
-	attr_reader :path
-        def stat
-	  s = orig_stat
-	  s.instance_variable_set :@ino, @ino
-	  def s.ino; @ino; end
-	  s
-	end
-      end
+      io.extend WindowsFileExtension
       io
     end
 
@@ -101,13 +111,6 @@ module Fluent
       return fileindex
     end
 
-    def self.stat(path)
-      f = self.new(path)
-      s = f.stat
-      f.close
-      s
-    end
-
     def stat
       s = File.stat(@path)
       s.instance_variable_set :@ino, self.ino
@@ -115,4 +118,4 @@ module Fluent
       s
     end
   end
-end
+end if $platformwin

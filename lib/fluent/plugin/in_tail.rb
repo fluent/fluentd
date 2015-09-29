@@ -14,6 +14,11 @@
 #    limitations under the License.
 #
 
+if $platformwin
+  require_relative 'file_wrapper'
+else
+  Fluent::FileWrapper = File
+end
 
 module Fluent
   class NewTailInput < Input
@@ -145,7 +150,7 @@ module Fluent
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
             begin
-              pe.update(Win32File.stat(path).ino, 0)
+              pe.update(FileWrapper.stat(path).ino, 0)
             rescue Errno::ENOENT
               $log.warn "#{path} not found. Continuing without tailing it."
             end
@@ -162,7 +167,7 @@ module Fluent
         if tw
           tw.unwatched = unwatched
           if immediate
-            close_watcher(tw, true)
+            close_watcher(tw, false)
           else
             close_watcher_after_rotate_wait(tw)
           end
@@ -553,7 +558,7 @@ module Fluent
 
         def on_notify
           begin
-            io = Win32File.open(@path)
+            io = FileWrapper.open(@path)
             stat = io.stat
             inode = stat.ino
             fsize = stat.size
@@ -1078,7 +1083,7 @@ module Fluent
 
         def on_notify
           begin
-            io = Win32File.open(@path)
+            io = FileWrapper.open(@path)
             stat = io.stat
             inode = stat.ino
             fsize = stat.size

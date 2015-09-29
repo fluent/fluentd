@@ -17,13 +17,6 @@ end
 require 'cool.io'
 
 $platformwin = /mswin|mingw/ === RUBY_PLATFORM
-if $platformwin
-  require_relative 'winfile'
-else
-  module Fluent
-    Win32File = File
-  end
-end
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'
