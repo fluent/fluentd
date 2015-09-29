@@ -121,7 +121,7 @@ class FileOutputTest < Test::Unit::TestCase
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
     result = ''
-    File.open(path) { |io|
+    File.open(path, "rb") { |io|
       loop do
         gzr = Zlib::GzipReader.new(io)
         result << gzr.read
