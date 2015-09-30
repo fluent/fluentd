@@ -131,18 +131,18 @@ module Fluent
           end
         end
 
-        if @add_http_headers
-          params.each_pair { |k,v|
-            if k.start_with?("HTTP_")
-              record[k] = v
-            end
-          }
+        unless record.is_a?(Array)
+          if @add_http_headers
+            params.each_pair { |k,v|
+              if k.start_with?("HTTP_")
+                record[k] = v
+              end
+            }
+          end
+          if @add_remote_addr
+            record['REMOTE_ADDR'] = params['REMOTE_ADDR']
+          end
         end
-
-        if @add_remote_addr
-          record['REMOTE_ADDR'] = params['REMOTE_ADDR']
-        end
-
         time = if param_time = params['time']
                  param_time = param_time.to_i
                  param_time.zero? ? Engine.now : param_time
@@ -159,11 +159,21 @@ module Fluent
         if record.is_a?(Array)
           mes = MultiEventStream.new
           record.each do |single_record|
+            if @add_http_headers
+              params.each_pair { |k,v|
+                if k.start_with?("HTTP_")
+                  single_record[k] = v
+                end
+              }
+            end
+            if @add_remote_addr
+              single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
+            end
             single_time = single_record.delete("time") || time
             mes.add(single_time, single_record)
           end
           router.emit_stream(tag, mes)
-	else
+        else
           router.emit(tag, time, record)
         end
       rescue
