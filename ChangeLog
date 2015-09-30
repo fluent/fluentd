@@ -1,5 +1,23 @@
 # v0.12
 
+## Release 0.12.16 - 2015/09/30
+
+### New features / Enhancement
+
+* parser: Add null_value_pattern and null_empty_string option for ltsv, csv and tsv.
+  https://github.com/fluent/fluentd/pull/657
+* RPC: Implement /api/config.dump and /api/config.getDump APIs to dump in memory config
+  https://github.com/fluent/fluentd/pull/666
+* Add --show-plugin-config option
+  https://github.com/fluent/fluentd/pull/663
+
+### Bug fixes
+
+* in_http: Fix add_remote_addr and add_http_headers options not working on bulk request
+  https://github.com/fluent/fluentd/pull/673
+* parser: RegexpParser#initialize should wrap only Hash configuration
+  https://github.com/fluent/fluentd/pull/647
+
 ## Release 0.12.15 - 2015/07/29
 
 ### New features / Enhancement
