@@ -16,7 +16,6 @@ rescue
 end
 require 'cool.io'
 
-$platformwin = /mswin|mingw/ === RUBY_PLATFORM
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'

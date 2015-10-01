@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-if $platformwin
+if Fluent.windows?
   require_relative 'file_wrapper'
 else
   Fluent::FileWrapper = File

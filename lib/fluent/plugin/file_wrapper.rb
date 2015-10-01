@@ -118,4 +118,4 @@ module Fluent
       s
     end
   end
-end if $platformwin
+end if Fluent.windows?

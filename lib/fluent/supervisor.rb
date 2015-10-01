@@ -16,7 +16,7 @@
 
 require 'fluent/load'
 require 'etc'
-if $platformwin
+if Fluent.windows?
   require 'windows/library'
   require 'windows/system_info'
   include Windows::Library
@@ -128,7 +128,7 @@ module Fluent
       @without_source = opt[:without_source]
       @signame = opt[:signame]
 
-      if $platformwin
+      if Fluent.windows?
         ruby_path = "\0" * 256
         GetModuleFileName.call(0,ruby_path,256)
         ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
@@ -172,7 +172,7 @@ module Fluent
           change_privilege
           init_engine
           install_main_process_signal_handlers
-          install_main_process_winsigint_handler if $platformwin
+          install_main_process_winsigint_handler if Fluent.windows?
           run_configure
           finish_daemonize if @daemonize
           run_engine
@@ -310,7 +310,7 @@ module Fluent
 
       $log.info "starting fluentd-#{Fluent::VERSION}"
 
-      if !$platformwin
+      if !Fluent.windows?
         @main_pid = fork do
           main_process(&block)
         end
@@ -340,7 +340,7 @@ module Fluent
       @main_pid = nil
       ecode = $?.to_i
 
-      if $platformwin
+      if Fluent.windows?
         @th_sv.kill if @th_sv.alive?
         @th_sv.join rescue nil
       end
@@ -356,7 +356,7 @@ module Fluent
     def main_process(&block)
       begin
         block.call
-        if $platformwin
+        if Fluent.windows?
           @th_ma.join
         end
 
@@ -399,17 +399,17 @@ module Fluent
         $log.debug "fluentd supervisor process get SIGHUP"
         $log.info "restarting"
         supervisor_sighup_handler
-      end unless $platformwin
+      end unless Fluent.windows?
 
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
-      end unless $platformwin
+      end unless Fluent.windows?
     end
 
     def supervisor_sigint_handler
       @finished = true
-      unless $platformwin
+      unless Fluent.windows?
         if pid = @main_pid
           # kill processes only still exists
           unless Process.waitpid(pid, Process::WNOHANG)
@@ -561,7 +561,7 @@ module Fluent
 
       trap :INT do
         $log.debug "fluentd main process get SIGINT"
-        unless $platformwin
+        unless Fluent.windows?
           unless @finished
             @finished = true
             $log.debug "getting start to shutdown main process"
@@ -588,7 +588,7 @@ module Fluent
       trap :HUP do
         # TODO
         $log.debug "fluentd main process get SIGHUP"
-      end unless $platformwin
+      end unless Fluent.windows?
 
       trap :USR1 do
         $log.debug "fluentd main process get SIGUSR1"
@@ -605,7 +605,7 @@ module Fluent
             $log.warn "flushing thread error: #{e}"
           end
         }.run
-      end unless $platformwin
+      end unless Fluent.windows?
     end
 
     def run_engine
