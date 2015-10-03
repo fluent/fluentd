@@ -107,8 +107,7 @@ module Fluent
         return 0
       end
 
-      fileindex = by_handle_file_information.unpack("I11Q1")[11]
-      return fileindex
+      by_handle_file_information.unpack("I11Q1")[11] # fileindex
     end
 
     def stat
