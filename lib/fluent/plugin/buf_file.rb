@@ -66,7 +66,7 @@ module Fluent
     end
 
     def mv(path)
-      if defined?(Windows)
+      if Fluent.windows?
         pos = @file.pos
         @file.close
         File.rename(@path, path)
