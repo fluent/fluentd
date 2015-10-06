@@ -126,17 +126,19 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
   opts[:gem_install_path] = s
 }
 
-op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
-  opts[:signame] = s
-}
+if Fluent.windows?
+  op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
+    opts[:signame] = s
+  }
 
-op.on('--reg-winsvc MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
-  opts[:regwinsvc] = s
-}
+  op.on('--reg-winsvc MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
+    opts[:regwinsvc] = s
+  }
 
-op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
-  opts[:fluentdopt] = s
-}
+  op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
+    opts[:fluentdopt] = s
+  }
+end
 
 
 (class<<self;self;end).module_eval do
