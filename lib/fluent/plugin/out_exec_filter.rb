@@ -262,7 +262,8 @@ module Fluent
 
       def kill_child(join_wait)
         begin
-          Process.kill(:TERM, @pid)
+          signal = Fluent.windows? ? :KILL : :TERM
+          Process.kill(signal, @pid)
         rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
           # Errno::ESRCH 'No such process', ignore
           # child process killed by signal chained from fluentd process

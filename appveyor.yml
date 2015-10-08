@@ -1,0 +1,25 @@
+version: '{build}'
+
+install:
+  - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
+  - "%devkit%\\devkitvars.bat"
+  - ruby --version
+  - gem --version
+  - bundle install
+build: off
+test_script:
+  - bundle exec rake test TESTOPTS=-v
+
+environment:
+  matrix:
+    - ruby_version: "22-x64"
+      devkit: C:\Ruby21-x64\DevKit
+    - ruby_version: "22"
+      devkit: C:\Ruby21\DevKit
+    - ruby_version: "21-x64"
+      devkit: C:\Ruby21-x64\DevKit
+    - ruby_version: "21"
+      devkit: C:\Ruby21\DevKit
+matrix:
+  allow_failures:
+    - ruby_version: "21"

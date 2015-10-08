@@ -21,6 +21,7 @@ module Fluent
       @path = path
       @unique_id = unique_id
       @file = File.open(@path, mode, DEFAULT_FILE_PERMISSION)
+      @file.binmode
       @file.sync = true
       @size = @file.stat.size
       FileUtils.ln_sf(@path, symlink_path) if symlink_path
@@ -65,8 +66,20 @@ module Fluent
     end
 
     def mv(path)
-      File.rename(@path, path)
-      @path = path
+      if Fluent.windows?
+        pos = @file.pos
+        @file.close
+        File.rename(@path, path)
+        @path = path
+        @file = File.open(@path, 'rb', DEFAULT_FILE_PERMISSION)
+        @file.sync = true
+        @size = @file.size
+        @file.pos = pos
+        @size = @file.stat.size
+      else
+        File.rename(@path, path)
+        @path = path
+      end
     end
   end
 

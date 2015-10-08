@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+if Fluent.windows?
+  require_relative 'file_wrapper'
+else
+  Fluent::FileWrapper = File
+end
+
 module Fluent
   class NewTailInput < Input
     Plugin.register_input('tail', self)
@@ -76,7 +82,7 @@ module Fluent
 
     def start
       if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, DEFAULT_FILE_PERMISSION)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
       end
@@ -144,7 +150,7 @@ module Fluent
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
             begin
-              pe.update(File::Stat.new(path).ino, 0)
+              pe.update(FileWrapper.stat(path).ino, 0)
             rescue Errno::ENOENT
               $log.warn "#{path} not found. Continuing without tailing it."
             end
@@ -494,9 +500,9 @@ module Fluent
             begin
               while true
                 if @buffer.empty?
-                  @io.read_nonblock(2048, @buffer)
+                  @io.readpartial(2048, @buffer)
                 else
-                  @buffer << @io.read_nonblock(2048, @iobuf)
+                  @buffer << @io.readpartial(2048, @iobuf)
                 end
                 while line = @buffer.slice!(/.*?\n/m)
                   lines << line
@@ -552,7 +558,7 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path)
+            io = FileWrapper.open(@path)
             stat = io.stat
             inode = stat.ino
             fsize = stat.size
@@ -568,7 +574,6 @@ module Fluent
               @on_rotate.call(io)
               io = nil
             end
-
             @inode = inode
             @fsize = fsize
           ensure
@@ -743,7 +748,7 @@ module Fluent
 
     def start
       if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT, DEFAULT_FILE_PERMISSION)
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, DEFAULT_FILE_PERMISSION)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
       end
@@ -1017,9 +1022,9 @@ module Fluent
             begin
               while true
                 if @buffer.empty?
-                  @io.read_nonblock(2048, @buffer)
+                  @io.readpartial(2048, @buffer)
                 else
-                  @buffer << @io.read_nonblock(2048, @iobuf)
+                  @buffer << @io.readpartial(2048, @iobuf)
                 end
                 while line = @buffer.slice!(/.*?\n/m)
                   lines << line
@@ -1078,7 +1083,7 @@ module Fluent
 
         def on_notify
           begin
-            io = File.open(@path)
+            io = FileWrapper.open(@path)
             stat = io.stat
             inode = stat.ino
             fsize = stat.size

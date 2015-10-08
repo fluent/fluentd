@@ -62,7 +62,7 @@ class FileOutputTest < Test::Unit::TestCase
     d = create_driver(%[path #{TMP_DIR}/out_file_test])
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    with_timezone('Asia/Taipei') do
+    with_timezone(Fluent.windows? ? 'NST-8' : 'Asia/Taipei') do
       d.emit({"a"=>1}, time)
       d.expect_format %[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]
       d.run
@@ -121,7 +121,7 @@ class FileOutputTest < Test::Unit::TestCase
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
     result = ''
-    File.open(path) { |io|
+    File.open(path, "rb") { |io|
       loop do
         gzr = Zlib::GzipReader.new(io)
         result << gzr.read
@@ -232,6 +232,7 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_symlink
+    omit "Windows doesn't support symlink" if Fluent.windows?
     conf = CONFIG + %[
       symlink_path #{SYMLINK_PATH}
     ]

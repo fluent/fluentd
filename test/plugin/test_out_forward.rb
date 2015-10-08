@@ -303,6 +303,7 @@ class ForwardOutputTest < Test::Unit::TestCase
           def write(data)
             @sock.write data
           rescue => e
+            @sock.close_write
             @sock.close
           end
         else
@@ -312,6 +313,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         end
 
         def close
+          @sock.close_write
           @sock.close
         end
       }
@@ -333,7 +335,10 @@ class ForwardOutputTest < Test::Unit::TestCase
               end
               sleep  # wait for connection to be closed by client
             ensure
-              sock.close if sock
+              if sock
+                sock.close_write
+                sock.close
+              end
             end
           end
         end

@@ -21,4 +21,10 @@ module Fluent
   DEFAULT_LISTEN_PORT = 24224
   DEFAULT_FILE_PERMISSION = 0644
   DEFAULT_DIR_PERMISSION = 0755
+  IS_WINDOWS = /mswin|mingw/ === RUBY_PLATFORM
+  private_constant :IS_WINDOWS
+
+  def self.windows?
+    IS_WINDOWS
+  end
 end

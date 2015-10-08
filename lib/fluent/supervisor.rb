@@ -16,6 +16,14 @@
 
 require 'fluent/load'
 require 'etc'
+if Fluent.windows?
+  require 'windows/library'
+  require 'windows/system_info'
+  include Windows::Library
+  include Windows::SystemInfo
+  require 'win32/ipc'
+  require 'win32/event'
+end
 
 module Fluent
   class Supervisor
@@ -94,6 +102,8 @@ module Fluent
         :without_source => false,
         :use_v1_config => true,
         :supervise => true,
+        :signame => nil,
+        :winsvcreg => nil,
       }
     end
 
@@ -116,7 +126,15 @@ module Fluent
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
       @without_source = opt[:without_source]
+      @signame = opt[:signame]
 
+      if Fluent.windows?
+        ruby_path = "\0" * 256
+        GetModuleFileName.call(0,ruby_path,256)
+        ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+        @rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
+        @winosvi = windows_version
+      end
       log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
       @finished = false
@@ -156,6 +174,7 @@ module Fluent
           change_privilege
           init_engine
           install_main_process_signal_handlers
+          install_main_process_winsigint_handler if Fluent.windows?
           run_configure
           finish_daemonize if @daemonize
           run_engine
@@ -307,8 +326,23 @@ module Fluent
       start_time = Time.now
 
       $log.info "starting fluentd-#{Fluent::VERSION}"
-      @main_pid = fork do
-        main_process(&block)
+
+      if !Fluent.windows?
+        @main_pid = fork do
+          main_process(&block)
+        end
+      else
+        if @supervise
+          fluentd_spawn_cmd = @rubybin_dir+"/ruby.exe '"+@rubybin_dir+"/fluentd' "
+          $fluentdargv.each{|a|
+            fluentd_spawn_cmd << (a + " ")
+          }
+          fluentd_spawn_cmd << ("--no-supervisor")
+          $log.info "spawn command to main (windows) : " + fluentd_spawn_cmd
+          @main_pid = Process.spawn(fluentd_spawn_cmd)
+        else
+          main_process(&block)
+        end
       end
 
       if @daemonize && @wait_daemonize_pipe_w
@@ -323,6 +357,11 @@ module Fluent
       @main_pid = nil
       ecode = $?.to_i
 
+      if Fluent.windows?
+        @th_sv.kill if @th_sv.alive?
+        @th_sv.join rescue nil
+      end
+
       $log.info "process finished", :code=>ecode
 
       if !@finished && Time.now - start_time < 1
@@ -334,6 +373,9 @@ module Fluent
     def main_process(&block)
       begin
         block.call
+        if Fluent.windows?
+          @th_ma.join
+        end
 
       rescue Fluent::ConfigError
         $log.error "config error", :file=>@config_path, :error=>$!.to_s
@@ -358,6 +400,8 @@ module Fluent
     end
 
     def install_supervisor_signal_handlers
+      install_supervisor_winsigint_handler
+
       trap :INT do
         $log.debug "fluentd supervisor process get SIGINT"
         supervisor_sigint_handler
@@ -372,24 +416,32 @@ module Fluent
         $log.debug "fluentd supervisor process get SIGHUP"
         $log.info "restarting"
         supervisor_sighup_handler
-      end
+      end unless Fluent.windows?
 
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
-      end
+      end unless Fluent.windows?
     end
 
     def supervisor_sigint_handler
       @finished = true
-      if pid = @main_pid
-        # kill processes only still exists
-        unless Process.waitpid(pid, Process::WNOHANG)
-          begin
-            Process.kill(:INT, pid)
-          rescue Errno::ESRCH
-            # ignore processes already died
+      unless Fluent.windows?
+        if pid = @main_pid
+          # kill processes only still exists
+          unless Process.waitpid(pid, Process::WNOHANG)
+            begin
+              Process.kill(:INT, pid)
+            rescue Errno::ESRCH
+              # ignore processes already died
+            end
           end
+        end
+      else
+        begin
+          @evtend.set
+        rescue
+          # nothing to do.
         end
       end
     end
@@ -536,10 +588,18 @@ module Fluent
 
       trap :INT do
         $log.debug "fluentd main process get SIGINT"
-        unless @finished
-          @finished = true
-          $log.debug "getting start to shutdown main process"
-          Fluent::Engine.stop
+        unless Fluent.windows?
+          unless @finished
+            @finished = true
+            $log.debug "getting start to shutdown main process"
+            Fluent::Engine.stop
+          end
+        else
+          begin
+            @evtend.set
+          rescue
+            # nothing to do.
+          end
         end
       end
 
@@ -555,7 +615,7 @@ module Fluent
       trap :HUP do
         # TODO
         $log.debug "fluentd main process get SIGHUP"
-      end
+      end unless Fluent.windows?
 
       trap :USR1 do
         $log.debug "fluentd main process get SIGUSR1"
@@ -572,11 +632,52 @@ module Fluent
             $log.warn "flushing thread error: #{e}"
           end
         }.run
-      end
+      end unless Fluent.windows?
     end
 
     def run_engine
       Fluent::Engine.run
+    end
+
+    def install_supervisor_winsigint_handler
+      @winintname = @signame || "fluentdwinsigint_#{Process.pid}"
+      @th_sv = Thread.new do
+        @evtend = Win32::Event.new(@winintname, true)
+        until @evtend.signaled?
+          sleep(1)
+        end
+        @evtend.close
+
+        @finished = true
+        if pid = @main_pid
+          unless Process.waitpid(pid, Process::WNOHANG)
+            sigx = (@winosvi >= 6.2) ? (:INT) : (:KILL)
+            begin
+              Process.kill(sigx, pid)
+            rescue Errno::ESRCH
+              # ignore processes already died
+            end
+          end
+        end
+      end
+    end
+
+    def install_main_process_winsigint_handler
+      @winintname = @signame || "fluentdwinsigint_#{Process.ppid}"
+      @th_ma = Thread.new do
+        @evtend = Win32::Event.open(@winintname)
+        until @evtend.signaled?
+          sleep(1)
+        end
+        @evtend.close
+
+        unless @finished
+          @finished = true
+          $log.debug "getting start to shutdown main process"
+          Fluent::Engine.stop
+        end
+      end
+      $log.debug "install_main_process_winsigint_handler***** installed main winsiginthandler"
     end
   end
 end

@@ -25,7 +25,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   def sed_unbuffered_support?
     @sed_unbuffered_support ||= lambda {
-      system("echo xxx | sed --unbuffered -l -e 's/x/y/g' >/dev/null 2>&1")
+      system("echo xxx | sed --unbuffered -l -e 's/x/y/g' >#{IO::NULL} 2>&1")
       $?.success?
     }.call
   end

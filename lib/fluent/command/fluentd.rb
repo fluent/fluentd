@@ -16,6 +16,13 @@
 
 require 'optparse'
 require 'fluent/supervisor'
+require 'fluent/log'
+require 'fluent/env'
+require 'fluent/version'
+require 'windows/library'
+include Windows::Library
+
+$fluentdargv = Marshal.load(Marshal.dump(ARGV))
 
 op = OptionParser.new
 op.version = Fluent::VERSION
@@ -119,6 +126,21 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
   opts[:gem_install_path] = s
 }
 
+if Fluent.windows?
+  op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
+    opts[:signame] = s
+  }
+
+  op.on('--reg-winsvc MODE', "install/uninstall as Windows Service. (i: install, u: uninstall) (Windows only)") {|s|
+    opts[:regwinsvc] = s
+  }
+
+  op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
+    opts[:fluentdopt] = s
+  }
+end
+
+
 (class<<self;self;end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
@@ -168,4 +190,48 @@ if setup_path = opts[:setup_path]
   exit 0
 end
 
+if winsvcinstmode = opts[:regwinsvc]
+  FLUENTD_WINSVC_NAME="fluentdwinsvc"
+  FLUENTD_WINSVC_DISPLAYNAME="Fluentd Windows Service"
+  FLUENTD_WINSVC_DESC="Fluentd is an event collector system."
+  require 'fileutils'
+  require "win32/service"
+  require "win32/registry"
+  include Win32
+
+  case winsvcinstmode
+  when 'i'
+    binary_path = File.join(File.dirname(__FILE__), "..")
+    ruby_path = "\0" * 256
+    GetModuleFileName.call(0,ruby_path,256)
+    ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+
+    Service.create(
+      :service_name => FLUENTD_WINSVC_NAME,
+      :host => nil,
+      :service_type => Service::WIN32_OWN_PROCESS,
+      :description => FLUENTD_WINSVC_DESC,
+      :start_type => Service::DEMAND_START,
+      :error_control => Service::ERROR_NORMAL,
+      :binary_path_name => ruby_path+" -C "+binary_path+" winsvc.rb",
+      :load_order_group => "",
+      :dependencies => [""],
+      :display_name => FLUENTD_WINSVC_DISPLAYNAME
+    )
+  when 'u'
+    Service.delete(FLUENTD_WINSVC_NAME)
+  else
+    # none
+  end
+  exit 0
+end
+
+if fluentdopt = opts[:fluentdopt]
+  Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc", Win32::Registry::KEY_ALL_ACCESS) do |reg|
+    reg['fluentdopt', Win32::Registry::REG_SZ] = fluentdopt
+  end
+  exit 0
+end
+
+require 'fluent/supervisor'
 Fluent::Supervisor.new(opts).start

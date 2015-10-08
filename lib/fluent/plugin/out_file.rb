@@ -83,11 +83,11 @@ module Fluent
 
       case @compress
       when nil
-        File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
+        File.open(path, "ab", DEFAULT_FILE_PERMISSION) {|f|
           chunk.write_to(f)
         }
       when :gz
-        File.open(path, "a", DEFAULT_FILE_PERMISSION) {|f|
+        File.open(path, "ab", DEFAULT_FILE_PERMISSION) {|f|
           gz = Zlib::GzipWriter.new(f)
           chunk.write_to(gz)
           gz.close

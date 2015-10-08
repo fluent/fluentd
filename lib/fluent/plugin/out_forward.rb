@@ -269,6 +269,7 @@ module Fluent
         #sock.write FORWARD_TCP_HEARTBEAT_DATA
         node.heartbeat(true)
       ensure
+        sock.close_write
         sock.close
       end
     end
@@ -347,6 +348,7 @@ module Fluent
         node.heartbeat(false)
         return res  # for test
       ensure
+        sock.close_write
         sock.close
       end
     end

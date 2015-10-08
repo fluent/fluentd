@@ -122,4 +122,4 @@ class UnixInputTest < Test::Unit::TestCase
   def connect
     UNIXSocket.new("#{TMP_DIR}/unix")
   end
-end
+end unless Fluent.windows?
