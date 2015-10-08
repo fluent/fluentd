@@ -2,7 +2,7 @@ require_relative 'helper'
 require 'fluent/test'
 require 'fluent/output'
 require 'timecop'
-require 'flexmock/test_unit'
+require 'flexmock'
 
 module FluentOutputTest
   include Fluent

@@ -1,7 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/filter_stdout'
 require 'timecop'
-require 'flexmock/test_unit'
+require 'flexmock'
 
 class StdoutFilterTest < Test::Unit::TestCase
   include Fluent
