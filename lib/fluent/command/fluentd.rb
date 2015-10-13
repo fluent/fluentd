@@ -19,8 +19,6 @@ require 'fluent/supervisor'
 require 'fluent/log'
 require 'fluent/env'
 require 'fluent/version'
-require 'windows/library'
-include Windows::Library
 
 $fluentdargv = Marshal.load(Marshal.dump(ARGV))
 
@@ -127,6 +125,9 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
 }
 
 if Fluent.windows?
+  require 'windows/library'
+  include Windows::Library
+
   op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
     opts[:signame] = s
   }
