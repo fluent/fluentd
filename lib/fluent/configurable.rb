@@ -114,6 +114,10 @@ module Fluent
         attr_accessor configure_proxy(self.name).sections[name].param_name
       end
 
+      def desc(description)
+        configure_proxy(self.name).desc(description)
+      end
+
       def merged_configure_proxy
         configurables = ancestors.reverse.select{ |a| a.respond_to?(:configure_proxy) }
 
