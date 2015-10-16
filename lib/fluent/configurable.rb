@@ -105,6 +105,10 @@ module Fluent
         configure_proxy(self.name).config_set_default(name, defval)
       end
 
+      def config_set_desc(name, desc)
+        configure_proxy(self.name).config_set_desc(name, desc)
+      end
+
       def config_section(name, *args, &block)
         configure_proxy(self.name).config_section(name, *args, &block)
         attr_accessor configure_proxy(self.name).sections[name].param_name
