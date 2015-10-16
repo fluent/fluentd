@@ -112,6 +112,26 @@ module Fluent::Config
         end
       end
 
+      sub_test_case '#desc' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+        end
+
+        test 'permit to specify description twice' do
+          @proxy.desc("description1")
+          @proxy.desc("description2")
+          @proxy.config_param(:name, :string)
+          assert_equal("description2", @proxy.descriptions[:name])
+        end
+
+        test 'does not permit description specification twice' do
+          @proxy.desc("description1")
+          assert_raise(ArgumentError) do
+            @proxy.config_param(:name, :string, :desc => "description2")
+          end
+        end
+      end
+
       sub_test_case '#dump' do
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section)
@@ -202,6 +222,28 @@ CONFIG
               config_section(:sub2) do
                 config_param(:name3, :string, default: "name3")
                 config_param(:name4, :string, default: "name4", desc: "desc4")
+              end
+            end
+            assert_equal(<<CONFIG, @proxy.dump)
+
+sub
+ name1: string: <"name1"> # desc1
+ name2: string: <"name2"> # desc2
+ sub2
+  name3: string: <"name3">
+  name4: string: <"name4"> # desc4
+CONFIG
+          end
+
+          test 'sub proxy w/ desc method' do
+            @proxy.config_section(:sub) do
+              desc("desc1")
+              config_param(:name1, :string, default: "name1")
+              config_param(:name2, :string, default: "name2", desc: "desc2")
+              config_section(:sub2) do
+                config_param(:name3, :string, default: "name3")
+                desc("desc4")
+                config_param(:name4, :string, default: "name4")
               end
             end
             assert_equal(<<CONFIG, @proxy.dump)
