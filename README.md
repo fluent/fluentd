@@ -38,6 +38,7 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
 - Documentation: http://docs.fluentd.org/
 - Source repository: http://github.com/fluent
 - Discussion: http://groups.google.com/group/fluentd
+- Slack / Community: http://slack.fluentd.org
 - Newsletters: http://get.treasuredata.com/Fluentd_education
 - Author: Sadayuki Furuhashi
 - Copyright: (c) 2011 FURUHASHI Sadayuki
@@ -48,4 +49,3 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
 Patches contributed by [great developers](https://github.com/fluent/fluentd/contributors).
 
 [<img src="https://ga-beacon.appspot.com/UA-24890265-6/fluent/fluentd" />](https://github.com/fluent/fluentd)
-
