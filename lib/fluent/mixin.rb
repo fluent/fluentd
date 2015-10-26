@@ -17,12 +17,23 @@
 module Fluent
   class TimeFormatter
     require 'fluent/timezone'
+    require 'fluent/time'
 
     def initialize(format, localtime, timezone = nil)
       @tc1 = 0
       @tc1_str = nil
       @tc2 = 0
       @tc2_str = nil
+
+      if format && format =~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
+        define_singleton_method(:format) {|time|
+          format_with_subsec(time)
+        }
+      else
+        define_singleton_method(:format) {|time|
+          format_without_subsec(time)
+        }
+      end
 
       if formatter = Fluent::Timezone.formatter(timezone, format)
         define_singleton_method(:format_nocache) {|time|
@@ -54,7 +65,7 @@ module Fluent
       end
     end
 
-    def format(time)
+    def format_without_subsec(time)
       if @tc1 == time
         return @tc1_str
       elsif @tc2 == time
@@ -70,6 +81,28 @@ module Fluent
         end
         return str
       end
+    end
+
+    def format_with_subsec(time)
+      if Fluent::EventTime.eq?(@tc1, time)
+        return @tc1_str
+      elsif Fluent::EventTime.eq?(@tc2, time)
+        return @tc2_str
+      else
+        str = format_nocache(time)
+        if @tc1 < @tc2
+          @tc1 = time
+          @tc1_str = str
+        else
+          @tc2 = time
+          @tc2_str = str
+        end
+        return str
+      end
+    end
+
+    def format(time)
+      # will be overridden in initialize
     end
 
     def format_nocache(time)

@@ -289,7 +289,7 @@ when 'json'
 
 when 'msgpack'
   begin
-    u = MessagePack::Unpacker.new($stdin)
+    u = Fluent::Engine.msgpack_factory.unpacker($stdin)
     u.each {|record|
       w.write(record)
     }

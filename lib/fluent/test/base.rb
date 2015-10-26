@@ -21,10 +21,17 @@ module Fluent
       engine = Fluent.const_set(:Engine, EngineClass.new).init
 
       engine.define_singleton_method(:now=) {|n|
-        @now = n.to_i
+        @now = n
       }
       engine.define_singleton_method(:now) {
         @now || super()
+      }
+
+      ::Test::Unit::Assertions.module_eval {
+        def assert_equal_event_time(a, b)
+          assert_equal(a.sec, b.sec)
+          assert_equal(a.nsec, b.nsec)
+        end
       }
 
       nil

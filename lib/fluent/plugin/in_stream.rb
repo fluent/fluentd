@@ -87,8 +87,8 @@ module Fluent
         entries.each {|e|
           record = e[1]
           next if record.nil?
-          time = e[0].to_i
-          time = (now ||= Engine.now) if time == 0
+          time = e[0]
+          time = (now ||= Engine.now) if time.to_i == 0
           es.add(time, record)
         }
         router.emit_stream(tag, es)
@@ -99,7 +99,7 @@ module Fluent
         return if record.nil?
 
         time = msg[1]
-        time = Engine.now if time == 0
+        time = Engine.now if time.to_i == 0
         router.emit(tag, time, record)
       end
     end
@@ -130,7 +130,7 @@ module Fluent
           @y.on_parse_complete = @on_message
         else
           m = method(:on_read_msgpack)
-          @u = MessagePack::Unpacker.new
+          @u = Fluent::Engine.msgpack_factory.unpacker
         end
 
         (class << self; self; end).module_eval do

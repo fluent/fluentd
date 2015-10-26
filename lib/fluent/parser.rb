@@ -60,12 +60,18 @@ module Fluent
         @cache2_time = nil
         @parser =
           if time_format
-            Proc.new { |value| Time.strptime(value, time_format) }
+            begin
+              strptime = Strptime.new(time_format)
+              Proc.new { |value| Fluent::EventTime.from_time(strptime.exec(value)) }
+            rescue
+              Proc.new { |value| Fluent::EventTime.from_time(Time.strptime(value, time_format)) }
+            end
           else
-            Time.method(:parse)
+            Proc.new { |value| Fluent::EventTime.parse(value) }
           end
       end
 
+      # TODO: new cache mechanism using format string
       def parse(value)
         unless value.is_a?(String)
           raise ParserError, "value must be string: #{value}"
@@ -77,7 +83,7 @@ module Fluent
           return @cache2_time
         else
           begin
-            time = @parser.call(value).to_i
+            time = @parser.call(value)
           rescue => e
             raise ParserError, "invalid time format: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
           end
@@ -256,7 +262,7 @@ module Fluent
             time = @mutex.synchronize { @time_parser.parse(value) }
           else
             begin
-              time = value.to_i
+              time = Fluent::EventTime.from_time(Time.at(value.to_f))
             rescue => e
               raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
             end

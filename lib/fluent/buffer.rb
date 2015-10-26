@@ -112,7 +112,7 @@ module Fluent
 
     def msgpack_each(&block)
       open {|io|
-        u = MessagePack::Unpacker.new(io)
+        u = Fluent::Engine.msgpack_factory.unpacker(io)
         begin
           u.each(&block)
         rescue EOFError

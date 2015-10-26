@@ -31,7 +31,7 @@ module EventTest
 
     test 'to_msgpack_stream' do
       stream = @es.to_msgpack_stream
-      MessagePack::Unpacker.new.feed_each(stream) { |time, record|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
         assert_equal @time, time
         assert_equal @record, record
       }
@@ -42,7 +42,8 @@ module EventTest
     include Fluent
 
     def setup
-      @times = [Engine.now, Engine.now + 1]
+      time = Engine.now
+      @times = [Fluent::EventTime.new(time.sec), Fluent::EventTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
       @es = ArrayEventStream.new(@times.zip(@records))
     end
@@ -74,7 +75,7 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
-      MessagePack::Unpacker.new.feed_each(stream) { |time, record|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -86,7 +87,8 @@ module EventTest
     include Fluent
 
     def setup
-      @times = [Engine.now, Engine.now + 1]
+      time = Engine.now
+      @times = [Fluent::EventTime.new(time.sec), Fluent::EventTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
       @es = MultiEventStream.new
       @times.zip(@records).each { |time, record|
@@ -121,7 +123,7 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
-      MessagePack::Unpacker.new.feed_each(stream) { |time, record|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1
@@ -133,8 +135,9 @@ module EventTest
     include Fluent
 
     def setup
-      pk = MessagePack::Packer.new
-      @times = [Engine.now, Engine.now + 1]
+      pk = Fluent::Engine.msgpack_factory.packer
+      time = Engine.now
+      @times = [Fluent::EventTime.new(time.sec), Fluent::EventTime.new(time.sec + 1)]
       @records = [{'k' => 'v1', 'n' => 1}, {'k' => 'v2', 'n' => 2}]
       @times.zip(@records).each { |time, record|
         pk.write([time, record])
@@ -158,7 +161,7 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
-      MessagePack::Unpacker.new.feed_each(stream) { |time, record|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record
         i += 1

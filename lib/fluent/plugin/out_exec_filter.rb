@@ -120,9 +120,15 @@ module Fluent
 
       if @out_time_key
         if f = @out_time_format
-          @time_parse_proc = Proc.new {|str| Time.strptime(str, f).to_i }
+          @time_parse_proc =
+            begin
+              strptime = Strptime.new(f)
+              Proc.new { |str| Fluent::EventTime.from_time(strptime.exec(str)) }
+            rescue
+              Proc.new {|str| Fluent::EventTime.from_time(Time.strptime(str, f)) }
+            end
         else
-          @time_parse_proc = Proc.new {|str| str.to_i }
+          @time_parse_proc = Proc.new {|str| Fluent::EventTime.from_time(Time.at(str.to_f)) }
         end
       elsif @out_time_format
         log.warn "out_time_format effects nothing when out_time_key is not specified: #{conf}"

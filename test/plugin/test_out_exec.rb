@@ -88,6 +88,28 @@ class ExecOutputTest < Test::Unit::TestCase
     d.run
   end
 
+  def test_format_time
+    config = %[
+      keys "time,tag,k1"
+      tag_key "tag"
+      time_key "time"
+      time_format %Y-%m-%d %H:%M:%S.%3N
+    ]
+    d = create_driver(config)
+
+    time = Fluent::EventTime::from_time(Time.parse("2011-01-02 13:14:15.123"))
+    tests = [{"k1"=>"v1","kx"=>"vx"}, {"k1"=>"v2","kx"=>"vx"}]
+
+    tests.each { |test|
+      d.emit(test, time)
+    }
+
+    d.expect_format %[2011-01-02 13:14:15.123\ttest\tv1\n]
+    d.expect_format %[2011-01-02 13:14:15.123\ttest\tv2\n]
+
+    d.run
+  end
+
   def test_write
     d = create_driver
     time, tests = create_test_case

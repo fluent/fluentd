@@ -9,6 +9,7 @@ require 'json'
 require 'yajl'
 require 'uri'
 require 'msgpack'
+require 'strptime'
 begin
   require 'sigdump/setup'
 rescue
@@ -16,6 +17,7 @@ rescue
 end
 require 'cool.io'
 
+require 'fluent/time'
 require 'fluent/env'
 require 'fluent/version'
 require 'fluent/log'

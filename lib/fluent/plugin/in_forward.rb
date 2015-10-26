@@ -153,8 +153,8 @@ module Fluent
         entries.each {|e|
           record = e[1]
           next if record.nil?
-          time = e[0].to_i
-          time = (now ||= Engine.now) if time == 0
+          time = e[0]
+          time = (now ||= Engine.now) if time.to_i == 0
           es.add(time, record)
         }
         router.emit_stream(tag, es)
@@ -165,7 +165,7 @@ module Fluent
         record = msg[2]
         return if record.nil?
         time = msg[1]
-        time = Engine.now if time == 0
+        time = Engine.now if time.to_i == 0
         router.emit(tag, time, record)
         option = msg[3]
       end
@@ -219,7 +219,7 @@ module Fluent
         else
           m = method(:on_read_msgpack)
           @serializer = :to_msgpack.to_proc
-          @u = MessagePack::Unpacker.new
+          @u = Fluent::Engine.msgpack_factory.unpacker
         end
 
         (class << self; self; end).module_eval do

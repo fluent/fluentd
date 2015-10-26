@@ -36,7 +36,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_time
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
     Fluent::Engine.now = time
 
     d.expect_emit "tag1", time, {"a"=>1}
@@ -44,12 +44,27 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       d.expected_emits.each {|tag,time,record|
-        send_data [tag, 0, record].to_msgpack
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
       }
     end
   end
 
   def test_message
+    d = create_driver
+
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>2}
+
+    d.run do
+      d.expected_emits.each {|tag,time,record|
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+      }
+    end
+  end
+
+  def test_message_with_time_as_integer
     d = create_driver
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
@@ -59,12 +74,29 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       d.expected_emits.each {|tag,time,record|
-        send_data [tag, time, record].to_msgpack
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
       }
     end
   end
 
   def test_forward
+    d = create_driver
+
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag1", time, {"a"=>2}
+
+    d.run do
+      entries = []
+      d.expected_emits.each {|tag,time,record|
+        entries << [time, record]
+      }
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+    end
+  end
+
+  def test_forward_with_time_as_integer
     d = create_driver
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
@@ -77,11 +109,28 @@ class ForwardInputTest < Test::Unit::TestCase
       d.expected_emits.each {|tag,time,record|
         entries << [time, record]
       }
-      send_data ["tag1", entries].to_msgpack
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
   end
 
   def test_packed_forward
+    d = create_driver
+
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag1", time, {"a"=>2}
+
+    d.run do
+      entries = ''
+      d.expected_emits.each {|tag,time,record|
+        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
+      }
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+    end
+  end
+
+  def test_packed_forward_with_time_as_integer
     d = create_driver
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
@@ -92,9 +141,9 @@ class ForwardInputTest < Test::Unit::TestCase
     d.run do
       entries = ''
       d.expected_emits.each {|tag,time,record|
-        [time, record].to_msgpack(entries)
+        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
       }
-      send_data ["tag1", entries].to_msgpack
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
   end
 
@@ -119,7 +168,7 @@ class ForwardInputTest < Test::Unit::TestCase
       chunk_size_limit 32M
     ])
 
-    time = Time.parse("2014-04-25 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
 
     # generate over 16M chunk
     str = "X" * 1024 * 1024
@@ -128,7 +177,7 @@ class ForwardInputTest < Test::Unit::TestCase
     assert chunk.size < (32 * 1024 * 1024)
 
     d.run do
-      MessagePack::Unpacker.new.feed_each(chunk) do |obj|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
         d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
       end
     end
@@ -150,14 +199,14 @@ class ForwardInputTest < Test::Unit::TestCase
     d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M
     ])
-    time = Time.parse("2014-04-25 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
 
     # generate over 16M chunk
     str = "X" * 1024 * 1024
     chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
 
     d.run do
-      MessagePack::Unpacker.new.feed_each(chunk) do |obj|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
         d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
       end
     end
@@ -175,7 +224,7 @@ class ForwardInputTest < Test::Unit::TestCase
       chunk_size_limit 32M
     ])
 
-    time = Time.parse("2014-04-25 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
 
     # generate over 32M chunk
     str = "X" * 1024 * 1024
@@ -184,7 +233,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     # d.run => send_data
     d.run do
-      MessagePack::Unpacker.new.feed_each(chunk) do |obj|
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
         d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
       end
     end
@@ -223,7 +272,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_respond_to_message_requiring_ack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     events = [
       ["tag1", time, {"a"=>1}],
@@ -249,7 +298,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_respond_to_forward_requiring_ack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     events = [
       ["tag1", time, {"a"=>1}],
@@ -276,7 +325,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_respond_to_packed_forward_requiring_ack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     events = [
       ["tag1", time, {"a"=>1}],
@@ -329,7 +378,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_not_respond_to_message_not_requiring_ack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     events = [
       ["tag1", time, {"a"=>1}],
@@ -350,7 +399,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_not_respond_to_forward_not_requiring_ack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     events = [
       ["tag1", time, {"a"=>1}],
@@ -373,7 +422,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_not_respond_to_packed_forward_not_requiring_ack
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
     events = [
       ["tag1", time, {"a"=>1}],

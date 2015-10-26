@@ -431,13 +431,19 @@ module Fluent
 
 
   class ObjectBufferedOutput < BufferedOutput
+    config_param :time_as_integer, :bool, :default => true
+
     def initialize
       super
     end
 
     def emit(tag, es, chain)
       @emit_count += 1
-      data = es.to_msgpack_stream
+      if @time_as_integer
+        data = es.to_msgpack_stream_forced_integer
+      else
+        data = es.to_msgpack_stream
+      end
       key = tag
       if @buffer.emit(key, data, chain)
         submit_flush
@@ -529,7 +535,7 @@ module Fluent
       else
         @flush_interval = [60, @time_slice_cache_interval].min
         @enqueue_buffer_proc = Proc.new do
-          nowslice = @time_slicer.call(Engine.now - @time_slice_wait)
+          nowslice = @time_slicer.call(Time.now - @time_slice_wait)
           @buffer.keys.each {|key|
             if key < nowslice
               @buffer.push(key)

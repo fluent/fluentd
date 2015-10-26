@@ -144,8 +144,8 @@ module Fluent
           end
         end
         time = if param_time = params['time']
-                 param_time = param_time.to_i
-                 param_time.zero? ? Engine.now : param_time
+                 param_time = param_time.to_f
+                 param_time.zero? ? Engine.now : Fluent::EventTime.from_time(Time.at(param_time))
                else
                  record_time.nil? ? Engine.now : record_time
                end
@@ -191,7 +191,7 @@ module Fluent
 
     def parse_params_default(params)
       record = if msgpack = params['msgpack']
-                 MessagePack.unpack(msgpack)
+                 Engine.msgpack_factory.unpacker.feed(msgpack).read
                elsif js = params['json']
                  JSON.parse(js)
                else
