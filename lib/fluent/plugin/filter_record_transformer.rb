@@ -230,18 +230,17 @@ module Fluent
         @placeholders = struct
       end
 
-      def expand(str, force_stringify=false)
+      def expand(_str_for_eval_, force_stringify=false)
         if @auto_typecast and !force_stringify
-          single_placeholder_matched = str.match(/\A\${([^}]+)}\z/)
-          if single_placeholder_matched
-            code = single_placeholder_matched[1]
-            return eval code, @placeholders.instance_eval { binding }
+          _single_placeholder_matched_ = _str_for_eval_.match(/\A\${([^}]+)}\z/)
+          if _single_placeholder_matched_
+            return eval _single_placeholder_matched_[1], @placeholders.instance_eval { binding }
           end
         end
-        interpolated = str.gsub(/\$\{([^}]+)\}/, '#{\1}') # ${..} => #{..}
-        eval "\"#{interpolated}\"", @placeholders.instance_eval { binding }
+        _interpolated_for_eval_ = _str_for_eval_.gsub(/\$\{([^}]+)\}/, '#{\1}') # ${..} => #{..}
+        eval "\"#{_interpolated_for_eval_}\"", @placeholders.instance_eval { binding }
       rescue => e
-        log.warn "failed to expand `#{str}`", :error_class => e.class, :error => e.message
+        log.warn "failed to expand `#{_str_for_eval_}`", :error_class => e.class, :error => e.message
         log.warn_backtrace
         nil
       end
