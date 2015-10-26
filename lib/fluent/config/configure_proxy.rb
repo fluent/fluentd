@@ -178,6 +178,11 @@ module Fluent
       def config_param(name, *args, &block)
         name, block, opts = parameter_configuration(name, *args, &block)
 
+        if @current_description
+          config_set_desc(name, @current_description)
+          @current_description = nil
+        end
+
         @sections.delete(name)
         @params[name] = [block, opts]
         name
@@ -203,6 +208,10 @@ module Fluent
 
         @descriptions[name] = description
         nil
+      end
+
+      def desc(description)
+        @current_description = description
       end
 
       def config_section(name, *args, &block)
