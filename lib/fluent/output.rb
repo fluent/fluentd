@@ -227,9 +227,6 @@ module Fluent
 
         @secondary.secondary_init(self)
       end
-
-      Status.register(self, "queue_size") { @buffer.queue_size }
-      Status.register(self, "emit_count") { @emit_count }
     end
 
     def start
