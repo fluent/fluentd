@@ -17,7 +17,7 @@ Gem::Specification.new do |gem|
   gem.has_rdoc = false
   gem.license = "Apache-2.0"
 
-  gem.required_ruby_version = '>= 1.9.3'
+  gem.required_ruby_version = '>= 2.1'
 
   gem.add_runtime_dependency("msgpack", [">= 0.7.0"])
   gem.add_runtime_dependency("json", [">= 1.4.3"])
@@ -27,7 +27,6 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
   gem.add_runtime_dependency("tzinfo", [">= 1.0.0"])
   gem.add_runtime_dependency("tzinfo-data", [">= 1.0.0"])
-  gem.add_runtime_dependency("string-scrub", [">= 0.0.3"])
   if /mswin|mingw/ =~ RUBY_PLATFORM
     gem.add_runtime_dependency("win32-service", ["~> 0.8.3"])
     gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
