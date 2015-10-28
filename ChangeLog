@@ -1,3 +1,19 @@
+# v0.14
+
+## Release 0.14.0.pre.1 - 2015/10/29
+
+### New features / Enhancement
+
+* Sub-second event time support
+  https://github.com/fluent/fluentd/pull/653
+* Windows support
+  https://github.com/fluent/fluentd/pull/674
+* Remove in_status plugin
+  https://github.com/fluent/fluentd/pull/690
+* Update supported Ruby version to 2.1 or later
+  https://github.com/fluent/fluentd/pull/692
+
+
 # v0.12
 
 ## Release 0.12.16 - 2015/09/30
