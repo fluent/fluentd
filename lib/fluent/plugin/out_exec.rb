@@ -81,6 +81,7 @@ module Fluent
         prog = "#{@command} #{chunk.path}"
       else
         tmpfile = Tempfile.new("fluent-plugin-exec-")
+        tmpfile.binmode
         chunk.write_to(tmpfile)
         tmpfile.close
         prog = "#{@command} #{tmpfile.path}"
