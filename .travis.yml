@@ -15,6 +15,7 @@ branches:
   only:
     - master
     - v0.10
+    - v0.12
     - v0.14
 
 gemfile:
