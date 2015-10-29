@@ -27,7 +27,7 @@ module Fluent
     end
 
     def to_msgpack_stream
-      out = MessagePack::Packer.new # MessagePack::Packer is fastest way to serialize events
+      out = Fluent::Engine.msgpack_factory.packer
       each {|time,record|
         out.write([time,record])
       }
@@ -143,7 +143,7 @@ module Fluent
 
     def each(&block)
       # TODO format check
-      unpacker = MessagePack::Unpacker.new
+      unpacker = Fluent::Engine.msgpack_factory.unpacker
       unpacker.feed_each(@data, &block)
       nil
     end

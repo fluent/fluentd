@@ -219,7 +219,7 @@ module Fluent
         else
           m = method(:on_read_msgpack)
           @serializer = :to_msgpack.to_proc
-          @u = MessagePack::Unpacker.new
+          @u = Fluent::Engine.msgpack_factory.unpacker
         end
 
         (class << self; self; end).module_eval do

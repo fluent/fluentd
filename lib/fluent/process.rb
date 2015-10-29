@@ -176,7 +176,7 @@ module Fluent
     end
 
     def read_event_stream(r, &block)
-      u = MessagePack::Unpacker.new(r)
+      u = Fluent::Engine.msgpack_factory.unpacker(r)
       begin
         #buf = ''
         #map = {}

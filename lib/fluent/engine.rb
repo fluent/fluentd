@@ -19,6 +19,16 @@ module Fluent
   require 'fluent/root_agent'
 
   class EngineClass
+    class DummyMessagePackFactory
+      def packer(io = nil)
+        MessagePack::Packer.new(io)
+      end
+
+      def unpacker(io = nil)
+        MessagePack::Unpacker.new(io)
+      end
+    end
+
     def initialize
       @root_agent = nil
       @event_router = nil
@@ -30,6 +40,8 @@ module Fluent
       @log_event_queue = []
 
       @suppress_config_dump = false
+
+      @msgpack_factory = DummyMessagePackFactory.new
     end
 
     MATCH_CACHE_SIZE = 1024
@@ -37,6 +49,7 @@ module Fluent
 
     attr_reader :root_agent
     attr_reader :matches, :sources
+    attr_reader :msgpack_factory
 
     def init(opts = {})
       BasicSocket.do_not_reverse_lookup = true
