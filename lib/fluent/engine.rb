@@ -20,12 +20,12 @@ module Fluent
 
   class EngineClass
     class DummyMessagePackFactory
-      def packer(io = nil)
-        MessagePack::Packer.new(io)
+      def packer(*args)
+        MessagePack::Packer.new(*args)
       end
 
-      def unpacker(io = nil)
-        MessagePack::Unpacker.new(io)
+      def unpacker(*args)
+        MessagePack::Unpacker.new(*args)
       end
     end
 
