@@ -57,7 +57,7 @@ module Fluent
 
     # optimize
     def msgpack_each(&block)
-      u = MessagePack::Unpacker.new
+      u = Fluent::Engine.msgpack_factory.unpacker
       u.feed_each(@data, &block)
     end
   end

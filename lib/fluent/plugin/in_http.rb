@@ -191,7 +191,7 @@ module Fluent
 
     def parse_params_default(params)
       record = if msgpack = params['msgpack']
-                 MessagePack.unpack(msgpack)
+                 Engine.msgpack_factory.unpacker.feed(msgpack).read
                elsif js = params['json']
                  JSON.parse(js)
                else
