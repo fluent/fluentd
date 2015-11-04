@@ -32,6 +32,7 @@ module Fluent
     config_param :read_from_head, :bool, :default => false
     config_param :refresh_interval, :time, :default => 60
     config_param :read_lines_limit, :integer, :default => 1000
+    config_param :multiline_flush_interval, :time, :default => nil
 
     attr_reader :paths
 
@@ -132,7 +133,8 @@ module Fluent
     end
 
     def setup_watcher(path, pe)
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), &method(:receive_lines))
+      line_buffer_flusher = (@multiline_mode && !@multiline_flush_interval.nil?) ? TailWatcher::LineBufferFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_flusher,  &method(:receive_lines))
       tw.attach(@loop)
       tw
     end
@@ -262,6 +264,7 @@ module Fluent
       lb = tail_watcher.line_buffer
       es = MultiEventStream.new
       if @parser.has_firstline?
+        tail_watcher.line_buffer_flusher.reset unless tail_watcher.line_buffer_flusher.nil?
         lines.each { |line|
           if @parser.firstline?(line)
             if lb
@@ -293,7 +296,7 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, line_buffer_flusher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
@@ -308,10 +311,12 @@ module Fluent
         @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
         @io_handler = nil
         @log = log
+
+        @line_buffer_flusher = line_buffer_flusher
       end
 
       attr_reader :path
-      attr_accessor :line_buffer
+      attr_accessor :line_buffer, :line_buffer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
       def tag
@@ -343,6 +348,7 @@ module Fluent
 
       def on_notify
         @rotate_handler.on_notify if @rotate_handler
+        @line_buffer_flusher.on_notify(self) if @line_buffer_flusher
         return unless @io_handler
         @io_handler.on_notify
       end
@@ -580,6 +586,29 @@ module Fluent
           @log.error_backtrace
         end
       end
+
+      class LineBufferFlusher
+        def initialize(log, flush_interval, &flush_method)
+          @log = log
+          @flush_interval = flush_interval
+          @flush_method = flush_method
+          @start = nil
+        end
+
+        def on_notify(tw)
+          if !@start.nil? && !@flush_interval.nil?
+            if Time.now - @start >= @flush_interval
+              @flush_method.call(tw)
+              tw.line_buffer = nil
+              @start = nil
+            end
+          end
+        end
+
+        def reset
+          @start = Time.now
+        end
+       end
     end
 
 
