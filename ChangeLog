@@ -1,5 +1,26 @@
 # v0.12
 
+## Release 0.12.17 - 2015/11/04
+
+### New features / Enhancement
+
+* Engine: Add Engine#msgpack_factory for v0.14 compatibility
+  https://github.com/fluent/fluentd/pull/693
+* Log shutdown plugin info to check shutdown sequence
+  https://github.com/fluent/fluentd/pull/689
+* in_monitor_agent: Emit plugin info to use existing plugins
+  https://github.com/fluent/fluentd/pull/670
+* config: Improve describing plugin parameters
+  https://github.com/fluent/fluentd/pull/683
+
+### Bug fixes
+
+* Tempfile should be binary mode
+  https://github.com/fluent/fluentd/pull/691
+* filter_record_transformer: Don't use popular name to prevent field overwrite when enable_ruby is true
+  https://github.com/fluent/fluentd/pull/687
+
+
 ## Release 0.12.16 - 2015/09/30
 
 ### New features / Enhancement
