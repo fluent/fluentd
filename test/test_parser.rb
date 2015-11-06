@@ -89,7 +89,7 @@ module ParserTest
 
     def internal_test_case(parser)
       text = '192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777'
-      [parser.parse(text), parser.parse(text) { |time, record| return time, record}].each { |time, record|
+      parser.parse(text) { |time, record|
         assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal({
           'user' => '-',
@@ -139,9 +139,9 @@ module ParserTest
       text = "tagomori_satoshi tagomoris 34\n"
 
       parser = TextParser::RegexpParser.new(Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
-      parser.configure('types'=>'name:string,user:string,age:bool')
+      parser.configure('types'=>'name:string,user:string,age:integer')
 
-      [parser.parse(text), parser.parse(text) { |time, record| return time, record}].each { |time, record|
+      parser.parse(text) { |time, record|
         assert time && time >= time_at_start, "parser puts current time without time input"
         assert_equal "tagomori_satoshi", record["name"]
         assert_equal "tagomoris", record["user"]
@@ -149,10 +149,10 @@ module ParserTest
       }
 
       parser2 = TextParser::RegexpParser.new(Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
-      parser2.configure('types'=>'name:string,user:string,age:bool')
-      parser2.time_default_current = false
+      parser2.configure('types'=>'name:string,user:string,age:integer')
+      parser2.estimate_current_event = false
 
-      [parser2.parse(text), parser2.parse(text) { |time, record| return time, record}].each { |time, record|
+      parser2.parse(text) { |time, record|
         assert_equal "tagomori_satoshi", record["name"]
         assert_equal "tagomoris", record["user"]
         assert_equal 34, record["age"]
