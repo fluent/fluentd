@@ -236,8 +236,11 @@ module Fluent
           router.emit_stream(tag, es)
         rescue
           # ignore errors. Engine shows logs and backtraces.
+          return false
         end
       end
+
+      return true
     end
 
     def convert_line_to_event(line, es)
@@ -487,6 +490,7 @@ module Fluent
           @receive_lines = receive_lines
           @buffer = ''.force_encoding('ASCII-8BIT')
           @iobuf = ''.force_encoding('ASCII-8BIT')
+          @lines = []
         end
 
         attr_reader :io
@@ -494,31 +498,36 @@ module Fluent
 
         def on_notify
           begin
-            lines = []
             read_more = false
 
-            begin
-              while true
-                if @buffer.empty?
-                  @io.readpartial(2048, @buffer)
-                else
-                  @buffer << @io.readpartial(2048, @iobuf)
+            if @lines.empty?
+              begin
+                while true
+                  if @buffer.empty?
+                    @io.readpartial(2048, @buffer)
+                  else
+                    @buffer << @io.readpartial(2048, @iobuf)
+                  end
+                  while line = @buffer.slice!(/.*?\n/m)
+                    @lines << line
+                  end
+                  if @lines.size >= @read_lines_limit
+                    # not to use too much memory in case the file is very large
+                    read_more = true
+                    break
+                  end
                 end
-                while line = @buffer.slice!(/.*?\n/m)
-                  lines << line
-                end
-                if lines.size >= @read_lines_limit
-                  # not to use too much memory in case the file is very large
-                  read_more = true
-                  break
-                end
+              rescue EOFError
               end
-            rescue EOFError
             end
 
-            unless lines.empty?
-              @receive_lines.call(lines)
-              @pe.update_pos(@io.pos - @buffer.bytesize)
+            unless @lines.empty?
+              if @receive_lines.call(@lines)
+                @pe.update_pos(@io.pos - @buffer.bytesize)
+                @lines.clear
+              else
+                read_more = false
+              end
             end
           end while read_more
 
