@@ -23,11 +23,11 @@ module Fluent
       'gzip' => :gz,
     }
 
-    desc "Specify filepath to output."
+    desc "The Path of the file."
     config_param :path, :string
-    desc "Choose output format. You can choose it from registered formatter plugins."
+    desc "The format of the file content. The default is out_file."
     config_param :format, :string, :default => 'out_file'
-    desc "Disable path increment."
+    desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, :default => false
     desc "Compress flushed file."
     config_param :compress, :default => nil do |val|
