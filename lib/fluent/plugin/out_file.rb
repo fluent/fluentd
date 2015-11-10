@@ -29,7 +29,7 @@ module Fluent
     config_param :format, :string, :default => 'out_file'
     desc "Disable path increment."
     config_param :append, :bool, :default => false
-    desc "Compress chunks with specified compression algorithm."
+    desc "Compress flushed file."
     config_param :compress, :default => nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
@@ -37,7 +37,7 @@ module Fluent
       end
       c
     end
-    desc "A parameter is used for pointing to latest written file."
+    desc "Create symlink to temporary buffered file when buffer_type is file."
     config_param :symlink_path, :string, :default => nil
 
     def initialize
