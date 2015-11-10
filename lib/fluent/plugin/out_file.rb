@@ -23,9 +23,13 @@ module Fluent
       'gzip' => :gz,
     }
 
+    desc "Specify filepath to output."
     config_param :path, :string
+    desc "Choose output format. You can choose it from registered formatter plugins."
     config_param :format, :string, :default => 'out_file'
+    desc "Disable path increment."
     config_param :append, :bool, :default => false
+    desc "Compress chunks with specified compression algorithm."
     config_param :compress, :default => nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
@@ -33,6 +37,7 @@ module Fluent
       end
       c
     end
+    desc "A parameter is used for pointing to latest written file."
     config_param :symlink_path, :string, :default => nil
 
     def initialize
