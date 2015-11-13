@@ -43,6 +43,33 @@ module ParserTest
     end
   end
 
+  class BaseParserTestWithTestDriver < ::Test::Unit::TestCase
+    include ParserTest
+
+    def create_driver(conf={})
+      Fluent::Test::ParserTestDriver.new(Fluent::Parser).configure(conf)
+    end
+
+    def test_init
+      d = create_driver
+      assert_true d.instance.estimate_current_event
+    end
+
+    def test_parse
+      d = create_driver
+      assert_raise NotImplementedError do
+        d.parse('')
+      end
+    end
+
+    def test_call
+      d = create_driver
+      assert_raise NotImplementedError do
+        d.call('')
+      end
+    end
+  end
+
   class TimeParserTest < ::Test::Unit::TestCase
     include ParserTest
 
