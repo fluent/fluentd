@@ -23,9 +23,13 @@ module Fluent
       'gzip' => :gz,
     }
 
+    desc "The Path of the file."
     config_param :path, :string
+    desc "The format of the file content. The default is out_file."
     config_param :format, :string, :default => 'out_file'
+    desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, :default => false
+    desc "Compress flushed file."
     config_param :compress, :default => nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
@@ -33,6 +37,7 @@ module Fluent
       end
       c
     end
+    desc "Create symlink to temporary buffered file when buffer_type is file."
     config_param :symlink_path, :string, :default => nil
 
     def initialize
