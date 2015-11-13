@@ -34,7 +34,7 @@ module Fluent
 
       attr_reader :instance, :config
 
-      def configure(conf, use_v1 = false)
+      def configure(conf)
         if conf.is_a?(Fluent::Config::Element)
           @config = conf
         else
