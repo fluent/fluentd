@@ -26,6 +26,8 @@ module Fluent
             klass.module_eval(&block)
           end
           @instance = klass.new
+        elsif klass.is_a?(String)
+          @instance = TextParser::TEMPLATE_REGISTRY.lookup(klass).call
         else
           @instance = klass
         end
