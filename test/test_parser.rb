@@ -61,13 +61,6 @@ module ParserTest
         d.parse('')
       end
     end
-
-    def test_call
-      d = create_driver
-      assert_raise NotImplementedError do
-        d.call('')
-      end
-    end
   end
 
   class TimeParserTest < ::Test::Unit::TestCase

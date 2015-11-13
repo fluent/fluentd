@@ -44,11 +44,6 @@ module Fluent
         self
       end
 
-      # for existing plugins
-      def call(*a, &b)
-        @instance.call(*a, &b)
-      end
-
       def parse(text)
         @instance.parse(text)
       end
