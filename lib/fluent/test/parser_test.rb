@@ -44,8 +44,8 @@ module Fluent
         self
       end
 
-      def parse(text)
-        @instance.parse(text)
+      def parse(text, &block)
+        @instance.parse(text, &block)
       end
     end
   end
