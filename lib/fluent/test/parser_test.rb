@@ -17,15 +17,25 @@
 module Fluent
   module Test
     class ParserTestDriver
-      def initialize(klass_or_str, &block)
+      def initialize(klass_or_str, format=nil, &block)
         if klass_or_str.is_a?(Class)
           if block
             # Create new class for test w/ overwritten methods
             #   klass.dup is worse because its ancestors does NOT include original class name
-            klass_or_str = Class.new(klass_or_str)
+            case klass_or_str.instance_method(:initialize).arity
+            when 0
+              klass_or_str = Class.new(klass_or_str)
+            when 1
+              klass_or_str = Class.new(klass_or_str, format)
+            end
             klass_or_str.module_eval(&block)
           end
-          @instance = klass_or_str.new
+          case klass_or_str.instance_method(:initialize).arity
+          when 0
+            @instance = klass_or_str.new
+          when 1
+            @instance = klass_or_str.new(format)
+          end
         elsif klass_or_str.is_a?(String)
           @instance = TextParser::TEMPLATE_REGISTRY.lookup(klass_or_str).call
         else
