@@ -318,7 +318,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_REGISTRY.lookup('syslog').call
+      @parser = Fluent::Test::ParserTestDriver.new('syslog')
       @expected = {
         'host'    => '192.168.0.1',
         'ident'   => 'fluentd',
@@ -333,8 +333,8 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
-      assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
-      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+      assert_equal(TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+      assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_time_format
@@ -343,7 +343,7 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
-      assert_equal('%b %d %M:%S:%H', @parser.patterns['time_format'])
+      assert_equal('%b %d %M:%S:%H', @parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_priority
@@ -352,8 +352,8 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected.merge('pri' => 6), record)
       }
-      assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.patterns['format'])
-      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+      assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
     end
 
     def test_parse_without_colon
@@ -362,8 +362,8 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
-      assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
-      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+      assert_equal(TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+      assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_keep_time_key
