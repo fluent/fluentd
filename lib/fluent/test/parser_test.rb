@@ -17,7 +17,7 @@
 module Fluent
   module Test
     class ParserTestDriver
-      def initialize(klass_or_str, format=nil, &block)
+      def initialize(klass_or_str, format=nil, conf={},  &block)
         if klass_or_str.is_a?(Class)
           if block
             # Create new class for test w/ overwritten methods
@@ -27,6 +27,8 @@ module Fluent
               klass_or_str = Class.new(klass_or_str)
             when 1
               klass_or_str = Class.new(klass_or_str, format)
+            when -2
+              klass_or_str = Class.new(klass_or_str, format, conf)
             end
             klass_or_str.module_eval(&block)
           end
@@ -35,6 +37,8 @@ module Fluent
             @instance = klass_or_str.new
           when 1
             @instance = klass_or_str.new(format)
+          when -2
+            @instance = klass_or_str.new(format, conf)
           end
         elsif klass_or_str.is_a?(String)
           @instance = TextParser::TEMPLATE_REGISTRY.lookup(klass_or_str).call
