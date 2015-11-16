@@ -17,7 +17,7 @@
 module Fluent
   module Test
     class ParserTestDriver
-      def initialize(klass_or_str, format=nil, conf={},  &block)
+      def initialize(klass_or_str, format=nil, conf={}, &block)
         if klass_or_str.is_a?(Class)
           if block
             # Create new class for test w/ overwritten methods
