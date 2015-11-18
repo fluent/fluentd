@@ -44,9 +44,18 @@ class ExecInputTest < Test::Unit::TestCase
     ]
   end
 
+  def regexp_config
+    %[
+      command ruby #{@script} "2011-01-02 13:14:15" 3
+      format /(?<time>[^\\\]]*) (?<message>[^ ]*)/
+      tag regex_tag
+      run_interval 1s
+    ]
+  end
+
   def test_configure
     d = create_driver
-    assert_equal :tsv, d.instance.format
+    assert_equal 'tsv', d.instance.format
     assert_equal ["time","tag","k1"], d.instance.keys
     assert_equal "tag", d.instance.tag_key
     assert_equal "time", d.instance.time_key
@@ -55,14 +64,20 @@ class ExecInputTest < Test::Unit::TestCase
 
   def test_configure_with_json
     d = create_driver json_config
-    assert_equal :json, d.instance.format
+    assert_equal 'json', d.instance.format
     assert_equal [], d.instance.keys
   end
 
   def test_configure_with_msgpack
     d = create_driver msgpack_config
-    assert_equal :msgpack, d.instance.format
+    assert_equal 'msgpack', d.instance.format
     assert_equal [], d.instance.keys
+  end
+
+  def test_configure_with_regexp
+    d = create_driver regexp_config
+    assert_equal '/(?<time>[^\]]*) (?<message>[^ ]*)/', d.instance.format
+    assert_equal 'regex_tag', d.instance.tag
   end
 
   # TODO: Merge following tests into one case with parameters
@@ -103,6 +118,19 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
+    assert_equal_event_time(@test_time, emits[0][1])
+  end
+
+  def test_emit_regexp
+    d = create_driver regexp_config
+
+    d.run do
+      sleep 2
+    end
+
+    emits = d.emits
+    assert_equal true, emits.length > 0
+    assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
     assert_equal_event_time(@test_time, emits[0][1])
   end
 end

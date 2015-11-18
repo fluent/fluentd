@@ -13,6 +13,10 @@ def gen_msgpack(time)
   {'tagger' => 'tag1', 'datetime' => time, 'k1' => 'ok'}.to_msgpack
 end
 
+def gen_raw_string(time)
+  "#{time} hello"
+end
+
 time = ARGV.first
 time = Integer(time) rescue time
 
@@ -23,4 +27,6 @@ when 1
   puts gen_json(time)
 when 2
   print gen_msgpack(time)
+when 3
+  print gen_raw_string(time)
 end
