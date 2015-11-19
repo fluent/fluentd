@@ -55,6 +55,11 @@ module ParserTest
       assert_true d.instance.estimate_current_event
     end
 
+    def test_configure_against_string_literal
+      d = create_driver('keep_time_key true')
+      assert_true d.instance.keep_time_key
+    end
+
     def test_parse
       d = create_driver
       assert_raise NotImplementedError do

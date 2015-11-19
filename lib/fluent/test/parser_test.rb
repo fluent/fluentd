@@ -43,10 +43,16 @@ module Fluent
       attr_reader :instance, :config
 
       def configure(conf)
-        if conf.is_a?(Fluent::Config::Element)
+        case conf
+        when Fluent::Config::Element
           @config = conf
-        else
+        when String
+          io = StringIO.new(conf)
+          @config = Config::Parser.parse(io, 'fluent.conf')
+        when Hash
           @config = Config::Element.new('ROOT', '', conf, [])
+        else
+          raise "Unknown type... #{conf}"
         end
         @instance.configure(@config)
         self
