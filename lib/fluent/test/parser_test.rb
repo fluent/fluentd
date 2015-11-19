@@ -25,8 +25,6 @@ module Fluent
             case klass_or_str.instance_method(:initialize).arity
             when 0
               klass_or_str = Class.new(klass_or_str)
-            when 1
-              klass_or_str = Class.new(klass_or_str, format)
             when -2
               klass_or_str = Class.new(klass_or_str, format, conf)
             end
@@ -35,8 +33,6 @@ module Fluent
           case klass_or_str.instance_method(:initialize).arity
           when 0
             @instance = klass_or_str.new
-          when 1
-            @instance = klass_or_str.new(format)
           when -2
             @instance = klass_or_str.new(format, conf)
           end
