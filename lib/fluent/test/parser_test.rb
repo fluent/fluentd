@@ -29,6 +29,7 @@ module Fluent
           when 0
             @instance = klass_or_str.new
           when -2
+            # for RegexpParser
             @instance = klass_or_str.new(format, conf)
           end
         elsif klass_or_str.is_a?(String)
