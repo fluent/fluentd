@@ -22,12 +22,7 @@ module Fluent
           if block
             # Create new class for test w/ overwritten methods
             #   klass.dup is worse because its ancestors does NOT include original class name
-            case klass_or_str.instance_method(:initialize).arity
-            when 0
-              klass_or_str = Class.new(klass_or_str)
-            when -2
-              klass_or_str = Class.new(klass_or_str, format, conf)
-            end
+            klass_or_str = Class.new(klass_or_str)
             klass_or_str.module_eval(&block)
           end
           case klass_or_str.instance_method(:initialize).arity
