@@ -109,6 +109,17 @@ module FormatterTest
 
       assert_equal("#{Yajl.dump(record)}\n", formatted)
     end
+
+    def test_format_without_time_and_tag_against_string_literal_configure
+      @formatter.configure(%[
+        utc         true
+        output_tag  false
+        output_time false
+      ])
+      formatted = @formatter.format('tag', @time, record)
+
+      assert_equal("#{Yajl.dump(record)}\n", formatted)
+    end
   end
 
   class JsonFormatterTest < ::Test::Unit::TestCase
