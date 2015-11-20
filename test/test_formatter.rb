@@ -48,6 +48,28 @@ module FormatterTest
     end
   end
 
+  class BaseFormatterTestWithTestDriver < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def create_driver(conf={})
+      formatter = Fluent::Test::FormatterTestDriver.new(Formatter).configure(conf)
+    end
+
+    def test_call
+      d = create_driver
+      assert_raise NotImplementedError do
+        d.format('tag', Engine.now, {})
+      end
+    end
+
+    def test_call_with_string_literal_configure
+      d = create_driver('')
+      assert_raise NotImplementedError do
+        d.format('tag', Engine.now, {})
+      end
+    end
+  end
+
   class OutFileFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
