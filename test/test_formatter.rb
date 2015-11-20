@@ -126,7 +126,7 @@ module FormatterTest
     include FormatterTest
 
     def setup
-      @formatter = TextFormatter::JSONFormatter.new
+      @formatter = Fluent::Test::FormatterTestDriver.new(TextFormatter::JSONFormatter)
       @time = Engine.now
     end
 
