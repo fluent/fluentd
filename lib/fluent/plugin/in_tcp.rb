@@ -21,6 +21,7 @@ module Fluent
     Plugin.register_input('tcp', self)
 
     config_set_default :port, 5170
+    desc 'The payload is read up to this character.'
     config_param :delimiter, :string, :default => "\n" # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
 
     def listen(callback)
