@@ -30,12 +30,19 @@ module Fluent
       @tails = {}
     end
 
+    desc 'The paths to read. Multiple paths can be specified, separated by comma.'
     config_param :path, :string
+    desc 'The tag of the event.'
     config_param :tag, :string
+    desc 'The paths to exclude the files from watcher list.'
     config_param :exclude_path, :array, :default => []
+    desc 'Specify interval to keep reference to old file when rotate a file.'
     config_param :rotate_wait, :time, :default => 5
+    desc 'Fluentd will record the position it last read into this file.'
     config_param :pos_file, :string, :default => nil
+    desc 'Start to read the logs from the head of file, not bottom.'
     config_param :read_from_head, :bool, :default => false
+    desc 'The interval of refreshing the list of watch file.'
     config_param :refresh_interval, :time, :default => 60
     config_param :read_lines_limit, :integer, :default => 1000
 
