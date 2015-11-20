@@ -25,13 +25,7 @@ module Fluent
             klass_or_str = Class.new(klass_or_str)
             klass_or_str.module_eval(&block)
           end
-          case klass_or_str.instance_method(:initialize).arity
-          when 0
-            @instance = klass_or_str.new
-          when 1
-            # For ProcWrappedFormatter
-            @instance = klass_or_str.new(proc)
-          end
+          @instance = klass_or_str.new
         elsif klass_or_str.is_a?(String)
           @instance = TextFormatter::TEMPLATE_REGISTRY.lookup(klass_or_str).call
         else
