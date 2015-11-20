@@ -74,7 +74,7 @@ module FormatterTest
     include FormatterTest
 
     def setup
-      @formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('out_file').call
+      @formatter = Fluent::Test::FormatterTestDriver.new('out_file')
       @time = Engine.now
     end
 
