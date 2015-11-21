@@ -215,7 +215,9 @@ module Fluent
       dumped_config = "\n"
       plugin.class.ancestors.reverse_each do |plugin_class|
         if plugin_class.respond_to?(:dump)
-          dumped_config << plugin_class.name
+          $log.on_debug do
+            dumped_config << plugin_class.name
+          end
           dumped_config << plugin_class.dump
         end
       end
