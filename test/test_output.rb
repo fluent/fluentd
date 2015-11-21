@@ -287,6 +287,15 @@ module FluentOutputTest
             buffer_path #{TMP_DIR}/foo
           ])
         end
+
+        # need to override `support_chunk_key_type_buffered_time?` to return true
+        assert_raise(ConfigError) do
+          d = create_driver(CONFIG + %[
+            chunk_key_type buffered_time
+            time_slice_format %Y%m%d%H%M%S
+            buffer_path #{TMP_DIR}/foo
+          ])
+        end
       end
 
       test "chunk_key_type event_time" do
@@ -304,6 +313,7 @@ module FluentOutputTest
       end
 
       test "chunk_key_type buffered_time" do
+        stub(TimeSlicedOutput).support_chunk_key_type_buffered_time? { true }
         d = create_driver(CONFIG + %[
           chunk_key_type buffered_time
           time_slice_format %Y%m%d%H%M%S

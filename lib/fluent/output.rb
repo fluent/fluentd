@@ -481,16 +481,7 @@ module Fluent
 
     config_param :time_slice_format, :string, :default => '%Y%m%d'
     config_param :time_slice_wait, :time, :default => 10*60
-    config_param :chunk_key_type, :default => :event_time do |val|
-      case val.downcase
-      when 'event_time'
-        :event_time
-      when 'buffered_time'
-        :buffered_time
-      else
-        raise ConfigError, "chunk_key_type should be 'event_time', or 'buffered_time'"
-      end
-    end
+    config_param :chunk_key_type, :string, :default => 'event_time'
     config_param :timezone, :string, :default => nil
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
@@ -550,6 +541,13 @@ module Fluent
           }
         end
       end
+
+      @chunk_key_type = @chunk_key_type.downcase.to_sym
+      supported_types = [:event_time]
+      supported_types << :buffered_time if self.class.support_chunk_key_type_buffered_time?
+      unless supported_types.include?(@chunk_key_type)
+        raise ConfigError, "chunk_key_type should be one of #{supported_types}"
+      end
     end
 
     def emit(tag, es, chain)
@@ -583,6 +581,11 @@ module Fluent
       else
         @enqueue_buffer_proc.call
       end
+    end
+
+    # override to return true to support `chunk_key_type :buffered_time`
+    def self.support_chunk_key_type_buffered_time?
+      false
     end
 
     #def format(tag, event)
