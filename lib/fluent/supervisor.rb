@@ -213,12 +213,15 @@ module Fluent
       name, type = @show_plugin_config.split(":")
       plugin = Plugin.__send__("new_#{name}", type)
       dumped_config = "\n"
+      level = 0
       plugin.class.ancestors.reverse_each do |plugin_class|
         if plugin_class.respond_to?(:dump)
           $log.on_debug do
             dumped_config << plugin_class.name
+            dumped_config << "\n"
+            level = 1
           end
-          dumped_config << plugin_class.dump
+          dumped_config << plugin_class.dump(level)
         end
       end
       $log.info dumped_config
