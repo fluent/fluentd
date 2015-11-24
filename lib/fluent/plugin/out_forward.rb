@@ -129,6 +129,10 @@ module Fluent
         end
         log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight, :plugin_id=>plugin_id
       }
+
+      if @nodes.empty?
+        raise ConfigError, "forward output plugin requires at least one <server> is required"
+      end
     end
 
     def start
