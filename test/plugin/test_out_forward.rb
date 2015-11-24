@@ -78,6 +78,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal true, d.instance.nodes.first.conf.dns_round_robin
   end
 
+  def test_configure_no_server
+    assert_raise(Fluent::ConfigError, 'forward output plugin requires at least one <server> is required') do
+      create_driver('')
+    end
+  end
+
   def test_phi_failure_detector
     d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
     node = d.instance.nodes.first
