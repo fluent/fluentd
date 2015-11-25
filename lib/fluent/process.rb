@@ -232,26 +232,36 @@ module Fluent
         @w = w
         @interval = interval
         @buffer = {}
+        @mutex = Mutex.new
         Thread.new(&method(:run))
       end
 
       def emit(tag, es)
-        if ms = @buffer[tag]
-          ms << es.to_msgpack_stream
-        else
-          @buffer[tag] = es.to_msgpack_stream
+        stream = es.to_msgpack_stream
+        @mutex.synchronize do
+          if @buffer[tag]
+            @buffer[tag] << stream
+          else
+            @buffer[tag] = stream
+          end
         end
       end
 
       def run
         while true
           sleep @interval
-          @buffer.keys.each {|tag|
-            if ms = @buffer.delete(tag)
-              [tag, ms].to_msgpack(@w)
-              #@w.write [tag, ms].to_msgpack
+
+          pairs = []
+          @mutex.synchronize do
+            @buffer.keys.each do |tag|
+              if msg = @buffer.delete(tag)
+                pairs << [tag, ms]
+              end
             end
-          }
+          end
+          pairs.each do |pair|
+            pair.to_msgpack(@w)
+          end
         end
       rescue
         $log.error "error on forwerder thread", :error=>$!.to_s
