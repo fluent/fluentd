@@ -111,6 +111,7 @@ module Fluent
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
       @rpc_server = nil
+      @process_name = nil
 
       @log_level = opt[:log_level]
       @suppress_interval = opt[:suppress_interval]
@@ -306,6 +307,7 @@ module Fluent
     def supervise(&block)
       start_time = Time.now
 
+      Process.setproctitle("supervisor:#{@process_name}") if @process_name
       $log.info "starting fluentd-#{Fluent::VERSION}"
       @main_pid = fork do
         main_process(&block)
@@ -332,6 +334,8 @@ module Fluent
     end
 
     def main_process(&block)
+      Process.setproctitle("worker:#{@process_name}") if @process_name
+
       begin
         block.call
 
@@ -462,6 +466,7 @@ module Fluent
       config_param :without_source, :bool, :default => nil
       config_param :rpc_endpoint, :string, :default => nil
       config_param :enable_get_dump, :bool, :default => nil
+      config_param :process_name, :default => nil
 
       def initialize(conf)
         super()
@@ -478,6 +483,7 @@ module Fluent
           @without_source = system.without_source unless system.without_source.nil?
           @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
           @enable_get_dump = system.enable_get_dump unless system.enable_get_dump.nil?
+          @process_name = system.process_name unless system.process_name.nil?
         }
       end
     end
