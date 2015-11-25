@@ -264,7 +264,7 @@ module Fluent
       lb = tail_watcher.line_buffer
       es = MultiEventStream.new
       if @parser.has_firstline?
-        tail_watcher.line_buffer_flusher.reset unless tail_watcher.line_buffer_flusher.nil?
+        tail_watcher.line_buffer_flusher.reset if tail_watcher.line_buffer_flusher
         lines.each { |line|
           if @parser.firstline?(line)
             if lb
@@ -596,7 +596,7 @@ module Fluent
         end
 
         def on_notify(tw)
-          if !@start.nil? && !@flush_interval.nil?
+          if @start && @flush_interval
             if Time.now - @start >= @flush_interval
               @flush_method.call(tw)
               tw.line_buffer = nil
