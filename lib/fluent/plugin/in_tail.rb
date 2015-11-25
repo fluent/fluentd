@@ -608,7 +608,7 @@ module Fluent
         def reset
           @start = Time.now
         end
-       end
+      end
     end
 
 
