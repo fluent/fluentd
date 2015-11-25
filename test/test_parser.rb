@@ -39,6 +39,31 @@ module ParserTest
     end
   end
 
+  class BaseParserTestWithTestDriver < ::Test::Unit::TestCase
+    include ParserTest
+
+    def create_driver(conf={})
+      Fluent::Test::ParserTestDriver.new(Fluent::Parser).configure(conf)
+    end
+
+    def test_init
+      d = create_driver
+      assert_true d.instance.estimate_current_event
+    end
+
+    def test_configure_against_string_literal
+      d = create_driver('keep_time_key true')
+      assert_true d.instance.keep_time_key
+    end
+
+    def test_parse
+      d = create_driver
+      assert_raise NotImplementedError do
+        d.parse('')
+      end
+    end
+  end
+
   class TimeParserTest < ::Test::Unit::TestCase
     include ParserTest
 
@@ -94,19 +119,19 @@ module ParserTest
     def test_parse_with_configure
       # Specify conf by configure method instaed of intializer
       regexp = Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!)
-      parser = TextParser::RegexpParser.new(regexp)
+      parser = Fluent::Test::ParserTestDriver.new(TextParser::RegexpParser, regexp)
       parser.configure('time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer')
       internal_test_case(parser)
-      assert_equal(regexp, parser.patterns['format'])
-      assert_equal("%d/%b/%Y:%H:%M:%S %z", parser.patterns['time_format'])
+      assert_equal(regexp, parser.instance.patterns['format'])
+      assert_equal("%d/%b/%Y:%H:%M:%S %z", parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_typed_and_name_separator
-      internal_test_case(TextParser::RegexpParser.new(Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer', 'types_label_delimiter'=>'|'))
+      internal_test_case(Fluent::Test::ParserTestDriver.new(TextParser::RegexpParser, Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!), 'time_format'=>"%d/%b/%Y:%H:%M:%S %z", 'types'=>'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer', 'types_label_delimiter'=>'|'))
     end
 
     def test_parse_with_time_key
-      parser = TextParser::RegexpParser.new(/(?<logtime>[^\]]*)/)
+      parser = Fluent::Test::ParserTestDriver.new(TextParser::RegexpParser, /(?<logtime>[^\]]*)/)
       parser.configure(
         'time_format'=>"%Y-%m-%d %H:%M:%S %z",
         'time_key'=>'logtime',
@@ -131,10 +156,9 @@ module ParserTest
         assert_equal 34, record["age"]
       }
 
-      parser2 = TextParser::RegexpParser.new(Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
-      parser2.configure('types'=>'name:string,user:string,age:bool')
-      parser2.time_default_current = false
-
+      parser2 = Fluent::Test::ParserTestDriver.new(TextParser::RegexpParser, Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
+      parser2.configure('types'=>'name:string,user:string,age:integer')
+      parser2.instance.estimate_current_event = false
       [parser2.parse(text), parser2.parse(text) { |time, record| return time, record}].each { |time, record|
         assert_equal "tagomori_satoshi", record["name"]
         assert_equal "tagomoris", record["user"]
@@ -145,7 +169,7 @@ module ParserTest
     end
 
     def test_parse_with_keep_time_key
-      parser = TextParser::RegexpParser.new(
+      parser = Fluent::Test::ParserTestDriver.new(TextParser::RegexpParser,
         Regexp.new(%q!(?<time>.*)!),
         'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
         'keep_time_key'=>'true',
@@ -157,7 +181,7 @@ module ParserTest
     end
 
     def test_parse_with_keep_time_key_with_typecast
-      parser = TextParser::RegexpParser.new(
+      parser = Fluent::Test::ParserTestDriver.new(TextParser::RegexpParser,
         Regexp.new(%q!(?<time>.*)!),
         'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
         'keep_time_key'=>'true',
@@ -281,7 +305,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_REGISTRY.lookup('syslog').call
+      @parser = Fluent::Test::ParserTestDriver.new('syslog')
       @expected = {
         'host'    => '192.168.0.1',
         'ident'   => 'fluentd',
@@ -296,8 +320,8 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
-      assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
-      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+      assert_equal(TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+      assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_time_format
@@ -306,7 +330,7 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
-      assert_equal('%b %d %M:%S:%H', @parser.patterns['time_format'])
+      assert_equal('%b %d %M:%S:%H', @parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_priority
@@ -315,8 +339,8 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected.merge('pri' => 6), record)
       }
-      assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.patterns['format'])
-      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+      assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
     end
 
     def test_parse_without_colon
@@ -325,8 +349,8 @@ module ParserTest
         assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
-      assert_equal(TextParser::SyslogParser::REGEXP, @parser.patterns['format'])
-      assert_equal("%b %d %H:%M:%S", @parser.patterns['time_format'])
+      assert_equal(TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+      assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
     end
 
     def test_parse_with_keep_time_key
