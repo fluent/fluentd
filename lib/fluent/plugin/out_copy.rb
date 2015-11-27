@@ -18,6 +18,7 @@ module Fluent
   class CopyOutput < MultiOutput
     Plugin.register_output('copy', self)
 
+    desc 'If true, pass different record to each `store` plugin.'
     config_param :deep_copy, :bool, :default => false
 
     def initialize
