@@ -343,6 +343,7 @@ module Fluent
   module PluginLoggerMixin
     def self.included(klass)
       klass.instance_eval {
+        desc 'Allows the user to set different levels of logging for each plugin.'
         config_param :log_level, :string, :default => nil, :alias => :@log_level
       }
     end
