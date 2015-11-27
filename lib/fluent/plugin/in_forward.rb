@@ -23,15 +23,20 @@ module Fluent
       require 'fluent/plugin/socket_util'
     end
 
+    desc 'The port to listen to.'
     config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+    desc 'The bind address to listen to.'
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :backlog, :integer, :default => nil
     # SO_LINGER 0 to send RST rather than FIN to avoid lots of connections sitting in TIME_WAIT at src
+    desc 'The timeout time used to set linger option.'
     config_param :linger_timeout, :integer, :default => 0
     # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
     config_param :blocking_timeout, :time, :default => 0.5
 
+    desc 'Log warning if received chunk size is larger than this value.'
     config_param :chunk_size_warn_limit, :size, :default => nil
+    desc 'Received chunk is dropped if it is larger than this value.'
     config_param :chunk_size_limit, :size, :default => nil
 
     def configure(conf)
