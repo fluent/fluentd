@@ -21,6 +21,7 @@ module Fluent
     # for tests
     attr_reader :formatter
 
+    desc 'The format of the output.'
     config_param :format, :string, :default => 'stdout'
     # config_param :output_type, :string, :default => 'json' (StdoutFormatter defines this)
 
