@@ -25,11 +25,17 @@ module Fluent
       super
     end
 
+    desc 'A comma-delimited list of keys to delete.'
     config_param :remove_keys, :string, :default => nil
+    desc 'A comma-delimited list of keys to keep.'
     config_param :keep_keys, :string, :default => nil
+    desc 'Create new Hash to transform incoming data'
     config_param :renew_record, :bool, :default => false
+    desc 'Specify field name of the record to overwrite the time of events. Its value must be unix time.'
     config_param :renew_time_key, :string, :default => nil
+    desc 'When set to true, the full Ruby syntax is enabled in the ${...} expression.'
     config_param :enable_ruby, :bool, :default => false
+    desc 'Use original value type.'
     config_param :auto_typecast, :bool, :default => false # false for lower version compatibility
 
     def configure(conf)
