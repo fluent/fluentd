@@ -82,7 +82,9 @@ module Fluent
       @uri_parser = URI::Parser.new
     end
 
+    desc 'The path where buffer chunks are stored.'
     config_param :buffer_path, :string
+    desc 'If true, queued chunks are flushed at shutdown process.'
     config_param :flush_at_shutdown, :bool, :default => false
 
     # 'symlink_path' is currently only for out_file.
