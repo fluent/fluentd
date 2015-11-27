@@ -30,19 +30,27 @@ module Fluent
       'msgpack' => :msgpack,
     }
 
+    desc 'The command (program) to execute.'
     config_param :command, :string
+    desc 'The format used to map the program output to the incoming event.(tsv,json,msgpack)'
     config_param :format, :default => :tsv do |val|
       f = SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported format '#{val}'" unless f
       f
     end
+    desc 'Specify the comma-separated keys when using the tsv format.'
     config_param :keys, :default => [] do |val|
       val.split(',')
     end
+    desc 'Tag of the output events.'
     config_param :tag, :string, :default => nil
+    desc 'The key to use as the event tag instead of the value in the event record. '
     config_param :tag_key, :string, :default => nil
+    desc 'The key to use as the event time instead of the value in the event record.'
     config_param :time_key, :string, :default => nil
+    desc 'The format of the event time used for the time_key parameter.'
     config_param :time_format, :string, :default => nil
+    desc 'The interval time between periodic program runs.'
     config_param :run_interval, :time, :default => nil
 
     def configure(conf)
