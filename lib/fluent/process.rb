@@ -254,7 +254,7 @@ module Fluent
           pairs = []
           @mutex.synchronize do
             @buffer.keys.each do |tag|
-              if msg = @buffer.delete(tag)
+              if ms = @buffer.delete(tag)
                 pairs << [tag, ms]
               end
             end
