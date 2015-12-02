@@ -46,6 +46,7 @@ module Fluent
     desc 'The format of the HTTP body.'
     config_param :format, :string, :default => 'default'
     config_param :blocking_timeout, :time, :default => 0.5
+    desc 'Set a white list of domains that can do CORS (Cross-Origin Resource Sharing)'
     config_param :cors_allow_origins, :array, :default => nil
     desc 'Respond with empty gif image of 1x1 pixel.'
     config_param :respond_with_empty_img, :bool, :default => false
