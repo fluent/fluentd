@@ -48,11 +48,33 @@ module FormatterTest
     end
   end
 
+  class BaseFormatterTestWithTestDriver < ::Test::Unit::TestCase
+    include FormatterTest
+
+    def create_driver(conf={})
+      formatter = Fluent::Test::FormatterTestDriver.new(Formatter).configure(conf)
+    end
+
+    def test_call
+      d = create_driver
+      assert_raise NotImplementedError do
+        d.format('tag', Engine.now, {})
+      end
+    end
+
+    def test_call_with_string_literal_configure
+      d = create_driver('')
+      assert_raise NotImplementedError do
+        d.format('tag', Engine.now, {})
+      end
+    end
+  end
+
   class OutFileFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
     def setup
-      @formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('out_file').call
+      @formatter = Fluent::Test::FormatterTestDriver.new('out_file')
       @time = Engine.now
     end
 
@@ -87,13 +109,24 @@ module FormatterTest
 
       assert_equal("#{Yajl.dump(record)}\n", formatted)
     end
+
+    def test_format_without_time_and_tag_against_string_literal_configure
+      @formatter.configure(%[
+        utc         true
+        output_tag  false
+        output_time false
+      ])
+      formatted = @formatter.format('tag', @time, record)
+
+      assert_equal("#{Yajl.dump(record)}\n", formatted)
+    end
   end
 
   class JsonFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 
     def setup
-      @formatter = TextFormatter::JSONFormatter.new
+      @formatter = Fluent::Test::FormatterTestDriver.new(TextFormatter::JSONFormatter)
       @time = Engine.now
     end
 
