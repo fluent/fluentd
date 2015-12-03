@@ -164,7 +164,9 @@ module Fluent
   class UnixInput < StreamInput
     Plugin.register_input('unix', self)
 
+    desc 'The path to your Unix Domain Socket.'
     config_param :path, :string, :default => DEFAULT_SOCKET_PATH
+    desc 'The backlog of Unix Domain Socket.'
     config_param :backlog, :integer, :default => nil
 
     def configure(conf)
