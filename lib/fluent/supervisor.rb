@@ -213,7 +213,19 @@ module Fluent
       $log.info "Show config for #{@show_plugin_config}"
       name, type = @show_plugin_config.split(":")
       plugin = Plugin.__send__("new_#{name}", type)
-      $log.info plugin.class.dump
+      dumped_config = "\n"
+      level = 0
+      plugin.class.ancestors.reverse_each do |plugin_class|
+        if plugin_class.respond_to?(:dump)
+          $log.on_debug do
+            dumped_config << plugin_class.name
+            dumped_config << "\n"
+            level = 1
+          end
+          dumped_config << plugin_class.dump(level)
+        end
+      end
+      $log.info dumped_config
       exit 0
     rescue => e
       $log.error "show config failed: #{e}"
