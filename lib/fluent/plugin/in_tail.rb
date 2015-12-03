@@ -44,6 +44,7 @@ module Fluent
     config_param :read_from_head, :bool, :default => false
     desc 'The interval of refreshing the list of watch file.'
     config_param :refresh_interval, :time, :default => 60
+    desc 'The number of reading lines at each IO.'
     config_param :read_lines_limit, :integer, :default => 1000
 
     attr_reader :paths
