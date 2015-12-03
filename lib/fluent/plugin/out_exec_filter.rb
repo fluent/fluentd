@@ -25,33 +25,44 @@ module Fluent
       require 'fluent/timezone'
     end
 
+    desc 'The command (program) to execute.'
     config_param :command, :string
 
     config_param :remove_prefix, :string, :default => nil
     config_param :add_prefix, :string, :default => nil
 
+    desc "The format used to map the incoming event to the program input.(#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
     config_param :in_format, :default => :tsv do |val|
       f = ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported in_format '#{val}'" unless f
       f
     end
+    desc 'Specify comma-separated values for tsv format.'
     config_param :in_keys, :default => [] do |val|
       val.split(',')
     end
+    desc 'The name of the key to use as the event tag.'
     config_param :in_tag_key, :default => nil
+    desc 'The name of the key to use as the event time.'
     config_param :in_time_key, :default => nil
+    desc 'The format for event time used when the in_time_key parameter is specified.(Defauls is UNIX time)'
     config_param :in_time_format, :default => nil
 
+    desc "The format used to process the program output.(#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
     config_param :out_format, :default => :tsv do |val|
       f = ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported out_format '#{val}'" unless f
       f
     end
+    desc 'Specify comma-separated values for tsv format.'
     config_param :out_keys, :default => [] do |val|  # for tsv format
       val.split(',')
     end
+    desc 'The name of the key to use as the event tag.'
     config_param :out_tag_key, :default => nil
+    desc 'The name of the key to use as the event time.'
     config_param :out_time_key, :default => nil
+    desc 'The format for event time used when the in_time_key parameter is specified.(Defauls is UNIX time)'
     config_param :out_time_format, :default => nil
 
     config_param :tag, :string, :default => nil
@@ -59,10 +70,14 @@ module Fluent
     config_param :time_key, :string, :default => nil
     config_param :time_format, :string, :default => nil
 
+    desc 'If true, use localtime with in_time_format.'
     config_param :localtime, :bool, :default => true
+    desc 'If true, use timezone with in_time_format.'
     config_param :timezone, :string, :default => nil
+    desc 'The number of spawned process for command.'
     config_param :num_children, :integer, :default => 1
 
+    desc 'Respawn command when command exit.'
     # nil, 'none' or 0: no respawn, 'inf' or -1: infinite times, positive integer: try to respawn specified times only
     config_param :child_respawn, :string, :default => nil
 
