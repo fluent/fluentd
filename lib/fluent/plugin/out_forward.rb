@@ -36,7 +36,9 @@ module Fluent
       @nodes = []  #=> [Node]
     end
 
+    desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, :default => 60
+    desc 'The transport protocol to use for heartbeats.(udp,tcp,none)'
     config_param :heartbeat_type, :default => :udp do |val|
       case val.downcase
       when 'tcp'
@@ -49,19 +51,28 @@ module Fluent
         raise ConfigError, "forward output heartbeat type should be 'tcp', 'udp', or 'none'"
       end
     end
+    desc 'The interval of the heartbeat packer.'
     config_param :heartbeat_interval, :time, :default => 1
+    desc 'The wait time before accepting a server fault recovery.'
     config_param :recover_wait, :time, :default => 10
+    desc 'The hard timeout used to detect server failure.'
     config_param :hard_timeout, :time, :default => 60
+    desc 'Set TTL to expire DNS cache in seconds.'
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
+    desc 'The threshold parameter used to detect server faults.'
     config_param :phi_threshold, :integer, :default => 16
+    desc 'Use the "Phi accrual failure detector" to detect server failure.'
     config_param :phi_failure_detector, :bool, :default => true
 
     # if any options added that requires extended forward api, fix @extend_internal_protocol
 
+    desc 'Change the protocol to at-least-once.'
     config_param :require_ack_response, :bool, :default => false  # require in_forward to respond with ack
+    desc 'This option is used when require_ack_response is true.'
     config_param :ack_response_timeout, :time, :default => 190  # 0 means do not wait for ack responses
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
+    desc 'Enable client-side DNS round robin.'
     config_param :dns_round_robin, :bool, :default => false # heartbeat_type 'udp' is not available for this
 
     attr_reader :nodes
