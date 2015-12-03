@@ -138,13 +138,12 @@ module Fluent::Config
         end
 
         test 'empty proxy' do
-          assert_equal("\n", @proxy.dump)
+          assert_equal("", @proxy.dump)
         end
 
         test 'plain proxy w/o default value' do
           @proxy.config_param(:name, :string)
           assert_equal(<<CONFIG, @proxy.dump)
-
 name: string: <nil>
 CONFIG
         end
@@ -152,7 +151,6 @@ CONFIG
         test 'plain proxy w/ default value' do
           @proxy.config_param(:name, :string, default: "name1")
           assert_equal(<<CONFIG, @proxy.dump)
-
 name: string: <"name1">
 CONFIG
         end
@@ -161,7 +159,6 @@ CONFIG
           @proxy.config_param(:name, :string)
           @proxy.config_set_default(:name, "name1")
           assert_equal(<<CONFIG, @proxy.dump)
-
 name: string: <"name1">
 CONFIG
         end
@@ -171,7 +168,6 @@ CONFIG
             config_param(:name, :string, default: "name1")
           end
           assert_equal(<<CONFIG, @proxy.dump)
-
 sub
  name: string: <"name1">
 CONFIG
@@ -187,7 +183,6 @@ CONFIG
             end
           end
           assert_equal(<<CONFIG, @proxy.dump)
-
 sub
  name1: string: <"name1">
  name2: string: <"name2">
@@ -201,7 +196,6 @@ CONFIG
           test 'single proxy' do
             @proxy.config_param(:name, :string, desc: "description for name")
           assert_equal(<<CONFIG, @proxy.dump)
-
 name: string: <nil> # description for name
 CONFIG
           end
@@ -210,7 +204,6 @@ CONFIG
             @proxy.config_param(:name, :string)
             @proxy.config_set_desc(:name, "description for name")
           assert_equal(<<CONFIG, @proxy.dump)
-
 name: string: <nil> # description for name
 CONFIG
           end
@@ -225,7 +218,6 @@ CONFIG
               end
             end
             assert_equal(<<CONFIG, @proxy.dump)
-
 sub
  name1: string: <"name1"> # desc1
  name2: string: <"name2"> # desc2
@@ -247,7 +239,6 @@ CONFIG
               end
             end
             assert_equal(<<CONFIG, @proxy.dump)
-
 sub
  name1: string: <"name1"> # desc1
  name2: string: <"name2"> # desc2
