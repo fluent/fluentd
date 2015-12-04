@@ -126,7 +126,15 @@ module Fluent
           paths << path
         end
       }
-      paths - excluded
+
+      (paths - excluded).select { |path|
+        if File.readable?(path)
+          true
+        else
+          $log.warn "#{path} unreadable. It is excluded and would be examined next time."
+          false
+        end
+      }
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
