@@ -131,7 +131,7 @@ module Fluent
         if File.readable?(path)
           true
         else
-          $log.warn "#{path} unreadable. It is excluded and would be examined next time."
+          log.warn "#{path} unreadable. It is excluded and would be examined next time."
           false
         end
       }
