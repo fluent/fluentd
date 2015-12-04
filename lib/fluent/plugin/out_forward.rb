@@ -63,6 +63,8 @@ module Fluent
     config_param :phi_threshold, :integer, :default => 16
     desc 'Use the "Phi accrual failure detector" to detect server failure.'
     config_param :phi_failure_detector, :bool, :default => true
+    desc 'Skip network related error, e.g. DNS error, during plugin setup'
+    config_param :skip_network_error_at_init, :bool, :default => false
 
     # if any options added that requires extended forward api, fix @extend_internal_protocol
 
@@ -131,7 +133,8 @@ module Fluent
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
 
         node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
-          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector, @dns_round_robin)
+                                   @phi_threshold, recover_sample_size, @expire_dns_cache,
+                                   @phi_failure_detector, @dns_round_robin, @skip_network_error_at_init)
 
         if @heartbeat_type == :none
           @nodes << NoneHeartbeatNode.new(log, node_conf)
@@ -439,7 +442,8 @@ module Fluent
     end
 
     NodeConfig = Struct.new("NodeConfig", :name, :host, :port, :weight, :standby, :failure,
-      :phi_threshold, :recover_sample_size, :expire_dns_cache, :phi_failure_detector, :dns_round_robin)
+                            :phi_threshold, :recover_sample_size, :expire_dns_cache,
+                            :phi_failure_detector, :dns_round_robin, :skip_network_error)
 
     class Node
       def initialize(log, conf)
@@ -454,7 +458,15 @@ module Fluent
 
         @resolved_host = nil
         @resolved_time = 0
-        resolved_host  # check dns
+        begin
+          resolved_host  # check dns
+        rescue => e
+          if @conf.skip_network_error
+            log.warn "#{@name} got network error during setup. Resolve host later", :error => e, :error_class => e.class
+          else
+            raise
+          end
+        end
       end
 
       attr_reader :conf
