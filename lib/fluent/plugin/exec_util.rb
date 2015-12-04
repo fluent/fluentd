@@ -16,6 +16,8 @@
 
 module Fluent
   module ExecUtil
+    require 'fluent/parser'
+
     SUPPORTED_FORMAT = {
       'tsv' => :tsv,
       'json' => :json,
@@ -25,6 +27,25 @@ module Fluent
     class Parser
       def initialize(on_message)
         @on_message = on_message
+      end
+    end
+
+    class TextParserWrapperParser < Parser
+      def initialize(conf, on_message)
+        @parser = Plugin.new_parser(conf['format'])
+        @parser.configure(conf)
+        super(on_message)
+      end
+
+      def call(io)
+        io.each_line(&method(:each_line))
+      end
+
+      def each_line(line)
+        line.chomp!
+        @parser.parse(line) { |time, record|
+          @on_message.call(record, time)
+        }
       end
     end
 

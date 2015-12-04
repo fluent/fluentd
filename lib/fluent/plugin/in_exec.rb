@@ -24,20 +24,10 @@ module Fluent
       require 'fluent/timezone'
     end
 
-    SUPPORTED_FORMAT = {
-      'tsv' => :tsv,
-      'json' => :json,
-      'msgpack' => :msgpack,
-    }
-
     desc 'The command (program) to execute.'
     config_param :command, :string
     desc 'The format used to map the program output to the incoming event.(tsv,json,msgpack)'
-    config_param :format, :default => :tsv do |val|
-      f = SUPPORTED_FORMAT[val]
-      raise ConfigError, "Unsupported format '#{val}'" unless f
-      f
-    end
+    config_param :format, :string, :default => 'tsv'
     desc 'Specify the comma-separated keys when using the tsv format.'
     config_param :keys, :default => [] do |val|
       val.split(',')
@@ -80,16 +70,22 @@ module Fluent
         end
       end
 
+      @parser = setup_parser(conf)
+    end
+
+    def setup_parser(conf)
       case @format
-      when :tsv
+      when 'tsv'
         if @keys.empty?
           raise ConfigError, "keys option is required on exec input for tsv format"
         end
-        @parser = ExecUtil::TSVParser.new(@keys, method(:on_message))
-      when :json
-        @parser = ExecUtil::JSONParser.new(method(:on_message))
-      when :msgpack
-        @parser = ExecUtil::MessagePackParser.new(method(:on_message))
+        ExecUtil::TSVParser.new(@keys, method(:on_message))
+      when 'json'
+        ExecUtil::JSONParser.new(method(:on_message))
+      when 'msgpack'
+        ExecUtil::MessagePackParser.new(method(:on_message))
+      else
+        ExecUtil::TextParserWrapperParser.new(conf, method(:on_message))
       end
     end
 
@@ -145,17 +141,21 @@ module Fluent
 
     private
 
-    def on_message(record)
+    def on_message(record, parsed_time = nil)
       if val = record.delete(@tag_key)
         tag = val
       else
         tag = @tag
       end
 
-      if val = record.delete(@time_key)
-        time = @time_parse_proc.call(val)
+      if parsed_time
+        time = parsed_time
       else
-        time = Engine.now
+        if val = record.delete(@time_key)
+          time = @time_parse_proc.call(val)
+        else
+          time = Engine.now
+        end
       end
 
       router.emit(tag, time, record)
