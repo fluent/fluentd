@@ -120,7 +120,14 @@ module Fluent
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
-          paths += Dir.glob(path)
+          paths += Dir.glob(path).select { |p|
+            if File.readable?(p)
+              true
+            else
+              log.warn "#{p} unreadable. It is excluded and would be examined next time."
+              false
+            end
+          }
         else
           # When file is not created yet, Dir.glob returns an empty array. So just add when path is static.
           paths << path
