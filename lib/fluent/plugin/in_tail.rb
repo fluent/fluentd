@@ -120,21 +120,20 @@ module Fluent
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
-          paths += Dir.glob(path)
+          paths += Dir.glob(path).select { |p|
+            if File.readable?(p)
+              true
+            else
+              log.warn "#{p} unreadable. It is excluded and would be examined next time."
+              false
+            end
+          }
         else
           # When file is not created yet, Dir.glob returns an empty array. So just add when path is static.
           paths << path
         end
       }
-
-      (paths - excluded).select { |path|
-        if File.readable?(path)
-          true
-        else
-          log.warn "#{path} unreadable. It is excluded and would be examined next time."
-          false
-        end
-      }
+      paths - excluded
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
