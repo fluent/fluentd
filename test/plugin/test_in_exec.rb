@@ -128,6 +128,6 @@ class ExecInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal true, emits.length > 0
     assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal @test_time, emits[0][1]
   end
 end
