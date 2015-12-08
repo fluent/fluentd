@@ -99,6 +99,7 @@ module Fluent
     def shutdown
       if @run_interval
         @finished = true
+        # call Thread#run which interupts sleep in order to stop run_periodic thread immediately.
         @thread.run
         @thread.join
       else
