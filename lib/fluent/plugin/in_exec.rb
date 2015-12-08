@@ -109,6 +109,8 @@ module Fluent
     def shutdown
       if @run_interval
         @finished = true
+        # call Thread#run which interupts sleep in order to stop run_periodic thread immediately.
+        @thread.run
         @thread.join
       else
         begin
@@ -132,12 +134,13 @@ module Fluent
     end
 
     def run_periodic
+      sleep @run_interval
       until @finished
         begin
-          sleep @run_interval
           io = IO.popen(@command, "r")
           @parser.call(io)
           Process.waitpid(io.pid)
+          sleep @run_interval
         rescue
           log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
           log.warn_backtrace $!.backtrace
