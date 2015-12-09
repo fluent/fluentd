@@ -1,5 +1,30 @@
 # v0.12
 
+## Release 0.12.18 - 2015/12/09
+
+### New features / Enhancement
+
+* in_exec: Stop in_exec immediately at shutdown
+  https://github.com/fluent/fluentd/pull/526
+* in_exec: Support built-in text parsers
+  https://github.com/fluent/fluentd/pull/704
+* out_forward: raises ZeroDivisionError when no <server> is available
+  https://github.com/fluent/fluentd/pull/707
+* Add process_name parameter in system to change fluentd's process name
+  https://github.com/fluent/fluentd/pull/708
+* test: Add ParserTestDriver
+  https://github.com/fluent/fluentd/pull/702
+* test: Add FormatterTestDriver
+  https://github.com/fluent/fluentd/pull/712
+* Add parameter description to built-in plugins
+
+### Bug fixes
+
+* fix bug not to protect in-memory-buffer for multi thread emitting / run loop
+  https://github.com/fluent/fluentd/pull/710
+* in_tail: expand_paths exclude unreadable files
+  https://github.com/fluent/fluentd/pull/734
+
 ## Release 0.12.17 - 2015/11/04
 
 ### New features / Enhancement
