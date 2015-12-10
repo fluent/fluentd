@@ -179,7 +179,7 @@ module Fluent
         File.unlink(@path)
       end
       FileUtils.mkdir_p File.dirname(@path)
-      log.debug "listening fluent socket on #{@path}"
+      log.info "listening fluent socket on #{@path}"
       s = Coolio::UNIXServer.new(@path, Handler, log, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s

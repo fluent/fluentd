@@ -24,7 +24,7 @@ module Fluent
     config_param :body_size_limit, :size, :default => 4096
 
     def listen(callback)
-      log.debug "listening udp socket on #{@bind}:#{@port}"
+      log.info "listening udp socket on #{@bind}:#{@port}"
       @usock = SocketUtil.create_udp_socket(@bind)
       @usock.bind(@bind, @port)
       SocketUtil::UdpHandler.new(@usock, log, @body_size_limit, callback)
