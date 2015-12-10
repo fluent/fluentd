@@ -173,7 +173,7 @@ module Fluent
     private
 
     def listen(callback)
-      log.debug "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
+      log.info "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
       if @protocol_type == :udp
         @usock = SocketUtil.create_udp_socket(@bind)
         @usock.bind(@bind, @port)
