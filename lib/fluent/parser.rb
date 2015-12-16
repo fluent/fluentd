@@ -243,10 +243,19 @@ module Fluent
           @time_parser = TimeParser.new(@time_format)
           @mutex = Mutex.new
         end
+
+        begin
+          require 'oj'
+          @load_proc = Oj.method(:load)
+          @error_class = Oj::ParseError
+        rescue LoadError
+          @load_proc = Yajl.method(:load)
+          @error_class = Yajl::ParseError
+        end
       end
 
       def parse(text)
-        record = Yajl.load(text)
+        record = @load_proc.call(text)
 
         value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
         if value
@@ -268,7 +277,7 @@ module Fluent
         end
 
         yield time, record
-      rescue Yajl::ParseError
+      rescue @error_class
         yield nil, nil
       end
     end
