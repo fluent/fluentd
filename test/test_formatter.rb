@@ -130,15 +130,17 @@ module FormatterTest
       @time = Engine.now
     end
 
-    def test_format
-      @formatter.configure({})
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_format(data)
+      @formatter.configure('json_parser' => data)
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("#{Yajl.dump(record)}\n", formatted)
     end
 
-    def test_format_with_include_tag
-      @formatter.configure('include_tag_key' => 'true', 'tag_key' => 'foo')
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_format_with_include_tag(data)
+      @formatter.configure('include_tag_key' => 'true', 'tag_key' => 'foo', 'json_parser' => data)
       formatted = @formatter.format(tag, @time, record.dup)
 
       r = record
@@ -146,8 +148,9 @@ module FormatterTest
       assert_equal("#{Yajl.dump(r)}\n", formatted)
     end
 
-    def test_format_with_include_time
-      @formatter.configure('include_time_key' => 'true', 'localtime' => '')
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_format_with_include_time(data)
+      @formatter.configure('include_time_key' => 'true', 'localtime' => '', 'json_parser' => data)
       formatted = @formatter.format(tag, @time, record.dup)
 
       r = record
@@ -155,8 +158,9 @@ module FormatterTest
       assert_equal("#{Yajl.dump(r)}\n", formatted)
     end
 
-    def test_format_with_include_time_as_number
-      @formatter.configure('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch')
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_format_with_include_time_as_number(data)
+      @formatter.configure('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch', 'json_parser' => data)
       formatted = @formatter.format(tag, @time, record.dup)
 
       r = record
