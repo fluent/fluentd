@@ -388,6 +388,7 @@ module ParserTest
 
     def setup
       @parser = TextParser::JSONParser.new
+      @parser.configure({})
     end
 
     def test_parse
@@ -434,6 +435,7 @@ module ParserTest
 
     def test_parse_float_time
       parser = TextParser::JSONParser.new
+      parser.configure({})
       format = "%d/%b/%Y:%H:%M:%S %z"
       text = "100.1"
       parser.parse("{\"time\":\"#{text}\"}") do |time, record|
