@@ -235,6 +235,7 @@ module Fluent
     class JSONParser < Parser
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
+      config_param :disable_oj, :bool, :default => false
 
       def configure(conf)
         super
@@ -245,6 +246,7 @@ module Fluent
         end
 
         begin
+          raise LoadError if @disable_oj
           require 'oj'
           @load_proc = Oj.method(:load)
           @error_class = Oj::ParseError

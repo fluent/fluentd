@@ -131,10 +131,13 @@ module Fluent
       include HandleTagAndTimeMixin
       include StructuredFormatMixin
 
+      config_param :disable_oj, :bool, :default => false
+
       def configure(conf)
         super
 
         begin
+          raise LoadError if @disable_oj
           require 'oj'
           @dump_proc = Oj.method(:dump)
         rescue LoadError
