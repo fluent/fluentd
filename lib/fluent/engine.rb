@@ -17,6 +17,7 @@
 module Fluent
   require 'fluent/event_router'
   require 'fluent/root_agent'
+  require 'fluent/time'
 
   class EngineClass
     class DummyMessagePackFactory
