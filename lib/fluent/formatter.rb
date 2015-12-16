@@ -139,6 +139,7 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
+          Oj.default_options = {:mode => :compat}
           @dump_proc = Oj.method(:dump)
         rescue LoadError
           @dump_proc = Yajl.method(:dump)
