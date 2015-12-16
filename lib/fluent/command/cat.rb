@@ -288,6 +288,8 @@ when 'json'
   end
 
 when 'msgpack'
+  require 'fluent/engine'
+
   begin
     u = Fluent::Engine.msgpack_factory.unpacker($stdin)
     u.each {|record|
