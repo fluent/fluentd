@@ -4,6 +4,7 @@ require 'fluent/buffer'
 
 require 'stringio'
 require 'msgpack'
+require 'timeout'
 
 module FluentBufferTest
   class BufferTest < Test::Unit::TestCase
@@ -525,6 +526,81 @@ module FluentBufferTest
       assert_equal 0, db.queue.size
 
       assert chunks.reduce(true){|a,b| a && b.purged }
+    end
+
+    sub_test_case 'buffer_queue_full_action' do
+      def dummy_buffer(action)
+        db = DummyBuffer.new
+        db.configure(
+          "buffer_chunk_limit" => 1024,
+          "buffer_queue_limit" => 1,
+          "buffer_queue_full_action" => action
+        )
+        db.start
+        db
+      end
+
+      def data
+        @data ||= "a" * 1024
+      end
+
+      def chain
+        @chain ||= DummyChain.new
+      end
+
+      def test_emit_with_exception
+        db = dummy_buffer(:exception)
+
+        assert !db.emit('key', data, chain)
+        assert db.emit('key', data, chain)
+
+        assert_raise(Fluent::BufferQueueLimitError) {
+          assert db.emit('key', data, chain)
+        }
+        assert db.queue.size == 1
+
+        assert !pop_chunk(db)
+        assert db.queue.size == 0
+
+        # queue is now empty so can emit data again
+        assert db.emit('key', data, chain)
+      end
+
+      def test_emit_with_block
+        db = dummy_buffer(:block)
+
+        assert !db.emit('key', data, chain)
+        assert db.emit('key', data, chain)
+
+        begin
+          # with block, emit events to full queue causes sleep loop
+          timeout(1) {
+            assert db.emit('key', data, chain)
+          }
+          flunk("timeout must happen")
+        rescue Timeout::Error => e
+        end
+        assert db.queue.size == 1
+
+        assert !pop_chunk(db)
+        assert db.queue.size == 0
+
+        # queue is now empty so can emit data again
+        assert db.emit('key', data, chain)
+      end
+
+      def pop_chunk(db)
+        out = DummyOutput.new
+        c1 = DummyChunk.new('k1', 1)
+
+        pop_return_value = nil
+        c1.synchronize do
+          pop_return_value = Thread.new {
+            db.pop(out)
+          }.value
+        end
+        pop_return_value
+      end
     end
   end
 end
