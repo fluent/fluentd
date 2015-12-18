@@ -106,6 +106,11 @@ module Fluent
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
+          #if this is file path of windows
+          if(path =~ /^\s*[C-Z]:\\/)
+            #fix folder watch issue of windows
+            path.gsub!("\\","/")
+          end
           paths += Dir.glob(path)
         else
           # When file is not created yet, Dir.glob returns an empty array. So just add when path is static.
