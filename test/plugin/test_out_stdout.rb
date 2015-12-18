@@ -30,14 +30,20 @@ class StdoutOutputTest < Test::Unit::TestCase
     end
   end
 
-  def test_emit_json
-    d = create_driver(CONFIG + "\noutput_type json")
+  data('oj' => 'oj', 'yajl' => 'yajl')
+  def test_emit_json(data)
+    d = create_driver(CONFIG + "\noutput_type json\njson_parser #{data}")
     time = Time.now
     out = capture_log { d.emit({'test' => 'test'}, Fluent::EventTime.from_time(time)) }
     assert_equal "#{time.localtime} test: {\"test\":\"test\"}\n", out
 
-    # NOTE: Float::NAN is not jsonable
-    assert_raise(Yajl::EncodeError) { d.emit({'test' => Float::NAN}, time) }
+    if data == 'yajl'
+      # NOTE: Float::NAN is not jsonable
+      assert_raise(Yajl::EncodeError) { d.emit({'test' => Float::NAN}, time) }
+    else
+      out = capture_log { d.emit({'test' => Float::NAN}, Fluent::EventTime.from_time(time)) }
+      assert_equal "#{time.localtime} test: {\"test\":NaN}\n", out
+    end
   end
 
   def test_emit_hash
