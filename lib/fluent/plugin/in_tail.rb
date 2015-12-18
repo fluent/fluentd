@@ -120,6 +120,12 @@ module Fluent
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
+          
+          #fix fetch files list issue on windows
+          if(path =~ /^\s*[C-Z]:\\/)
+            path.gsub!("\\","/")
+          end
+
           paths += Dir.glob(path).select { |p|
             if File.readable?(p)
               true
