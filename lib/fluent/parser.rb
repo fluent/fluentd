@@ -235,6 +235,7 @@ module Fluent
     class JSONParser < Parser
       config_param :time_key, :string, :default => 'time'
       config_param :time_format, :string, :default => nil
+      config_param :json_parser, :string, :default => 'oj'
 
       def configure(conf)
         super
@@ -243,10 +244,20 @@ module Fluent
           @time_parser = TimeParser.new(@time_format)
           @mutex = Mutex.new
         end
+
+        begin
+          raise LoadError unless @json_parser == 'oj'
+          require 'oj'
+          @load_proc = Oj.method(:load)
+          @error_class = Oj::ParseError
+        rescue LoadError
+          @load_proc = Yajl.method(:load)
+          @error_class = Yajl::ParseError
+        end
       end
 
       def parse(text)
-        record = Yajl.load(text)
+        record = @load_proc.call(text)
 
         value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
         if value
@@ -268,7 +279,7 @@ module Fluent
         end
 
         yield time, record
-      rescue Yajl::ParseError
+      rescue @error_class
         yield nil, nil
       end
     end
