@@ -37,4 +37,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("timecop", [">= 0.3.0"])
   gem.add_development_dependency("test-unit", ["~> 3.1.4"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0.3"])
+  gem.add_development_dependency("oj", ["~> 2.14"])
 end

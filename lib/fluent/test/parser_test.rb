@@ -16,6 +16,8 @@
 
 module Fluent
   module Test
+    require 'fluent/config'
+
     class ParserTestDriver
       def initialize(klass_or_str, format=nil, conf={}, &block)
         if klass_or_str.is_a?(Class)
@@ -47,8 +49,7 @@ module Fluent
         when Fluent::Config::Element
           @config = conf
         when String
-          io = StringIO.new(conf)
-          @config = Config::Parser.parse(io, 'fluent.conf')
+          @config = Config.parse(conf, 'fluent.conf')
         when Hash
           @config = Config::Element.new('ROOT', '', conf, [])
         else

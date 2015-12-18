@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/test'
 require 'fluent/parser'
+require 'fluent/plugin/string_util'
 
 module ParserTest
   include Fluent
@@ -372,7 +373,9 @@ module ParserTest
       @parser = TextParser::JSONParser.new
     end
 
-    def test_parse
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_parse(data)
+      @parser.configure('json_parser' => data)
       @parser.parse('{"time":1362020400,"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
         assert_equal(str2time('2013-02-28 12:00:00 +0900').to_i, time)
         assert_equal({
@@ -383,9 +386,11 @@ module ParserTest
       }
     end
 
-    def test_parse_without_time
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_parse_without_time(data)
       time_at_start = Time.now.to_i
 
+      @parser.configure('json_parser' => data)
       @parser.parse('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
         assert time && time >= time_at_start, "parser puts current time without time input"
         assert_equal({
@@ -397,7 +402,7 @@ module ParserTest
 
       parser = TextParser::JSONParser.new
       parser.estimate_current_event = false
-      parser.configure({})
+      parser.configure('json_parser' => data)
       parser.parse('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
         assert_equal({
           'host'   => '192.168.0.1',
@@ -408,17 +413,21 @@ module ParserTest
       }
     end
 
-    def test_parse_with_invalid_time
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_parse_with_invalid_time(data)
+      @parser.configure('json_parser' => data)
       assert_raise Fluent::ParserError do
         @parser.parse('{"time":[],"k":"v"}') { |time, record| }
       end
     end
 
-    def test_parse_with_keep_time_key
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_parse_with_keep_time_key(data)
       parser = TextParser::JSONParser.new
       parser.configure(
-        'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
-        'keep_time_key'=>'true',
+        'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key' => 'true',
+        'json_parser' => data
       )
       text = "28/Feb/2013:12:00:00 +0900"
       parser.parse("{\"time\":\"#{text}\"}") do |time, record|

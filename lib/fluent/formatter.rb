@@ -131,8 +131,23 @@ module Fluent
       include HandleTagAndTimeMixin
       include StructuredFormatMixin
 
+      config_param :json_parser, :string, :default => 'oj'
+
+      def configure(conf)
+        super
+
+        begin
+          raise LoadError unless @json_parser == 'oj'
+          require 'oj'
+          Oj.default_options = {:mode => :compat}
+          @dump_proc = Oj.method(:dump)
+        rescue LoadError
+          @dump_proc = Yajl.method(:dump)
+        end
+      end
+
       def format_record(record)
-        "#{Yajl.dump(record)}\n"
+        "#{@dump_proc.call(record)}\n"
       end
     end
 
