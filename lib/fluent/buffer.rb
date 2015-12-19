@@ -153,6 +153,10 @@ module Fluent
 
     def configure(conf)
       super
+
+      if @buffer_queue_full_action == :block
+        $log.warn "'block' action stops input process until the buffer full is resolved. Check your pipeline this action is fit or not"
+      end
     end
 
     def start
@@ -199,6 +203,7 @@ module Fluent
             raise e
           when :block
             # This is rough implementation. New Buffer API should improve this routine by using wait/signal
+            $log.debug "buffer queue is full. Wait 1 second to re-emit events"
             sleep 1
             retry
           end
