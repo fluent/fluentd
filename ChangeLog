@@ -1,5 +1,21 @@
 # v0.12
 
+## Release 0.12.19 - 2015/12/21
+
+### New features / Enhancement
+
+* input: Standardize logging level for source configs
+  https://github.com/fluent/fluentd/pull/743
+* buffer: Add buffer_queue_full_action parameter
+  https://github.com/fluent/fluentd/pull/745
+* parser/formatter: Use 'oj' when oj is installed in json parser/formatter
+  https://github.com/fluent/fluentd/pull/748
+
+### Bug fixes
+
+* fluent-cat: fix the regression of --msgpack option
+  https://github.com/fluent/fluentd/pull/747
+
 ## Release 0.12.18 - 2015/12/09
 
 ### New features / Enhancement
