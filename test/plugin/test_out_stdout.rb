@@ -41,7 +41,7 @@ class StdoutOutputTest < Test::Unit::TestCase
       # NOTE: Float::NAN is not jsonable
       assert_raise(Yajl::EncodeError) { d.emit({'test' => Float::NAN}, time) }
     else
-      out = capture_log { d.emit({'test' => Float::NAN}, Fluent::EventTime.from_time(time)) }
+      out = capture_log { d.emit({'test' => Float::NAN}, time) }
       assert_equal "#{time.localtime} test: {\"test\":NaN}\n", out
     end
   end
