@@ -266,5 +266,66 @@ module FluentOutputTest
         10.times { sleep 0.05 }
       end
     end
+
+    sub_test_case "test_chunk_key_type" do
+      setup do
+        @event_time    = Time.parse("2010-01-02 13:14:15 UTC")
+        @buffered_time = Time.parse("2011-01-02 13:14:15 UTC")
+        Timecop.freeze(@buffered_time)
+        @es = OneEventStream.new(@event_time.to_i, {"message" => "foo"})
+      end
+
+      teardown do
+        Timecop.return
+      end
+
+      test "chunk_key_type configure" do
+        assert_raise(ConfigError) do
+          d = create_driver(CONFIG + %[
+            chunk_key_type something_wrong
+            time_slice_format %Y%m%d%H%M%S
+            buffer_path #{TMP_DIR}/foo
+          ])
+        end
+
+        # need to override `support_chunk_key_type_buffered_time?` to return true
+        assert_raise(ConfigError) do
+          d = create_driver(CONFIG + %[
+            chunk_key_type buffered_time
+            time_slice_format %Y%m%d%H%M%S
+            buffer_path #{TMP_DIR}/foo
+          ])
+        end
+      end
+
+      test "chunk_key_type event_time" do
+        d = create_driver(CONFIG + %[
+          chunk_key_type event_time
+          time_slice_format %Y%m%d%H%M%S
+          buffer_path #{TMP_DIR}/foo
+          utc true
+        ])
+        d.instance.start
+        d.instance.emit('test', @es, NullOutputChain.instance)
+        chunk_key = d.instance.instance_variable_get(:@buffer).keys.first
+        assert { @event_time.strftime("%Y%m%d%H%M%S") == chunk_key }
+        d.instance.shutdown
+      end
+
+      test "chunk_key_type buffered_time" do
+        stub(TimeSlicedOutput).support_chunk_key_type_buffered_time? { true }
+        d = create_driver(CONFIG + %[
+          chunk_key_type buffered_time
+          time_slice_format %Y%m%d%H%M%S
+          buffer_path #{TMP_DIR}/foo
+          utc true
+        ])
+        d.instance.start
+        d.instance.emit('test', @es, NullOutputChain.instance)
+        chunk_key = d.instance.instance_variable_get(:@buffer).keys.first
+        assert { @buffered_time.strftime("%Y%m%d%H%M%S") == chunk_key }
+        d.instance.shutdown
+      end
+    end
   end
 end

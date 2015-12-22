@@ -481,6 +481,7 @@ module Fluent
 
     config_param :time_slice_format, :string, :default => '%Y%m%d'
     config_param :time_slice_wait, :time, :default => 10*60
+    config_param :chunk_key_type, :string, :default => 'event_time'
     config_param :timezone, :string, :default => nil
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
@@ -540,23 +541,31 @@ module Fluent
           }
         end
       end
+
+      @chunk_key_type = @chunk_key_type.downcase.to_sym
+      supported_types = [:event_time]
+      supported_types << :buffered_time if self.class.support_chunk_key_type_buffered_time?
+      unless supported_types.include?(@chunk_key_type)
+        raise ConfigError, "chunk_key_type should be one of #{supported_types}"
+      end
     end
 
     def emit(tag, es, chain)
       @emit_count += 1
       formatted_data = {}
-      es.each {|time,record|
-        tc = time / @time_slice_cache_interval
-        if @before_tc == tc
-          key = @before_key
-        else
-          @before_tc = tc
-          key = @time_slicer.call(time)
-          @before_key = key
-        end
-        formatted_data[key] ||= ''
-        formatted_data[key] << format(tag, time, record)
-      }
+      if @chunk_key_type == :event_time
+        es.each {|time,record|
+          key = chunk_key(time)
+          formatted_data[key] ||= ''
+          formatted_data[key] << format(tag, time, record)
+        }
+      else # :buffered_time
+        key = chunk_key(Engine.now)
+        es.each {|time,record|
+          formatted_data[key] ||= ''
+          formatted_data[key] << format(tag, time, record)
+        }
+      end
       formatted_data.each { |key, data|
         if @buffer.emit(key, data, chain)
           submit_flush
@@ -574,10 +583,28 @@ module Fluent
       end
     end
 
+    # override to return true to support `chunk_key_type :buffered_time`
+    def self.support_chunk_key_type_buffered_time?
+      false
+    end
+
     #def format(tag, event)
     #end
 
     private
+
+    def chunk_key(time)
+      tc = time / @time_slice_cache_interval
+      if @before_tc == tc
+        key = @before_key
+      else
+        @before_tc = tc
+        key = @time_slicer.call(time)
+        @before_key = key
+      end
+      key
+    end
+
     def time_slice_cache_interval
       if @time_slicer.call(0) != @time_slicer.call(60-1)
         return 1
