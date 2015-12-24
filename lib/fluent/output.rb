@@ -181,14 +181,22 @@ module Fluent
       @emit_count = 0
     end
 
+    desc 'The buffer type (memory, file)'
     config_param :buffer_type, :string, :default => 'memory'
+    desc 'The interval between data flushes.'
     config_param :flush_interval, :time, :default => 60
     config_param :try_flush_interval, :float, :default => 1
+    desc 'If true, the value of `retry_value` is ignored and there is no limit'
     config_param :disable_retry_limit, :bool, :default => false
+    desc 'The limit on the number of retries before buffered data is discarded'
     config_param :retry_limit, :integer, :default => 17
+    desc 'The initial intervals between write retries.'
     config_param :retry_wait, :time, :default => 1.0
+    desc 'The maximum intervals between write retries.'
     config_param :max_retry_wait, :time, :default => nil
+    desc 'The number of threads to flush the buffer.'
     config_param :num_threads, :integer, :default => 1
+    desc 'The interval between data flushes for queued chunk.'
     config_param :queued_chunk_flush_interval, :time, :default => 1
 
     def configure(conf)
