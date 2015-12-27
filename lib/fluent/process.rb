@@ -289,6 +289,9 @@ module Fluent
     def on_detach_process(i)
     end
 
+    def on_exit_process(i)
+    end
+
     private
 
     def detach_process_impl(num, &block)
@@ -326,6 +329,7 @@ module Fluent
           #forward_thread.join  # TODO this thread won't stop because parent doesn't close pipe
           fin.wait
 
+          on_exit_process(i)
           exit! 0
         ensure
           $log.error "unknown error while shutting down this child process", :error=>$!.to_s, :pid=>Process.pid
