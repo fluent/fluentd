@@ -574,7 +574,7 @@ module FluentBufferTest
 
         begin
           # with block, emit events to full queue causes sleep loop
-          timeout(1) {
+          Timeout.timeout(1) {
             assert db.emit('key', data, chain)
           }
           flunk("timeout must happen")
