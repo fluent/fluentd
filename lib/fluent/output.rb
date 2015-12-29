@@ -487,8 +487,11 @@ module Fluent
       #@ignore_old = false   # TODO
     end
 
+    desc 'The time format used as part of the file name.'
     config_param :time_slice_format, :string, :default => '%Y%m%d'
+    desc 'The amount of time Fluentd will wait for old logs to arrive.'
     config_param :time_slice_wait, :time, :default => 10*60
+    desc 'Parse the time value in the specified timezone'
     config_param :timezone, :string, :default => nil
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
