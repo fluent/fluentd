@@ -69,9 +69,9 @@ module Fluent
         (@expected_buffer ||= '') << str
       end
 
-      def run(&block)
+      def run(num_waits = 10, &block)
         result = nil
-        super {
+        super(num_waits) {
           es = ArrayEventStream.new(@entries)
           buffer = @instance.format_stream(@tag, es)
 

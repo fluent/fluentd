@@ -102,7 +102,7 @@ module Fluent
         false
       end
 
-      def run(&block)
+      def run(num_waits = 10, &block)
         m = method(:emit_stream)
         Engine.define_singleton_method(:emit_stream) {|tag,es|
           m.call(tag, es)
@@ -110,7 +110,7 @@ module Fluent
         instance.router.define_singleton_method(:emit_stream) {|tag,es|
           m.call(tag, es)
         }
-        super {
+        super(num_waits) {
           block.call if block
 
           if @expected_emits_length || @expects || @run_post_conditions
