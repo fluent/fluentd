@@ -341,6 +341,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
             multiple    ${source}${source}
             with_prefix prefix-${source}
             with_suffix ${source}-suffix
+            with_quote  source[""]
           </record>
         ]
         msgs = [
@@ -354,23 +355,28 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           { :single      => "string",
             :multiple    => "stringstring",
             :with_prefix => "prefix-string",
-            :with_suffix => "string-suffix" },
+            :with_suffix => "string-suffix",
+            :with_quote  => %Q{source[""]} },
           { :single      => 123.to_s,
             :multiple    => "#{123.to_s}#{123.to_s}",
             :with_prefix => "prefix-#{123.to_s}",
-            :with_suffix => "#{123.to_s}-suffix" },
+            :with_suffix => "#{123.to_s}-suffix",
+            :with_quote  => %Q{source[""]} },
           { :single      => [1, 2].to_s,
             :multiple    => "#{[1, 2].to_s}#{[1, 2].to_s}",
             :with_prefix => "prefix-#{[1, 2].to_s}",
-            :with_suffix => "#{[1, 2].to_s}-suffix" },
+            :with_suffix => "#{[1, 2].to_s}-suffix",
+            :with_quote  => %Q{source[""]} },
           { :single      => {a:1, b:2}.to_s,
             :multiple    => "#{{a:1, b:2}.to_s}#{{a:1, b:2}.to_s}",
             :with_prefix => "prefix-#{{a:1, b:2}.to_s}",
-            :with_suffix => "#{{a:1, b:2}.to_s}-suffix" },
+            :with_suffix => "#{{a:1, b:2}.to_s}-suffix",
+            :with_quote  => %Q{source[""]} },
           { :single      => nil.to_s,
             :multiple    => "#{nil.to_s}#{nil.to_s}",
             :with_prefix => "prefix-#{nil.to_s}",
-            :with_suffix => "#{nil.to_s}-suffix" },
+            :with_suffix => "#{nil.to_s}-suffix",
+            :with_quote  => %Q{source[""]} },
         ]
         actual_results = []
         es = emit(config, msgs)
@@ -380,6 +386,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
             :multiple    => r["multiple"],
             :with_prefix => r["with_prefix"],
             :with_suffix => r["with_suffix"],
+            :with_quote  => r["with_quote"],
           }
         end
         assert_equal(expected_results, actual_results)
@@ -437,6 +444,27 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         end
         assert_equal(expected_results, actual_results)
       end
+
+      test %Q[record["key"] with enable_ruby #{enable_ruby}] do
+        config = %[
+          enable_ruby #{enable_ruby}
+          auto_typecast yes
+          <record>
+            _timestamp ${record["@timestamp"]}
+            _foo_bar   ${record["foo.bar"]}
+          </record>
+        ]
+        d = create_driver(config)
+        record = {
+          "foo.bar"    => "foo.bar",
+          "@timestamp" => 10,
+        }
+        es = d.run { d.emit(record, @time) }.filtered
+        es.each do |t, r|
+          assert { r['_timestamp'] == record['@timestamp'] }
+          assert { r['_foo_bar'] == record['foo.bar'] }
+        end
+      end
     end
 
     test 'unknown placeholder (enable_ruby no)' do
@@ -459,7 +487,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         </record>
       ]
       es = emit(config) { |d|
-        mock(d.instance.log).warn("failed to expand `${unknown['bar']}`", anything)
+        mock(d.instance.log).warn("failed to expand `%Q[\#{unknown['bar']}]`", anything)
       }
       es.each do |t, r|
         assert_nil(r['message'])
@@ -494,6 +522,38 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       es.each do |t, r|
         assert_equal(message["@timestamp"], r['foo'])
       end
+    end
+  end
+
+  test "compatibility test (enable_ruby yes)" do
+    config = %[
+      enable_ruby yes
+      auto_typecast yes
+      <record>
+        _message   prefix-${message}-suffix
+        _time      ${Time.at(time)}
+        _number    ${number == '-' ? 0 : number}
+        _match     ${/0x[0-9a-f]+/.match(hex)[0]}
+        _timestamp ${__send__("@timestamp")}
+        _foo_bar   ${__send__('foo.bar')}
+      </record>
+    ]
+    d = create_driver(config)
+    record = {
+      "number"     => "-",
+      "hex"        => "0x10",
+      "foo.bar"    => "foo.bar",
+      "@timestamp" => 10,
+      "message"    => "10",
+    }
+    es = d.run { d.emit(record, @time) }.filtered
+    es.each do |t, r|
+      assert { r['_message'] == "prefix-#{record['message']}-suffix" }
+      assert { r['_time'] == Time.at(@time) }
+      assert { r['_number'] == 0 }
+      assert { r['_match'] == record['hex'] }
+      assert { r['_timestamp'] == record['@timestamp'] }
+      assert { r['_foo_bar'] == record['foo.bar'] }
     end
   end
 end
