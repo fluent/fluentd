@@ -41,12 +41,12 @@ module Fluent
     def configure(conf)
       super
 
-      @map = {}
+      map = {}
       # <record></record> directive
       conf.elements.select { |element| element.name == 'record' }.each do |element|
         element.each_pair do |k, v|
           element.has_key?(k) # to suppress unread configuration warning
-          @map[k] = parse_value(v)
+          map[k] = parse_value(v)
         end
       end
 
@@ -73,6 +73,7 @@ module Fluent
         else
           PlaceholderExpander.new(placeholder_expander_params)
         end
+      @map = @placeholder_expander.preprocess_map(map)
 
       @hostname = Socket.gethostname
     end
@@ -82,17 +83,21 @@ module Fluent
       tag_parts = tag.split('.')
       tag_prefix = tag_prefix(tag_parts)
       tag_suffix = tag_suffix(tag_parts)
-      placeholders = {
-        'tag' => tag,
-        'tag_parts' => tag_parts,
+      placeholder_values = {
+        'tag'        => tag,
+        'tag_parts'  => tag_parts,
         'tag_prefix' => tag_prefix,
         'tag_suffix' => tag_suffix,
-        'hostname' => @hostname,
+        'hostname'   => @hostname,
       }
       last_record = nil
       es.each do |time, record|
         last_record = record # for debug log
-        new_record = reform(time, record, placeholders)
+        placeholder_values.merge!({
+          'time'     => @placeholder_expander.time_value(time),
+          'record'   => record,
+        })
+        new_record = reform(record, placeholder_values)
         if @renew_time_key && new_record.has_key?(@renew_time_key)
           time = new_record[@renew_time_key].to_i
         end
@@ -102,7 +107,7 @@ module Fluent
     rescue => e
       log.warn "failed to reform records", :error_class => e.class, :error => e.message
       log.warn_backtrace
-      log.debug "map:#{@map} record:#{last_record} placeholders:#{placeholders}"
+      log.debug "map:#{@map} record:#{last_record} placeholder_values:#{placeholder_values}"
     end
 
     private
@@ -118,8 +123,8 @@ module Fluent
       value_str # emit as string
     end
 
-    def reform(time, record, opts)
-      @placeholder_expander.prepare_placeholders(time, record, opts)
+    def reform(record, placeholder_values)
+      @placeholder_expander.prepare_placeholders(placeholder_values)
 
       new_record = @renew_record ? {} : record.dup
       @keep_keys.each {|k| new_record[k] = record[k]} if @keep_keys and @renew_record
@@ -175,17 +180,29 @@ module Fluent
         @auto_typecast = params[:auto_typecast]
       end
 
-      def prepare_placeholders(time, record, opts)
-        placeholders = { '${time}' => Time.at(time).to_s }
-        record.each {|key, value| placeholders.store("${#{key}}", value) }
+      def time_value(time)
+        Time.at(time).to_s
+      end
 
-        opts.each do |key, value|
+      def preprocess_map(value, force_stringify = false)
+        value
+      end
+
+      def prepare_placeholders(placeholder_values)
+        placeholders = {}
+
+        placeholder_values.each do |key, value|
           if value.kind_of?(Array) # tag_parts, etc
             size = value.size
-            value.each_with_index { |v, idx|
+            value.each_with_index do |v, idx|
               placeholders.store("${#{key}[#{idx}]}", v)
               placeholders.store("${#{key}[#{idx-size}]}", v) # support [-1]
-            }
+            end
+          elsif value.kind_of?(Hash) # record, etc
+            value.each do |k, v|
+              placeholders.store("${#{k}}", v) # foo
+              placeholders.store(%Q[${#{key}["#{k}"]}], v) # record["foo"]
+            end
           else # string, interger, float, and others?
             placeholders.store("${#{key}}", value)
           end
@@ -194,22 +211,27 @@ module Fluent
         @placeholders = placeholders
       end
 
-      def expand(str, force_stringify=false)
+      # Expand string with placeholders
+      #
+      # @param [String] str
+      # @param [Boolean] force_stringify the value must be string, used for hash key
+      def expand(str, force_stringify = false)
         if @auto_typecast and !force_stringify
           single_placeholder_matched = str.match(/\A(\${[^}]+}|__[A-Z_]+__)\z/)
           if single_placeholder_matched
-            log_unknown_placeholder($1)
+            log_if_unknown_placeholder($1)
             return @placeholders[single_placeholder_matched[1]]
           end
         end
         str.gsub(/(\${[^}]+}|__[A-Z_]+__)/) {
-          log_unknown_placeholder($1)
+          log_if_unknown_placeholder($1)
           @placeholders[$1]
         }
       end
 
       private
-      def log_unknown_placeholder(placeholder)
+
+      def log_if_unknown_placeholder(placeholder)
         unless @placeholders.include?(placeholder)
           log.warn "unknown placeholder `#{placeholder}` found"
         end
@@ -217,41 +239,96 @@ module Fluent
     end
 
     class RubyPlaceholderExpander
-      attr_reader :placeholders, :log
+      attr_reader :log
 
       def initialize(params)
         @log = params[:log]
         @auto_typecast = params[:auto_typecast]
+        @cleanroom_expander = CleanroomExpander.new
       end
 
-      # Get placeholders as a struct
+      def time_value(time)
+        Time.at(time)
+      end
+
+      # Preprocess record map to convert into ruby string expansion
       #
-      # @param [Time]   time        the time
-      # @param [Hash]   record      the record
-      # @param [Hash]   opts        others
-      def prepare_placeholders(time, record, opts)
-        struct = UndefOpenStruct.new(record)
-        struct.time = Time.at(time)
-        opts.each {|key, value| struct.__send__("#{key}=", value) }
-        @placeholders = struct
+      # @param [Hash|String|Array] value record map config
+      # @param [Boolean] force_stringify the value must be string, used for hash key
+      def preprocess_map(value, force_stringify = false)
+        new_value = nil
+        if value.is_a?(String)
+          if @auto_typecast and !force_stringify
+            if single_placeholder_matched = value.match(/\A\${([^}]+)}\z/) # ${..} => ..
+              new_value = single_placeholder_matched[1]
+            end
+          end
+          unless new_value
+            new_value = %Q{%Q[#{value.gsub(/\$\{([^}]+)\}/, '#{\1}')}]} # xx${..}xx => %Q[xx#{..}xx]
+          end
+        elsif value.is_a?(Hash)
+          new_value = {}
+          value.each_pair do |k, v|
+            new_value[preprocess_map(k, true)] = preprocess_map(v)
+          end
+        elsif value.is_a?(Array)
+          new_value = []
+          value.each_with_index do |v, i|
+            new_value[i] = preprocess_map(v)
+          end
+        else
+          new_value = value
+        end
+        new_value
       end
 
-      def expand(_str_for_eval_, force_stringify=false)
-        if @auto_typecast and !force_stringify
-          _single_placeholder_matched_ = _str_for_eval_.match(/\A\${([^}]+)}\z/)
-          if _single_placeholder_matched_
-            return eval _single_placeholder_matched_[1], @placeholders.instance_eval { binding }
-          end
-        end
-        _interpolated_for_eval_ = _str_for_eval_.gsub(/\$\{([^}]+)\}/, '#{\1}') # ${..} => #{..}
-        eval "\"#{_interpolated_for_eval_}\"", @placeholders.instance_eval { binding }
+      def prepare_placeholders(placeholder_values)
+        @tag = placeholder_values['tag']
+        @time = placeholder_values['time']
+        @record = placeholder_values['record']
+        @tag_parts = placeholder_values['tag_parts']
+        @tag_prefix = placeholder_values['tag_prefix']
+        @tag_suffix = placeholder_values['tag_suffix']
+        @hostname = placeholder_values['hostname']
+      end
+
+      # Expand string with placeholders
+      #
+      # @param [String] str
+      def expand(str, force_stringify = false)
+        @cleanroom_expander.expand(
+          str,
+          @tag,
+          @time,
+          @record,
+          @tag_parts,
+          @tag_prefix,
+          @tag_suffix,
+          @hostname,
+        )
       rescue => e
-        log.warn "failed to expand `#{_str_for_eval_}`", :error_class => e.class, :error => e.message
+        log.warn "failed to expand `#{str}`", :error_class => e.class, :error => e.message
         log.warn_backtrace
         nil
       end
 
-      class UndefOpenStruct < OpenStruct
+      class CleanroomExpander
+        def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
+          tags = tag_parts # for old version compatibility
+          @record = record # for old version compatibility
+          instance_eval(__str_to_eval__)
+        end
+
+        # for old version compatibility
+        def method_missing(name)
+          key = name.to_s
+          if @record.has_key?(key)
+            @record[key]
+          else
+            raise NameError, "undefined local variable or method `#{key}'"
+          end
+        end
+
         (Object.instance_methods).each do |m|
           undef_method m unless m.to_s =~ /^__|respond_to_missing\?|object_id|public_methods|instance_eval|method_missing|define_singleton_method|respond_to\?|new_ostruct_member/
         end
