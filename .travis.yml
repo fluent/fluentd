@@ -6,7 +6,7 @@ rvm:
   - 2.2.3
   - 2.3.0
   - ruby-head
-  - rbx-2
+  - rbx
 
 os:
   - linux
@@ -29,6 +29,5 @@ sudo: false
 matrix:
   allow_failures:
     - rvm: ruby-head
-    - rvm: rbx-2
-    - rvm: 2.2
+    - rvm: rbx
     - rvm: 2.3.0
