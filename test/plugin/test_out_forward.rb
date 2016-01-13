@@ -10,6 +10,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   TARGET_PORT = 13999
   CONFIG = %[
     send_timeout 51
+    heartbeat_type udp
     <server>
       name test
       host #{TARGET_HOST}
@@ -43,10 +44,16 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_configure
-    d = create_driver
+    d = create_driver(%[
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ])
     nodes = d.instance.nodes
-    assert_equal 51, d.instance.send_timeout
-    assert_equal :udp, d.instance.heartbeat_type
+    assert_equal 60, d.instance.send_timeout
+    assert_equal :tcp, d.instance.heartbeat_type
     assert_equal 1, nodes.length
     node = nodes.first
     assert_equal "test", node.name
@@ -54,9 +61,9 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 13999, node.port
   end
 
-  def test_configure_tcp_heartbeat
-    d = create_driver(CONFIG + "\nheartbeat_type tcp")
-    assert_equal :tcp, d.instance.heartbeat_type
+  def test_configure_udp_heartbeat
+    d = create_driver(CONFIG + "\nheartbeat_type udp")
+    assert_equal :udp, d.instance.heartbeat_type
   end
 
   def test_configure_none_heartbeat
@@ -363,6 +370,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   def create_target_input_driver(do_respond=false, disconnect=false, conf=TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
+    # TODO: Support actual TCP heartbeat test
     DummyEngineDriver.new(Fluent::ForwardInput) {
       handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
         attr_reader :chunk_counter # for checking if received data is successfully deserialized

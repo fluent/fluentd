@@ -39,7 +39,7 @@ module Fluent
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, :default => 60
     desc 'The transport protocol to use for heartbeats.(udp,tcp,none)'
-    config_param :heartbeat_type, :default => :udp do |val|
+    config_param :heartbeat_type, :default => :tcp do |val|
       case val.downcase
       when 'tcp'
         :tcp
