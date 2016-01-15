@@ -19,6 +19,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def teardown
+    super
     Fluent::Engine.stop
   end
 
