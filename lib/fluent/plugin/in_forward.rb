@@ -38,6 +38,8 @@ module Fluent
     config_param :chunk_size_warn_limit, :size, :default => nil
     desc 'Received chunk is dropped if it is larger than this value.'
     config_param :chunk_size_limit, :size, :default => nil
+    desc 'Skip an event if incoming event is invalid.'
+    config_param :skip_invalid_event, :bool, :default => false
 
     def configure(conf)
       super
@@ -136,7 +138,7 @@ module Fluent
         return
       end
 
-      tag = msg[0].to_s
+      tag = msg[0]
       entries = msg[1]
 
       if @chunk_size_limit && (chunk_size > @chunk_size_limit)
@@ -149,27 +151,37 @@ module Fluent
       if entries.class == String
         # PackedForward
         es = MessagePackEventStream.new(entries)
+        es = check_and_skip_invalid_event(tag, es, source) if @skip_invalid_event
         router.emit_stream(tag, es)
         option = msg[2]
 
       elsif entries.class == Array
         # Forward
-        es = MultiEventStream.new
-        entries.each {|e|
-          record = e[1]
-          next if record.nil?
-          time = e[0]
-          time = (now ||= Engine.now) if time.to_i == 0
-          es.add(time, record)
-        }
+        es = if @skip_invalid_event
+               check_and_skip_invalid_event(tag, entries, source)
+             else
+               es = MultiEventStream.new
+               entries.each { |e|
+                 record = e[1]
+                 next if record.nil?
+                 time = e[0]
+                 time = (now ||= Engine.now) if time.to_i == 0
+                 es.add(time, record)
+               }
+               es
+             end
         router.emit_stream(tag, es)
         option = msg[2]
 
       else
         # Message
-        record = msg[2]
-        return if record.nil?
         time = msg[1]
+        record = msg[2]
+        if @skip_invalid_event && invalid_event?(tag, time, record)
+          log.warn "got invalid event and drop it:", source: source, tag: tag, time: time, record: record
+          return msg[3] # retry never succeeded so return ack and drop incoming event.
+        end
+        return if record.nil?
         time = Engine.now if time.to_i == 0
         router.emit(tag, time, record)
         option = msg[3]
@@ -177,6 +189,22 @@ module Fluent
 
       # return option for response
       option
+    end
+
+    def invalid_event?(tag, time, record)
+      !((time.is_a?(Integer) || time.is_a?(::Fluent::EventTime)) && record.is_a?(Hash) && tag.is_a?(String))
+    end
+
+    def check_and_skip_invalid_event(tag, es, source)
+      new_es = MultiEventStream.new
+      es.each { |time, record|
+        if invalid_event?(tag, time, record)
+          log.warn "skip invalid event:", source: source, tag: tag, time: time, record: record
+          next
+        end
+        new_es.add(time, record)
+      }
+      new_es
     end
 
     class Handler < Coolio::Socket
