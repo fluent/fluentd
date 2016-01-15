@@ -300,14 +300,59 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "s test8"
       }
       sleep 1
+
+      emits = d.emits
+      assert(emits.length == 3)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, emits[0][2])
+      assert_equal({"message1" => "test5"}, emits[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
+
+      sleep 3
+      emits = d.emits
+      assert(emits.length == 3)
     end
 
     emits = d.emits
-    assert(emits.length > 0)
-    assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, emits[0][2])
-    assert_equal({"message1" => "test5"}, emits[1][2])
-    assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
+    assert(emits.length == 4)
     assert_equal({"message1" => "test8"}, emits[3][2])
+  end
+
+  def test_multiline_with_flush_interval
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+    d = create_driver %[
+      format multiline
+      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+      format_firstline /^[s]/
+      multiline_flush_interval 2s
+    ]
+
+    assert_equal 2, d.instance.multiline_flush_interval
+
+    d.run do
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+        f.puts "f test1"
+        f.puts "s test2"
+        f.puts "f test3"
+        f.puts "f test4"
+        f.puts "s test5"
+        f.puts "s test6"
+        f.puts "f test7"
+        f.puts "s test8"
+      }
+      sleep 1
+
+      emits = d.emits
+      assert(emits.length == 3)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, emits[0][2])
+      assert_equal({"message1" => "test5"}, emits[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
+
+      sleep 3
+      emits = d.emits
+      assert(emits.length == 4)
+      assert_equal({"message1" => "test8"}, emits[3][2])
+    end
   end
 
   def test_multiline_with_multiple_formats
@@ -446,7 +491,7 @@ class TailInputTest < Test::Unit::TestCase
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, 1000, any, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, 1000, any, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:unwatched=).zero_or_more_times
@@ -462,7 +507,7 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, 1000, any, any).once.and_return do
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, 1000, any, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
             watcher.should_receive(:unwatched=).zero_or_more_times
