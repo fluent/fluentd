@@ -387,6 +387,14 @@ module ParserTest
     end
 
     data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_parse_with_large_float(data)
+      @parser.configure('json_parser' => data)
+      @parser.parse('{"num":999999999999999999999999999999.99999}') { |time, record|
+        assert_equal(Float, record['num'].class)
+      }
+    end
+
+    data('oj' => 'oj', 'yajl' => 'yajl')
     def test_parse_without_time(data)
       time_at_start = Time.now.to_i
 
