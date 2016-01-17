@@ -40,6 +40,8 @@ module Fluent
     config_param :refresh_interval, :time, :default => 60
     desc 'The number of reading lines at each IO.'
     config_param :read_lines_limit, :integer, :default => 1000
+    desc 'The interval of flushing the buffer for multiline format'
+    config_param :multiline_flush_interval, :time, :default => nil
 
     attr_reader :paths
 
@@ -147,7 +149,8 @@ module Fluent
     end
 
     def setup_watcher(path, pe)
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), &method(:receive_lines))
+      line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher,  &method(:receive_lines))
       tw.attach(@loop)
       tw
     end
@@ -277,6 +280,7 @@ module Fluent
       lb = tail_watcher.line_buffer
       es = MultiEventStream.new
       if @parser.has_firstline?
+        tail_watcher.line_buffer_timer_flusher.reset_timer if tail_watcher.line_buffer_timer_flusher
         lines.each { |line|
           if @parser.firstline?(line)
             if lb
@@ -308,7 +312,7 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, line_buffer_timer_flusher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
@@ -323,10 +327,12 @@ module Fluent
         @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
         @io_handler = nil
         @log = log
+
+        @line_buffer_timer_flusher = line_buffer_timer_flusher
       end
 
       attr_reader :path
-      attr_accessor :line_buffer
+      attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
       def tag
@@ -358,6 +364,7 @@ module Fluent
 
       def on_notify
         @rotate_handler.on_notify if @rotate_handler
+        @line_buffer_timer_flusher.on_notify(self) if @line_buffer_timer_flusher
         return unless @io_handler
         @io_handler.on_notify
       end
@@ -593,6 +600,30 @@ module Fluent
         rescue
           @log.error $!.to_s
           @log.error_backtrace
+        end
+      end
+
+
+      class LineBufferTimerFlusher
+        def initialize(log, flush_interval, &flush_method)
+          @log = log
+          @flush_interval = flush_interval
+          @flush_method = flush_method
+          @start = nil
+        end
+
+        def on_notify(tw)
+          if @start && @flush_interval
+            if Time.now - @start >= @flush_interval
+              @flush_method.call(tw)
+              tw.line_buffer = nil
+              @start = nil
+            end
+          end
+        end
+
+        def reset_timer
+          @start = Time.now
         end
       end
     end
