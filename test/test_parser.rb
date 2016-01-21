@@ -85,7 +85,7 @@ module ParserTest
     def test_parse_with_invalid_argument
       parser = TextParser::TimeParser.new(nil)
 
-      [[], {}, nil, true, 10000].each { |v|
+      [[], {}, nil, true, 10000, //, ->{}, '', :symbol].each { |v|
         assert_raise Fluent::ParserError do
           parser.parse(v)
         end
