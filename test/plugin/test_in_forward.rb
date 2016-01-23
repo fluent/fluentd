@@ -64,6 +64,28 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_message_with_skip_invalid_event
+    d = create_driver(CONFIG + "skip_invalid_event true")
+
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+    d.expect_emit "tag1", time, {"a" => 1}
+    d.expect_emit "tag2", time, {"a" => 2}
+
+    d.run do
+      entries = d.expected_emits.map { |tag, time, record| [tag, time, record] }
+      # These entries are skipped
+      entries << ['tag1', true, {'a' => 3}] << ['tag2', time, 'invalid record']
+
+      entries.each { |tag, time, record|
+        # Without ack, logs are sometimes not saved to logs during test.
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s, true
+      }
+    end
+
+    assert_equal 2, d.instance.log.logs.count { |line| line =~ /got invalid event and drop it/ }
+  end
+
   def test_forward
     d = create_driver
 
@@ -81,6 +103,25 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_forward_with_skip_invalid_event
+    d = create_driver(CONFIG + "skip_invalid_event true")
+
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+    d.expect_emit "tag1", time, {"a" => 1}
+    d.expect_emit "tag1", time, {"a" => 2}
+
+    d.run do
+      entries = d.expected_emits.map { |tag, time, record| [time, record] }
+      # These entries are skipped
+      entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
+
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+    end
+
+    assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
+  end
+
   def test_packed_forward
     d = create_driver
 
@@ -96,6 +137,29 @@ class ForwardInputTest < Test::Unit::TestCase
       }
       send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
+  end
+
+  def test_packed_forward_with_skip_invalid_event
+    d = create_driver(CONFIG + "skip_invalid_event true")
+
+    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+    d.expect_emit "tag1", time, {"a" => 1}
+    d.expect_emit "tag1", time, {"a" => 2}
+
+    d.run do
+      entries = d.expected_emits.map { |tag ,time, record| [time, record] }
+      # These entries are skipped
+      entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
+
+      packed_entries = ''
+      entries.each { |time, record|
+        Fluent::Engine.msgpack_factory.packer(packed_entries).write([time, record]).flush
+      }
+      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", packed_entries]).to_s
+    end
+
+    assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
   end
 
   def test_message_json
