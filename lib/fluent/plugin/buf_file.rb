@@ -25,6 +25,7 @@ module Fluent
       @file.sync = true
       @size = @file.stat.size
       FileUtils.ln_sf(@path, symlink_path) if symlink_path
+      @data_counter = 0
     end
 
     attr_reader :unique_id, :path
@@ -32,6 +33,7 @@ module Fluent
     def <<(data)
       @file.write(data)
       @size += data.bytesize
+      @data_counter += 1
     end
 
     def size
@@ -80,6 +82,11 @@ module Fluent
         File.rename(@path, path)
         @path = path
       end
+    end
+
+    # count the number of data
+    def data_counter
+      @data_counter
     end
   end
 
