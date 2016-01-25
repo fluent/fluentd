@@ -1,5 +1,28 @@
 # v0.12
 
+## Release 0.12.20 - 2015/01/26
+
+### New features / Enhancement
+
+* in_forward: Add skip_invalid_event paramter to check and skip invalid event
+  https://github.com/fluent/fluentd/pull/776
+* in_tail: Add multiline_flush_interval parameter for periodic flush with multiline format
+  https://github.com/fluent/fluentd/pull/775
+* filter_record_transformer: Improve ruby placeholder performance and adding 'record["key"]' syntax
+  https://github.com/fluent/fluentd/pull/766
+* Add on_exit_process hook point to DetachProcessMixin
+  https://github.com/fluent/fluentd/pull/757
+* Add descriptions to BufferedOutput and TimeSlicedOutput
+  https://github.com/fluent/fluentd/pull/759
+  https://github.com/fluent/fluentd/pull/760
+
+### Bug fixes
+
+* parser: Don't use BigDecimal in JSON parsing result with Oj
+  https://github.com/fluent/fluentd/pull/778
+* config: Fix the regression of unused parameter warning inside sub section
+  https://github.com/fluent/fluentd/pull/765
+
 ## Release 0.12.19 - 2015/12/21
 
 ### New features / Enhancement
