@@ -67,7 +67,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_message_with_skip_invalid_event
     d = create_driver(CONFIG + "skip_invalid_event true")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
     d.expect_emit "tag1", time, {"a" => 1}
     d.expect_emit "tag2", time, {"a" => 2}
@@ -106,7 +106,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_forward_with_skip_invalid_event
     d = create_driver(CONFIG + "skip_invalid_event true")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
     d.expect_emit "tag1", time, {"a" => 1}
     d.expect_emit "tag1", time, {"a" => 2}
@@ -142,7 +142,7 @@ class ForwardInputTest < Test::Unit::TestCase
   def test_packed_forward_with_skip_invalid_event
     d = create_driver(CONFIG + "skip_invalid_event true")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
     d.expect_emit "tag1", time, {"a" => 1}
     d.expect_emit "tag1", time, {"a" => 2}
