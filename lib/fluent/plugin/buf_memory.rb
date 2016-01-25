@@ -23,6 +23,7 @@ module Fluent
       u1 = ((now.to_i*1000*1000+now.usec) << 12 | rand(0xfff))
       @unique_id = [u1 >> 32, u1 & 0xffffffff, rand(0xffffffff), rand(0xffffffff)].pack('NNNN')
       super(key)
+      @data_counter = 0	    
     end
 
     attr_reader :unique_id
@@ -30,6 +31,7 @@ module Fluent
     def <<(data)
       data.force_encoding('ASCII-8BIT')
       @data << data
+      @data_counter += 1
     end
 
     def size
@@ -59,6 +61,11 @@ module Fluent
     def msgpack_each(&block)
       u = Fluent::Engine.msgpack_factory.unpacker
       u.feed_each(@data, &block)
+    end
+
+    # count the number of data
+    def data_counter
+      @data_counter
     end
   end
 
