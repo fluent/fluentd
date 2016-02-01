@@ -468,8 +468,8 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_expand_paths
     plugin = create_driver(EX_CONFIG, false).instance
-    flexstub(Time) do |timeclass|
-      timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
+    stub(Time) do |timeclass|
+      timeclass.now.returns(Time.new(2010, 1, 2, 3, 4, 5))
       assert_equal EX_PATHS, plugin.expand_paths.sort
     end
 
@@ -518,8 +518,8 @@ class TailInputTest < Test::Unit::TestCase
         plugin.refresh_watchers
       end
 
-      flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).never
+      stub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
+        watcherclass.new.never
         plugin.refresh_watchers
       end
     end
@@ -529,8 +529,8 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_receive_lines
     plugin = create_driver(EX_CONFIG, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('tail', any).once
+    stub(plugin.router) do |engineclass|
+      engineclass.emit_stream('tail', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
 
@@ -541,8 +541,8 @@ class TailInputTest < Test::Unit::TestCase
       read_from_head true
     ]
     plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('pre.foo.bar.log', any).once
+    stub(plugin.router) do |engineclass|
+      engineclass.emit_stream('pre.foo.bar.log', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
 
@@ -553,8 +553,8 @@ class TailInputTest < Test::Unit::TestCase
       read_from_head true
     ]
     plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('foo.bar.log.post', any).once
+    stub(plugin.router) do |engineclass|
+      engineclass.emit_stream('foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
 
@@ -565,8 +565,8 @@ class TailInputTest < Test::Unit::TestCase
       read_from_head true
     ]
     plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('pre.foo.bar.log.post', any).once
+    stub(plugin.router) do |engineclass|
+      engineclass.emit_stream('pre.foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
 
@@ -577,8 +577,8 @@ class TailInputTest < Test::Unit::TestCase
       read_from_head true
     ]
     plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('pre.foo.bar.log.post', any).once
+    stub(plugin.router) do |engineclass|
+      engineclass.emit_stream('pre.foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
   end
