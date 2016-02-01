@@ -1,11 +1,9 @@
 require_relative '../helper'
 require 'fluent/plugin/filter_stdout'
 require 'timecop'
-require 'flexmock'
 
 class StdoutFilterTest < Test::Unit::TestCase
   include Fluent
-  include FlexMock::TestCase
 
   def setup
     Fluent::Test.setup
@@ -64,7 +62,7 @@ class StdoutFilterTest < Test::Unit::TestCase
 
     # NOTE: Float::NAN is not jsonable
     d = create_driver(CONFIG + "\noutput_type json")
-    flexmock(d.instance.router).should_receive(:emit_error_event)
+    stub(d.instance.router).emit_error_event
     emit(d, {'test' => Float::NAN}, time)
   end
 
