@@ -16,6 +16,7 @@
 
 module Fluent
   class Filter
+    # TODO: move to plugin/filter.rb, and make interoperability layer here
     include Configurable
     include PluginId
     include PluginLoggerMixin
