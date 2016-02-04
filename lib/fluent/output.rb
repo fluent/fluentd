@@ -557,14 +557,19 @@ module Fluent
       @emit_count += 1
       formatted_data = {}
       es.each {|time,record|
-        tc = time / @time_slice_cache_interval
-        if @before_tc == tc
-          key = @before_key
-        else
-          @before_tc = tc
-          key = @time_slicer.call(time)
-          @before_key = key
+        begin
+          tc = time / @time_slice_cache_interval
+          if @before_tc == tc
+            key = @before_key
+          else
+            @before_tc = tc
+            key = @time_slicer.call(time)
+            @before_key = key
+          end
+        rescue => e
+          @router.emit_error_event(tag, Engine.now, {'time' => time, 'record' => record}, e)
         end
+
         formatted_data[key] ||= ''
         formatted_data[key] << format(tag, time, record)
       }

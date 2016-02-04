@@ -54,6 +54,7 @@ module Fluent
         end
         @instance.router = Engine.root_agent.event_router
         @instance.log = TestLogger.new
+        Engine.root_agent.instance_variable_set(:@log, @instance.log)
 
         @config = Config.new
       end

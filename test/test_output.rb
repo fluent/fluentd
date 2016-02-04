@@ -235,13 +235,13 @@ module FluentOutputTest
 
     TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/time_sliced_output")
 
-    CONFIG = %[]
+    CONFIG = %[buffer_path #{TMP_DIR}/foo]
 
     def create_driver(conf=CONFIG)
       Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::TimeSlicedOutput).configure(conf, true)
     end
 
-    sub_test_case "test_force_flush" do
+    sub_test_case "force_flush test" do
       setup do
         time = Time.parse("2011-01-02 13:14:15 UTC")
         Timecop.freeze(time)
@@ -255,7 +255,6 @@ module FluentOutputTest
       test "force_flush immediately flushes" do
         d = create_driver(CONFIG + %[
           time_format %Y%m%d%H%M%S
-          buffer_path #{TMP_DIR}/foo
         ])
         d.instance.start
         # buffer should be popped (flushed) immediately
@@ -264,6 +263,31 @@ module FluentOutputTest
         d.instance.emit('test', @es, NullOutputChain.instance)
         d.instance.force_flush
         10.times { sleep 0.05 }
+      end
+    end
+
+    sub_test_case "test emit" do
+      setup do
+        @time = Time.parse("2011-01-02 13:14:15 UTC")
+        Timecop.freeze(@time)
+      end
+
+      teardown do
+        Timecop.return
+      end
+
+      test "emit with valid event" do
+        d = create_driver
+        d.instance.start
+        d.instance.emit('test', OneEventStream.new(@time.to_i, {"message" => "foo"}), NullOutputChain.instance)
+        assert_equal 0, d.instance.log.logs.size
+      end
+
+      test "emit with invalid event" do
+        d = create_driver
+        d.instance.start
+        d.instance.emit('test', OneEventStream.new('string', 10), NullOutputChain.instance)
+        assert_equal 1, d.instance.log.logs.count { |line| line =~ /dump an error event/ }
       end
     end
   end
