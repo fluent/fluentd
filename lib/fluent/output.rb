@@ -566,11 +566,12 @@ module Fluent
             key = @time_slicer.call(time)
             @before_key = key
           end
-          formatted_data[key] ||= ''
-          formatted_data[key] << format(tag, time, record)
         rescue => e
           @router.emit_error_event(tag, Engine.now, {'time' => time, 'record' => record}, e)
         end
+
+        formatted_data[key] ||= ''
+        formatted_data[key] << format(tag, time, record)
       }
       formatted_data.each { |key, data|
         if @buffer.emit(key, data, chain)
