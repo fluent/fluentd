@@ -42,6 +42,8 @@ require 'fileutils'
 require 'fluent/log'
 require 'fluent/test'
 
+$log = Fluent::Log.new(Fluent::Test::DummyLogDevice.new, Fluent::Log::LEVEL_WARN)
+
 unless defined?(Test::Unit::AssertionFailedError)
   class Test::Unit::AssertionFailedError < StandardError
   end
@@ -73,5 +75,3 @@ def ipv6_enabled?
     false
   end
 end
-
-$log = Fluent::Log.new(Fluent::Test::DummyLogDevice.new, Fluent::Log::LEVEL_WARN)

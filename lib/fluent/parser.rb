@@ -16,9 +16,11 @@
 
 require 'fluent/registry'
 require 'fluent/configurable'
+require 'fluent/plugin'
+
+# TODO Fluent::Plugin::Parser ?
 
 module Fluent
-
   class ParserError < StandardError
   end
 
@@ -624,7 +626,6 @@ module Fluent
       end
     end
 
-    TEMPLATE_REGISTRY = Registry.new(:config_type, 'fluent/plugin/parser_')
     {
       'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'apache_error' => Proc.new { RegexpParser.new(/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/) },
@@ -638,20 +639,21 @@ module Fluent
       'none' => Proc.new { NoneParser.new },
       'multiline' => Proc.new { MultilineParser.new },
     }.each { |name, factory|
-      TEMPLATE_REGISTRY.register(name, factory)
+      Fluent::Plugin.register_parser(name, factory)
     }
 
     def self.register_template(name, regexp_or_proc, time_format=nil)
-      if regexp_or_proc.is_a?(Class)
-        factory = Proc.new { regexp_or_proc.new }
-      elsif regexp_or_proc.is_a?(Regexp)
-        regexp = regexp_or_proc
-        factory = Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
-      else
-        factory = regexp_or_proc
-      end
-
-      TEMPLATE_REGISTRY.register(name, factory)
+      factory = if regexp_or_proc.is_a?(Class)
+                  regexp_or_proc
+                elsif regexp_or_proc.is_a?(Regexp)
+                  regexp = regexp_or_proc
+                  Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
+                elsif regexp_or_proc.respond_to? :call
+                  regexp_or_proc
+                else
+                  raise ArgumentError, "invalid factory for parser template: #{regexp_or_proc}"
+                end
+      Fluent::Plugin.register_parser(name, factory)
     end
 
     def self.lookup(format)
@@ -674,12 +676,10 @@ module Fluent
       else
         # built-in template
         begin
-          factory = TEMPLATE_REGISTRY.lookup(format)
+          Fluent::Plugin.new_parser(format)
         rescue ConfigError => e # keep same error message
           raise ConfigError, "Unknown format template '#{format}'"
         end
-
-        factory.call
       end
     end
 

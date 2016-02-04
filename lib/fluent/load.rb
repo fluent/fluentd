@@ -1,3 +1,6 @@
+# TODO: This file MUST be deleted
+#       all test (and implementation) files should require its dependency by itself
+
 require 'thread'
 require 'socket'
 require 'fcntl'
@@ -33,5 +36,5 @@ require 'fluent/event'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/input'
 require 'fluent/plugin/output'
-require 'fluent/plugin/filter'
+require 'fluent/filter'
 require 'fluent/match'

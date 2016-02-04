@@ -15,6 +15,11 @@
 #
 
 require 'test/unit'
+
+# TODO: remove this line after `require 'fluent/load'` deleted
+#       all test (and implementation) files should require its dependency by itself
+$log = Fluent::Log.new(StringIO.new, Fluent::Log::LEVEL_WARN)
+
 require 'fluent/load'
 require 'fluent/test/base'
 require 'fluent/test/input_test'

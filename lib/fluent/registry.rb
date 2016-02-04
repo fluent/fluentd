@@ -14,9 +14,10 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/config/error'
+require 'rubygems'
+require 'fluent/config/error'
 
+module Fluent
   class Registry
     def initialize(kind, search_prefix)
       @kind = kind
@@ -42,6 +43,13 @@ module Fluent
         return value
       end
       raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluentd-plugin' to find plugins"  # TODO error class
+    end
+
+    def reverse_lookup(value)
+      @map.each do |k, v|
+        return k if v == value
+      end
+      nil
     end
 
     def search(type)

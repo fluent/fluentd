@@ -14,25 +14,13 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin'
+
+# TODO Fluent::Plugin::Storage ?
+
 module Fluent
   module Storage
-    STORAGE_REGISTRY = Registry.new(:storage, 'fluent/storage/')
-
     DEFAULT_TYPE = 'json'
-
-    def self.register(type, klass)
-      STORAGE_REGISTRY.register(type, klass)
-    end
-
-    def self.lookup(type)
-      STORAGE_REGISTRY.lookup(type)
-    end
-
-    class LoadError
-    end
-
-    class SaveError
-    end
   end
 end
 

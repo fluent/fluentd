@@ -14,9 +14,13 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/registry'
+require 'fluent/registry'
+require 'fluent/configurable'
+require 'fluent/plugin'
 
+# Fluent::Plugin::Formatter ?
+
+module Fluent
   class Formatter
     include Configurable
 
@@ -240,7 +244,6 @@ module Fluent
       end
     end
 
-    TEMPLATE_REGISTRY = Registry.new(:formatter_type, 'fluent/plugin/formatter_')
     {
       'out_file' => Proc.new { OutFileFormatter.new },
       'stdout' => Proc.new { StdoutFormatter.new },
@@ -251,23 +254,22 @@ module Fluent
       'csv' => Proc.new { CsvFormatter.new },
       'single_value' => Proc.new { SingleValueFormatter.new },
     }.each { |name, factory|
-      TEMPLATE_REGISTRY.register(name, factory)
+      Fluent::Plugin.register_formatter(name, factory)
     }
 
     def self.register_template(name, factory_or_proc)
       factory = if factory_or_proc.is_a?(Class) # XXXFormatter
-                  Proc.new { factory_or_proc.new }
+                  factory_or_proc.new
                 elsif factory_or_proc.arity == 3 # Proc.new { |tag, time, record| }
                   Proc.new { ProcWrappedFormatter.new(factory_or_proc) }
                 else # Proc.new { XXXFormatter.new }
                   factory_or_proc
                 end
-
-      TEMPLATE_REGISTRY.register(name, factory)
+      Fluent::Plugin.register_formatter(name, factory)
     end
 
     def self.lookup(format)
-      TEMPLATE_REGISTRY.lookup(format).call
+      Fluent::Plugin.new_formatter(format)
     end
 
     # Keep backward-compatibility

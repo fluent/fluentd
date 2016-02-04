@@ -14,12 +14,13 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/config/configure_proxy'
-  require 'fluent/config/section'
-  require 'fluent/config/error'
-  require 'fluent/registry'
+require 'fluent/config/configure_proxy'
+require 'fluent/config/section'
+require 'fluent/config/error'
+require 'fluent/registry'
+require 'fluent/plugin'
 
+module Fluent
   module Configurable
     def self.included(mod)
       mod.extend(ClassMethods)
@@ -50,9 +51,13 @@ module Fluent
       proxy = self.class.merged_configure_proxy
       conf.corresponding_proxies << proxy
 
-      # In the nested section, can't get plugin class through proxies so get plugin class here
-      plugin_class = Plugin.lookup_name_from_class(proxy.name.to_s)
-      root = Fluent::Config::SectionGenerator.generate(proxy, conf, logger, plugin_class)
+      # Configuration sections must have plugin types to show unused parameters (for what type of plugin)
+      # in configuration files,
+      # but nested sections cannot take the type of root configuration section.
+      # So we need to get plugin type here, and use it in configuration proxies.
+      # ("type" is a stuff specified by '@type' in configuration file)
+      plugin_type = Fluent::Plugin.lookup_type_from_class(proxy.name.to_s)
+      root = Fluent::Config::SectionGenerator.generate(proxy, conf, logger, plugin_type)
       @config_root_section = root
 
       root.instance_eval{ @params.keys }.each do |param_name|

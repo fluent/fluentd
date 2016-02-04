@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/output'
+
 module Fluent
   class CopyOutput < MultiOutput
     Plugin.register_output('copy', self)

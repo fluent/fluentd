@@ -118,7 +118,7 @@ module Fluent
       @started_inputs.map { |i|
         Thread.new do
           begin
-            log.info "shutting down input", type: Plugin.lookup_name_from_class(i.class), plugin_id: i.plugin_id
+            log.info "shutting down input", type: Plugin.lookup_type_from_class(i.class), plugin_id: i.plugin_id
             i.shutdown
           rescue => e
             log.warn "unexpected error while shutting down input plugin", :plugin => i.class, :plugin_id => i.plugin_id, :error_class => e.class, :error => e
