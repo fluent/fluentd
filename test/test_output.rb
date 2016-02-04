@@ -241,7 +241,7 @@ module FluentOutputTest
       Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::TimeSlicedOutput).configure(conf, true)
     end
 
-    sub_test_case "test_force_flush" do
+    sub_test_case "force_flush test" do
       setup do
         time = Time.parse("2011-01-02 13:14:15 UTC")
         Timecop.freeze(time)
@@ -266,7 +266,7 @@ module FluentOutputTest
       end
     end
 
-    sub_test_case "emit check" do
+    sub_test_case "test emit" do
       setup do
         @time = Time.parse("2011-01-02 13:14:15 UTC")
         Timecop.freeze(@time)
