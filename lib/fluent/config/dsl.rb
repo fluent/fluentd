@@ -15,6 +15,7 @@
 #
 
 require 'fluent/config'
+require 'fluent/config/error'
 
 module Fluent
   module Config
@@ -27,10 +28,53 @@ module Fluent
         end
 
         def self.parse(source, source_path="config.rb")
+          confpath = File.dirname(File.expand_path(source_path))
+          endres = parse_include(source, confpath, [])
           Proxy.new('ROOT', nil).eval(source, source_path).to_config_element
         end
-      end
+        def self.parse_include(content,confpath=nil,attrs=[])
+          attrs.push(content)
+          res = /(include|@include).*/m.match(content).to_s
+          res.split("\n").each do |i|
+            content.gsub!(i,"")
+            i.strip!
+            unless i.start_with?("#")
+              url = i.split(%r{\s+})[1]
+              url.gsub!("\"","")
+              u = URI.parse(url)
+              if u.scheme == 'file' || u.path == url
 
+                path = u.path
+                if path[0] != ?/ and path[-1] == ?/
+                    pattern = File.join(File.join(confpath,path),"*.rb")
+                elsif path[0] == ?/ and  path[-1] == ?/
+                    pattern = File.join(path,"*.rb")
+                elsif path[0] == ?/ and path[-1] != ?/
+                    pattern = path
+                end
+                files = Dir.glob(pattern.to_s)
+                if ! files.length.eql?(0) then
+                  files.sort.each { |path|
+                  t = File.read(path)
+                  dirpath = File.dirname(path)
+                  attrs.push(t.force_encoding('utf-8'))
+                  parse_include(t,dirpath,attrs)
+                  }
+                else
+                  raise ConfigParseError, "include error #{pattern} not exists!"
+                end
+              else
+                require 'open-uri'
+                open(url) {|f|
+                  attrs.push(f.read.force_encoding('utf-8'))
+                  parse_include(f.read.force_encoding('utf-8'),nil,attrs=attrs)
+                }
+            end
+          end
+          return attrs.uniq.join("\n")
+        end
+      end
+      
       class Proxy
         def initialize(name, arg)
           @element = Element.new(name, arg, self)
