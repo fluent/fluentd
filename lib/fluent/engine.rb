@@ -18,6 +18,7 @@ module Fluent
   require 'fluent/event_router'
   require 'fluent/root_agent'
   require 'fluent/time'
+  require 'fluent/system_config'
 
   class EngineClass
     def initialize
@@ -34,6 +35,7 @@ module Fluent
 
       @msgpack_factory = MessagePack::Factory.new
       @msgpack_factory.register_type(Fluent::EventTime::TYPE, Fluent::EventTime)
+      @system_config = SystemConfig.new({})
     end
 
     MATCH_CACHE_SIZE = 1024
@@ -42,8 +44,11 @@ module Fluent
     attr_reader :root_agent
     attr_reader :matches, :sources
     attr_reader :msgpack_factory
+    attr_reader :system_config
 
-    def init(opts = {})
+    def init(system_config)
+      @system_config = system_config
+
       BasicSocket.do_not_reverse_lookup = true
       Plugin.load_plugins
       if defined?(Encoding)
@@ -51,11 +56,11 @@ module Fluent
         Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
       end
 
-      suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
-      @suppress_config_dump = opts[:suppress_config_dump] if opts[:suppress_config_dump]
-      @without_source = opts[:without_source] if opts[:without_source]
+      suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
+      @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
+      @without_source = system_config.without_source unless system_config.without_source.nil?
 
-      @root_agent = RootAgent.new(opts)
+      @root_agent = RootAgent.new(@system_config)
 
       self
     end

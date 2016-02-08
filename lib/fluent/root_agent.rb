@@ -19,6 +19,7 @@ module Fluent
 
   require 'fluent/agent'
   require 'fluent/label'
+  require 'fluent/system_config'
 
   #
   # Fluentd forms a tree structure to manage plugins:
@@ -43,7 +44,7 @@ module Fluent
   class RootAgent < Agent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
-    def initialize(opts = {})
+    def initialize(system_config = SystemConfig.new)
       super
 
       @labels = {}
@@ -52,8 +53,8 @@ module Fluent
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
 
-      suppress_interval(opts[:suppress_interval]) if opts[:suppress_interval]
-      @without_source = opts[:without_source] if opts[:without_source]
+      suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
+      @without_source = system_config.without_source unless system_config.without_source.nil?
     end
 
     attr_reader :inputs
