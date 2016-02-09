@@ -67,7 +67,7 @@ module Fluent
     end
 
     def create_drb_uri
-      "drbunix:"  # TODO
+      "drbunix:"
     end
 
     private

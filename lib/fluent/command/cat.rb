@@ -127,13 +127,13 @@ class Writer
     @socket = false
 
     @socket_time = Time.now.to_i
-    @socket_ttl = 10  # TODO
+    @socket_ttl = 10
     @error_history = []
 
     @pending = []
-    @pending_limit = 1024  # TODO
+    @pending_limit = 1024
     @retry_wait = 1
-    @retry_limit = 5  # TODO
+    @retry_limit = 5
 
     super()
   end
