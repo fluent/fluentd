@@ -29,17 +29,17 @@ module Fluent
     desc 'The command (program) to execute. The exec plugin passes the path of a TSV file as the last argumen'
     config_param :command, :string
     desc 'Specify the comma-separated keys when using the tsv format.'
-    config_param :keys, :default => [] do |val|
+    config_param :keys, default: [] do |val|
       val.split(',')
     end
     desc 'The name of the key to use as the event tag. This replaces the value in the event record.'
-    config_param :tag_key, :string, :default => nil
+    config_param :tag_key, :string, default: nil
     desc 'The name of the key to use as the event time. This replaces the the value in the event record.'
-    config_param :time_key, :string, :default => nil
+    config_param :time_key, :string, default: nil
     desc 'The format for event time used when the time_key parameter is specified. The default is UNIX time (integer).'
-    config_param :time_format, :string, :default => nil
+    config_param :time_format, :string, default: nil
     desc "The format used to map the incoming events to the program input. (#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
-    config_param :format, :default => :tsv do |val|
+    config_param :format, default: :tsv do |val|
       f = ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported format '#{val}'" unless f
       f

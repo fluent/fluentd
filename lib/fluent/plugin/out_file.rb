@@ -26,11 +26,11 @@ module Fluent
     desc "The Path of the file."
     config_param :path, :string
     desc "The format of the file content. The default is out_file."
-    config_param :format, :string, :default => 'out_file'
+    config_param :format, :string, default: 'out_file'
     desc "The flushed chunk is appended to existence file or not."
-    config_param :append, :bool, :default => false
+    config_param :append, :bool, default: false
     desc "Compress flushed file."
-    config_param :compress, :default => nil do |val|
+    config_param :compress, default: nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
         raise ConfigError, "Unsupported compression algorithm '#{val}'"
@@ -38,7 +38,7 @@ module Fluent
       c
     end
     desc "Create symlink to temporary buffered file when buffer_type is file."
-    config_param :symlink_path, :string, :default => nil
+    config_param :symlink_path, :string, default: nil
 
     def initialize
       require 'zlib'
@@ -84,7 +84,7 @@ module Fluent
 
     def write(chunk)
       path = generate_path(chunk.key)
-      FileUtils.mkdir_p File.dirname(path), :mode => DEFAULT_DIR_PERMISSION
+      FileUtils.mkdir_p File.dirname(path), mode: DEFAULT_DIR_PERMISSION
 
       case @compress
       when nil

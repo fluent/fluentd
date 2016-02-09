@@ -43,7 +43,7 @@ module Fluent
         msg.chomp!
         @callback.call(msg, addr)
       rescue => e
-        @log.error "unexpected error", :error => e, :error_class => e.class
+        @log.error "unexpected error", error: e, error_class: e.class
       end
     end
 
@@ -79,7 +79,7 @@ module Fluent
         end
         @buffer.slice!(0, pos) if pos > 0
       rescue => e
-        @log.error "unexpected error", :error => e, :error_class => e.class
+        @log.error "unexpected error", error: e, error_class: e.class
         close
       end
 
@@ -99,12 +99,12 @@ module Fluent
       desc 'The format of the payload.'
       config_param :format, :string
       desc 'The port to listen to.'
-      config_param :port, :integer, :default => 5150
+      config_param :port, :integer, default: 5150
       desc 'The bind address to listen to.'
-      config_param :bind, :string, :default => '0.0.0.0'
+      config_param :bind, :string, default: '0.0.0.0'
       desc "The field name of the client's hostname."
-      config_param :source_host_key, :string, :default => nil
-      config_param :blocking_timeout, :time, :default => 0.5
+      config_param :source_host_key, :string, default: nil
+      config_param :blocking_timeout, :time, default: 0.5
 
       def configure(conf)
         super
@@ -130,7 +130,7 @@ module Fluent
       def run
         @loop.run(@blocking_timeout)
       rescue => e
-        log.error "unexpected error", :error => e, :error_class => e.class
+        log.error "unexpected error", error: e, error_class: e.class
         log.error_backtrace
       end
 
@@ -147,7 +147,7 @@ module Fluent
           router.emit(@tag, time, record)
         }
       rescue => e
-        log.error msg.dump, :error => e, :error_class => e.class, :host => addr[3]
+        log.error msg.dump, error: e, error_class: e.class, host: addr[3]
         log.error_backtrace
       end
     end

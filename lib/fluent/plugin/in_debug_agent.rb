@@ -24,11 +24,11 @@ module Fluent
       super
     end
 
-    config_param :bind, :string, :default => '0.0.0.0'
-    config_param :port, :integer, :default => 24230
-    config_param :unix_path, :string, :default => nil
+    config_param :bind, :string, default: '0.0.0.0'
+    config_param :port, :integer, default: 24230
+    config_param :unix_path, :string, default: nil
     #config_param :unix_mode  # TODO
-    config_param :object, :string, :default => 'Engine'
+    config_param :object, :string, default: 'Engine'
 
     def configure(conf)
       super
@@ -46,7 +46,7 @@ module Fluent
       else
         uri = "druby://#{@bind}:#{@port}"
       end
-      log.info "listening dRuby", :uri => uri, :object => @object
+      log.info "listening dRuby", uri: uri, object: @object
       obj = eval(@object)
       @server = DRb::DRbServer.new(uri, obj)
     end

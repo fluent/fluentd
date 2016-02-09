@@ -149,12 +149,12 @@ module Fluent
         begin
           target.emit(tag, es, NullOutputChain.instance)
         rescue
-          $log.warn "failed to emit", :error=>$!.to_s, :pid=>Process.pid
+          $log.warn "failed to emit", error: $!.to_s, pid: Process.pid
           $log.warn_backtrace
         end
       }
     rescue
-      $log.error "error on output process forwarding thread", :error=>$!.to_s, :pid=>Process.pid
+      $log.error "error on output process forwarding thread", error: $!.to_s, pid: Process.pid
       $log.error_backtrace
       raise
     end
@@ -165,12 +165,12 @@ module Fluent
         begin
           Engine.emit_stream(tag, es)
         rescue
-          $log.warn "failed to emit", :error=>$!.to_s, :pid=>Process.pid
+          $log.warn "failed to emit", error: $!.to_s, pid: Process.pid
           $log.warn_backtrace
         end
       }
     rescue
-      $log.error "error on input process forwarding thread", :error=>$!.to_s, :pid=>Process.pid
+      $log.error "error on input process forwarding thread", error: $!.to_s, pid: Process.pid
       $log.error_backtrace
       raise
     end
@@ -264,7 +264,7 @@ module Fluent
           end
         end
       rescue
-        $log.error "error on forwerder thread", :error=>$!.to_s
+        $log.error "error on forwerder thread", error: $!.to_s
         $log.error_backtrace
         raise
       end
@@ -302,7 +302,7 @@ module Fluent
 
         if pid
           # parent process
-          $log.info "detached process", :class=>self.class, :pid=>pid
+          $log.info "detached process", class: self.class, pid: pid
           children << [pid, forward_thread]
           next
         end
@@ -332,7 +332,7 @@ module Fluent
           on_exit_process(i)
           exit! 0
         ensure
-          $log.error "unknown error while shutting down this child process", :error=>$!.to_s, :pid=>Process.pid
+          $log.error "unknown error while shutting down this child process", error: $!.to_s, pid: Process.pid
           $log.error_backtrace
         end
 
@@ -353,7 +353,7 @@ module Fluent
               pair[0] = nil
             end
           rescue
-            $log.error "unknown error while shutting down remote child process", :error=>$!.to_s
+            $log.error "unknown error while shutting down remote child process", error: $!.to_s
             $log.error_backtrace
           end
         }
