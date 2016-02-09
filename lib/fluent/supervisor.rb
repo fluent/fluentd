@@ -15,6 +15,7 @@
 #
 
 require 'fluent/load'
+require 'fluent/system_config'
 require 'etc'
 
 module Fluent
@@ -128,7 +129,8 @@ module Fluent
       @log.init
       show_plugin_config if @show_plugin_config
       read_config
-      apply_system_config
+      @system_config = SystemConfig.create(@conf) # @conf is set in read_config
+      @system_config.apply(self)
 
       dry_run if @dry_run
       start_daemonize if @daemonize
@@ -500,17 +502,6 @@ module Fluent
       end
     end
 
-    # TODO: this method should be moved to SystemConfig class method
-    def apply_system_config
-      systems = @conf.elements.select { |e|
-        e.name == 'system'
-      }
-      return if systems.empty?
-      raise ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
-
-      SystemConfig.new(systems.first).apply(self)
-    end
-
     def run_configure
       Fluent::Engine.run_configure(@conf)
     end
@@ -533,8 +524,7 @@ module Fluent
     end
 
     def init_engine
-      init_opts = {:suppress_interval => @suppress_interval, :suppress_config_dump => @suppress_config_dump, :without_source => @without_source}
-      Fluent::Engine.init(init_opts)
+      Fluent::Engine.init(@system_config)
 
       @libs.each {|lib|
         require lib
