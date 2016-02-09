@@ -14,6 +14,15 @@
 #    limitations under the License.
 #
 
+require 'fileutils'
+require 'socket'
+
+require 'cool.io'
+require 'yajl'
+
+require 'fluent/input'
+require 'fluent/event'
+
 module Fluent
   # obsolete
   class StreamInput < Input

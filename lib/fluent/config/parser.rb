@@ -14,11 +14,13 @@
 #    limitations under the License.
 #
 
+require 'uri'
+
+require 'fluent/config/error'
+require 'fluent/config/element'
+
 module Fluent
   module Config
-    require 'fluent/config/error'
-    require 'fluent/config/element'
-
     class Parser
       def self.parse(io, fname, basepath = Dir.pwd)
         attrs, elems = Parser.new(basepath, io.each_line, fname).parse!(true)

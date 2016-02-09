@@ -14,6 +14,11 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+require 'yajl'
+
+require 'fluent/input'
+
 module Fluent
   class ObjectSpaceInput < Input
     Plugin.register_input('object_space', self)

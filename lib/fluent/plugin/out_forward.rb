@@ -14,6 +14,15 @@
 #    limitations under the License.
 #
 
+require 'base64'
+require 'socket'
+require 'fileutils'
+
+require 'cool.io'
+
+require 'fluent/output'
+require 'fluent/config/error'
+
 module Fluent
   class ForwardOutputError < StandardError
   end
@@ -29,9 +38,6 @@ module Fluent
 
     def initialize
       super
-      require "base64"
-      require 'socket'
-      require 'fileutils'
       require 'fluent/plugin/socket_util'
       @nodes = []  #=> [Node]
     end

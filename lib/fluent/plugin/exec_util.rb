@@ -14,10 +14,15 @@
 #    limitations under the License.
 #
 
+require 'msgpack'
+require 'yajl'
+
+require 'fluent/engine'
+require 'fluent/plugin'
+require 'fluent/parser'
+
 module Fluent
   module ExecUtil
-    require 'fluent/parser'
-
     SUPPORTED_FORMAT = {
       'tsv' => :tsv,
       'json' => :json,

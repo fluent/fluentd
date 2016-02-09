@@ -13,14 +13,17 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
+require 'delegate'
+
+require 'fluent/config/error'
+require 'fluent/agent'
+require 'fluent/engine'
+require 'fluent/label'
+require 'fluent/plugin'
+require 'fluent/system_config'
+
 module Fluent
-
-  require 'delegate'
-
-  require 'fluent/agent'
-  require 'fluent/label'
-  require 'fluent/system_config'
-
   #
   # Fluentd forms a tree structure to manage plugins:
   #

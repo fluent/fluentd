@@ -14,6 +14,16 @@
 #    limitations under the License.
 #
 
+require 'uri'
+require 'socket'
+require 'json'
+
+require 'cool.io'
+
+require 'fluent/input'
+require 'fluent/event'
+require 'fluent/process'
+
 module Fluent
   class HttpInput < Input
     Plugin.register_input('http', self)
@@ -24,7 +34,6 @@ module Fluent
 
     def initialize
       require 'webrick/httputils'
-      require 'uri'
       super
     end
 

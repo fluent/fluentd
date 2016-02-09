@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/output'
+
 module Fluent
   class StdoutOutput < Output
     Plugin.register_output('stdout', self)

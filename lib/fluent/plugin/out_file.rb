@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+require 'fileutils'
+require 'zlib'
+
+require 'fluent/output'
+require 'fluent/config/error'
+
 module Fluent
   class FileOutput < TimeSlicedOutput
     Plugin.register_output('file', self)

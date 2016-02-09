@@ -14,6 +14,10 @@
 #    limitations under the License.
 #
 
+require 'tempfile'
+
+require 'fluent/output'
+require 'fluent/config/error'
 require 'fluent/plugin/exec_util'
 
 module Fluent
@@ -22,7 +26,6 @@ module Fluent
 
     def initialize
       super
-      require 'tempfile'
       @localtime = false
     end
 

@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+require 'thread'
+
+require 'fluent/config'
+require 'fluent/engine'
+require 'fluent/event'
+
 module Fluent
   class DetachProcessManager
     require 'singleton'

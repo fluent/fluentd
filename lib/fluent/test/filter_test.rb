@@ -14,6 +14,9 @@
 #    limitations under the License.
 #
 
+require 'fluent/test/base'
+require 'fluent/event'
+
 module Fluent
   module Test
     class FilterTestDriver < TestDriver

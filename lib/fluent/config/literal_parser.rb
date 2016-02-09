@@ -14,13 +14,16 @@
 #    limitations under the License.
 #
 
+require 'stringio'
+
+require 'json'
+require 'yajl'
+require 'irb/ruby-lex'  # RubyLex
+
+require 'fluent/config/basic_parser'
+
 module Fluent
   module Config
-
-    require 'yajl'
-    require 'fluent/config/basic_parser'
-    require 'irb/ruby-lex'  # RubyLex
-
     class LiteralParser < BasicParser
       def self.unescape_char(c)
         case c

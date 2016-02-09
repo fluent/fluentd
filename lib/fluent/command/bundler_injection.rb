@@ -14,6 +14,9 @@
 #    limitations under the License.
 #
 
+require 'rbconfig'
+require 'rubygems'
+
 if ENV['BUNDLE_BIN_PATH']
   puts 'error: You seem to use `bundle exec` already.'
   exit 1
