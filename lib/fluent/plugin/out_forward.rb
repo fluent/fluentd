@@ -37,9 +37,9 @@ module Fluent
     end
 
     desc 'The timeout time when sending event logs.'
-    config_param :send_timeout, :time, :default => 60
+    config_param :send_timeout, :time, default: 60
     desc 'The transport protocol to use for heartbeats.(udp,tcp,none)'
-    config_param :heartbeat_type, :default => :tcp do |val|
+    config_param :heartbeat_type, default: :tcp do |val|
       case val.downcase
       when 'tcp'
         :tcp
@@ -52,34 +52,34 @@ module Fluent
       end
     end
     desc 'The interval of the heartbeat packer.'
-    config_param :heartbeat_interval, :time, :default => 1
+    config_param :heartbeat_interval, :time, default: 1
     desc 'The wait time before accepting a server fault recovery.'
-    config_param :recover_wait, :time, :default => 10
+    config_param :recover_wait, :time, default: 10
     desc 'The hard timeout used to detect server failure.'
-    config_param :hard_timeout, :time, :default => 60
+    config_param :hard_timeout, :time, default: 60
     desc 'Set TTL to expire DNS cache in seconds.'
-    config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
+    config_param :expire_dns_cache, :time, default: nil  # 0 means disable cache
     desc 'The threshold parameter used to detect server faults.'
-    config_param :phi_threshold, :integer, :default => 16
+    config_param :phi_threshold, :integer, default: 16
     desc 'Use the "Phi accrual failure detector" to detect server failure.'
-    config_param :phi_failure_detector, :bool, :default => true
+    config_param :phi_failure_detector, :bool, default: true
 
     # if any options added that requires extended forward api, fix @extend_internal_protocol
 
     desc 'Change the protocol to at-least-once.'
-    config_param :require_ack_response, :bool, :default => false  # require in_forward to respond with ack
+    config_param :require_ack_response, :bool, default: false  # require in_forward to respond with ack
     desc 'This option is used when require_ack_response is true.'
-    config_param :ack_response_timeout, :time, :default => 190  # 0 means do not wait for ack responses
+    config_param :ack_response_timeout, :time, default: 190  # 0 means do not wait for ack responses
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
     desc 'Enable client-side DNS round robin.'
-    config_param :dns_round_robin, :bool, :default => false # heartbeat_type 'udp' is not available for this
+    config_param :dns_round_robin, :bool, default: false # heartbeat_type 'udp' is not available for this
 
     attr_reader :nodes
 
     # backward compatibility
-    config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
-    config_param :host, :string, :default => nil
+    config_param :port, :integer, default: DEFAULT_LISTEN_PORT
+    config_param :host, :string, default: nil
 
     attr_accessor :extend_internal_protocol
 
@@ -138,7 +138,7 @@ module Fluent
         else
           @nodes << Node.new(log, node_conf)
         end
-        log.info "adding forwarding server '#{name}'", :host=>host, :port=>port, :weight=>weight, :plugin_id=>plugin_id
+        log.info "adding forwarding server '#{name}'", host: host, port: port, weight: weight, plugin_id: plugin_id
       }
 
       if @nodes.empty?
@@ -184,7 +184,7 @@ module Fluent
     def run
       @loop.run if @loop
     rescue
-      log.error "unexpected error", :error=>$!.to_s
+      log.error "unexpected error", error: $!.to_s
       log.error_backtrace
     end
 
@@ -229,13 +229,13 @@ module Fluent
           lost_weight += n.weight
         end
       }
-      log.debug "rebuilding weight array", :lost_weight=>lost_weight
+      log.debug "rebuilding weight array", lost_weight: lost_weight
 
       if lost_weight > 0
         standby_nodes.each {|n|
           if n.available?
             regular_nodes << n
-            log.warn "using standby node #{n.host}:#{n.port}", :weight=>n.weight
+            log.warn "using standby node #{n.host}:#{n.port}", weight: n.weight
             lost_weight -= n.weight
             break if lost_weight <= 0
           end
@@ -401,7 +401,7 @@ module Fluent
           end
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED
           # TODO log
-          log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", :error=>$!.to_s
+          log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", error: $!.to_s
         end
       }
     end
@@ -513,7 +513,7 @@ module Fluent
         end
 
         if @failure.hard_timeout?(now)
-          @log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :hard_timeout=>true
+          @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, hard_timeout: true
           @available = false
           @resolved_host = nil  # expire cached host
           @failure.clear
@@ -524,7 +524,7 @@ module Fluent
           phi = @failure.phi(now)
           #$log.trace "phi '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
           if phi > @conf.phi_threshold
-            @log.warn "detached forwarding server '#{@name}'", :host=>@host, :port=>@port, :phi=>phi
+            @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, phi: phi
             @available = false
             @resolved_host = nil  # expire cached host
             @failure.clear
@@ -540,7 +540,7 @@ module Fluent
         #@log.trace "heartbeat from '#{@name}'", :host=>@host, :port=>@port, :available=>@available, :sample_size=>@failure.sample_size
         if detect && !@available && @failure.sample_size > @conf.recover_sample_size
           @available = true
-          @log.warn "recovered forwarding server '#{@name}'", :host=>@host, :port=>@port
+          @log.warn "recovered forwarding server '#{@name}'", host: @host, port: @port
           return true
         else
           return nil

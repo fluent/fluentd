@@ -140,11 +140,11 @@ module Fluent
     # Local file based plugins which should provide more reliability and efficiency
     # should override buffer_chunk_limit with a larger size.
     desc 'The size of each buffer chunk.'
-    config_param :buffer_chunk_limit, :size, :default => 8*1024*1024
+    config_param :buffer_chunk_limit, :size, default: 8*1024*1024
     desc 'The length limit of the chunk queue.'
-    config_param :buffer_queue_limit, :integer, :default => 256
+    config_param :buffer_queue_limit, :integer, default: 256
     desc 'The action when the size of buffer queue exceeds the buffer_queue_limit.'
-    config_param :buffer_queue_full_action, :enum, :list => [:exception, :block], :default => :exception
+    config_param :buffer_queue_full_action, :enum, list: [:exception, :block], default: :exception
 
     alias chunk_limit buffer_chunk_limit
     alias chunk_limit= buffer_chunk_limit=

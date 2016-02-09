@@ -25,10 +25,10 @@ module Fluent
       super
     end
 
-    config_param :bind, :string, :default => '0.0.0.0'
-    config_param :port, :integer, :default => 24220
-    config_param :tag, :string, :default => nil
-    config_param :emit_interval, :time, :default => 60
+    config_param :bind, :string, default: '0.0.0.0'
+    config_param :port, :integer, default: 24220
+    config_param :tag, :string, default: nil
+    config_param :emit_interval, :time, default: 60
 
     class MonitorServlet < WEBrick::HTTPServlet::AbstractServlet
       def initialize(server, agent)
@@ -234,10 +234,10 @@ module Fluent
     def start
       log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
       @srv = WEBrick::HTTPServer.new({
-          :BindAddress => @bind,
-          :Port => @port,
-          :Logger => WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
-          :AccessLog => [],
+          BindAddress: @bind,
+          Port: @port,
+          Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
+          AccessLog: [],
         })
       @srv.mount('/api/plugins', LTSVMonitorServlet, self)
       @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
@@ -250,7 +250,7 @@ module Fluent
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
         @loop = Coolio::Loop.new
-        opts = {:with_config => false}
+        opts = {with_config: false}
         timer = TimerWatcher.new(@emit_interval, log) {
           es = MultiEventStream.new
           now = Engine.now
@@ -267,7 +267,7 @@ module Fluent
     def run
       @loop.run
     rescue => e
-      log.error "unexpected error", :error => e.to_s
+      log.error "unexpected error", error: e.to_s
       log.error_backtrace
     end
 

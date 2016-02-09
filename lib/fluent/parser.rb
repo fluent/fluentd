@@ -27,7 +27,7 @@ module Fluent
     # 'configure()' may raise errors for unexpected configurations
     attr_accessor :estimate_current_event
 
-    config_param :keep_time_key, :bool, :default => false
+    config_param :keep_time_key, :bool, default: false
 
     def initialize
       super
@@ -119,9 +119,9 @@ module Fluent
 
       def self.included(klass)
         klass.instance_eval {
-          config_param :types, :string, :default => nil
-          config_param :types_delimiter, :string, :default => ','
-          config_param :types_label_delimiter, :string, :default => ':'
+          config_param :types, :string, default: nil
+          config_param :types_delimiter, :string, default: ','
+          config_param :types_label_delimiter, :string, default: ':'
         }
       end
 
@@ -168,8 +168,8 @@ module Fluent
     class RegexpParser < Parser
       include TypeConverter
 
-      config_param :time_key, :string, :default => 'time'
-      config_param :time_format, :string, :default => nil
+      config_param :time_key, :string, default: 'time'
+      config_param :time_format, :string, default: nil
 
       def initialize(regexp, conf={})
         super()
@@ -233,9 +233,9 @@ module Fluent
     end
 
     class JSONParser < Parser
-      config_param :time_key, :string, :default => 'time'
-      config_param :time_format, :string, :default => nil
-      config_param :json_parser, :string, :default => 'oj'
+      config_param :time_key, :string, default: 'time'
+      config_param :time_format, :string, default: nil
+      config_param :json_parser, :string, default: 'oj'
 
       def configure(conf)
         super
@@ -248,7 +248,7 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
-          Oj.default_options = {:bigdecimal_load => :float}
+          Oj.default_options = {bigdecimal_load: :float}
           @load_proc = Oj.method(:load)
           @error_class = Oj::ParseError
         rescue LoadError
@@ -288,17 +288,17 @@ module Fluent
     class ValuesParser < Parser
       include TypeConverter
 
-      config_param :keys, :default => [] do |val|
+      config_param :keys, default: [] do |val|
         if val.start_with?('[') # This check is enough because keys parameter is simple. No '[' started column name.
           JSON.load(val)
         else
           val.split(",")
         end
       end
-      config_param :time_key, :string, :default => nil
-      config_param :time_format, :string, :default => nil
-      config_param :null_value_pattern, :string, :default => nil
-      config_param :null_empty_string, :bool, :default => false
+      config_param :time_key, :string, default: nil
+      config_param :time_format, :string, default: nil
+      config_param :null_value_pattern, :string, default: nil
+      config_param :null_empty_string, :bool, default: false
 
       def configure(conf)
         super
@@ -367,7 +367,7 @@ module Fluent
     end
 
     class TSVParser < ValuesParser
-      config_param :delimiter, :string, :default => "\t"
+      config_param :delimiter, :string, default: "\t"
 
       def configure(conf)
         super
@@ -380,9 +380,9 @@ module Fluent
     end
 
     class LabeledTSVParser < ValuesParser
-      config_param :delimiter,       :string, :default => "\t"
-      config_param :label_delimiter, :string, :default =>  ":"
-      config_param :time_key, :string, :default =>  "time"
+      config_param :delimiter,       :string, default: "\t"
+      config_param :label_delimiter, :string, default: ":"
+      config_param :time_key, :string, default: "time"
 
       def configure(conf)
         conf['keys'] = conf['time_key'] || 'time'
@@ -415,7 +415,7 @@ module Fluent
     end
 
     class NoneParser < Parser
-      config_param :message_key, :string, :default => 'message'
+      config_param :message_key, :string, default: 'message'
 
       def parse(text)
         record = {}
@@ -492,8 +492,8 @@ module Fluent
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
 
-      config_param :time_format, :string, :default => "%b %d %H:%M:%S"
-      config_param :with_priority, :bool, :default => false
+      config_param :time_format, :string, default: "%b %d %H:%M:%S"
+      config_param :with_priority, :bool, default: false
 
       def initialize
         super
@@ -544,7 +544,7 @@ module Fluent
     end
 
     class MultilineParser < Parser
-      config_param :format_firstline, :string, :default => nil
+      config_param :format_firstline, :string, default: nil
 
       FORMAT_MAX_NUM = 20
 

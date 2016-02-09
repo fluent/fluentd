@@ -35,19 +35,19 @@ module Fluent
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
-    config_param :exclude_path, :array, :default => []
+    config_param :exclude_path, :array, default: []
     desc 'Specify interval to keep reference to old file when rotate a file.'
-    config_param :rotate_wait, :time, :default => 5
+    config_param :rotate_wait, :time, default: 5
     desc 'Fluentd will record the position it last read into this file.'
-    config_param :pos_file, :string, :default => nil
+    config_param :pos_file, :string, default: nil
     desc 'Start to read the logs from the head of file, not bottom.'
-    config_param :read_from_head, :bool, :default => false
+    config_param :read_from_head, :bool, default: false
     desc 'The interval of refreshing the list of watch file.'
-    config_param :refresh_interval, :time, :default => 60
+    config_param :refresh_interval, :time, default: 60
     desc 'The number of reading lines at each IO.'
-    config_param :read_lines_limit, :integer, :default => 1000
+    config_param :read_lines_limit, :integer, default: 1000
     desc 'The interval of flushing the buffer for multiline format'
-    config_param :multiline_flush_interval, :time, :default => nil
+    config_param :multiline_flush_interval, :time, default: nil
 
     attr_reader :paths
 
@@ -238,7 +238,7 @@ module Fluent
     def run
       @loop.run
     rescue
-      log.error "unexpected error", :error=>$!.to_s
+      log.error "unexpected error", error: $!.to_s
       log.error_backtrace
     end
 
@@ -269,7 +269,7 @@ module Fluent
           end
         }
       rescue => e
-        log.warn line.dump, :error => e.to_s
+        log.warn line.dump, error: e.to_s
         log.debug_backtrace(e.backtrace)
       end
     end

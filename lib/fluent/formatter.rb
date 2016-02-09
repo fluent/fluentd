@@ -33,13 +33,13 @@ module Fluent
     module HandleTagAndTimeMixin
       def self.included(klass)
         klass.instance_eval {
-          config_param :include_time_key, :bool, :default => false
-          config_param :time_key, :string, :default => 'time'
-          config_param :time_format, :string, :default => nil
-          config_param :include_tag_key, :bool, :default => false
-          config_param :tag_key, :string, :default => 'tag'
-          config_param :localtime, :bool, :default => true
-          config_param :timezone, :string, :default => nil
+          config_param :include_time_key, :bool, default: false
+          config_param :time_key, :string, default: 'time'
+          config_param :time_format, :string, default: nil
+          config_param :include_tag_key, :bool, default: false
+          config_param :tag_key, :string, default: 'tag'
+          config_param :localtime, :bool, default: true
+          config_param :timezone, :string, default: nil
         }
       end
 
@@ -65,9 +65,9 @@ module Fluent
     class OutFileFormatter < Formatter
       include HandleTagAndTimeMixin
 
-      config_param :output_time, :bool, :default => true
-      config_param :output_tag, :bool, :default => true
-      config_param :delimiter, :default => "\t" do |val|
+      config_param :output_time, :bool, default: true
+      config_param :output_tag, :bool, default: true
+      config_param :delimiter, default: "\t" do |val|
         case val
         when /SPACE/i then ' '
         when /COMMA/i then ','
@@ -85,7 +85,7 @@ module Fluent
     end
 
     class StdoutFormatter < Formatter
-      config_param :output_type, :string, :default => 'json'
+      config_param :output_type, :string, default: 'json'
 
       def configure(conf)
         super
@@ -103,7 +103,7 @@ module Fluent
     module StructuredFormatMixin
       def self.included(klass)
         klass.instance_eval {
-          config_param :time_as_epoch, :bool, :default => false
+          config_param :time_as_epoch, :bool, default: false
         }
       end
 
@@ -131,7 +131,7 @@ module Fluent
       include HandleTagAndTimeMixin
       include StructuredFormatMixin
 
-      config_param :json_parser, :string, :default => 'oj'
+      config_param :json_parser, :string, default: 'oj'
 
       def configure(conf)
         super
@@ -139,7 +139,7 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
-          Oj.default_options = {:mode => :compat}
+          Oj.default_options = {mode: :compat}
           @dump_proc = Oj.method(:dump)
         rescue LoadError
           @dump_proc = Yajl.method(:dump)
@@ -172,8 +172,8 @@ module Fluent
     class LabeledTSVFormatter < Formatter
       include HandleTagAndTimeMixin
 
-      config_param :delimiter, :string, :default => "\t"
-      config_param :label_delimiter, :string, :default =>  ":"
+      config_param :delimiter, :string, default: "\t"
+      config_param :label_delimiter, :string, default: ":"
 
       def format(tag, time, record)
         filter_record(tag, time, record)
@@ -189,11 +189,11 @@ module Fluent
     class CsvFormatter < Formatter
       include HandleTagAndTimeMixin
 
-      config_param :delimiter, :default => ',' do |val|
+      config_param :delimiter, default: ',' do |val|
         ['\t', 'TAB'].include?(val) ? "\t" : val
       end
-      config_param :force_quotes, :bool, :default => true
-      config_param :fields, :default => [] do |val|
+      config_param :force_quotes, :bool, default: true
+      config_param :fields, default: [] do |val|
         val.split(',').map do |f|
           f.strip!
           f.size > 0 ? f : nil
@@ -211,14 +211,14 @@ module Fluent
             memo << record[key]
             memo
         end
-        CSV.generate_line(row, :col_sep => @delimiter,
-                          :force_quotes => @force_quotes)
+        CSV.generate_line(row, col_sep: @delimiter,
+                          force_quotes: @force_quotes)
       end
     end
 
     class SingleValueFormatter < Formatter
-      config_param :message_key, :string, :default => 'message'
-      config_param :add_newline, :bool, :default => true
+      config_param :message_key, :string, default: 'message'
+      config_param :add_newline, :bool, default: true
 
       def format(tag, time, record)
         text = record[@message_key].to_s.dup

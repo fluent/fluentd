@@ -89,22 +89,22 @@ module Fluent
 
     def self.default_options
       {
-        :config_path => Fluent::DEFAULT_CONFIG_PATH,
-        :plugin_dirs => [Fluent::DEFAULT_PLUGIN_DIR],
-        :log_level => Fluent::Log::LEVEL_INFO,
-        :log_path => nil,
-        :daemonize => nil,
-        :libs => [],
-        :setup_path => nil,
-        :chuser => nil,
-        :chgroup => nil,
-        :suppress_interval => 0,
-        :suppress_repeated_stacktrace => true,
-        :without_source => false,
-        :use_v1_config => true,
-        :supervise => true,
-        :signame => nil,
-        :winsvcreg => nil,
+        config_path: Fluent::DEFAULT_CONFIG_PATH,
+        plugin_dirs: [Fluent::DEFAULT_PLUGIN_DIR],
+        log_level: Fluent::Log::LEVEL_INFO,
+        log_path: nil,
+        daemonize: nil,
+        libs: [],
+        setup_path: nil,
+        chuser: nil,
+        chgroup: nil,
+        suppress_interval: 0,
+        suppress_repeated_stacktrace: true,
+        without_source: false,
+        use_v1_config: true,
+        supervise: true,
+        signame: nil,
+        winsvcreg: nil,
       }
     end
 
@@ -137,7 +137,7 @@ module Fluent
         @rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
         @winosvi = windows_version
       end
-      log_opts = {:suppress_repeated_stacktrace => opt[:suppress_repeated_stacktrace]}
+      log_opts = {suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace]}
       @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
       @finished = false
       @main_pid = nil
@@ -378,7 +378,7 @@ module Fluent
         @th_sv.join rescue nil
       end
 
-      $log.info "process finished", :code=>ecode
+      $log.info "process finished", code: ecode
 
       if !@finished && Time.now - start_time < 1
         $log.warn "process died within 1 second. exit."
@@ -396,20 +396,20 @@ module Fluent
         end
 
       rescue Fluent::ConfigError
-        $log.error "config error", :file=>@config_path, :error=>$!.to_s
+        $log.error "config error", file: @config_path, error: $!.to_s
         $log.debug_backtrace
         unless @log.stdout?
           console = Fluent::Log.new(STDOUT, @log_level).enable_debug
-          console.error "config error", :file=>@config_path, :error=>$!.to_s
+          console.error "config error", file: @config_path, error: $!.to_s
           console.debug_backtrace
         end
 
       rescue
-        $log.error "unexpected error", :error=>$!.to_s
+        $log.error "unexpected error", error: $!.to_s
         $log.error_backtrace
         unless @log.stdout?
           console = Fluent::Log.new(STDOUT, @log_level).enable_debug
-          console.error "unexpected error", :error=>$!.to_s
+          console.error "unexpected error", error: $!.to_s
           console.error_backtrace
         end
       end
@@ -508,7 +508,7 @@ module Fluent
     end
 
     def read_config
-      $log.info "reading config file", :path => @config_path
+      $log.info "reading config file", path: @config_path
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
       @config_data = File.read(@config_path)
@@ -523,16 +523,16 @@ module Fluent
     class SystemConfig
       include Configurable
 
-      config_param :log_level, :default => nil do |level|
+      config_param :log_level, default: nil do |level|
         Log.str_to_level(level)
       end
-      config_param :suppress_repeated_stacktrace, :bool, :default => nil
-      config_param :emit_error_log_interval, :time, :default => nil
-      config_param :suppress_config_dump, :bool, :default => nil
-      config_param :without_source, :bool, :default => nil
-      config_param :rpc_endpoint, :string, :default => nil
-      config_param :enable_get_dump, :bool, :default => nil
-      config_param :process_name, :default => nil
+      config_param :suppress_repeated_stacktrace, :bool, default: nil
+      config_param :emit_error_log_interval, :time, default: nil
+      config_param :suppress_config_dump, :bool, default: nil
+      config_param :without_source, :bool, default: nil
+      config_param :rpc_endpoint, :string, default: nil
+      config_param :enable_get_dump, :bool, default: nil
+      config_param :process_name, default: nil
 
       def initialize(conf)
         super()

@@ -7,14 +7,14 @@ module ConfigurableSpec
   class Base1
     include Fluent::Configurable
 
-    config_param :node, :string, :default => "node"
-    config_param :flag1, :bool, :default => false
-    config_param :flag2, :bool, :default => true
+    config_param :node, :string, default: "node"
+    config_param :flag1, :bool, default: false
+    config_param :flag2, :bool, default: true
 
     config_param :name1, :string
     config_param :name2, :string
-    config_param :name3, :string, :default => "base1"
-    config_param :name4, :string, :default => "base1"
+    config_param :name3, :string, default: "base1"
+    config_param :name4, :string, default: "base1"
 
     config_param :opt1, :enum, list: [:foo, :bar, :baz]
     config_param :opt2, :enum, list: [:foo, :bar, :baz], default: :foo
@@ -29,7 +29,7 @@ module ConfigurableSpec
     config_set_default :name4, "base2"
     config_set_default :opt1, :bar
     config_param :name5, :string
-    config_param :name6, :string, :default => "base2"
+    config_param :name6, :string, default: "base2"
     config_param :opt3, :enum, list: [:a, :b]
 
     def get_all
@@ -41,7 +41,7 @@ module ConfigurableSpec
   class Base3 < Base2
     config_set_default :opt3, :a
     config_section :node do
-      config_param :name, :string, :default => "node"
+      config_param :name, :string, default: "node"
       config_param :type, :string
     end
     config_section :branch, required: true, multi: true do
@@ -65,8 +65,8 @@ module ConfigurableSpec
     config_set_default :opt3, :a
     config_section :node, param_name: :nodes do
       config_argument :num, :integer
-      config_param :name, :string, :default => "node"
-      config_param :type, :string, :default => "b4"
+      config_param :name, :string, default: "node"
+      config_param :type, :string, default: "b4"
     end
     config_section :description1, required: false, multi: false do
       config_argument :note, :string, default: "desc1"
@@ -151,11 +151,11 @@ module ConfigurableSpec
     include Fluent::Configurable
 
     config_param :normal_param, :string
-    config_param :secret_param, :string, :secret => true
+    config_param :secret_param, :string, secret: true
 
     config_section :section  do
       config_param :normal_param2, :string
-      config_param :secret_param2, :string, :secret => true
+      config_param :secret_param2, :string, secret: true
     end
   end
 end

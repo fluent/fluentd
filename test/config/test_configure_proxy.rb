@@ -127,7 +127,7 @@ module Fluent::Config
         test 'does not permit description specification twice' do
           @proxy.desc("description1")
           assert_raise(ArgumentError) do
-            @proxy.config_param(:name, :string, :desc => "description2")
+            @proxy.config_param(:name, :string, desc: "description2")
           end
         end
       end

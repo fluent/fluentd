@@ -71,7 +71,7 @@ module Fluent
     end
 
     desc 'If true, queued chunks are flushed at shutdown process. Otherwise queued chunks are discarded'
-    config_param :flush_at_shutdown, :bool, :default => true
+    config_param :flush_at_shutdown, :bool, default: true
     # Overwrite default BasicBuffer#buffer_queue_limit
     # to limit total memory usage upto 512MB.
     config_set_default :buffer_queue_limit, 64

@@ -25,8 +25,8 @@ module Fluent
 
     REGEXP_MAX_NUM = 20
 
-    (1..REGEXP_MAX_NUM).each {|i| config_param :"regexp#{i}",  :string, :default => nil }
-    (1..REGEXP_MAX_NUM).each {|i| config_param :"exclude#{i}", :string, :default => nil }
+    (1..REGEXP_MAX_NUM).each {|i| config_param :"regexp#{i}",  :string, default: nil }
+    (1..REGEXP_MAX_NUM).each {|i| config_param :"exclude#{i}", :string, default: nil }
 
     # for test
     attr_reader :regexps
@@ -67,7 +67,7 @@ module Fluent
           result = record
         end
       rescue => e
-        log.warn "failed to grep events", :error_class => e.class, :error => e.message
+        log.warn "failed to grep events", error_class: e.class, error: e.message
         log.warn_backtrace
       end
       result
