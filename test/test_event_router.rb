@@ -1,3 +1,4 @@
+require_relative 'helper'
 require 'fluent/event_router'
 require_relative 'test_plugin_classes'
 

@@ -66,7 +66,7 @@ op.on('--message-key KEY', "key field for none format (default: #{message_key})"
   message_key = s
 }
 
-(class<<self;self;end).module_eval do
+(class << self; self; end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
     puts "error: #{msg}" if msg

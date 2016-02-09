@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+require 'fluent/config'
+require 'fluent/configurable'
+require 'fluent/engine'
+require 'fluent/event'
+require 'fluent/log'
+
 module Fluent
   class Filter
     include Configurable

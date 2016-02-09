@@ -14,10 +14,11 @@
 #    limitations under the License.
 #
 
+require 'fluent/formatter'
+require 'fluent/config'
+
 module Fluent
   module Test
-    require 'fluent/config'
-
     class FormatterTestDriver
       def initialize(klass_or_str, proc=nil, &block)
         if klass_or_str.is_a?(Class)

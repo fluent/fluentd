@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/test'
 require 'fluent/event'
+require 'fluent/process'
 require 'stringio'
 require 'msgpack'
 

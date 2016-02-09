@@ -14,7 +14,10 @@
 #    limitations under the License.
 #
 
+require 'json'
+
 require 'fluent/config'
+require 'fluent/config/element'
 
 module Fluent
   module Config

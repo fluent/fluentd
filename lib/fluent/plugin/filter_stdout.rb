@@ -14,6 +14,9 @@
 #    limitations under the License.
 #
 
+require 'fluent/filter'
+require 'fluent/plugin'
+
 module Fluent
   class StdoutFilter < Filter
     Plugin.register_filter('stdout', self)

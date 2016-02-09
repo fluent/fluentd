@@ -14,10 +14,11 @@
 #    limitations under the License.
 #
 
+require 'fluent/parser'
+require 'fluent/config'
+
 module Fluent
   module Test
-    require 'fluent/config'
-
     class ParserTestDriver
       def initialize(klass_or_str, format=nil, conf={}, &block)
         if klass_or_str.is_a?(Class)

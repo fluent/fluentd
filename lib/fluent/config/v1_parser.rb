@@ -14,14 +14,16 @@
 #    limitations under the License.
 #
 
+require 'strscan'
+require 'uri'
+
+require 'fluent/config/error'
+require 'fluent/config/basic_parser'
+require 'fluent/config/literal_parser'
+require 'fluent/config/element'
+
 module Fluent
   module Config
-
-    require 'strscan'
-    require 'fluent/config/error'
-    require 'fluent/config/literal_parser'
-    require 'fluent/config/element'
-
     class V1Parser < LiteralParser
       ELEMENT_NAME = /[a-zA-Z0-9_]+/
 

@@ -13,6 +13,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
+
+require 'monitor'
+require 'fileutils'
+
+require 'fluent/configurable'
+
 module Fluent
   class BufferError < StandardError
   end

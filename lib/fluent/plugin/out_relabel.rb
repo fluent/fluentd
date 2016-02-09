@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/output'
+
 module Fluent
   class RelabelOutput < Output
     Plugin.register_output('relabel', self)

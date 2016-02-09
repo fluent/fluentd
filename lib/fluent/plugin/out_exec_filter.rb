@@ -14,7 +14,14 @@
 #    limitations under the License.
 #
 
+require 'yajl'
+
+require 'fluent/output'
+require 'fluent/env'
+require 'fluent/time'
+require 'fluent/timezone'
 require 'fluent/plugin/exec_util'
+require 'fluent/config/error'
 
 module Fluent
   class ExecFilterOutput < BufferedOutput

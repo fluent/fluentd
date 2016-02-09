@@ -14,12 +14,11 @@
 #    limitations under the License.
 #
 
+require 'stringio'
+require 'fluent/config/error'
+
 module Fluent
   module Config
-
-    require 'stringio'
-    require 'fluent/config/error'
-
     class BasicParser
       def initialize(strscan)
         @ss = strscan

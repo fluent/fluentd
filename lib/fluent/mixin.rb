@@ -14,10 +14,12 @@
 #    limitations under the License.
 #
 
+require 'fluent/timezone'
+require 'fluent/time'
+require 'fluent/config/error'
+
 module Fluent
   class TimeFormatter
-    require 'fluent/timezone'
-
     def initialize(format, localtime, timezone = nil)
       @tc1 = 0
       @tc1_str = nil

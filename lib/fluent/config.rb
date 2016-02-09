@@ -14,10 +14,11 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/config/error'
-  require 'fluent/config/element'
+require 'fluent/config/error'
+require 'fluent/config/element'
+require 'fluent/configurable'
 
+module Fluent
   module Config
     def self.parse(str, fname, basepath = Dir.pwd, v1_config = false)
       if fname =~ /\.rb$/
@@ -38,8 +39,6 @@ module Fluent
       Element.new(name, '', {}, [])
     end
   end
-
-  require 'fluent/configurable'
 
   module PluginId
     def configure(conf)

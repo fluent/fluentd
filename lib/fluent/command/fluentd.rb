@@ -15,6 +15,7 @@
 #
 
 require 'optparse'
+
 require 'fluent/supervisor'
 
 op = OptionParser.new
@@ -119,7 +120,7 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
   opts[:gem_install_path] = s
 }
 
-(class<<self;self;end).module_eval do
+(class << self; self; end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
     puts "error: #{msg}" if msg

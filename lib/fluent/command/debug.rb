@@ -34,7 +34,7 @@ op.on('-u', '--unix PATH', "use unix socket instead of tcp") {|b|
   unix = b
 }
 
-(class<<self;self;end).module_eval do
+(class << self; self; end).module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
     puts "error: #{msg}" if msg
@@ -60,7 +60,8 @@ else
   uri = "druby://#{host}:#{port}"
 end
 
-require 'fluent/load'
+require 'fluent/log'
+require 'fluent/engine'
 
 $log = Fluent::Log.new(STDERR, Fluent::Log::LEVEL_TRACE)
 Fluent::Engine.init

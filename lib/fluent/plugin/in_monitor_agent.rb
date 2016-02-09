@@ -14,16 +14,19 @@
 #    limitations under the License.
 #
 
+require 'json'
+require 'webrick'
+require 'cgi'
+
+require 'cool.io'
+
+require 'fluent/input'
+require 'fluent/output'
+require 'fluent/filter'
+
 module Fluent
   class MonitorAgentInput < Input
     Plugin.register_input('monitor_agent', self)
-
-    require 'webrick'
-
-    def initialize
-      require 'cgi'
-      super
-    end
 
     config_param :bind, :string, default: '0.0.0.0'
     config_param :port, :integer, default: 24220

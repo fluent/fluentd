@@ -14,12 +14,21 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/event_router'
-  require 'fluent/root_agent'
-  require 'fluent/time'
-  require 'fluent/system_config'
+require 'socket'
+require 'rubygems'
 
+require 'msgpack'
+require 'cool.io'
+
+require 'fluent/config'
+require 'fluent/event'
+require 'fluent/event_router'
+require 'fluent/root_agent'
+require 'fluent/time'
+require 'fluent/system_config'
+require 'fluent/plugin'
+
+module Fluent
   class EngineClass
     class DummyMessagePackFactory
       def packer(*args)

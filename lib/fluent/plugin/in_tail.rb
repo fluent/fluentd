@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+
+require 'fluent/input'
+require 'fluent/config/error'
+require 'fluent/event'
+
 module Fluent
   class NewTailInput < Input
     Plugin.register_input('tail', self)

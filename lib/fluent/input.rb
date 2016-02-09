@@ -14,6 +14,11 @@
 #    limitations under the License.
 #
 
+require 'fluent/config'
+require 'fluent/configurable'
+require 'fluent/engine'
+require 'fluent/log'
+
 module Fluent
   class Input
     include Configurable

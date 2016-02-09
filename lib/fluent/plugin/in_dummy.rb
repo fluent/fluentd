@@ -14,6 +14,11 @@
 #    limitations under the License.
 #
 
+require 'json'
+
+require 'fluent/input'
+require 'fluent/config/error'
+
 module Fluent
   class DummyInput < Input
     Fluent::Plugin.register_input('dummy', self)

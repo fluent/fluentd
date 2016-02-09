@@ -14,10 +14,10 @@
 #    limitations under the License.
 #
 
+require 'webrick'
+
 module Fluent
   module RPC
-    require 'webrick'
-
     class Server
       def initialize(endpoint, log)
         bind, port = endpoint.split(':')
