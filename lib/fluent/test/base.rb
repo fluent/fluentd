@@ -18,7 +18,7 @@ module Fluent
   module Test
     def self.setup
       Fluent.__send__(:remove_const, :Engine)
-      engine = Fluent.const_set(:Engine, EngineClass.new).init
+      engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
 
       engine.define_singleton_method(:now=) {|n|
         @now = n

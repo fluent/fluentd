@@ -1,4 +1,5 @@
 require 'fluent/event_router'
+require 'fluent/system_config'
 require_relative 'test_plugin_classes'
 
 class RootAgentTest < ::Test::Unit::TestCase
@@ -12,12 +13,12 @@ class RootAgentTest < ::Test::Unit::TestCase
   end
 
   data(
-    'suppress interval' => [{:suppress_interval => 30}, {:@suppress_emit_error_log_interval => 30}],
-    'without source' => [{:without_source => true}, {:@without_source => true}]
+    'suppress interval' => [{'emit_error_log_interval' => 30}, {:@suppress_emit_error_log_interval => 30}],
+    'without source' => [{'without_source' => true}, {:@without_source => true}]
     )
   def test_initialize_with_opt(data)
     opt, expected = data
-    ra = RootAgent.new(opt)
+    ra = RootAgent.new(SystemConfig.new(opt))
     expected.each { |k, v|
       assert_equal v, ra.instance_variable_get(k)
     }
