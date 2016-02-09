@@ -621,7 +621,6 @@ module Fluent
       end
 
       trap :HUP do
-        # TODO
         $log.debug "fluentd main process get SIGHUP"
       end unless Fluent.windows?
 
