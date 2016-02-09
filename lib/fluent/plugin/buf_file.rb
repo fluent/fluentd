@@ -98,7 +98,7 @@ module Fluent
     desc 'The path where buffer chunks are stored.'
     config_param :buffer_path, :string
     desc 'If true, queued chunks are flushed at shutdown process.'
-    config_param :flush_at_shutdown, :bool, :default => false
+    config_param :flush_at_shutdown, :bool, default: false
 
     # 'symlink_path' is currently only for out_file.
     # That is the reason why this is not config_param, but attr_accessor.
@@ -125,7 +125,7 @@ module Fluent
     end
 
     def start
-      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path"), :mode => DEFAULT_DIR_PERMISSION
+      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path"), mode: DEFAULT_DIR_PERMISSION
       super
     end
 

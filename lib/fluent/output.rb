@@ -88,7 +88,7 @@ module Fluent
 
     def secondary_init(primary)
       if primary.class != self.class
-        $log.warn "type of secondary output should be same as primary output", :primary=>primary.class.to_s, :secondary=>self.class.to_s
+        $log.warn "type of secondary output should be same as primary output", primary: primary.class.to_s, secondary: self.class.to_s
       end
     end
 
@@ -154,7 +154,7 @@ module Fluent
         @mutex.unlock
       end
     rescue
-      $log.error "error on output thread", :error=>$!.to_s
+      $log.error "error on output thread", error: $!.to_s
       $log.error_backtrace
       raise
     ensure
@@ -182,22 +182,22 @@ module Fluent
     end
 
     desc 'The buffer type (memory, file)'
-    config_param :buffer_type, :string, :default => 'memory'
+    config_param :buffer_type, :string, default: 'memory'
     desc 'The interval between data flushes.'
-    config_param :flush_interval, :time, :default => 60
-    config_param :try_flush_interval, :float, :default => 1
+    config_param :flush_interval, :time, default: 60
+    config_param :try_flush_interval, :float, default: 1
     desc 'If true, the value of `retry_value` is ignored and there is no limit'
-    config_param :disable_retry_limit, :bool, :default => false
+    config_param :disable_retry_limit, :bool, default: false
     desc 'The limit on the number of retries before buffered data is discarded'
-    config_param :retry_limit, :integer, :default => 17
+    config_param :retry_limit, :integer, default: 17
     desc 'The initial intervals between write retries.'
-    config_param :retry_wait, :time, :default => 1.0
+    config_param :retry_wait, :time, default: 1.0
     desc 'The maximum intervals between write retries.'
-    config_param :max_retry_wait, :time, :default => nil
+    config_param :max_retry_wait, :time, default: nil
     desc 'The number of threads to flush the buffer.'
-    config_param :num_threads, :integer, :default => 1
+    config_param :num_threads, :integer, default: 1
     desc 'The interval between data flushes for queued chunk.'
-    config_param :queued_chunk_flush_interval, :time, :default => 1
+    config_param :queued_chunk_flush_interval, :time, default: 1
 
     def configure(conf)
       super
@@ -333,7 +333,7 @@ module Fluent
           @num_errors = 0
           # Note: don't notify to other threads to prevent
           #       burst to recovered server
-          $log.warn "retry succeeded.", :plugin_id=>plugin_id
+          $log.warn "retry succeeded.", plugin_id: plugin_id
         end
 
         if has_next
@@ -358,20 +358,20 @@ module Fluent
         end
 
         if @disable_retry_limit || error_count < @retry_limit
-          $log.warn "temporarily failed to flush the buffer.", :next_retry=>Time.at(@next_retry_time), :error_class=>e.class.to_s, :error=>e.to_s, :plugin_id=>plugin_id
+          $log.warn "temporarily failed to flush the buffer.", next_retry: Time.at(@next_retry_time), error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
           $log.warn_backtrace e.backtrace
 
         elsif @secondary
           if error_count == @retry_limit
-            $log.warn "failed to flush the buffer.", :error_class=>e.class.to_s, :error=>e.to_s, :plugin_id=>plugin_id
+            $log.warn "failed to flush the buffer.", error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
             $log.warn "retry count exceededs limit. falling back to secondary output."
             $log.warn_backtrace e.backtrace
             retry  # retry immediately
           elsif error_count <= @retry_limit + @secondary_limit
-            $log.warn "failed to flush the buffer, next retry will be with secondary output.", :next_retry=>Time.at(@next_retry_time), :error_class=>e.class.to_s, :error=>e.to_s, :plugin_id=>plugin_id
+            $log.warn "failed to flush the buffer, next retry will be with secondary output.", next_retry: Time.at(@next_retry_time), error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
             $log.warn_backtrace e.backtrace
           else
-            $log.warn "failed to flush the buffer.", :error_class=>e.class, :error=>e.to_s, :plugin_id=>plugin_id
+            $log.warn "failed to flush the buffer.", error_class: e.class, error: e.to_s, plugin_id: plugin_id
             $log.warn "secondary retry count exceededs limit."
             $log.warn_backtrace e.backtrace
             write_abort
@@ -379,7 +379,7 @@ module Fluent
           end
 
         else
-          $log.warn "failed to flush the buffer.", :error_class=>e.class.to_s, :error=>e.to_s, :plugin_id=>plugin_id
+          $log.warn "failed to flush the buffer.", error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
           $log.warn "retry count exceededs limit."
           $log.warn_backtrace e.backtrace
           write_abort
@@ -402,7 +402,7 @@ module Fluent
       begin
         @buffer.before_shutdown(self)
       rescue
-        $log.warn "before_shutdown failed", :error=>$!.to_s
+        $log.warn "before_shutdown failed", error: $!.to_s
         $log.warn_backtrace
       end
     end
@@ -424,7 +424,7 @@ module Fluent
       begin
         @buffer.clear!
       rescue
-        $log.error "unexpected error while aborting", :error=>$!.to_s
+        $log.error "unexpected error while aborting", error: $!.to_s
         $log.error_backtrace
       end
     end
@@ -436,7 +436,7 @@ module Fluent
 
 
   class ObjectBufferedOutput < BufferedOutput
-    config_param :time_as_integer, :bool, :default => true
+    config_param :time_as_integer, :bool, default: true
 
     def initialize
       super
@@ -488,11 +488,11 @@ module Fluent
     end
 
     desc 'The time format used as part of the file name.'
-    config_param :time_slice_format, :string, :default => '%Y%m%d'
+    config_param :time_slice_format, :string, default: '%Y%m%d'
     desc 'The amount of time Fluentd will wait for old logs to arrive.'
-    config_param :time_slice_wait, :time, :default => 10*60
+    config_param :time_slice_wait, :time, default: 10*60
     desc 'Parse the time value in the specified timezone'
-    config_param :timezone, :string, :default => nil
+    config_param :timezone, :string, default: nil
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
     config_set_default :flush_interval, nil

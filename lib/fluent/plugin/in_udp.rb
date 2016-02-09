@@ -21,7 +21,7 @@ module Fluent
     Plugin.register_input('udp', self)
 
     config_set_default :port, 5160
-    config_param :body_size_limit, :size, :default => 4096
+    config_param :body_size_limit, :size, default: 4096
 
     def listen(callback)
       log.info "listening udp socket on #{@bind}:#{@port}"

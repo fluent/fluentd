@@ -19,7 +19,7 @@ module Fluent
     Plugin.register_output('stdout', self)
 
     desc 'Output format.(json,hash)'
-    config_param :output_type, :default => 'json'
+    config_param :output_type, default: 'json'
 
     def configure(conf)
       super

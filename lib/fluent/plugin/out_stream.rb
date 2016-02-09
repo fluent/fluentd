@@ -23,7 +23,7 @@ module Fluent
       super
     end
 
-    config_param :send_timeout, :time, :default => 60
+    config_param :send_timeout, :time, default: 60
 
     def configure(conf)
       super
@@ -91,7 +91,7 @@ module Fluent
       $log.warn "see 'forward' section in http://docs.fluentd.org/ for the high-availability configuration."
     end
 
-    config_param :port, :integer, :default => DEFAULT_LISTEN_PORT
+    config_param :port, :integer, default: DEFAULT_LISTEN_PORT
     config_param :host, :string
 
     def configure(conf)

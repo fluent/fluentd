@@ -208,16 +208,16 @@ if winsvcinstmode = opts[:regwinsvc]
     ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
 
     Service.create(
-      :service_name => FLUENTD_WINSVC_NAME,
-      :host => nil,
-      :service_type => Service::WIN32_OWN_PROCESS,
-      :description => FLUENTD_WINSVC_DESC,
-      :start_type => Service::DEMAND_START,
-      :error_control => Service::ERROR_NORMAL,
-      :binary_path_name => ruby_path+" -C "+binary_path+" winsvc.rb",
-      :load_order_group => "",
-      :dependencies => [""],
-      :display_name => FLUENTD_WINSVC_DISPLAYNAME
+      service_name: FLUENTD_WINSVC_NAME,
+      host: nil,
+      service_type: Service::WIN32_OWN_PROCESS,
+      description: FLUENTD_WINSVC_DESC,
+      start_type: Service::DEMAND_START,
+      error_control: Service::ERROR_NORMAL,
+      binary_path_name: ruby_path+" -C "+binary_path+" winsvc.rb",
+      load_order_group: "",
+      dependencies: [""],
+      display_name: FLUENTD_WINSVC_DISPLAYNAME
     )
   when 'u'
     Service.delete(FLUENTD_WINSVC_NAME)

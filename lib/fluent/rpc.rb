@@ -26,10 +26,10 @@ module Fluent
         @log = log
 
         @server = WEBrick::HTTPServer.new(
-          :BindAddress => @bind,
-          :Port => @port,
-          :Logger => WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
-          :AccessLog => [],
+          BindAddress: @bind,
+          Port: @port,
+          Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
+          AccessLog: [],
         )
       end
 
@@ -43,7 +43,7 @@ module Fluent
           begin
             code, header, response = block.call(req, res)
           rescue => e
-            @log.warn "failed to handle RPC request", :path => path, :error => e.to_s
+            @log.warn "failed to handle RPC request", path: path, error: e.to_s
             @log.warn_backtrace e.backtrace
 
             code = 500
