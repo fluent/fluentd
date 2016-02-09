@@ -568,6 +568,7 @@ module Fluent
           end
         rescue => e
           @router.emit_error_event(tag, Engine.now, {'time' => time, 'record' => record}, e)
+          next
         end
 
         formatted_data[key] ||= ''
