@@ -13,9 +13,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluent
-  require 'fluent/match'
 
+require 'fluent/match'
+require 'fluent/event'
+
+module Fluent
   #
   # EventRouter is responsible to route events to a collector.
   #

@@ -14,6 +14,10 @@
 #    limitations under the License.
 #
 
+require 'fluent/engine'
+require 'fluent/event'
+require 'fluent/test/input_test'
+
 module Fluent
   module Test
     class TestOutputChain

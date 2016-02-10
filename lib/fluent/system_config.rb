@@ -14,9 +14,10 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/configurable'
+require 'fluent/configurable'
+require 'fluent/config/element'
 
+module Fluent
   module SystemConfigMixin
     def system_config
       @_system_config || Fluent::Engine.system_config
@@ -56,8 +57,13 @@ module Fluent
       SystemConfig.new(systems.first)
     end
 
-    def initialize(conf={})
+    def self.blank_system_config
+      Fluent::Config::Element.new('<SYSTEM>', '', {}, [])
+    end
+
+    def initialize(conf=nil)
       super()
+      conf ||= SystemConfig.blank_system_config
       configure(conf)
     end
 

@@ -14,6 +14,11 @@
 #    limitations under the License.
 #
 
+require 'fluent/buffer'
+require 'fluent/engine'
+require 'fluent/time'
+require 'fluent/test/base'
+
 module Fluent
   class FileBuffer < BasicBuffer
     def self.clear_buffer_paths

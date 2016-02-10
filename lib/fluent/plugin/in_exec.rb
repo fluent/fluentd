@@ -14,6 +14,14 @@
 #    limitations under the License.
 #
 
+require 'strptime'
+require 'yajl'
+
+require 'fluent/input'
+require 'fluent/time'
+require 'fluent/timezone'
+require 'fluent/config/error'
+
 module Fluent
   class ExecInput < Input
     Plugin.register_input('exec', self)
@@ -21,7 +29,6 @@ module Fluent
     def initialize
       super
       require 'fluent/plugin/exec_util'
-      require 'fluent/timezone'
     end
 
     desc 'The command (program) to execute.'

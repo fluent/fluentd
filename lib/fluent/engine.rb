@@ -14,12 +14,21 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/event_router'
-  require 'fluent/root_agent'
-  require 'fluent/time'
-  require 'fluent/system_config'
+require 'socket'
+require 'rubygems'
 
+require 'msgpack'
+require 'cool.io'
+
+require 'fluent/config'
+require 'fluent/event'
+require 'fluent/event_router'
+require 'fluent/root_agent'
+require 'fluent/time'
+require 'fluent/system_config'
+require 'fluent/plugin'
+
+module Fluent
   class EngineClass
     def initialize
       @root_agent = nil
@@ -35,7 +44,7 @@ module Fluent
 
       @msgpack_factory = MessagePack::Factory.new
       @msgpack_factory.register_type(Fluent::EventTime::TYPE, Fluent::EventTime)
-      @system_config = SystemConfig.new({})
+      @system_config = SystemConfig.new
     end
 
     MATCH_CACHE_SIZE = 1024

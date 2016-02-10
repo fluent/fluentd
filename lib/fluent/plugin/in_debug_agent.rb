@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/input'
+
 module Fluent
   class DebugAgentInput < Input
     Plugin.register_input('debug_agent', self)

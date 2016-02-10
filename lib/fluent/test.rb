@@ -15,7 +15,7 @@
 #
 
 require 'test/unit'
-require 'fluent/load'
+require 'fluent/env' # for Fluent.windows?
 require 'fluent/test/base'
 require 'fluent/test/input_test'
 require 'fluent/test/output_test'

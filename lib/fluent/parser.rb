@@ -14,9 +14,20 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/registry'
+require 'time'
+require 'json'
 
+require 'strptime'
+require 'yajl'
+
+require 'fluent/config/error'
+require 'fluent/config/element'
+require 'fluent/configurable'
+require 'fluent/engine'
+require 'fluent/registry'
+require 'fluent/time'
+
+module Fluent
   class ParserError < StandardError
   end
 

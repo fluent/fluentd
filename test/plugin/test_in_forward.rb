@@ -1,6 +1,10 @@
 require_relative '../helper'
+
 require 'fluent/test'
 require 'base64'
+
+require 'fluent/env'
+require 'fluent/plugin/in_forward'
 
 class ForwardInputTest < Test::Unit::TestCase
   def setup

@@ -14,9 +14,11 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/config/error'
+require 'rubygems'
 
+require 'fluent/config/error'
+
+module Fluent
   class Registry
     def initialize(kind, search_prefix)
       @kind = kind

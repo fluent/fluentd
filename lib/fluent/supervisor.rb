@@ -14,9 +14,16 @@
 #    limitations under the License.
 #
 
-require 'fluent/load'
-require 'fluent/system_config'
 require 'etc'
+
+require 'fluent/config'
+require 'fluent/env'
+require 'fluent/engine'
+require 'fluent/log'
+require 'fluent/plugin'
+require 'fluent/rpc'
+require 'fluent/system_config'
+
 if Fluent.windows?
   require 'windows/library'
   require 'windows/system_info'
@@ -518,40 +525,6 @@ module Fluent
         @config_data << "\n" << @inline_config.gsub("\\n","\n")
       end
       @conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
-    end
-
-    class SystemConfig
-      include Configurable
-
-      config_param :log_level, default: nil do |level|
-        Log.str_to_level(level)
-      end
-      config_param :suppress_repeated_stacktrace, :bool, default: nil
-      config_param :emit_error_log_interval, :time, default: nil
-      config_param :suppress_config_dump, :bool, default: nil
-      config_param :without_source, :bool, default: nil
-      config_param :rpc_endpoint, :string, default: nil
-      config_param :enable_get_dump, :bool, default: nil
-      config_param :process_name, default: nil
-
-      def initialize(conf)
-        super()
-        configure(conf)
-      end
-
-      def apply(supervisor)
-        system = self
-        supervisor.instance_eval {
-          @log.level = @log_level = system.log_level unless system.log_level.nil?
-          @suppress_interval = system.emit_error_log_interval unless system.emit_error_log_interval.nil?
-          @suppress_config_dump = system.suppress_config_dump unless system.suppress_config_dump.nil?
-          @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
-          @without_source = system.without_source unless system.without_source.nil?
-          @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
-          @enable_get_dump = system.enable_get_dump unless system.enable_get_dump.nil?
-          @process_name = system.process_name unless system.process_name.nil?
-        }
-      end
     end
 
     def run_configure

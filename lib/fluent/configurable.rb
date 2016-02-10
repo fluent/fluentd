@@ -14,13 +14,13 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/config/configure_proxy'
-  require 'fluent/config/section'
-  require 'fluent/config/error'
-  require 'fluent/registry'
-  require 'fluent/plugin'
+require 'fluent/config/configure_proxy'
+require 'fluent/config/section'
+require 'fluent/config/error'
+require 'fluent/registry'
+require 'fluent/plugin'
 
+module Fluent
   module Configurable
     def self.included(mod)
       mod.extend(ClassMethods)

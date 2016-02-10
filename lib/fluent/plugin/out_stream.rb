@@ -14,15 +14,15 @@
 #    limitations under the License.
 #
 
+require 'socket'
+require 'fileutils'
+
+require 'fluent/output'
+require 'fluent/event'
+
 module Fluent
   # obsolete
   class StreamOutput < BufferedOutput
-    def initialize
-      require 'socket'
-      require 'fileutils'
-      super
-    end
-
     config_param :send_timeout, :time, default: 60
 
     def configure(conf)

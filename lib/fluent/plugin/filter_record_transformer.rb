@@ -14,16 +14,18 @@
 #    limitations under the License.
 #
 
+require 'socket'
+require 'json'
 require 'ostruct'
+
+require 'fluent/filter'
+require 'fluent/config/error'
+require 'fluent/event'
+require 'fluent/time'
 
 module Fluent
   class RecordTransformerFilter < Filter
     Fluent::Plugin.register_filter('record_transformer', self)
-
-    def initialize
-      require 'socket'
-      super
-    end
 
     desc 'A comma-delimited list of keys to delete.'
     config_param :remove_keys, :string, default: nil

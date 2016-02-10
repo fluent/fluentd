@@ -14,9 +14,10 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/config/error'
+require 'fluent/config/error'
+require 'fluent/config/literal_parser'
 
+module Fluent
   module Config
     class Element < Hash
       def initialize(name, arg, attrs, elements, unused = nil)

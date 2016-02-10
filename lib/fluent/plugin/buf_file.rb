@@ -14,6 +14,13 @@
 #    limitations under the License.
 #
 
+require 'fileutils'
+require 'uri'
+
+require 'fluent/env'
+require 'fluent/plugin'
+require 'fluent/buffer'
+
 module Fluent
   class FileBufferChunk < BufferChunk
     def initialize(key, path, unique_id, mode="a+", symlink_path = nil)

@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+
+require 'fluent/input'
+require 'fluent/config/error'
+require 'fluent/event'
+
 if Fluent.windows?
   require_relative 'file_wrapper'
 else

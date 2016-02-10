@@ -14,9 +14,11 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'fluent/registry'
+require 'fluent/configurable'
+require 'fluent/registry'
+require 'fluent/mixin'
 
+module Fluent
   class Formatter
     include Configurable
 

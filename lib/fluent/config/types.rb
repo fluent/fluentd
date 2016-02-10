@@ -14,9 +14,12 @@
 #    limitations under the License.
 #
 
-module Fluent
-  require 'json'
+require 'json'
 
+require 'fluent/config/error'
+require 'fluent/configurable'
+
+module Fluent
   module Config
     def self.size_value(str)
       case str.to_s

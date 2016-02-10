@@ -14,6 +14,13 @@
 #    limitations under the License.
 #
 
+require 'fcntl'
+
+require 'cool.io'
+require 'yajl'
+
+require 'fluent/input'
+
 module Fluent
   class ForwardInput < Input
     Plugin.register_input('forward', self)

@@ -14,6 +14,10 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+
+require 'fluent/input'
+
 module Fluent
   class GCStatInput < Input
     Plugin.register_input('gc_stat', self)
