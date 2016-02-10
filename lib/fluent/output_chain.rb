@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+# OutputChain will be removed since v0.14.
 module Fluent
   class OutputChain
     def initialize(array, tag, es, chain=NullOutputChain.instance)
