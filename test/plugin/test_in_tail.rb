@@ -488,19 +488,33 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     stub(Time) do |timeclass|
-      timeclass.now.returns(Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6), Time.new(2010, 1, 2, 3, 4, 7))
+      nows = [
+        Time.new(2010, 1, 2, 3, 4, 5),
+        Time.new(2010, 1, 2, 3, 4, 6),
+        Time.new(2010, 1, 2, 3, 4, 7),
+      ]
+      timeclass.now do
+        nows.shift
+      end
 
       stub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          file_position_entry = stub(Fluent::NewTailInput::FilePositionEntry)
-          watcherclass.new(path, EX_RORATE_WAIT, file_position_entry, anything, true, 1000, anything, anything).once do
+          new = watcherclass.new(path,
+                                 EX_RORATE_WAIT,
+                                 is_a(Fluent::TailInput::FilePositionEntry),
+                                 anything,
+                                 true,
+                                 1000,
+                                 anything,
+                                 anything) do
             mock('TailWatcher') do |watcher|
               watcher.attach(anything).once
-              watcher.__send__(:unwatched=).at_least(0)
+              watcher.__send__(:unwatched=, true).at_least(0)
               watcher.line_buffer.at_least(0)
               watcher.close.at_least(0)
             end
           end
+          new.once
         end
         plugin.refresh_watchers
       end
@@ -510,14 +524,21 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       stub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        file_position_entry = stub(Fluent::NewTailInput::FilePositionEntry)
-        watcherclass.new('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, file_position_entry, anything, true, 1000, anything, anything, anything).once do
+        new = watcherclass.new('test/plugin/data/2010/01/20100102-030406.log',
+                               EX_RORATE_WAIT,
+                               is_a(Fluent::TailInput::FilePositionEntry),
+                               anything,
+                               true,
+                               1000,
+                               anything,
+                               anything) do
           mock('TailWatcher') do |watcher|
             watcher.attach(anything).once
-            watcher.__send__(:unwatched=).at_least(0)
+            watcher.__send__(:unwatched=, true).at_least(0)
             watcher.line_buffer.at_least(0)
           end
         end
+        new.once
         plugin.refresh_watchers
       end
 
