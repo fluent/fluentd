@@ -62,8 +62,15 @@ class StdoutFilterTest < Test::Unit::TestCase
 
     # NOTE: Float::NAN is not jsonable
     d = create_driver(CONFIG + "\noutput_type json")
-    stub(d.instance.router).emit_error_event
-    emit(d, {'test' => Float::NAN}, time)
+    stub(Fluent::EventRouter) do |routerclass|
+      routerclass.new(is_a(Fluent::Agent::NoMatchMatch), anything) do
+        mock('EventRouter') do |router|
+          router.emit_error_event('filter.test', is_a(Fluent::EventTime),
+                                  anything, anything).once
+        end
+      end
+      emit(d, {'test' => Float::NAN}, time)
+    end
   end
 
   def test_output_type_hash
@@ -107,4 +114,3 @@ class StdoutFilterTest < Test::Unit::TestCase
     d.instance.log = tmp
   end
 end
-
