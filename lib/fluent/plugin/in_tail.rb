@@ -586,8 +586,7 @@ module Fluent
 
         def on_notify
           begin
-            io = FileWrapper.open(@path)
-            stat = io.stat
+            stat = FileWrapper.stat(@path)
             inode = stat.ino
             fsize = stat.size
           rescue Errno::ENOENT
@@ -599,13 +598,14 @@ module Fluent
           begin
             if @inode != inode || fsize < @fsize
               # rotated or truncated
+              begin
+                io = FileWrapper.open(@path)
+              rescue Errno::ENOENT
+              end
               @on_rotate.call(io)
-              io = nil
             end
             @inode = inode
             @fsize = fsize
-          ensure
-            io.close if io
           end
 
         rescue
