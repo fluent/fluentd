@@ -1,10 +1,8 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'net/http'
-require 'flexmock'
 
 class TailInputTest < Test::Unit::TestCase
-  include FlexMock::TestCase
 
   def setup
     Fluent::Test.setup
