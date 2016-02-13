@@ -377,6 +377,9 @@ module Fluent
       }
     end
 
+    # TODO: use %i() after drop ruby v1.9.3 support.
+    IGNORE_ATTRIBUTES = %W(@config_root_section @config @masked_config).map(&:to_sym)
+
     # get monitor info from the plugin `pe` and return a hash object
     def get_monitor_info(pe, opts={})
       obj = {}
@@ -400,6 +403,7 @@ module Fluent
         iv = {}
         pe.instance_eval do
           instance_variables.each {|sym|
+            next if IGNORE_ATTRIBUTES.include?(sym)
             key = sym.to_s[1..-1]  # removes first '@'
             iv[key] = instance_variable_get(sym)
           }
