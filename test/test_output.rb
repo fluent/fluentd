@@ -192,7 +192,14 @@ module FluentOutputTest
         d.instance.instance_variable_set(:@num_errors, 10)
         d.instance.instance_variable_set(:@next_retry_time, @time + d.instance.calc_retry_wait)
         # buffer should be popped (flushed) immediately
-        buffer.pop(self)
+        stub(Fluent::Buffer) do |bufferclass|
+          bufferclass.new do
+            mock('Buffer') do |buffer|
+              buffer.pop(anything).once
+            end
+          end
+          buffer.pop(anything)
+        end
         # force_flush
         buffer.emit("test", 'test', NullOutputChain.instance)
         d.instance.force_flush
@@ -255,8 +262,16 @@ module FluentOutputTest
           buffer_path #{TMP_DIR}/foo
         ])
         d.instance.start
+        buffer = d.instance.instance_variable_get(:@buffer)
         # buffer should be popped (flushed) immediately
-        d.instance.instance_variable_get(:@buffer).pop(self)
+        stub(Fluent::Buffer) do |bufferclass|
+          bufferclass.new do
+            mock('Buffer') do |buffer|
+              buffer.pop(anything).once
+            end
+          end
+          buffer.pop(anything)
+        end
         # force_flush
         d.instance.emit('test', @es, NullOutputChain.instance)
         d.instance.force_flush
