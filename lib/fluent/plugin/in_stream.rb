@@ -17,7 +17,7 @@
 module Fluent
   # obsolete
   class StreamInput < Input
-    config_param :blocking_timeout, :time, :default => 0.5
+    config_param :blocking_timeout, :time, default: 0.5
 
     def initialize
       require 'socket'
@@ -45,7 +45,7 @@ module Fluent
     def run
       @loop.run(@blocking_timeout)
     rescue
-      log.error "unexpected error", :error=>$!.to_s
+      log.error "unexpected error", error: $!.to_s
       log.error_backtrace
     end
 
@@ -142,7 +142,7 @@ module Fluent
       def on_read_json(data)
         @y << data
       rescue
-        @log.error "unexpected error", :error=>$!.to_s
+        @log.error "unexpected error", error: $!.to_s
         @log.error_backtrace
         close
       end
@@ -150,7 +150,7 @@ module Fluent
       def on_read_msgpack(data)
         @u.feed_each(data, &@on_message)
       rescue
-        @log.error "unexpected error", :error=>$!.to_s
+        @log.error "unexpected error", error: $!.to_s
         @log.error_backtrace
         close
       end
@@ -165,9 +165,9 @@ module Fluent
     Plugin.register_input('unix', self)
 
     desc 'The path to your Unix Domain Socket.'
-    config_param :path, :string, :default => DEFAULT_SOCKET_PATH
+    config_param :path, :string, default: DEFAULT_SOCKET_PATH
     desc 'The backlog of Unix Domain Socket.'
-    config_param :backlog, :integer, :default => nil
+    config_param :backlog, :integer, default: nil
 
     def configure(conf)
       super

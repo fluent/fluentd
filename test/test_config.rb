@@ -159,8 +159,8 @@ class ConfigTest < Test::Unit::TestCase
   def test_inline
     prepare_config 
     opts = {
-      :config_path => "#{TMP_DIR}/config_test_1.conf",
-      :inline_config => "<source>\n  type http\n  port 2222\n </source>"
+      config_path: "#{TMP_DIR}/config_test_1.conf",
+      inline_config: "<source>\n  type http\n  port 2222\n </source>"
     }
     assert_nothing_raised do
       Fluent::Supervisor.new(opts)

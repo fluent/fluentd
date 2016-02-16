@@ -23,11 +23,11 @@ module Fluent
     desc "The value is the tag assigned to the generated events."
     config_param :tag, :string
     desc "It configures how many events to generate per second."
-    config_param :rate, :integer, :default => 1
+    config_param :rate, :integer, default: 1
     desc "If specified, each generated event has an auto-incremented key field."
-    config_param :auto_increment_key, :string, :default => nil
+    config_param :auto_increment_key, :string, default: nil
     desc "The dummy data to be generated. An array of JSON hashes or a single JSON hash."
-    config_param :dummy, :default => [{"message"=>"dummy"}] do |val|
+    config_param :dummy, default: [{"message"=>"dummy"}] do |val|
       begin
         parsed = JSON.parse(val)
       rescue JSON::ParserError => e

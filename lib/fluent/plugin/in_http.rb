@@ -31,25 +31,25 @@ module Fluent
     EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
 
     desc 'The port to listen to.'
-    config_param :port, :integer, :default => 9880
+    config_param :port, :integer, default: 9880
     desc 'The bind address to listen to.'
-    config_param :bind, :string, :default => '0.0.0.0'
+    config_param :bind, :string, default: '0.0.0.0'
     desc 'The size limit of the POSTed element. Default is 32MB.'
-    config_param :body_size_limit, :size, :default => 32*1024*1024  # TODO default
+    config_param :body_size_limit, :size, default: 32*1024*1024  # TODO default
     desc 'The timeout limit for keeping the connection alive.'
-    config_param :keepalive_timeout, :time, :default => 10   # TODO default
-    config_param :backlog, :integer, :default => nil
+    config_param :keepalive_timeout, :time, default: 10   # TODO default
+    config_param :backlog, :integer, default: nil
     desc 'Add HTTP_ prefix headers to the record.'
-    config_param :add_http_headers, :bool, :default => false
+    config_param :add_http_headers, :bool, default: false
     desc 'Add REMOTE_ADDR header to the record.'
-    config_param :add_remote_addr, :bool, :default => false
+    config_param :add_remote_addr, :bool, default: false
     desc 'The format of the HTTP body.'
-    config_param :format, :string, :default => 'default'
-    config_param :blocking_timeout, :time, :default => 0.5
+    config_param :format, :string, default: 'default'
+    config_param :blocking_timeout, :time, default: 0.5
     desc 'Set a white list of domains that can do CORS (Cross-Origin Resource Sharing)'
-    config_param :cors_allow_origins, :array, :default => nil
+    config_param :cors_allow_origins, :array, default: nil
     desc 'Respond with empty gif image of 1x1 pixel.'
-    config_param :respond_with_empty_img, :bool, :default => false
+    config_param :respond_with_empty_img, :bool, default: false
 
     def configure(conf)
       super
@@ -121,7 +121,7 @@ module Fluent
     def run
       @loop.run(@blocking_timeout)
     rescue
-      log.error "unexpected error", :error=>$!.to_s
+      log.error "unexpected error", error: $!.to_s
       log.error_backtrace
     end
 
@@ -254,7 +254,7 @@ module Fluent
         @idle = 0
         @parser << data
       rescue
-        @log.warn "unexpected error", :error=>$!.to_s
+        @log.warn "unexpected error", error: $!.to_s
         @log.warn_backtrace
         close
       end

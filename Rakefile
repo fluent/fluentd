@@ -5,7 +5,7 @@ require 'fileutils'
 require 'rake/testtask'
 require 'rake/clean'
 
-task :test => [:base_test]
+task test: [:base_test]
 
 desc 'Run test_unit based test'
 Rake::TestTask.new(:base_test) do |t|
@@ -30,4 +30,4 @@ task :coverage do |t|
   Rake::Task["test"].invoke
 end
 
-task :default => [:test, :build]
+task default: [:test, :build]

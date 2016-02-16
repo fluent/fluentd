@@ -27,21 +27,21 @@ module Fluent
     desc 'The command (program) to execute.'
     config_param :command, :string
     desc 'The format used to map the program output to the incoming event.(tsv,json,msgpack)'
-    config_param :format, :string, :default => 'tsv'
+    config_param :format, :string, default: 'tsv'
     desc 'Specify the comma-separated keys when using the tsv format.'
-    config_param :keys, :default => [] do |val|
+    config_param :keys, default: [] do |val|
       val.split(',')
     end
     desc 'Tag of the output events.'
-    config_param :tag, :string, :default => nil
+    config_param :tag, :string, default: nil
     desc 'The key to use as the event tag instead of the value in the event record. '
-    config_param :tag_key, :string, :default => nil
+    config_param :tag_key, :string, default: nil
     desc 'The key to use as the event time instead of the value in the event record.'
-    config_param :time_key, :string, :default => nil
+    config_param :time_key, :string, default: nil
     desc 'The format of the event time used for the time_key parameter.'
-    config_param :time_format, :string, :default => nil
+    config_param :time_format, :string, default: nil
     desc 'The interval time between periodic program runs.'
-    config_param :run_interval, :time, :default => nil
+    config_param :run_interval, :time, default: nil
 
     def configure(conf)
       super
@@ -136,7 +136,7 @@ module Fluent
           Process.waitpid(io.pid)
           sleep @run_interval
         rescue
-          log.error "exec failed to run or shutdown child process", :error => $!.to_s, :error_class => $!.class.to_s
+          log.error "exec failed to run or shutdown child process", error: $!.to_s, error_class: $!.class.to_s
           log.warn_backtrace $!.backtrace
         end
       end
@@ -163,7 +163,7 @@ module Fluent
 
       router.emit(tag, time, record)
     rescue => e
-      log.error "exec failed to emit", :error => e.to_s, :error_class => e.class.to_s, :tag => tag, :record => Yajl.dump(record)
+      log.error "exec failed to emit", error: e.to_s, error_class: e.class.to_s, tag: tag, record: Yajl.dump(record)
     end
   end
 end
