@@ -258,9 +258,11 @@ module Fluent
               end
         begin
           router.emit_stream(tag, es)
-        rescue
-          # ignore errors. Engine shows logs and backtraces.
+        rescue BufferQueueLimitError
           return false
+        rescue
+          # ignore non BufferQueueLimitError errors because in_tail can't recover. Engine shows logs and backtraces.
+          return true
         end
       end
 
