@@ -15,7 +15,6 @@
 #
 
 require 'socket'
-require 'rubygems'
 
 require 'msgpack'
 require 'cool.io'

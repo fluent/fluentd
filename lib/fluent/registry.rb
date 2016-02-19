@@ -14,8 +14,6 @@
 #    limitations under the License.
 #
 
-require 'rubygems'
-
 require 'fluent/config/error'
 
 module Fluent
