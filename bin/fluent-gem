@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
-require 'rubygems' unless defined?(gem)
 require 'rubygems/gem_runner'
 require 'rubygems/exceptions'
 begin
