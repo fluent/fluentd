@@ -258,7 +258,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-        d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
       end
     end
 
@@ -287,7 +287,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-        d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
       end
     end
 
@@ -314,7 +314,7 @@ class ForwardInputTest < Test::Unit::TestCase
     # d.run => send_data
     d.run do
       Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-        d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
       end
     end
 
@@ -336,7 +336,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     # d.run => send_data
     d.run do
-      d.instance.send(:on_message, data, 1000000000, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      d.instance.send(:emit_message, data, 1000000000, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
     end
 
     # check emitted data
@@ -543,20 +543,98 @@ class ForwardInputTest < Test::Unit::TestCase
     assert_equal [nil, nil], @responses
   end
 
-  def send_data(data, try_to_receive_response=false, response_timeout=1)
-    io = connect
+  # res
+  # '' : socket is disconnected without any data
+  # nil: socket read timeout
+  def read_data(io, timeout)
+    res = ''
+    timeout_at = Time.now + timeout
     begin
-      io.write data
-      if try_to_receive_response
-        if IO.select([io], nil, nil, response_timeout)
-          res = io.recv(1024)
+      buf = ''
+      while io.read_nonblock(2048, buf)
+        if buf == ''
+          sleep 0.01
+          break if Time.now >= timeout_at
+          next
         end
-        # timeout means no response, so push nil to @responses
+        res << buf
+        buf = ''
       end
-    ensure
-      io.close
+      res = nil # timeout
+    rescue IO::EAGAINWaitReadable
+      sleep 0.01
+      retry if res == ''
+      # if res is not empty, all data in socket buffer are read, so do not retry
+    rescue OpenSSL::SSL::SSLErrorWaitReadable
+      sleep 0.01
+      retry if res == ''
+      # if res is not empty, all data in socket buffer are read, so do not retry
+    rescue IOError, EOFError, Errno::ECONNRESET
+      # socket disconnected
     end
-    @responses << res if try_to_receive_response
+    res
+  end
+
+  def simulate_auth_sequence(io, shared_key=SHARED_KEY, username=USER_NAME, password=USER_PASSWORD)
+    auth_response_timeout = 2
+    shared_key_salt = 'salt'
+
+    # reading helo
+    helo_data = read_data(io, auth_response_timeout)
+    # ['HELO', options(hash)]
+    helo = MessagePack.unpack(helo_data)
+    raise "Invalid HELO header" unless helo[0] == 'HELO'
+    raise "Invalid HELO option object" unless helo[1].is_a?(Hash)
+    @options = helo[1]
+
+    # sending ping
+    ping = [
+      'PING',
+      'selfhostname',
+      shared_key_salt,
+      Digest::SHA512.new.update(shared_key_salt).update('selfhostname').update(shared_key).hexdigest,
+    ]
+    if @options['auth'] # auth enabled -> value is auth salt
+      pass_digest = Digest::SHA512.new.update(@options['auth']).update(username).update(password).hexdigest
+      ping.push(username, pass_digest)
+    else
+      ping.push('', '')
+    end
+    io.write ping.to_msgpack
+    io.flush
+
+    # reading pong
+    pong_data = read_data(io, auth_response_timeout)
+    # ['PING', bool(auth_result), string(reason_if_failed), self_hostname, shared_key_digest]
+    pong = MessagePack.unpack(pong_data)
+    raise "Invalid PONG header" unless pong[0] == 'PONG'
+    raise "Authentication Failure: #{pong[2]}" unless pong[1]
+    clientside_calculated = Digest::SHA512.new.update(shared_key_salt).update(pong[3]).update(shared_key).hexdigest
+    raise "Shared key digest mismatch" unless clientside_calculated == pong[4]
+
+    # authentication success
+    true
+  end
+
+  # Data ordering is not assured:
+  #  Records in different sockets are processed on different thread, so its scheduling make effect
+  #  on order of emitted records.
+  #  So, we MUST sort emitted records in different `send_data` before assertion.
+  def send_data(data, try_to_receive_response=false, response_timeout=5, auth: false)
+    io = connect
+
+    if auth
+      simulate_auth_sequence(io)
+    end
+
+    res = nil
+    io.write data
+    io.flush
+    if try_to_receive_response
+      @responses << read_data(io, response_timeout)
+    end
+  ensure
+    io.close rescue nil # SSL socket requires any writes to close sockets
   end
 
   # TODO heartbeat

@@ -50,8 +50,67 @@ module Fluent
     desc 'Skip an event if incoming event is invalid.'
     config_param :skip_invalid_event, :bool, default: false
 
+    # TODO check recent fluent-plugin-secure-forward updates
+    config_section :security, required: false, multi: false do
+      config_param :shared_key, :string
+      config_param :user_auth, :bool, default: false
+      config_param :allow_anonymous_source, :bool, default: true
+
+      ### User based authentication
+      config_section :user, param_name: :users, required: false, multi: true do
+        desc 'Set username for authentication'
+        config_param :username, :string
+        desc 'Set password for authentication'
+        config_param :password, :string
+      end
+
+      ### Client ip/network authentication & per_host shared key
+      config_section :client, param_name: :clients, required: false, multi: true do
+        config_param :host, :string, default: nil
+        config_param :network, :string, default: nil
+        config_param :shared_key, :string, default: nil
+        config_param :users, :array, default: []
+      end
+    end
+
     def configure(conf)
       super
+      if @security
+        if @security.user_auth && @security.users.empty?
+          raise Fluent::ConfigError, "<user> sections required if user_auth enabled"
+        end
+        if !@security.allow_anonymous_source && @security.clients.empty?
+          raise Fluent::ConfigError, "<client> sections required if allow_anonymous_source disabled"
+        end
+
+        @security.clients.each do |client|
+          if client.host && client.network
+            raise Fluent::ConfigError, "both of 'host' and 'network' are specified for client"
+          end
+          if !client.host && !client.network
+            raise Fluent::ConfigError, "Either of 'host' and 'network' must be specified for client"
+          end
+          source = nil
+          if client.host
+            begin
+              source = IPSocket.getaddress(client.host)
+            rescue SocketError => e
+              raise Fluent::ConfigError, "host '#{client.host}' cannot be resolved"
+            end
+          end
+          source_addr = begin
+                          IPAddr.new(source || client.network)
+                        rescue ArgumentError => e
+                          raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
+                        end
+          @nodes = []
+          @nodes.push({
+              address: source_addr,
+              shared_key: (client.shared_key || @security.shared_key),
+              users: client.users
+            })
+        end
+      end
     end
 
     def start
@@ -122,6 +181,109 @@ module Fluent
 
     private
 
+    def handle_connection(conn)
+      send_data = ->(serializer, data){ conn.write serializer.call(data) }
+
+      # TODO: trace logging to be connected this host!
+      state = :established
+      nonce = nil
+      user_auth_salt = nil
+
+      if @security
+        # security enabled session MUST use MessagePack as serialization format
+        state = :helo
+        nonce = generate_salt
+        user_auth_salt = generate_salt
+        send_data.call(:to_msgpack.to_proc, generate_helo(nonce, user_auth_salt))
+        state = :pingpong
+      end
+
+      # TODO: trace logging to be connected this host!
+      #    if io.is_a?(TCPSocket)
+      #      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+      #      proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
+      #      @source = "host: #{host}, addr: #{addr}, port: #{port}"
+      #    end
+      #   @log = log
+      #   @log.trace {
+      #     begin
+      #       remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername)
+      #     rescue => e
+      #       remote_port = nil
+      #       remote_addr = nil
+      #     end
+      #     "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
+      #   }
+
+      read_messages(conn) do |msg, chunk_size, serializer|
+        case state
+        when :pingpong
+          success, reason_or_salt, shared_key = self.check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
+          if not success
+            send_data.call(serializer, generate_pong(false, reason_or_salt, nonce, shared_key))
+            conn.close
+            next
+          end
+          send_data.call(serializer, generate_pong(true, reason_or_salt, nonce, shared_key))
+
+          # TODO: log.debug "connection established"
+          state = :established
+        when :established
+          options = emit_message(msg, chunk_size, conn.remote_addr)
+          if options && r = response(options)
+            send_data.call(serializer, r)
+            # TODO: logging message content
+            # log.trace "sent response to fluent socket"
+          end
+          unless @keepalive
+            conn.close
+          end
+        else
+          raise "BUG: unknown session state: #{state}"
+        end
+      end
+    end
+
+    def read_messages(conn, &block)
+      feeder = nil
+      serializer = nil
+      bytes = 0
+      conn.on_data do |data|
+        # only for first call of callback
+        unless feeder
+          first = data[0]
+          if first == '{' || first == '[' # json
+            parser = Yajl::Parser.new
+            parser.on_parse_complete = ->(obj){
+              block.call(obj, bytes, serializer)
+              bytes = 0
+            }
+            serializer = :to_json.to_proc
+            feeder = ->(d){ parser << d }
+          else # msgpack
+            parser = MessagePack::Unpacker.new
+            serializer = :to_msgpack.to_proc
+            feeder = ->(d){
+              parser.feed_each(d){|obj|
+                block.call(obj, bytes, serializer)
+                bytes = 0
+              }
+            }
+          end
+        end
+
+        bytes += data.bytesize
+        feeder.call(data)
+      end
+    end
+
+    def response(option)
+      if option && option['chunk']
+        return { 'ack' => option['chunk'] }
+      end
+      nil
+    end
+
     # message Entry {
     #   1: long time
     #   2: object record
@@ -145,7 +307,7 @@ module Fluent
     #   3: object record
     #   4: object option (optional)
     # }
-    def on_message(msg, chunk_size, source)
+    def emit_message(msg, chunk_size, source)
       if msg.nil?
         # for future TCP heartbeat_request
         return
@@ -226,10 +388,105 @@ module Fluent
       new_es
     end
 
+    def select_authenticate_users(node, username)
+      if node.nil? || node[:users].empty?
+        @security.users.select{|u| u.username == username}
+      else
+        @security.users.select{|u| node[:users].include?(u.username) && u.username == username}
+      end
+    end
+
+    def generate_salt
+      OpenSSL::Random.random_bytes(16)
+    end
+
+    def generate_helo(nonce, user_auth_salt)
+      log.debug "generating helo"
+      # ['HELO', options(hash)]
+      [ 'HELO', {'nonce' => nonce, 'auth' => (@security ? user_auth_salt : ''), 'keepalive' => @allow_keepalive } ]
+    end
+
+    ##### Authentication Handshake
+    #
+    # 1. (client) connect to server
+    #   * Socket handshake, checks certificate and its significate (in client, if using SSL)
+    # 2. (server)
+    #   * check network/domain acl (if enabled)
+    #   * disconnect when failed
+    # 3. (server) send HELO
+    #   * ['HELO', options(hash)]
+    #   * options:
+    #     * nonce: string (required)
+    #     * auth: string or blank_string (string: authentication required, and its salt is this value)
+    #     * keepalive: bool (allowed or not)
+    # 4. (client) send PING
+    #   * ['PING', selfhostname, sharedkey_salt, sha512_hex(sharedkey_salt + selfhostname + nonce + sharedkey), username || '', sha512_hex(auth_salt + username + password) || '']
+    # 5. (server) check PING
+    #   * check sharedkey
+    #   * check username / password (if required)
+    #   * send PONG FAILURE if failed
+    #   * ['PONG', false, 'reason of authentication failure', '', '']
+    # 6. (server) send PONG
+    #   * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512_hex(salt + selfhostname + nonce + sharedkey)]
+    # 7. (client) check PONG
+    #   * check sharedkey
+    #   * disconnect when failed
+    # 8. connection established
+    #   * send data from client (until keepalive expiration)
+    def check_ping(message, remote_addr, user_auth_salt, nonce)
+      log.debug "checking ping"
+      # ['PING', self_hostname, shared_key_salt, sha512_hex(shared_key_salt + self_hostname + nonce + shared_key), username || '', sha512_hex(auth_salt + username + password) || '']
+      unless message.size == 6 && message[0] == 'PING'
+        return false, 'invalid ping message'
+      end
+      ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
+
+      node = @nodes.select{|n| n[:address].include?(remote_addr) rescue false }.first
+      if !node && !@security.allow_anonymous_source
+        log.warn "Anonymous client disallowed", address: remote_addr, hostname: hostname
+        return false, "anonymous source host '#{remote_addr}' denied", nil
+      end
+
+      shared_key = node ? node[:shared_key] : @security.shared_key
+      serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(nonce).update(shared_key).hexdigest
+      if shared_key_hexdigest != serverside
+        log.warn "Shared key mismatch", address: remote_addr, hostname: hostname
+        return false, 'shared_key mismatch', nil
+      end
+
+      if @security.user_auth
+        users = select_authenticate_users(node, username)
+        success = false
+        users.each do |user|
+          passhash = Digest::SHA512.new.update(user_auth_salt).update(username).update(user[:password]).hexdigest
+          success ||= (passhash == password_digest)
+        end
+        unless success
+          log.warn "Authentication failed", address: remote_addr, hostname: hostname, username: username
+          return false, 'username/password mismatch', nil
+        end
+      end
+
+      return true, shared_key_salt, node[:shared_key]
+    end
+
+    def generate_pong(auth_result, reason_or_salt, nonce, shared_key)
+      log.debug "generating pong"
+      # ['PONG', bool(authentication result), 'reason if authentication failed', self_hostname, sha512_hex(salt + self_hostname + nonce + sharedkey)]
+      unless auth_result
+        return ['PONG', false, reason_or_salt, '', '']
+      end
+
+      shared_key_digest_hex = Digest::SHA512.new.update(reason_or_salt).update(@self_hostname).update(nonce).update(shared_key).hexdigest
+      [ 'PONG', true, '', @self_hostname, shared_key_digest_hex ]
+    end
+
     class Handler < Coolio::Socket
+      attr_reader :protocol, :remote_port, :remote_addr, :remote_host
+
       PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
-      def initialize(io, linger_timeout, log, on_message)
+      def initialize(io, linger_timeout, log, on_connect_callback)
         super(io)
 
         if io.is_a?(TCPSocket) # for unix domain socket support in the future
@@ -240,8 +497,18 @@ module Fluent
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
         end
 
+        ### TODO: disabling name rev resolv
+        proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
+        if addr == '?'
+          port, addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
+        end
+        @protocol = proto
+        @remote_port = port
+        @remote_addr = addr
+        @remote_host = host
+
         @chunk_counter = 0
-        @on_message = on_message
+        @on_connect_callback = on_connect_callback
         @log = log
         @log.trace {
           begin
@@ -255,63 +522,58 @@ module Fluent
       end
 
       def on_connect
+        @on_connect_callback.call(self)
+      end
+
+      # API to register callback for data arrival
+      def on_data(delimiter: nil, &callback)
+        if delimiter.nil?
+          @on_read_callback = callback
+        else # buffering and splitting
+          @buffer = "".force_encoding("ASCII-8BIT")
+          @on_read_callback = ->(data) {
+            @buffer << data
+            pos = 0
+            while i = @buffer.index(delimiter, pos)
+              msg = @buffer[pos...i]
+              callback.call(msg)
+              pos = i + delimiter.length
+            end
+            @buffer.slice!(0, pos) if pos > 0
+          }
+        end
       end
 
       def on_read(data)
-        first = data[0]
-        if first == '{' || first == '['
-          m = method(:on_read_json)
-          @serializer = :to_json.to_proc
-          @y = Yajl::Parser.new
-          @y.on_parse_complete = lambda { |obj|
-            option = @on_message.call(obj, @chunk_counter, @source)
-            respond option if option
-            @chunk_counter = 0
-          }
-        else
-          m = method(:on_read_msgpack)
-          @serializer = :to_msgpack.to_proc
-          @u = Fluent::Engine.msgpack_factory.unpacker
-        end
-
-        (class << self; self; end).module_eval do
-          define_method(:on_read, m)
-        end
-        m.call(data)
-      end
-
-      def on_read_json(data)
-        @chunk_counter += data.bytesize
-        @y << data
+        @idle_seconds = 0
+        @on_read_callback.call(data)
       rescue => e
-        @log.error "forward error", error: e, error_class: e.class
-        @log.error_backtrace
         close
+        #### TODO: error handling & logging
+        raise
       end
 
-      def on_read_msgpack(data)
-        @chunk_counter += data.bytesize
-        @u.feed_each(data) do |obj|
-          option = @on_message.call(obj, @chunk_counter, @source)
-          respond option if option
-          @chunk_counter = 0
-        end
-      rescue => e
-        @log.error "forward error", error: e, error_class: e.class
-        @log.error_backtrace
-        close
+      def write(data)
+        @writing = true
+        super
       end
 
-      def respond(option)
-        if option && option['chunk']
-          res = { 'ack' => option['chunk'] }
-          write @serializer.call(res)
-          @log.trace { "sent response to fluent socket" }
+      def writing?
+        @writing
+      end
+
+      def on_write_complete
+        @writing = false
+        if @closing
+          close
         end
       end
 
-      def on_close
-        @log.trace { "closed socket" }
+      def close
+        @closing = true
+        unless @writing
+          super
+        end
       end
     end
 
