@@ -139,6 +139,27 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal records[0], d.emits[0]
       assert_equal records[1], d.emits[1]
     end
+
+    def test_json
+      d = create_driver
+
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}],
+      ]
+
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        records.each {|tag, _time, record|
+          send_data [tag, _time, record].to_json
+        }
+      end
+
+      assert_equal(records, d.emits.sort_by{|a, b| a[1] <=> b[1] })
+    end
   end
 
   class Forward < self
@@ -280,27 +301,6 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
-  end
-
-  def test_message_json
-    d = create_driver
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-
-    records = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}],
-    ]
-
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      records.each {|tag, _time,record|
-        send_data [tag, _time, record].to_json
-      }
-    end
-
-    assert_equal(records, d.emits.sort_by{|a, b| a[1] <=> b[1] })
   end
 
   def test_send_large_chunk_warning
