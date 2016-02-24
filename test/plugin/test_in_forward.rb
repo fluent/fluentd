@@ -305,111 +305,113 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
-  def test_send_large_chunk_warning
-    d = create_driver(CONFIG + %[
+  class Warning < self
+    def test_send_large_chunk_warning
+      d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M
       chunk_size_limit 32M
     ])
 
-    time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
+      time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
 
-    # generate over 16M chunk
-    str = "X" * 1024 * 1024
-    chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
-    assert chunk.size > (16 * 1024 * 1024)
-    assert chunk.size < (32 * 1024 * 1024)
+      # generate over 16M chunk
+      str = "X" * 1024 * 1024
+      chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
+      assert chunk.size > (16 * 1024 * 1024)
+      assert chunk.size < (32 * 1024 * 1024)
 
-    d.run do
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-        d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      d.run do
+        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+          d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        end
       end
+
+      # check emitted data
+      emits = d.emits
+      assert_equal 16, emits.size
+      assert emits.map(&:first).all?{|t| t == "test.tag" }
+      assert_equal (0...16).to_a, emits.map{|_tag, t, _record| t - time }
+
+      # check log
+      assert d.instance.log.logs.select{|line|
+        line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
+        line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
+      }.size == 1, "large chunk warning is not logged"
     end
 
-    # check emitted data
-    emits = d.emits
-    assert_equal 16, emits.size
-    assert emits.map(&:first).all?{|t| t == "test.tag" }
-    assert_equal (0...16).to_a, emits.map{|_tag, t, _record| t - time }
-
-    # check log
-    assert d.instance.log.logs.select{|line|
-      line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-      line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
-    }.size == 1, "large chunk warning is not logged"
-  end
-
-  def test_send_large_chunk_only_warning
-    d = create_driver(CONFIG + %[
+    def test_send_large_chunk_only_warning
+      d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M
     ])
-    time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
+      time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
 
-    # generate over 16M chunk
-    str = "X" * 1024 * 1024
-    chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
+      # generate over 16M chunk
+      str = "X" * 1024 * 1024
+      chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
 
-    d.run do
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-        d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      d.run do
+        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+          d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        end
       end
+
+      # check log
+      assert d.instance.log.logs.select{ |line|
+        line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
+        line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
+      }.size == 1, "large chunk warning is not logged"
     end
 
-    # check log
-    assert d.instance.log.logs.select{ |line|
-      line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-      line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
-    }.size == 1, "large chunk warning is not logged"
-  end
-
-  def test_send_large_chunk_limit
-    d = create_driver(CONFIG + %[
+    def test_send_large_chunk_limit
+      d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M
       chunk_size_limit 32M
     ])
 
-    time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
+      time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
 
-    # generate over 32M chunk
-    str = "X" * 1024 * 1024
-    chunk = [ "test.tag", (0...32).map{|i| [time + i, {"data" => str}] } ].to_msgpack
-    assert chunk.size > (32 * 1024 * 1024)
+      # generate over 32M chunk
+      str = "X" * 1024 * 1024
+      chunk = [ "test.tag", (0...32).map{|i| [time + i, {"data" => str}] } ].to_msgpack
+      assert chunk.size > (32 * 1024 * 1024)
 
-    # d.run => send_data
-    d.run do
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-        d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      # d.run => send_data
+      d.run do
+        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+          d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        end
       end
+
+      # check emitted data
+      emits = d.emits
+      assert_equal 0, emits.size
+
+      # check log
+      assert d.instance.log.logs.select{|line|
+        line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
+        line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=33554432 size=33554989/
+      }.size == 1, "large chunk warning is not logged"
     end
 
-    # check emitted data
-    emits = d.emits
-    assert_equal 0, emits.size
+    data('string chunk' => 'broken string',
+         'integer chunk' => 10)
+    def test_send_broken_chunk(data)
+      d = create_driver
 
-    # check log
-    assert d.instance.log.logs.select{|line|
-      line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
-      line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=33554432 size=33554989/
-    }.size == 1, "large chunk warning is not logged"
-  end
+      # d.run => send_data
+      d.run do
+        d.instance.send(:emit_message, data, 1000000000, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      end
 
-  data('string chunk' => 'broken string',
-       'integer chunk' => 10)
-  def test_send_broken_chunk(data)
-    d = create_driver
+      # check emitted data
+      emits = d.emits
+      assert_equal 0, emits.size
 
-    # d.run => send_data
-    d.run do
-      d.instance.send(:emit_message, data, 1000000000, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+      # check log
+      assert d.instance.log.logs.select{|line|
+        line =~ / \[warn\]: incoming chunk is broken: source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" msg=#{data.inspect}/
+      }.size == 1, "should not accept broken chunk"
     end
-
-    # check emitted data
-    emits = d.emits
-    assert_equal 0, emits.size
-
-    # check log
-    assert d.instance.log.logs.select{|line|
-      line =~ / \[warn\]: incoming chunk is broken: source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" msg=#{data.inspect}/
-    }.size == 1, "should not accept broken chunk"
   end
 
   def test_respond_to_message_requiring_ack
