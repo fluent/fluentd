@@ -329,14 +329,15 @@ module Fluent
         log.warn "Input chunk size is larger than 'chunk_size_warn_limit':", tag: tag, source: source, limit: @chunk_size_warn_limit, size: chunk_size
       end
 
-      if entries.class == String
+      case entries
+      when String
         # PackedForward
         es = MessagePackEventStream.new(entries)
         es = check_and_skip_invalid_event(tag, es, source) if @skip_invalid_event
         router.emit_stream(tag, es)
         option = msg[2]
 
-      elsif entries.class == Array
+      when Array
         # Forward
         es = if @skip_invalid_event
                check_and_skip_invalid_event(tag, entries, source)
