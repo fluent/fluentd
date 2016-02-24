@@ -51,92 +51,94 @@ class ForwardInputTest < Test::Unit::TestCase
     TCPSocket.new('127.0.0.1', PORT)
   end
 
-  def test_time
-    d = create_driver
+  class Message < self
+    def test_time
+      d = create_driver
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
-    Fluent::Engine.now = time
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      Fluent::Engine.now = time
 
-    records = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}],
-    ]
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}],
+      ]
 
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      records.each {|tag, _time, record|
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
-      }
-    end
-    assert_equal(records, d.emits.sort_by{|a, b| a[0] <=> b[0] })
-  end
-
-  def test_message
-    d = create_driver
-
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
-
-    records = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}],
-    ]
-
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      records.each {|tag, _time, record|
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s
-      }
-    end
-    assert_equal(records, d.emits)
-  end
-
-  def test_message_with_time_as_integer
-    d = create_driver
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-
-    records = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}],
-    ]
-
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      records.each {|tag, _time, record|
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s
-      }
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        records.each {|tag, _time, record|
+          send_data Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
+        }
+      end
+      assert_equal(records, d.emits.sort_by{|a, b| a[0] <=> b[0] })
     end
 
-    assert_equal(records, d.emits)
-  end
+    def test_plain
+      d = create_driver
 
-  def test_message_with_skip_invalid_event
-    d = create_driver(CONFIG + "skip_invalid_event true")
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}],
+      ]
 
-    records = [
-      ["tag1", time, {"a" => 1}],
-      ["tag2", time, {"a" => 2}],
-    ]
-
-    d.run do
-      entries = records.map { |tag, _time, record| [tag, _time, record] }
-      # These entries are skipped
-      entries << ['tag1', true, {'a' => 3}] << ['tag2', time, 'invalid record']
-
-      entries.each {|tag, _time, record|
-        # Without ack, logs are sometimes not saved to logs during test.
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s, true
-      }
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        records.each {|tag, _time, record|
+          send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s
+        }
+      end
+      assert_equal(records, d.emits)
     end
 
-    assert_equal 2, d.instance.log.logs.count { |line| line =~ /got invalid event and drop it/ }
-    assert_equal records[0], d.emits[0]
-    assert_equal records[1], d.emits[1]
+    def test_time_as_integer
+      d = create_driver
+
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}],
+      ]
+
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        records.each {|tag, _time, record|
+          send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+        }
+      end
+
+      assert_equal(records, d.emits)
+    end
+
+    def test_skip_invalid_event
+      d = create_driver(CONFIG + "skip_invalid_event true")
+
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+      records = [
+        ["tag1", time, {"a" => 1}],
+        ["tag2", time, {"a" => 2}],
+      ]
+
+      d.run do
+        entries = records.map { |tag, _time, record| [tag, _time, record] }
+        # These entries are skipped
+        entries << ['tag1', true, {'a' => 3}] << ['tag2', time, 'invalid record']
+
+        entries.each {|tag, _time, record|
+          # Without ack, logs are sometimes not saved to logs during test.
+          send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s, true
+        }
+      end
+
+      assert_equal 2, d.instance.log.logs.count { |line| line =~ /got invalid event and drop it/ }
+      assert_equal records[0], d.emits[0]
+      assert_equal records[1], d.emits[1]
+    end
   end
 
   def test_forward
