@@ -141,72 +141,74 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
-  def test_forward
-    d = create_driver
+  class Forward < self
+    def test_plain
+      d = create_driver
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    records = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
 
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      entries = []
-      records.each {|tag, _time, record|
-        entries << [time, record]
-      }
-      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
-    end
-    assert_equal(records, d.emits)
-  end
-
-  def test_forward_with_time_as_integer
-    d = create_driver
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-
-    records = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
-
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      entries = []
-      records.each {|tag, _time, record|
-        entries << [_time, record]
-      }
-      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        entries = []
+        records.each {|tag, _time, record|
+          entries << [_time, record]
+        }
+        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+      end
+      assert_equal(records, d.emits)
     end
 
-    assert_equal(records, d.emits)
-  end
+    def test_time_as_integer
+      d = create_driver
 
-  def test_forward_with_skip_invalid_event
-    d = create_driver(CONFIG + "skip_invalid_event true")
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
 
-    records = [
-      ["tag1", time, {"a" => 1}],
-      ["tag1", time, {"a" => 2}],
-    ]
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        entries = []
+        records.each {|tag, _time, record|
+          entries << [_time, record]
+        }
+        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+      end
 
-    d.expected_emits_length = records.length
-    d.run_timeout = 2
-    d.run do
-      entries = records.map { |_tag, _time, record| [_time, record] }
-      # These entries are skipped
-      entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
-
-      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+      assert_equal(records, d.emits)
     end
 
-    assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
+    def test_skip_invalid_event
+      d = create_driver(CONFIG + "skip_invalid_event true")
+
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+      records = [
+        ["tag1", time, {"a" => 1}],
+        ["tag1", time, {"a" => 2}],
+      ]
+
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        entries = records.map { |tag, _time, record| [_time, record] }
+        # These entries are skipped
+        entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
+
+        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+      end
+
+      assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
+    end
   end
 
   def test_packed_forward
