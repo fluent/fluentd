@@ -668,7 +668,11 @@ class ForwardInputTest < Test::Unit::TestCase
       'PING',
       'selfhostname',
       shared_key_salt,
-      Digest::SHA512.new.update(shared_key_salt).update('selfhostname').update(shared_key).hexdigest,
+      Digest::SHA512.new
+        .update(shared_key_salt)
+        .update('selfhostname')
+        .update(@options['nonce'])
+        .update(shared_key).hexdigest,
     ]
     if @options['auth'] # auth enabled -> value is auth salt
       pass_digest = Digest::SHA512.new.update(@options['auth']).update(username).update(password).hexdigest
