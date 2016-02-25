@@ -479,7 +479,7 @@ module Fluent
       end
 
       shared_key_digest_hex = Digest::SHA512.new.update(reason_or_salt).update(@self_hostname).update(nonce).update(shared_key).hexdigest
-      [ 'PONG', true, '', @self_hostname, shared_key_digest_hex ]
+      ['PONG', true, '', @self_hostname, shared_key_digest_hex]
     end
 
     class Handler < Coolio::Socket
