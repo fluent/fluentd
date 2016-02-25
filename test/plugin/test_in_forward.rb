@@ -414,198 +414,201 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
-  def test_respond_to_message_requiring_ack
-    d = create_driver
+  class RespondToRequiringAck < self
+    def test_message
+      d = create_driver
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
 
-    expected_acks = []
+      expected_acks = []
 
-    d.run do
-      events.each {|tag, _time, record|
-        op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
+      d.run do
+        events.each {|tag, _time, record|
+          op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
+          expected_acks << op['chunk']
+          send_data [tag, _time, record, op].to_msgpack, true
+        }
+      end
+
+      assert_equal events, d.emits
+      assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
+    end
+
+    # FIX: response is not pushed into @responses because IO.select has been blocked until InputForward shutdowns
+    def test_forward
+      d = create_driver
+
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
+
+      expected_acks = []
+
+      d.run do
+        entries = []
+        events.each {|_tag, _time, record|
+          entries << [_time, record]
+        }
+        op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
         expected_acks << op['chunk']
-        send_data [tag, _time, record, op].to_msgpack, true
-      }
+        send_data ["tag1", entries, op].to_msgpack, true
+      end
+
+      assert_equal events, d.emits
+      assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
     end
 
-    assert_equal events, d.emits
-    assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
-  end
+    def test_packed_forward
+      d = create_driver
 
-  # FIX: response is not pushed into @responses because IO.select has been blocked until InputForward shutdowns
-  def test_respond_to_forward_requiring_ack
-    d = create_driver
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
 
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
+      expected_acks = []
 
-    expected_acks = []
-
-    d.run do
-      entries = []
-      events.each {|_tag, _time, record|
-        entries << [time, record]
-      }
-      op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
-      expected_acks << op['chunk']
-      send_data ["tag1", entries, op].to_msgpack, true
-    end
-
-    assert_equal events, d.emits
-    assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
-  end
-
-  def test_respond_to_packed_forward_requiring_ack
-    d = create_driver
-
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
-
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
-
-    expected_acks = []
-
-    d.run do
-      entries = ''
-      events.each {|_tag, _time, record|
-        [_time, record].to_msgpack(entries)
-      }
-      op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
-      expected_acks << op['chunk']
-      send_data ["tag1", entries, op].to_msgpack, true
-    end
-
-    assert_equal events, d.emits
-    assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
-  end
-
-  def test_respond_to_message_json_requiring_ack
-    d = create_driver
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
-
-    expected_acks = []
-
-    d.run do
-      events.each {|tag, _time, record|
-        op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
+      d.run do
+        entries = ''
+        events.each {|_tag, _time,record|
+          [time, record].to_msgpack(entries)
+        }
+        op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
         expected_acks << op['chunk']
-        send_data [tag, _time, record, op].to_json, true
-      }
+        send_data ["tag1", entries, op].to_msgpack, true
+      end
+
+      assert_equal events, d.emits
+      assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
     end
 
-    assert_equal events, d.emits
-    assert_equal expected_acks, @responses.map { |res| JSON.parse(res)['ack'] }
+    def test_message_json
+      d = create_driver
 
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
+
+      expected_acks = []
+
+      d.run do
+        events.each {|tag, _time, record|
+          op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
+          expected_acks << op['chunk']
+          send_data [tag, _time, record, op].to_json, true
+        }
+      end
+
+      assert_equal events, d.emits
+      assert_equal expected_acks, @responses.map { |res| JSON.parse(res)['ack'] }
+    end
   end
 
-  def test_not_respond_to_message_not_requiring_ack
-    d = create_driver
+  class NotRespondToNotRequiringAck < self
+    def test_message
+      d = create_driver
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
 
-    d.run do
-      events.each {|tag, _time, record|
-        send_data [tag, _time, record].to_msgpack, true
-      }
+      d.run do
+        events.each {|tag, _time, record|
+          send_data [tag, _time, record].to_msgpack, true
+        }
+      end
+
+      assert_equal events, d.emits
+      assert_equal ["", ""], @responses
     end
 
-    assert_equal events, d.emits
-    assert_equal ["", ""], @responses
-  end
+    def test_forward
+      d = create_driver
 
-  def test_not_respond_to_forward_not_requiring_ack
-    d = create_driver
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
 
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
+      d.run do
+        entries = []
+        events.each {|tag, _time, record|
+          entries << [_time, record]
+        }
+        send_data ["tag1", entries].to_msgpack, true
+      end
 
-    d.run do
-      entries = []
-      events.each {|_tag, _time, record|
-        entries << [_time, record]
-      }
-      send_data ["tag1", entries].to_msgpack, true
+      assert_equal events, d.emits
+      assert_equal [""], @responses
     end
 
-    assert_equal events, d.emits
-    assert_equal [""], @responses
-  end
+    def test_packed_forward
+      d = create_driver
 
-  def test_not_respond_to_packed_forward_not_requiring_ack
-    d = create_driver
+      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
 
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
+      d.run do
+        entries = ''
+        events.each {|tag, _time, record|
+          [_time, record].to_msgpack(entries)
+        }
+        send_data ["tag1", entries].to_msgpack, true
+      end
 
-    d.run do
-      entries = ''
-      events.each {|_tag, _time, record|
-        [_time, record].to_msgpack(entries)
-      }
-      send_data ["tag1", entries].to_msgpack, true
+      assert_equal events, d.emits
+      assert_equal [""], @responses
     end
 
-    assert_equal events, d.emits
-    assert_equal [""], @responses
-  end
+    def test_message_json
+      d = create_driver
 
-  def test_not_respond_to_message_json_not_requiring_ack
-    d = create_driver
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
 
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag2", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
+      d.run do
+        events.each {|tag, _time, record|
+          send_data [tag, _time, record].to_json, true
+        }
+      end
 
-    d.run do
-      events.each {|tag, _time, record|
-        send_data [tag, _time, record].to_json, true
-      }
+      assert_equal events, d.emits
+      assert_equal ["", ""], @responses
     end
-
-    assert_equal events, d.emits
-    assert_equal ["", ""], @responses
   end
 
   # res
