@@ -218,8 +218,8 @@ module Fluent
       read_messages(conn) do |msg, chunk_size, serializer|
         case state
         when :pingpong
-          success, reason_or_salt, shared_key = self.check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
           if not success
+          success, reason_or_salt, shared_key = check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
             send_data.call(serializer, generate_pong(false, reason_or_salt, nonce, shared_key))
             conn.close
             next
