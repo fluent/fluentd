@@ -65,6 +65,18 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal 0.5, d.instance.blocking_timeout
       assert !d.instance.backlog
     end
+
+    def test_auth
+      d = create_driver(CONFIG_AUTH)
+      assert_equal PORT, d.instance.port
+      assert_equal '127.0.0.1', d.instance.bind
+      assert_equal 0, d.instance.linger_timeout
+      assert !d.instance.backlog
+
+      assert d.instance.security
+      assert_equal 1, d.instance.security.users.size
+      assert_equal 1, d.instance.security.clients.size
+    end
   end
 
   # TODO: Will add Loop::run arity check with stub/mock library
