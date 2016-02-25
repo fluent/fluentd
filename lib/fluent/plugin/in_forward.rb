@@ -441,6 +441,7 @@ module Fluent
         return false, 'invalid ping message'
       end
       ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
+      @self_hostname = hostname # FIXME clean up
 
       node = @nodes.select{|n| n[:address].include?(remote_addr) rescue false }.first
       if !node && !@security.allow_anonymous_source
