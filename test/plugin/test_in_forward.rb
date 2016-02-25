@@ -185,8 +185,22 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Forward < self
-    def test_plain
-      d = create_driver
+    data(tcp: {
+           config: CONFIG,
+           options: {
+             auth: false
+           }
+         },
+         auth: {
+           config: CONFIG_AUTH,
+           options: {
+             auth: true
+           }
+         })
+    def test_plain(data)
+      config = data[:config]
+      options = data[:options]
+      d = create_driver(config)
 
       time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
 
@@ -202,7 +216,7 @@ class ForwardInputTest < Test::Unit::TestCase
         records.each {|tag, _time, record|
           entries << [_time, record]
         }
-        send_data packer.write(["tag1", entries]).to_s
+        send_data packer.write(["tag1", entries]).to_s, **options
       end
       assert_equal(records, d.emits)
     end
