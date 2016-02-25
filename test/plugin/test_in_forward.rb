@@ -725,7 +725,11 @@ class ForwardInputTest < Test::Unit::TestCase
     pong = MessagePack.unpack(pong_data)
     raise "Invalid PONG header" unless pong[0] == 'PONG'
     raise "Authentication Failure: #{pong[2]}" unless pong[1]
-    clientside_calculated = Digest::SHA512.new.update(shared_key_salt).update(pong[3]).update(shared_key).hexdigest
+    clientside_calculated = Digest::SHA512.new
+      .update(shared_key_salt)
+      .update(pong[3])
+      .update(@options['nonce'])
+      .update(shared_key).hexdigest
     raise "Shared key digest mismatch" unless clientside_calculated == pong[4]
 
     # authentication success
