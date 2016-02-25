@@ -25,9 +25,31 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   PORT = unused_port
+
+  SHARED_KEY = 'foobar2'
+  USER_NAME = 'tagomoris'
+  USER_PASSWORD = 'fluentd'
+
   CONFIG = %[
     port #{PORT}
     bind 127.0.0.1
+  ]
+  CONFIG_AUTH = %[
+    port #{PORT}
+    bind 127.0.0.1
+    <security>
+      shared_key foobar1
+      user_auth true
+      <user>
+        username #{USER_NAME}
+        password #{USER_PASSWORD}
+      </user>
+      <client>
+        network 127.0.0.0/8
+        shared_key #{SHARED_KEY}
+        users ["#{USER_NAME}"]
+      </client>
+    </security>
   ]
 
   def create_driver(conf=CONFIG)
