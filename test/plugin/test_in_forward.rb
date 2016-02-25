@@ -67,7 +67,7 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run_timeout = 2
       d.run do
         records.each {|tag, _time, record|
-          send_data Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
+          send_data packer.write([tag, 0, record]).to_s
         }
       end
       assert_equal(records, d.emits.sort_by{|a, b| a[0] <=> b[0] })
@@ -87,7 +87,7 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run_timeout = 2
       d.run do
         records.each {|tag, _time, record|
-          send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s
+          send_data packer.write([tag, _time, record]).to_s
         }
       end
       assert_equal(records, d.emits)
@@ -107,7 +107,7 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run_timeout = 2
       d.run do
         records.each {|tag, _time, record|
-          send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+          send_data packer.write([tag, _time, record]).to_s
         }
       end
 
@@ -131,7 +131,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
         entries.each {|tag, _time, record|
           # Without ack, logs are sometimes not saved to logs during test.
-          send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s, true
+          send_data packer.write([tag, _time, record]).to_s, true
         }
       end
 
@@ -180,7 +180,7 @@ class ForwardInputTest < Test::Unit::TestCase
         records.each {|tag, _time, record|
           entries << [_time, record]
         }
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+        send_data packer.write(["tag1", entries]).to_s
       end
       assert_equal(records, d.emits)
     end
@@ -202,7 +202,7 @@ class ForwardInputTest < Test::Unit::TestCase
         records.each {|tag, _time, record|
           entries << [_time, record]
         }
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+        send_data packer.write(["tag1", entries]).to_s
       end
 
       assert_equal(records, d.emits)
@@ -225,7 +225,7 @@ class ForwardInputTest < Test::Unit::TestCase
         # These entries are skipped
         entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
 
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+        send_data packer.write(["tag1", entries]).to_s
       end
 
       assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
@@ -248,9 +248,9 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run do
         entries = ''
         records.each {|_tag, _time, record|
-          Fluent::Engine.msgpack_factory.packer(entries).write([_time, record]).flush
+          packer(entries).write([_time, record]).flush
         }
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+        send_data packer.write(["tag1", entries]).to_s
       end
       assert_equal(records, d.emits)
     end
@@ -270,9 +270,9 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run do
         entries = ''
         records.each {|tag, _time, record|
-          Fluent::Engine.msgpack_factory.packer(entries).write([_time, record]).flush
+          packer(entries).write([_time, record]).flush
         }
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+        send_data packer.write(["tag1", entries]).to_s
       end
       assert_equal(records, d.emits)
     end
@@ -296,9 +296,9 @@ class ForwardInputTest < Test::Unit::TestCase
 
         packed_entries = ''
         entries.each { |_time, record|
-          Fluent::Engine.msgpack_factory.packer(packed_entries).write([_time, record]).flush
+          packer(packed_entries).write([_time, record]).flush
         }
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", packed_entries]).to_s
+        send_data packer.write(["tag1", packed_entries]).to_s
       end
 
       assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
@@ -321,7 +321,7 @@ class ForwardInputTest < Test::Unit::TestCase
       assert chunk.size < (32 * 1024 * 1024)
 
       d.run do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        unpacker.feed_each(chunk) do |obj|
           d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
         end
       end
@@ -350,7 +350,7 @@ class ForwardInputTest < Test::Unit::TestCase
       chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
 
       d.run do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        unpacker.feed_each(chunk) do |obj|
           d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
         end
       end
@@ -377,7 +377,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # d.run => send_data
       d.run do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        unpacker.feed_each(chunk) do |obj|
           d.instance.send(:emit_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
         end
       end
@@ -609,6 +609,14 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal events, d.emits
       assert_equal ["", ""], @responses
     end
+  end
+
+  def packer(*args)
+    Fluent::Engine.msgpack_factory.packer(*args)
+  end
+
+  def unpacker
+    Fluent::Engine.msgpack_factory.unpacker
   end
 
   # res
