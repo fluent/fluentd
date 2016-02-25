@@ -468,7 +468,7 @@ module Fluent
         end
       end
 
-      return true, shared_key_salt, node[:shared_key]
+      return true, shared_key_salt, shared_key
     end
 
     def generate_pong(auth_result, reason_or_salt, nonce, shared_key)
