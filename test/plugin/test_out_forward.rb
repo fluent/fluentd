@@ -8,7 +8,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   TARGET_HOST = '127.0.0.1'
-  TARGET_PORT = 13999
+  TARGET_PORT = unused_port
   CONFIG = %[
     send_timeout 51
     heartbeat_type udp
@@ -59,7 +59,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     node = nodes.first
     assert_equal "test", node.name
     assert_equal '127.0.0.1', node.host
-    assert_equal 13999, node.port
+    assert_equal TARGET_PORT, node.port
   end
 
   def test_configure_udp_heartbeat
