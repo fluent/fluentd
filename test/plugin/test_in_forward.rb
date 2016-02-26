@@ -871,7 +871,7 @@ class ForwardInputTest < Test::Unit::TestCase
         buf = ''
       end
       res = nil # timeout
-    rescue IO::EAGAINWaitReadable
+    rescue Errno::EAGAIN # TODO replace IO::WaitReadable if we drop Ruby2.0 support
       sleep 0.01
       retry if res == ''
       # if res is not empty, all data in socket buffer are read, so do not retry
