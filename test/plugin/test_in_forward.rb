@@ -875,10 +875,6 @@ class ForwardInputTest < Test::Unit::TestCase
       sleep 0.01
       retry if res == ''
       # if res is not empty, all data in socket buffer are read, so do not retry
-    rescue OpenSSL::SSL::SSLErrorWaitReadable
-      sleep 0.01
-      retry if res == ''
-      # if res is not empty, all data in socket buffer are read, so do not retry
     rescue IOError, EOFError, Errno::ECONNRESET
       # socket disconnected
     end
