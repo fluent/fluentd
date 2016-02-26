@@ -372,75 +372,19 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
   end
 
-  def create_target_input_driver(do_respond=false, disconnect=false, conf=TARGET_CONFIG)
+  def create_target_input_driver(response_stub=nil, disconnect=false, conf=TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
     # TODO: Support actual TCP heartbeat test
-    DummyEngineDriver.new(Fluent::ForwardInput) {
-      handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
-        attr_reader :chunk_counter # for checking if received data is successfully deserialized
-
-        def initialize(sock, log, on_message)
-          @sock = sock
-          @log = log
-          @chunk_counter = 0
-          @on_message = on_message
-          @source = nil
-        end
-
-        if do_respond
-          def write(data)
-            @sock.write data
-          rescue
-            @sock.close_write
-            @sock.close
-          end
-        else
-          def write(data)
-            # do nothing
-          end
-        end
-
-        def close
-          unless @sock.closed?
-            @sock.close_write
-            @sock.close
-          end
-        end
-      }
-
-      define_method(:start) do
-        @thread = Thread.new do
-          Socket.tcp_server_loop(@bind, @port) do |sock, client_addrinfo|
-            begin
-              handler = handler_class.new(sock, @log, method(:on_message))
-              loop do
-                raw_data = sock.recv(1024)
-                handler.on_read(raw_data)
-                # chunk_counter is reset to zero only after all the data have been received and successfully deserialized.
-                break if handler.chunk_counter == 0
-                break if sock.closed?
-              end
-              if disconnect
-                handler.close
-                sock = nil
-              end
-              sleep  # wait for connection to be closed by client
-            ensure
-              if sock && !sock.closed?
-                sock.close_write
-                sock.close
-              end
-            end
-          end
+    Fluent::Test::InputTestDriver.new(Fluent::ForwardInput) {
+      if response_stub.nil?
+        # do nothing because in_forward responds for ack option in default
+      else
+        define_method(:response) do |options|
+          return response_stub.(options)
         end
       end
-
-      def shutdown
-        @thread.kill
-        @thread.join
-      end
-    }.configure(conf).inject_router()
+    }.configure(conf)
   end
 
   def test_heartbeat_type_none
@@ -455,47 +399,5 @@ class ForwardOutputTest < Test::Unit::TestCase
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
     assert_equal node.available, true
-  end
-
-  class DummyEngineDriver < Fluent::Test::TestDriver
-    def initialize(klass, &block)
-      super(klass, &block)
-      @engine = DummyEngineClass.new
-    end
-
-    def inject_router
-      @instance.router = @engine
-      self
-    end
-
-    def run(&block)
-      super(&block)
-    end
-
-    def emits
-      all = []
-      @engine.emit_streams.each {|tag,events|
-        events.each {|time,record|
-          all << [tag, time, record]
-        }
-      }
-      all
-    end
-
-    class DummyEngineClass
-      attr_reader :emit_streams
-
-      def initialize
-        @emit_streams ||= []
-      end
-
-      def clear!
-        @emit_streams = []
-      end
-
-      def emit_stream(tag, es)
-        @emit_streams << [tag, es.to_a]
-      end
-    end
   end
 end
