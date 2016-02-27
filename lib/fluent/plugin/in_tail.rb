@@ -54,6 +54,8 @@ module Fluent
     config_param :read_lines_limit, :integer, default: 1000
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
+    desc 'Enable the additional watch timer.'
+    config_param :enable_watch_timer, :bool, default: true
 
     attr_reader :paths
 
@@ -162,7 +164,7 @@ module Fluent
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher,  &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher,  &method(:receive_lines))
       tw.attach(@loop)
       tw
     end
@@ -324,16 +326,18 @@ module Fluent
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, line_buffer_timer_flusher, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, read_lines_limit, update_watcher, line_buffer_timer_flusher, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
+        @enable_watch_timer = enable_watch_timer
         @read_lines_limit = read_lines_limit
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @timer_trigger = TimerWatcher.new(1, true, log, &method(:on_notify))
+        @timer_trigger = TimerWatcher.new(1, true, log, &method(:on_notify)) if @enable_watch_timer
+
         @stat_trigger = StatWatcher.new(path, log, &method(:on_notify))
 
         @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
@@ -356,13 +360,13 @@ module Fluent
       end
 
       def attach(loop)
-        @timer_trigger.attach(loop)
+        @timer_trigger.attach(loop) if @enable_watch_timer
         @stat_trigger.attach(loop)
         on_notify
       end
 
       def detach
-        @timer_trigger.detach if @timer_trigger.attached?
+        @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
         @stat_trigger.detach if @stat_trigger.attached?
       end
 
