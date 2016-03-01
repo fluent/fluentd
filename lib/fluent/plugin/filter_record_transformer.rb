@@ -126,28 +126,29 @@ module Fluent
     end
 
     def reform(record, placeholder_values)
-      @placeholder_expander.prepare_placeholders(placeholder_values)
+      placeholders = @placeholder_expander.prepare_placeholders(placeholder_values)
 
       new_record = @renew_record ? {} : record.dup
       @keep_keys.each {|k| new_record[k] = record[k]} if @keep_keys and @renew_record
-      new_record.merge!(expand_placeholders(@map))
+      new_record.merge!(expand_placeholders(@map, placeholders))
       @remove_keys.each {|k| new_record.delete(k) } if @remove_keys
 
       new_record
     end
 
-    def expand_placeholders(value)
+    def expand_placeholders(value, placeholders)
       if value.is_a?(String)
-        new_value = @placeholder_expander.expand(value)
+        new_value = @placeholder_expander.expand(value, placeholders)
       elsif value.is_a?(Hash)
         new_value = {}
         value.each_pair do |k, v|
-          new_value[@placeholder_expander.expand(k, true)] = expand_placeholders(v)
+          new_key = @placeholder_expander.expand(k, placeholders, true)
+          new_value[new_key] = expand_placeholders(v, placeholders)
         end
       elsif value.is_a?(Array)
         new_value = []
         value.each_with_index do |v, i|
-          new_value[i] = expand_placeholders(v)
+          new_value[i] = expand_placeholders(v, placeholders)
         end
       else
         new_value = value
@@ -174,6 +175,7 @@ module Fluent
       rev_tag_suffix.reverse!
     end
 
+    # THIS CLASS MUST BE THREAD-SAFE
     class PlaceholderExpander
       attr_reader :placeholders, :log
 
@@ -210,36 +212,37 @@ module Fluent
           end
         end
 
-        @placeholders = placeholders
+        placeholders
       end
 
       # Expand string with placeholders
       #
       # @param [String] str
       # @param [Boolean] force_stringify the value must be string, used for hash key
-      def expand(str, force_stringify = false)
+      def expand(str, placeholders, force_stringify = false)
         if @auto_typecast and !force_stringify
           single_placeholder_matched = str.match(/\A(\${[^}]+}|__[A-Z_]+__)\z/)
           if single_placeholder_matched
-            log_if_unknown_placeholder($1)
-            return @placeholders[single_placeholder_matched[1]]
+            log_if_unknown_placeholder($1, placeholders)
+            return placeholders[single_placeholder_matched[1]]
           end
         end
         str.gsub(/(\${[^}]+}|__[A-Z_]+__)/) {
-          log_if_unknown_placeholder($1)
-          @placeholders[$1]
+          log_if_unknown_placeholder($1, placeholders)
+          placeholders[$1]
         }
       end
 
       private
 
-      def log_if_unknown_placeholder(placeholder)
-        unless @placeholders.include?(placeholder)
+      def log_if_unknown_placeholder(placeholder, placeholders)
+        unless placeholders.include?(placeholder)
           log.warn "unknown placeholder `#{placeholder}` found"
         end
       end
     end
 
+    # THIS CLASS MUST BE THREAD-SAFE
     class RubyPlaceholderExpander
       attr_reader :log
 
@@ -285,28 +288,22 @@ module Fluent
       end
 
       def prepare_placeholders(placeholder_values)
-        @tag = placeholder_values['tag']
-        @time = placeholder_values['time']
-        @record = placeholder_values['record']
-        @tag_parts = placeholder_values['tag_parts']
-        @tag_prefix = placeholder_values['tag_prefix']
-        @tag_suffix = placeholder_values['tag_suffix']
-        @hostname = placeholder_values['hostname']
+        placeholder_values
       end
 
       # Expand string with placeholders
       #
       # @param [String] str
-      def expand(str, force_stringify = false)
+      def expand(str, placeholders, force_stringify = false)
         @cleanroom_expander.expand(
           str,
-          @tag,
-          @time,
-          @record,
-          @tag_parts,
-          @tag_prefix,
-          @tag_suffix,
-          @hostname,
+          placeholders['tag'],
+          placeholders['time'],
+          placeholders['record'],
+          placeholders['tag_parts'],
+          placeholders['tag_prefix'],
+          placeholders['tag_suffix'],
+          placeholders['hostname'],
         )
       rescue => e
         log.warn "failed to expand `#{str}`", error_class: e.class, error: e.message
@@ -317,15 +314,16 @@ module Fluent
       class CleanroomExpander
         def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
           tags = tag_parts # for old version compatibility
-          @record = record # for old version compatibility
+          Thread.current[:record_transformer_record] = record # for old version compatibility
           instance_eval(__str_to_eval__)
         end
 
         # for old version compatibility
         def method_missing(name)
           key = name.to_s
-          if @record.has_key?(key)
-            @record[key]
+          record = Thread.current[:record_transformer_record]
+          if record.has_key?(key)
+            record[key]
           else
             raise NameError, "undefined local variable or method `#{key}'"
           end
