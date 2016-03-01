@@ -248,6 +248,7 @@ module Fluent
       log.error_backtrace
     end
 
+    # @return true if no error or unrecoverable error happens in emit action. false if got BufferQueueLimitError
     def receive_lines(lines, tail_watcher)
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
