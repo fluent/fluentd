@@ -509,6 +509,23 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
 
+    test 'auto_typecast placeholder containing {} (enable_ruby yes)' do
+      config = %[
+        tag tag
+        enable_ruby yes
+        auto_typecast yes
+        <record>
+          foo ${record.map{|k,v|v}}
+        </record>
+      ]
+      d = create_driver(config)
+      message = {"@timestamp" => "foo"}
+      es = d.run { d.emit(message, @time) }.filtered
+      es.each do |t, r|
+        assert_equal([message["@timestamp"]], r['foo'])
+      end
+    end
+
     test 'expand fields starting with @ (enable_ruby yes)' do
       config = %[
         enable_ruby yes
@@ -523,7 +540,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal(message["@timestamp"], r['foo'])
       end
     end
-  end
+  end # test placeholders
 
   test "compatibility test (enable_ruby yes)" do
     config = %[
