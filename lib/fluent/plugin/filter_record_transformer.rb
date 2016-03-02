@@ -264,12 +264,13 @@ module Fluent
         new_value = nil
         if value.is_a?(String)
           if @auto_typecast and !force_stringify
-            if single_placeholder_matched = value.match(/\A\${([^}]+)}\z/) # ${..} => ..
-              new_value = single_placeholder_matched[1]
+            num_placeholders = value.scan('${').size
+            if num_placeholders == 1 and value.start_with?('${') && value.end_with?('}')
+              new_value = value[2..-2] # ${..} => ..
             end
           end
           unless new_value
-            new_value = %Q{%Q[#{value.gsub(/\$\{([^}]+)\}/, '#{\1}')}]} # xx${..}xx => %Q[xx#{..}xx]
+            new_value = "%Q[#{value.gsub('${', '#{')}]" # xx${..}xx => %Q[xx#{..}xx]
           end
         elsif value.is_a?(Hash)
           new_value = {}
