@@ -64,54 +64,44 @@ module Fluent
         nil
       end
     end
+
+    STRING_TYPE = Proc.new { |val, opts| val }
+    ENUM_TYPE = Proc.new { |val, opts|
+      s = val.to_sym
+      raise "Plugin BUG: config type 'enum' requires :list argument" unless opts[:list].is_a?(Array)
+      unless opts[:list].include?(s)
+        raise ConfigError, "valid options are #{opts[:list].join(',')} but got #{val}"
+      end
+      s
+    }
+    INTEGER_TYPE = Proc.new { |val, opts| val.to_i }
+    FLOAT_TYPE = Proc.new { |val, opts| val.to_f }
+    SIZE_TYPE = Proc.new { |val, opts| Config.size_value(val) }
+    BOOL_TYPE = Proc.new { |val, opts| Config.bool_value(val) }
+    TIME_TYPE = Proc.new { |val, opts| Config.time_value(val) }
+    HASH_TYPE = Proc.new { |val, opts|
+      param = val.is_a?(String) ? JSON.load(val) : val
+      if param.class != Hash
+        raise ConfigError, "hash required but got #{val.inspect}"
+      end
+      param
+    }
+    ARRAY_TYPE = Proc.new { |val, opts|
+      param = val.is_a?(String) ? JSON.load(val) : val
+      if param.class != Array
+        raise ConfigError, "array required but got #{val.inspect}"
+      end
+      param
+    }
   end
 
-  Configurable.register_type(:string, Proc.new { |val, opts|
-    val
-  })
-
-  Configurable.register_type(:enum, Proc.new { |val, opts|
-    s = val.to_sym
-    raise "Plugin BUG: config type 'enum' requires :list argument" unless opts[:list].is_a?(Array)
-    unless opts[:list].include?(s)
-      raise ConfigError, "valid options are #{opts[:list].join(',')} but got #{val}"
-    end
-    s
-  })
-
-  Configurable.register_type(:integer, Proc.new { |val, opts|
-    val.to_i
-  })
-
-  Configurable.register_type(:float, Proc.new { |val, opts|
-    val.to_f
-  })
-
-  Configurable.register_type(:size, Proc.new { |val, opts|
-    Config.size_value(val)
-  })
-
-  Configurable.register_type(:bool, Proc.new { |val, opts|
-    Config.bool_value(val)
-  })
-
-  Configurable.register_type(:time, Proc.new { |val, opts|
-    Config.time_value(val)
-  })
-
-  Configurable.register_type(:hash, Proc.new { |val, opts|
-    param = val.is_a?(String) ? JSON.load(val) : val
-    if param.class != Hash
-      raise ConfigError, "hash required but got #{val.inspect}"
-    end
-    param
-  })
-
-  Configurable.register_type(:array, Proc.new { |val, opts|
-    param = val.is_a?(String) ? JSON.load(val) : val
-    if param.class != Array
-      raise ConfigError, "array required but got #{val.inspect}"
-    end
-    param
-  })
+  Configurable.register_type(:string,  Config::STRING_TYPE)
+  Configurable.register_type(:enum,    Config::ENUM_TYPE)
+  Configurable.register_type(:integer, Config::INTEGER_TYPE)
+  Configurable.register_type(:float,   Config::FLOAT_TYPE)
+  Configurable.register_type(:size,    Config::SIZE_TYPE)
+  Configurable.register_type(:bool,    Config::BOOL_TYPE)
+  Configurable.register_type(:time,    Config::TIME_TYPE)
+  Configurable.register_type(:hash,    Config::HASH_TYPE)
+  Configurable.register_type(:array,   Config::ARRAY_TYPE)
 end
