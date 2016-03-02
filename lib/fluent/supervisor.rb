@@ -154,8 +154,7 @@ module Fluent
       @log.init
       show_plugin_config if @show_plugin_config
       read_config
-      @system_config = SystemConfig.create(@conf) # @conf is set in read_config
-      @system_config.apply(self)
+      set_system_config
 
       dry_run if @dry_run
       start_daemonize if @daemonize
@@ -490,7 +489,7 @@ module Fluent
       # in main thread during trap context
       Thread.new {
         read_config
-        apply_system_config
+        set_system_config
         if pid = @main_pid
           Process.kill(:TERM, pid)
           # don't resuce Erro::ESRSH here (invalid status)
@@ -525,6 +524,11 @@ module Fluent
         @config_data << "\n" << @inline_config.gsub("\\n","\n")
       end
       @conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
+    end
+
+    def set_system_config
+      @system_config = SystemConfig.create(@conf) # @conf is set in read_config
+      @system_config.apply(self)
     end
 
     def run_configure
