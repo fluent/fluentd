@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+
 require 'fluent/plugin/socket_util'
 
 module Fluent

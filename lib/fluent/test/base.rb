@@ -14,6 +14,10 @@
 #    limitations under the License.
 #
 
+require 'fluent/engine'
+require 'fluent/system_config'
+require 'fluent/config'
+
 module Fluent
   module Test
     def self.setup

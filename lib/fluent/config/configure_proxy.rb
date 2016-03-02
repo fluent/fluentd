@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/configurable'
+
 module Fluent
   module Config
     class ConfigureProxy

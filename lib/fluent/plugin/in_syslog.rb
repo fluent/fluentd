@@ -14,6 +14,13 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+require 'yajl'
+
+require 'fluent/input'
+require 'fluent/config/error'
+require 'fluent/parser'
+
 module Fluent
   class SyslogInput < Input
     Plugin.register_input('syslog', self)
@@ -60,7 +67,6 @@ module Fluent
 
     def initialize
       super
-      require 'cool.io'
       require 'fluent/plugin/socket_util'
     end
 

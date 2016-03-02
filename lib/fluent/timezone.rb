@@ -16,6 +16,8 @@
 
 require 'tzinfo'
 
+require 'fluent/config/error'
+
 module Fluent
   class Timezone
     # [+-]HH:MM, [+-]HHMM, [+-]HH

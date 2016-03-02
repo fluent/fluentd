@@ -14,6 +14,9 @@
 #    limitations under the License.
 #
 
+require 'fluent/output'
+require 'fluent/config/error'
+
 module Fluent
   class RoundRobinOutput < MultiOutput
     Plugin.register_output('roundrobin', self)

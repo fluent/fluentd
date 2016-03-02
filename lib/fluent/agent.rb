@@ -13,10 +13,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 #
-module Fluent
-  require 'fluent/configurable'
-  require 'fluent/engine'
 
+require 'fluent/configurable'
+require 'fluent/engine'
+require 'fluent/plugin'
+require 'fluent/output'
+
+module Fluent
   #
   # Agent is a resource unit who manages emittable plugins
   #

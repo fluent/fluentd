@@ -1,4 +1,7 @@
 require_relative 'helper'
+require 'fluent/input'
+require 'fluent/output'
+require 'fluent/filter'
 
 module FluentTest
   class FluentTestInput < ::Fluent::Input

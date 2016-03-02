@@ -65,6 +65,9 @@ module Fluent
       # TODO: This variable name is unclear so we should change to better name.
       @threads_exclude_events = []
 
+      # Fluent::Engine requires Fluent::Log, so we must take that object lazily
+      @engine = Fluent.const_get('Engine')
+
       if opts.has_key?(:suppress_repeated_stacktrace)
         @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
       end
@@ -285,7 +288,7 @@ module Fluent
           record[key] = record[key].inspect unless record[key].respond_to?(:to_msgpack)
         }
         record['message'] = message.dup
-        Engine.push_log_event("#{@tag}.#{level}", time.to_i, record)
+        @engine.push_log_event("#{@tag}.#{level}", time.to_i, record)
       end
 
       return time, message

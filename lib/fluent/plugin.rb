@@ -14,6 +14,10 @@
 #    limitations under the License.
 #
 
+require 'rubygems'
+
+require 'fluent/config/error'
+
 module Fluent
   class PluginClass
     # This class is refactored using Fluent::Registry at v0.14
@@ -66,10 +70,12 @@ module Fluent
     end
 
     def new_parser(type)
+      require 'fluent/parser'
       TextParser.lookup(type)
     end
 
     def new_formatter(type)
+      require 'fluent/formatter'
       TextFormatter.lookup(type)
     end
 

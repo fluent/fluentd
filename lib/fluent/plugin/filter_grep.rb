@@ -14,6 +14,9 @@
 #    limitations under the License.
 #
 
+require 'fluent/filter'
+require 'fluent/config/error'
+
 module Fluent
   class GrepFilter < Filter
     Fluent::Plugin.register_filter('grep', self)

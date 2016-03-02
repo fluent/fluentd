@@ -14,6 +14,15 @@
 #    limitations under the License.
 #
 
+require 'thread'
+
+require 'fluent/config'
+require 'fluent/configurable'
+require 'fluent/engine'
+require 'fluent/log'
+require 'fluent/plugin'
+require 'fluent/timezone'
+
 module Fluent
   class OutputChain
     def initialize(array, tag, es, chain=NullOutputChain.instance)
@@ -92,7 +101,6 @@ module Fluent
       end
     end
   end
-
 
   class OutputThread
     def initialize(output)

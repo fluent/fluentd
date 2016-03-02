@@ -14,6 +14,12 @@
 #    limitations under the License.
 #
 
+require 'stringio'
+
+require 'fluent/engine'
+require 'fluent/plugin'
+require 'fluent/buffer'
+
 module Fluent
   class MemoryBufferChunk < BufferChunk
     def initialize(key, data='')

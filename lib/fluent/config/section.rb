@@ -16,10 +16,10 @@
 
 require 'json'
 
-module Fluent
-  require 'fluent/config/error'
-  require 'fluent/config/v1_parser'
+require 'fluent/config/error'
+require 'fluent/config/v1_parser'
 
+module Fluent
   module Config
     class Section < BasicObject
       def self.name
