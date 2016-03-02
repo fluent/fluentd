@@ -74,6 +74,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal :value, Config::ENUM_TYPE.call('value', {list: [:val, :value, :v]})
       assert_raises(Fluent::ConfigError){ Config::ENUM_TYPE.call('x', {list: [:val, :value, :v]}) }
       assert_raises(RuntimeError){ Config::ENUM_TYPE.call('val', {}) }
+      assert_raises(RuntimeError){ Config::ENUM_TYPE.call('val', {list: ["val", "value", "v"]}) }
     end
 
     test 'integer' do

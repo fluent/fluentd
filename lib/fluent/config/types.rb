@@ -68,9 +68,10 @@ module Fluent
     STRING_TYPE = Proc.new { |val, opts| val }
     ENUM_TYPE = Proc.new { |val, opts|
       s = val.to_sym
-      raise "Plugin BUG: config type 'enum' requires :list argument" unless opts[:list].is_a?(Array)
-      unless opts[:list].include?(s)
-        raise ConfigError, "valid options are #{opts[:list].join(',')} but got #{val}"
+      list = opts[:list]
+      raise "Plugin BUG: config type 'enum' requires :list of symbols" unless list.is_a?(Array) && list.all?{|v| v.is_a? Symbol }
+      unless list.include?(s)
+        raise ConfigError, "valid options are #{list.join(',')} but got #{val}"
       end
       s
     }
