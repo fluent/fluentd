@@ -17,6 +17,7 @@
 require 'optparse'
 
 require 'fluent/supervisor'
+require 'fluent/version'
 
 op = OptionParser.new
 op.version = Fluent::VERSION
