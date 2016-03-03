@@ -19,6 +19,7 @@ require 'fluent/config/section'
 require 'fluent/config/error'
 require 'fluent/registry'
 require 'fluent/plugin'
+require 'fluent/mixin'
 
 module Fluent
   module Configurable
