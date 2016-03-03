@@ -16,6 +16,7 @@
 
 require 'fluent/test/base'
 require 'fluent/event'
+require 'fluent/filter'
 
 module Fluent
   module Test
