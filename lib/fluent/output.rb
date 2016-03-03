@@ -21,6 +21,7 @@ require 'fluent/configurable'
 require 'fluent/engine'
 require 'fluent/log'
 require 'fluent/plugin'
+require 'fluent/status'
 require 'fluent/timezone'
 
 module Fluent
