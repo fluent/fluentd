@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/input'
 require 'fluent/buffer'
 require 'fluent/engine'
 require 'fluent/time'
