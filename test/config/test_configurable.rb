@@ -158,6 +158,12 @@ module ConfigurableSpec
       config_param :secret_param2, :string, secret: true
     end
   end
+
+  class Example6
+    include Fluent::Configurable
+    config_param :obj1, :hash, default: {}
+    config_param :obj2, :array, default: []
+  end
 end
 
 module Fluent::Config
@@ -250,6 +256,37 @@ module Fluent::Config
           assert_raise(Fluent::ConfigError) { b2.configure(default.merge({"opt1" => "bazz"})) }
           assert_raise(Fluent::ConfigError) { b2.configure(default.merge({"opt2" => "fooooooo"})) }
           assert_raise(Fluent::ConfigError) { b2.configure(default.merge({"opt3" => "c"})) }
+        end
+
+        sub_test_case 'default values should be duplicated before touched in plugin code' do
+          test 'default object should be dupped for cases configured twice' do
+            x6a = ConfigurableSpec::Example6.new
+            assert_nothing_raised { x6a.configure(e({})) }
+            assert_equal({}, x6a.obj1)
+            assert_equal([], x6a.obj2)
+
+            x6b = ConfigurableSpec::Example6.new
+            assert_nothing_raised { x6b.configure(e({})) }
+            assert_equal({}, x6b.obj1)
+            assert_equal([], x6b.obj2)
+
+            assert { x6a.obj1.object_id != x6b.obj1.object_id }
+            assert { x6a.obj2.object_id != x6b.obj2.object_id }
+
+            x6c = ConfigurableSpec::Example6.new
+            assert_nothing_raised { x6c.configure(e({})) }
+            assert_equal({}, x6c.obj1)
+            assert_equal([], x6c.obj2)
+
+            x6c.obj1['k'] = 'v'
+            x6c.obj2 << 'v'
+
+            assert_equal({'k' => 'v'}, x6c.obj1)
+            assert_equal(['v'], x6c.obj2)
+
+            assert_equal({}, x6a.obj1)
+            assert_equal([], x6a.obj2)
+          end
         end
       end
     end
