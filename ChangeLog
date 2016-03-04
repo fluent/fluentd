@@ -1,5 +1,28 @@
 # v0.12
 
+## Release 0.12.21 - 2015/03/03
+
+### New features / Enhancement
+
+* output: Use error stream in TimeSlicedOutput#emit
+  https://github.com/fluent/fluentd/pull/791
+* in_tail: Avoid unnecessary open call
+  https://github.com/fluent/fluentd/pull/788
+* in_tail: Add enable_watch_timer option
+  https://github.com/fluent/fluentd/pull/811
+* filter_record_transformer: Relax conditions which auto_typecast is applied when enable_ruby yes
+  https://github.com/fluent/fluentd/pull/817
+* Backport v0.14 refactoring changes
+
+### Bug fixes
+
+* in_tail: Fix input messages loss when receive_lines fail with BufferQueueLimitError
+  https://github.com/fluent/fluentd/pull/810
+* in_monitor_agent: Remove unnecessary fields from API response with debug mode
+  https://github.com/fluent/fluentd/pull/802
+* filter_record_transformer: Fix record_transformer to be thread-safe
+  https://github.com/fluent/fluentd/pull/816
+
 ## Release 0.12.20 - 2015/01/26
 
 ### New features / Enhancement
