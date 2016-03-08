@@ -137,6 +137,10 @@ if Fluent.windows?
     opts[:regwinsvc] = s
   }
 
+  op.on('--[no-]reg-winsvc-auto-start', "Automatically start the Windows Service at boot. (only effective with '--reg-winsvc i') (Windows only)") {|s|
+    opts[:regwinsvcautostart] = s
+  }
+
   op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
     opts[:fluentdopt] = s
   }
@@ -192,6 +196,8 @@ if setup_path = opts[:setup_path]
   exit 0
 end
 
+early_exit = false
+start_service = false
 if winsvcinstmode = opts[:regwinsvc]
   FLUENTD_WINSVC_NAME="fluentdwinsvc"
   FLUENTD_WINSVC_DISPLAYNAME="Fluentd Windows Service"
@@ -207,13 +213,18 @@ if winsvcinstmode = opts[:regwinsvc]
     ruby_path = "\0" * 256
     GetModuleFileName.call(0,ruby_path,256)
     ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+    start_type = Service::DEMAND_START
+    if opts[:regwinsvcautostart]
+      start_type = Service::AUTO_START
+      start_service = true
+    end
 
     Service.create(
       service_name: FLUENTD_WINSVC_NAME,
       host: nil,
       service_type: Service::WIN32_OWN_PROCESS,
       description: FLUENTD_WINSVC_DESC,
-      start_type: Service::DEMAND_START,
+      start_type: start_type,
       error_control: Service::ERROR_NORMAL,
       binary_path_name: ruby_path+" -C "+binary_path+" winsvc.rb",
       load_order_group: "",
@@ -221,19 +232,32 @@ if winsvcinstmode = opts[:regwinsvc]
       display_name: FLUENTD_WINSVC_DISPLAYNAME
     )
   when 'u'
+    if Service.status(FLUENTD_WINSVC_NAME).current_state != 'stopped'
+      begin
+        Service.stop(FLUENTD_WINSVC_NAME)
+      rescue => ex
+        puts "Warning: Failed to stop service: ", ex
+      end
+    end
     Service.delete(FLUENTD_WINSVC_NAME)
   else
     # none
   end
-  exit 0
+  early_exit = true
 end
 
 if fluentdopt = opts[:fluentdopt]
   Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc", Win32::Registry::KEY_ALL_ACCESS) do |reg|
     reg['fluentdopt', Win32::Registry::REG_SZ] = fluentdopt
   end
-  exit 0
+  early_exit = true
 end
+
+if start_service
+  Service.start(FLUENTD_WINSVC_NAME)
+end
+
+exit 0 if early_exit
 
 require 'fluent/supervisor'
 Fluent::Supervisor.new(opts).start
