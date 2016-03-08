@@ -39,15 +39,4 @@ module Fluent
       Element.new(name, '', {}, [])
     end
   end
-
-  module PluginId
-    def configure(conf)
-      @id = conf['@id'] || conf['id']
-      super
-    end
-
-    def plugin_id
-      @id ? @id : "object:#{object_id.to_s(16)}"
-    end
-  end
 end
