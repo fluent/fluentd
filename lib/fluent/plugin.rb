@@ -136,10 +136,10 @@ module Fluent
       case
       when obj.is_a?(Class)
         obj.new
-      when obj.respond_to?(:call)
+      when obj.respond_to?(:call) && obj.arity == 0
         obj.call
       else
-        raise Fluent::ConfigError, "#{kind} plugin '#{type}' is not a Class nor callable."
+        raise Fluent::ConfigError, "#{kind} plugin '#{type}' is not a Class nor callable (without arguments)."
       end
     end
   end
