@@ -58,7 +58,6 @@ module Fluent
       @system_config = system_config
 
       BasicSocket.do_not_reverse_lookup = true
-      Plugin.load_plugins
       if defined?(Encoding)
         Encoding.default_internal = 'ASCII-8BIT' if Encoding.respond_to?(:default_internal)
         Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
@@ -126,8 +125,8 @@ module Fluent
       end
     end
 
-    def load_plugin_dir(dir)
-      Plugin.load_plugin_dir(dir)
+    def add_plugin_dir(dir)
+      Plugin.add_plugin_dir(dir)
     end
 
     def emit(tag, time, record)

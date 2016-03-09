@@ -15,7 +15,7 @@
 #
 
 require 'fluent/configurable'
-require 'fluent/registry'
+require 'fluent/plugin'
 require 'fluent/mixin'
 
 module Fluent
@@ -242,34 +242,33 @@ module Fluent
       end
     end
 
-    TEMPLATE_REGISTRY = Registry.new(:formatter_type, 'fluent/plugin/formatter_')
     {
-      'out_file' => Proc.new { OutFileFormatter.new },
-      'stdout' => Proc.new { StdoutFormatter.new },
-      'json' => Proc.new { JSONFormatter.new },
-      'hash' => Proc.new { HashFormatter.new },
-      'msgpack' => Proc.new { MessagePackFormatter.new },
-      'ltsv' => Proc.new { LabeledTSVFormatter.new },
-      'csv' => Proc.new { CsvFormatter.new },
-      'single_value' => Proc.new { SingleValueFormatter.new },
-    }.each { |name, factory|
-      TEMPLATE_REGISTRY.register(name, factory)
+      'out_file' => OutFileFormatter,
+      'stdout' => StdoutFormatter,
+      'json' => JSONFormatter,
+      'hash' => HashFormatter,
+      'msgpack' => MessagePackFormatter,
+      'ltsv' => LabeledTSVFormatter,
+      'csv' => CsvFormatter,
+      'single_value' => SingleValueFormatter,
+    }.each { |type, factory|
+      Fluent::Plugin.register_formatter(type, factory)
     }
 
-    def self.register_template(name, factory_or_proc)
-      factory = if factory_or_proc.is_a?(Class) # XXXFormatter
-                  Proc.new { factory_or_proc.new }
-                elsif factory_or_proc.arity == 3 # Proc.new { |tag, time, record| }
-                  Proc.new { ProcWrappedFormatter.new(factory_or_proc) }
-                else # Proc.new { XXXFormatter.new }
-                  factory_or_proc
-                end
-
-      TEMPLATE_REGISTRY.register(name, factory)
+    def self.register_template(type, template)
+      if template.is_a?(Class)
+        Fluent::Plugin.register_formatter(type, template)
+      elsif template.respond_to?(:call) && template.arity == 3 # Proc.new { |tag, time, record| }
+        Fluent::Plugin.register_formatter(type, Proc.new { ProcWrappedFormatter.new(template) })
+      elsif template.respond_to?(:call)
+        Fluent::Plugin.register_formatter(type, template)
+      else
+        raise ArgumentError, "Template for formatter must be a Class or callable object"
+      end
     end
 
-    def self.lookup(format)
-      TEMPLATE_REGISTRY.lookup(format).call
+    def self.lookup(type)
+      Fluent::Plugin.new_formatter(type)
     end
 
     # Keep backward-compatibility

@@ -16,6 +16,7 @@
 
 require 'fluent/formatter'
 require 'fluent/config'
+require 'fluent/plugin'
 
 module Fluent
   module Test
@@ -30,7 +31,7 @@ module Fluent
           end
           @instance = klass_or_str.new
         elsif klass_or_str.is_a?(String)
-          @instance = TextFormatter::TEMPLATE_REGISTRY.lookup(klass_or_str).call
+          @instance = Fluent::Plugin.new_formatter(klass_or_str)
         else
           @instance = klass_or_str
         end
