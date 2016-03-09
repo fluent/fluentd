@@ -43,6 +43,22 @@ module Fluent::Config
 
             assert_raise(NoMethodError) { s1.dup }
           end
+
+          test 'creates object which contains specified hash object itself, including fields with at prefix' do
+            hash = {
+              name: 'tagomoris',
+              age: 34,
+              send: 'email',
+              class: 'normal',
+              keys: 5,
+            }
+            hash['@id'.to_sym] = 'myid'
+
+            s1 = Fluent::Config::Section.new(hash)
+            assert_equal('myid', s1['@id'])
+            assert_equal('myid', s1['@id'.to_sym])
+            assert_equal('myid', s1.__send__('@id'.to_sym))
+          end
         end
 
         sub_test_case '#object_id' do
