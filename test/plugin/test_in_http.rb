@@ -181,7 +181,7 @@ class HttpInputTest < Test::Unit::TestCase
 
     d.run do
       d.expected_emits.each {|tag,time,record|
-        res = post("/#{tag}?time=#{time.to_s}", record.to_json, {"content-type"=>"application/json; charset=utf-8"})
+        res = post("/#{tag}?time=#{time.to_s}", record.to_json, {"Content-Type"=>"application/json; charset=utf-8"})
         assert_equal "200", res.code
       }
     end
@@ -323,7 +323,7 @@ class HttpInputTest < Test::Unit::TestCase
       d.run do
         # Send two requests the second one has no Content-Type in Keep-Alive
         Net::HTTP.start("127.0.0.1", PORT) do |http|
-          req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive", "content-Type" => "application/json"})
+          req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive", "Content-Type" => "application/json"})
           res = http.request(req)
 
           req = Net::HTTP::Get.new("/foodb/bartbl", {"connection" => "keepalive"})
