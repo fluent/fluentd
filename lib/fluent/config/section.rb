@@ -70,7 +70,7 @@ module Fluent
         case symbol
         when :inspect, :nil?, :to_h, :+, :instance_of?, :kind_of?, :[], :respond_to?, :respond_to_missing?, :method_missing,
           true
-        when :!, :!= , :==, :equal?, :instance_eval, :instane_exec
+        when :!, :!= , :==, :equal?, :instance_eval, :instance_exec
           true
         when :method_missing, :singleton_method_added, :singleton_method_removed, :singleton_method_undefined
           include_all
