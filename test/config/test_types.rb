@@ -128,6 +128,12 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     test 'array' do
       assert_equal(["1","2",1], Config::ARRAY_TYPE.call('["1","2",1]', {}))
+
+      array_options = {
+        default: [],
+      }
+      assert_equal(["1","2"], Config::ARRAY_TYPE.call('["1","2"]', array_options))
+      assert_equal(["3"], Config::ARRAY_TYPE.call('["3"]', array_options))
     end
   end
 end

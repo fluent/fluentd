@@ -88,7 +88,7 @@ module Fluent
 
         proxy.defaults.each_pair do |name, defval|
           varname = name.to_sym
-          section_params[varname] = defval
+          section_params[varname] = (defval.dup rescue defval)
         end
 
         if proxy.argument
