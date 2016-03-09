@@ -143,9 +143,9 @@ module Fluent
         # Skip nil record
         if record.nil?
           if @respond_with_empty_img
-            return ["200 OK", {'Content-type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
+            return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
-            return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+            return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
           end
         end
 
@@ -168,7 +168,7 @@ module Fluent
                  record_time.nil? ? Engine.now : record_time
                end
       rescue
-        return ["400 Bad Request", {'Content-type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
+        return ["400 Bad Request", {'Content-Type'=>'text/plain'}, "400 Bad Request\n#{$!}\n"]
       end
 
       # TODO server error
@@ -195,13 +195,13 @@ module Fluent
           router.emit(tag, time, record)
         end
       rescue
-        return ["500 Internal Server Error", {'Content-type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
+        return ["500 Internal Server Error", {'Content-Type'=>'text/plain'}, "500 Internal Server Error\n#{$!}\n"]
       end
 
       if @respond_with_empty_img
-        return ["200 OK", {'Content-type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
+        return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
-        return ["200 OK", {'Content-type'=>'text/plain'}, ""]
+        return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
       end
     end
 
@@ -384,8 +384,8 @@ module Fluent
       end
 
       def send_response(code, header, body)
-        header['Content-length'] ||= body.bytesize
-        header['Content-type'] ||= 'text/plain'
+        header['Content-Length'] ||= body.bytesize
+        header['Content-Type'] ||= 'text/plain'
 
         data = %[HTTP/1.1 #{code}\r\n]
         header.each_pair {|k,v|
