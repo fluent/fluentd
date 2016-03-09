@@ -323,7 +323,7 @@ class HttpInputTest < Test::Unit::TestCase
       d.run do
         # Send two requests the second one has no Content-Type in Keep-Alive
         Net::HTTP.start("127.0.0.1", PORT) do |http|
-          req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive", "content-type" => "application/json"})
+          req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive", "content-Type" => "application/json"})
           res = http.request(req)
 
           req = Net::HTTP::Get.new("/foodb/bartbl", {"connection" => "keepalive"})
