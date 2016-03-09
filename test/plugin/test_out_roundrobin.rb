@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/out_roundrobin'
 
 class RoundRobinOutputTest < Test::Unit::TestCase
   class << self

@@ -390,13 +390,13 @@ module FormatterTest
     end
 
     def test_format
-      formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('single_value').call
+      formatter = Fluent::Plugin.new_formatter('single_value')
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
       assert_equal("awesome\n", formatted)
     end
 
     def test_format_without_newline
-      formatter = TextFormatter::TEMPLATE_REGISTRY.lookup('single_value').call
+      formatter = Fluent::Plugin.new_formatter('single_value')
       formatter.configure('add_newline' => 'false')
       formatted = formatter.format('tag', Engine.now, {'message' => 'awesome'})
       assert_equal("awesome", formatted)
@@ -416,7 +416,7 @@ module FormatterTest
 
     def test_unknown_format
       assert_raise ConfigError do
-        TextFormatter::TEMPLATE_REGISTRY.lookup('unknown')
+        Fluent::Plugin.new_formatter('unknown')
       end
     end
 
@@ -424,7 +424,7 @@ module FormatterTest
     def test_find_formatter(data)
       $LOAD_PATH.unshift(File.join(File.expand_path(File.dirname(__FILE__)), 'scripts'))
       assert_nothing_raised ConfigError do
-        TextFormatter::TEMPLATE_REGISTRY.lookup(data)
+        Fluent::Plugin.new_formatter(data)
       end
       $LOAD_PATH.shift
     end

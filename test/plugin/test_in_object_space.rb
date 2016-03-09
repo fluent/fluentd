@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/in_object_space'
 
 class ObjectSpaceInputTest < Test::Unit::TestCase
   class FailObject

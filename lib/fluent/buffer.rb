@@ -18,6 +18,7 @@ require 'monitor'
 require 'fileutils'
 
 require 'fluent/configurable'
+require 'fluent/plugin' # to register itself to registry
 
 module Fluent
   class BufferError < StandardError

@@ -216,7 +216,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_REGISTRY.lookup('apache').call
+      @parser = Fluent::Plugin.new_parser('apache')
     end
 
     data('parse' => :parse, 'call' => :call)
@@ -252,7 +252,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_REGISTRY.lookup('apache_error').call
+      @parser = Fluent::Plugin.new_parser('apache_error')
       @expected = {
         'level' => 'error',
         'client' => '127.0.0.1',
@@ -493,7 +493,7 @@ module ParserTest
     include ParserTest
 
     def setup
-      @parser = TextParser::TEMPLATE_REGISTRY.lookup('nginx').call
+      @parser = Fluent::Plugin.new_parser('nginx')
       @expected = {
         'remote'  => '127.0.0.1',
         'host'    => '192.168.0.1',
@@ -875,7 +875,7 @@ module ParserTest
     end
 
     def test_parse
-      parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser = Fluent::Plugin.new_parser('none')
       parser.configure({})
       parser.parse('log message!') { |time, record|
         assert_equal({'message' => 'log message!'}, record)
@@ -893,14 +893,14 @@ module ParserTest
     def test_parse_without_default_time
       time_at_start = Time.now.to_i
 
-      parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser = Fluent::Plugin.new_parser('none')
       parser.configure({})
       parser.parse('log message!') { |time, record|
         assert time && time >= time_at_start, "parser puts current time without time input"
         assert_equal({'message' => 'log message!'}, record)
       }
 
-      parser = TextParser::TEMPLATE_REGISTRY.lookup('none').call
+      parser = Fluent::Plugin.new_parser('none')
       parser.estimate_current_event = false
       parser.configure({})
       parser.parse('log message!') { |time, record|
@@ -914,7 +914,7 @@ module ParserTest
     include ParserTest
 
     def create_parser(conf)
-      parser = TextParser::TEMPLATE_REGISTRY.lookup('multiline').call
+      parser = Fluent::Plugin.new_parser('multiline')
       parser.configure(conf)
       parser
     end
@@ -1027,7 +1027,7 @@ EOS
 
     def test_lookup_unknown_format
       assert_raise ConfigError do
-        TextParser::TEMPLATE_REGISTRY.lookup('unknown')
+        Fluent::Plugin.new_parser('unknown')
       end
     end
 
@@ -1035,7 +1035,7 @@ EOS
     def test_lookup_known_parser(data)
       $LOAD_PATH.unshift(File.join(File.expand_path(File.dirname(__FILE__)), 'scripts'))
       assert_nothing_raised ConfigError do
-        TextParser::TEMPLATE_REGISTRY.lookup(data)
+        Fluent::Plugin.new_parser(data)
       end
       $LOAD_PATH.shift
     end
