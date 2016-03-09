@@ -384,7 +384,7 @@ module Fluent
       end
 
       def send_response(code, header, body)
-        header['Content-length'] ||= body.bytesize
+        header['Content-Length'] ||= body.bytesize
         header['Content-Type'] ||= 'text/plain'
 
         data = %[HTTP/1.1 #{code}\r\n]
