@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/test'
 require 'fluent/output'
+require 'fluent/output_chain'
 require 'timecop'
 require 'flexmock'
 
