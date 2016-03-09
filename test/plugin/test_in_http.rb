@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/in_http'
 require 'net/http'
 
 class HttpInputTest < Test::Unit::TestCase
@@ -285,41 +286,37 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  $test_in_http_connection_object_ids = []
+  $test_in_http_content_types = []
+  $test_in_http_content_types_flag = false
+  module ContentTypeHook
+    def on_headers_complete(headers)
+      super
+      if $test_in_http_content_types_flag
+        $test_in_http_content_types << self.content_type
+      end
+    end
+
+    def on_message_begin
+      super
+      if $test_in_http_content_types_flag
+        $test_in_http_connection_object_ids << @io_handler.object_id
+      end
+    end
+  end
+
+  class Fluent::HttpInput::Handler
+    prepend ContentTypeHook
+  end
+
   def test_if_content_type_is_initialized_properly
     # This test is to check if Fluent::HttpInput::Handler's @content_type is initialized properly.
     # Especially when in Keep-Alive and the second request has no 'Content-Type'.
-    #
-    # Actually, in the current implementation of in_http, we can't test it directly.
-    # So we replace Fluent::HttpInput::Handler temporally with the extended Handler
-    # in order to collect @content_type(s) per request.
-    # Finally, we check those collected @content_type(s).
-
-    # Save the original Handler
-    orig_handler = Fluent::HttpInput::Handler
 
     begin
-      # Create the extended Handler which can store @content_type per request
-      ext_handler = Class.new(Fluent::HttpInput::Handler) do
-        @@content_types = []
-
-        def self.content_types
-          @@content_types
-        end
-
-        def on_message_complete
-          @@content_types << @content_type
-          super
-        end
-      end
-
-      # Replace the original Handler temporally with the extended one
-      Fluent::HttpInput.module_eval do
-        remove_const(:Handler) if const_defined?(:Handler)
-        const_set(:Handler, ext_handler)
-      end
-
       d = create_driver
 
+      $test_in_http_content_types_flag = true
       d.run do
         # Send two requests the second one has no Content-Type in Keep-Alive
         Net::HTTP.start("127.0.0.1", PORT) do |http|
@@ -330,15 +327,13 @@ class HttpInputTest < Test::Unit::TestCase
           res = http.request(req)
         end
 
-        assert_equal(['application/json', ''], ext_handler.content_types)
       end
     ensure
-      # Revert the original Handler
-      Fluent::HttpInput.module_eval do
-        remove_const(:Handler) if const_defined?(:Handler)
-        const_set(:Handler, orig_handler)
-      end
+      $test_in_http_content_types_flag = false
     end
+    assert_equal(['application/json', ''], $test_in_http_content_types)
+    # Asserting keepalive
+    assert_equal $test_in_http_connection_object_ids[0], $test_in_http_connection_object_ids[1]
   end
 
   def post(path, params, header = {})
