@@ -69,15 +69,19 @@ module Fluent
       def merge(other) # self is base class, other is subclass
         return merge_for_finalized(other) if self.final?
 
-        options = {
-          param_name: other.param_name,
-          required: (other.required.nil? ? self.required : other.required),
-          multi: (other.multi.nil? ? self.multi : other.multi)
-        }
+        options = {}
+        # param_name is used not to ovewrite plugin's instance
+        # varible, so this should be able to be overwritten
+        options[:param_name] = other.param_name
+        # subclass cannot overwrite base class's definition
+        options[:required] = @required.nil? ? other.required : self.required
+        options[:multi] = @multi.nil? ? other.multi : self.multi
+        options[:alias] = @alias.nil? ? other.alias : self.alias
+
         merged = self.class.new(other.name, options)
 
         merged.argument = other.argument || self.argument
-        merged.params = self.params.merge(other.params)
+        merged.params = other.params.merge(self.params)
         merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = {}
         (self.sections.keys + other.sections.keys).uniq.each do |section_key|
