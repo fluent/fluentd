@@ -20,7 +20,7 @@ module Fluent
   class BufferedStdoutOutput < BufferedOutput
     Plugin.register_output('buffered_stdout', self)
 
-    config_param :output_type, :default => 'json'
+    config_param :output_type, default: 'json'
 
     def configure(conf)
       super
