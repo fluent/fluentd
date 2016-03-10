@@ -10,6 +10,13 @@ build: off
 test_script:
   - bundle exec rake test TESTOPTS=-v
 
+branches:
+  only:
+    - master
+    - v0.10
+    - v0.12
+    - v0.14
+
 environment:
   matrix:
     - ruby_version: "22-x64"
