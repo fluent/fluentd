@@ -68,7 +68,7 @@ module Fluent
 
       def respond_to?(symbol, include_all=false)
         case symbol
-        when :inspect, :nil?, :to_h, :+, :instance_of?, :kind_of?, :[], :respond_to?, :respond_to_missing?, :method_missing,
+        when :inspect, :nil?, :to_h, :+, :instance_of?, :kind_of?, :[], :respond_to?, :respond_to_missing?
           true
         when :!, :!= , :==, :equal?, :instance_eval, :instance_exec
           true
