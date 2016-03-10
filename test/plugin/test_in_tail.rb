@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/in_tail'
 require 'net/http'
 require 'flexmock'
 

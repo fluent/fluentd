@@ -18,13 +18,16 @@ require 'fluent/config/error'
 
 module Fluent
   class Registry
+    DEFAULT_PLUGIN_PATH = File.expand_path('plugin', __FILE__)
+
     def initialize(kind, search_prefix)
       @kind = kind
       @search_prefix = search_prefix
       @map = {}
+      @paths = [DEFAULT_PLUGIN_PATH]
     end
 
-    attr_reader :kind
+    attr_reader :kind, :paths
 
     def register(type, value)
       type = type.to_sym
@@ -43,18 +46,27 @@ module Fluent
       raise ConfigError, "Unknown #{@kind} plugin '#{type}'. Run 'gem search -rd fluentd-plugin' to find plugins"  # TODO error class
     end
 
+    def reverse_lookup(value)
+      @map.each do |k, v|
+        return k if v == value
+      end
+      nil
+    end
+
     def search(type)
       path = "#{@search_prefix}#{type}"
 
       # prefer LOAD_PATH than gems
-      files = $LOAD_PATH.map { |lp|
-        lpath = File.expand_path(File.join(lp, "#{path}.rb"))
-        File.exist?(lpath) ? lpath : nil
-      }.compact
-      unless files.empty?
-        # prefer newer version
-        require files.sort.last
-        return
+      [@paths, $LOAD_PATH].each do |paths|
+        files = paths.map { |lp|
+          lpath = File.expand_path(File.join(lp, "#{path}.rb"))
+          File.exist?(lpath) ? lpath : nil
+        }.compact
+        unless files.empty?
+          # prefer newer version
+          require files.sort.last
+          return
+        end
       end
 
       specs = Gem::Specification.find_all { |spec|

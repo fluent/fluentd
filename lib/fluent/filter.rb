@@ -18,6 +18,7 @@ require 'fluent/configurable'
 require 'fluent/plugin_id'
 require 'fluent/engine'
 require 'fluent/event'
+require 'fluent/plugin' # to register itself to registry
 require 'fluent/log'
 
 module Fluent

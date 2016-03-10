@@ -36,7 +36,7 @@ module Fluent
             @instance = klass_or_str.new(format, conf)
           end
         elsif klass_or_str.is_a?(String)
-          @instance = TextParser::TEMPLATE_REGISTRY.lookup(klass_or_str).call
+          @instance = Fluent::Plugin.new_parser(klass_or_str)
         else
           @instance = klass_or_str
         end

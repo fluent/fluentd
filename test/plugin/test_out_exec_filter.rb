@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/plugin/out_exec_filter'
 require 'fileutils'
 
 class ExecFilterOutputTest < Test::Unit::TestCase

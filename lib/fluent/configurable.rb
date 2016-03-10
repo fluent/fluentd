@@ -52,7 +52,7 @@ module Fluent
       conf.corresponding_proxies << proxy
 
       # In the nested section, can't get plugin class through proxies so get plugin class here
-      plugin_class = Fluent::Plugin.lookup_name_from_class(proxy.name.to_s)
+      plugin_class = Fluent::Plugin.lookup_type_from_class(proxy.name.to_s)
       root = Fluent::Config::SectionGenerator.generate(proxy, conf, logger, plugin_class)
       @config_root_section = root
 

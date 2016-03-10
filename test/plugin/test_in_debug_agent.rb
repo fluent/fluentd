@@ -1,4 +1,6 @@
 require_relative '../helper'
+require 'fluent/test'
+require 'fluent/plugin/in_debug_agent'
 require 'fileutils'
 
 class DebugAgentInputTest < Test::Unit::TestCase

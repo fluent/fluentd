@@ -24,7 +24,8 @@ require 'fluent/config/error'
 require 'fluent/config/element'
 require 'fluent/configurable'
 require 'fluent/engine'
-require 'fluent/registry'
+require 'fluent/plugin' # to register itself to registry
+require 'fluent/plugin/string_util'
 require 'fluent/time'
 
 module Fluent
@@ -633,34 +634,30 @@ module Fluent
       end
     end
 
-    TEMPLATE_REGISTRY = Registry.new(:config_type, 'fluent/plugin/parser_')
     {
       'apache' => Proc.new { RegexpParser.new(/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/, {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
       'apache_error' => Proc.new { RegexpParser.new(/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/) },
-      'apache2' => Proc.new { ApacheParser.new },
-      'syslog' => Proc.new { SyslogParser.new },
-      'json' => Proc.new { JSONParser.new },
-      'tsv' => Proc.new { TSVParser.new },
-      'ltsv' => Proc.new { LabeledTSVParser.new },
-      'csv' => Proc.new { CSVParser.new },
+      'apache2' => ApacheParser,
+      'syslog' => SyslogParser,
+      'json' => JSONParser,
+      'tsv' => TSVParser,
+      'ltsv' => LabeledTSVParser,
+      'csv' => CSVParser,
       'nginx' => Proc.new { RegexpParser.new(/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,  {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}) },
-      'none' => Proc.new { NoneParser.new },
-      'multiline' => Proc.new { MultilineParser.new },
-    }.each { |name, factory|
-      TEMPLATE_REGISTRY.register(name, factory)
+      'none' => NoneParser,
+      'multiline' => MultilineParser,
+    }.each { |type, factory|
+      Fluent::Plugin.register_parser(type, factory)
     }
 
-    def self.register_template(name, regexp_or_proc, time_format=nil)
-      if regexp_or_proc.is_a?(Class)
-        factory = Proc.new { regexp_or_proc.new }
-      elsif regexp_or_proc.is_a?(Regexp)
-        regexp = regexp_or_proc
-        factory = Proc.new { RegexpParser.new(regexp, {'time_format'=>time_format}) }
+    def self.register_template(type, template, time_format=nil)
+      if template.is_a?(Class) || template.respond_to?(:call)
+        Fluent::Plugin.register_parser(type, template)
+      elsif template.is_a?(Regexp)
+        Fluent::Plugin.register_parser(type, Proc.new { RegexpParser.new(template, {'time_format' => time_format}) })
       else
-        factory = regexp_or_proc
+        raise ArgumentError, "Template for parser must be a Class, callable object or regular expression object"
       end
-
-      TEMPLATE_REGISTRY.register(name, factory)
     end
 
     def self.lookup(format)
@@ -683,12 +680,10 @@ module Fluent
       else
         # built-in template
         begin
-          factory = TEMPLATE_REGISTRY.lookup(format)
+          Fluent::Plugin.new_parser(format)
         rescue ConfigError => e # keep same error message
           raise ConfigError, "Unknown format template '#{format}'"
         end
-
-        factory.call
       end
     end
 

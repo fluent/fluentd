@@ -14,166 +14,133 @@
 #    limitations under the License.
 #
 
+require 'fluent/registry'
 require 'fluent/config/error'
 
 module Fluent
-  class PluginClass
-    # This class is refactored using Fluent::Registry at v0.14
+  class Plugin
+    SEARCH_PATHS = []
 
-    def initialize
-      @input = {}
-      @output = {}
-      @filter = {}
-      @buffer = {}
-    end
+    # plugins for fluentd:         fluent/plugin/type_NAME.rb
+    # plugins for fluentd plugins: fluent/plugin/type/NAME.rb
+    #   ex: storage, buffer chunk, ...
 
-    def register_input(type, klass)
-      register_impl('input', @input, type, klass)
-    end
+    INPUT_REGISTRY     = Registry.new(:input,     'fluent/plugin/in_')
+    OUTPUT_REGISTRY    = Registry.new(:output,    'fluent/plugin/out_')
+    FILTER_REGISTRY    = Registry.new(:filter,    'fluent/plugin/filter_')
+    BUFFER_REGISTRY    = Registry.new(:buffer,    'fluent/plugin/buf_')
+    PARSER_REGISTRY    = Registry.new(:parser,    'fluent/plugin/parser_')
+    FORMATTER_REGISTRY = Registry.new(:formatter, 'fluent/plugin/formatter_')
+    # TODO: plugin storage
 
-    def register_output(type, klass)
-      register_impl('output', @output, type, klass)
-    end
+    REGISTRIES = [INPUT_REGISTRY, OUTPUT_REGISTRY, FILTER_REGISTRY, BUFFER_REGISTRY, PARSER_REGISTRY, FORMATTER_REGISTRY]
 
-    def register_filter(type, klass)
-      register_impl('filter', @filter, type, klass)
-    end
-
-    def register_buffer(type, klass)
-      register_impl('buffer', @buffer, type, klass)
-    end
-
-    def register_parser(type, klass)
-      TextParser.register_template(type, klass)
-    end
-
-    def register_formatter(type, klass)
-      TextFormatter.register_template(type, klass)
-    end
-
-    def new_input(type)
-      new_impl('input', @input, type)
-    end
-
-    def new_output(type)
-      new_impl('output', @output, type)
-    end
-
-    def new_filter(type)
-      new_impl('filter', @filter, type)
-    end
-
-    def new_buffer(type)
-      new_impl('buffer', @buffer, type)
-    end
-
-    def new_parser(type)
-      require 'fluent/parser'
-      TextParser.lookup(type)
-    end
-
-    def new_formatter(type)
-      require 'fluent/formatter'
-      TextFormatter.lookup(type)
-    end
-
-    def load_plugins
-      dir = File.join(File.dirname(__FILE__), "plugin")
-      load_plugin_dir(dir)
-    end
-
-    def load_plugin_dir(dir)
-      dir = File.expand_path(dir)
-      Dir.entries(dir).sort.each {|fname|
-        if fname =~ /\.rb$/
-          require File.join(dir, fname)
-        end
-      }
-      nil
-    end
-
-    def load_plugin(type, name)
-      try_load_plugin(name, type)
-    end
-
-    def lookup_name_from_class(klass_or_str)
-      klass = if klass_or_str.class == String
-                eval(klass_or_str) # const_get can't handle A::B
+    def self.lookup_type_from_class(klass_or_its_name)
+      klass = if klass_or_its_name.is_a? Class
+                klass_or_its_name
+              elsif klass_or_its_name.is_a? String
+                eval(klass_or_its_name) # const_get can't handle qualified klass name (ex: A::B)
               else
-                klass_or_str
+                raise ArgumentError, "invalid argument type #{klass_or_its_name.class}: #{klass_or_its_name}"
               end
+      REGISTRIES.reduce(nil){|a, r| a || r.reverse_lookup(klass) }
+    end
 
-      @input.each { |name, plugin|
-        return name if plugin == klass
-      }
-      @output.each { |name, plugin|
-        return name if plugin == klass
-      }
-      @filter.each { |name, plugin|
-        return name if plugin == klass
-      }
-
+    def self.add_plugin_dir(dir)
+      REGISTRIES.each do |r|
+        r.paths.push(dir)
+      end
       nil
     end
 
-    private
-    def register_impl(name, map, type, klass)
-      map[type] = klass
-      $log.trace { "registered #{name} plugin '#{type}'" }
-      nil
+    def self.register_input(type, klass)
+      register_impl('input', INPUT_REGISTRY, type, klass)
     end
 
-    def new_impl(name, map, type)
-      if klass = map[type]
-        return klass.new
-      end
-      try_load_plugin(name, type)
-      if klass = map[type]
-        return klass.new
-      end
-      raise ConfigError, "Unknown #{name} plugin '#{type}'. Run 'gem search -rd fluent-plugin' to find plugins"
+    def self.register_output(type, klass)
+      register_impl('output', OUTPUT_REGISTRY, type, klass)
     end
 
-    def try_load_plugin(name, type)
-      case name
-      when 'input'
-        path = "fluent/plugin/in_#{type}"
-      when 'output'
-        path = "fluent/plugin/out_#{type}"
-      when 'filter'
-        path = "fluent/plugin/filter_#{type}"
-      when 'buffer'
-        path = "fluent/plugin/buf_#{type}"
+    def self.register_filter(type, klass)
+      register_impl('filter', FILTER_REGISTRY, type, klass)
+    end
+
+    def self.register_buffer(type, klass)
+      register_impl('buffer', BUFFER_REGISTRY, type, klass)
+    end
+
+    def self.register_parser(type, klass_or_proc)
+      if klass_or_proc.is_a?(Regexp)
+        # This usage is not recommended for new API
+        require 'fluent/parser'
+        register_impl('parser', PARSER_REGISTRY, type, Proc.new { Fluent::TextParser::RegexpParser.new(klass_or_proc) })
       else
-        return
+        register_impl('parser', PARSER_REGISTRY, type, klass_or_proc)
       end
+    end
 
-      # prefer LOAD_PATH than gems
-      files = $LOAD_PATH.map {|lp|
-        lpath = File.join(lp, "#{path}.rb")
-        File.exist?(lpath) ? lpath : nil
-      }.compact
-      unless files.empty?
-        # prefer newer version
-        require File.expand_path(files.sort.last)
-        return
+    def self.register_formatter(type, klass_or_proc)
+      if klass_or_proc.respond_to?(:call) && klass_or_proc.arity == 3 # Proc.new { |tag, time, record| }
+        # This usage is not recommended for new API
+        require 'fluent/formatter'
+        register_impl('formatter', FORMATTER_REGISTRY, type, Proc.new { Fluent::TextFormatter::ProcWrappedFormatter.new(klass_or_proc) })
+      else
+        register_impl('formatter', FORMATTER_REGISTRY, type, klass_or_proc)
       end
+    end
 
-      # search gems
-      specs = Gem::Specification.find_all { |spec|
-        spec.contains_requirable_file? path
-      }
+    def self.new_input(type)
+      new_impl('input', INPUT_REGISTRY, type)
+    end
 
-      # prefer newer version
-      specs = specs.sort_by { |spec| spec.version }
-      if spec = specs.last
-        spec.require_paths.each { |lib|
-          file = "#{spec.full_gem_path}/#{lib}/#{path}"
-          require file
-        }
+    def self.new_output(type)
+      new_impl('output', OUTPUT_REGISTRY, type)
+    end
+
+    def self.new_filter(type)
+      new_impl('filter', FILTER_REGISTRY, type)
+    end
+
+    def self.new_buffer(type)
+      new_impl('buffer', BUFFER_REGISTRY, type)
+    end
+
+    def self.new_parser(type)
+      require 'fluent/parser'
+
+      if type[0] == '/' && type[-1] == '/'
+        # This usage is not recommended for new API... create RegexpParser directly
+        require 'fluent/parser'
+        Fluent::TextParser.lookup(type)
+      else
+        new_impl('parser', PARSER_REGISTRY, type)
+      end
+    end
+
+    def self.new_formatter(type)
+      new_impl('formatter', FORMATTER_REGISTRY, type)
+    end
+
+    def self.register_impl(kind, registry, type, value)
+      if !value.is_a?(Class) && !value.respond_to?(:call)
+        raise Fluent::ConfigError, "Invalid implementation as #{kind} plugin: '#{type}'. It must be a Class, or callable."
+      end
+      registry.register(type, value)
+      $log.trace "registered #{kind} plugin '#{type}'" if $log
+      nil
+    end
+
+    def self.new_impl(kind, registry, type)
+      # "'type' not found" is handled by registry
+      obj = registry.lookup(type)
+      case
+      when obj.is_a?(Class)
+        obj.new
+      when obj.respond_to?(:call) && obj.arity == 0
+        obj.call
+      else
+        raise Fluent::ConfigError, "#{kind} plugin '#{type}' is not a Class nor callable (without arguments)."
       end
     end
   end
-
-  Plugin = PluginClass.new
 end
