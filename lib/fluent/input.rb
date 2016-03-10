@@ -14,8 +14,8 @@
 #    limitations under the License.
 #
 
-require 'fluent/config'
 require 'fluent/configurable'
+require 'fluent/plugin_id'
 require 'fluent/engine'
 require 'fluent/log'
 
