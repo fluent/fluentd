@@ -106,6 +106,42 @@ module Fluent::Config
             assert_equal("8", s.num3)
           end
         end
+
+        sub_test_case '#to_s' do
+          test '#to_s == #inspect' do
+            h1 = {name: "s1", num: 10, class: "A"}
+            s1 = Fluent::Config::Section.new(h1)
+
+            assert_equal(s1.to_s, s1.inspect)
+          end
+        end
+
+        data("inspect": [:inspect, true],
+             "nil?": [:nil?, true],
+             "to_h": [:to_h, true],
+             "+":   [:+, true],
+             "instance_of?": [:instance_of?, true],
+             "kind_of?": [:kind_of?, true],
+             "[]": [:[], true],
+             "respond_to?": [:respond_to?, true],
+             "respond_to_missing?": [:respond_to_missing?, true],
+             "!": [:!, true],
+             "!=": [:!=, true],
+             "==": [:==, true],
+             "equal?": [:equal?, true],
+             "instance_eval": [:instance_eval, true],
+             "instance_exec": [:instance_exec, true],
+             "method_missing": [:method_missing, false],
+             "singleton_method_added": [:singleton_method_added, false],
+             "singleton_method_removed": [:singleton_method_removed, false],
+             "singleton_method_undefined": [:singleton_method_undefined, false],
+             "no_such_method": [:no_such_method, false])
+        test '#respond_to?' do |data|
+          method, expected = data
+          h1 = {name: "s1", num: 10, class: "A"}
+          s1 = Fluent::Config::Section.new(h1)
+          assert_equal(expected, s1.respond_to?(method))
+        end
       end
     end
   end
