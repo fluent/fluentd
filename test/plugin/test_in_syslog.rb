@@ -43,8 +43,8 @@ class SyslogInputTest < Test::Unit::TestCase
       d = create_driver(v)
 
       tests = [
-        {'msg' => '<6>Sep 11 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
-        {'msg' => '<6>Sep  1 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
+        {'msg' => '<6>Dec 11 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec 11 00:00:00', '%b %d %H:%M:%S'))},
+        {'msg' => '<6>Dec  1 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec  1 00:00:00', '%b  %d %H:%M:%S'))},
       ]
 
       d.run do
