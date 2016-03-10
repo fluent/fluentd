@@ -69,6 +69,16 @@ module Fluent
       def merge(other) # self is base class, other is subclass
         return merge_for_finalized(other) if self.final?
 
+        if overwrite?(other, :required)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
+        end
+        if overwrite?(other, :multi)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: multi"
+        end
+        if overwrite?(other, :alias)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
+        end
+
         options = {}
         # param_name is used not to ovewrite plugin's instance
         # varible, so this should be able to be overwritten
@@ -252,6 +262,14 @@ module Fluent
           dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump(level + 1)}"
         end
         dumped_config
+      end
+
+      private
+
+      def overwrite?(other, attribute_name)
+        value = instance_variable_get("@#{attribute_name}")
+        other_value = other.__send__(attribute_name)
+        !value.nil? && !other_value.nil? && value != other_value
       end
     end
   end
