@@ -18,7 +18,7 @@ require 'fluent/registry'
 require 'fluent/config/error'
 
 module Fluent
-  class Plugin
+  module Plugin
     SEARCH_PATHS = []
 
     # plugins for fluentd:         fluent/plugin/type_NAME.rb
@@ -34,24 +34,6 @@ module Fluent
     # TODO: plugin storage
 
     REGISTRIES = [INPUT_REGISTRY, OUTPUT_REGISTRY, FILTER_REGISTRY, BUFFER_REGISTRY, PARSER_REGISTRY, FORMATTER_REGISTRY]
-
-    def self.lookup_type_from_class(klass_or_its_name)
-      klass = if klass_or_its_name.is_a? Class
-                klass_or_its_name
-              elsif klass_or_its_name.is_a? String
-                eval(klass_or_its_name) # const_get can't handle qualified klass name (ex: A::B)
-              else
-                raise ArgumentError, "invalid argument type #{klass_or_its_name.class}: #{klass_or_its_name}"
-              end
-      REGISTRIES.reduce(nil){|a, r| a || r.reverse_lookup(klass) }
-    end
-
-    def self.add_plugin_dir(dir)
-      REGISTRIES.each do |r|
-        r.paths.push(dir)
-      end
-      nil
-    end
 
     def self.register_input(type, klass)
       register_impl('input', INPUT_REGISTRY, type, klass)
@@ -87,6 +69,24 @@ module Fluent
       else
         register_impl('formatter', FORMATTER_REGISTRY, type, klass_or_proc)
       end
+    end
+
+    def self.lookup_type_from_class(klass_or_its_name)
+      klass = if klass_or_its_name.is_a? Class
+                klass_or_its_name
+              elsif klass_or_its_name.is_a? String
+                eval(klass_or_its_name) # const_get can't handle qualified klass name (ex: A::B)
+              else
+                raise ArgumentError, "invalid argument type #{klass_or_its_name.class}: #{klass_or_its_name}"
+              end
+      REGISTRIES.reduce(nil){|a, r| a || r.reverse_lookup(klass) }
+    end
+
+    def self.add_plugin_dir(dir)
+      REGISTRIES.each do |r|
+        r.paths.push(dir)
+      end
+      nil
     end
 
     def self.new_input(type)
