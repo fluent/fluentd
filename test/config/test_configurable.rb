@@ -183,6 +183,53 @@ module ConfigurableSpec
     end
   end
 
+  module Final
+    class Base
+      include Fluent::Configurable
+      config_section :appendix, multi: false, final: false do
+        config_param :name, :string, default: "x"
+      end
+    end
+
+    class Finalized < Base
+      config_section :appendix, final: true do
+        config_param :name, :string, default: "y"
+        config_param :age, :integer, default: 10
+      end
+    end
+
+    class InheritsFinalized < Finalized
+      config_section :appendix do
+        config_param :name, :string, default: "z"
+        config_param :age, :integer, default: 20
+        config_param :phone_no, :string
+      end
+    end
+
+    class FinalizedBase
+      include Fluent::Configurable
+      config_section :appendix, multi: false, final: true do
+        config_param :name, :string, default: "x"
+      end
+    end
+
+    class InheritsFinalized2 < FinalizedBase
+      config_section :appendix do
+        config_param :name, :string, default: "y"
+        config_param :age, :integer, default: 10
+        config_param :phone_no, :string
+      end
+    end
+
+    class InheritsFinalized3 < InheritsFinalized2
+      config_section :appendix do
+        config_param :name, :string, default: "y"
+        config_param :age, :integer, default: 20
+        config_param :phone_no, :string
+      end
+    end
+  end
+
   class Example7DefaultValues < Example1
     config_section :detail do
       config_param :address, :string, default: "x"
@@ -732,6 +779,39 @@ module Fluent::Config
             phone_no: ex9.detail.phone_no
           }
           assert_equal(expected, actual)
+        end
+
+        sub_test_case 'final' do
+          CONF = config_element('ROOT', '', {},
+                                [config_element('appendix', '', {"phone_no" => "+81-0000-0000"}, [])])
+          test 'subclass can overwrite appendix.name, appendix.age w/ level 2' do
+            finalized = ConfigurableSpec::Final::Finalized.new
+            finalized.configure(CONF)
+            expected = { name: "y", age: 10 }
+            actual = { name: finalized.appendix.name, age: finalized.appendix.age }
+            assert_equal(expected, actual)
+          end
+
+          test 'subclass cannot overwrite appendix.name, appendix.age w/ level 3' do
+            level3 = ConfigurableSpec::Final::InheritsFinalized.new
+            level3.configure(CONF)
+            expected = { name: "y", age: 10 }
+            actual = { name: level3.appendix.name, age: level3.appendix.age }
+            assert_equal(expected, actual)
+          end
+
+          test 'inherit finalized base' do
+            target1 = ConfigurableSpec::Final::InheritsFinalized2.new
+            target1.configure(CONF)
+            expected = { name: "x", age: 10 }
+            actual1 = { name: target1.appendix.name, age: target1.appendix.age }
+            assert_equal(expected, actual1)
+
+            target2 = ConfigurableSpec::Final::InheritsFinalized3.new
+            target2.configure(CONF)
+            actual2 = { name: target2.appendix.name, age: target2.appendix.age }
+            assert_equal(expected, actual2)
+          end
         end
 
         test 'adds only config_param definitions into configuration without overwriting existing finalized configuration elements' do
