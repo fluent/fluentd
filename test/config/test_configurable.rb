@@ -116,13 +116,6 @@ module ConfigurableSpec
     end
   end
 
-  class Example2 < Example1
-    config_section :detail, required: true, multi: false, alias: "information2" do
-      config_param :address, :string, default: "y"
-      config_param :phone_no, :string
-    end
-  end
-
   class Example3
     include Fluent::Configurable
 
@@ -135,15 +128,6 @@ module ConfigurableSpec
 
     def get_all
       [@name, @detail]
-    end
-  end
-
-  class Example4 < Example3
-    config_param :age, :integer, default: 20
-
-    config_section :appendix, required: false, multi: false, final: false do
-      config_param :name, :string, default: "y"
-      config_param :age, :integer, default: 10
     end
   end
 
@@ -818,38 +802,6 @@ module Fluent::Config
             actual2 = { name: target2.appendix.name, age: target2.appendix.age }
             assert_equal(expected, actual2)
           end
-        end
-
-        test 'adds only config_param definitions into configuration without overwriting existing finalized configuration elements' do
-
-          conf1 = config_element('ROOT', '', {}, [])
-          # <appendix> is required by Example3 and its not be overwritten by Example4
-          assert_raise(Fluent::ConfigError.new("'<appendix>' sections are required")) { ConfigurableSpec::Example3.new.configure(conf1) }
-          assert_raise(Fluent::ConfigError.new("'<appendix>' sections are required")) { ConfigurableSpec::Example4.new.configure(conf1) }
-
-          conf2 = config_element('ROOT', '', {},
-                                 [config_element('appendix', '', {'type' => '1'}, [])],
-                                 )
-          # default value of age is overwritten by Example4, because root proxy is not finalized
-          ex3 = ConfigurableSpec::Example3.new.configure(conf2)
-          assert_equal 10, ex3.age
-          assert_equal '1', ex3.appendix.type
-          ex4 = ConfigurableSpec::Example4.new.configure(conf2)
-          assert_equal 20, ex4.age
-          assert_equal '1', ex4.appendix.type
-
-          conf3 = config_element('ROOT', '', {},
-                                 [config_element('appendix', '', {'type' => '2'}, [])],
-                                 )
-          # default value of <appendix> name </appendix> cannot be overwritten because it is finalized
-          ex3 = ConfigurableSpec::Example3.new.configure(conf2)
-          assert_equal 10, ex3.age
-          assert_equal '1', ex3.appendix.type
-          ex4 = ConfigurableSpec::Example4.new.configure(conf2)
-          assert_equal 20, ex4.age
-          assert_equal '1', ex4.appendix.type
-          # <appendix> age </appendix> can be added because it is missing in superclass spec
-          assert_equal 10, ex4.appendix.age
         end
       end
     end
