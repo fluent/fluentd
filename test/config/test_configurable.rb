@@ -164,6 +164,43 @@ module ConfigurableSpec
     config_param :obj1, :hash, default: {}
     config_param :obj2, :array, default: []
   end
+
+  class Example7OverwriteRequired < Example1
+    config_section :detail, required: true do
+      config_param :address, :string, default: "x"
+    end
+  end
+
+  class Example7OverwriteMulti < Example1
+    config_section :detail, multi: true do
+      config_param :address, :string, default: "x"
+    end
+  end
+
+  class Example7OverwriteAlias < Example1
+    config_section :detail, alias: "information2" do
+      config_param :address, :string, default: "x"
+    end
+  end
+
+  class Example7DefaultValues < Example1
+    config_section :detail do
+      config_param :address, :string, default: "x"
+    end
+  end
+
+  class Example8OverwriteDetailAddressDefault < Example1
+    config_section :detail do
+      config_param :address, :string, default: "y"
+    end
+  end
+
+  class Example9AddParam < Example1
+    config_section :detail do
+      config_param :address, :string, default: "y"
+      config_param :phone_no, :string
+    end
+  end
 end
 
 module Fluent::Config
@@ -608,6 +645,109 @@ module Fluent::Config
           attrs_str_keys = {}
           attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
           Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+        end
+
+        CONF1 = e('ROOT', '', {
+                    'name' => 'tagomoris',
+                    'bool' => true,
+                  })
+
+        CONF2 = e('ROOT', '', {
+                    'name' => 'tagomoris',
+                    'bool' => true,
+                  },
+                  [e('detail', '', { 'phone_no' => "+81-00-0000-0000" }, [])])
+
+        CONF3 = e('ROOT', '', {
+                    'name' => 'tagomoris',
+                    'bool' => true,
+                  },
+                  [e('detail', '', { 'address' => "Chiyoda Tokyo Japan" }, [])])
+
+        CONF4 = e('ROOT', '', {
+                    'name' => 'tagomoris',
+                    'bool' => true,
+                  },
+                  [
+                    e('detail', '', {
+                       'address' => "Chiyoda Tokyo Japan",
+                       'phone_no' => '+81-00-0000-0000'
+                     },
+                     [])
+                  ])
+
+        data(conf1: CONF1,
+             conf2: CONF2,
+             conf3: CONF3,
+             conf4: CONF4,)
+        test 'base class' do |data|
+          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(data) }
+        end
+
+        test 'subclass cannot overwrite required' do
+          assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: required")) do
+            ConfigurableSpec::Example7OverwriteRequired.new.configure(CONF1)
+          end
+        end
+
+        test 'subclass cannot overwrite multi' do
+          assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: multi")) do
+            ConfigurableSpec::Example7OverwriteMulti.new.configure(CONF1)
+          end
+        end
+
+        test 'subclass cannot overwrite alias' do
+          assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: alias")) do
+            ConfigurableSpec::Example7OverwriteAlias.new.configure(CONF1)
+          end
+        end
+
+        test 'subclass uses superclass default values' do
+          ex1 = ConfigurableSpec::Example1.new.configure(CONF2)
+          ex7 = ConfigurableSpec::Example7DefaultValues.new.configure(CONF2)
+          detail1 = ex1.class.merged_configure_proxy.sections[:detail]
+          detail7 = ex7.class.merged_configure_proxy.sections[:detail]
+          detail1_attributes = {
+            requried: detail1.required,
+            multi: detail1.multi,
+            alias: detail1.alias,
+          }
+          detail7_attributes = {
+            requried: detail7.required,
+            multi: detail7.multi,
+            alias: detail7.alias,
+          }
+          assert_equal(detail1_attributes, detail7_attributes)
+        end
+
+        test 'subclass can overwrite detail.address' do
+          ex1 = ConfigurableSpec::Example1.new.configure(CONF2)
+          ex8 = ConfigurableSpec::Example8OverwriteDetailAddressDefault.new.configure(CONF2)
+          expected_addresses = {
+            address1: "x",
+            address8: "y"
+          }
+          actual_addresses = {
+            address1: ex1.detail.address,
+            address8: ex8.detail.address
+          }
+          assert_equal(expected_addresses, actual_addresses)
+        end
+
+        test 'subclass can add param' do
+          assert_raise(Fluent::ConfigError.new("'phone_no' parameter is required, in section detail")) do
+            ConfigurableSpec::Example9AddParam.new.configure(CONF3)
+          end
+          ex9 = ConfigurableSpec::Example9AddParam.new.configure(CONF4)
+          expected ={
+            address: "Chiyoda Tokyo Japan",
+            phone_no: "+81-00-0000-0000"
+          }
+          actual = {
+            address: ex9.detail.address,
+            phone_no: ex9.detail.phone_no
+          }
+          assert_equal(expected, actual)
         end
 
         test 'subclass configuration spec can overwrite superclass specs' do
