@@ -39,12 +39,17 @@ require 'rr'
 require 'test/unit'
 require 'test/unit/rr'
 require 'fileutils'
+require 'fluent/config/element'
 require 'fluent/log'
 require 'fluent/test'
 
 unless defined?(Test::Unit::AssertionFailedError)
   class Test::Unit::AssertionFailedError < StandardError
   end
+end
+
+def config_element(name = 'test', argument = '', params = {}, elements = [])
+  Fluent::Config::Element.new(name, argument, params, elements)
 end
 
 def unused_port(num = 1)
