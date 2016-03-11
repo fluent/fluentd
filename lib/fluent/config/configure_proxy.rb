@@ -87,6 +87,7 @@ module Fluent
         options[:required] = @required.nil? ? other.required : self.required
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
+        options[:final] = @final || other.final
 
         merged = self.class.new(other.name, options)
 
@@ -121,6 +122,7 @@ module Fluent
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
         options[:final]  = true
+
         merged = self.class.new(other.name, options)
 
         merged.argument = self.argument || other.argument
