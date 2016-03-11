@@ -750,56 +750,6 @@ module Fluent::Config
           assert_equal(expected, actual)
         end
 
-        test 'subclass configuration spec can overwrite superclass specs' do
-          # conf0 = e('ROOT', '', {}, [])
-
-          conf1 = e('ROOT', '', {
-              'name' => 'tagomoris',
-              'bool' => true,
-            },
-          )
-          # <detail> section is required by overwriting of Example2 config_section spec
-          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(conf1) }
-          assert_raise(Fluent::ConfigError.new("'<detail>' sections are required")) { ConfigurableSpec::Example2.new.configure(conf1) }
-
-          conf2 = e('ROOT', '', {
-              'name' => 'tagomoris',
-              'bool' => true,
-            },
-            [e('detail', '', { 'phone_no' => "+81-00-0000-0000" }, [])],
-          )
-          # <detail> address </detail> default is overwritten by Example2
-          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(conf2) }
-          assert_nothing_raised { ConfigurableSpec::Example2.new.configure(conf2) }
-          ex1 = ConfigurableSpec::Example1.new.configure(conf2)
-          assert_equal "x", ex1.detail.address
-          ex2 = ConfigurableSpec::Example2.new.configure(conf2)
-          assert_equal "y", ex2.detail.address
-
-          conf3 = e('ROOT', '', {
-              'name' => 'tagomoris',
-              'bool' => true,
-            },
-            [e('detail', '', { 'address' => "Chiyoda Tokyo Japan" }, [])],
-          )
-          # <detail> phone_no </detail> is required by Example2 config_param spec
-          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(conf3) }
-          assert_raise(Fluent::ConfigError.new("'phone_no' parameter is required, in section detail")) { ConfigurableSpec::Example2.new.configure(conf3) }
-
-          conf4 = e('ROOT', '', {
-              'name' => 'tagomoris',
-              'bool' => true,
-            },
-            [e('detail', '', { 'address' => "Chiyoda Tokyo Japan", 'phone_no' => '+81-00-0000-0000' }, [])],
-          )
-          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(conf4) } # phone_no is not used
-          assert_nothing_raised { ConfigurableSpec::Example2.new.configure(conf4) }
-
-          ex2 = ConfigurableSpec::Example2.new.configure(conf4)
-          assert_equal "Chiyoda Tokyo Japan", ex2.detail.address
-          assert_equal "+81-00-0000-0000", ex2.detail.phone_no
-        end
-
         test 'adds only config_param definitions into configuration without overwriting existing finalized configuration elements' do
 
           conf1 = e('ROOT', '', {}, [])
