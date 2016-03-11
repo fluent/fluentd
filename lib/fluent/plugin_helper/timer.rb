@@ -35,7 +35,11 @@ module Fluent
         event_loop_attach(timer)
       end
 
-      def initialize
+      def timer_running?
+        @_timer_running
+      end
+
+      def start
         super
         @_timer_running = true
       end
@@ -57,7 +61,7 @@ module Fluent
         def on_timer
           @callback.call if @checker.call
         rescue => e
-          @log.error "Unexpected error raised. Stopping this timer.", title: @title, error: e, error_class: e.class
+          @log.error "Unexpected error raised. Stopping the timer.", title: @title, error: e, error_class: e.class
           @log.error_backtrace
           self.detach
           @log.error "Timer detached.", title: @title

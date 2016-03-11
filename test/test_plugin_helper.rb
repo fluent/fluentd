@@ -28,8 +28,8 @@ class ConfigTest < Test::Unit::TestCase
     test 'plugin can include helper event_emitter' do
       assert FluentTest::PluginTest1.include?(Fluent::PluginHelper::EventEmitter)
       p1 = FluentTest::PluginTest1.new
-      assert p1.respond_to?(:emits?)
-      assert p1.emits?
+      assert p1.respond_to?(:has_router?)
+      assert p1.has_router?
     end
 
     test 'plugin can include helper thread' do
@@ -72,7 +72,7 @@ class ConfigTest < Test::Unit::TestCase
       assert p0.respond_to?(:event_loop_running?)
       assert p0.respond_to?(:thread_current_running?)
       assert p0.respond_to?(:thread_create)
-      assert p0.respond_to?(:emits?)
+      assert p0.respond_to?(:has_router?)
     end
   end
 end

@@ -28,13 +28,73 @@ module Fluent
       include PluginLoggerMixin
       include PluginHelper::Mixin
 
-      def initialize; end
-      def configure(conf); end
-      def start; end
-      def stop; end
-      def shutdown; end
-      def close; end
-      def terminate; end
+      State = Struct.new(:configure, :start, :stop, :shutdown, :close, :terminate)
+
+      def initialize
+        super
+        @state = State.new(false, false, false, false, false, false)
+      end
+
+      def has_router?
+        false
+      end
+
+      def configure(conf)
+        super
+        @state.configure = true
+        self
+      end
+
+      def start
+        @log.reset
+        @state.start = true
+        self
+      end
+
+      def stop
+        @state.stop = true
+        self
+      end
+
+      def shutdown
+        @state.shutdown = true
+        self
+      end
+
+      def close
+        @state.close = true
+        self
+      end
+
+      def terminate
+        @state.terminate = true
+        @log.reset
+        self
+      end
+
+      def configured?
+        @state.configure
+      end
+
+      def started?
+        @state.start
+      end
+
+      def stopped?
+        @state.stop
+      end
+
+      def shutdown?
+        @state.shutdown
+      end
+
+      def closed?
+        @state.close
+      end
+
+      def terminated?
+        @state.terminate
+      end
     end
   end
 end

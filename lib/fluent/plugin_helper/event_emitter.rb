@@ -42,14 +42,13 @@ module Fluent
         end
       end
 
-      def emits?
+      def has_router?
         true
       end
 
-      def shutdown
+      def close
         super
-
-        @router = nil # TODO: is it correct shutdown phase to disable router?
+        @router = nil
       end
     end
   end

@@ -98,6 +98,10 @@ module Fluent
         @logs = []
       end
 
+      def reset
+        @logs = []
+      end
+
       def tty?
         false
       end
@@ -123,6 +127,10 @@ module Fluent
       def initialize
         @logdev = DummyLogDevice.new
         super(Fluent::Log.new(@logdev))
+      end
+
+      def reset
+        @logdev.reset
       end
 
       def logs

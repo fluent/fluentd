@@ -245,6 +245,10 @@ module Fluent
       @out.flush
     end
 
+    def reset
+      @out.reset if @out.respond_to?(:reset)
+    end
+
     private
 
     def dump_stacktrace(backtrace, level)

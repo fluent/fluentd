@@ -28,24 +28,44 @@ module Fluent
 
       # stop     : [-]
       # shutdown : send TERM to all child processes
-      # close    : close all I/O objects for child processes
-      # terminate: send TERM again and again if processes stil exist, and KILL after timeout
+      # close    : close all I/O objects for child processes, send TERM and then KILL after timeout
+      # terminate: [-]
 
-      def child_process_execute(title, command, arguments: nil, subprocess_name: nil, read: true, write: true, encoding: 'utf-8', interval: nil, immediate: false, &block)
+      attr_reader :_child_process_processes # for tests
+
+      def child_process_execute(
+          title, command,
+          arguments: nil, subprocess_name: nil, interval: nil, immediate: false, parallel: false,
+          read: true, write: true, internal_encoding: 'utf-8', external_encoding: 'utf-8', &block
+      )
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
+        raise ArgumentError, "BUG: arguments required if subprocess name is replaced" if subprocess_name && !arguments
         raise ArgumentError, "BUG: both of input and output are disabled" if !read && !write
         raise ArgumentError, "BUG: block not specified which receive i/o object" unless block_given?
         raise ArgumentError, "BUG: block must have an argument for io" unless block.arity == 1
 
+        running = false
+        callback = ->(io) {
+          running = true
+          begin
+            block.call(io)
+          ensure
+            running = false
+          end
+        }
+
+        if immediate || !interval
+          child_process_execute_once(title, command, arguments, subprocess_name, read, write, internal_encoding, external_encoding, &callback)
+        end
+
         if interval
-          if immediate
-            child_process_execute_once(title, command, arguments, subprocess_name, read, write, encoding, &block)
-          end
           timer_execute(:child_process_execute, interval, repeat: true) do
-            child_process_execute_once(title, command, arguments, subprocess_name, read, write, encoding, &block)
+            if !parallel && running
+              log.warn "previous child process is still running. skipped.", title: title, command: command, arguments: arguments, interval: interval, parallel: parallel
+            else
+              child_process_execute_once(title, command, arguments, subprocess_name, read, write, internal_encoding, external_encoding, &callback)
+            end
           end
-        else
-          child_process_execute_once(title, command, arguments, subprocess_name, read, write, encoding, &block)
         end
       end
 
@@ -79,17 +99,20 @@ module Fluent
       def close
         super
 
+        # close_write -> kill processes -> close_read
+        # * if ext process continues to write data to it's stdout, io.close_read blocks
+        #   so killing process MUST be done before closing io for read
+
         @_child_process_processes.keys.each do |pid|
           io = @_child_process_processes[pid].io
-          io.close rescue nil
+          io.close_write rescue nil
         end
-      end
 
-      def terminate
-        alive_process_exist = true
         timeout = Time.now + @_child_process_kill_timeout
 
-        while alive_process_exist
+        while true
+          break if Time.now > timeout
+
           @_child_process_processes.keys.each do |pid|
             process = @_child_process_processes[pid]
             next unless process.alive
@@ -108,12 +131,9 @@ module Fluent
           @_child_process_processes.each_pair do |pid, process|
             alive_process_found = true if process.alive
           end
+          break unless alive_process_found
 
-          if alive_process_found
-            sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
-          else
-            alive_process_exist = false
-          end
+          sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
         end
 
         @_child_process_processes.keys.each do |pid|
@@ -125,14 +145,15 @@ module Fluent
           @_child_process_processes.delete(pid)
         end
 
-        super
+        @_child_process_processes.keys.each do |pid|
+          io = @_child_process_processes[pid].io
+          io.close_read rescue nil
+        end
       end
 
       ProcessInfo = Struct.new(:thread, :io, :alive)
 
-      def child_process_execute_once(title, command, arguments, subprocess_name, read, write, encoding, &block)
-        ext_enc = encoding
-        int_enc = "utf-8"
+      def child_process_execute_once(title, command, arguments, subprocess_name, read, write, internal_encoding, external_encoding, &block)
         mode = case
                when read && write then "r+"
                when read then "r"
@@ -141,22 +162,22 @@ module Fluent
                  raise "BUG: both read and write are false is banned before here"
                end
         cmd = command
-        if arguments # if arguments is nil, then command is executed by shell
+        if arguments || subprocess_name # if arguments is nil, then command is executed by shell
           cmd = []
           if subprocess_name
             cmd.push [command, subprocess_name]
           else
             cmd.push command
           end
-          cmd += arguments
+          cmd += (arguments || [])
         end
         log.debug "Executing command", title: title, command: command, arguments: arguments, read: read, write: write
-        io = IO.popen(cmd, mode, external_encoding: ext_enc, internal_encoding: int_enc)
+        io = IO.popen(cmd, mode, external_encoding: external_encoding, internal_encoding: internal_encoding)
         pid = io.pid
 
         m = Mutex.new
         m.lock
-        thread = thread_create do
+        thread = thread_create :child_process_callback do
           m.lock # run after plugin thread get pid, thread instance and i/o
           with_error = false
           m.unlock
@@ -173,6 +194,8 @@ module Fluent
           rescue => e
             log.warn "Unexpected error while processing I/O for child process", title: title, pid: pid, command: command, error_class: e.class, error: e
           end
+          io.close rescue nil
+          @_child_process_processes.delete(pid)
         end
         @_child_process_processes[pid] = ProcessInfo.new(thread, io, true)
         m.unlock
