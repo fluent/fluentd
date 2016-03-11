@@ -165,21 +165,52 @@ module ConfigurableSpec
     config_param :obj2, :array, default: []
   end
 
-  class Example7OverwriteRequired < Example1
-    config_section :detail, required: true do
-      config_param :address, :string, default: "x"
-    end
-  end
+  module Overwrite
+    class Base
+      include Fluent::Configurable
 
-  class Example7OverwriteMulti < Example1
-    config_section :detail, multi: true do
-      config_param :address, :string, default: "x"
+      config_param :name, :string, alias: :fullname
+      config_param :bool, :bool, alias: :flag
+      config_section :detail, required: false, multi: false, alias: "information" do
+        config_param :address, :string, default: "x"
+      end
     end
-  end
 
-  class Example7OverwriteAlias < Example1
-    config_section :detail, alias: "information2" do
-      config_param :address, :string, default: "x"
+    class Required < Base
+      config_section :detail, required: true do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class Multi < Base
+      config_section :detail, multi: true do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class Alias < Base
+      config_section :detail, alias: "information2" do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class DefaultOptions < Base
+      config_section :detail do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class DetailAddressDefault < Base
+      config_section :detail do
+        config_param :address, :string, default: "y"
+      end
+    end
+
+    class AddParam < Base
+      config_section :detail do
+        config_param :address, :string, default: "y"
+        config_param :phone_no, :string
+      end
     end
   end
 
@@ -227,25 +258,6 @@ module ConfigurableSpec
         config_param :age, :integer, default: 20
         config_param :phone_no, :string
       end
-    end
-  end
-
-  class Example7DefaultValues < Example1
-    config_section :detail do
-      config_param :address, :string, default: "x"
-    end
-  end
-
-  class Example8OverwriteDetailAddressDefault < Example1
-    config_section :detail do
-      config_param :address, :string, default: "y"
-    end
-  end
-
-  class Example9AddParam < Example1
-    config_section :detail do
-      config_param :address, :string, default: "y"
-      config_param :phone_no, :string
     end
   end
 end
@@ -712,64 +724,58 @@ module Fluent::Config
              conf3: CONF3,
              conf4: CONF4,)
         test 'base class' do |data|
-          assert_nothing_raised { ConfigurableSpec::Example1.new.configure(data) }
+          assert_nothing_raised { ConfigurableSpec::Overwrite::Base.new.configure(data) }
         end
 
         test 'subclass cannot overwrite required' do
           assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: required")) do
-            ConfigurableSpec::Example7OverwriteRequired.new.configure(CONF1)
+            ConfigurableSpec::Overwrite::Required.new.configure(CONF1)
           end
         end
 
         test 'subclass cannot overwrite multi' do
           assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: multi")) do
-            ConfigurableSpec::Example7OverwriteMulti.new.configure(CONF1)
+            ConfigurableSpec::Overwrite::Multi.new.configure(CONF1)
           end
         end
 
         test 'subclass cannot overwrite alias' do
           assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: alias")) do
-            ConfigurableSpec::Example7OverwriteAlias.new.configure(CONF1)
+            ConfigurableSpec::Overwrite::Alias.new.configure(CONF1)
           end
         end
 
-        test 'subclass uses superclass default values' do
-          ex1 = ConfigurableSpec::Example1.new.configure(CONF2)
-          ex7 = ConfigurableSpec::Example7DefaultValues.new.configure(CONF2)
-          detail1 = ex1.class.merged_configure_proxy.sections[:detail]
-          detail7 = ex7.class.merged_configure_proxy.sections[:detail]
-          detail1_attributes = {
-            requried: detail1.required,
-            multi: detail1.multi,
-            alias: detail1.alias,
+        test 'subclass uses superclass default options' do
+          base = ConfigurableSpec::Overwrite::Base.new.configure(CONF2)
+          sub = ConfigurableSpec::Overwrite::DefaultOptions.new.configure(CONF2)
+          detail_base = base.class.merged_configure_proxy.sections[:detail]
+          detail_sub = sub.class.merged_configure_proxy.sections[:detail]
+          detail_base_attributes = {
+            requried: detail_base.required,
+            multi: detail_base.multi,
+            alias: detail_base.alias,
           }
-          detail7_attributes = {
-            requried: detail7.required,
-            multi: detail7.multi,
-            alias: detail7.alias,
+          detail_sub_attributes = {
+            requried: detail_sub.required,
+            multi: detail_sub.multi,
+            alias: detail_sub.alias,
           }
-          assert_equal(detail1_attributes, detail7_attributes)
+          assert_equal(detail_base_attributes, detail_sub_attributes)
         end
 
         test 'subclass can overwrite detail.address' do
-          ex1 = ConfigurableSpec::Example1.new.configure(CONF2)
-          ex8 = ConfigurableSpec::Example8OverwriteDetailAddressDefault.new.configure(CONF2)
-          expected_addresses = {
-            address1: "x",
-            address8: "y"
-          }
-          actual_addresses = {
-            address1: ex1.detail.address,
-            address8: ex8.detail.address
-          }
+          base = ConfigurableSpec::Overwrite::Base.new.configure(CONF2)
+          target = ConfigurableSpec::Overwrite::DetailAddressDefault.new.configure(CONF2)
+          expected_addresses = ["x", "y"]
+          actual_addresses = [base.detail.address, target.detail.address]
           assert_equal(expected_addresses, actual_addresses)
         end
 
         test 'subclass can add param' do
           assert_raise(Fluent::ConfigError.new("'phone_no' parameter is required, in section detail")) do
-            ConfigurableSpec::Example9AddParam.new.configure(CONF3)
+            ConfigurableSpec::Overwrite::AddParam.new.configure(CONF3)
           end
-          ex9 = ConfigurableSpec::Example9AddParam.new.configure(CONF4)
+          ex9 = ConfigurableSpec::Overwrite::AddParam.new.configure(CONF4)
           expected ={
             address: "Chiyoda Tokyo Japan",
             phone_no: "+81-00-0000-0000"
