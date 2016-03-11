@@ -115,12 +115,12 @@ module Fluent
         #  * overwrite param_name to escape duplicated name of instance variable
         #  * append params/defaults/sections which are missing in superclass
 
-        options = {
-          param_name: other.param_name,
-          required: (self.required.nil? ? other.required : self.required),
-          multi: (self.multi.nil? ? other.multi : self.multi),
-          final: true,
-        }
+        options = {}
+        options[:param_name] = other.param_name
+        options[:required] = @required.nil? ? other.required : self.required
+        options[:multi] = @multi.nil? ? other.multi : self.multi
+        options[:alias] = @alias.nil? ? other.alias : self.alias
+        options[:final]  = true
         merged = self.class.new(other.name, options)
 
         merged.argument = self.argument || other.argument
