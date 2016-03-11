@@ -15,6 +15,7 @@
 #
 
 require 'etc'
+require 'fcntl'
 
 require 'fluent/config'
 require 'fluent/env'
