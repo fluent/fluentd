@@ -26,7 +26,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
   PORT = unused_port
 
-  SHARED_KEY = 'foobar2'
+  SHARED_KEY = 'foobar1'
   USER_NAME = 'tagomoris'
   USER_PASSWORD = 'fluentd'
 
