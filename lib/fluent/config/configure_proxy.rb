@@ -40,7 +40,7 @@ module Fluent
 
       def initialize(name, opts = {})
         @name = name.to_sym
-        @final = opts.fetch(:final, false)
+        @final = opts[:final]
 
         @param_name = (opts[:param_name] || @name).to_sym
         @required = opts[:required]
@@ -63,7 +63,7 @@ module Fluent
       end
 
       def final?
-        @final
+        !!@final
       end
 
       def merge(other) # self is base class, other is subclass
@@ -115,6 +115,10 @@ module Fluent
         # list what subclass can do for finalized section
         #  * overwrite param_name to escape duplicated name of instance variable
         #  * append params/defaults/sections which are missing in superclass
+
+        if other.final == false && overwrite?(other, :final)
+          raise ConfigError, "BUG: subclass cannot overwrite finalized base class's config_section"
+        end
 
         options = {}
         options[:param_name] = other.param_name

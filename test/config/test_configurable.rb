@@ -243,6 +243,14 @@ module ConfigurableSpec
         config_param :phone_no, :string
       end
     end
+
+    # Error
+    class InheritsFinalized4 < FinalizedBase
+      config_section :appendix, final: false do
+        config_param :age, :integer, default: 10
+        config_param :phone_no, :string
+      end
+    end
   end
 end
 
@@ -801,6 +809,12 @@ module Fluent::Config
             target2.configure(CONF)
             actual2 = { name: target2.appendix.name, age: target2.appendix.age }
             assert_equal(expected, actual2)
+          end
+
+          test 'failed to overwrite finalized base' do
+            assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite finalized base class's config_section")) do
+              ConfigurableSpec::Final::InheritsFinalized4.new.configure(CONF)
+            end
           end
         end
       end
