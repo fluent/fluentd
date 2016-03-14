@@ -252,7 +252,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_supporting_responses_to_respond_with_ack
-    target_input_driver = create_target_input_driver(true)
+    target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -289,7 +289,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_require_a_node_not_supporting_responses_to_respond_with_ack
     # in_forward, that doesn't support ack feature, and keep connection alive
-    target_input_driver = create_target_input_driver
+    target_input_driver = create_target_input_driver(->(options){ nil }, true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
