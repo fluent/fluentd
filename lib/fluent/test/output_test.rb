@@ -37,11 +37,6 @@ module Fluent
       def initialize(klass, tag='test', &block)
         super(klass, &block)
         @tag = tag
-        @instance.router = Object.new
-        router = @instance.router
-        def router.method_missing(name, *args, **kw_args, &block)
-          Engine.root_agent.event_router.__send__(name, *args, **kw_args, &block)
-        end
       end
 
       attr_accessor :tag
