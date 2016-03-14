@@ -20,6 +20,7 @@ module Fluent::Config
       @suppress_config_dump = nil
       @suppress_repeated_stacktrace = nil
       @without_source = nil
+      @emit_error_log_interval = nil
     end
   end
 

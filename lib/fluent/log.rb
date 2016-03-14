@@ -68,9 +68,7 @@ module Fluent
       # Fluent::Engine requires Fluent::Log, so we must take that object lazily
       @engine = Fluent.const_get('Engine')
 
-      if opts.has_key?(:suppress_repeated_stacktrace)
-        @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
-      end
+      @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
     end
 
     attr_accessor :out
@@ -320,7 +318,9 @@ module Fluent
       @logger = logger
       @level = @logger.level
       @depth_offset = 2
-      @suppress_repeated_stacktrace = logger.instance_variable_get(:@suppress_repeated_stacktrace)
+      if logger.instance_variable_defined?(:@suppress_repeated_stacktrace)
+        @suppress_repeated_stacktrace = logger.instance_variable_get(:@suppress_repeated_stacktrace)
+      end
 
       enable_color @logger.enable_color?
     end

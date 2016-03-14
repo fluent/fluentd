@@ -52,7 +52,7 @@ module FormatterTest
     include FormatterTest
 
     def create_driver(conf={})
-      formatter = Fluent::Test::FormatterTestDriver.new(Formatter).configure(conf)
+      Fluent::Test::FormatterTestDriver.new(Formatter).configure(conf)
     end
 
     def test_call

@@ -28,14 +28,7 @@ module Fluent
         @now = n
       }
       engine.define_singleton_method(:now) {
-        @now || super()
-      }
-
-      ::Test::Unit::Assertions.module_eval {
-        def assert_equal_event_time(a, b)
-          assert_equal(a.sec, b.sec)
-          assert_equal(a.nsec, b.nsec)
-        end
+        @now ||= super()
       }
 
       nil
@@ -129,5 +122,12 @@ module Fluent
         @logdev.logs
       end
     end
+  end
+end
+
+Test::Unit::Assertions.module_eval do
+  def assert_equal_event_time(a, b)
+    assert_equal(a.sec, b.sec)
+    assert_equal(a.nsec, b.nsec)
   end
 end

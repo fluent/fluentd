@@ -36,6 +36,7 @@ module Fluent
         # for checking only the number of emitted records during run
         @expected_emits_length = nil
         @run_timeout = 5
+        @run_post_conditions = []
       end
 
       def expect_emit(tag, time, record)
@@ -81,7 +82,6 @@ module Fluent
 
       def register_run_post_condition(&block)
         if block
-          @run_post_conditions ||= []
           @run_post_conditions << block
         end
       end

@@ -161,7 +161,7 @@ module Fluent::Config
     sub_test_case 'with configuration that returns non element on top' do
       sub_test_case '.parse' do
         test 'does not crash' do
-          root = Fluent::Config::DSL::Parser.parse(DSL_CONFIG_RETURNS_NON_ELEMENT, 'dsl_config_returns_non_element.rb')
+          Fluent::Config::DSL::Parser.parse(DSL_CONFIG_RETURNS_NON_ELEMENT, 'dsl_config_returns_non_element.rb')
         end
       end
     end

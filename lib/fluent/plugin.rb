@@ -126,7 +126,7 @@ module Fluent
         raise Fluent::ConfigError, "Invalid implementation as #{kind} plugin: '#{type}'. It must be a Class, or callable."
       end
       registry.register(type, value)
-      $log.trace "registered #{kind} plugin '#{type}'" if $log
+      $log.trace "registered #{kind} plugin '#{type}'" if defined?($log)
       nil
     end
 

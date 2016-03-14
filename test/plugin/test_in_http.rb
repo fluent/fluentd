@@ -40,7 +40,7 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
+      d.expected_emits.each {|tag,_time,record|
         res = post("/#{tag}", {"json"=>record.to_json})
         assert_equal "200", res.code
       }
@@ -56,7 +56,7 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag1", time, {"a"=>1}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
+      d.expected_emits.each {|tag,_time,record|
         res = post("/#{tag}", {"json"=>record.to_json, "time"=>float_time.to_s})
         assert_equal "200", res.code
       }
@@ -72,8 +72,8 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+      d.expected_emits.each {|tag,_time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>_time.to_s})
         assert_equal "200", res.code
       }
     end
@@ -110,8 +110,8 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"REMOTE_ADDR"=>"127.0.0.1", "a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+      d.expected_emits.each {|tag,_time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>_time.to_s})
         assert_equal "200", res.code
       }
     end
@@ -147,7 +147,7 @@ class HttpInputTest < Test::Unit::TestCase
       assert_equal "200", res.code
     end
 
-    d.emit_streams.each { |tag, es|
+    d.emit_streams.each { |_tag, es|
       assert include_http_header?(es.first[1])
     }
   end
@@ -160,8 +160,8 @@ class HttpInputTest < Test::Unit::TestCase
     records = [["tag1", time, {"a"=>1}], ["tag2", time, {"a"=>2}]]
 
     d.run do
-      records.each {|tag,time,record|
-        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+      records.each {|tag,_time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>_time.to_s})
         assert_equal "200", res.code
 
       }
@@ -181,8 +181,8 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        res = post("/#{tag}?time=#{time.to_s}", record.to_json, {"Content-Type"=>"application/json; charset=utf-8"})
+      d.expected_emits.each {|tag,_time,record|
+        res = post("/#{tag}?time=#{_time.to_s}", record.to_json, {"Content-Type"=>"application/json; charset=utf-8"})
         assert_equal "200", res.code
       }
     end
@@ -197,8 +197,8 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        res = post("/#{tag}", {"msgpack"=>record.to_msgpack, "time"=>time.to_s})
+      d.expected_emits.each {|tag,_time,record|
+        res = post("/#{tag}", {"msgpack"=>record.to_msgpack, "time"=>_time.to_s})
         assert_equal "200", res.code
       }
     end
@@ -235,11 +235,11 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"field_1" => 2, "field_2" => 'str'}
 
     d.run do
-      d.expected_emits.each { |tag, time, record|
+      d.expected_emits.each { |tag, _time, record|
         body = record.map { |k, v|
           v.to_s
         }.join(':')
-        res = post("/#{tag}?time=#{time.to_s}", body)
+        res = post("/#{tag}?time=#{_time.to_s}", body)
         assert_equal "200", res.code
       }
     end
@@ -259,9 +259,9 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"foo" => "2", "bar" => 'str'}
 
     d.run do
-      d.expected_emits.each { |tag, time, record|
+      d.expected_emits.each { |tag, _time, record|
         body = record.map { |k, v| v }.to_csv
-        res = post("/#{tag}?time=#{time.to_s}", body)
+        res = post("/#{tag}?time=#{_time.to_s}", body)
         assert_equal "200", res.code
       }
     end
@@ -277,8 +277,8 @@ class HttpInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        res = post("/#{tag}", {"json"=>record.to_json, "time"=>time.to_s})
+      d.expected_emits.each {|tag,_time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>_time.to_s})
         assert_equal "200", res.code
         # Ruby returns ASCII-8 encoded string for GIF.
         assert_equal Fluent::HttpInput::EMPTY_GIF_IMAGE, res.body.force_encoding("UTF-8")

@@ -53,9 +53,9 @@ module Fluent
     def configure(conf)
       super
 
-      if localtime = conf['localtime']
+      if conf['localtime']
         @localtime = true
-      elsif utc = conf['utc']
+      elsif conf['utc']
         @localtime = false
       end
 

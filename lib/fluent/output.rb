@@ -146,6 +146,7 @@ module Fluent
       @next_retry_time = 0
       @num_errors = 0
       @num_errors_lock = Mutex.new
+      @secondary = nil
       @secondary_limit = 8
       @emit_count = 0
     end

@@ -133,13 +133,18 @@ module Fluent
     attr_accessor :remove_tag_prefix, :remove_tag_suffix, :add_tag_prefix, :add_tag_suffix
     def configure(conf)
       super
-      if remove_tag_prefix = conf['remove_tag_prefix']
-        @remove_tag_prefix = Regexp.new('^' + Regexp.escape(remove_tag_prefix))
-      end
 
-      if remove_tag_suffix = conf['remove_tag_suffix']
-        @remove_tag_suffix = Regexp.new(Regexp.escape(remove_tag_suffix) + '$')
-      end
+      @remove_tag_prefix = if conf.has_key?('remove_tag_prefix')
+                             Regexp.new('^' + Regexp.escape(conf['remove_tag_prefix']))
+                           else
+                             nil
+                           end
+
+      @remove_tag_suffix = if conf.has_key?('remove_tag_suffix')
+                             Regexp.new(Regexp.escape(conf['remove_tag_suffix']) + '$')
+                           else
+                             nil
+                           end
 
       @add_tag_prefix = conf['add_tag_prefix']
       @add_tag_suffix = conf['add_tag_suffix']
@@ -162,6 +167,8 @@ module Fluent
 
     def configure(conf)
       @include_time_key = false
+      @localtime = false
+      @timezone = nil
 
       super
 
@@ -257,6 +264,7 @@ module Fluent
     def configure(conf)
       super
 
+      @type_converters = nil
       @type_converters = parse_types_parameter unless @types.nil?
     end
 

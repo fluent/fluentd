@@ -55,6 +55,7 @@ module Fluent
       @started_inputs = []
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
+      @without_source = false
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?

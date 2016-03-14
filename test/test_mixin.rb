@@ -208,7 +208,7 @@ module MixinTest
 
     def test_timezone_invalid
       assert_raise(Fluent::ConfigError) do
-        d = create_driver(Fluent::SetTimeKeyMixin, %[
+        create_driver(Fluent::SetTimeKeyMixin, %[
         include_time_key true
         timezone Invalid/Invalid
         ])

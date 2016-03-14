@@ -156,10 +156,10 @@ module Fluent
             pattern = path
           end
 
-          Dir.glob(pattern).sort.each { |path|
-            basepath = File.dirname(path)
-            fname = File.basename(path)
-            data = File.read(path)
+          Dir.glob(pattern).sort.each { |entry|
+            basepath = File.dirname(entry)
+            fname = File.basename(entry)
+            data = File.read(entry)
             data.force_encoding('UTF-8')
             ss = StringScanner.new(data)
             V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
