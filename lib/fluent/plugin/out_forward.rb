@@ -346,7 +346,11 @@ module Fluent
             # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
             # and process them asynchronously.
             if IO.select([sock], nil, nil, @ack_response_timeout)
-              raw_data = sock.recv(1024)
+              begin
+                raw_data = sock.recv(1024)
+              rescue Errno::ECONNRESET
+                raw_data = ""
+              end
 
               # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
               # If this happens we assume the data wasn't delivered and retry it.
