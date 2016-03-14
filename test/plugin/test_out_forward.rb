@@ -25,7 +25,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::ForwardOutput) {
+    d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::ForwardOutput) {
       attr_reader :responses, :exceptions
 
       def initialize
@@ -42,6 +42,12 @@ class ForwardOutputTest < Test::Unit::TestCase
         raise e
       end
     }.configure(conf)
+    router = Object.new
+    def router.method_missing(name, *args, **kw_args, &block)
+      Engine.root_agent.event_router.__send__(name, *args, **kw_args, &block)
+    end
+    d.instance.router = router
+    d
   end
 
   def test_configure
