@@ -232,6 +232,8 @@ module Fluent
     end
 
     class Handler < Coolio::Socket
+      attr_reader :content_type
+
       def initialize(io, km, callback, body_size_limit, format, log, cors_allow_origins)
         super(io)
         @km = km
