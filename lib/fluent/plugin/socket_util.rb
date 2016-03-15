@@ -19,6 +19,7 @@ require 'ipaddr'
 require 'cool.io'
 
 require 'fluent/plugin'
+require 'fluent/input'
 
 module Fluent
   module SocketUtil
