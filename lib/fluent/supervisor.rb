@@ -220,6 +220,8 @@ module Fluent
 
     def show_plugin_config
       $log.info "Show config for #{@show_plugin_config}"
+      @system_config = SystemConfig.new
+      init_engine
       name, type = @show_plugin_config.split(":")
       plugin = Plugin.__send__("new_#{name}", type)
       dumped_config = "\n"
@@ -563,7 +565,7 @@ module Fluent
       @plugin_dirs.each {|dir|
         if Dir.exist?(dir)
           dir = File.expand_path(dir)
-          Fluent::Engine.load_plugin_dir(dir)
+          Fluent::Engine.add_plugin_dir(dir)
         end
       }
     end
