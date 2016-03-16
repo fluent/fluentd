@@ -192,6 +192,12 @@ module ConfigurableSpec
 
     class AddParam < Base
       config_section :detail do
+        config_param :phone_no, :string
+      end
+    end
+
+    class AddParamOverwriteAddress < Base
+      config_section :detail do
         config_param :address, :string, default: "y"
         config_param :phone_no, :string
       end
@@ -785,14 +791,30 @@ module Fluent::Config
           assert_raise(Fluent::ConfigError.new("'phone_no' parameter is required, in section detail")) do
             ConfigurableSpec::Overwrite::AddParam.new.configure(CONF3)
           end
-          ex9 = ConfigurableSpec::Overwrite::AddParam.new.configure(CONF4)
-          expected ={
+          target = ConfigurableSpec::Overwrite::AddParam.new.configure(CONF4)
+          expected = {
             address: "Chiyoda Tokyo Japan",
             phone_no: "+81-00-0000-0000"
           }
           actual = {
-            address: ex9.detail.address,
-            phone_no: ex9.detail.phone_no
+            address: target.detail.address,
+            phone_no: target.detail.phone_no
+          }
+          assert_equal(expected, actual)
+        end
+
+        test 'subclass can add param with overwriting address' do
+          assert_raise(Fluent::ConfigError.new("'phone_no' parameter is required, in section detail")) do
+            ConfigurableSpec::Overwrite::AddParamOverwriteAddress.new.configure(CONF3)
+          end
+          target = ConfigurableSpec::Overwrite::AddParamOverwriteAddress.new.configure(CONF4)
+          expected = {
+            address: "Chiyoda Tokyo Japan",
+            phone_no: "+81-00-0000-0000"
+          }
+          actual = {
+            address: target.detail.address,
+            phone_no: target.detail.phone_no
           }
           assert_equal(expected, actual)
         end
