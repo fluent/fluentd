@@ -34,7 +34,7 @@ module Fluent
 
     def write(chunk)
       chunk.msgpack_each do |time, tag, record|
-        log.write "#{time} #{tag}: #{@formatter.format(time.localtime.to_s, tag, record)}\n"
+        log.write "#{time} #{tag}: #{@formatter.format(tag, time, record)}\n"
       end
       log.flush
     end
