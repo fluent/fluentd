@@ -28,6 +28,10 @@ module Fluent
       @formatter.configure(conf)
     end
 
+    def format(tag, time, record)
+      @formatter.format(tag, time, record)
+    end
+
     def write(chunk)
       chunk.msgpack_each do |time, tag, record|
         log.write "#{time} #{tag}: #{@formatter.format(time.localtime.to_s, tag, record)}\n"
