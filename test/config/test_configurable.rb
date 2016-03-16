@@ -223,7 +223,7 @@ module ConfigurableSpec
 
     class FinalizedBase
       include Fluent::Configurable
-      config_section :appendix, multi: false, final: true do
+      config_section :appendix, required: true, multi: false, alias: "options", final: true do
         config_param :name, :string, default: "x"
       end
     end
@@ -248,6 +248,24 @@ module ConfigurableSpec
     class InheritsFinalized4 < FinalizedBase
       config_section :appendix, final: false do
         config_param :age, :integer, default: 10
+        config_param :phone_no, :string
+      end
+    end
+
+    class OverwriteRequired < FinalizedBase
+      config_section :appendix, required: false do
+        config_param :phone_no, :string
+      end
+    end
+
+    class OverwriteMulti < FinalizedBase
+      config_section :appendix, multi: true do
+        config_param :phone_no, :string
+      end
+    end
+
+    class OverwriteAlias < FinalizedBase
+      config_section :appendix, alias: "options2" do
         config_param :phone_no, :string
       end
     end
@@ -814,6 +832,26 @@ module Fluent::Config
           test 'failed to overwrite finalized base' do
             assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite finalized base class's config_section")) do
               ConfigurableSpec::Final::InheritsFinalized4.new.configure(CONF)
+            end
+          end
+
+          sub_test_case 'overwrite' do
+            test 'required' do
+              assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: required")) do
+                ConfigurableSpec::Final::OverwriteRequired.new.configure(CONF)
+              end
+            end
+
+            test 'multi' do
+              assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: multi")) do
+                ConfigurableSpec::Final::OverwriteMulti.new.configure(CONF)
+              end
+            end
+
+            test 'alias' do
+              assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: alias")) do
+                ConfigurableSpec::Final::OverwriteAlias.new.configure(CONF)
+              end
             end
           end
         end

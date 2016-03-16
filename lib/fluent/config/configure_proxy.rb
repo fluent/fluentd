@@ -120,6 +120,16 @@ module Fluent
           raise ConfigError, "BUG: subclass cannot overwrite finalized base class's config_section"
         end
 
+        if overwrite?(other, :required)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
+        end
+        if overwrite?(other, :multi)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: multi"
+        end
+        if overwrite?(other, :alias)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
+        end
+
         options = {}
         options[:param_name] = other.param_name
         options[:required] = @required.nil? ? other.required : self.required
