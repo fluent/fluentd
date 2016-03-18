@@ -17,7 +17,7 @@
 require 'fluent/output'
 
 module Fluent
-  class BufferedStdoutOutput < BufferedOutput
+  class BufferedStdoutOutput < ObjectBufferedOutput
     Plugin.register_output('buffered_stdout', self)
 
     config_param :output_type, default: 'json'
@@ -28,15 +28,13 @@ module Fluent
       @formatter.configure(conf)
     end
 
-    def format(tag, time, record)
-      @formatter.format(tag, time, record)
-    end
-
-    def write(chunk)
-      chunk.msgpack_each do |time, tag, record|
-        log.write "#{time} #{tag}: #{@formatter.format(tag, time, record)}\n"
-      end
+    def emit(tag, es, chain)
+      es.each {|time,record|
+        log.write "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
+      }
       log.flush
+
+      chain.next
     end
   end
 end
