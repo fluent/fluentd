@@ -23,6 +23,7 @@ require 'fluent/log'
 require 'fluent/output_chain'
 require 'fluent/plugin'
 require 'fluent/timezone'
+require 'fluent/formatter'
 
 module Fluent
   class Output
