@@ -16,6 +16,7 @@
 
 require 'fluent/match'
 require 'fluent/event'
+require 'fluent/filter'
 
 module Fluent
   #
