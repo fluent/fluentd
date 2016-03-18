@@ -30,16 +30,4 @@ class BufferedStdoutOutputTest < Test::Unit::TestCase
       d = create_driver(CONFIG + "\noutput_type foo")
     end
   end
-
-  def test_format
-    d = create_driver
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
-
-    d.expect_format %[{\"a\":1}\n{\"a\":2}\n]
-
-    d.run
-  end
 end
