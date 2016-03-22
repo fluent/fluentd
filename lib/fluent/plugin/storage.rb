@@ -21,6 +21,7 @@ module Fluent
   module Plugin
     class Storage
       include Fluent::Configurable
+      include Fluent::SystemConfig::Mixin
 
       DEFAULT_TYPE = 'json'
 
@@ -34,12 +35,30 @@ module Fluent
         key.to_s
       end
 
-      def configure(conf, plugin)
+      attr_accessor :log
+
+      def configure(conf)
         super(conf)
 
-        @_system_config = plugin.system_config
+        @_owner = nil
+      end
+
+      def plugin_id(id, configured)
+        @_plugin_id = id
+        @_plugin_id_configured = configured
+      end
+
+      def owner=(plugin)
+        @_owner = plugin
+
         @_plugin_id = plugin.plugin_id
         @_plugin_id_configured = plugin.plugin_id_configured?
+
+        @log = plugin.log
+      end
+
+      def owner
+        @_owner
       end
 
       def persistent_always?
@@ -89,9 +108,7 @@ module Fluent
       # shutdown: used in helper to call #save finally if needed
       def close; end
       def terminate
-        @_system_config = nil
-        @_plugin_id = nil
-        @_plugin_id_configured = nil
+        @_owner = nil
       end
     end
   end

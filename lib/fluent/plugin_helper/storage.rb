@@ -40,6 +40,7 @@ module Fluent
             raise ArgumentError, "BUG: type not specified without configuration"
           end
           storage = Plugin.new_storage(type)
+          storage.owner = self
           config = if conf && conf.is_a?(Fluent::Config::Element)
                      conf
                    elsif conf && conf.is_a?(Hash)
@@ -48,7 +49,7 @@ module Fluent
                    else
                      Fluent::Config::Element.new('storage', '', {}, [])
                    end
-          storage.configure(config, self)
+          storage.configure(config)
           s = @_storages[usage] = StorageState.new(wrap_instance(storage), false)
         end
 
@@ -96,7 +97,8 @@ module Fluent
           raise "storage section with argument '#{section.usage}' not found. it may be a bug." unless config
 
           storage = Plugin.new_storage(section[:@type])
-          storage.configure(config, self)
+          storage.owner = self
+          storage.configure(config)
           @_storages[section.usage] = StorageState.new(wrap_instance(storage), false)
         end
       end
