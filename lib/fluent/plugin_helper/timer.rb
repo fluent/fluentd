@@ -26,17 +26,25 @@ module Fluent
       # close    : [-]
       # terminate: [-]
 
+      attr_reader :_timers # for tests
+
       # interval: integer/float, repeat: true/false
       def timer_execute(title, interval, repeat: true, &block)
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
         raise ArgumentError, "BUG: block not specified for callback" unless block_given?
         checker = ->(){ @_timer_running }
         timer = TimerWatcher.new(title, interval, repeat, log, checker, &block)
+        @_timers << title
         event_loop_attach(timer)
       end
 
       def timer_running?
         @_timer_running
+      end
+
+      def initialize
+        super
+        @_timers = []
       end
 
       def start
@@ -47,6 +55,11 @@ module Fluent
       def stop
         super
         @_timer_running = false
+      end
+
+      def terminate
+        super
+        @_timers = []
       end
 
       class TimerWatcher < Coolio::TimerWatcher
