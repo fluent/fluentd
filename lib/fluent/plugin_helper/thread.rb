@@ -19,7 +19,7 @@ module Fluent
     module Thread
       THREAD_DEFAULT_WAIT_SECONDS = 1
 
-      # stop     : mark thread not to run
+      # stop     : mark callback thread as stopped
       # shutdown : [-]
       # close    : correct stopped threads
       # terminate: kill all threads
