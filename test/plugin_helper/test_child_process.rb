@@ -97,12 +97,6 @@ class ChildProcessTest < Test::Unit::TestCase
       @d.child_process_execute(:t2, cmd, mode: [:write, :read]) do |writeio, readio|
         m.lock
         ran = true
-        data = begin
-                 readio.read_nonblock(1)
-               rescue Errno::EAGAIN, Errno::EWOULDBLOCK
-                 ""
-               end
-        assert_equal "", data
 
         [[1,2],[3,4],[5,6]].each do |i,j|
           writeio.write "my data#{i}\n"
