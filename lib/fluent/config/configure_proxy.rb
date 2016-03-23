@@ -40,7 +40,7 @@ module Fluent
 
       def initialize(name, opts = {})
         @name = name.to_sym
-        @final = opts.fetch(:final, false)
+        @final = opts[:final]
 
         @param_name = (opts[:param_name] || @name).to_sym
         @required = opts[:required]
@@ -63,21 +63,36 @@ module Fluent
       end
 
       def final?
-        @final
+        !!@final
       end
 
       def merge(other) # self is base class, other is subclass
         return merge_for_finalized(other) if self.final?
 
-        options = {
-          param_name: other.param_name,
-          required: (other.required.nil? ? self.required : other.required),
-          multi: (other.multi.nil? ? self.multi : other.multi)
-        }
+        if overwrite?(other, :required)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
+        end
+        if overwrite?(other, :multi)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: multi"
+        end
+        if overwrite?(other, :alias)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
+        end
+
+        options = {}
+        # param_name is used not to ovewrite plugin's instance
+        # varible, so this should be able to be overwritten
+        options[:param_name] = other.param_name
+        # subclass cannot overwrite base class's definition
+        options[:required] = @required.nil? ? other.required : self.required
+        options[:multi] = @multi.nil? ? other.multi : self.multi
+        options[:alias] = @alias.nil? ? other.alias : self.alias
+        options[:final] = @final || other.final
+
         merged = self.class.new(other.name, options)
 
         merged.argument = other.argument || self.argument
-        merged.params = self.params.merge(other.params)
+        merged.params = other.params.merge(self.params)
         merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = {}
         (self.sections.keys + other.sections.keys).uniq.each do |section_key|
@@ -101,12 +116,27 @@ module Fluent
         #  * overwrite param_name to escape duplicated name of instance variable
         #  * append params/defaults/sections which are missing in superclass
 
-        options = {
-          param_name: other.param_name,
-          required: (self.required.nil? ? other.required : self.required),
-          multi: (self.multi.nil? ? other.multi : self.multi),
-          final: true,
-        }
+        if other.final == false && overwrite?(other, :final)
+          raise ConfigError, "BUG: subclass cannot overwrite finalized base class's config_section"
+        end
+
+        if overwrite?(other, :required)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
+        end
+        if overwrite?(other, :multi)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: multi"
+        end
+        if overwrite?(other, :alias)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
+        end
+
+        options = {}
+        options[:param_name] = other.param_name
+        options[:required] = @required.nil? ? other.required : self.required
+        options[:multi] = @multi.nil? ? other.multi : self.multi
+        options[:alias] = @alias.nil? ? other.alias : self.alias
+        options[:final]  = true
+
         merged = self.class.new(other.name, options)
 
         merged.argument = self.argument || other.argument
@@ -248,6 +278,14 @@ module Fluent
           dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump(level + 1)}"
         end
         dumped_config
+      end
+
+      private
+
+      def overwrite?(other, attribute_name)
+        value = instance_variable_get("@#{attribute_name}")
+        other_value = other.__send__(attribute_name)
+        !value.nil? && !other_value.nil? && value != other_value
       end
     end
   end
