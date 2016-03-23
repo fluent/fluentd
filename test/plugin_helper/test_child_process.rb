@@ -51,11 +51,11 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t0, 'echo', arguments: ['foo', 'bar']) do |io|
+      @d.child_process_execute(:t0, 'echo', arguments: ['foo', 'bar'], mode: [:read]) do |io|
         m.lock
+        ran = true
         io.read # discard
         ary << 2
-        ran = true
         m.unlock
       end
       ary << 1
@@ -73,11 +73,11 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t1, 'echo', arguments: ['foo', 'bar']) do |io|
+      @d.child_process_execute(:t1, 'echo', arguments: ['foo', 'bar'], mode: [:read]) do |io|
         m.lock
+        ran = true
         ary << io.read
         assert io.eof?
-        ran = true
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
@@ -93,27 +93,30 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t2, "ruby -e 'while !STDIN.eof? && line = STDIN.readline; puts line.chomp; STDOUT.flush rescue nil; end'") do |io|
+      cmd = "ruby -e 'while !STDIN.eof? && line = STDIN.readline; puts line.chomp; STDOUT.flush rescue nil; end'"
+      @d.child_process_execute(:t2, cmd, mode: [:write, :read]) do |writeio, readio|
         m.lock
+        ran = true
         data = begin
-                 io.read_nonblock(1)
+                 readio.read_nonblock(1)
                rescue Errno::EAGAIN, Errno::EWOULDBLOCK
                  ""
                end
         assert_equal "", data
 
         [[1,2],[3,4],[5,6]].each do |i,j|
-          io.write "my data#{i}\n"
-          io.write "my data#{j}\n"
-          io.flush
-          ary << io.readline
-          ary << io.readline
+          writeio.write "my data#{i}\n"
+          writeio.write "my data#{j}\n"
+          writeio.flush
         end
-        io.close_write
-        assert io.eof?
-        io.close_read
+        writeio.close
 
-        ran = true
+        while line = readio.readline
+          ary << line
+        end
+        assert readio.eof?
+        readio.close
+
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
@@ -121,6 +124,7 @@ class ChildProcessTest < Test::Unit::TestCase
       m.unlock
     end
 
+    assert_equal [], @d.log.out.logs
     expected = (1..6).map{|i| "my data#{i}\n" }
     assert_equal expected, ary
   end
@@ -131,13 +135,15 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t2, "ruby -e 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'") do |io|
+      @d.child_process_execute(:t3, "ruby -e 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
         m.lock
         ran = true
         begin
-          while line = (io.readline rescue nil)
+          while @d.child_process_running? && line = io.readline
             ary << line
           end
+        rescue
+          # ignore
         ensure
           m.unlock
         end
@@ -162,18 +168,22 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t2, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'") do |io|
+      @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
         m.lock
         ran = true
         begin
           while line = io.readline
             ary << line
           end
+        rescue
+          # ignore
         ensure
           m.unlock
         end
       end
       sleep 0.1 until m.locked? || ran
+
+      assert_equal [], @d.log.out.logs
 
       @d.stop # nothing occures
       sleep 0.5
@@ -206,7 +216,7 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ['-e', '3.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.01 }']
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t3, "ruby", arguments: arguments, interval: 0.8) do |io|
+      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 0.8, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
       sleep 4
@@ -222,12 +232,12 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ['-e', '3.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.01 }']
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t4, "ruby", arguments: arguments, interval: 0.8, immediate: true) do |io|
+      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 0.8, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
       sleep 4
       @d.stop; @d.shutdown; @d.close; @d.terminate
-      assert{ ary.size >= 4 && ary.size <= 6 }
+      assert{ ary.size >= 3 && ary.size <= 6 }
       assert_equal [], @d.log.out.logs
     end
   end
@@ -236,13 +246,13 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ['-e', '100.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.1 }'] # 10 sec
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 1, immediate: true) do |io|
+      @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
       sleep 4
       assert_equal 1, @d._child_process_processes.size
       @d.stop
-      warn_msg = '[warn]: previous child process is still running. skipped. title=:t5 command="ruby" arguments=["-e", "100.times{ puts \\"okay\\"; STDOUT.flush rescue nil; sleep 0.1 }"] interval=1 parallel=false' + "\n"
+      warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "100.times{ puts \\"okay\\"; STDOUT.flush rescue nil; sleep 0.1 }"] interval=1 parallel=false' + "\n"
       assert{ @d.log.out.logs.first.end_with?(warn_msg) }
       assert{ @d.log.out.logs.all?{|line| line.end_with?(warn_msg) } }
       @d.shutdown; @d.close; @d.terminate
@@ -254,7 +264,7 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ['-e', '100.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.1 }'] # 10 sec
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 1, immediate: true, parallel: true) do |io|
+      @d.child_process_execute(:t8, "ruby", arguments: arguments, interval: 1, immediate: true, parallel: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
       sleep 4
@@ -270,8 +280,9 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t7, "ruby", arguments: ['-e', 'a=""; while b=(STDIN.readline rescue nil); a+=b; end'], read: false, write: true) do |io|
+      @d.child_process_execute(:t9, "ruby", arguments: ['-e', 'a=""; while b=STDIN.readline; a+=b; end'], mode: [:write]) do |io|
         m.lock
+        ran = true
         unreadable = false
         begin
           io.read
@@ -283,7 +294,6 @@ class ChildProcessTest < Test::Unit::TestCase
         50.times do
           io.write "hahaha\n"
         end
-        ran = true
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
@@ -299,8 +309,9 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t8, "ruby", arguments: ['-e', 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'], read: true, write: false) do |io|
+      @d.child_process_execute(:t10, "ruby", arguments: ['-e', 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'], mode: [:read]) do |io|
         m.lock
+        ran = true
         unwritable = false
         begin
           io.write "foobar"
@@ -311,7 +322,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
         data = io.readline
 
-        ran = true
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
@@ -324,13 +334,13 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can control external encodings' do
     m = Mutex.new
-    encodings = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t9, "ruby -e 'sleep 10'", external_encoding: 'ascii-8bit') do |io|
+      @d.child_process_execute(:t11, "ruby -e 'sleep 10'", external_encoding: 'ascii-8bit') do |r, w|
         m.lock
-        assert Encoding::ASCII_8BIT, io.external_encoding
         ran = true
+        assert Encoding::ASCII_8BIT, r.external_encoding
+        assert Encoding::ASCII_8BIT, w.external_encoding
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
@@ -345,9 +355,10 @@ class ChildProcessTest < Test::Unit::TestCase
     encodings = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t9, "ruby -e 'sleep 10'", internal_encoding: 'ascii-8bit') do |io|
+      @d.child_process_execute(:t12, "ruby -e 'sleep 10'", internal_encoding: 'ascii-8bit') do |r, w|
         m.lock
-        assert_equal Encoding::ASCII_8BIT, io.internal_encoding
+        assert_equal Encoding::ASCII_8BIT, r.internal_encoding
+        assert_equal Encoding::ASCII_8BIT, w.internal_encoding
         ran = true
         m.unlock
       end
@@ -363,7 +374,8 @@ class ChildProcessTest < Test::Unit::TestCase
     encodings = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t9, "ruby", arguments: ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write  "\xA4\xB5\xA4\xC8\xA4\xB7"'], external_encoding: 'euc-jp', internal_encoding: 'windows-31j') do |io|
+      args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write  "\xA4\xB5\xA4\xC8\xA4\xB7"']
+      @d.child_process_execute(:t13, "ruby", arguments: args, external_encoding: 'euc-jp', internal_encoding: 'windows-31j', mode: [:read]) do |io|
         m.lock
         str = io.read
         assert_equal Encoding.find('windows-31j'), str.encoding
@@ -396,9 +408,10 @@ class ChildProcessTest < Test::Unit::TestCase
       proc_lines = []
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
         ran = false
-        @d.child_process_execute(:t10, "ruby", arguments:['-e', 'sleep 10'], subprocess_name: "sleeeeeeeeeper") do |io|
+        @d.child_process_execute(:t14, "ruby", arguments:['-e', 'sleep 10'], subprocess_name: "sleeeeeeeeeper", mode: [:read]) do |readio|
           m.lock
-          pids << io.pid
+          assert readio
+          pids << @d.child_process_id
           proc_lines += open("|ps"){|io| io.readlines }
           ran = true
           m.unlock
