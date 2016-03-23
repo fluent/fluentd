@@ -17,7 +17,7 @@ class FluentInputTest < ::Test::Unit::TestCase
     assert_equal Engine.root_agent.event_router, d.instance.router
 
     d = nil
-    assert_nothing_raised { 
+    assert_nothing_raised {
       d = create_driver('@label @known')
     }
     expected = Engine.root_agent.find_label('@known').event_router
