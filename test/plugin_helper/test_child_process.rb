@@ -210,15 +210,15 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ['-e', '3.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.01 }']
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 0.8, mode: [:read]) do |io|
+      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 1.5, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 4
+      sleep 7
       assert_equal [], @d.log.out.logs
       @d.stop
       assert_equal [], @d.log.out.logs
       @d.shutdown; @d.close; @d.terminate
-      assert{ ary.size >= 3 && ary.size <= 5 }
+      assert{ ary.size >= 3 && ary.size <= 6 }
     end
   end
 
