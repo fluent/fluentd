@@ -29,13 +29,11 @@ module Fluent
       @formatter.configure(conf)
     end
 
-    def emit(tag, es, chain)
-      es.each {|time,record|
+    def write_objects(tag, chunk)
+      chunk.msgpack_each {|time,record|
         log.write "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
       }
       log.flush
-
-      chain.next
     end
   end
 end
