@@ -9,11 +9,15 @@ class BareStorage < Fluent::Plugin::Storage
   Fluent::Plugin.register_storage('bare', self)
 end
 
-class ExampleStorage < Fluent::Plugin::Storage
+class BasicStorage < Fluent::Plugin::Storage
   Fluent::Plugin.register_storage('example', self)
 
   attr_reader :data, :saved
 
+  def initialize
+    super
+    @data = @saved = nil
+  end
   def load
     @data = {}
   end
@@ -107,7 +111,7 @@ class StorageTest < Test::Unit::TestCase
     setup do
       plugin = DummyPlugin.new
       plugin.configure(config_element('ROOT', '', {'@id' => '1'}))
-      @s = ExampleStorage.new
+      @s = BasicStorage.new
       @s.configure(config_element())
       @s.owner = plugin
     end
@@ -115,7 +119,7 @@ class StorageTest < Test::Unit::TestCase
     test 'load/save works well as plugin internal state operations' do
       plugin = DummyPlugin.new
       plugin.configure(config_element('ROOT', '', {'@id' => '0'}))
-      s = ExampleStorage.new
+      s = BasicStorage.new
       s.owner = plugin
 
       assert_nothing_raised{ s.load }
