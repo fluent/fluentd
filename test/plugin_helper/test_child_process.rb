@@ -558,10 +558,11 @@ class ChildProcessTest < Test::Unit::TestCase
     m = Mutex.new
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      current_env_path = ENV['PATH']
       ran = false
       args = ['-e', 'puts ENV["testing_child_process1"].to_s + ENV["testing_child_process2"].to_s']
       ENV['testing_child_process1'] = "No! False!"
-      @d.child_process_execute(:t15b, "ruby", arguments: args, mode: [:read], unsetenv: true, env: {'testing_child_process2' => 'Yes! True!'}) do |io|
+      @d.child_process_execute(:t15b, "ruby", arguments: args, mode: [:read], unsetenv: true, env: {'testing_child_process2' => 'Yes! True!', 'PATH' => current_env_path}) do |io|
         m.lock
         ran = true
         str = io.read
