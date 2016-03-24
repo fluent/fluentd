@@ -1,7 +1,9 @@
 require_relative '../helper'
 require 'fluent/plugin/storage'
+require 'fluent/plugin/base'
 
-DummyPlugin = Struct.new(:system_config, :plugin_id, :plugin_id_configured?)
+class DummyPlugin < Fluent::Plugin::Base
+end
 
 class BareStorage < Fluent::Plugin::Storage
   Fluent::Plugin.register_storage('bare', self)
@@ -46,17 +48,21 @@ end
 class StorageTest < Test::Unit::TestCase
   sub_test_case 'BareStorage' do
     setup do
-      plugin = DummyPlugin.new({}, '0', true)
+      plugin = DummyPlugin.new
       @s = BareStorage.new
-      @s.configure(config_element(), plugin)
+      @s.configure(config_element())
+      @s.owner = plugin
     end
 
     test 'is configured with plugin information and system config' do
-      plugin = DummyPlugin.new({'key' => 'value'}, '1', true)
+      plugin = DummyPlugin.new
+      plugin.system_config_override({'process_name' => 'mytest'})
+      plugin.configure(config_element('ROOT', '', {'@id' => '1'}))
       s = BareStorage.new
-      s.configure(config_element(), plugin)
+      s.configure(config_element())
+      s.owner = plugin
 
-      assert_equal({'key' => 'value'}, s.instance_eval{ @_system_config })
+      assert_equal 'mytest', s.owner.system_config.process_name
       assert_equal '1', s.instance_eval{ @_plugin_id }
       assert_equal true, s.instance_eval{ @_plugin_id_configured }
     end
@@ -95,30 +101,22 @@ class StorageTest < Test::Unit::TestCase
         @s.update('key'){ |v| v + '2' }
       end
     end
-
-    test 'close does nothing, terminate initialize internal values' do
-      assert_nothing_raised{ @s.close }
-      assert_equal({},   @s.instance_eval{ @_system_config })
-      assert_equal '0',  @s.instance_eval{ @_plugin_id }
-      assert_equal true, @s.instance_eval{ @_plugin_id_configured }
-
-      assert_nothing_raised{ @s.terminate }
-      assert_nil @s.instance_eval{ @_system_config }
-      assert_nil @s.instance_eval{ @_plugin_id }
-      assert_nil @s.instance_eval{ @_plugin_id_configured }
-    end
   end
 
   sub_test_case 'ExampleStorage' do
     setup do
-      plugin = DummyPlugin.new({}, '0', true)
+      plugin = DummyPlugin.new
+      plugin.configure(config_element('ROOT', '', {'@id' => '1'}))
       @s = ExampleStorage.new
-      @s.configure(config_element(), plugin)
+      @s.configure(config_element())
+      @s.owner = plugin
     end
 
     test 'load/save works well as plugin internal state operations' do
-      plugin = DummyPlugin.new({}, '0', true)
+      plugin = DummyPlugin.new
+      plugin.configure(config_element('ROOT', '', {'@id' => '0'}))
       s = ExampleStorage.new
+      s.owner = plugin
 
       assert_nothing_raised{ s.load }
       assert s.data
