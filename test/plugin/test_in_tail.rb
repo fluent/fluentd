@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'fluent/plugin/in_tail'
+require 'fluent/system_config'
 require 'net/http'
 require 'flexmock'
 
@@ -85,6 +86,66 @@ class TailInputTest < Test::Unit::TestCase
     assert(emits[0][1].is_a?(Fluent::EventTime))
     assert(emits[1][1].is_a?(Fluent::EventTime))
     assert_equal(1, d.emit_streams.size)
+  end
+
+  class TestWithSystem < self
+    include Fluent::SystemConfigMixin
+
+    OVERRIDE_FILE_PERMISSION = 0620
+    CONFIG_SYSTEM = %[
+      <system>
+        file_permission #{OVERRIDE_FILE_PERMISSION}
+      </system>
+    ]
+
+    def setup
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+      # Store default permission
+      @default_permission = system_config.instance_variable_get(:@file_permission)
+    end
+
+    def teardown
+      # Restore default permission
+      system_config.instance_variable_set(:@file_permission, @default_permission)
+    end
+
+    def parse_system(text)
+      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+      Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+    end
+
+    def test_emit_with_system
+      system_conf = parse_system(CONFIG_SYSTEM)
+      sc = Fluent::SystemConfig.new(system_conf)
+      Fluent::Engine.init(sc)
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d = create_driver
+
+      d.run do
+        sleep 1
+
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+        sleep 1
+      end
+
+      emits = d.emits
+      assert_equal(true, emits.length > 0)
+      assert_equal({"message" => "test3"}, emits[0][2])
+      assert_equal({"message" => "test4"}, emits[1][2])
+      assert(emits[0][1].is_a?(Fluent::EventTime))
+      assert(emits[1][1].is_a?(Fluent::EventTime))
+      assert_equal(1, d.emit_streams.size)
+      pos = d.instance.instance_variable_get(:@pf_file)
+      mode = "%o" % File.stat(pos).mode
+      assert_equal OVERRIDE_FILE_PERMISSION, mode[-3, 3].to_i
+    end
   end
 
   data('1' => [1, 2], '10' => [10, 1])
