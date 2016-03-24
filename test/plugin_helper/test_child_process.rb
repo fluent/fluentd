@@ -77,7 +77,6 @@ class ChildProcessTest < Test::Unit::TestCase
         m.lock
         ran = true
         ary << io.read
-        assert io.eof?
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
@@ -108,8 +107,41 @@ class ChildProcessTest < Test::Unit::TestCase
         while line = readio.readline
           ary << line
         end
-        assert readio.eof?
-        readio.close
+        m.unlock
+      end
+      sleep 0.1 until m.locked? || ran
+      m.lock
+      m.unlock
+    end
+
+    assert_equal [], @d.log.out.logs
+    expected = (1..6).map{|i| "my data#{i}\n" }
+    assert_equal expected, ary
+  end
+
+  test 'can execute external command at just once, which can handle all of read, write and stderr' do
+    m = Mutex.new
+    t1 = Time.now
+    ary1 = []
+    ary2 = []
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      cmd = "ruby -e 'while !STDIN.eof? && line = STDIN.readline; puts line.chomp; STDOUT.flush rescue nil; STDERR.puts line.chomp; STDERR.flush rescue nil; end'"
+      @d.child_process_execute(:t2a, cmd, mode: [:write, :read, :stderr]) do |writeio, readio, stderrio|
+        m.lock
+        ran = true
+
+        [[1,2],[3,4],[5,6]].each do |i,j|
+          writeio.write "my data#{i}\n"
+          writeio.write "my data#{j}\n"
+          writeio.flush
+        end
+        writeio.close
+
+        while (line1 = readio.readline) && (line2 = stderrio.readline)
+          ary1 << line1
+          ary2 << line2
+        end
 
         m.unlock
       end
@@ -120,6 +152,42 @@ class ChildProcessTest < Test::Unit::TestCase
 
     assert_equal [], @d.log.out.logs
     expected = (1..6).map{|i| "my data#{i}\n" }
+    assert_equal expected, ary1
+    assert_equal expected, ary2
+  end
+
+  test 'can execute external command at just once, which can handle both of write and read (with stderr)' do
+    m = Mutex.new
+    t1 = Time.now
+    ary = []
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      cmd = "ruby"
+      args = ['-e', 'while !STDIN.eof? && line = STDIN.readline; puts "[s]" + line.chomp; STDOUT.flush rescue nil; STDERR.puts "[e]" + line.chomp; STDERR.flush rescue nil; end']
+      @d.child_process_execute(:t2b, cmd, arguments: args, mode: [:write, :read_with_stderr]) do |writeio, readio|
+        m.lock
+        ran = true
+
+        [[1,2],[3,4],[5,6]].each do |i,j|
+          writeio.write "my data#{i}\n"
+          writeio.write "my data#{j}\n"
+          writeio.flush
+        end
+        writeio.close
+
+        while line = readio.readline
+          ary << line
+        end
+
+        m.unlock
+      end
+      sleep 0.1 until m.locked? || ran
+      m.lock
+      m.unlock
+    end
+
+    assert_equal [], @d.log.out.logs
+    expected = (1..6).map{|i| ["[s]my data#{i}\n", "[e]my data#{i}\n"] }.flatten
     assert_equal expected, ary
   end
 
