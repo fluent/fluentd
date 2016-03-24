@@ -272,19 +272,17 @@ class ChildProcessTest < Test::Unit::TestCase
   test 'execute external processes only for writing' do
     m = Mutex.new
     ary = []
+    unreadable = false
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
       @d.child_process_execute(:t9, "ruby", arguments: ['-e', 'a=""; while b=STDIN.readline; a+=b; end'], mode: [:write]) do |io|
         m.lock
         ran = true
-        unreadable = false
         begin
           io.read
         rescue IOError
           unreadable = true
         end
-        assert unreadable
-
         50.times do
           io.write "hahaha\n"
         end
@@ -293,6 +291,7 @@ class ChildProcessTest < Test::Unit::TestCase
       sleep 0.1 until m.locked? || ran
       m.lock
       m.unlock
+      assert unreadable
       @d.stop; @d.shutdown; @d.close; @d.terminate
       assert_equal [], @d.log.out.logs
     end
@@ -301,45 +300,45 @@ class ChildProcessTest < Test::Unit::TestCase
   test 'execute external processes only for reading' do
     m = Mutex.new
     ary = []
+    unwritable = false
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
       @d.child_process_execute(:t10, "ruby", arguments: ['-e', 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'], mode: [:read]) do |io|
         m.lock
         ran = true
-        unwritable = false
         begin
           io.write "foobar"
         rescue IOError
           unwritable = true
         end
-        assert unwritable
-
         data = io.readline
-
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
       m.lock
       m.unlock
       @d.stop; @d.shutdown; @d.close; @d.terminate
+      assert unwritable
       assert_equal [], @d.log.out.logs
     end
   end
 
   test 'can control external encodings' do
     m = Mutex.new
+    encodings = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
       @d.child_process_execute(:t11, "ruby -e 'sleep 10'", external_encoding: 'ascii-8bit') do |r, w|
         m.lock
         ran = true
-        assert Encoding::ASCII_8BIT, r.external_encoding
-        assert Encoding::ASCII_8BIT, w.external_encoding
+        encodings << r.external_encoding
+        encodings << w.external_encoding
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
       m.lock
-      assert true
+      assert_equal Encoding::ASCII_8BIT, encodings[0]
+      assert_equal Encoding::ASCII_8BIT, encodings[1]
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
   end
@@ -351,14 +350,15 @@ class ChildProcessTest < Test::Unit::TestCase
       ran = false
       @d.child_process_execute(:t12, "ruby -e 'sleep 10'", internal_encoding: 'ascii-8bit') do |r, w|
         m.lock
-        assert_equal Encoding::ASCII_8BIT, r.internal_encoding
-        assert_equal Encoding::ASCII_8BIT, w.internal_encoding
         ran = true
+        encodings << r.internal_encoding
+        encodings << w.internal_encoding
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
       m.lock
-      assert true
+      assert_equal Encoding::ASCII_8BIT, encodings[0]
+      assert_equal Encoding::ASCII_8BIT, encodings[1]
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
   end
@@ -366,22 +366,21 @@ class ChildProcessTest < Test::Unit::TestCase
   test 'can convert encodings' do
     m = Mutex.new
     encodings = []
+    str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
       args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write  "\xA4\xB5\xA4\xC8\xA4\xB7"']
       @d.child_process_execute(:t13, "ruby", arguments: args, external_encoding: 'euc-jp', internal_encoding: 'windows-31j', mode: [:read]) do |io|
         m.lock
-        str = io.read
-        assert_equal Encoding.find('windows-31j'), str.encoding
-
-        expected = "さとし".encoding('windows-31j')
-        assert_equal expected, str
         ran = true
+        str = io.read
         m.unlock
       end
       sleep 0.1 until m.locked? || ran
       m.lock
-      assert true
+      assert_equal Encoding.find('windows-31j'), str.encoding
+      expected = "さとし".encode('windows-31j')
+      assert_equal expected, str
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
   end
@@ -402,13 +401,13 @@ class ChildProcessTest < Test::Unit::TestCase
       proc_lines = []
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
         ran = false
-        @d.child_process_execute(:t14, "ruby", arguments:['-e', 'sleep 10'], subprocess_name: "sleeeeeeeeeper", mode: [:read]) do |readio|
+        @d.child_process_execute(:t14, "ruby", arguments:['-e', 'sleep 10; puts "hello"'], subprocess_name: "sleeeeeeeeeper", mode: [:read]) do |readio|
           m.lock
-          assert readio
+          ran = true
           pids << @d.child_process_id
           proc_lines += open("|ps"){|io| io.readlines }
-          ran = true
           m.unlock
+          readio.read
         end
         sleep 0.1 until m.locked? || ran
         m.lock
