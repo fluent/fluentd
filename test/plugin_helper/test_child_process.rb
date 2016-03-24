@@ -5,6 +5,10 @@ require 'timeout'
 
 class ChildProcessTest < Test::Unit::TestCase
   TEST_DEADLOCK_TIMEOUT = 30
+  TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING = 0.1 # This may be shorter than ruby's threading timer, but work well
+  # @nalsh says that ruby's cpu assignments for threads are almost 200ms or so.
+  # Loop interval (expected that it work as specified) should be longer than it.
+  TEST_WAIT_INTERVAL_FOR_LOOP = 0.5
 
   setup do
     @d = Dummy.new
@@ -60,7 +64,7 @@ class ChildProcessTest < Test::Unit::TestCase
       end
       ary << 1
       m.unlock
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
     end
@@ -79,7 +83,7 @@ class ChildProcessTest < Test::Unit::TestCase
         ary << io.read
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
     end
@@ -109,7 +113,7 @@ class ChildProcessTest < Test::Unit::TestCase
         end
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
     end
@@ -145,7 +149,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
     end
@@ -181,7 +185,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
     end
@@ -197,7 +201,7 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t3, "ruby -e 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
+      @d.child_process_execute(:t3, "ruby -e 'while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
         m.lock
         ran = true
         begin
@@ -210,8 +214,8 @@ class ChildProcessTest < Test::Unit::TestCase
           m.unlock
         end
       end
-      sleep 0.1 until m.locked? || ran
-      sleep 0.5
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_LOOP * 10
       @d.stop # nothing occures
       @d.shutdown
 
@@ -232,7 +236,7 @@ class ChildProcessTest < Test::Unit::TestCase
       ary = []
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
         ran = false
-        @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
+        @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
           m.lock
           ran = true
           begin
@@ -245,19 +249,19 @@ class ChildProcessTest < Test::Unit::TestCase
             m.unlock
           end
         end
-        sleep 0.1 until m.locked? || ran
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
 
         assert_equal [], @d.log.out.logs
 
         @d.stop # nothing occures
-        sleep 0.5
+        sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
         lines1 = ary.size
         assert{ lines1 > 1 }
 
         pid = @d._child_process_processes.keys.first
 
         @d.shutdown
-        sleep 0.5
+        sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
         lines2 = ary.size
         assert{ lines2 > lines1 }
 
@@ -279,45 +283,46 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command many times, which finishes immediately' do
     ary = []
-    arguments = ['-e', '3.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.01 }']
+    arguments = ["-e", "3.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 3
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 1.5, mode: [:read]) do |io|
+      @d.child_process_execute(:t5, "ruby", arguments: arguments, interval: 5, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 7
+      sleep 13 # 5sec * 2 + 3sec
       assert_equal [], @d.log.out.logs
       @d.stop
       assert_equal [], @d.log.out.logs
       @d.shutdown; @d.close; @d.terminate
-      assert{ ary.size >= 3 && ary.size <= 6 }
+      assert_equal 2, ary.size
     end
   end
 
   test 'can execute external command many times, with leading once executed immediately' do
     ary = []
-    arguments = ['-e', '3.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.01 }']
+    arguments = ["-e", "3.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"]
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 0.8, immediate: true, mode: [:read]) do |io|
+      @d.child_process_execute(:t6, "ruby", arguments: arguments, interval: 5, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
-      sleep 4
+      sleep 8 # 5sec * 1 + 3sec
+              # but expected lines are same with test above
       @d.stop; @d.shutdown; @d.close; @d.terminate
-      assert{ ary.size >= 3 && ary.size <= 6 }
+      assert_equal 2, ary.size
       assert_equal [], @d.log.out.logs
     end
   end
 
   test 'does not execute long running external command in parallel in default' do
     ary = []
-    arguments = ['-e', '100.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.1 }'] # 10 sec
+    arguments = ["-e", "10.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 10
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 1, immediate: true, mode: [:read]) do |io|
+      @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 2, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
       sleep 4
       assert_equal 1, @d._child_process_processes.size
       @d.stop
-      warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "100.times{ puts \\"okay\\"; STDOUT.flush rescue nil; sleep 0.1 }"] interval=1 parallel=false' + "\n"
+      warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "10.times{ puts \'okay\'; STDOUT.flush rescue nil; sleep 0.5 }"] interval=2 parallel=false' + "\n"
       assert{ @d.log.out.logs.first.end_with?(warn_msg) }
       assert{ @d.log.out.logs.all?{|line| line.end_with?(warn_msg) } }
       @d.shutdown; @d.close; @d.terminate
@@ -327,7 +332,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute long running external command in parallel if specified' do
     ary = []
-    arguments = ['-e', '100.times{ puts "okay"; STDOUT.flush rescue nil; sleep 0.1 }'] # 10 sec
+    arguments = ["-e", "10.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 10 sec
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       @d.child_process_execute(:t8, "ruby", arguments: arguments, interval: 1, immediate: true, parallel: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
@@ -359,7 +364,7 @@ class ChildProcessTest < Test::Unit::TestCase
         end
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
       assert unreadable
@@ -374,7 +379,7 @@ class ChildProcessTest < Test::Unit::TestCase
     unwritable = false
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t10, "ruby", arguments: ['-e', 'while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'], mode: [:read]) do |io|
+      @d.child_process_execute(:t10, "ruby", arguments: ["-e", "while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end"], mode: [:read]) do |io|
         m.lock
         ran = true
         begin
@@ -385,7 +390,7 @@ class ChildProcessTest < Test::Unit::TestCase
         data = io.readline
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       m.unlock
       @d.stop; @d.shutdown; @d.close; @d.terminate
@@ -406,7 +411,7 @@ class ChildProcessTest < Test::Unit::TestCase
         encodings << w.external_encoding
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding::ASCII_8BIT, encodings[0]
       assert_equal Encoding::ASCII_8BIT, encodings[1]
@@ -426,7 +431,7 @@ class ChildProcessTest < Test::Unit::TestCase
         encodings << w.internal_encoding
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding::ASCII_8BIT, encodings[0]
       assert_equal Encoding::ASCII_8BIT, encodings[1]
@@ -447,7 +452,7 @@ class ChildProcessTest < Test::Unit::TestCase
         str = io.read
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('windows-31j'), str.encoding
       expected = "さとし".encode('windows-31j')
@@ -469,7 +474,7 @@ class ChildProcessTest < Test::Unit::TestCase
         str = io.read
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('utf-8'), str.encoding
       expected = "\xEF\xBF\xBD\xEF\xBF\xBD\x00\xEF\xBF\xBD\xEF\xBF\xBD".force_encoding("utf-8")
@@ -491,7 +496,7 @@ class ChildProcessTest < Test::Unit::TestCase
         str = io.read
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       assert_equal Encoding.find('utf-8'), str.encoding
       expected = "??\x00??".force_encoding("utf-8")
@@ -524,7 +529,7 @@ class ChildProcessTest < Test::Unit::TestCase
           m.unlock
           readio.read
         end
-        sleep 0.1 until m.locked? || ran
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
         m.lock
         pid = pids.first
         # 51358 ttys001    0:00.00 sleeper -e sleep 10
@@ -546,7 +551,7 @@ class ChildProcessTest < Test::Unit::TestCase
         str = io.read
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       expected = "Yes! True!\n"
       assert_equal expected, str
@@ -568,7 +573,7 @@ class ChildProcessTest < Test::Unit::TestCase
         str = io.read
         m.unlock
       end
-      sleep 0.1 until m.locked? || ran
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       m.lock
       expected = "Yes! True!\n"
       assert_equal expected, str
@@ -593,7 +598,7 @@ class ChildProcessTest < Test::Unit::TestCase
           str = io.read.chomp
           m.unlock
         end
-        sleep 0.1 until m.locked? || ran
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
         m.lock
         assert_equal mytmpdir, str
         @d.stop; @d.shutdown; @d.close; @d.terminate
