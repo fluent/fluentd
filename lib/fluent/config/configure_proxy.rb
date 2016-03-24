@@ -52,6 +52,7 @@ module Fluent
         @defaults = {}
         @descriptions = {}
         @sections = {}
+        @current_description = nil
       end
 
       def required?

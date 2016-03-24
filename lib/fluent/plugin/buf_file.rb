@@ -100,6 +100,7 @@ module Fluent
       super
 
       @uri_parser = URI::Parser.new
+      @symlink_path = nil
     end
 
     desc 'The path where buffer chunks are stored.'
@@ -171,15 +172,15 @@ module Fluent
       }
 
       map = {}
-      maps.sort_by {|(timestamp,chunk)|
+      maps.sort_by {|(timestamp,_chunk)|
         timestamp
-      }.each {|(timestamp,chunk)|
+      }.each {|(_timestamp,chunk)|
         map[chunk.key] = chunk
       }
 
-      queue = queues.sort_by {|(timestamp,chunk)|
+      queue = queues.sort_by {|(timestamp,_chunk)|
         timestamp
-      }.map {|(timestamp,chunk)|
+      }.map {|(_timestamp,chunk)|
         chunk
       }
 

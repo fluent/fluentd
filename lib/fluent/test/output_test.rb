@@ -88,7 +88,7 @@ module Fluent
           key = ''
           if @instance.respond_to?(:time_slicer)
             # this block is only for test_out_file
-            time, record = @entries.first
+            time, _record = @entries.first
             key = @instance.time_slicer.call(time)
           end
           chunk = @instance.buffer.new_chunk(key)

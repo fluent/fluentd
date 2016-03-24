@@ -88,7 +88,7 @@ class DummyTest < Test::Unit::TestCase
         # d.run sleeps 0.5 sec
       }
       emits = d.emits
-      emits.each_with_index do |(tag, time, record), i|
+      emits.each_with_index do |(tag, _time, record), i|
         assert_equal("dummy", tag)
         assert_equal({"foo"=>"bar", "id"=>i}, record)
       end

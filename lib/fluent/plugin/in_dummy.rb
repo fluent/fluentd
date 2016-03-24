@@ -35,11 +35,11 @@ module Fluent
     config_param :dummy, default: [{"message"=>"dummy"}] do |val|
       begin
         parsed = JSON.parse(val)
-      rescue JSON::ParserError => e
+      rescue JSON::ParserError => ex
         # Fluent::ConfigParseError, "got incomplete JSON" will be raised
         # at literal_parser.rb with --use-v1-config, but I had to
         # take care at here for the case of --use-v0-config.
-        raise Fluent::ConfigError, "#{e.class}: #{e.message}"
+        raise Fluent::ConfigError, "#{ex.class}: #{ex.message}"
       end
       dummy = parsed.is_a?(Array) ? parsed : [parsed]
       dummy.each_with_index do |e, i|

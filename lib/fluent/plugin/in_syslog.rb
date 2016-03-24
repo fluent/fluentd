@@ -96,6 +96,8 @@ module Fluent
     def configure(conf)
       super
 
+      @use_default = false
+
       if conf.has_key?('format')
         @parser = Plugin.new_parser(conf['format'])
         @parser.configure(conf)

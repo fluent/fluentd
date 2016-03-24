@@ -453,16 +453,16 @@ module Fluent
             @update_watcher.call(@path, swap_state(@pe))
           end
         end
+      end
 
-        def swap_state(pe)
-          # Use MemoryPositionEntry for rotated file temporary
-          mpe = MemoryPositionEntry.new
-          mpe.update(pe.read_inode, pe.read_pos)
-          @pe = mpe
-          @io_handler.pe = mpe # Don't re-create IOHandler because IOHandler has an internal buffer.
+      def swap_state(pe)
+        # Use MemoryPositionEntry for rotated file temporary
+        mpe = MemoryPositionEntry.new
+        mpe.update(pe.read_inode, pe.read_pos)
+        @pe = mpe
+        @io_handler.pe = mpe # Don't re-create IOHandler because IOHandler has an internal buffer.
 
-          pe # This pe will be updated in on_rotate after TailWatcher is initialized
-        end
+        pe # This pe will be updated in on_rotate after TailWatcher is initialized
       end
 
       class TimerWatcher < Coolio::TimerWatcher

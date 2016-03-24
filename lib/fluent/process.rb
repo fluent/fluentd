@@ -418,6 +418,8 @@ module Fluent
     def configure(conf)
       super
 
+      @detach_process = nil
+
       if detach_process = conf['detach_process']
         b3v = Config.bool_value(detach_process)
         case b3v
@@ -460,6 +462,8 @@ module Fluent
 
     def configure(conf)
       super
+
+      @detach_process = nil
 
       if detach_process = conf['detach_process']
         b3v = Config.bool_value(detach_process)

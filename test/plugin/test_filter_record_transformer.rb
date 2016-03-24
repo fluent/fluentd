@@ -58,7 +58,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     test 'typical usage' do
       msgs = ['1', '2']
       es = emit(CONFIG, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_equal('bar', r['foo'])
         assert_equal(@hostname, r['hostname'])
         assert_equal(@tag, r['tag'])
@@ -70,7 +70,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     test 'remove_keys' do
       config = CONFIG + %[remove_keys foo,message]
       es = emit(config)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_not_include(r, 'foo')
         assert_equal(@hostname, r['hostname'])
         assert_equal(@tag, r['tag'])
@@ -83,7 +83,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       config = CONFIG + %[renew_record true]
       msgs = ['1', '2']
       es = emit(config, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_not_include(r, 'foo')
         assert_equal(@hostname, r['hostname'])
         assert_equal(@tag, r['tag'])
@@ -97,7 +97,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       times = [ Time.local(2,2,3,4,5,2010,nil,nil,nil,nil), Time.local(3,2,3,4,5,2010,nil,nil,nil,nil) ]
       msgs = times.map{|t| t.to_f.to_s }
       es = emit(config, msgs)
-      es.each_with_index do |(time, record), i|
+      es.each_with_index do |(time, _record), i|
         assert_equal(times[i].to_i, time)
         assert(time.is_a?(Fluent::EventTime))
       end
@@ -107,7 +107,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       config = %[renew_record true\nkeep_keys foo,message]
       msgs = ['1', '2']
       es = emit(config, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_equal('bar', r['foo'])
         assert_equal(msgs[i], r['message'])
       end
@@ -122,7 +122,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       ]
       msgs = ['1', '2']
       es = emit(config, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_equal("#{@hostname} #{@tag_parts[-1]} #{msgs[i]}", r['message'])
       end
     end
@@ -135,7 +135,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       %]
       msgs = ['1', '2']
       es = emit(config, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_equal({"k1"=>100, "k2"=>"foobar"}, r['hash_field'])
       end
     end
@@ -148,7 +148,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       %]
       msgs = ['1', '2']
       es = emit(config, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_equal([1,2,3], r['array_field'])
       end
     end
@@ -161,7 +161,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       %]
       msgs = ['1', '2']
       es = emit(config, msgs)
-      es.each_with_index do |(t, r), i|
+      es.each_with_index do |(_t, r), i|
         assert_equal({"hello"=>[1,2,3], "world"=>{"foo"=>"bar"}}, r['mixed_field'])
       end
     end
@@ -263,7 +263,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         msgs = ['1', '2']
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           assert_not_include(r, 'eventType0')
           assert_equal("bar", r['eventtype'])
           assert_equal("bar #{msgs[i]}", r['message'])
@@ -283,7 +283,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         msgs = ['1', '2']
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           assert_equal({"hostname" => @hostname, "tag" => @tag, "#{@tag}" => 100}, r['hash_field'])
         end
       end
@@ -297,7 +297,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         msgs = ['1', '2']
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           assert_equal([@hostname, @tag], r['array_field'])
         end
       end
@@ -311,7 +311,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         msgs = ['1', '2']
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           assert_equal([{"tag" => @tag}], r['mixed_field'])
         end
       end
@@ -327,7 +327,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         msgs = ['1', '2']
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           assert_equal({@hostname=>'hostname',"foo.#{@tag}"=>'tag'}, r)
         end
       end
@@ -380,7 +380,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         actual_results = []
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           actual_results << {
             single: r["single"],
             multiple: r["multiple"],
@@ -434,7 +434,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         actual_results = []
         es = emit(config, msgs)
-        es.each_with_index do |(t, r), i|
+        es.each_with_index do |(_t, r), i|
           actual_results << {
             single: r["single"],
             multiple: r["multiple"],

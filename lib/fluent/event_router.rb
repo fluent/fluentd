@@ -103,7 +103,7 @@ module Fluent
 
     def match(tag)
       collector = @match_cache.get(tag) {
-        c = find(tag) || @default_collector
+        find(tag) || @default_collector
       }
       collector
     end

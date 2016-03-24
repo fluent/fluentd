@@ -616,7 +616,7 @@ module Fluent
         # built-in template
         begin
           Fluent::Plugin.new_parser(format)
-        rescue ConfigError => e # keep same error message
+        rescue ConfigError # keep same error message
           raise ConfigError, "Unknown format template '#{format}'"
         end
       end

@@ -578,7 +578,7 @@ module FluentBufferTest
             assert db.emit('key', data, chain)
           }
           flunk("timeout must happen")
-        rescue Timeout::Error => e
+        rescue Timeout::Error
         end
         assert db.queue.size == 1
 

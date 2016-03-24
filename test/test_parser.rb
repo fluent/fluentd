@@ -253,6 +253,7 @@ module ParserTest
 
     def setup
       @parser = Fluent::Plugin.new_parser('apache_error')
+      @parser.configure({})
       @expected = {
         'level' => 'error',
         'client' => '127.0.0.1',
@@ -450,7 +451,6 @@ module ParserTest
     def test_parse_float_time(data)
       parser = TextParser::JSONParser.new
       parser.configure('json_parser' => data)
-      format = "%d/%b/%Y:%H:%M:%S %z"
       text = "100.1"
       parser.parse("{\"time\":\"#{text}\"}") do |time, record|
         assert_equal Time.at(text.to_f).to_i, time.sec
@@ -1043,7 +1043,7 @@ EOS
     def test_parse_with_return
       parser = TextParser.new
       parser.configure('format' => 'none')
-      time, record = parser.parse('log message!')
+      _time, record = parser.parse('log message!')
       assert_equal({'message' => 'log message!'}, record)
     end
 
