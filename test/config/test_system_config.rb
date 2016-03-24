@@ -48,6 +48,8 @@ module Fluent::Config
       assert_nil(s.instance_variable_get(:@emit_error_log_interval))
       assert_nil(s.instance_variable_get(:@suppress_config_dump))
       assert_nil(s.instance_variable_get(:@without_source))
+      assert_nil(s.instance_variable_get(:@file_permission))
+      assert_nil(s.instance_variable_get(:@dir_permission))
     end
 
     {'log_level' => 'error',
@@ -81,6 +83,8 @@ module Fluent::Config
         assert_nil(s.instance_variable_get(:@emit_error_log_interval))
         assert_nil(s.instance_variable_get(:@suppress_config_dump))
         assert_nil(s.instance_variable_get(:@without_source))
+        assert_nil(s.instance_variable_get(:@file_permission))
+        assert_nil(s.instance_variable_get(:@dir_permission))
       end
     }
 
@@ -94,6 +98,20 @@ module Fluent::Config
       sc = Fluent::SystemConfig.new(conf)
       sc.apply(s)
       assert_equal(Fluent::Log::LEVEL_WARN, s.instance_variable_get("@log").level)
+    end
+
+    test 'process global overridable variables' do
+      conf = parse_text(<<-EOS)
+        <system>
+          file_permission 0655
+          dir_permission 0765
+        </system>
+      EOS
+      s = FakeSupervisor.new
+      sc = Fluent::SystemConfig.new(conf)
+      sc.apply(s)
+      assert_equal(0655, s.instance_variable_get(:@file_permission))
+      assert_equal(0765, s.instance_variable_get(:@dir_permission))
     end
   end
 end
