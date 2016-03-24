@@ -57,7 +57,7 @@ module Fluent
           title, command,
           arguments: nil, subprocess_name: nil, interval: nil, immediate: false, parallel: false,
           mode: [:read, :write], stderr: :discard, env: {}, unsetenv: false, chdir: nil,
-          internal_encoding: 'utf-8', external_encoding: 'utf-8', scrub: true, replace_string: nil,
+          internal_encoding: 'utf-8', external_encoding: 'ascii-8bit', scrub: true, replace_string: nil,
           &block
       )
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
