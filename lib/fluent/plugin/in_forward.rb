@@ -25,13 +25,15 @@ module Fluent
   class ForwardInput < Input
     Plugin.register_input('forward', self)
 
+    LISTEN_PORT = 24224
+
     def initialize
       super
       require 'fluent/plugin/socket_util'
     end
 
     desc 'The port to listen to.'
-    config_param :port, :integer, default: DEFAULT_LISTEN_PORT
+    config_param :port, :integer, default: LISTEN_PORT
     desc 'The bind address to listen to.'
     config_param :bind, :string, default: '0.0.0.0'
     config_param :backlog, :integer, default: nil
