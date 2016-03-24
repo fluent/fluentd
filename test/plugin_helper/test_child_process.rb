@@ -416,7 +416,7 @@ class ChildProcessTest < Test::Unit::TestCase
     encodings = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t12, "ruby -e 'sleep 10'", internal_encoding: 'ascii-8bit') do |r, w|
+      @d.child_process_execute(:t12, "ruby -e 'sleep 10'", external_encoding: 'utf-8', internal_encoding: 'ascii-8bit') do |r, w|
         m.lock
         ran = true
         encodings << r.internal_encoding
@@ -431,13 +431,13 @@ class ChildProcessTest < Test::Unit::TestCase
     end
   end
 
-  test 'can convert encodings' do
+  test 'can convert encodings from ascii-8bit to utf-8' do
     m = Mutex.new
     encodings = []
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write  "\xA4\xB5\xA4\xC8\xA4\xB7"']
+      args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write "\xA4\xB5\xA4\xC8\xA4\xB7"']
       @d.child_process_execute(:t13, "ruby", arguments: args, external_encoding: 'euc-jp', internal_encoding: 'windows-31j', mode: [:read]) do |io|
         m.lock
         ran = true
@@ -448,6 +448,50 @@ class ChildProcessTest < Test::Unit::TestCase
       m.lock
       assert_equal Encoding.find('windows-31j'), str.encoding
       expected = "さとし".encode('windows-31j')
+      assert_equal expected, str
+      @d.stop; @d.shutdown; @d.close; @d.terminate
+    end
+  end
+
+  test 'can scrub characters without exceptions' do
+    m = Mutex.new
+    encodings = []
+    str = nil
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write "\xFF\xFF\x00\xF0\xF0"']
+      @d.child_process_execute(:t13a, "ruby", arguments: args, mode: [:read]) do |io|
+        m.lock
+        ran = true
+        str = io.read
+        m.unlock
+      end
+      sleep 0.1 until m.locked? || ran
+      m.lock
+      assert_equal Encoding.find('utf-8'), str.encoding
+      expected = "\xEF\xBF\xBD\xEF\xBF\xBD\x00\xEF\xBF\xBD\xEF\xBF\xBD".force_encoding("utf-8")
+      assert_equal expected, str
+      @d.stop; @d.shutdown; @d.close; @d.terminate
+    end
+  end
+
+  test 'can scrub characters without exceptions and replace specified chars' do
+    m = Mutex.new
+    encodings = []
+    str = nil
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      args = ['-e', 'STDOUT.set_encoding("ascii-8bit"); STDOUT.write "\xFF\xFF\x00\xF0\xF0"']
+      @d.child_process_execute(:t13b, "ruby", arguments: args, mode: [:read], scrub: true, replace_string: '?') do |io|
+        m.lock
+        ran = true
+        str = io.read
+        m.unlock
+      end
+      sleep 0.1 until m.locked? || ran
+      m.lock
+      assert_equal Encoding.find('utf-8'), str.encoding
+      expected = "??\x00??".force_encoding("utf-8")
       assert_equal expected, str
       @d.stop; @d.shutdown; @d.close; @d.terminate
     end
@@ -482,6 +526,72 @@ class ChildProcessTest < Test::Unit::TestCase
         pid = pids.first
         # 51358 ttys001    0:00.00 sleeper -e sleep 10
         assert{ proc_lines.select{|line| line =~ /^\s*#{pid}\s/ }.first.strip.split(/\s+/)[3] == "sleeeeeeeeeper" }
+        @d.stop; @d.shutdown; @d.close; @d.terminate
+      end
+    end
+  end
+
+  test 'can set ENV variables' do
+    m = Mutex.new
+    str = nil
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      args = ['-e', 'puts ENV["testing_child_process"]']
+      @d.child_process_execute(:t15a, "ruby", arguments: args, mode: [:read], env: {'testing_child_process' => 'Yes! True!'}) do |io|
+        m.lock
+        ran = true
+        str = io.read
+        m.unlock
+      end
+      sleep 0.1 until m.locked? || ran
+      m.lock
+      expected = "Yes! True!\n"
+      assert_equal expected, str
+      @d.stop; @d.shutdown; @d.close; @d.terminate
+    end
+  end
+
+  test 'can unset ENV variables of Fluentd process' do
+    m = Mutex.new
+    str = nil
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      args = ['-e', 'puts ENV["testing_child_process1"].to_s + ENV["testing_child_process2"].to_s']
+      ENV['testing_child_process1'] = "No! False!"
+      @d.child_process_execute(:t15b, "ruby", arguments: args, mode: [:read], unsetenv: true, env: {'testing_child_process2' => 'Yes! True!'}) do |io|
+        m.lock
+        ran = true
+        str = io.read
+        m.unlock
+      end
+      sleep 0.1 until m.locked? || ran
+      m.lock
+      expected = "Yes! True!\n"
+      assert_equal expected, str
+      @d.stop; @d.shutdown; @d.close; @d.terminate
+    end
+  end
+
+  unless Fluent.windows?
+    test 'can change working directory' do
+      # check my real /tmp directory (for mac)
+      cmd = %[|ruby -e 'Dir.chdir("/tmp"); puts Dir.pwd']
+      mytmpdir = open(cmd){|io| io.read.chomp }
+
+      m = Mutex.new
+      str = nil
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        ran = false
+        args = ['-e', 'puts Dir.pwd']
+        @d.child_process_execute(:t16, "ruby", arguments: args, mode: [:read], chdir: "/tmp") do |io|
+          m.lock
+          ran = true
+          str = io.read.chomp
+          m.unlock
+        end
+        sleep 0.1 until m.locked? || ran
+        m.lock
+        assert_equal mytmpdir, str
         @d.stop; @d.shutdown; @d.close; @d.terminate
       end
     end
