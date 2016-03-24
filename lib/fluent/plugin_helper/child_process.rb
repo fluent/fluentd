@@ -222,11 +222,11 @@ module Fluent
         readio_in_use = writeio_in_use = stderrio_in_use = false
 
         if !mode.include?(:stderr) && !mode.include?(:read_with_stderr) && stderr != :discard # connect
-          writeio, readio, wait_thread = *Open3.popen2(*spawn_args)
+          writeio, readio, wait_thread = *Open3.popen2(*spawn_args, spawn_opts)
         elsif mode.include?(:read_with_stderr)
-          writeio, readio, wait_thread = *Open3.popen2e(*spawn_args)
+          writeio, readio, wait_thread = *Open3.popen2e(*spawn_args, spawn_opts)
         else
-          writeio, readio, stderrio, wait_thread = *Open3.popen3(*spawn_args)
+          writeio, readio, stderrio, wait_thread = *Open3.popen3(*spawn_args, spawn_opts)
           if !mode.include?(:stderr) # stderr == :discard
             stderrio.reopen(IO::NULL)
           end
