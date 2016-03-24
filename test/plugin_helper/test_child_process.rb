@@ -224,53 +224,56 @@ class ChildProcessTest < Test::Unit::TestCase
     end
   end
 
-  test 'can execute external command just once, and can terminate it forcedly when shutdown/terminate even if it ignore SIGTERM' do
-    m = Mutex.new
-    t1 = Time.now
-    ary = []
-    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-      ran = false
-      @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
-        m.lock
-        ran = true
-        begin
-          while line = io.readline
-            ary << line
+  unless Fluent.windows?
+    # In windows environment, child_process try KILL at first (because there's no SIGTERM)
+    test 'can execute external command just once, and can terminate it forcedly when shutdown/terminate even if it ignore SIGTERM' do
+      m = Mutex.new
+      t1 = Time.now
+      ary = []
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        ran = false
+        @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep 0.01; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
+          m.lock
+          ran = true
+          begin
+            while line = io.readline
+              ary << line
+            end
+          rescue
+            # ignore
+          ensure
+            m.unlock
           end
-        rescue
-          # ignore
-        ensure
-          m.unlock
         end
+        sleep 0.1 until m.locked? || ran
+
+        assert_equal [], @d.log.out.logs
+
+        @d.stop # nothing occures
+        sleep 0.5
+        lines1 = ary.size
+        assert{ lines1 > 1 }
+
+        pid = @d._child_process_processes.keys.first
+
+        @d.shutdown
+        sleep 0.5
+        lines2 = ary.size
+        assert{ lines2 > lines1 }
+
+        @d.close
+
+        assert_nil((Process.waitpid(pid, Process::WNOHANG) rescue nil))
+
+        @d.terminate
+        assert @d._child_process_processes.empty?
+        begin
+          Process.waitpid(pid)
+        rescue Errno::ECHILD
+        end
+        # Process successfully KILLed if test reaches here
+        assert true
       end
-      sleep 0.1 until m.locked? || ran
-
-      assert_equal [], @d.log.out.logs
-
-      @d.stop # nothing occures
-      sleep 0.5
-      lines1 = ary.size
-      assert{ lines1 > 1 }
-
-      pid = @d._child_process_processes.keys.first
-
-      @d.shutdown
-      sleep 0.5
-      lines2 = ary.size
-      assert{ lines2 > lines1 }
-
-      @d.close
-
-      assert_nil((Process.waitpid(pid, Process::WNOHANG) rescue nil))
-
-      @d.terminate
-      assert @d._child_process_processes.empty?
-      begin
-        Process.waitpid(pid)
-      rescue Errno::ECHILD
-      end
-      # Process successfully KILLed if test reaches here
-      assert true
     end
   end
 
