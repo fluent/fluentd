@@ -111,7 +111,17 @@ module Fluent
           if secret_param?(k)
             out << "#{nindent}#{k} xxxxxx\n"
           else
-            out << "#{nindent}#{k} #{v}\n"
+            case param_type(k)
+            when :string
+              out << "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
+            when :enum, :integer, :float, :size, :bool, :time
+              out << "#{nindent}#{k} #{v}\n"
+            when :hash, :array
+              out << "#{nindent}#{k} #{v}\n"
+            else
+              # Unknown type
+              out << "#{nindent}#{k} #{v}\n"
+            end
           end
         }
         @elements.each { |e|
@@ -142,6 +152,18 @@ module Fluent
         }
 
         false
+      end
+
+      def param_type(key)
+        return nil if @corresponding_proxies.empty?
+
+        param_key = key.to_sym
+        proxy = @corresponding_proxies.detect do |_proxy|
+          _proxy.params.has_key?(param_key)
+        end
+        return nil unless proxy
+        _block, opts = proxy.params[param_key]
+        opts[:type]
       end
 
       def self.unescape_parameter(v)

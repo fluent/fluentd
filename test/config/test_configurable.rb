@@ -926,7 +926,7 @@ module Fluent::Config
       test 'to_s hides secret config_param' do
         @conf.to_s.each_line { |line|
           key, value = line.strip.split(' ', 2)
-          assert_secret_param(key, value)
+          assert_secret_param(key, value, use_to_s: true)
         }
       end
 
@@ -956,10 +956,14 @@ module Fluent::Config
         }
       end
 
-      def assert_secret_param(key, value)
+      def assert_secret_param(key, value, use_to_s: false)
         case key
         when 'normal_param', 'normal_param2'
-          assert_equal 'normal', value
+          if use_to_s
+            assert_equal '"normal"', value
+          else
+            assert_equal 'normal', value
+          end
         when 'secret_param', 'secret_param2'
           assert_equal 'xxxxxx', value
         end
