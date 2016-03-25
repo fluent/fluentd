@@ -121,6 +121,7 @@ module Fluent
         new_elems = @elements.map { |e| e.to_masked_element }
         new_elem = Element.new(@name, @arg, {}, new_elems, @unused)
         new_elem.v1_config = @v1_config
+        new_elem.corresponding_proxies = @corresponding_proxies
         each_pair { |k, v|
           new_elem[k] = secret_param?(k) ? 'xxxxxx' : v
         }
