@@ -108,21 +108,7 @@ module Fluent
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair { |k, v|
-          if secret_param?(k)
-            out << "#{nindent}#{k} xxxxxx\n"
-          else
-            case param_type(k)
-            when :string
-              out << "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
-            when :enum, :integer, :float, :size, :bool, :time
-              out << "#{nindent}#{k} #{v}\n"
-            when :hash, :array
-              out << "#{nindent}#{k} #{v}\n"
-            else
-              # Unknown type
-              out << "#{nindent}#{k} #{v}\n"
-            end
-          end
+          out << dump_value(k, v, indent, nindent)
         }
         @elements.each { |e|
           out << e.to_s(nest + 1)
@@ -164,6 +150,30 @@ module Fluent
         return nil unless proxy
         _block, opts = proxy.params[param_key]
         opts[:type]
+      end
+
+      def dump_value(k, v, indent, nindent)
+        out = ""
+        if secret_param?(k)
+          out << "#{nindent}#{k} xxxxxx\n"
+        else
+          if @v1_config
+            case param_type(k)
+            when :string
+              out << "#{nindent}#{k} \"#{self.class.unescape_parameter(v)}\"\n"
+            when :enum, :integer, :float, :size, :bool, :time
+              out << "#{nindent}#{k} #{v}\n"
+            when :hash, :array
+              out << "#{nindent}#{k} #{v}\n"
+            else
+              # Unknown type
+              out << "#{nindent}#{k} #{v}\n"
+            end
+          else
+            out << "#{nindent}#{k} #{v}\n"
+          end
+        end
+        out
       end
 
       def self.unescape_parameter(v)
