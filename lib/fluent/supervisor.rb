@@ -358,7 +358,7 @@ module Fluent
         end
       else
         if @supervise
-          fluentd_spawn_cmd = @rubybin_dir+"/ruby.exe '"+@rubybin_dir+"/fluentd' "
+          fluentd_spawn_cmd = @rubybin_dir+"/rubyw.exe '"+@rubybin_dir+"/fluentd' "
           $fluentdargv.each{|a|
             fluentd_spawn_cmd << (a + " ")
           }
