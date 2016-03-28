@@ -201,7 +201,8 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      @d.child_process_execute(:t3, "ruby -e 'while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
+      args = ["-e", "while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush; end"]
+      @d.child_process_execute(:t3, "ruby", arguments: args, mode: [:read]) do |io|
         m.lock
         ran = true
         begin
