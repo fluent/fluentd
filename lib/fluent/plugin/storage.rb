@@ -23,7 +23,7 @@ module Fluent
       include Fluent::Configurable
       include Fluent::SystemConfig::Mixin
 
-      DEFAULT_TYPE = 'json'
+      DEFAULT_TYPE = 'local'
 
       config_param :persistent,        :bool, default: false # load/save with all operations
       config_param :autosave,          :bool, default: true

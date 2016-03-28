@@ -6,8 +6,8 @@ require 'yajl'
 
 module Fluent
   module Plugin
-    class JSONStorage < Storage
-      Fluent::Plugin.register_storage('json', self)
+    class LocalStorage < Storage
+      Fluent::Plugin.register_storage('local', self)
 
       DEFAULT_DIR_MODE = 0755
       DEFAULT_FILE_MODE = 0644
