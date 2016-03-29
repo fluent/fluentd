@@ -297,12 +297,12 @@ class FileOutputTest < Test::Unit::TestCase
       es = Fluent::OneEventStream.new(time, {"a"=>1})
       d.instance.emit('tag', es, Fluent::NullOutputChain.instance)
 
-      assert File.exists?(symlink_path)
+      assert File.exist?(symlink_path)
       assert File.symlink?(symlink_path)
 
       d.instance.enqueue_buffer
 
-      assert !File.exists?(symlink_path)
+      assert !File.exist?(symlink_path)
       assert File.symlink?(symlink_path)
     ensure
       d.instance.shutdown
