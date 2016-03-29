@@ -40,7 +40,7 @@ module FluentFileBufferTest
       chunk = filebufferchunk('key2', 'init2', symlink: symlink_path)
       assert_equal 'key2', chunk.key
       assert_equal 'init2', chunk.unique_id
-      assert File.exists?(symlink_path) && File.symlink?(symlink_path)
+      assert File.exist?(symlink_path) && File.symlink?(symlink_path)
 
       chunk.close # unlink
 
@@ -129,7 +129,7 @@ module FluentFileBufferTest
       assert_equal 38, chunk.size
       chunk.close
 
-      assert File.exists?(bufpath('append1'))
+      assert File.exist?(bufpath('append1'))
 
       chunk = filebufferchunk('a1', 'append1', mode: 'r')
       test_data = test_data1.force_encoding('ASCII-8BIT') + test_data2.force_encoding('ASCII-8BIT')
@@ -142,7 +142,7 @@ module FluentFileBufferTest
 
       chunk.purge
 
-      assert !(File.exists?(bufpath('append1')))
+      assert !(File.exist?(bufpath('append1')))
     end
 
     def test_empty_chunk_key # for BufferedOutput#emit
@@ -251,13 +251,13 @@ module FluentFileBufferTest
 
       assert_equal bufpath('move1'), chunk.path
 
-      assert File.exists?( bufpath( 'move1' ) )
-      assert !(File.exists?( bufpath( 'move2' ) ))
+      assert File.exist?( bufpath( 'move1' ) )
+      assert !(File.exist?( bufpath( 'move2' ) ))
 
       chunk.mv(bufpath('move2'))
 
-      assert !(File.exists?( bufpath( 'move1' ) ))
-      assert File.exists?( bufpath( 'move2' ) )
+      assert !(File.exist?( bufpath( 'move1' ) ))
+      assert File.exist?( bufpath( 'move2' ) )
 
       assert_equal bufpath('move2'), chunk.path
 
@@ -373,9 +373,9 @@ module FluentFileBufferTest
       buf = Fluent::FileBuffer.new
       buf.configure({'buffer_path' => bufpath('start/base.*.log')})
       parent_dirname = File.dirname(buf.instance_eval{ @buffer_path_prefix })
-      assert !(Dir.exists?(parent_dirname))
+      assert !(Dir.exist?(parent_dirname))
       buf.start
-      assert Dir.exists?(parent_dirname)
+      assert Dir.exist?(parent_dirname)
     end
 
     def test_new_chunk
@@ -386,7 +386,7 @@ module FluentFileBufferTest
 
       chunk = buf.new_chunk('key1')
       assert chunk
-      assert File.exists?(chunk.path)
+      assert File.exist?(chunk.path)
       assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
       chunk.close
     end
@@ -420,14 +420,14 @@ module FluentFileBufferTest
 
       assert chunk
       old_path = chunk.path.dup
-      assert File.exists?(chunk.path)
+      assert File.exist?(chunk.path)
       assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
 
       buf.enqueue(chunk)
 
       assert chunk
-      assert File.exists?(chunk.path)
-      assert !(File.exists?(old_path))
+      assert File.exist?(chunk.path)
+      assert !(File.exist?(old_path))
       assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.q[0-9a-f]+#{suffix}\Z/, "enqueued chunk's path must be a 'q' buffer chunk"
 
       data = chunk.read
@@ -448,15 +448,15 @@ module FluentFileBufferTest
 
       assert chunk
       old_path = chunk.path.dup
-      assert File.exists?(chunk.path)
+      assert File.exist?(chunk.path)
       # chunk key is empty
       assert chunk.path =~ /\A#{prefix}\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
 
       buf.enqueue(chunk)
 
       assert chunk
-      assert File.exists?(chunk.path)
-      assert !(File.exists?(old_path))
+      assert File.exist?(chunk.path)
+      assert !(File.exist?(old_path))
       # chunk key is empty
       assert chunk.path =~ /\A#{prefix}\.q[0-9a-f]+#{suffix}\Z/, "enqueued chunk's path must be a 'q' buffer chunk"
 
