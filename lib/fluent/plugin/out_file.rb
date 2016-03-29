@@ -19,10 +19,11 @@ require 'zlib'
 
 require 'fluent/output'
 require 'fluent/config/error'
+require 'fluent/system_config'
 
 module Fluent
   class FileOutput < TimeSlicedOutput
-    include SystemConfigMixin
+    include SystemConfig::Mixin
 
     Plugin.register_output('file', self)
 

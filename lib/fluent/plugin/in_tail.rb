@@ -19,6 +19,7 @@ require 'cool.io'
 require 'fluent/input'
 require 'fluent/config/error'
 require 'fluent/event'
+require 'fluent/system_config'
 
 if Fluent.windows?
   require_relative 'file_wrapper'
@@ -28,7 +29,7 @@ end
 
 module Fluent
   class TailInput < Input
-    include SystemConfigMixin
+    include SystemConfig::Mixin
 
     Plugin.register_input('tail', self)
 
