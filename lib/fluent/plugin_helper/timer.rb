@@ -39,7 +39,7 @@ module Fluent
       end
 
       def timer_running?
-        @_timer_running
+        defined?(@_timer_running) && @_timer_running
       end
 
       def initialize
