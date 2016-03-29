@@ -22,6 +22,20 @@ module Fluent::Config
     end
   end
 
+  class AllTypes
+    include Fluent::Configurable
+
+    config_param :param_string, :string
+    config_param :param_enum, :enum, list: [:foo, :bar, :baz]
+    config_param :param_integer, :integer
+    config_param :param_float, :float
+    config_param :param_size, :size
+    config_param :param_bool, :bool
+    config_param :param_time, :time
+    config_param :param_hash, :hash
+    config_param :param_array, :array
+  end
+
   class TestV1Parser < ::Test::Unit::TestCase
     def read_config(path)
       path = File.expand_path(path)
@@ -383,6 +397,74 @@ module Fluent::Config
         assert_equal(expected, conf['k1']) # escape check
         conf2 = parse_text(conf.to_s) # use dumpped configuration to check unescape
         assert_equal(expected, conf2.elements.first['k1'])
+      end
+
+      test 'all types' do
+        conf = parse_text(%[
+          param_string "value"
+          param_enum foo
+          param_integer 999
+          param_float 55.55
+          param_size 4k
+          param_bool true
+          param_time 10m
+          param_hash { "key1": "value1", "key2": 2 }
+          param_array ["value1", "value2", 100]
+        ])
+        target = AllTypes.new.configure(conf)
+        assert_equal(conf.to_s, target.config.to_s)
+        expected = <<DUMP
+<ROOT>
+  param_string "value"
+  param_enum foo
+  param_integer 999
+  param_float 55.55
+  param_size 4k
+  param_bool true
+  param_time 10m
+  param_hash {"key1":"value1","key2":2}
+  param_array ["value1","value2",100]
+</ROOT>
+DUMP
+        assert_equal(expected, conf.to_s)
+      end
+    end
+  end
+
+  class TestV0Parser < ::Test::Unit::TestCase
+    def parse_text(text)
+      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+      Fluent::Config::Parser.parse(StringIO.new(text), '(test)', basepath)
+    end
+
+    sub_test_case "Fluent::Config::Element#to_s" do
+      test 'all types' do
+        conf = parse_text(%[
+          param_string value
+          param_enum foo
+          param_integer 999
+          param_float 55.55
+          param_size 4k
+          param_bool true
+          param_time 10m
+          param_hash { "key1": "value1", "key2": 2 }
+          param_array ["value1", "value2", 100]
+        ])
+        target = AllTypes.new.configure(conf)
+        assert_equal(conf.to_s, target.config.to_s)
+        expected = <<DUMP
+<ROOT>
+  param_string value
+  param_enum foo
+  param_integer 999
+  param_float 55.55
+  param_size 4k
+  param_bool true
+  param_time 10m
+  param_hash { "key1": "value1", "key2": 2 }
+  param_array ["value1", "value2", 100]
+</ROOT>
+DUMP
       end
     end
   end
