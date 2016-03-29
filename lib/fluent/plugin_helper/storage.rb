@@ -41,13 +41,16 @@ module Fluent
           end
           storage = Plugin.new_storage(type)
           storage.owner = self
-          config = if conf && conf.is_a?(Fluent::Config::Element)
+          config = case conf
+                   when Fluent::Config::Element
                      conf
-                   elsif conf && conf.is_a?(Hash)
+                   when Hash
                      conf = Hash[conf.map{|k,v| [k.to_s, v]}]
                      Fluent::Config::Element.new('storage', '', conf, [])
-                   else
+                   when nil
                      Fluent::Config::Element.new('storage', '', {}, [])
+                   else
+                     raise ArgumentError, "BUG: conf must be a Element, Hash (or unspecified), but '#{conf.class}'"
                    end
           storage.configure(config)
           s = @_storages[usage] = StorageState.new(wrap_instance(storage), false)
