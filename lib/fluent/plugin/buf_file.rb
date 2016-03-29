@@ -17,13 +17,14 @@
 require 'fileutils'
 require 'uri'
 
+require 'fluent/buffer'
 require 'fluent/env'
 require 'fluent/plugin'
-require 'fluent/buffer'
+require 'fluent/system_config'
 
 module Fluent
   class FileBufferChunk < BufferChunk
-    include SystemConfigMixin
+    include SystemConfig::Mixin
 
     FILE_PERMISSION = 0644
 
@@ -96,7 +97,7 @@ module Fluent
   end
 
   class FileBuffer < BasicBuffer
-    include SystemConfigMixin
+    include SystemConfig::Mixin
 
     Plugin.register_buffer('file', self)
 

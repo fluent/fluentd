@@ -49,7 +49,7 @@ module FluentFileBufferTest
     end
 
     class TestWithSystem < self
-      include Fluent::SystemConfigMixin
+      include Fluent::SystemConfig::Mixin
 
       OVERRIDE_FILE_PERMISSION = 0620
       CONFIG_SYSTEM = %[
@@ -641,7 +641,7 @@ module FluentFileBufferTest
     end
 
     class TestWithSystem < self
-      include Fluent::SystemConfigMixin
+      include Fluent::SystemConfig::Mixin
 
       OVERRIDE_DIR_PERMISSION = 720
       CONFIG_WITH_SYSTEM = %[

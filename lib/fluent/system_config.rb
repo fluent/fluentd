@@ -18,21 +18,6 @@ require 'fluent/configurable'
 require 'fluent/config/element'
 
 module Fluent
-  module SystemConfigMixin
-    def system_config
-      @_system_config || Fluent::Engine.system_config
-    end
-
-    def system_config_override(opts={})
-      unless @_system_config
-        @_system_config = Fluent::Engine.system_config.dup
-      end
-      opts.each_pair do |key, value|
-        @_system_config.send(:"#{key.to_s}=", value)
-      end
-    end
-  end
-
   class SystemConfig
     include Configurable
 
@@ -103,6 +88,23 @@ module Fluent
         @file_permission = system.file_permission unless system.file_permission.nil?
         @dir_permission = system.dir_permission unless system.dir_permission.nil?
       }
+    end
+
+    module Mixin
+      def system_config
+        require 'fluent/engine'
+        @_system_config || Fluent::Engine.system_config
+      end
+
+      def system_config_override(opts={})
+        require 'fluent/engine'
+        unless @_system_config
+          @_system_config = Fluent::Engine.system_config.dup
+        end
+        opts.each_pair do |key, value|
+          @_system_config.send(:"#{key.to_s}=", value)
+        end
+      end
     end
   end
 end

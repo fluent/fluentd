@@ -31,9 +31,9 @@ module Fluent
     BUFFER_REGISTRY    = Registry.new(:buffer,    'fluent/plugin/buf_')
     PARSER_REGISTRY    = Registry.new(:parser,    'fluent/plugin/parser_')
     FORMATTER_REGISTRY = Registry.new(:formatter, 'fluent/plugin/formatter_')
-    # TODO: plugin storage
+    STORAGE_REGISTRY   = Registry.new(:storage,   'fluent/plugin/storage_')
 
-    REGISTRIES = [INPUT_REGISTRY, OUTPUT_REGISTRY, FILTER_REGISTRY, BUFFER_REGISTRY, PARSER_REGISTRY, FORMATTER_REGISTRY]
+    REGISTRIES = [INPUT_REGISTRY, OUTPUT_REGISTRY, FILTER_REGISTRY, BUFFER_REGISTRY, PARSER_REGISTRY, FORMATTER_REGISTRY, STORAGE_REGISTRY]
 
     def self.register_input(type, klass)
       register_impl('input', INPUT_REGISTRY, type, klass)
@@ -69,6 +69,10 @@ module Fluent
       else
         register_impl('formatter', FORMATTER_REGISTRY, type, klass_or_proc)
       end
+    end
+
+    def self.register_storage(type, klass)
+      register_impl('storage', STORAGE_REGISTRY, type, klass)
     end
 
     def self.lookup_type_from_class(klass_or_its_name)
@@ -119,6 +123,10 @@ module Fluent
 
     def self.new_formatter(type)
       new_impl('formatter', FORMATTER_REGISTRY, type)
+    end
+
+    def self.new_storage(type)
+      new_impl('storage', STORAGE_REGISTRY, type)
     end
 
     def self.register_impl(kind, registry, type, value)

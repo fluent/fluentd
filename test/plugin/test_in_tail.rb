@@ -89,7 +89,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   class TestWithSystem < self
-    include Fluent::SystemConfigMixin
+    include Fluent::SystemConfig::Mixin
 
     OVERRIDE_FILE_PERMISSION = 0620
     CONFIG_SYSTEM = %[
