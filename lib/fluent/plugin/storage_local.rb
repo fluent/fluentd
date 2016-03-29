@@ -30,7 +30,7 @@ module Fluent
           if @autosave || @persistent
             raise Fluent::ConfigError, "Plugin @id or path for <storage> required to save data"
           else
-            log.info "Both of Plugin @id and path for <storage> are not specified. Using on-memory store."
+            log.info "both of Plugin @id and path for <storage> are not specified. Using on-memory store."
             @on_memory = true
           end
         elsif @path
@@ -49,7 +49,7 @@ module Fluent
               data = Yajl::Parser.parse(open(@path, 'r:utf-8'){ |io| io.read })
               raise Fluent::ConfigError, "Invalid contents (not object) in plugin storage file: '#{@path}'" unless data.is_a?(Hash)
             rescue => e
-              log.error "Failed to read data fron plugin storage file", path: @path, error_class: e.class, error: e
+              log.error "failed to read data from plugin storage file", path: @path, error_class: e.class, error: e
               raise Fluent::ConfigError, "Unexpected error: failed to read data from plugin storage file: '#{@path}'"
             end
           else
@@ -65,13 +65,13 @@ module Fluent
           json_string = open(@path, 'r:utf-8'){ |io| io.read }
           json = Yajl::Parser.parse(json_string)
           unless json.is_a?(Hash)
-            log.error "Broken content for plugin storage (Hash required: ignored)", type: json.class
-            log.debug "Broken content", content: json_string
+            log.error "broken content for plugin storage (Hash required: ignored)", type: json.class
+            log.debug "broken content", content: json_string
             return
           end
           @store = json
         rescue => e
-          log.error "Failed to load data for plugin storage from file", path: @path, error_class: e.class, error: e
+          log.error "failed to load data for plugin storage from file", path: @path, error_class: e.class, error: e
         end
       end
 
@@ -83,7 +83,7 @@ module Fluent
           open(tmp_path, 'w:utf-8', @mode){ |io| io.write json_string }
           File.rename(tmp_path, @path)
         rescue => e
-          log.error "Failed to save data for plugin storage to file", path: @path, tmp: tmp_path, error_class: e.class, error: e
+          log.error "failed to save data for plugin storage to file", path: @path, tmp: tmp_path, error_class: e.class, error: e
         end
       end
 

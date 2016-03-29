@@ -113,7 +113,7 @@ module Fluent
           begin
             s.storage.save if s.storage.save_at_shutdown
           rescue => e
-            log.error "Unexpected error while saving data of plugin storages", usage: usage, storage: s.storage, error_class: e.class, error: e
+            log.error "unexpected error while saving data of plugin storages", usage: usage, storage: s.storage, error_class: e.class, error: e
           end
         end
 
@@ -125,7 +125,7 @@ module Fluent
           begin
             s.storage.close
           rescue => e
-            log.error "Unexpected error while closing plugin storages", usage: usage, storage: s.storage, error_class: e.class, error: e
+            log.error "unexpected error while closing plugin storages", usage: usage, storage: s.storage, error_class: e.class, error: e
           end
           s.running = false
         end
@@ -138,7 +138,7 @@ module Fluent
           begin
             s.storage.terminate
           rescue => e
-            log.error "Unexpected error while terminating plugin storages", usage: usage, storage: s.storage, error_class: e.class, error: e
+            log.error "unexpected error while terminating plugin storages", usage: usage, storage: s.storage, error_class: e.class, error: e
           end
         end
         @_storages = {}
