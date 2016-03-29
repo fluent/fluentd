@@ -39,6 +39,8 @@ module Fluent
       super
       @paths = []
       @tails = {}
+      @pf_file = nil
+      @pf = nil
     end
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
