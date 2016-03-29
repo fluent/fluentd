@@ -23,11 +23,16 @@ require 'fluent/buffer'
 
 module Fluent
   class FileBufferChunk < BufferChunk
+    include SystemConfigMixin
+
+    FILE_PERMISSION = 0644
+
     def initialize(key, path, unique_id, mode="a+", symlink_path = nil)
       super(key)
       @path = path
       @unique_id = unique_id
-      @file = File.open(@path, mode, DEFAULT_FILE_PERMISSION)
+      @file_permission = system_config.file_permission || FILE_PERMISSION
+      @file = File.open(@path, mode, @file_permission)
       @file.binmode
       @file.sync = true
       @size = @file.stat.size
@@ -78,7 +83,7 @@ module Fluent
         @file.close
         File.rename(@path, path)
         @path = path
-        @file = File.open(@path, 'rb', DEFAULT_FILE_PERMISSION)
+        @file = File.open(@path, 'rb', @file_permission)
         @file.sync = true
         @size = @file.size
         @file.pos = pos
@@ -91,7 +96,11 @@ module Fluent
   end
 
   class FileBuffer < BasicBuffer
+    include SystemConfigMixin
+
     Plugin.register_buffer('file', self)
+
+    DIR_PERMISSION = 0755
 
     @@buffer_paths = {}
 
@@ -130,10 +139,11 @@ module Fluent
         @buffer_path_suffix = ".log"
       end
 
+      @dir_perm = system_config.dir_permission || DIR_PERMISSION
     end
 
     def start
-      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path"), mode: DEFAULT_DIR_PERMISSION
+      FileUtils.mkdir_p File.dirname(@buffer_path_prefix + "path"), mode: @dir_perm
       super
     end
 

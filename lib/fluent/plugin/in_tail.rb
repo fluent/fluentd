@@ -28,7 +28,11 @@ end
 
 module Fluent
   class TailInput < Input
+    include SystemConfigMixin
+
     Plugin.register_input('tail', self)
+
+    FILE_PERMISSION = 0644
 
     def initialize
       super
@@ -81,6 +85,7 @@ module Fluent
                          else
                            method(:parse_singleline)
                          end
+      @file_perm = system_config.file_permission || FILE_PERMISSION
     end
 
     def configure_parser(conf)
@@ -100,7 +105,7 @@ module Fluent
 
     def start
       if @pos_file
-        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, DEFAULT_FILE_PERMISSION)
+        @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
       end

@@ -46,6 +46,12 @@ module Fluent
     config_param :rpc_endpoint, :string, default: nil
     config_param :enable_get_dump, :bool, default: nil
     config_param :process_name, default: nil
+    config_param :file_permission, default: nil do |v|
+      v.to_i(8)
+    end
+    config_param :dir_permission, default: nil do |v|
+      v.to_i(8)
+    end
 
     def self.create(conf)
       systems = conf.elements.select { |e|
@@ -77,6 +83,8 @@ module Fluent
       s.rpc_endpoint = @rpc_endpoint
       s.enable_get_dump = @enable_get_dump
       s.process_name = @process_name
+      s.file_permission = @file_permission
+      s.dir_permission = @dir_permission
 
       s
     end
@@ -92,6 +100,8 @@ module Fluent
         @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
         @enable_get_dump = system.enable_get_dump unless system.enable_get_dump.nil?
         @process_name = system.process_name unless system.process_name.nil?
+        @file_permission = system.file_permission unless system.file_permission.nil?
+        @dir_permission = system.dir_permission unless system.dir_permission.nil?
       }
     end
   end

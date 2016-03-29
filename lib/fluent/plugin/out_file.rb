@@ -22,12 +22,17 @@ require 'fluent/config/error'
 
 module Fluent
   class FileOutput < TimeSlicedOutput
+    include SystemConfigMixin
+
     Plugin.register_output('file', self)
 
     SUPPORTED_COMPRESS = {
       'gz' => :gz,
       'gzip' => :gz,
     }
+
+    FILE_PERMISSION = 0644
+    DIR_PERMISSION = 0755
 
     desc "The Path of the file."
     config_param :path, :string
@@ -82,6 +87,8 @@ module Fluent
       @formatter.configure(conf)
 
       @buffer.symlink_path = @symlink_path if @symlink_path
+      @dir_perm = system_config.dir_permission || DIR_PERMISSION
+      @file_perm = system_config.file_permission || FILE_PERMISSION
     end
 
     def format(tag, time, record)
@@ -90,15 +97,15 @@ module Fluent
 
     def write(chunk)
       path = generate_path(chunk.key)
-      FileUtils.mkdir_p File.dirname(path), mode: DEFAULT_DIR_PERMISSION
+      FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
       when nil
-        File.open(path, "ab", DEFAULT_FILE_PERMISSION) {|f|
+        File.open(path, "ab", @file_perm) {|f|
           chunk.write_to(f)
         }
       when :gz
-        File.open(path, "ab", DEFAULT_FILE_PERMISSION) {|f|
+        File.open(path, "ab", @file_perm) {|f|
           gz = Zlib::GzipWriter.new(f)
           chunk.write_to(gz)
           gz.close

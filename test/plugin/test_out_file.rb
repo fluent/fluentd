@@ -151,6 +151,54 @@ class FileOutputTest < Test::Unit::TestCase
     check_gzipped_result(path, %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
   end
 
+  class TestWithSystem < self
+    TMP_DIR_WITH_SYSTEM = File.expand_path(File.dirname(__FILE__) + "/../tmp/out_file_system#{ENV['TEST_ENV_NUMBER']}")
+    # 0750 interprets as "488". "488".to_i(8) # => 4. So, it makes wrong permission. Umm....
+    OVERRIDE_DIR_PERMISSION = 750
+    OVERRIDE_FILE_PERMISSION = 0620
+    CONFIG_WITH_SYSTEM = %[
+      path #{TMP_DIR_WITH_SYSTEM}/out_file_test
+      compress gz
+      utc
+      <system>
+        file_permission #{OVERRIDE_FILE_PERMISSION}
+        dir_permission #{OVERRIDE_DIR_PERMISSION}
+      </system>
+    ]
+
+    def setup
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+      FileUtils.rm_rf(TMP_DIR_WITH_SYSTEM)
+    end
+
+    def parse_system(text)
+      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+      Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+    end
+
+    def test_write_with_system
+      system_conf = parse_system(CONFIG_WITH_SYSTEM)
+      sc = Fluent::SystemConfig.new(system_conf)
+      Fluent::Engine.init(sc)
+      d = create_driver CONFIG_WITH_SYSTEM
+
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      d.emit({"a"=>1}, time)
+      d.emit({"a"=>2}, time)
+
+      # FileOutput#write returns path
+      path = d.run
+      expect_path = "#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz"
+      assert_equal expect_path, path
+
+      check_gzipped_result(path, %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
+      dir_mode = "%o" % File::stat(TMP_DIR_WITH_SYSTEM).mode
+      assert_equal(OVERRIDE_DIR_PERMISSION, dir_mode[-3, 3].to_i)
+      file_mode = "%o" % File::stat(path).mode
+      assert_equal(OVERRIDE_FILE_PERMISSION, file_mode[-3, 3].to_i)
+    end
+  end
+
   def test_write_with_format_json
     d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch'].join("\n")
 

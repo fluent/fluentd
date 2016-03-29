@@ -2,6 +2,7 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'fluent/plugin/buf_file'
+require 'fluent/system_config'
 
 require 'fileutils'
 
@@ -45,6 +46,47 @@ module FluentFileBufferTest
 
       assert File.symlink?(symlink_path)
       File.unlink(symlink_path)
+    end
+
+    class TestWithSystem < self
+      include Fluent::SystemConfigMixin
+
+      OVERRIDE_FILE_PERMISSION = 0620
+      CONFIG_SYSTEM = %[
+        <system>
+          file_permission #{OVERRIDE_FILE_PERMISSION}
+        </system>
+      ]
+
+      def parse_system(text)
+        basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+        Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      end
+
+      def setup
+        omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+        # Store default permission
+        @default_permission = system_config.instance_variable_get(:@file_permission)
+      end
+
+      def teardown
+        # Restore default permission
+        system_config.instance_variable_set(:@file_permission, @default_permission)
+      end
+
+      def test_init_with_system
+        system_conf = parse_system(CONFIG_SYSTEM)
+        sc = Fluent::SystemConfig.new(system_conf)
+        Fluent::Engine.init(sc)
+        chunk = filebufferchunk('key', 'init3')
+        assert_equal 'key', chunk.key
+        assert_equal 'init3', chunk.unique_id
+        assert_equal bufpath('init3'), chunk.path
+        mode = "%o" % File.stat(chunk.path).mode
+        assert_equal OVERRIDE_FILE_PERMISSION, mode[-3, 3].to_i
+
+        chunk.close # size==0, then, unlinked
+      end
     end
 
     def test_buffer_chunk_interface
@@ -596,6 +638,53 @@ module FluentFileBufferTest
       # not to be able to resume existing file buffer chunk.
       # We will fix it in next API version of buffer plugin.
       assert_equal 1, map.size
+    end
+
+    class TestWithSystem < self
+      include Fluent::SystemConfigMixin
+
+      OVERRIDE_DIR_PERMISSION = 720
+      CONFIG_WITH_SYSTEM = %[
+        <system>
+          dir_permission #{OVERRIDE_DIR_PERMISSION}
+        </system>
+      ]
+
+      def setup_system_config
+        system_conf = parse_system(CONFIG_WITH_SYSTEM)
+        sc = Fluent::SystemConfig.new(system_conf)
+        Fluent::Engine.init(sc)
+      end
+
+      def setup
+        omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+        setup_system_config
+        FileUtils.rm_rf(BUF_FILE_TMPDIR, secure: true)
+      end
+
+      def parse_system(text)
+        basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+        Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      end
+
+      def test_new_chunk
+        buf = Fluent::FileBuffer.new
+        buf.configure({'buffer_path' => bufpath('new_chunk_1')})
+        prefix = buf.instance_eval{ @buffer_path_prefix }
+        suffix = buf.instance_eval{ @buffer_path_suffix }
+
+        # To create buffer directory
+        buf.start
+
+        chunk = buf.new_chunk('key1')
+        assert chunk
+        assert File.exists?(chunk.path)
+        assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
+        chunk.close
+
+        mode = "%o" % File.stat(BUF_FILE_TMPDIR).mode
+        assert_equal(OVERRIDE_DIR_PERMISSION, mode[-3, 3].to_i)
+      end
     end
   end
 end

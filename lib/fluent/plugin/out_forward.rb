@@ -36,6 +36,8 @@ module Fluent
   class ForwardOutput < ObjectBufferedOutput
     Plugin.register_output('forward', self)
 
+    LISTEN_PORT = 24224
+
     def initialize
       super
       require 'fluent/plugin/socket_util'
@@ -84,7 +86,7 @@ module Fluent
     attr_reader :nodes
 
     # backward compatibility
-    config_param :port, :integer, default: DEFAULT_LISTEN_PORT
+    config_param :port, :integer, default: LISTEN_PORT
     config_param :host, :string, default: nil
 
     attr_accessor :extend_internal_protocol
@@ -96,7 +98,7 @@ module Fluent
       if host = conf['host']
         log.warn "'host' option in forward output is obsoleted. Use '<server> host xxx </server>' instead."
         port = conf['port']
-        port = port ? port.to_i : DEFAULT_LISTEN_PORT
+        port = port ? port.to_i : LISTEN_PORT
         e = conf.add_element('server')
         e['host'] = host
         e['port'] = port.to_s
@@ -122,7 +124,7 @@ module Fluent
 
         host = e['host']
         port = e['port']
-        port = port ? port.to_i : DEFAULT_LISTEN_PORT
+        port = port ? port.to_i : LISTEN_PORT
 
         weight = e['weight']
         weight = weight ? weight.to_i : 60

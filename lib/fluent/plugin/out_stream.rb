@@ -85,13 +85,15 @@ module Fluent
   class TcpOutput < StreamOutput
     Plugin.register_output('tcp', self)
 
+    LISTEN_PORT = 24224
+
     def initialize
       super
       $log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
       $log.warn "see 'forward' section in http://docs.fluentd.org/ for the high-availability configuration."
     end
 
-    config_param :port, :integer, default: DEFAULT_LISTEN_PORT
+    config_param :port, :integer, default: LISTEN_PORT
     config_param :host, :string
 
     def configure(conf)
