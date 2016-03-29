@@ -695,8 +695,6 @@ module Fluent
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
           next unless m
           path = m[1]
-          pos = m[2].to_i(16)
-          ino = m[3].to_i(16)
           seek = file.pos - line.bytesize + path.bytesize + 1
           map[path] = FilePositionEntry.new(file, seek)
         }
