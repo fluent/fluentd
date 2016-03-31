@@ -125,6 +125,11 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'hash' do
       assert_equal({"x"=>"v","k"=>1}, Config::HASH_TYPE.call('{"x":"v","k":1}', {}))
       assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v,k:1', {}))
+      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v, k:1', {}))
+      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call(' x:v, k:1 ', {}))
+      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v , k:1 ', {}))
+
+      assert_equal({"x"=>"v:v","k"=>"1"}, Config::HASH_TYPE.call('x:v:v, k:1', {}))
 
       assert_equal({x: "v", k: 1},   Config::HASH_TYPE.call('{"x":"v","k":1}', {symbolize_keys: true}))
       assert_equal({x: "v", k: "1"}, Config::HASH_TYPE.call('x:v,k:1',         {symbolize_keys: true, value_type: :string}))
