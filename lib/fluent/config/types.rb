@@ -92,6 +92,8 @@ module Fluent
         when :size then Config.size_value(value)
         when :bool then Config.bool_value(value)
         when :time then Config.time_value(value)
+        else
+          raise "unknown type in REFORMAT: #{type}"
         end
       end
     }
@@ -125,8 +127,8 @@ module Fluent
       if param.class != Array
         raise ConfigError, "array required but got #{val.inspect}"
       end
-      if opts[:type]
-        param.map{|v| REFORMAT_VALUES.call(opts[:type], v) }
+      if opts[:value_type]
+        param.map{|v| REFORMAT_VALUES.call(opts[:value_type], v) }
       else
         param
       end

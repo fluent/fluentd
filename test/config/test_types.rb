@@ -149,8 +149,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(["a a","b","c"], Config::ARRAY_TYPE.call('a a,b,c', {}))
 
       assert_equal([1,2,1], Config::ARRAY_TYPE.call('[1,2,1]', {}))
-      assert_equal([1,2,1], Config::ARRAY_TYPE.call('["1","2","1"]', {type: :integer}))
-      assert_equal([1,2,1], Config::ARRAY_TYPE.call('1,2,1', {type: :integer}))
+      assert_equal([1,2,1], Config::ARRAY_TYPE.call('["1","2","1"]', {value_type: :integer}))
+      assert_equal([1,2,1], Config::ARRAY_TYPE.call('1,2,1', {value_type: :integer}))
 
       array_options = {
         default: [],
