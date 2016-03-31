@@ -19,7 +19,7 @@ require 'fluent/configurable'
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :final, :param_name, :required, :multi, :alias, :argument, :params, :defaults, :descriptions, :sections
+      attr_accessor :name, :final, :param_name, :init, :required, :multi, :alias, :argument, :params, :defaults, :descriptions, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
@@ -43,9 +43,12 @@ module Fluent
         @final = opts[:final]
 
         @param_name = (opts[:param_name] || @name).to_sym
+        @init = opts[:init]
         @required = opts[:required]
         @multi = opts[:multi]
         @alias = opts[:alias]
+
+        raise "init and required are exclusive" if @init && @required
 
         @argument = nil # nil: ignore argument
         @params = {}
@@ -53,6 +56,10 @@ module Fluent
         @descriptions = {}
         @sections = {}
         @current_description = nil
+      end
+
+      def init?
+        @init.nil? ? false : @init
       end
 
       def required?
@@ -70,6 +77,9 @@ module Fluent
       def merge(other) # self is base class, other is subclass
         return merge_for_finalized(other) if self.final?
 
+        if overwrite?(other, :init)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: init"
+        end
         if overwrite?(other, :required)
           raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
         end
@@ -85,6 +95,7 @@ module Fluent
         # varible, so this should be able to be overwritten
         options[:param_name] = other.param_name
         # subclass cannot overwrite base class's definition
+        options[:init] = @init.nil? ? other.init : self.init
         options[:required] = @required.nil? ? other.required : self.required
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
@@ -121,6 +132,9 @@ module Fluent
           raise ConfigError, "BUG: subclass cannot overwrite finalized base class's config_section"
         end
 
+        if overwrite?(other, :init)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: init"
+        end
         if overwrite?(other, :required)
           raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
         end
@@ -133,6 +147,7 @@ module Fluent
 
         options = {}
         options[:param_name] = other.param_name
+        options[:init] = @init.nil? ? other.init : self.init
         options[:required] = @required.nil? ? other.required : self.required
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
@@ -260,6 +275,15 @@ module Fluent
 
         sub_proxy = ConfigureProxy.new(name, *args)
         sub_proxy.instance_exec(&block)
+
+        if sub_proxy.init?
+          if sub_proxy.argument && !sub_proxy.defaults.has_key?(sub_proxy.argument.first)
+            raise ArgumentError, "#{self.name}: init is specified, but default value of argument is missing"
+          end
+          if sub_proxy.params.keys.any?{|param_name| !sub_proxy.defaults.has_key?(param_name)}
+            raise ArgumentError, "#{self.name}: init is specified, but there're parameters without default values"
+          end
+        end
 
         @params.delete(name)
         @sections[name] = sub_proxy

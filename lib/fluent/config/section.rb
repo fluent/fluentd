@@ -141,6 +141,10 @@ module Fluent
         proxy.sections.each do |name, subproxy|
           varname = subproxy.param_name.to_sym
           elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
+          if elements.empty? && subproxy.init? && !subproxy.multi?
+            elements << Fluent::Config::Element.new(subproxy.name.to_s, '', {}, [])
+          end
+
           # set subproxy for secret option
           elements.each { |element|
             element.corresponding_proxies << subproxy

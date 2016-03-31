@@ -12,6 +12,7 @@ module Fluent::Config
           proxy = Fluent::Config::ConfigureProxy.new(:section)
           assert_equal(:section, proxy.name)
           assert_equal(:section, proxy.param_name)
+          assert_nil(proxy.init)
           assert_nil(proxy.required)
           assert_false(proxy.required?)
           assert_nil(proxy.multi)
@@ -19,7 +20,7 @@ module Fluent::Config
         end
 
         test 'can specify param_name/required/multi with optional arguments' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: 'sections', required: false, multi: true)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: 'sections', init: true, required: false, multi: true)
           assert_equal(:section, proxy.name)
           assert_equal(:sections, proxy.param_name)
           assert_false(proxy.required)
@@ -27,13 +28,18 @@ module Fluent::Config
           assert_true(proxy.multi)
           assert_true(proxy.multi?)
 
-          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, required: true, multi: false)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false)
           assert_equal(:section, proxy.name)
           assert_equal(:sections, proxy.param_name)
           assert_true(proxy.required)
           assert_true(proxy.required?)
           assert_false(proxy.multi)
           assert_false(proxy.multi?)
+        end
+        test 'raise error if both of init and required are true' do
+          assert_raise "init and required are exclusive" do
+            Fluent::Config::ConfigureProxy.new(:section, init: true, required: true)
+          end
         end
       end
 
@@ -42,15 +48,18 @@ module Fluent::Config
           proxy = p1 = Fluent::Config::ConfigureProxy.new(:section)
           assert_equal(:section, proxy.name)
           assert_equal(:section, proxy.param_name)
+          assert_nil(proxy.init)
           assert_nil(proxy.required)
           assert_false(proxy.required?)
           assert_nil(proxy.multi)
           assert_true(proxy.multi?)
 
-          p2 = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, required: true, multi: false)
+          p2 = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false)
           proxy = p1.merge(p2)
           assert_equal(:section, proxy.name)
           assert_equal(:sections, proxy.param_name)
+          assert_false(proxy.init)
+          assert_false(proxy.init?)
           assert_true(proxy.required)
           assert_true(proxy.required?)
           assert_false(proxy.multi)
@@ -59,11 +68,13 @@ module Fluent::Config
 
         test 'does not overwrite with argument object without any specifications of required/multi' do
           p1 = Fluent::Config::ConfigureProxy.new(:section1)
-          p2 = Fluent::Config::ConfigureProxy.new(:section2, param_name: :sections, required: true, multi: false)
+          p2 = Fluent::Config::ConfigureProxy.new(:section2, param_name: :sections, init: false, required: true, multi: false)
           p3 = Fluent::Config::ConfigureProxy.new(:section3)
           proxy = p1.merge(p2).merge(p3)
           assert_equal(:section3, proxy.name)
           assert_equal(:section3, proxy.param_name)
+          assert_false(proxy.init)
+          assert_false(proxy.init?)
           assert_true(proxy.required)
           assert_true(proxy.required?)
           assert_false(proxy.multi)
@@ -92,6 +103,50 @@ module Fluent::Config
 
           proxy.config_argument(:name)
           assert_raise(ArgumentError) { proxy.config_argument(:name, default: "name2") }
+        end
+      end
+
+      sub_test_case '#config_param without default values cause error if section is configured as init:true' do
+        test 'with simple config_param with default value' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          assert_nothing_raised do
+            proxy.config_section :subsection, init: true do
+              config_param :param1, :integer, default: 1
+            end
+          end
+        end
+        test 'with simple config_param without default value' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          assert_raise ArgumentError do
+            proxy.config_section :subsection, init: true do
+              config_param :param1, :integer
+            end
+          end
+        end
+        test 'with config_param with config_set_default' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          assert_nothing_raised do
+            proxy.config_section :subsection, init: true do
+              config_param :param1, :integer
+              config_set_default :param1, 1
+            end
+          end
+        end
+        test 'with config_argument' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          assert_raise ArgumentError do
+            proxy.config_section :subsection, init: true do
+              config_argument :param0, :string
+            end
+          end
+        end
+        test 'with config_argument with default value' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          assert_nothing_raised do
+            proxy.config_section :subsection, init: true do
+              config_argument :param0, :string, default: ''
+            end
+          end
         end
       end
 

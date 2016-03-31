@@ -89,6 +89,16 @@ module ConfigurableSpec
     end
   end
 
+  class Init0
+    include Fluent::Configurable
+    config_section :sec1, init: true, multi: false do
+      config_param :name, :string, default: 'sec1'
+    end
+    config_section :sec2, init: true, multi: true do
+      config_param :name, :string, default: 'sec1'
+    end
+  end
+
   class Example0
     include Fluent::Configurable
 
@@ -640,6 +650,15 @@ module Fluent::Config
           assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "floatvalue"  }) }
           assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "hashvalue"   }) }
           assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "arrayvalue"  }) }
+        end
+
+        test 'generates section with default values for init:true sections' do
+          conf = config_element('ROOT', '', {}, [])
+          init0 = ConfigurableSpec::Init0.new
+          assert_nothing_raised { init0.configure(conf) }
+          assert init0.sec1
+          assert_equal "sec1", init0.sec1.name
+          assert_equal [], init0.sec2
         end
 
         test 'accepts configuration values as string representation' do
