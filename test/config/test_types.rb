@@ -124,10 +124,33 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     test 'hash' do
       assert_equal({"x"=>"v","k"=>1}, Config::HASH_TYPE.call('{"x":"v","k":1}', {}))
+      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v,k:1', {}))
+
+      assert_equal({x: "v", k: 1},   Config::HASH_TYPE.call('{"x":"v","k":1}', {symbolize_keys: true}))
+      assert_equal({x: "v", k: "1"}, Config::HASH_TYPE.call('x:v,k:1',         {symbolize_keys: true, value_type: :string}))
+      assert_equal({x: "v", k: "1"}, Config::HASH_TYPE.call('{"x":"v","k":1}', {symbolize_keys: true, value_type: :string}))
+      assert_equal({x: 0, k: 1},     Config::HASH_TYPE.call('x:0,k:1',         {symbolize_keys: true, value_type: :integer}))
+
+      assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('{"x":"1s","y":"1m","z":"1h"}', {value_type: :time}))
+      assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('x:1s,y:1m,z:1h',               {value_type: :time}))
     end
 
     test 'array' do
       assert_equal(["1","2",1], Config::ARRAY_TYPE.call('["1","2",1]', {}))
+      assert_equal(["1","2","1"], Config::ARRAY_TYPE.call('1,2,1', {}))
+
+      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('["a","b","c"]', {}))
+      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('a,b,c', {}))
+      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('a, b, c', {}))
+      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('a , b , c', {}))
+
+      assert_equal(["a a","b,b"," c "], Config::ARRAY_TYPE.call('["a a","b,b"," c "]', {}))
+
+      assert_equal(["a a","b","c"], Config::ARRAY_TYPE.call('a a,b,c', {}))
+
+      assert_equal([1,2,1], Config::ARRAY_TYPE.call('[1,2,1]', {}))
+      assert_equal([1,2,1], Config::ARRAY_TYPE.call('["1","2","1"]', {type: :integer}))
+      assert_equal([1,2,1], Config::ARRAY_TYPE.call('1,2,1', {type: :integer}))
 
       array_options = {
         default: [],
