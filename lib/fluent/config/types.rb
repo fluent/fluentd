@@ -94,6 +94,17 @@ module Fluent
       end
       param
     }
+    STRING_LIST_TYPE = Proc.new { |val, opts|
+      param = if val.is_a?(String)
+                val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)
+              else
+                val
+              end
+      unless param.is_a?(Array)
+        raise ConfigError, "string_list required but got #{val.inspect}"
+      end
+      param.map(&:to_s)
+    }
   end
 
   Configurable.register_type(:string,  Config::STRING_TYPE)
@@ -105,4 +116,5 @@ module Fluent
   Configurable.register_type(:time,    Config::TIME_TYPE)
   Configurable.register_type(:hash,    Config::HASH_TYPE)
   Configurable.register_type(:array,   Config::ARRAY_TYPE)
+  Configurable.register_type(:string_list, Config::STRING_LIST_TYPE)
 end
