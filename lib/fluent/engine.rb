@@ -16,12 +16,12 @@
 
 require 'socket'
 
-require 'msgpack'
 require 'cool.io'
 
 require 'fluent/config'
 require 'fluent/event'
 require 'fluent/event_router'
+require 'fluent/msgpack_factory'
 require 'fluent/root_agent'
 require 'fluent/time'
 require 'fluent/system_config'
@@ -29,6 +29,8 @@ require 'fluent/plugin'
 
 module Fluent
   class EngineClass
+    include Fluent::MessagePackFactory::Mixin
+
     def initialize
       @root_agent = nil
       @event_router = nil
@@ -41,8 +43,6 @@ module Fluent
 
       @suppress_config_dump = false
 
-      @msgpack_factory = MessagePack::Factory.new
-      @msgpack_factory.register_type(Fluent::EventTime::TYPE, Fluent::EventTime)
       @system_config = SystemConfig.new
     end
 
@@ -51,7 +51,6 @@ module Fluent
 
     attr_reader :root_agent
     attr_reader :matches, :sources
-    attr_reader :msgpack_factory
     attr_reader :system_config
 
     def init(system_config)
@@ -68,6 +67,8 @@ module Fluent
       @without_source = system_config.without_source unless system_config.without_source.nil?
 
       @root_agent = RootAgent.new(@system_config)
+
+      MessagePackFactory.init
 
       self
     end
