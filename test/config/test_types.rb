@@ -135,5 +135,19 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(["1","2"], Config::ARRAY_TYPE.call('["1","2"]', array_options))
       assert_equal(["3"], Config::ARRAY_TYPE.call('["3"]', array_options))
     end
+
+    test 'string_list' do
+      assert_equal([], Config::STRING_LIST_TYPE.call('', {}))
+
+      assert_equal(["a","b","1"], Config::STRING_LIST_TYPE.call('a,b,1', {}))
+      assert_equal(["a","b","1"], Config::STRING_LIST_TYPE.call('a, b, 1', {}))
+      assert_equal(["a","b","1"], Config::STRING_LIST_TYPE.call(' a , b , 1 ', {}))
+      assert_equal(["a 1", "2"], Config::STRING_LIST_TYPE.call('a 1, 2', {}))
+
+      assert_equal(["a,b,1"], Config::STRING_LIST_TYPE.call('["a,b,1"]', {}))
+      assert_equal(["a 1", "2"], Config::STRING_LIST_TYPE.call('["a 1", "2"]', {}))
+      assert_equal(["a,1", "2"], Config::STRING_LIST_TYPE.call('["a,1", "2"]', {}))
+      assert_equal(["a,1", "2"], Config::STRING_LIST_TYPE.call('["a,1", 2]', {}))
+    end
   end
 end
