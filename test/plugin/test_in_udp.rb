@@ -103,4 +103,42 @@ class UdpInputTest < Test::Unit::TestCase
       assert(emits[i][1].is_a?(Fluent::EventTime))
     }
   end
+
+  {
+    'none' => [
+      {'msg' => "tcptest3\ntcptest4\n", 'expected' => ['tcptest3', 'tcptest4']},
+    ],
+    'json' => [
+      {'msg' => {'k' => 10, 'message' => 100}.to_json + "\n" +
+                {'k' => 20, 'message' => 200}.to_json + "\n", 'expected' => [100, 200]},
+    ],
+    '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/' => [
+      {'msg' => "[Sep 10 00:00:00] message1\n[Sep 10 00:00:00] message2\n", 'expected' => ['message1', 'message2']},
+    ]
+  }.each { |format, test_cases|
+    define_method("test_delimiter_#{format[0] == '/' ? 'regexp' : format}") do
+      d = create_driver(BASE_CONFIG + "format #{format}")
+      tests = test_cases
+      expects = []
+      d.run do
+        u = UDPSocket.new
+        u.connect('127.0.0.1', PORT)
+        tests.each { |test|
+          u.send(test['msg'], 0)
+          expects.concat(test['expected'])
+        }
+        sleep 1
+      end
+
+      compare_delimiter_test_result(d.emits, tests, expects)
+    end
+  }
+
+  def compare_delimiter_test_result(emits, tests, expects)
+    assert_equal(2, emits.size)
+    emits.each_index {|i|
+      assert_equal(expects[i], emits[i][2]['message'])
+      assert(emits[i][1].is_a?(Fluent::EventTime))
+    }
+  end
 end
