@@ -80,19 +80,58 @@ module Fluent
     SIZE_TYPE = Proc.new { |val, opts| Config.size_value(val) }
     BOOL_TYPE = Proc.new { |val, opts| Config.bool_value(val) }
     TIME_TYPE = Proc.new { |val, opts| Config.time_value(val) }
+
+    REFORMAT_VALUE = ->(type, value) {
+      if value.nil?
+        value
+      else
+        case type
+        when :string  then value.to_s
+        when :integer then value.to_i
+        when :float   then value.to_f
+        when :size then Config.size_value(value)
+        when :bool then Config.bool_value(value)
+        when :time then Config.time_value(value)
+        else
+          raise "unknown type in REFORMAT: #{type}"
+        end
+      end
+    }
+
     HASH_TYPE = Proc.new { |val, opts|
-      param = val.is_a?(String) ? JSON.load(val) : val
+      param = if val.is_a?(String)
+                val.start_with?('{') ? JSON.load(val) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
+              else
+                val
+              end
       if param.class != Hash
         raise ConfigError, "hash required but got #{val.inspect}"
       end
-      param
+      if opts.empty?
+        param
+      else
+        newparam = {}
+        param.each_pair do |key, value|
+          new_key = opts[:symbolize_keys] ? key.to_sym : key
+          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUE.call(opts[:value_type], value) : value
+        end
+        newparam
+      end
     }
     ARRAY_TYPE = Proc.new { |val, opts|
-      param = val.is_a?(String) ? JSON.load(val) : val
+      param = if val.is_a?(String)
+                val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)
+              else
+                val
+              end
       if param.class != Array
         raise ConfigError, "array required but got #{val.inspect}"
       end
-      param
+      if opts[:value_type]
+        param.map{|v| REFORMAT_VALUE.call(opts[:value_type], v) }
+      else
+        param
+      end
     }
   end
 
