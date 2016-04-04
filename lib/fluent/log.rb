@@ -67,6 +67,8 @@ module Fluent
 
       # Fluent::Engine requires Fluent::Log, so we must take that object lazily
       @engine = Fluent.const_get('Engine')
+      @optional_header = nil
+      @optional_attrs = nil
 
       @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
     end
@@ -75,6 +77,7 @@ module Fluent
     attr_accessor :level
     attr_accessor :tag
     attr_accessor :time_format
+    attr_accessor :optional_header, :optional_attrs
 
     def enable_debug(b=true)
       @debug_mode = b
@@ -268,8 +271,8 @@ module Fluent
 
     def event(level, args)
       time = Time.now
-      message = ''
-      map = {}
+      message = @optional_header ? @optional_header.dup : ''
+      map = @optional_attrs ? @optional_attrs.dup : {}
       args.each {|a|
         if a.is_a?(Hash)
           a.each_pair {|k,v|
@@ -340,6 +343,18 @@ module Fluent
       @logger.enable_color b
     end
 
+    def optional_header=(header)
+      @logger.optional_header = header
+    end
+
+    def optional_attrs=(attrs)
+      @logger.optional_attrs = attrs
+    end
+
+    def optional_attrs
+      @logger.optional_attrs
+    end
+
     extend Forwardable
     def_delegators '@logger', :enable_color?, :enable_debug, :enable_event,
       :disable_events, :tag, :tag=, :time_format, :time_format=,
@@ -371,6 +386,8 @@ module Fluent
           @log = PluginLogger.new($log)
         end
         @log.level = @log_level
+        @log.optional_header = "[#{self.class.name}#{plugin_id_configured? ? "(" + @id + ")" : ""}] "
+        @log.optional_attrs = {}
       end
     end
   end
