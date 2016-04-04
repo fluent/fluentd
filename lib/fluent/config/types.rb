@@ -81,7 +81,7 @@ module Fluent
     BOOL_TYPE = Proc.new { |val, opts| Config.bool_value(val) }
     TIME_TYPE = Proc.new { |val, opts| Config.time_value(val) }
 
-    REFORMAT_VALUES = ->(type, value) {
+    REFORMAT_VALUE = ->(type, value) {
       if value.nil?
         value
       else
@@ -113,7 +113,7 @@ module Fluent
         newparam = {}
         param.each_pair do |key, value|
           new_key = opts[:symbolize_keys] ? key.to_sym : key
-          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUES.call(opts[:value_type], value) : value
+          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUE.call(opts[:value_type], value) : value
         end
         newparam
       end
@@ -128,7 +128,7 @@ module Fluent
         raise ConfigError, "array required but got #{val.inspect}"
       end
       if opts[:value_type]
-        param.map{|v| REFORMAT_VALUES.call(opts[:value_type], v) }
+        param.map{|v| REFORMAT_VALUE.call(opts[:value_type], v) }
       else
         param
       end
