@@ -362,6 +362,7 @@ module Fluent
         code, header, body = *@callback.call(path_info, params)
         body = body.to_s
 
+        header['Access-Control-Allow-Origin'] = @origin if !@cors_allow_origins.nil? && @cors_allow_origins.include?(@origin)
         if @keep_alive
           header['Connection'] = 'Keep-Alive'
           send_response(code, header, body)
