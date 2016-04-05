@@ -30,3 +30,4 @@ matrix:
     - rvm: ruby-head
     - rvm: rbx
     - rvm: 2.3.0
+      os: osx
