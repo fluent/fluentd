@@ -286,6 +286,56 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_cors_allowed
+    d = create_driver(CONFIG + "cors_allow_origins [\"http://foo.com\"]")
+    assert_equal ["http://foo.com"], d.instance.cors_allow_origins
+
+    test_in_http_cros_allowed = nil
+    acao = nil
+
+    begin
+      d.run do
+        Net::HTTP.start("127.0.0.1", PORT) do |http|
+          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://foo.com"})
+          res = http.request(req)
+
+          acao = res["Access-Control-Allow-Origin"]
+        end
+      end
+      test_in_http_cros_allowed = true
+    rescue
+      test_in_http_cros_allowed = false
+    end
+
+    assert_equal true, test_in_http_cros_allowed
+    assert_equal "http://foo.com", acao
+  end
+
+  def test_cors_disallowed
+    d = create_driver(CONFIG + "cors_allow_origins [\"http://foo.com\"]")
+    assert_equal ["http://foo.com"], d.instance.cors_allow_origins
+
+    test_in_http_cros_disallowed = nil
+    response_code = nil
+
+    begin
+      d.run do
+        Net::HTTP.start("127.0.0.1", PORT) do |http|
+          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://bar.com"})
+          res = http.request(req)
+
+          response_code = res.code
+        end
+      end
+      test_in_http_cros_disallowed = true
+    rescue
+      test_in_http_cros_disallowed = false
+    end
+
+    assert_equal true, test_in_http_cros_disallowed
+    assert_equal "403", response_code
+  end
+
   $test_in_http_connection_object_ids = []
   $test_in_http_content_types = []
   $test_in_http_content_types_flag = false
