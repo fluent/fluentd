@@ -73,6 +73,14 @@ module Fluent
       @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
     end
 
+    def dup
+      clone = self.class.new(@out, @level, suppress_repeated_stacktrace: @suppress_repeated_stacktrace)
+      clone.tag = @tag
+      clone.time_format = @time_format
+      # optional headers/attrs are not copied, because new PluginLogger should have another one of it
+      clone
+    end
+
     attr_accessor :out
     attr_accessor :level
     attr_accessor :tag
@@ -383,7 +391,7 @@ module Fluent
 
       if @log_level
         unless @log.is_a?(PluginLogger)
-          @log = PluginLogger.new($log)
+          @log = PluginLogger.new($log.dup)
         end
         @log.level = @log_level
         @log.optional_header = "[#{self.class.name}#{plugin_id_configured? ? "(" + @id + ")" : ""}] "
