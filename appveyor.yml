@@ -22,6 +22,10 @@ branches:
 
 environment:
   matrix:
+    - ruby_version: "23-x64"
+      devkit: C:\Ruby23-x64\DevKit
+    - ruby_version: "23"
+      devkit: C:\Ruby23\DevKit
     - ruby_version: "22-x64"
       devkit: C:\Ruby23-x64\DevKit
     - ruby_version: "22"
