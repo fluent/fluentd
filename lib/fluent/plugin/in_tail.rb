@@ -61,6 +61,14 @@ module Fluent
     config_param :multiline_flush_interval, :time, default: nil
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
+    desc 'The encoding of the input.'
+    config_param :encoding, default: nil do |encoding_name|
+      begin
+        Encoding.find(encoding_name)
+      rescue ArgumentError => e
+        raise ConfigError.new(e.message)
+      end
+    end
 
     attr_reader :paths
 
@@ -234,6 +242,7 @@ module Fluent
     def flush_buffer(tw)
       if lb = tw.line_buffer
         lb.chomp!
+        lb.force_encoding(@encoding) if @encoding
         @parser.parse(lb) { |time, record|
           if time && record
             tag = if @tag_prefix || @tag_suffix
@@ -281,6 +290,7 @@ module Fluent
     def convert_line_to_event(line, es)
       begin
         line.chomp!  # remove \n
+        line.force_encoding(@encoding) if @encoding
         @parser.parse(line) { |time, record|
           if time && record
             es.add(time, record)

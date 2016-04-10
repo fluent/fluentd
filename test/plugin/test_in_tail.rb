@@ -59,6 +59,17 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal 1000, d.instance.read_lines_limit
   end
 
+  def test_configure_encoding
+    # valid encoding
+    d = create_driver(SINGLE_LINE_CONFIG + 'encoding utf-8')
+    assert_equal Encoding::UTF_8, d.instance.encoding
+
+    # invalid encoding
+    assert_raise(Fluent::ConfigError) do
+      create_driver(SINGLE_LINE_CONFIG + 'encoding no-such-encoding')
+    end
+  end
+
   # TODO: Should using more better approach instead of sleep wait
 
   def test_emit
@@ -370,6 +381,42 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "tab	"}, emits[5][2])
   end
 
+  def test_default_encoding
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
+
+    d = create_driver
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+        f.puts "test"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(Encoding::ASCII_8BIT, emits[0][2]['message'].encoding)
+  end
+
+  def test_explicit_valid_encoding
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
+
+    d = create_driver(SINGLE_LINE_CONFIG + 'encoding utf-8')
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+        f.puts "test"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(Encoding::UTF_8, emits[0][2]['message'].encoding)
+  end
+
   # multiline mode test
 
   def test_multiline
@@ -444,6 +491,55 @@ class TailInputTest < Test::Unit::TestCase
       emits = d.emits
       assert(emits.length == 4)
       assert_equal({"message1" => "test8"}, emits[3][2])
+    end
+  end
+
+  def test_multiline_encoding_of_flushed_record_with_default_encoding
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+    d = create_driver %[
+      format multiline
+      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+      format_firstline /^[s]/
+      multiline_flush_interval 2s
+    ]
+
+    assert_equal 2, d.instance.multiline_flush_interval
+
+    d.run do
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+        f.puts "s test"
+      }
+
+      sleep 3
+      emits = d.emits
+      assert(emits.length == 1)
+      assert_equal(Encoding::ASCII_8BIT, emits[0][2]['message1'].encoding)
+    end
+  end
+
+  def test_multiline_encoding_of_flushed_record_with_explicit_encoding
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+    d = create_driver %[
+      format multiline
+      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+      format_firstline /^[s]/
+      multiline_flush_interval 2s
+      encoding utf-8
+    ]
+
+    assert_equal 2, d.instance.multiline_flush_interval
+
+    d.run do
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+        f.puts "s test"
+      }
+
+      sleep 4
+      emits = d.emits
+      assert(emits.length == 1)
+      assert_equal(Encoding::UTF_8, emits[0][2]['message1'].encoding)
     end
   end
 
