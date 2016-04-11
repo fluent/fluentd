@@ -465,6 +465,7 @@ DUMP
   param_array ["value1", "value2", 100]
 </ROOT>
 DUMP
+        assert_equal(expected, conf.to_s)
       end
     end
   end
