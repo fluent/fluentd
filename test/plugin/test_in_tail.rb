@@ -511,7 +511,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "s test"
       }
 
-      sleep 3
+      sleep 4
       emits = d.emits
       assert(emits.length == 1)
       assert_equal(Encoding::ASCII_8BIT, emits[0][2]['message1'].encoding)
