@@ -62,9 +62,12 @@ end
 
 require 'fluent/log'
 require 'fluent/engine'
+require 'fluent/system_config'
+
+include Fluent::SystemConfig::Mixin
 
 $log = Fluent::Log.new(STDERR, Fluent::Log::LEVEL_TRACE)
-Fluent::Engine.init
+Fluent::Engine.init(system_config)
 
 DRb::DRbObject.class_eval do
   undef_method :methods
