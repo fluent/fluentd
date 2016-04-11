@@ -17,7 +17,6 @@
 require 'json'
 
 require 'fluent/config/error'
-require 'fluent/configurable'
 
 module Fluent
   module Config

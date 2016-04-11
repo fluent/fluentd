@@ -18,7 +18,6 @@ require 'delegate'
 
 require 'fluent/config/error'
 require 'fluent/agent'
-require 'fluent/engine'
 require 'fluent/label'
 require 'fluent/plugin'
 require 'fluent/system_config'

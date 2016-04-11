@@ -14,8 +14,6 @@
 #    limitations under the License.
 #
 
-require 'fluent/engine'
-
 module Fluent
   class EventStream
     include Enumerable

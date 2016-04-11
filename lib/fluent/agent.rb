@@ -15,7 +15,6 @@
 #
 
 require 'fluent/configurable'
-require 'fluent/engine'
 require 'fluent/plugin'
 require 'fluent/output'
 
