@@ -96,33 +96,32 @@ class DummyTest < Test::Unit::TestCase
   FileUtils.mkdir_p TEST_PLUGIN_STORAGE_PATH
 
   sub_test_case "doesn't suspend internal counters in default" do
-    config1 = %[
-      @id test-01
-      tag dummy
-      rate 10
-      dummy [{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]
-      auto_increment_key id
-    ]
+    config1 = {
+      '@id' => 'test-01',
+      'tag' => 'dummy',
+      'rate' => '2',
+      'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
+      'auto_increment_key' => 'id',
+    }
+    conf1 = config_element('ROOT', '', config1, [])
     test "value of auto increment key is not suspended after stop-and-start" do
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
 
-      d1 = create_driver(config1, plugin_storage_path: TEST_PLUGIN_STORAGE_PATH)
-      d1.expected_emits_length = 4
-      d1.run
+      d1 = create_driver(conf1)
+      d1.run(expect_emits: 4, timeout: 1)
 
-      first_id1 = d1.emits.first[2]['id']
+      first_id1 = d1.instance.events.first[2]['id']
       assert_equal 0, first_id1
 
-      last_id1 = d1.emits.last[2]['id']
+      last_id1 = d1.events.last[2]['id']
       assert { last_id1 > 0 }
 
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
 
-      d2 = create_driver(config1, plugin_storage_path: TEST_PLUGIN_STORAGE_PATH)
-      d2.expected_emits_length = 4
-      d2.run
+      d2 = create_driver(conf1)
+      d2.run(expect_emits: 4, timeout: 1)
 
-      first_id2 = d2.emits.first[2]['id']
+      first_id2 = d2.events.first[2]['id']
       assert_equal 0, first_id2
 
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
@@ -132,37 +131,46 @@ class DummyTest < Test::Unit::TestCase
   sub_test_case "suspend internal counters if suspend is true" do
     setup do
       FileUtils.rm_rf(TEST_PLUGIN_STORAGE_PATH)
+      FileUtils.mkdir_p(File.join(TEST_PLUGIN_STORAGE_PATH, 'json'))
+      FileUtils.chmod_R(0755, File.join(TEST_PLUGIN_STORAGE_PATH, 'json'))
     end
 
-    config2 = %[
-      @id test-02
-      tag dummy
-      rate 2
-      dummy [{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]
-      auto_increment_key id
-      suspend true
-    ]
+    config2 = {
+      '@id' => 'test-02',
+      'tag' => 'dummy',
+      'rate' => '2',
+      'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
+      'auto_increment_key' => 'id',
+      'suspend' => true
+    }
+    conf2 = config_element('ROOT', '', config2, [
+              config_element(
+                'storage', '',
+                {'@type' => 'local',
+                 '@id' => 'test-02',
+                 'path' => File.join(TEST_PLUGIN_STORAGE_PATH,
+                                     'json', 'test-02.json'),
+                 'persistent' => true,
+                })
+            ])
     test "value of auto increment key is suspended after stop-and-start" do
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
-      d1 = create_driver(config2, plugin_storage_path: TEST_PLUGIN_STORAGE_PATH)
+      d1 = create_driver(conf2)
+      d1.run(expect_emits: 4, timeout: 1)
 
-      d1.expected_emits_length = 4
-      d1.run
-
-      first_id1 = d1.emits.first[2]['id']
+      first_id1 = d1.events.first[2]['id']
       assert_equal 0, first_id1
 
-      last_id1 = d1.emits.last[2]['id']
+      last_id1 = d1.events.last[2]['id']
       assert { last_id1 > 0 }
 
       assert File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
-      d2 = create_driver(config2, plugin_storage_path: TEST_PLUGIN_STORAGE_PATH)
-      d2.expected_emits_length = 4
-      d2.run
+      d2 = create_driver(conf2)
+      d2.run(expect_emits: 4, timeout: 1)
 
-      first_id2 = d2.emits.first[2]['id']
+      first_id2 = d2.events.first[2]['id']
       assert_equal last_id1 + 1, first_id2
 
       assert File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
