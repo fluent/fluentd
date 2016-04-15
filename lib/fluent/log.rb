@@ -292,7 +292,11 @@ module Fluent
       }
 
       map.each_pair {|k,v|
-        message << " #{k}=#{v.inspect}"
+        if k == "error".freeze
+          message << " error=#{v.class}[#{v.message}]"
+        else
+          message << " #{k}=#{v.inspect}"
+        end
       }
 
       unless @threads_exclude_events.include?(Thread.current)
