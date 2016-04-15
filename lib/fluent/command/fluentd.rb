@@ -76,7 +76,7 @@ op.on('-o', '--log PATH', "log file path") {|s|
   opts[:log_path] = s
 }
 
-op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-fly") {|s|
+op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-the-fly") {|s|
   opts[:inline_config] = s
 }
 
