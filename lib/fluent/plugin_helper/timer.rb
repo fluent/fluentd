@@ -74,7 +74,7 @@ module Fluent
         def on_timer
           @callback.call if @checker.call
         rescue => e
-          @log.error "Unexpected error raised. Stopping the timer.", title: @title, error: e, error_class: e.class
+          @log.error "Unexpected error raised. Stopping the timer.", title: @title, error: e
           @log.error_backtrace
           self.detach
           @log.error "Timer detached.", title: @title

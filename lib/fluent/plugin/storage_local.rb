@@ -49,7 +49,7 @@ module Fluent
               data = Yajl::Parser.parse(open(@path, 'r:utf-8'){ |io| io.read })
               raise Fluent::ConfigError, "Invalid contents (not object) in plugin storage file: '#{@path}'" unless data.is_a?(Hash)
             rescue => e
-              log.error "failed to read data from plugin storage file", path: @path, error_class: e.class, error: e
+              log.error "failed to read data from plugin storage file", path: @path, error: e
               raise Fluent::ConfigError, "Unexpected error: failed to read data from plugin storage file: '#{@path}'"
             end
           else
@@ -71,7 +71,7 @@ module Fluent
           end
           @store = json
         rescue => e
-          log.error "failed to load data for plugin storage from file", path: @path, error_class: e.class, error: e
+          log.error "failed to load data for plugin storage from file", path: @path, error: e
         end
       end
 
@@ -83,7 +83,7 @@ module Fluent
           open(tmp_path, 'w:utf-8', @mode){ |io| io.write json_string }
           File.rename(tmp_path, @path)
         rescue => e
-          log.error "failed to save data for plugin storage to file", path: @path, tmp: tmp_path, error_class: e.class, error: e
+          log.error "failed to save data for plugin storage to file", path: @path, tmp: tmp_path, error: e
         end
       end
 

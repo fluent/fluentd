@@ -106,7 +106,7 @@ module Fluent
     def run
       @loop.run(@blocking_timeout)
     rescue => e
-      log.error "unexpected error", error: e, error_class: e.class
+      log.error "unexpected error", error: e
       log.error_backtrace
     end
 

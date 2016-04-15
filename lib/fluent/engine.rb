@@ -166,7 +166,7 @@ module Fluent
           begin
             @event_router.emit(tag, time, record)
           rescue => e
-            $log.error "failed to emit fluentd's log event", tag: tag, event: record, error_class: e.class, error: e
+            $log.error "failed to emit fluentd's log event", tag: tag, event: record, error: e
           end
         }
       end
@@ -195,7 +195,7 @@ module Fluent
         end
 
       rescue => e
-        $log.error "unexpected error", error_class: e.class, error: e
+        $log.error "unexpected error", error: e
         $log.error_backtrace
       ensure
         $log.info "shutting down fluentd"

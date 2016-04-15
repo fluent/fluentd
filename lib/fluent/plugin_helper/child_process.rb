@@ -272,10 +272,10 @@ module Fluent
             if e.message == 'stream closed'
               log.debug "Process I/O stream closed", title: title, pid: pid, command: command, arguments: arguments
             else
-              log.error "Unexpected I/O error for child process", title: title, pid: pid, command: command, arguments: arguments, error_class: e.class, error: e
+              log.error "Unexpected I/O error for child process", title: title, pid: pid, command: command, arguments: arguments, error: e
             end
           rescue => e
-            log.warn "Unexpected error while processing I/O for child process", title: title, pid: pid, command: command, error_class: e.class, error: e
+            log.warn "Unexpected error while processing I/O for child process", title: title, pid: pid, command: command, error: e
           end
           process_info = @_child_process_mutex.synchronize do
             process_info = @_child_process_processes[pid]

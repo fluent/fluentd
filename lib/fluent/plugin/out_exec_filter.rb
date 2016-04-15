@@ -383,7 +383,7 @@ module Fluent
       router.emit(tag, time, record)
     rescue
       if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time
-        log.error "exec_filter failed to emit", error: $!.to_s, error_class: $!.class.to_s, record: Yajl.dump(record)
+        log.error "exec_filter failed to emit", error: $!, record: Yajl.dump(record)
         log.warn_backtrace $!.backtrace
         @next_log_time = Time.now.to_i + @suppress_error_log_interval
       end

@@ -149,7 +149,7 @@ module Fluent
           Process.waitpid(io.pid)
           sleep @run_interval
         rescue
-          log.error "exec failed to run or shutdown child process", error: $!.to_s, error_class: $!.class.to_s
+          log.error "exec failed to run or shutdown child process", error: $!
           log.warn_backtrace $!.backtrace
         end
       end
@@ -176,7 +176,7 @@ module Fluent
 
       router.emit(tag, time, record)
     rescue => e
-      log.error "exec failed to emit", error: e.to_s, error_class: e.class.to_s, tag: tag, record: Yajl.dump(record)
+      log.error "exec failed to emit", error: e, tag: tag, record: Yajl.dump(record)
     end
   end
 end

@@ -107,7 +107,7 @@ module Fluent
       end
       new_es
     rescue => e
-      log.warn "failed to reform records", error_class: e.class, error: e.message
+      log.warn "failed to reform records", error: e
       log.warn_backtrace
       log.debug "map:#{@map} record:#{last_record} placeholder_values:#{placeholder_values}"
     end
@@ -121,7 +121,7 @@ module Fluent
         value_str
       end
     rescue => e
-      log.warn "failed to parse #{value_str} as json. Assuming #{value_str} is a string", error_class: e.class, error: e.message
+      log.warn "failed to parse #{value_str} as json. Assuming #{value_str} is a string", error: e
       value_str # emit as string
     end
 
@@ -307,7 +307,7 @@ module Fluent
           placeholders['hostname'],
         )
       rescue => e
-        log.warn "failed to expand `#{str}`", error_class: e.class, error: e.message
+        log.warn "failed to expand `#{str}`", error: e
         log.warn_backtrace
         nil
       end
