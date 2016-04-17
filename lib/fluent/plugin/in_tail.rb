@@ -66,7 +66,7 @@ module Fluent
       begin
         Encoding.find(encoding_name)
       rescue ArgumentError => e
-        raise ConfigError.new(e.message)
+        raise ConfigError, e.message
       end
     end
 
