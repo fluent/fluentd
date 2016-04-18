@@ -77,6 +77,14 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       [ event_time('2016-04-13 18:33:32'), {"name" => "moris", "age" => 36, "message" => "data3"} ],
     ]
   end
+  def get_log_time(msg, logs)
+    log_time = nil
+    log = logs.select{|l| l.include?(msg) }.first
+    if log && /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [-+]\d{4}) \[error\]/ =~ log
+      log_time = Time.parse($1)
+    end
+    log_time
+  end
 
   teardown do
     if @i
@@ -502,7 +510,14 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       waiting(4){ Thread.pass until @i.write_count > prev_write_count && @i.num_errors > prev_num_errors }
 
       logs = @i.log.out.logs
-      assert{ logs.any?{|l| l.start_with?("2016-04-13 18:35:31 -0700 [error]: failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.") } }
+
+      target_time = Time.parse("2016-04-13 18:35:31 -0700")
+      target_msg = "[error]: failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
+      assert{ logs.any?{|l| l.include?(target_msg) } }
+
+      log_time = get_log_time(target_msg, logs)
+      assert_equal target_time.localtime, log_time.localtime
+
       assert{ @i.buffer.queue.size == 0 }
       assert{ @i.buffer.stage.size == 1 }
       assert{ chunks.all?{|c| c.empty? } }
