@@ -323,8 +323,6 @@ class OutputTest < Test::Unit::TestCase
       t = event_time()
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
-      waiting(4){ Thread.pass until process_called }
-
       assert !process_called
       assert_equal 2, format_called_times
 
