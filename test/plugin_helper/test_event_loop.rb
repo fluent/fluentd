@@ -3,7 +3,7 @@ require 'fluent/plugin_helper/event_loop'
 require 'fluent/plugin/base'
 
 class EventLoopTest < Test::Unit::TestCase
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :event_loop
     def configure(conf)
       super

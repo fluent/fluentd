@@ -3,7 +3,7 @@ require 'fluent/plugin_helper/timer'
 require 'fluent/plugin/base'
 
 class TimerTest < Test::Unit::TestCase
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :timer
   end
 

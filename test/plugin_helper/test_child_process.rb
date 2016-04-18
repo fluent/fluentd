@@ -25,7 +25,7 @@ class ChildProcessTest < Test::Unit::TestCase
     end
   end
 
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :child_process
     def configure(conf)
       super

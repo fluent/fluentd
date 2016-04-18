@@ -6,23 +6,26 @@ class ConfigTest < Test::Unit::TestCase
   module FluentTest; end
 
   sub_test_case 'Fluent::Plugin::Base.helpers method works as shortcut to include helper modules' do
-    class FluentTest::PluginTest1 < Fluent::Plugin::Base
+    class FluentTest::PluginTest1 < Fluent::Plugin::TestBase
       helpers :event_emitter
     end
-    class FluentTest::PluginTest2 < Fluent::Plugin::Base
+    class FluentTest::PluginTest2 < Fluent::Plugin::TestBase
       helpers :thread
     end
-    class FluentTest::PluginTest3 < Fluent::Plugin::Base
+    class FluentTest::PluginTest3 < Fluent::Plugin::TestBase
       helpers :event_loop
     end
-    class FluentTest::PluginTest4 < Fluent::Plugin::Base
+    class FluentTest::PluginTest4 < Fluent::Plugin::TestBase
       helpers :timer
     end
-    class FluentTest::PluginTest5 < Fluent::Plugin::Base
+    class FluentTest::PluginTest5 < Fluent::Plugin::TestBase
       helpers :child_process
     end
-    class FluentTest::PluginTest0 < Fluent::Plugin::Base
-      helpers :event_emitter, :thread, :event_loop, :timer, :child_process, :child_process
+    class FluentTest::PluginTest6 < Fluent::Plugin::TestBase
+      helpers :retry_state
+    end
+    class FluentTest::PluginTest0 < Fluent::Plugin::TestBase
+      helpers :event_emitter, :thread, :event_loop, :timer, :child_process, :retry_state
     end
 
     test 'plugin can include helper event_emitter' do
