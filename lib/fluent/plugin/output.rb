@@ -321,7 +321,9 @@ module Fluent
           @buffer_config.flush_threads.times do |i|
             thread_title = "flush_thread_#{i}".to_sym
             thread_state = FlushThreadState.new(nil, nil)
-            thread = thread_create(thread_title, thread_state, &method(:flush_thread_run))
+            thread = thread_create(thread_title) do
+              flush_thread_run(thread_state)
+            end
             thread_state.thread = thread
             @output_flush_threads_mutex.synchronize do
               @output_flush_threads << thread_state

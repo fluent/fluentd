@@ -37,12 +37,19 @@ module Fluent
         end
       end
 
-      def thread_create(title, *args)
+      # Ruby 2.2.3 or earlier (and all 2.1.x) cause bug about Threading ("Stack consistency error")
+      #  by passing splatted argument to `yield`
+      # https://bugs.ruby-lang.org/issues/11027
+      # We can enable to pass arguments after expire of Ruby 2.1 (& older 2.2.x)
+      # def thread_create(title, *args)
+      #   Thread.new(*args) do |*t_args|
+      #     yield *t_args
+      def thread_create(title)
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
         raise ArgumentError, "BUG: callback not specified" unless block_given?
         m = Mutex.new
         m.lock
-        thread = ::Thread.new(*args) do |*t_args|
+        thread = ::Thread.new do
           m.lock # run thread after that thread is successfully set into @_threads
           m.unlock
           thread_exit = false
@@ -50,7 +57,7 @@ module Fluent
           ::Thread.current[:_fluentd_plugin_helper_thread_started] = true
           ::Thread.current[:_fluentd_plugin_helper_thread_running] = true
           begin
-            yield *t_args
+            yield
             thread_exit = true
           rescue => e
             log.warn "thread exited by unexpected error", plugin: self.class, title: title, error_class: e.class, error: e
