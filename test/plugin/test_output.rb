@@ -293,6 +293,8 @@ class OutputTest < Test::Unit::TestCase
       t = event_time()
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
+      waiting(4){ Thread.pass until process_called }
+
       assert process_called
       assert_equal 0, format_called_times
 
@@ -316,6 +318,8 @@ class OutputTest < Test::Unit::TestCase
       t = event_time()
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
+      waiting(4){ Thread.pass until process_called }
+
       assert !process_called
       assert_equal 2, format_called_times
 
@@ -334,6 +338,8 @@ class OutputTest < Test::Unit::TestCase
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
       i.force_flush
 
+      waiting(4){ Thread.pass until write_called }
+
       assert write_called
 
       i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
@@ -350,6 +356,8 @@ class OutputTest < Test::Unit::TestCase
       t = event_time()
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
       i.force_flush
+
+      waiting(4){ Thread.pass until try_write_called }
 
       assert try_write_called
 
@@ -373,6 +381,8 @@ class OutputTest < Test::Unit::TestCase
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
       i.force_flush
 
+      waiting(4){ Thread.pass until write_called || try_write_called }
+
       assert write_called
       assert !try_write_called
 
@@ -395,6 +405,8 @@ class OutputTest < Test::Unit::TestCase
       t = event_time()
       i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
       i.force_flush
+
+      waiting(4){ Thread.pass until write_called || try_write_called }
 
       assert !write_called
       assert try_write_called
