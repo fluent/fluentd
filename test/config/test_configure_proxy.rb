@@ -53,6 +53,7 @@ module Fluent::Config
           assert_false(proxy.required?)
           assert_nil(proxy.multi)
           assert_true(proxy.multi?)
+          assert_nil(proxy.configured_in_section)
 
           p2 = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false)
           proxy = p1.merge(p2)
@@ -64,10 +65,12 @@ module Fluent::Config
           assert_true(proxy.required?)
           assert_false(proxy.multi)
           assert_false(proxy.multi?)
+          assert_nil(proxy.configured_in_section)
         end
 
         test 'does not overwrite with argument object without any specifications of required/multi' do
           p1 = Fluent::Config::ConfigureProxy.new(:section1)
+          p1.configured_in_section = :subsection
           p2 = Fluent::Config::ConfigureProxy.new(:section2, param_name: :sections, init: false, required: true, multi: false)
           p3 = Fluent::Config::ConfigureProxy.new(:section3)
           proxy = p1.merge(p2).merge(p3)
@@ -79,6 +82,54 @@ module Fluent::Config
           assert_true(proxy.required?)
           assert_false(proxy.multi)
           assert_false(proxy.multi?)
+          assert_equal :subsection, proxy.configured_in_section
+        end
+      end
+
+      sub_test_case '#overwrite_defaults' do
+        test 'overwrites only defaults with others defaults' do
+          p1 = Fluent::Config::ConfigureProxy.new(:mychild)
+          p1.configured_in_section = :child
+          p1.config_param(:k1a, :string)
+          p1.config_param(:k1b, :string)
+          p1.config_param(:k2a, :integer, default: 0)
+          p1.config_param(:k2b, :integer, default: 0)
+          p1.config_section(:sub1) do
+            config_param :k3, :time, default: 30
+          end
+
+          p0 = Fluent::Config::ConfigureProxy.new(:myparent)
+          p0.config_section(:child) do
+            config_set_default :k1a, "v1a"
+            config_param :k1b, :string, default: "v1b"
+            config_set_default :k2a, 21
+            config_param :k2b, :integer, default: 22
+            config_section :sub1 do
+              config_set_default :k3, 60
+            end
+          end
+
+          p1.overwrite_defaults(p0.sections[:child])
+
+          assert_equal "v1a", p1.defaults[:k1a]
+          assert_equal "v1b", p1.defaults[:k1b]
+          assert_equal 21, p1.defaults[:k2a]
+          assert_equal 22, p1.defaults[:k2b]
+          assert_equal 60, p1.sections[:sub1].defaults[:k3]
+        end
+      end
+
+      sub_test_case '#configured_in' do
+        test 'sets a section name which have configuration parameters of target plugin in owners configuration' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          proxy.configured_in(:mysection)
+          assert_equal :mysection, proxy.configured_in_section
+        end
+
+        test 'do not permit to be called twice' do
+          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          proxy.configured_in(:mysection)
+          assert_raise(ArgumentError) { proxy.configured_in(:myothersection) }
         end
       end
 

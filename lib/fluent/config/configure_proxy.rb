@@ -19,7 +19,8 @@ require 'fluent/configurable'
 module Fluent
   module Config
     class ConfigureProxy
-      attr_accessor :name, :final, :param_name, :init, :required, :multi, :alias, :argument, :params, :defaults, :descriptions, :sections
+      attr_accessor :name, :final, :param_name, :init, :required, :multi, :alias, :configured_in_section
+      attr_accessor :argument, :params, :defaults, :descriptions, :sections
       # config_param :desc, :string, :default => '....'
       # config_set_default :buffer_type, :memory
       #
@@ -49,6 +50,11 @@ module Fluent
         @alias = opts[:alias]
 
         raise "init and required are exclusive" if @init && @required
+
+        # specify section name for viewpoint of owner(parent) plugin
+        # for buffer plugins: all params are in <buffer> section of owner
+        # others: <storage>, <format> (formatter/parser), ...
+        @configured_in_section = nil
 
         @argument = nil # nil: ignore argument
         @params = {}
@@ -89,6 +95,9 @@ module Fluent
         if overwrite?(other, :alias)
           raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
         end
+        if overwrite?(other, :configured_in_section)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: configured_in"
+        end
 
         options = {}
         # param_name is used not to ovewrite plugin's instance
@@ -102,6 +111,9 @@ module Fluent
         options[:final] = @final || other.final
 
         merged = self.class.new(other.name, options)
+
+        # configured_in MUST be kept
+        merged.configured_in_section = self.configured_in_section
 
         merged.argument = other.argument || self.argument
         merged.params = other.params.merge(self.params)
@@ -144,6 +156,9 @@ module Fluent
         if overwrite?(other, :alias)
           raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
         end
+        if overwrite?(other, :configured_in_section)
+          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: configured_in"
+        end
 
         options = {}
         options[:param_name] = other.param_name
@@ -154,6 +169,8 @@ module Fluent
         options[:final]  = true
 
         merged = self.class.new(other.name, options)
+
+        merged.configured_in_section = self.configured_in_section
 
         merged.argument = self.argument || other.argument
         merged.params = other.params.merge(self.params)
@@ -173,6 +190,15 @@ module Fluent
         end
 
         merged
+      end
+
+      def overwrite_defaults(other) # other is owner plugin's corresponding proxy
+        self.defaults = self.defaults.merge(other.defaults)
+        self.sections.keys.each do |section_key|
+          if other.sections.has_key?(section_key)
+            self.sections[section_key].overwrite_defaults(other.sections[section_key])
+          end
+        end
       end
 
       def parameter_configuration(name, *args, &block)
@@ -211,6 +237,13 @@ module Fluent
         end
 
         [name, block, opts]
+      end
+
+      def configured_in(section_name)
+        if @configured_in_section
+          raise ArgumentError, "#{self.name}: configured_in called twice"
+        end
+        @configured_in_section = section_name.to_sym
       end
 
       def config_argument(name, *args, &block)

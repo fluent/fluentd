@@ -25,9 +25,12 @@ module Fluent
     # plugins for fluentd plugins: fluent/plugin/type/NAME.rb
     #   ex: storage, buffer chunk, ...
 
+    # first class plugins (instantiated by Engine)
     INPUT_REGISTRY     = Registry.new(:input,     'fluent/plugin/in_')
     OUTPUT_REGISTRY    = Registry.new(:output,    'fluent/plugin/out_')
     FILTER_REGISTRY    = Registry.new(:filter,    'fluent/plugin/filter_')
+
+    # feature plugin: second class plugins (instanciated by Plugins or Helpers)
     BUFFER_REGISTRY    = Registry.new(:buffer,    'fluent/plugin/buf_')
     PARSER_REGISTRY    = Registry.new(:parser,    'fluent/plugin/parser_')
     FORMATTER_REGISTRY = Registry.new(:formatter, 'fluent/plugin/formatter_')
@@ -105,11 +108,11 @@ module Fluent
       new_impl('filter', FILTER_REGISTRY, type)
     end
 
-    def self.new_buffer(type)
-      new_impl('buffer', BUFFER_REGISTRY, type)
+    def self.new_buffer(type, parent: nil)
+      new_impl('buffer', BUFFER_REGISTRY, type, parent)
     end
 
-    def self.new_parser(type)
+    def self.new_parser(type, parent: nil)
       require 'fluent/parser'
 
       if type[0] == '/' && type[-1] == '/'
@@ -117,16 +120,16 @@ module Fluent
         require 'fluent/parser'
         Fluent::TextParser.lookup(type)
       else
-        new_impl('parser', PARSER_REGISTRY, type)
+        new_impl('parser', PARSER_REGISTRY, type, parent)
       end
     end
 
-    def self.new_formatter(type)
-      new_impl('formatter', FORMATTER_REGISTRY, type)
+    def self.new_formatter(type, parent: nil)
+      new_impl('formatter', FORMATTER_REGISTRY, type, parent)
     end
 
-    def self.new_storage(type)
-      new_impl('storage', STORAGE_REGISTRY, type)
+    def self.new_storage(type, parent: nil)
+      new_impl('storage', STORAGE_REGISTRY, type, parent)
     end
 
     def self.register_impl(kind, registry, type, value)
@@ -138,17 +141,21 @@ module Fluent
       nil
     end
 
-    def self.new_impl(kind, registry, type)
+    def self.new_impl(kind, registry, type, parent=nil)
       # "'type' not found" is handled by registry
       obj = registry.lookup(type)
-      case
-      when obj.is_a?(Class)
-        obj.new
-      when obj.respond_to?(:call) && obj.arity == 0
-        obj.call
-      else
-        raise Fluent::ConfigError, "#{kind} plugin '#{type}' is not a Class nor callable (without arguments)."
+      impl = case
+             when obj.is_a?(Class)
+               obj.new
+             when obj.respond_to?(:call) && obj.arity == 0
+               obj.call
+             else
+               raise Fluent::ConfigError, "#{kind} plugin '#{type}' is not a Class nor callable (without arguments)."
+             end
+      if parent && impl.respond_to?("owner=")
+        impl.owner = parent
       end
+      impl
     end
   end
 end

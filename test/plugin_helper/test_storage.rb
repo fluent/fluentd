@@ -69,7 +69,7 @@ class Example4Storage < ExampleStorage
 end
 
 class StorageHelperTest < Test::Unit::TestCase
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :storage
   end
 
