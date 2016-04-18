@@ -71,8 +71,13 @@ class OutputTest < Test::Unit::TestCase
     Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
   end
   def waiting(seconds)
-    Timeout.timeout(seconds) do
-      yield
+    begin
+      Timeout.timeout(seconds) do
+        yield
+      end
+    rescue Timeout::Error
+      STDERR.print *(@i.log.out.logs)
+      raise
     end
   end
 
