@@ -1,4 +1,5 @@
 language: ruby
+cache: bundler
 
 # http://rubies.travis-ci.org/
 # See here for osx_image -> OSX versions: https://docs.travis-ci.com/user/languages/objective-c
@@ -18,30 +19,17 @@ matrix:
     - rvm: 2.2.4
       os: osx
       osx_image: xcode7.1 # OSX 10.10
-    # - rvm: 2.3.0
-    #   os: osx
-    #   osx_image: .... # no valid version/env for ruby 2.3
     - rvm: ruby-head
       os: osx
       osx_image: xcode 7.3 # OSX 10.11
   allow_failures:
     - rvm: ruby-head
-    - rvm: rbx
-    - rvm: 2.3.0
-      os: osx
 
-# rvm:
-#   - 2.1.10
-#   - 2.2.4
-#   - 2.3.0
-#   - ruby-head
-#   - rbx
+# no valid version/env for ruby 2.3 right now
+# - rvm: 2.3.0
+#   os: osx
+#   osx_image: ....
 
-# os:
-#   - linux
-#   - osx
-
-# osx_image: xcode7.3
 
 branches:
   only:
@@ -52,6 +40,8 @@ branches:
 
 gemfile:
   - Gemfile
+
+install: bundle install --jobs=3 --retry=3
 
 script: bundle exec rake
 
