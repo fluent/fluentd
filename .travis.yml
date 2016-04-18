@@ -30,20 +30,12 @@ matrix:
 #   os: osx
 #   osx_image: ....
 
-
 branches:
   only:
     - master
     - v0.10
     - v0.12
     - v0.14
-
-gemfile:
-  - Gemfile
-
-install: bundle install --jobs=3 --retry=3
-
-script: bundle exec rake
 
 sudo: false
 
