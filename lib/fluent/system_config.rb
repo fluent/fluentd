@@ -52,6 +52,16 @@ module Fluent
       Fluent::Config::Element.new('<SYSTEM>', '', {}, [])
     end
 
+    def self.overwrite_system_config(hash)
+      older = $_system_config || nil
+      begin
+        $_system_config = SystemConfig.new(Fluent::Config::Element.new('system', '', hash, []))
+        yield
+      ensure
+        $_system_config = older
+      end
+    end
+
     def initialize(conf=nil)
       super()
       conf ||= SystemConfig.blank_system_config
@@ -93,13 +103,16 @@ module Fluent
     module Mixin
       def system_config
         require 'fluent/engine'
-        @_system_config || Fluent::Engine.system_config
+        unless $_system_config
+          $_system_config = nil
+        end
+        @_system_config || $_system_config || Fluent::Engine.system_config
       end
 
       def system_config_override(opts={})
         require 'fluent/engine'
         unless @_system_config
-          @_system_config = Fluent::Engine.system_config.dup
+          @_system_config = ($_system_config || Fluent::Engine.system_config).dup
         end
         opts.each_pair do |key, value|
           @_system_config.send(:"#{key.to_s}=", value)
