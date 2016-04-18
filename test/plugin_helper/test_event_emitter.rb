@@ -7,10 +7,10 @@ class EventEmitterTest < Test::Unit::TestCase
     Fluent::Test.setup
   end
 
-  class Dummy0 < Fluent::Plugin::Base
+  class Dummy0 < Fluent::Plugin::TestBase
   end
 
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :event_emitter
   end
 

@@ -4,7 +4,7 @@ require 'fluent/plugin/base'
 require 'timeout'
 
 class ThreadTest < Test::Unit::TestCase
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :thread
     def configure(conf)
       super
