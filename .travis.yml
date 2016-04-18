@@ -31,3 +31,8 @@ matrix:
     - rvm: rbx
     - rvm: 2.3.0
       os: osx
+
+addons:
+  apt:
+    packages:
+      - libgmp3-dev
