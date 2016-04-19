@@ -13,6 +13,15 @@ module FluentPluginFilterTest
       r
     end
   end
+  class IgnoreForNumPlugin < Fluent::Plugin::Filter
+    def filter(tag, time, record)
+      if record["num"].is_a? Numeric
+        nil
+      else
+        record
+      end
+    end
+  end
   class RaiseForNumPlugin < Fluent::Plugin::Filter
     def filter(tag, time, record)
       if record["num"].is_a? Numeric
@@ -23,7 +32,13 @@ module FluentPluginFilterTest
   end
 end
 
-class FilterTest < Test::Unit::TestCase
+class FilterPluginTest < Test::Unit::TestCase
+  DummyRouter = Struct.new(:emits) do
+    def emit_error_event(tag, time, record, error)
+      self.emits << [tag, time, record, error]
+    end
+  end
+
   teardown do
     if @p
       @p.stop unless @p.stopped?
@@ -159,6 +174,37 @@ class FilterTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'filter plugin returns nil for some records' do
+    setup do
+      Fluent::Test.setup
+      @p = FluentPluginFilterTest::IgnoreForNumPlugin.new
+    end
+
+    test 'filter_stream ignores records which #filter return nil' do
+      test_es = [
+        [event_time('2016-04-19 13:01:00 -0700'), {"num" => "1", "message" => "Hello filters!"}],
+        [event_time('2016-04-19 13:01:03 -0700'), {"num" => 2, "message" => "Ignored, yay!"}],
+        [event_time('2016-04-19 13:01:05 -0700'), {"num" => "3", "message" => "Hello filters!"}],
+      ]
+      es = @p.filter_stream('testing', test_es)
+      assert es.is_a? Fluent::EventStream
+
+      ary = []
+      es.each do |time, r|
+        ary << [time, r]
+      end
+
+      assert_equal 2, ary.size
+
+      assert_equal event_time('2016-04-19 13:01:00 -0700'), ary[0][0]
+      assert_equal "Hello filters!", ary[0][1]["message"]
+      assert_equal "1", ary[0][1]["num"]
+
+      assert_equal event_time('2016-04-19 13:01:05 -0700'), ary[1][0]
+      assert_equal "3", ary[1][1]["num"]
+    end
+  end
+
   sub_test_case 'filter plugin raises error' do
     setup do
       Fluent::Test.setup
@@ -171,11 +217,6 @@ class FilterTest < Test::Unit::TestCase
       @p.configure(config_element())
       assert @p.router
 
-      DummyRouter = Struct.new(:emits) do
-        def emit_error_event(tag, time, record, error)
-          self.emits << [tag, time, record, error]
-        end
-      end
       @p.router = DummyRouter.new([])
       data = {'message' => 'mydata'}
       dummy_error = EOFError.new("dummy eof")
