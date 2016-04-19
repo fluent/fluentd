@@ -59,6 +59,10 @@ module Fluent
       @sec.to_s
     end
 
+    def to_json(*args)
+      @sec.to_s
+    end
+
     def to_msgpack(io = nil)
       @sec.to_msgpack(io)
     end
