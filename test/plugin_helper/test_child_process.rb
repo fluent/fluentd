@@ -92,7 +92,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command at just once, which can handle both of read and write' do
     m = Mutex.new
-    t1 = Time.now
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -125,7 +124,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command at just once, which can handle all of read, write and stderr' do
     m = Mutex.new
-    t1 = Time.now
     ary1 = []
     ary2 = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
@@ -162,7 +160,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command at just once, which can handle both of write and read (with stderr)' do
     m = Mutex.new
-    t1 = Time.now
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -197,7 +194,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can execute external command at just once, which runs forever' do
     m = Mutex.new
-    t1 = Time.now
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -233,7 +229,6 @@ class ChildProcessTest < Test::Unit::TestCase
     # In windows environment, child_process try KILL at first (because there's no SIGTERM)
     test 'can execute external command just once, and can terminate it forcedly when shutdown/terminate even if it ignore SIGTERM' do
       m = Mutex.new
-      t1 = Time.now
       ary = []
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
         ran = false
@@ -348,7 +343,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'execute external processes only for writing' do
     m = Mutex.new
-    ary = []
     unreadable = false
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -376,7 +370,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'execute external processes only for reading' do
     m = Mutex.new
-    ary = []
     unwritable = false
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -388,7 +381,7 @@ class ChildProcessTest < Test::Unit::TestCase
         rescue IOError
           unwritable = true
         end
-        data = io.readline
+        _data = io.readline
         m.unlock
       end
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
@@ -442,7 +435,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can convert encodings from ascii-8bit to utf-8' do
     m = Mutex.new
-    encodings = []
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -464,7 +456,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can scrub characters without exceptions' do
     m = Mutex.new
-    encodings = []
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -486,7 +477,6 @@ class ChildProcessTest < Test::Unit::TestCase
 
   test 'can scrub characters without exceptions and replace specified chars' do
     m = Mutex.new
-    encodings = []
     str = nil
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
@@ -509,7 +499,7 @@ class ChildProcessTest < Test::Unit::TestCase
   unless Fluent.windows?
     test 'can specify subprocess name' do
       io = IO.popen([["cat", "caaaaaaaaaaat"], '-'])
-      process_naming_enabled = (open("|ps"){|io| io.readlines }.select{|line| line.include?("caaaaaaaaaaat") }.size > 0)
+      process_naming_enabled = (open("|ps"){|_io| _io.readlines }.select{|line| line.include?("caaaaaaaaaaat") }.size > 0)
       Process.kill(:TERM, io.pid) rescue nil
       io.close rescue nil
 
@@ -526,7 +516,7 @@ class ChildProcessTest < Test::Unit::TestCase
           m.lock
           ran = true
           pids << @d.child_process_id
-          proc_lines += open("|ps"){|io| io.readlines }
+          proc_lines += open("|ps"){|_io| _io.readlines }
           m.unlock
           readio.read
         end

@@ -301,7 +301,6 @@ module Fluent
         end
         name = name.to_sym
 
-        opts = {}
         unless args.empty? || args.size == 1 && args.first.is_a?(Hash)
           raise ArgumentError, "#{self.name}: unknown config_section arguments: #{args.inspect}"
         end

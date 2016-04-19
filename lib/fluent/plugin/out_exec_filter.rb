@@ -114,9 +114,9 @@ module Fluent
 
       super
 
-      if localtime = conf['localtime']
+      if conf['localtime']
         @localtime = true
-      elsif utc = conf['utc']
+      elsif conf['utc']
         @localtime = false
       end
 
@@ -353,7 +353,7 @@ module Fluent
         @log.error "exec_filter thread unexpectedly failed with an error.", command: @command, error: $!.to_s
         @log.warn_backtrace $!.backtrace
       ensure
-        pid, stat = Process.waitpid2(@pid)
+        _pid, stat = Process.waitpid2(@pid)
         unless @finished
           @log.error "exec_filter process unexpectedly exited.", command: @command, ecode: stat.to_i
           unless @respawns == 0
