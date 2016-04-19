@@ -249,11 +249,11 @@ module Fluent
         def create_new_chunk(path, perm)
           @path = self.class.generate_stage_chunk_path(path, @unique_id)
           @meta_path = @path + '.meta'
-          @chunk = File.open(@path, 'w+', perm)
+          @chunk = File.open(@path, 'wb+', perm)
           @chunk.set_encoding(Encoding::ASCII_8BIT)
           @chunk.sync = true
           @chunk.binmode
-          @meta = File.open(@meta_path, 'w', perm)
+          @meta = File.open(@meta_path, 'wb', perm)
           @meta.set_encoding(Encoding::ASCII_8BIT)
           @meta.sync = true
           @meta.binmode
@@ -273,13 +273,13 @@ module Fluent
           # staging buffer chunk without metadata is classic buffer chunk file
           # and it should be enqueued immediately
           if File.exist?(@meta_path)
-            @chunk = File.open(@path, 'r+')
+            @chunk = File.open(@path, 'rb+')
             @chunk.set_encoding(Encoding::ASCII_8BIT)
             @chunk.sync = true
             @chunk.seek(0, IO::SEEK_END)
             @chunk.binmode
 
-            @meta = File.open(@meta_path, 'r+')
+            @meta = File.open(@meta_path, 'rb+')
             @meta.set_encoding(Encoding::ASCII_8BIT)
             @meta.sync = true
             @meta.binmode
