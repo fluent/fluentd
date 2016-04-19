@@ -44,9 +44,29 @@ class FileBufferTest < Test::Unit::TestCase
       end
     end
 
-  sub_test_case 'non configured buffer plugin instance' do
-    # tests for path
-    test ''
+    test 'path should include * normally' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer.*.file')}))
+      assert_equal File.join(@dir, 'buffer.*.file'), p.path
+    end
+
+    test 'existing directory will be used with additional default file name' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => @dir}))
+      assert_equal File.join(@dir, 'buffer.*.log'), p.path
+    end
+
+    test 'unexisting path without * handled as directory' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer')}))
+      assert_equal File.join(@dir, 'buffer', 'buffer.*.log'), p.path
+    end
   end
 
   sub_test_case 'buffer plugin configured only with path' do
@@ -306,9 +326,10 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     test '#resume returns staged/queued chunks with metadata' do
-      stage,queue = @p.resume
-      assert_equal 2, stage.size
-      assert_equal 2, queue.size
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
+
+      stage = @p.stage
 
       m3 = metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i)
       assert_equal @c3id, stage[m3].unique_id
@@ -322,9 +343,10 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     test '#resume returns queued chunks ordered by last modified time (FIFO)' do
-      stage,queue = @p.resume
-      assert_equal 2, stage.size
-      assert_equal 2, queue.size
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
+
+      queue = @p.queue
 
       assert{ queue[0].modified_at < queue[1].modified_at }
 
@@ -349,6 +371,105 @@ class FileBufferTest < Test::Unit::TestCase
   end
 
   sub_test_case 'there are some existing file chunks without metadata file' do
-    test '#resume returns queued chunks for files without metadata'
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "etest.201604171358.q#{Fluent::UniqueId.hex(@c1id)}.log")
+      File.open(p1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      FileUtils.touch(p1, mtime: Time.parse('2016-04-17 13:58:28 -0700'))
+
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@bufdir, "etest.201604171359.q#{Fluent::UniqueId.hex(@c2id)}.log")
+      File.open(p2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      FileUtils.touch(p2, mtime: Time.parse('2016-04-17 13:59:30 -0700'))
+
+      @c3id = Fluent::UniqueId.generate
+      p3 = File.join(@bufdir, "etest.201604171400.b#{Fluent::UniqueId.hex(@c3id)}.log")
+      File.open(p3, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      FileUtils.touch(p3, mtime: Time.parse('2016-04-17 14:00:29 -0700'))
+
+      @c4id = Fluent::UniqueId.generate
+      p4 = File.join(@bufdir, "etest.201604171401.b#{Fluent::UniqueId.hex(@c4id)}.log")
+      File.open(p4, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      FileUtils.touch(p4, mtime: Time.parse('2016-04-17 14:01:22 -0700'))
+
+      @bufpath = File.join(@bufdir, 'etest.*.log')
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
+    end
+
+    test '#resume returns queued chunks for files without metadata' do
+      assert_equal 0, @p.stage.size
+      assert_equal 4, @p.queue.size
+
+      queue = @p.queue
+
+      m = metadata()
+
+      assert_equal @c1id, queue[0].unique_id
+      assert_equal m, queue[0].metadata
+      assert_equal 0, queue[0].records
+      assert_equal :queued, queue[0].state
+      assert_equal Time.parse('2016-04-17 13:58:28 -0700'), queue[0].modified_at
+
+      assert_equal @c2id, queue[1].unique_id
+      assert_equal m, queue[1].metadata
+      assert_equal 0, queue[1].records
+      assert_equal :queued, queue[1].state
+      assert_equal Time.parse('2016-04-17 13:59:30 -0700'), queue[1].modified_at
+
+      assert_equal @c3id, queue[2].unique_id
+      assert_equal m, queue[2].metadata
+      assert_equal 0, queue[2].records
+      assert_equal :queued, queue[2].state
+      assert_equal Time.parse('2016-04-17 14:00:29 -0700'), queue[2].modified_at
+
+      assert_equal @c4id, queue[3].unique_id
+      assert_equal m, queue[3].metadata
+      assert_equal 0, queue[3].records
+      assert_equal :queued, queue[3].state
+      assert_equal Time.parse('2016-04-17 14:01:22 -0700'), queue[3].modified_at
+    end
   end
 end
