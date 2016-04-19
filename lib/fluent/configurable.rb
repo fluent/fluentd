@@ -27,6 +27,7 @@ module Fluent
     end
 
     def initialize
+      super
       # to simulate implicit 'attr_accessor' by config_param / config_section and its value by config_set_default
       proxy = self.class.merged_configure_proxy
       proxy.params.keys.each do |name|
@@ -50,6 +51,14 @@ module Fluent
       logger = self.respond_to?(:log) ? log : $log
       proxy = self.class.merged_configure_proxy
       conf.corresponding_proxies << proxy
+
+      if self.respond_to?(:owner) && self.owner
+        owner_proxy = owner.class.merged_configure_proxy
+        if proxy.configured_in_section
+          owner_proxy = owner_proxy.sections[proxy.configured_in_section]
+        end
+        proxy.overwrite_defaults(owner_proxy) if owner_proxy
+      end
 
       # In the nested section, can't get plugin class through proxies so get plugin class here
       plugin_class = Fluent::Plugin.lookup_type_from_class(proxy.name.to_s)
@@ -95,6 +104,10 @@ module Fluent
           map[mod_name] = proxy
         end
         map[mod_name]
+      end
+
+      def configured_in(section_name)
+        configure_proxy(self.name).configured_in(section_name)
       end
 
       def config_param(name, *args, &block)

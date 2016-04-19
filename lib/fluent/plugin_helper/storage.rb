@@ -39,8 +39,7 @@ module Fluent
           unless type
             raise ArgumentError, "BUG: type not specified without configuration"
           end
-          storage = Plugin.new_storage(type)
-          storage.owner = self
+          storage = Plugin.new_storage(type, parent: self)
           config = case conf
                    when Fluent::Config::Element
                      conf

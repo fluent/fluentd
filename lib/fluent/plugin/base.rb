@@ -16,25 +16,19 @@
 
 require 'fluent/plugin'
 require 'fluent/configurable'
-require 'fluent/plugin_id'
-require 'fluent/log'
-require 'fluent/plugin_helper'
 require 'fluent/system_config'
 
 module Fluent
   module Plugin
     class Base
       include Configurable
-      include PluginId
       include SystemConfig::Mixin
-      include PluginLoggerMixin
-      include PluginHelper::Mixin
 
-      State = Struct.new(:configure, :start, :stop, :shutdown, :close, :terminate)
+      State = Struct.new(:configure, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
 
       def initialize
         super
-        @state = State.new(false, false, false, false, false, false)
+        @_state = State.new(false, false, false, false, false, false, false, false)
       end
 
       def has_router?
@@ -43,59 +37,76 @@ module Fluent
 
       def configure(conf)
         super
-        @state.configure = true
+        @_state ||= State.new(false, false, false, false, false, false, false, false)
+        @_state.configure = true
         self
       end
 
       def start
-        @log.reset
-        @state.start = true
+        @_state.start = true
         self
       end
 
       def stop
-        @state.stop = true
+        @_state.stop = true
+        self
+      end
+
+      def before_shutdown
+        @_state.before_shutdown = true
         self
       end
 
       def shutdown
-        @state.shutdown = true
+        @_state.shutdown = true
+        self
+      end
+
+      def after_shutdown
+        @_state.after_shutdown = true
         self
       end
 
       def close
-        @state.close = true
+        @_state.close = true
         self
       end
 
       def terminate
-        @state.terminate = true
-        @log.reset
+        @_state.terminate = true
         self
       end
 
       def configured?
-        @state.configure
+        @_state.configure
       end
 
       def started?
-        @state.start
+        @_state.start
       end
 
       def stopped?
-        @state.stop
+        @_state.stop
+      end
+
+      def before_shutdown?
+        @_state.before_shutdown
       end
 
       def shutdown?
-        @state.shutdown
+        @_state.shutdown
+      end
+
+      def after_shutdown?
+        @_state.after_shutdown
       end
 
       def closed?
-        @state.close
+        @_state.close
       end
 
       def terminated?
-        @state.terminate
+        @_state.terminate
       end
     end
   end

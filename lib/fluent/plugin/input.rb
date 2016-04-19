@@ -14,25 +14,20 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin_helper/event_emitter'
-require 'fluent/plugin_helper/thread'
-require 'fluent/plugin_helper/event_loop'
-require 'fluent/plugin_helper/timer'
-require 'fluent/plugin_helper/child_process'
-require 'fluent/plugin_helper/storage'
-require 'fluent/plugin_helper/retry_state'
+require 'fluent/plugin/base'
+
+require 'fluent/log'
+require 'fluent/plugin_id'
+require 'fluent/plugin_helper'
 
 module Fluent
-  module PluginHelper
-    module Mixin
-      def self.included(mod)
-        mod.extend(Fluent::PluginHelper)
-      end
-    end
+  module Plugin
+    class Input < Base
+      include PluginId
+      include PluginLoggerMixin
+      include PluginHelper::Mixin
 
-    def helpers(*snake_case_symbols)
-      helper_modules = snake_case_symbols.map{|name| Fluent::PluginHelper.const_get(name.to_s.split('_').map(&:capitalize).join) }
-      include *helper_modules
+      helpers :event_emitter
     end
   end
 end

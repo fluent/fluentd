@@ -36,7 +36,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("strptime", [">= 0.1.7"])
 
   gem.add_development_dependency("rake", [">= 0.9.2"])
-  gem.add_development_dependency("flexmock", ["~> 1.3.3"])
+  gem.add_development_dependency("flexmock", ["~> 2.0.5"])
   gem.add_development_dependency("parallel_tests", [">= 0.15.3"])
   gem.add_development_dependency("simplecov", ["~> 0.6.4"])
   gem.add_development_dependency("rr", [">= 1.0.0"])

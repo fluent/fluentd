@@ -37,12 +37,19 @@ module Fluent
         end
       end
 
-      def thread_create(title, *args)
+      # Ruby 2.2.3 or earlier (and all 2.1.x) cause bug about Threading ("Stack consistency error")
+      #  by passing splatted argument to `yield`
+      # https://bugs.ruby-lang.org/issues/11027
+      # We can enable to pass arguments after expire of Ruby 2.1 (& older 2.2.x)
+      # def thread_create(title, *args)
+      #   Thread.new(*args) do |*t_args|
+      #     yield *t_args
+      def thread_create(title)
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
         raise ArgumentError, "BUG: callback not specified" unless block_given?
         m = Mutex.new
         m.lock
-        thread = ::Thread.new(*args) do |*t_args|
+        thread = ::Thread.new do
           m.lock # run thread after that thread is successfully set into @_threads
           m.unlock
           thread_exit = false
@@ -50,7 +57,7 @@ module Fluent
           ::Thread.current[:_fluentd_plugin_helper_thread_started] = true
           ::Thread.current[:_fluentd_plugin_helper_thread_running] = true
           begin
-            yield *t_args
+            yield
             thread_exit = true
           rescue => e
             log.warn "thread exited by unexpected error", plugin: self.class, title: title, error_class: e.class, error: e
@@ -72,6 +79,20 @@ module Fluent
         end
         m.unlock
         thread
+      end
+
+      def thread_exist?(title)
+        @_threads.values.select{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }.size > 0
+      end
+
+      def thread_started?(title)
+        t = @_threads.values.select{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }.first
+        t && t[:_fluentd_plugin_helper_thread_started]
+      end
+
+      def thread_running?(title)
+        t = @_threads.values.select{|thread| title == thread[:_fluentd_plugin_helper_thread_title] }.first
+        t && t[:_fluentd_plugin_helper_thread_running]
       end
 
       def initialize
@@ -105,10 +126,11 @@ module Fluent
         super
         @_threads_mutex.synchronize{ @_threads.keys }.each do |obj_id|
           thread = @_threads[obj_id]
-          if thread
-            thread.kill
-            thread.join
-          end
+          thread.kill if thread
+        end
+        @_threads_mutex.synchronize{ @_threads.keys }.each do |obj_id|
+          thread = @_threads[obj_id]
+          thread.join
           @_threads_mutex.synchronize{ @_threads.delete(obj_id) }
         end
         @_thread_wait_seconds = nil

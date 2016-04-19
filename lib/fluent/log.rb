@@ -398,5 +398,15 @@ module Fluent
         @log.optional_attrs = {}
       end
     end
+
+    def start
+      @log.reset
+      super
+    end
+
+    def terminate
+      super
+      @log.reset
+    end
   end
 end

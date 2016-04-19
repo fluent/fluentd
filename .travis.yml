@@ -1,15 +1,34 @@
 language: ruby
+cache: bundler
 
-rvm:
-  - 2.1
-  - 2.2.3
-  - 2.3.0
-  - ruby-head
-  - rbx
+# http://rubies.travis-ci.org/
+# See here for osx_image -> OSX versions: https://docs.travis-ci.com/user/languages/objective-c
+matrix:
+  include:
+    - rvm: 2.1.10
+      os: linux
+    - rvm: 2.2.4
+      os: linux
+    - rvm: 2.3.0
+      os: linux
+    - rvm: ruby-head
+      os: linux
+    - rvm: 2.1.0
+      os: osx
+      osx_image: xcode7.3 # OSX 10.11
+    - rvm: 2.2.4
+      os: osx
+      osx_image: xcode7.1 # OSX 10.10
+    - rvm: ruby-head
+      os: osx
+      osx_image: xcode 7.3 # OSX 10.11
+  allow_failures:
+    - rvm: ruby-head
 
-os:
-  - linux
-  - osx
+# no valid version/env for ruby 2.3 right now
+# - rvm: 2.3.0
+#   os: osx
+#   osx_image: ....
 
 branches:
   only:
@@ -18,16 +37,9 @@ branches:
     - v0.12
     - v0.14
 
-gemfile:
-  - Gemfile
-
-script: bundle exec rake
-
 sudo: false
 
-matrix:
-  allow_failures:
-    - rvm: ruby-head
-    - rvm: rbx
-    - rvm: 2.3.0
-      os: osx
+addons:
+  apt:
+    packages:
+      - libgmp3-dev

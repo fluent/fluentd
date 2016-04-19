@@ -15,19 +15,36 @@
 #
 
 require 'fluent/engine'
+require 'fluent/time'
 
 module Fluent
   module PluginHelper
     module EventEmitter
-      attr_accessor :router
-
       # stop     : [-]
       # shutdown : disable @router
       # close    : [-]
       # terminate: [-]
 
+      def router
+        @_event_emitter_used_actually = true
+        @router
+      end
+
+      def router=(r)
+        @router = r
+      end
+
+      def has_router?
+        true
+      end
+
+      def event_emitter_used_actually?
+        @_event_emitter_used_actually
+      end
+
       def initialize
         super
+        @_event_emitter_used_actually = false
         @router = nil
       end
 
@@ -42,13 +59,19 @@ module Fluent
         end
       end
 
-      def has_router?
-        true
+      def after_shutdown
+        @router = nil
+        super
       end
 
-      def close
-        super
+      def close # unset router many times to reduce test cost
         @router = nil
+        super
+      end
+
+      def terminate
+        @router = nil
+        super
       end
     end
   end

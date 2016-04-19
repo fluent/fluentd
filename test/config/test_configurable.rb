@@ -286,6 +286,29 @@ module ConfigurableSpec
       end
     end
   end
+
+  module OverwriteDefaults
+    class Owner
+      include Fluent::Configurable
+      config_set_default :key1, "V1"
+      config_section :buffer do
+        config_set_default :size_of_something, 1024
+      end
+    end
+
+    class FlatChild
+      include Fluent::Configurable
+      attr_accessor :owner
+      config_param :key1, :string, default: "v1"
+    end
+
+    class BufferChild
+      include Fluent::Configurable
+      attr_accessor :owner
+      configured_in :buffer
+      config_param :size_of_something, :size, default: 128
+    end
+  end
 end
 
 module Fluent::Config
@@ -927,6 +950,24 @@ module Fluent::Config
           assert_not_nil(ex1.detail)
           assert_equal("Mountain View 0", ex1.detail.address)
         end
+      end
+    end
+
+    sub_test_case 'defaults can be overwritten by owner' do
+      test 'for feature plugin which has flat parameters with parent' do
+        owner = ConfigurableSpec::OverwriteDefaults::Owner.new
+        child = ConfigurableSpec::OverwriteDefaults::FlatChild.new
+        child.owner = owner
+        child.configure(config_element('ROOT', '', {}, []))
+        assert_equal "V1", child.key1
+      end
+
+      test 'for feature plugin which has parameters in subsection of parent' do
+        owner = ConfigurableSpec::OverwriteDefaults::Owner.new
+        child = ConfigurableSpec::OverwriteDefaults::BufferChild.new
+        child.owner = owner
+        child.configure(config_element('ROOT', '', {}, []))
+        assert_equal 1024, child.size_of_something
       end
     end
 

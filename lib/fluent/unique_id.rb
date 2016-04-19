@@ -14,25 +14,26 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin_helper/event_emitter'
-require 'fluent/plugin_helper/thread'
-require 'fluent/plugin_helper/event_loop'
-require 'fluent/plugin_helper/timer'
-require 'fluent/plugin_helper/child_process'
-require 'fluent/plugin_helper/storage'
-require 'fluent/plugin_helper/retry_state'
-
 module Fluent
-  module PluginHelper
-    module Mixin
-      def self.included(mod)
-        mod.extend(Fluent::PluginHelper)
-      end
+  module UniqueId
+    def self.generate
+      now = Time.now.utc
+      u1 = ((now.to_i * 1000 * 1000 + now.usec) << 12 | rand(0xfff))
+      [u1 >> 32, u1 & 0xffffffff, rand(0xffffffff), rand(0xffffffff)].pack('NNNN')
     end
 
-    def helpers(*snake_case_symbols)
-      helper_modules = snake_case_symbols.map{|name| Fluent::PluginHelper.const_get(name.to_s.split('_').map(&:capitalize).join) }
-      include *helper_modules
+    def self.hex(unique_id)
+      unique_id.unpack('H*').first
+    end
+
+    module Mixin
+      def generate_unique_id
+        Fluent::UniqueId.generate
+      end
+
+      def dump_unique_id_hex(unique_id)
+        Fluent::UniqueId.hex(unique_id)
+      end
     end
   end
 end

@@ -2,7 +2,7 @@ require_relative '../helper'
 require 'fluent/plugin/storage'
 require 'fluent/plugin/base'
 
-class DummyPlugin < Fluent::Plugin::Base
+class DummyPlugin < Fluent::Plugin::TestBase
 end
 
 class BareStorage < Fluent::Plugin::Storage

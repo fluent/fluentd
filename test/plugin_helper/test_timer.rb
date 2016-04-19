@@ -3,7 +3,7 @@ require 'fluent/plugin_helper/timer'
 require 'fluent/plugin/base'
 
 class TimerTest < Test::Unit::TestCase
-  class Dummy < Fluent::Plugin::Base
+  class Dummy < Fluent::Plugin::TestBase
     helpers :timer
   end
 
@@ -91,10 +91,9 @@ class TimerTest < Test::Unit::TestCase
 
     assert{ counter1 >= 4 && counter1 <= 6 }
     assert{ counter2 == 3 }
-    msg = "[error]: Unexpected error raised. Stopping the timer. title=:t2 error=#<RuntimeError: abort!!!!!!> error_class=RuntimeError"
-    assert{ d1.log.out.logs.any?{|line| line.include?(msg) } }
-    msg = "[error]: Timer detached. title=:t2"
-    assert{ d1.log.out.logs.any?{|line| line.include?(msg) } }
+    msg = "Unexpected error raised. Stopping the timer. title=:t2"
+    assert{ d1.log.out.logs.any?{|line| line.include?("[error]:") && line.include?(msg) && line.include?("abort!!!!!!") } }
+    assert{ d1.log.out.logs.any?{|line| line.include?("[error]:") && line.include?("Timer detached. title=:t2") } }
 
     d1.shutdown; d1.close; d1.terminate
   end
