@@ -71,6 +71,7 @@ module Fluent
           elsif File.basename(@path).include?('.*.')
             # valid path (buffer.*.log will be ignored)
           else
+            # existing file will be ignored
             @path = @path + '.*.log'
           end
         else # path doesn't exist
