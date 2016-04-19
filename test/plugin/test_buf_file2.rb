@@ -127,6 +127,8 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     test '#start creates directory for buffer chunks with specified permission' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       plugin = Fluent::Plugin::FileBuffer.new
       plugin.owner = @d
       rand_num = rand(0..100)
@@ -148,6 +150,8 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     test '#start creates directory for buffer chunks with specified permission via system config' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       sysconf = {'dir_permission' => '700'}
       Fluent::SystemConfig.overwrite_system_config(sysconf) do
         plugin = Fluent::Plugin::FileBuffer.new
