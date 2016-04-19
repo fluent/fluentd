@@ -223,7 +223,7 @@ module Fluent
           file_rename(@chunk, @path, new_chunk_path, ->(new_io){ @chunk = new_io })
           @path = new_chunk_path
 
-          file_rename(@meta, @meta_path, new_meta_path)
+          file_rename(@meta, @meta_path, new_meta_path, ->(new_io){ @meta = new_io })
           @meta_path = new_meta_path
 
           @state = :queued
