@@ -191,6 +191,9 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal Fluent::Plugin::Buffer::FileChunk::FILE_PERMISSION, c2.permission
       assert_equal @bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c2.unique_id)}."), c2.path
       assert{ File.stat(c2.path).mode.to_s(8).end_with?('644') }
+
+      c1.purge
+      c2.purge
     end
 
     test '#generate_chunk generates blank file chunk with specified permission' do
@@ -219,6 +222,8 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c.unique_id)}."), c.path
       assert{ File.stat(c.path).mode.to_s(8).end_with?('600') }
 
+      c.purge
+
       plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
       FileUtils.rm_r bufdir
     end
@@ -237,6 +242,22 @@ class FileBufferTest < Test::Unit::TestCase
       @p.owner = @d
       @p.configure(config_element('buffer', '', {'path' => @bufpath}))
       @p.start
+    end
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
     end
 
     test '#resume returns empty buffer state' do
