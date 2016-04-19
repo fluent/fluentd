@@ -36,7 +36,6 @@ class ThreadTest < Test::Unit::TestCase
     d1.configure(config_element())
     d1.start
 
-    thread_arguments = []
     m1 = Mutex.new
     m2 = Mutex.new
 
@@ -44,9 +43,8 @@ class ThreadTest < Test::Unit::TestCase
     thread_run = false
 
     Timeout.timeout(10) do
-      t = d1.thread_create(:test1, 'a', 'b') do |*args|
+      t = d1.thread_create(:test1) do
         m2.lock
-        thread_arguments += args
 
         assert !d1._threads.empty? # this must be true always
         assert d1.thread_current_running?
@@ -62,7 +60,6 @@ class ThreadTest < Test::Unit::TestCase
 
       assert_equal :test1, t[:_fluentd_plugin_helper_thread_title]
       assert t[:_fluentd_plugin_helper_thread_running]
-      assert_equal ['a','b'], thread_arguments
       assert !d1._threads.empty?
 
       m1.unlock

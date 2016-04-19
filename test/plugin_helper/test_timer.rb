@@ -91,6 +91,7 @@ class TimerTest < Test::Unit::TestCase
 
     assert{ counter1 >= 4 && counter1 <= 6 }
     assert{ counter2 == 3 }
+    msg = "Unexpected error raised. Stopping the timer. title=:t2"
     assert{ d1.log.out.logs.any?{|line| line.include?("[error]:") && line.include?(msg) && line.include?("abort!!!!!!") } }
     assert{ d1.log.out.logs.any?{|line| line.include?("[error]:") && line.include?("Timer detached. title=:t2") } }
 
