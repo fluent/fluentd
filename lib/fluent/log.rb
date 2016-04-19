@@ -293,7 +293,7 @@ module Fluent
 
       map.each_pair {|k,v|
         if k == "error".freeze
-          message << " error=#{v.class}[#{v.message}]"
+          message << " error_class=#{v.class.to_s} error=#{v.to_s.inspect}"
         else
           message << " #{k}=#{v.inspect}"
         end
