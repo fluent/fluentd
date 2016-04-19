@@ -3,6 +3,7 @@ require 'fluent/plugin/buf_file2'
 require 'fluent/plugin/output'
 require 'fluent/unique_id'
 require 'fluent/system_config'
+require 'fluent/env'
 
 require 'msgpack'
 
@@ -193,6 +194,8 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     test '#generate_chunk generates blank file chunk with specified permission' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       plugin = Fluent::Plugin::FileBuffer.new
       plugin.owner = @d
       rand_num = rand(0..100)

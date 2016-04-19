@@ -321,6 +321,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
     end
 
     test 'can refer system config for file permission' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       chunk_path = File.join(@chunkdir, 'testperm.*.log')
       Fluent::SystemConfig.overwrite_system_config("file_permission" => "600") do
         c = Fluent::Plugin::Buffer::FileChunk.new(gen_metadata, chunk_path, :create)
