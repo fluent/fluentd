@@ -25,21 +25,24 @@ class FileBufferTest < Test::Unit::TestCase
       c: ctime,
       m: mtime,
     }
-    File.open(path, 'w') do |f|
+    File.open(path, 'wb') do |f|
       f.write metadata.to_msgpack
     end
   end
 
-  teardown do
-    if @p
-      @p.stop unless @p.stopped?
-      @p.before_shutdown unless @p.before_shutdown?
-      @p.shutdown unless @p.shutdown?
-      @p.after_shutdown unless @p.after_shutdown?
-      @p.close unless @p.closed?
-      @p.terminate unless @p.terminated?
+  sub_test_case 'non configured buffer plugin instance' do
+    setup do
+      Fluent::Test.setup
+
+      @dir = File.expand_path('../../tmp/buffer_file_dir', __FILE__)
+      unless File.exist?(@dir)
+        FileUtils.mkdir_p @dir
+      end
+      Dir.glob(File.join(@dir, '*')).each do |path|
+        next if ['.', '..'].include?(File.basename(path))
+        File.delete(path)
+      end
     end
-  end
 
   sub_test_case 'non configured buffer plugin instance' do
     # tests for path
@@ -58,6 +61,23 @@ class FileBufferTest < Test::Unit::TestCase
       @p.owner = @d
       @p.configure(config_element('buffer', '', {'path' => @bufpath}))
       @p.start
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
     end
 
     test 'this is persistent plugin' do
@@ -206,10 +226,11 @@ class FileBufferTest < Test::Unit::TestCase
   sub_test_case 'there are some existing file chunks' do
     setup do
       @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+      FileUtils.mkdir_p @bufdir unless File.exist?(@bufdir)
 
       @c1id = Fluent::UniqueId.generate
       p1 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c1id)}.log")
-      File.open(p1, 'w') do |f|
+      File.open(p1, 'wb') do |f|
         f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
@@ -222,7 +243,7 @@ class FileBufferTest < Test::Unit::TestCase
 
       @c2id = Fluent::UniqueId.generate
       p2 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c2id)}.log")
-      File.open(p2, 'w') do |f|
+      File.open(p2, 'wb') do |f|
         f.write ["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
@@ -234,7 +255,7 @@ class FileBufferTest < Test::Unit::TestCase
 
       @c3id = Fluent::UniqueId.generate
       p3 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c3id)}.log")
-      File.open(p3, 'w') do |f|
+      File.open(p3, 'wb') do |f|
         f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
@@ -247,7 +268,7 @@ class FileBufferTest < Test::Unit::TestCase
 
       @c4id = Fluent::UniqueId.generate
       p4 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c4id)}.log")
-      File.open(p4, 'w') do |f|
+      File.open(p4, 'wb') do |f|
         f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
@@ -268,9 +289,19 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     teardown do
-      Dir.glob(@bufpath).each do |path|
-        File.unlink(path + '.meta') if File.exist?(path + '.meta')
-        File.unlink(path) if File.exist?(path)
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
       end
     end
 

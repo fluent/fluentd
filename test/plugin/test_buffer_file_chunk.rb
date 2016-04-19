@@ -24,7 +24,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
   end
 
   def read_metadata_file(path)
-    File.open(path){|f| MessagePack.unpack(f.read, symbolize_keys: true) }
+    File.open(path, 'rb'){|f| MessagePack.unpack(f.read, symbolize_keys: true) }
   end
 
   def gen_path(path)
@@ -213,7 +213,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       assert @c.empty?
 
-      assert_equal '', File.open(@c.path){|f| f.read }
+      assert_equal '', File.open(@c.path, 'rb'){|f| f.read }
 
       d1 = {"f1" => 'v1', "f2" => 'v2', "f3" => 'v3'}
       d2 = {"f1" => 'vv1', "f2" => 'vv2', "f3" => 'vv3'}
@@ -238,7 +238,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal first_size, @c.size
       assert_equal 2, @c.records
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n"), File.open(@c.path){|f| f.read }
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n"), File.open(@c.path, 'rb'){|f| f.read }
     end
 
     test 'can store its data by #close' do
@@ -261,7 +261,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       @c.close
 
-      assert_equal content, File.open(@c.path){|f| f.read }
+      assert_equal content, File.open(@c.path, 'rb'){|f| f.read }
 
       stored_meta = {
         timekey: nil, tag: nil, variables: nil,
@@ -383,7 +383,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       @c.close
 
-      assert_equal content, File.open(@c.path){|f| f.read }
+      assert_equal content, File.open(@c.path, 'rb'){|f| f.read }
 
       stored_meta = {
         timekey: nil, tag: nil, variables: nil,
@@ -408,7 +408,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @d3 = {"k" => "x", "f1" => 'x', "f2" => 'y', "f3" => 'z'}
       @d4 = {"k" => "x", "f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @d = [@d1,@d2,@d3,@d4].map{|d| d.to_json + "\n" }.join
-      File.open(@chunk_path, 'w') do |f|
+      File.open(@chunk_path, 'wb') do |f|
         f.write @d
       end
 
@@ -419,7 +419,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
         m: Time.parse('2016-04-07 17:44:13 +0900').to_i,
       }
-      File.open(@chunk_path + '.meta', 'w') do |f|
+      File.open(@chunk_path + '.meta', 'wb') do |f|
         f.write @metadata.to_msgpack
       end
 
@@ -476,7 +476,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal Time.parse('2016-04-07 17:44:00 +0900'), @c.created_at
       assert_equal Time.parse('2016-04-07 17:44:13 +0900'), @c.modified_at
 
-      assert_equal @d, File.open(@c.path){|f| f.read }
+      assert_equal @d, File.open(@c.path, 'rb'){|f| f.read }
       assert_equal @metadata, read_metadata_file(@c.path + '.meta')
     end
 
@@ -516,7 +516,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       testing_file1 = gen_path('rename1.test')
       testing_file2 = gen_path('rename2.test')
-      f = File.open(testing_file1, 'w', @c.permission)
+      f = File.open(testing_file1, 'wb', @c.permission)
       f.set_encoding(Encoding::ASCII_8BIT)
       f.sync = true
       f.binmode
@@ -559,7 +559,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @d3 = {"k" => "x", "f1" => 'x', "f2" => 'y', "f3" => 'z'}
       @d4 = {"k" => "x", "f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @d = [@d1,@d2,@d3,@d4].map{|d| d.to_json + "\n" }.join
-      File.open(@enqueued_path, 'w') do |f|
+      File.open(@enqueued_path, 'wb') do |f|
         f.write @d
       end
 
@@ -572,7 +572,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
         m: Time.parse('2016-04-07 17:44:13 +0900').to_i,
       }
-      File.open(@enqueued_path + '.meta', 'w') do |f|
+      File.open(@enqueued_path + '.meta', 'wb') do |f|
         f.write @metadata.to_msgpack
       end
 
@@ -618,7 +618,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @d3 = {"k" => "x", "f1" => 'x', "f2" => 'y', "f3" => 'z'}
       @d4 = {"k" => "x", "f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @d = [@d1,@d2,@d3,@d4].map{|d| d.to_json + "\n" }.join
-      File.open(@chunk_path, 'w') do |f|
+      File.open(@chunk_path, 'wb') do |f|
         f.write @d
       end
 
@@ -660,7 +660,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @d3 = {"k" => "x", "f1" => 'x', "f2" => 'y', "f3" => 'z'}
       @d4 = {"k" => "x", "f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @d = [@d1,@d2,@d3,@d4].map{|d| d.to_json + "\n" }.join
-      File.open(@chunk_path, 'w') do |f|
+      File.open(@chunk_path, 'wb') do |f|
         f.write @d
       end
 
