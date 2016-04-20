@@ -19,6 +19,7 @@ require 'fluent/config/section'
 require 'fluent/config/error'
 require 'fluent/registry'
 require 'fluent/plugin'
+require 'fluent/config/types'
 
 module Fluent
   module Configurable
@@ -90,6 +91,20 @@ module Fluent
       CONFIG_TYPE_REGISTRY.lookup(type)
     end
 
+    {
+      string: Config::STRING_TYPE,
+      enum: Config::ENUM_TYPE,
+      integer: Config::INTEGER_TYPE,
+      float: Config::FLOAT_TYPE,
+      size: Config::SIZE_TYPE,
+      bool: Config::BOOL_TYPE,
+      time: Config::TIME_TYPE,
+      hash: Config::HASH_TYPE,
+      array: Config::ARRAY_TYPE,
+    }.each do |name, type|
+      register_type(name, type)
+    end
+
     module ClassMethods
       def configure_proxy_map
         map = {}
@@ -100,7 +115,8 @@ module Fluent
       def configure_proxy(mod_name)
         map = configure_proxy_map
         unless map[mod_name]
-          proxy = Fluent::Config::ConfigureProxy.new(mod_name, required: true, multi: false)
+          type_lookup = ->(type) { Fluent::Configurable.lookup_type(type) }
+          proxy = Fluent::Config::ConfigureProxy.new(mod_name, required: true, multi: false, type_lookup: type_lookup)
           map[mod_name] = proxy
         end
         map[mod_name]
@@ -149,7 +165,4 @@ module Fluent
       end
     end
   end
-
-  # load default types
-  require 'fluent/config/types'
 end

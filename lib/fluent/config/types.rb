@@ -133,14 +133,4 @@ module Fluent
       end
     }
   end
-
-  Configurable.register_type(:string,  Config::STRING_TYPE)
-  Configurable.register_type(:enum,    Config::ENUM_TYPE)
-  Configurable.register_type(:integer, Config::INTEGER_TYPE)
-  Configurable.register_type(:float,   Config::FLOAT_TYPE)
-  Configurable.register_type(:size,    Config::SIZE_TYPE)
-  Configurable.register_type(:bool,    Config::BOOL_TYPE)
-  Configurable.register_type(:time,    Config::TIME_TYPE)
-  Configurable.register_type(:hash,    Config::HASH_TYPE)
-  Configurable.register_type(:array,   Config::ARRAY_TYPE)
 end

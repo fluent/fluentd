@@ -46,6 +46,7 @@ module Fluent
         @required = opts[:required]
         @multi = opts[:multi]
         @alias = opts[:alias]
+        @type_lookup = opts[:type_lookup]
 
         raise "init and required are exclusive" if @init && @required
 
@@ -220,7 +221,7 @@ module Fluent
 
         begin
           type = :string if type.nil?
-          block ||= Configurable.lookup_type(type)
+          block ||= @type_lookup.call(type)
         rescue ConfigError
           # override error message
           raise ArgumentError, "#{self.name}: unknown config_argument type `#{type}'"
