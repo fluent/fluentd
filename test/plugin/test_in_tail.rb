@@ -59,6 +59,17 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal 1000, d.instance.read_lines_limit
   end
 
+  def test_configure_encoding
+    # valid encoding
+    d = create_driver(SINGLE_LINE_CONFIG + 'encoding utf-8')
+    assert_equal Encoding::UTF_8, d.instance.encoding
+
+    # invalid encoding
+    assert_raise(Fluent::ConfigError) do
+      create_driver(SINGLE_LINE_CONFIG + 'encoding no-such-encoding')
+    end
+  end
+
   # TODO: Should using more better approach instead of sleep wait
 
   def test_emit
@@ -370,6 +381,27 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "tab	"}, emits[5][2])
   end
 
+  data(
+    'default encoding' => ['', Encoding::ASCII_8BIT],
+    'explicit encoding config' => ['encoding utf-8', Encoding::UTF_8])
+  def test_encoding(data)
+    encoding_config, encoding = data
+
+    d = create_driver(SINGLE_LINE_CONFIG + CONFIG_READ_FROM_HEAD + encoding_config)
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test"
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(encoding, emits[0][2]['message'].encoding)
+  end
+
   # multiline mode test
 
   def test_multiline
@@ -444,6 +476,33 @@ class TailInputTest < Test::Unit::TestCase
       emits = d.emits
       assert(emits.length == 4)
       assert_equal({"message1" => "test8"}, emits[3][2])
+    end
+  end
+
+  data(
+    'default encoding' => ['', Encoding::ASCII_8BIT],
+    'explicit encoding config' => ['encoding utf-8', Encoding::UTF_8])
+  def test_multiline_encoding_of_flushed_record(data)
+    encoding_config, encoding = data
+
+    d = create_driver %[
+      format multiline
+      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+      format_firstline /^[s]/
+      multiline_flush_interval 2s
+      read_from_head true
+      #{encoding_config}
+    ]
+
+    d.run do
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f|
+        f.puts "s test"
+      }
+
+      sleep 4
+      emits = d.emits
+      assert_equal(1, emits.length)
+      assert_equal(encoding, emits[0][2]['message1'].encoding)
     end
   end
 
