@@ -14,9 +14,12 @@
 #    limitations under the License.
 #
 
+require 'fluent/msgpack_factory'
+
 module Fluent
   class EventStream
     include Enumerable
+    include MessagePackFactory::Mixin
 
     def repeatable?
       false
@@ -27,7 +30,7 @@ module Fluent
     end
 
     def to_msgpack_stream
-      out = Fluent::Engine.msgpack_factory.packer
+      out = msgpack_packer
       each {|time,record|
         out.write([time,record])
       }
@@ -35,7 +38,7 @@ module Fluent
     end
 
     def to_msgpack_stream_forced_integer
-      out = Fluent::Engine.msgpack_factory.packer
+      out = msgpack_packer
       each {|time,record|
         out.write([time.to_i,record])
       }
@@ -151,8 +154,7 @@ module Fluent
 
     def each(&block)
       # TODO format check
-      unpacker = Fluent::Engine.msgpack_factory.unpacker
-      unpacker.feed_each(@data, &block)
+      msgpack_unpacker.feed_each(@data, &block)
       nil
     end
 
