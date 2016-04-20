@@ -3,6 +3,10 @@ require 'fluent/config/configure_proxy'
 
 module Fluent::Config
   class TestConfigureProxy < ::Test::Unit::TestCase
+    setup do
+      @type_lookup = ->(type) { Fluent::Configurable.lookup_type(type) }
+    end
+
     sub_test_case 'to generate a instance' do
       sub_test_case '#initialize' do
         test 'has default values' do
@@ -134,67 +138,67 @@ module Fluent::Config
       end
 
       sub_test_case '#config_param / #config_set_default / #config_argument' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
+        end
+
         test 'does not permit config_set_default for param w/ :default option' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
-          proxy.config_param(:name, :string, default: "name1")
-          assert_raise(ArgumentError) { proxy.config_set_default(:name, "name2") }
+          @proxy.config_param(:name, :string, default: "name1")
+          assert_raise(ArgumentError) { @proxy.config_set_default(:name, "name2") }
         end
 
         test 'does not permit default value specification twice' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
-          proxy.config_param(:name, :string)
-          proxy.config_set_default(:name, "name1")
-          assert_raise(ArgumentError) { proxy.config_set_default(:name, "name2") }
+          @proxy.config_param(:name, :string)
+          @proxy.config_set_default(:name, "name1")
+          assert_raise(ArgumentError) { @proxy.config_set_default(:name, "name2") }
         end
 
         test 'does not permit default value specification twice, even on config_argument' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
-          proxy.config_param(:name, :string)
-          proxy.config_set_default(:name, "name1")
+          @proxy.config_param(:name, :string)
+          @proxy.config_set_default(:name, "name1")
 
-          proxy.config_argument(:name)
-          assert_raise(ArgumentError) { proxy.config_argument(:name, default: "name2") }
+          @proxy.config_argument(:name)
+          assert_raise(ArgumentError) { @proxy.config_argument(:name, default: "name2") }
         end
       end
 
       sub_test_case '#config_param without default values cause error if section is configured as init:true' do
+        setup do
+          @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
+        end
+
         test 'with simple config_param with default value' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
           assert_nothing_raised do
-            proxy.config_section :subsection, init: true do
+            @proxy.config_section :subsection, init: true do
               config_param :param1, :integer, default: 1
             end
           end
         end
         test 'with simple config_param without default value' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
           assert_raise ArgumentError do
-            proxy.config_section :subsection, init: true do
+            @proxy.config_section :subsection, init: true do
               config_param :param1, :integer
             end
           end
         end
         test 'with config_param with config_set_default' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
           assert_nothing_raised do
-            proxy.config_section :subsection, init: true do
+            @proxy.config_section :subsection, init: true do
               config_param :param1, :integer
               config_set_default :param1, 1
             end
           end
         end
         test 'with config_argument' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
           assert_raise ArgumentError do
-            proxy.config_section :subsection, init: true do
+            @proxy.config_section :subsection, init: true do
               config_argument :param0, :string
             end
           end
         end
         test 'with config_argument with default value' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
           assert_nothing_raised do
-            proxy.config_section :subsection, init: true do
+            @proxy.config_section :subsection, init: true do
               config_argument :param0, :string, default: ''
             end
           end
@@ -203,7 +207,7 @@ module Fluent::Config
 
       sub_test_case '#config_set_desc' do
         setup do
-          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+          @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
         end
 
         test 'does not permit description specification twice w/ :desc option' do
@@ -220,7 +224,7 @@ module Fluent::Config
 
       sub_test_case '#desc' do
         setup do
-          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+          @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
         end
 
         test 'permit to specify description twice' do
@@ -240,7 +244,7 @@ module Fluent::Config
 
       sub_test_case '#dump' do
         setup do
-          @proxy = Fluent::Config::ConfigureProxy.new(:section)
+          @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
         end
 
         test 'empty proxy' do

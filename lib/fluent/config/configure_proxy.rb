@@ -294,17 +294,19 @@ module Fluent
         @current_description = description
       end
 
-      def config_section(name, *args, &block)
+      def config_section(name, opts = {}, &block)
         unless block_given?
           raise ArgumentError, "#{self.name}: config_section requires block parameter"
         end
         name = name.to_sym
 
-        unless args.empty? || args.size == 1 && args.first.is_a?(Hash)
-          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{args.inspect}"
+        unless opts.is_a?(Hash)
+          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{opts.inspect}"
         end
 
-        sub_proxy = ConfigureProxy.new(name, *args)
+        opts[:type_lookup] = @type_lookup
+
+        sub_proxy = ConfigureProxy.new(name, opts)
         sub_proxy.instance_exec(&block)
 
         if sub_proxy.init?
