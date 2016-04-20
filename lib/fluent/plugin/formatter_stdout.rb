@@ -14,10 +14,26 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/formatter'
+require 'fluent/plugin/formatter'
 
 module Fluent
-  Formatter = Fluent::Compat::Formatter
-  TextFormatter = Fluent::Compat::TextFormatter
-  # deprecate_constant is ruby 2.3 feature
+  module Plugin
+    class StdoutFormatter < Formatter
+      Plugin.register_formatter('stdout', self)
+
+      config_param :output_type, :string, default: 'json'
+
+      def configure(conf)
+        super
+
+        @sub_formatter = Plugin.new_formatter(@output_type)
+        @sub_formatter.configure(conf)
+      end
+
+      def format(tag, time, record)
+        header = "#{Time.now.localtime} #{tag}: "
+        "#{header}#{@sub_formatter.format(tag, time, record)}"
+      end
+    end
+  end
 end

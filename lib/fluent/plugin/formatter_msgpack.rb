@@ -14,10 +14,19 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/formatter'
+require 'fluent/plugin/formatter'
 
 module Fluent
-  Formatter = Fluent::Compat::Formatter
-  TextFormatter = Fluent::Compat::TextFormatter
-  # deprecate_constant is ruby 2.3 feature
+  module Plugin
+    class MessagePackFormatter < Formatter
+      Plugin.register_formatter('msgpack', self)
+
+      include HandleTagAndTimeMixin
+      include StructuredFormatMixin
+
+      def format_record(record)
+        record.to_msgpack
+      end
+    end
+  end
 end
