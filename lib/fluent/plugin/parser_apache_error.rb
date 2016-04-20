@@ -14,10 +14,8 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/parser'
+require 'fluent/plugin/parser'
 
-module Fluent
-  ParserError = Fluent::Compat::Parser::ParserError
-  Parser = Fluent::Compat::Parser
-  TextParser = Fluent::Compat::TextParser
-end
+Fluent::Plugin.register_parser('apache_error', Proc.new {
+  Fluent::Plugin::RegexpParser.new(/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/)
+})

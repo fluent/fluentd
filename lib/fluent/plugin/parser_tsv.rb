@@ -14,10 +14,24 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/parser'
+require 'fluent/plugin/parser'
+require 'fluent/time'
 
 module Fluent
-  ParserError = Fluent::Compat::Parser::ParserError
-  Parser = Fluent::Compat::Parser
-  TextParser = Fluent::Compat::TextParser
+  module Plugin
+    class TSVParser < ValuesParser
+      Plugin.register_parser('tsv', self)
+
+      config_param :delimiter, :string, default: "\t"
+
+      def configure(conf)
+        super
+        @key_num = @keys.length
+      end
+
+      def parse(text)
+        yield values_map(text.split(@delimiter, @key_num))
+      end
+    end
+  end
 end

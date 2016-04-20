@@ -14,10 +14,18 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/parser'
+require 'fluent/plugin/parser'
+
+require 'csv'
 
 module Fluent
-  ParserError = Fluent::Compat::Parser::ParserError
-  Parser = Fluent::Compat::Parser
-  TextParser = Fluent::Compat::TextParser
+  module Plugin
+    class CSVParser < ValuesParser
+      Plugin.register_parser('csv', self)
+
+      def parse(text)
+        yield values_map(CSV.parse_line(text))
+      end
+    end
+  end
 end

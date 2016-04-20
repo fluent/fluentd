@@ -14,10 +14,11 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/parser'
+require 'fluent/plugin/parser'
 
-module Fluent
-  ParserError = Fluent::Compat::Parser::ParserError
-  Parser = Fluent::Compat::Parser
-  TextParser = Fluent::Compat::TextParser
-end
+Fluent::Plugin.register_parser('nginx', Proc.new {
+  Fluent::Plugin::RegexpParser.new(
+    /^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,
+    {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}
+  )
+})
