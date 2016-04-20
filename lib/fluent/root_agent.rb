@@ -21,6 +21,7 @@ require 'fluent/agent'
 require 'fluent/label'
 require 'fluent/plugin'
 require 'fluent/system_config'
+require 'fluent/time'
 
 module Fluent
   #
@@ -218,7 +219,7 @@ module Fluent
       end
 
       def handle_emits_error(tag, es, e)
-        now = Engine.now
+        now = EventTime.now
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed in @ERROR:", error: e, tag: tag
           log.warn_backtrace
