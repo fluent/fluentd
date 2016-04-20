@@ -46,8 +46,8 @@ module Fluent
   class RootAgent < Agent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
-    def initialize(system_config = SystemConfig.new)
-      super
+    def initialize(log:, system_config: SystemConfig.new)
+      super(log: log)
 
       @labels = {}
       @inputs = []
@@ -158,7 +158,7 @@ module Fluent
     end
 
     def add_label(name)
-      label = Label.new(name)
+      label = Label.new(name, log: log)
       label.root_agent = self
       @labels[name] = label
     end

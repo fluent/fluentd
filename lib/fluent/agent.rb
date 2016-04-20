@@ -28,7 +28,7 @@ module Fluent
   class Agent
     include Configurable
 
-    def initialize(opts = {})
+    def initialize(log:)
       super()
 
       @context = nil
@@ -37,7 +37,7 @@ module Fluent
       @started_outputs = []
       @started_filters = []
 
-      @log = Engine.log
+      @log = log
       @event_router = EventRouter.new(NoMatchMatch.new(log), self)
       @error_collector = nil
     end

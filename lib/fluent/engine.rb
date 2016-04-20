@@ -66,7 +66,7 @@ module Fluent
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
 
-      @root_agent = RootAgent.new(@system_config)
+      @root_agent = RootAgent.new(log: log, system_config: @system_config)
 
       MessagePackFactory.init
 
