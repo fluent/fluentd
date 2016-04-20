@@ -329,20 +329,20 @@ module Fluent
         end
 
         if @disable_retry_limit || error_count < @retry_limit
-          $log.warn "temporarily failed to flush the buffer.", next_retry: Time.at(@next_retry_time), error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
+          $log.warn "temporarily failed to flush the buffer.", next_retry: Time.at(@next_retry_time), error: e, plugin_id: plugin_id
           $log.warn_backtrace e.backtrace
 
         elsif @secondary
           if error_count == @retry_limit
-            $log.warn "failed to flush the buffer.", error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
+            $log.warn "failed to flush the buffer.", error: e, plugin_id: plugin_id
             $log.warn "retry count exceededs limit. falling back to secondary output."
             $log.warn_backtrace e.backtrace
             retry  # retry immediately
           elsif error_count <= @retry_limit + @secondary_limit
-            $log.warn "failed to flush the buffer, next retry will be with secondary output.", next_retry: Time.at(@next_retry_time), error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
+            $log.warn "failed to flush the buffer, next retry will be with secondary output.", next_retry: Time.at(@next_retry_time), error: e, plugin_id: plugin_id
             $log.warn_backtrace e.backtrace
           else
-            $log.warn "failed to flush the buffer.", error_class: e.class, error: e.to_s, plugin_id: plugin_id
+            $log.warn "failed to flush the buffer.", error: e, plugin_id: plugin_id
             $log.warn "secondary retry count exceededs limit."
             $log.warn_backtrace e.backtrace
             write_abort
@@ -350,7 +350,7 @@ module Fluent
           end
 
         else
-          $log.warn "failed to flush the buffer.", error_class: e.class.to_s, error: e.to_s, plugin_id: plugin_id
+          $log.warn "failed to flush the buffer.", error: e, plugin_id: plugin_id
           $log.warn "retry count exceededs limit."
           $log.warn_backtrace e.backtrace
           write_abort
@@ -373,7 +373,7 @@ module Fluent
       begin
         @buffer.before_shutdown(self)
       rescue
-        $log.warn "before_shutdown failed", error: $!.to_s
+        $log.warn "before_shutdown failed", error: $!
         $log.warn_backtrace
       end
     end
@@ -395,7 +395,7 @@ module Fluent
       begin
         @buffer.clear!
       rescue
-        $log.error "unexpected error while aborting", error: $!.to_s
+        $log.error "unexpected error while aborting", error: $!
         $log.error_backtrace
       end
     end

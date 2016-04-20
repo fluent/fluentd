@@ -70,7 +70,7 @@ module Fluent
           result = record
         end
       rescue => e
-        log.warn "failed to grep events", error_class: e.class, error: e.message
+        log.warn "failed to grep events", error: e
         log.warn_backtrace
       end
       result

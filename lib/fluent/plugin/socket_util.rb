@@ -46,7 +46,7 @@ module Fluent
         msg.chomp!
         @callback.call(msg, addr)
       rescue => e
-        @log.error "unexpected error", error: e, error_class: e.class
+        @log.error "unexpected error", error: e
       end
     end
 
@@ -82,7 +82,7 @@ module Fluent
         end
         @buffer.slice!(0, pos) if pos > 0
       rescue => e
-        @log.error "unexpected error", error: e, error_class: e.class
+        @log.error "unexpected error", error: e
         close
       end
 
@@ -133,7 +133,7 @@ module Fluent
       def run
         @loop.run(@blocking_timeout)
       rescue => e
-        log.error "unexpected error", error: e, error_class: e.class
+        log.error "unexpected error", error: e
         log.error_backtrace
       end
 
@@ -150,7 +150,7 @@ module Fluent
           router.emit(@tag, time, record)
         }
       rescue => e
-        log.error msg.dump, error: e, error_class: e.class, host: addr[3]
+        log.error msg.dump, error: e, host: addr[3]
         log.error_backtrace
       end
     end

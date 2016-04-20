@@ -115,7 +115,7 @@ module Fluent
 
       router.emit(@tag, now, record)
     rescue => e
-      log.error "object space failed to emit", error: e.to_s, error_class: e.class.to_s, tag: @tag, record: Yajl.dump(record)
+      log.error "object space failed to emit", error: e, tag: @tag, record: Yajl.dump(record)
     end
   end
 end

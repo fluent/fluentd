@@ -292,7 +292,11 @@ module Fluent
       }
 
       map.each_pair {|k,v|
-        message << " #{k}=#{v.inspect}"
+        if k == "error".freeze && v.is_a?(Exception) && !map.has_key?("error_class")
+          message << " error_class=#{v.class.to_s} error=#{v.to_s.inspect}"
+        else
+          message << " #{k}=#{v.inspect}"
+        end
       }
 
       unless @threads_exclude_events.include?(Thread.current)
