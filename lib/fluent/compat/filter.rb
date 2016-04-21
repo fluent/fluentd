@@ -14,8 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/filter'
+require 'fluent/plugin'
+require 'fluent/plugin/filter'
 
 module Fluent
-  Filter = Fluent::Compat::Filter
+  module Compat
+    class Filter < Fluent::Plugin::Filter
+      # TODO: warn when deprecated
+    end
+  end
 end
