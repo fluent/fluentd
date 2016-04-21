@@ -92,7 +92,8 @@ module Fluent::Config
 
       sub_test_case '#overwrite_defaults' do
         test 'overwrites only defaults with others defaults' do
-          p1 = Fluent::Config::ConfigureProxy.new(:mychild)
+          type_lookup = ->(type) { Fluent::Configurable.lookup_type(type) }
+          p1 = Fluent::Config::ConfigureProxy.new(:mychild, type_lookup: type_lookup)
           p1.configured_in_section = :child
           p1.config_param(:k1a, :string)
           p1.config_param(:k1b, :string)
@@ -102,7 +103,7 @@ module Fluent::Config
             config_param :k3, :time, default: 30
           end
 
-          p0 = Fluent::Config::ConfigureProxy.new(:myparent)
+          p0 = Fluent::Config::ConfigureProxy.new(:myparent, type_lookup: type_lookup)
           p0.config_section(:child) do
             config_set_default :k1a, "v1a"
             config_param :k1b, :string, default: "v1b"
