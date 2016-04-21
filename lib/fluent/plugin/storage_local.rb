@@ -22,7 +22,7 @@ module Fluent
         @store = {}
       end
 
-      def configure(conf, plugin)
+      def configure(conf)
         super
 
         @on_memory = false
@@ -35,7 +35,8 @@ module Fluent
           end
         elsif @path
           path = @path.dup
-        else # @_plugin_id_configured
+        else # @_plugin_id_configured is true
+          raise NotImplementedError, "implement this feature later with system_config"
           ## TODO: get process-wide directory for plugin storage, and generate path for this plugin storage instance
           # path = 
         end
