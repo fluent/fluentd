@@ -14,10 +14,8 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/formatter'
+require 'fluent/plugin/parser'
 
-module Fluent
-  Formatter = Fluent::Compat::Formatter
-  TextFormatter = Fluent::Compat::TextFormatter
-  # deprecate_constant is ruby 2.3 feature
-end
+Fluent::Plugin.register_parser('apache_error', Proc.new {
+  Fluent::Plugin::RegexpParser.new(/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/)
+})

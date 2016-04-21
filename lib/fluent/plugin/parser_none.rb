@@ -14,10 +14,23 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/formatter'
+require 'fluent/plugin/parser'
+
+require 'fluent/time'
 
 module Fluent
-  Formatter = Fluent::Compat::Formatter
-  TextFormatter = Fluent::Compat::TextFormatter
-  # deprecate_constant is ruby 2.3 feature
+  module Plugin
+    class NoneParser < Parser
+      Plugin.register_parser('none', self)
+
+      config_param :message_key, :string, default: 'message'
+
+      def parse(text)
+        record = {}
+        record[@message_key] = text
+        time = @estimate_current_event ? Fluent::EventTime.now : nil
+        yield time, record
+      end
+    end
+  end
 end

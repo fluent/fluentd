@@ -1,0 +1,42 @@
+#
+# Fluentd
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
+require 'fluent/plugin/formatter'
+
+module Fluent
+  module Plugin
+    class LabeledTSVFormatter < Formatter
+      Plugin.register_formatter('ltsv', self)
+
+      # http://ltsv.org/
+      include HandleTagAndTimeMixin
+
+      config_param :delimiter, :string, default: "\t"
+      config_param :label_delimiter, :string, default: ":"
+
+      # TODO: escaping for \t in values
+      def format(tag, time, record)
+        filter_record(tag, time, record)
+        formatted = record.inject('') { |result, pair|
+          result << @delimiter if result.length.nonzero?
+          result << "#{pair.first}#{@label_delimiter}#{pair.last}"
+        }
+        formatted << "\n"
+        formatted
+      end
+    end
+  end
+end

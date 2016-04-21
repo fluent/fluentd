@@ -14,10 +14,21 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/formatter'
+require 'fluent/plugin/formatter'
 
 module Fluent
-  Formatter = Fluent::Compat::Formatter
-  TextFormatter = Fluent::Compat::TextFormatter
-  # deprecate_constant is ruby 2.3 feature
+  module Plugin
+    class SingleValueFormatter < Formatter
+      Plugin.register_formatter('single_value', self)
+
+      config_param :message_key, :string, default: 'message'
+      config_param :add_newline, :bool, default: true
+
+      def format(tag, time, record)
+        text = record[@message_key].to_s.dup
+        text << "\n" if @add_newline
+        text
+      end
+    end
+  end
 end

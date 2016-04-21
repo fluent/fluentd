@@ -14,10 +14,18 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/formatter'
+require 'fluent/plugin/parser'
+
+require 'csv'
 
 module Fluent
-  Formatter = Fluent::Compat::Formatter
-  TextFormatter = Fluent::Compat::TextFormatter
-  # deprecate_constant is ruby 2.3 feature
+  module Plugin
+    class CSVParser < ValuesParser
+      Plugin.register_parser('csv', self)
+
+      def parse(text)
+        yield values_map(CSV.parse_line(text))
+      end
+    end
+  end
 end
