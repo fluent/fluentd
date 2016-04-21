@@ -18,8 +18,8 @@ require 'fluent/agent'
 
 module Fluent
   class Label < Agent
-    def initialize(name, opts = {})
-      super(opts)
+    def initialize(name, log:)
+      super(log: log)
 
       @context = name
       @root_agent = nil

@@ -18,7 +18,6 @@ require 'thread'
 
 require 'fluent/configurable'
 require 'fluent/plugin_id'
-require 'fluent/engine'
 require 'fluent/log'
 require 'fluent/output_chain'
 require 'fluent/plugin'

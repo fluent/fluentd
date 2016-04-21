@@ -8,7 +8,7 @@ class RootAgentTest < ::Test::Unit::TestCase
   include FluentTest
 
   def test_initialize
-    ra = RootAgent.new
+    ra = RootAgent.new(log: $log)
     assert_equal 0, ra.instance_variable_get(:@suppress_emit_error_log_interval)
     assert_nil ra.instance_variable_get(:@next_emit_error_log_time)
   end
@@ -19,7 +19,7 @@ class RootAgentTest < ::Test::Unit::TestCase
     )
   def test_initialize_with_opt(data)
     opt, expected = data
-    ra = RootAgent.new(SystemConfig.new(opt))
+    ra = RootAgent.new(log: $log, system_config: SystemConfig.new(opt))
     expected.each { |k, v|
       assert_equal v, ra.instance_variable_get(k)
     }
@@ -27,7 +27,7 @@ class RootAgentTest < ::Test::Unit::TestCase
 
   sub_test_case 'configure' do
     setup do
-      @ra = RootAgent.new
+      @ra = RootAgent.new(log: $log)
       stub(Engine).root_agent { @ra }
     end
 
@@ -104,7 +104,7 @@ EOC
 
   sub_test_case 'start/shutdown' do
     setup do
-      @ra = RootAgent.new
+      @ra = RootAgent.new(log: $log)
       @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
 <source>
   @type test_in

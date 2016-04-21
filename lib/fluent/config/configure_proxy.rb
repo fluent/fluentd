@@ -14,8 +14,6 @@
 #    limitations under the License.
 #
 
-require 'fluent/configurable'
-
 module Fluent
   module Config
     class ConfigureProxy
@@ -48,6 +46,7 @@ module Fluent
         @required = opts[:required]
         @multi = opts[:multi]
         @alias = opts[:alias]
+        @type_lookup = opts[:type_lookup]
 
         raise "init and required are exclusive" if @init && @required
 
@@ -222,7 +221,7 @@ module Fluent
 
         begin
           type = :string if type.nil?
-          block ||= Configurable.lookup_type(type)
+          block ||= @type_lookup.call(type)
         rescue ConfigError
           # override error message
           raise ArgumentError, "#{self.name}: unknown config_argument type `#{type}'"
@@ -295,17 +294,19 @@ module Fluent
         @current_description = description
       end
 
-      def config_section(name, *args, &block)
+      def config_section(name, opts = {}, &block)
         unless block_given?
           raise ArgumentError, "#{self.name}: config_section requires block parameter"
         end
         name = name.to_sym
 
-        unless args.empty? || args.size == 1 && args.first.is_a?(Hash)
-          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{args.inspect}"
+        unless opts.is_a?(Hash)
+          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{opts.inspect}"
         end
 
-        sub_proxy = ConfigureProxy.new(name, *args)
+        opts[:type_lookup] = @type_lookup
+
+        sub_proxy = ConfigureProxy.new(name, opts)
         sub_proxy.instance_exec(&block)
 
         if sub_proxy.init?
