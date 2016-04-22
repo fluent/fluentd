@@ -114,24 +114,24 @@ class LogTest < Test::Unit::TestCase
       log.error_backtrace(backtrace)
       log.fatal_backtrace(backtrace)
       expected = [
-        "  2016-04-21 11:58:41 +0900 [trace]: line 1\n",
-        "  2016-04-21 11:58:41 +0900 [trace]: line 2\n",
-        "  2016-04-21 11:58:41 +0900 [trace]: line 3\n",
-        "  2016-04-21 11:58:41 +0900 [debug]: line 1\n",
-        "  2016-04-21 11:58:41 +0900 [debug]: line 2\n",
-        "  2016-04-21 11:58:41 +0900 [debug]: line 3\n",
-        "  2016-04-21 11:58:41 +0900 [info]: line 1\n",
-        "  2016-04-21 11:58:41 +0900 [info]: line 2\n",
-        "  2016-04-21 11:58:41 +0900 [info]: line 3\n",
-        "  2016-04-21 11:58:41 +0900 [warn]: line 1\n",
-        "  2016-04-21 11:58:41 +0900 [warn]: line 2\n",
-        "  2016-04-21 11:58:41 +0900 [warn]: line 3\n",
-        "  2016-04-21 11:58:41 +0900 [error]: line 1\n",
-        "  2016-04-21 11:58:41 +0900 [error]: line 2\n",
-        "  2016-04-21 11:58:41 +0900 [error]: line 3\n",
-        "  2016-04-21 11:58:41 +0900 [fatal]: line 1\n",
-        "  2016-04-21 11:58:41 +0900 [fatal]: line 2\n",
-        "  2016-04-21 11:58:41 +0900 [fatal]: line 3\n"
+        "  #{@timestamp_str} [trace]: line 1\n",
+        "  #{@timestamp_str} [trace]: line 2\n",
+        "  #{@timestamp_str} [trace]: line 3\n",
+        "  #{@timestamp_str} [debug]: line 1\n",
+        "  #{@timestamp_str} [debug]: line 2\n",
+        "  #{@timestamp_str} [debug]: line 3\n",
+        "  #{@timestamp_str} [info]: line 1\n",
+        "  #{@timestamp_str} [info]: line 2\n",
+        "  #{@timestamp_str} [info]: line 3\n",
+        "  #{@timestamp_str} [warn]: line 1\n",
+        "  #{@timestamp_str} [warn]: line 2\n",
+        "  #{@timestamp_str} [warn]: line 3\n",
+        "  #{@timestamp_str} [error]: line 1\n",
+        "  #{@timestamp_str} [error]: line 2\n",
+        "  #{@timestamp_str} [error]: line 3\n",
+        "  #{@timestamp_str} [fatal]: line 1\n",
+        "  #{@timestamp_str} [fatal]: line 2\n",
+        "  #{@timestamp_str} [fatal]: line 3\n"
       ][start..-1]
       assert_equal(expected, log.out.logs)
     end
