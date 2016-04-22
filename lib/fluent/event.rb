@@ -21,6 +21,10 @@ module Fluent
     include Enumerable
     include MessagePackFactory::Mixin
 
+    def records
+      raise NotImplementedError, "DO NOT USE THIS CLASS directly."
+    end
+
     def repeatable?
       false
     end
@@ -29,7 +33,8 @@ module Fluent
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
 
-    def to_msgpack_stream
+    def to_msgpack_stream(time_int: false)
+      return to_msgpack_stream_forced_integer if time_int
       out = msgpack_packer
       each {|time,record|
         out.write([time,record])
@@ -57,6 +62,10 @@ module Fluent
       OneEventStream.new(@time, @record.dup)
     end
 
+    def records
+      1
+    end
+
     def repeatable?
       true
     end
@@ -81,6 +90,10 @@ module Fluent
       ArrayEventStream.new(entries)
     end
 
+    def records
+      @entries.size
+    end
+
     def repeatable?
       true
     end
@@ -102,7 +115,7 @@ module Fluent
   #
   # Use this class as below, in loop of data-enumeration:
   #  1. initialize blank stream:
-  #     streams[tag] ||= MultiEventStream
+  #     streams[tag] ||= MultiEventStream.new
   #  2. add events
   #     stream[tag].add(time, record)
   class MultiEventStream < EventStream
@@ -117,6 +130,10 @@ module Fluent
         es.add(time, record.dup)
       }
       es
+    end
+
+    def records
+      @time_array.size
     end
 
     def add(time, record)
@@ -144,8 +161,13 @@ module Fluent
 
   class MessagePackEventStream < EventStream
     # Keep cached_unpacker argument for existence plugins
-    def initialize(data, cached_unpacker = nil)
+    def initialize(data, records = 0, cached_unpacker = nil)
       @data = data
+      @records = records
+    end
+
+    def records
+      @records
     end
 
     def repeatable?
