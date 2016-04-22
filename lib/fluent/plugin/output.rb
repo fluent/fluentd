@@ -37,6 +37,8 @@ module Fluent
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
 
+      config_param :time_as_integer, :bool, default: false
+
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
       config_section :buffer, param_name: :buffer_config, init: true, required: false, multi: false, final: true do
         config_argument :chunk_keys, :array, value_type: :string, default: []
@@ -98,10 +100,6 @@ module Fluent
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
 
-      def format(tag, time, record)
-        raise NotImplementedError, "BUG: output plugins MUST implement this method"
-      end
-
       def write(chunk)
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
@@ -110,7 +108,10 @@ module Fluent
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
 
-      # TODO: add a way to do rollback_chunk + mark_as_failure, and rollback_chunk_automatically + mark_as_failure (by conf)
+      def format(tag, time, record)
+        # standard msgpack_event_stream chunk will be used if this method is not implemented in plugin subclass
+        raise NotImplementedError, "BUG: output plugins MUST implement this method"
+      end
 
       def prefer_buffered_processing
         # override this method to return false only when all of these are true:
@@ -215,6 +216,9 @@ module Fluent
             @output_time_formatter_cache = {}
           end
 
+          # no chunk keys or only tags (chunking can be done without iterating event stream)
+          @simple_chunking = !@chunk_key_time && @chunk_keys.empty?
+
           @flush_mode = @buffer_config.flush_mode
           if @flush_mode == :default
             @flush_mode = (@chunk_key_time ? :none : :fast)
@@ -284,6 +288,7 @@ module Fluent
             define_method(:emit, m)
           end
 
+          @custom_format = implement?(:custom_format)
           @delayed_commit = if implement?(:buffered) && implement?(:delayed_commit)
                               prefer_delayed_commit
                             else
@@ -398,6 +403,9 @@ module Fluent
         when :synchronous    then false
         when :buffered       then false
         when :delayed_commit then false
+        when :custom_format  then false
+        else
+          raise ArgumentError, "unknown feature: #{feature}"
         end
       end
 
@@ -405,8 +413,9 @@ module Fluent
         methods_of_plugin = self.class.instance_methods(false)
         case feature
         when :synchronous    then methods_of_plugin.include?(:process) || support_in_v12_style?(:synchronous)
-        when :buffered       then methods_of_plugin.include?(:format) && methods_of_plugin.include?(:write) || support_in_v12_style?(:buffered)
-        when :delayed_commit then methods_of_plugin.include?(:format) && methods_of_plugin.include?(:try_write)
+        when :buffered       then methods_of_plugin.include?(:write) || support_in_v12_style?(:buffered)
+        when :delayed_commit then methods_of_plugin.include?(:try_write)
+        when :custom_format  then methods_of_plugin.include?(:format) || support_in_v12_style?(:custom_format)
         else
           raise ArgumentError, "Unknown feature for output plugin: #{feature}"
         end
@@ -460,8 +469,7 @@ module Fluent
         @counters_monitor.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          # TODO: how to count records of es? add API to event streams?
-          # @counters_monitor.synchronize{ @emit_records += records }
+          @counters_monitor.synchronize{ @emit_records += es.records }
         rescue
           @counters_monitor.synchronize{ @num_errors += 1 }
           raise
@@ -471,7 +479,7 @@ module Fluent
       def emit_buffered(tag, es)
         @counters_monitor.synchronize{ @emit_count += 1 }
         begin
-          metalist = handle_stream(tag, es)
+          metalist = execute_chunking(tag, es)
           if @flush_mode == :immediate
             metalist.each do |meta|
               @buffer.enqueue_chunk(meta)
@@ -518,7 +526,17 @@ module Fluent
         end
       end
 
-      def handle_stream(tag, es)
+      def execute_chunking(tag, es)
+        if @simple_chunking
+          handle_stream_simple(tag, es)
+        elsif @custom_format
+          handle_stream_with_custom_format(tag, es)
+        else
+          handle_stream_with_standard_format(tag, es)
+        end
+      end
+
+      def handle_stream_with_custom_format(tag, es)
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -532,6 +550,35 @@ module Fluent
         end
         @counters_monitor.synchronize{ @emit_records += records }
         meta_and_data.keys
+      end
+
+      def handle_stream_with_standard_format(tag, es)
+        meta_and_data = {}
+        records = 0
+        es.each do |time, record|
+          meta = metadata(tag, time, record)
+          meta_and_data[meta] ||= MultiEventStream.new
+          meta_and_data[meta].add(time, record)
+          records += 1
+        end
+        meta_and_data.each_pair do |meta, es|
+          @buffer.emit_bulk(meta, es.to_msgpack_stream(time_int: @time_as_integer), es.records)
+        end
+        @counters_monitor.synchronize{ @emit_records += records }
+        meta_and_data.keys
+      end
+
+      def handle_stream_simple(tag, es)
+        meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
+        es_records = es.records
+        es_bulk = if @custom_format
+                    es.map{|time,record| format(tag, time, record) }.join
+                  else
+                    es.to_msgpack_stream(time_int: @time_as_integer)
+                  end
+        @buffer.emit_bulk(meta, es_bulk, es_records)
+        @counters_monitor.synchronize{ @emit_records += es_records }
+        [meta]
       end
 
       def commit_write(chunk_id, delayed: @delayed_commit, secondary: false)
