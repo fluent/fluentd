@@ -136,4 +136,16 @@ class LogTest < Test::Unit::TestCase
       assert_equal(expected, log.out.logs)
     end
   end
+
+  def test_dup
+    log1 = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE)
+    log2 = log1.dup
+    log1.level = Fluent::Log::LEVEL_DEBUG
+    original_tag = log1.tag
+    log1.tag = "changed"
+    assert_equal(Fluent::Log::LEVEL_DEBUG, log1.level)
+    assert_equal(Fluent::Log::LEVEL_TRACE, log2.level)
+    assert_equal("changed", log1.tag)
+    assert_equal(original_tag, log2.tag)
+  end
 end
