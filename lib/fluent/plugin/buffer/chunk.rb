@@ -64,6 +64,11 @@ module Fluent
           raise NotImplementedError, "Implement this method in child class"
         end
 
+        # for event streams which is packed or zipped (and we want not to unpack/uncompress)
+        def concat(bulk, records)
+          raise NotImplementedError, "Implement this method in child class"
+        end
+
         def commit
           raise NotImplementedError, "Implement this method in child class"
         end

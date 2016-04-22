@@ -74,6 +74,16 @@ module Fluent
           true
         end
 
+        def concat(bulk, records)
+          raise "BUG: appending to non-staged chunk, now '#{@state}'" unless @state == :staged
+
+          bulk.force_encoding(Encoding::ASCII_8BIT)
+          @chunk.write bulk
+          @adding_bytes += bulk.bytesize
+          @adding_records += records
+          true
+        end
+
         def commit
           write_metadata # this should be at first: of course, this operation may fail
 
