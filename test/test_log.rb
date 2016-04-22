@@ -10,6 +10,11 @@ class LogTest < Test::Unit::TestCase
     stub(Time).now { @timestamp }
   end
 
+  def teardown
+    @log_device.reset
+    Thread.current[:last_repeated_stacktrace] = nil
+  end
+
   sub_test_case "log level" do
     data(
       trace: [Fluent::Log::LEVEL_TRACE, 0],
@@ -133,6 +138,55 @@ class LogTest < Test::Unit::TestCase
         "  #{@timestamp_str} [fatal]: line 2\n",
         "  #{@timestamp_str} [fatal]: line 3\n"
       ][start..-1]
+      assert_equal(expected, log.out.logs)
+    end
+  end
+
+  sub_test_case "suppress repeated backtrace" do
+    def test_same_log_level
+      backtrace = ["line 1", "line 2", "line 3"]
+      log = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE, suppress_repeated_stacktrace: true)
+      log.trace_backtrace(backtrace)
+      log.trace_backtrace(backtrace)
+      log.trace_backtrace(backtrace + ["line 4"])
+      log.trace_backtrace(backtrace)
+      log.trace_backtrace(backtrace)
+      expected = [
+        "  #{@timestamp_str} [trace]: line 1\n",
+        "  #{@timestamp_str} [trace]: line 2\n",
+        "  #{@timestamp_str} [trace]: line 3\n",
+        "  #{@timestamp_str} [trace]: suppressed same stacktrace\n",
+        "  #{@timestamp_str} [trace]: line 1\n",
+        "  #{@timestamp_str} [trace]: line 2\n",
+        "  #{@timestamp_str} [trace]: line 3\n",
+        "  #{@timestamp_str} [trace]: line 4\n",
+        "  #{@timestamp_str} [trace]: line 1\n",
+        "  #{@timestamp_str} [trace]: line 2\n",
+        "  #{@timestamp_str} [trace]: line 3\n",
+        "  #{@timestamp_str} [trace]: suppressed same stacktrace\n",
+      ]
+      assert_equal(expected, log.out.logs)
+    end
+
+    def test_different_log_level
+      backtrace = ["line 1", "line 2", "line 3"]
+      log = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE, suppress_repeated_stacktrace: true)
+      log.trace_backtrace(backtrace)
+      log.debug_backtrace(backtrace)
+      log.info_backtrace(backtrace)
+      log.warn_backtrace(backtrace)
+      log.error_backtrace(backtrace)
+      log.fatal_backtrace(backtrace)
+      expected = [
+        "  #{@timestamp_str} [trace]: line 1\n",
+        "  #{@timestamp_str} [trace]: line 2\n",
+        "  #{@timestamp_str} [trace]: line 3\n",
+        "  #{@timestamp_str} [debug]: suppressed same stacktrace\n",
+        "  #{@timestamp_str} [info]: suppressed same stacktrace\n",
+        "  #{@timestamp_str} [warn]: suppressed same stacktrace\n",
+        "  #{@timestamp_str} [error]: suppressed same stacktrace\n",
+        "  #{@timestamp_str} [fatal]: suppressed same stacktrace\n",
+      ]
       assert_equal(expected, log.out.logs)
     end
   end
