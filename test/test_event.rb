@@ -7,7 +7,7 @@ module EventTest
     include Fluent
 
     def setup
-      @time = Engine.now
+      @time = event_time()
       @record = {'k' => 'v', 'n' => 1}
       @es = OneEventStream.new(@time, @record)
     end
@@ -33,6 +33,14 @@ module EventTest
       stream = @es.to_msgpack_stream
       Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
         assert_equal @time, time
+        assert_equal @record, record
+      }
+    end
+
+    test 'to_msgpack_stream with time_int argument' do
+      stream = @es.to_msgpack_stream(time_int: true)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @time.to_i, time
         assert_equal @record, record
       }
     end

@@ -16,6 +16,7 @@
 
 require 'fluent/plugin/buffer/chunk'
 require 'fluent/unique_id'
+require 'fluent/msgpack_factory'
 
 module Fluent
   module Plugin
@@ -33,6 +34,7 @@ module Fluent
         # path_suffix: path suffix string, like '.log' (or any other user specified)
 
         include SystemConfig::Mixin
+        include MessagePackFactory::Mixin
 
         FILE_PERMISSION = 0644
 

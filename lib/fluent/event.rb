@@ -51,7 +51,6 @@ module Fluent
     end
   end
 
-
   class OneEventStream < EventStream
     def initialize(time, record)
       @time = time
@@ -175,7 +174,6 @@ module Fluent
     end
 
     def each(&block)
-      # TODO format check
       msgpack_unpacker.feed_each(@data, &block)
       nil
     end
@@ -184,5 +182,17 @@ module Fluent
       @data
     end
   end
-end
 
+  module ChunkMessagePackEventStreamer
+    include MessagePackFactory::Mixin
+    # chunk.extend(ChunkEventStreamer)
+    #  => chunk.each{|time, record| ... }
+    def each(&block)
+      open do |io|
+        msgpack_unpacker(io).each(&block)
+      end
+      nil
+    end
+    alias :msgpack_each :each
+  end
+end

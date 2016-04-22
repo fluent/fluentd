@@ -31,7 +31,7 @@ module FluentPluginStandardBufferedOutputTest
   end
 end
 
-class OutputTest < Test::Unit::TestCase
+class StandardBufferedOutputTest < Test::Unit::TestCase
   def create_output(type=:full)
     case type
     when :bare     then FluentPluginStandardBufferedOutputTest::DummyBareOutput.new

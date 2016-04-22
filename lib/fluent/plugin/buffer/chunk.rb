@@ -14,9 +14,9 @@
 #    limitations under the License.
 #
 
-require 'fluent/msgpack_factory'
 require 'fluent/plugin/buffer'
 require 'fluent/unique_id'
+require 'fluent/event'
 
 require 'fileutils'
 require 'monitor'
@@ -26,8 +26,8 @@ module Fluent
     class Buffer # fluent/plugin/buffer is alread loaded
       class Chunk
         include MonitorMixin
-        include MessagePackFactory::Mixin
         include UniqueId::Mixin
+        include ChunkMessagePackEventStreamer
 
         # Chunks has 2 part:
         # * metadata: contains metadata which should be restored after resume (if possible)
@@ -111,16 +111,6 @@ module Fluent
         def write_to(io)
           open do |i|
             FileUtils.copy_stream(i, io)
-          end
-        end
-
-        def msgpack_each(&block)
-          open do |io|
-            u = msgpack_factory.unpacker(io)
-            begin
-              u.each(&block)
-            rescue EOFError
-            end
           end
         end
       end
