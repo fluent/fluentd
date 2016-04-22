@@ -148,4 +148,13 @@ class LogTest < Test::Unit::TestCase
     assert_equal("changed", log1.tag)
     assert_equal(original_tag, log2.tag)
   end
+
+  def test_disable_events
+    log = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE)
+    engine = log.instance_variable_get("@engine")
+    mock(engine).push_log_event(anything, anything, anything).once
+    log.trace "trace log"
+    log.disable_events(Thread.current)
+    log.trace "trace log"
+  end
 end
