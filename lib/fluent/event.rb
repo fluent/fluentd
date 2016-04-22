@@ -194,5 +194,9 @@ module Fluent
       nil
     end
     alias :msgpack_each :each
+
+    def to_msgpack_stream
+      read
+    end
   end
 end
