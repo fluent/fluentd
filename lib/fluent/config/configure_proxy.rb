@@ -37,16 +37,16 @@ module Fluent
       #   end
       # end
 
-      def initialize(name, opts = {})
+      def initialize(name, param_name: nil, final: nil, init: nil, required: nil, multi: nil, alias: nil, type_lookup: nil)
         @name = name.to_sym
-        @final = opts[:final]
+        @final = final
 
-        @param_name = (opts[:param_name] || @name).to_sym
-        @init = opts[:init]
-        @required = opts[:required]
-        @multi = opts[:multi]
-        @alias = opts[:alias]
-        @type_lookup = opts[:type_lookup]
+        @param_name = (param_name || @name).to_sym
+        @init = init
+        @required = required
+        @multi = multi
+        @alias = binding.local_variable_get(:alias)
+        @type_lookup = type_lookup
 
         raise "init and required are exclusive" if @init && @required
 
@@ -294,19 +294,13 @@ module Fluent
         @current_description = description
       end
 
-      def config_section(name, opts = {}, &block)
+      def config_section(name, **kwargs, &block)
         unless block_given?
           raise ArgumentError, "#{self.name}: config_section requires block parameter"
         end
         name = name.to_sym
 
-        unless opts.is_a?(Hash)
-          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{opts.inspect}"
-        end
-
-        opts[:type_lookup] = @type_lookup
-
-        sub_proxy = ConfigureProxy.new(name, opts)
+        sub_proxy = ConfigureProxy.new(name, type_lookup: @type_lookup, **kwargs)
         sub_proxy.instance_exec(&block)
 
         if sub_proxy.init?
