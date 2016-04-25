@@ -355,22 +355,11 @@ module Fluent
       @logger.enable_color b
     end
 
-    def optional_header=(header)
-      @logger.optional_header = header
-    end
-
-    def optional_attrs=(attrs)
-      @logger.optional_attrs = attrs
-    end
-
-    def optional_attrs
-      @logger.optional_attrs
-    end
-
     extend Forwardable
     def_delegators '@logger', :enable_color?, :enable_debug, :enable_event,
       :disable_events, :tag, :tag=, :time_format, :time_format=,
-      :event, :caller_line, :puts, :write, :flush, :out, :out=
+      :event, :caller_line, :puts, :write, :flush, :out, :out=,
+      :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
   end
 
 
