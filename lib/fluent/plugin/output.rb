@@ -670,6 +670,10 @@ module Fluent
           using_secondary = true
         end
 
+        unless @custom_format
+          chunk.extend ChunkMessagePackEventStreamer
+        end
+
         begin
           if output.delayed_commit
             @counters_monitor.synchronize{ @write_count += 1 }
