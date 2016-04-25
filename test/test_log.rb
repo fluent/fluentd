@@ -326,3 +326,49 @@ class PluginLoggerTest < Test::Unit::TestCase
     end
   end
 end
+
+class PluginLoggerMixinTest < Test::Unit::TestCase
+  class DummyPlugin < Fluent::Plugin::TestBase
+    include Fluent::PluginHelper::EventEmitter
+  end
+
+  def create_driver(conf)
+    Fluent::Test::TestDriver.new(DummyPlugin).configure(conf)
+  end
+
+  def setup
+    Fluent::Test.setup
+  end
+
+  def test_default_log
+    plugin = DummyPlugin.new
+    log = plugin.log
+    assert_equal($log, log)
+  end
+
+  def test_log_level
+    d = create_driver(%[log_level fatal])
+    log = d.instance.log
+    assert_not_equal($log.level, log.level)
+    assert_equal(Fluent::Log::LEVEL_FATAL, log.level)
+  end
+
+  def test_optional_header
+    d = create_driver(%[log_level fatal])
+    log = d.instance.log
+    assert_equal("[PluginLoggerMixinTest::DummyPlugin] ", log.optional_header)
+    assert_equal({}, log.optional_attrs)
+  end
+
+  def test_start
+    plugin = DummyPlugin.new
+    mock(plugin.log).reset
+    plugin.start
+  end
+
+  def test_terminate
+    plugin = DummyPlugin.new
+    mock(plugin.log).reset
+    plugin.terminate
+  end
+end
