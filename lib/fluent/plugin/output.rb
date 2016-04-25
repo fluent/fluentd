@@ -45,9 +45,10 @@ module Fluent
         config_param :@type, :string, default: 'memory2'
 
         config_param :timekey_range, :time, default: nil # range size to be used: `time.to_i / @timekey_range`
-        config_param :timekey_use_utc, :bool, default: false # default is localtime
-        config_param :timekey_zone, :string, default: Time.now.strftime('%z') # '+0900'
         config_param :timekey_wait, :time, default: 600
+        # These are for #extract_placeholders
+        config_param :timekey_use_utc, :bool, default: false # default is localtime
+        config_param :timekey_zone, :string, default: Time.now.strftime('%z') # e.g., "-0700" or "Asia/Tokyo"
 
         desc 'If true, plugin will try to flush buffer just before shutdown.'
         config_param :flush_at_shutdown, :bool, default: nil # change default by buffer_plugin.persistent?
@@ -499,6 +500,10 @@ module Fluent
       def metadata(tag, time, record)
         # this arguments are ordered in output plugin's rule
         # Metadata 's argument order is different from this one (timekey, tag, variables)
+
+        # timekey is int from epoch, and `timekey - timekey % 60` is assumed to mach with 0s of each minutes.
+        # it's wrong if timezone is configured as one which supports leap second, but it's very rare and
+        # we can ignore it (especially in production systems).
         timekey_range = @buffer_config.timekey_range
         if @chunk_keys.empty?
           if !@chunk_key_time && !@chunk_key_tag
