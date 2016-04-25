@@ -212,3 +212,117 @@ class LogTest < Test::Unit::TestCase
     log.trace "trace log"
   end
 end
+
+class PluginLoggerTest < Test::Unit::TestCase
+  def setup
+    @log_device = Fluent::Test::DummyLogDevice.new
+    @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
+    @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
+    stub(Time).now { @timestamp }
+    @logger = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE)
+  end
+
+  def teardown
+    @log_device.reset
+    Thread.current[:last_repeated_stacktrace] = nil
+  end
+
+  def test_initialize
+    log = Fluent::PluginLogger.new(@logger)
+    logger = log.instance_variable_get("@logger")
+    assert_equal(logger, @logger)
+  end
+
+  def test_level
+    log = Fluent::PluginLogger.new(@logger)
+    assert_equal(log.level, @logger.level)
+    log.level = "fatal"
+    assert_equal(Fluent::Log::LEVEL_FATAL, log.level)
+    assert_equal(Fluent::Log::LEVEL_TRACE, @logger.level)
+  end
+
+  def test_enable_color
+    log = Fluent::PluginLogger.new(@logger)
+    log.enable_color(true)
+    assert_equal(true, log.enable_color?)
+    assert_equal(true, @logger.enable_color?)
+    log.enable_color(false)
+    assert_equal(false, log.enable_color?)
+    assert_equal(false, @logger.enable_color?)
+    log.enable_color
+    assert_equal(true, log.enable_color?)
+    assert_equal(true, @logger.enable_color?)
+  end
+
+  sub_test_case "delegators" do
+    def setup
+      super
+      @log = Fluent::PluginLogger.new(@logger)
+    end
+
+    def test_enable_debug
+      mock(@logger).enable_debug
+      @log.enable_debug
+    end
+
+    def test_enable_event
+      mock(@logger).enable_event
+      @log.enable_event
+    end
+
+    def test_disable_events
+      mock(@logger).disable_events(Thread.current)
+      @log.disable_events(Thread.current)
+    end
+
+    def test_tag
+      assert_equal(@log.tag, @logger.tag)
+      @log.tag = "dummy"
+      assert_equal(@log.tag, @logger.tag)
+    end
+
+    def test_time_format
+      assert_equal(@log.time_format, @logger.time_format)
+      @log.time_format = "time_format"
+      assert_equal(@log.time_format, @logger.time_format)
+    end
+
+    def test_event
+      mock(@logger).event(Fluent::Log::LEVEL_TRACE, { key: "value" })
+      @log.event(Fluent::Log::LEVEL_TRACE, { key: "value" })
+    end
+
+    def test_caller_line
+      mock(@logger).caller_line(Time.now, 1, Fluent::Log::LEVEL_TRACE)
+      @log.caller_line(Time.now, 1, Fluent::Log::LEVEL_TRACE)
+    end
+
+    def test_puts
+      mock(@logger).puts("log")
+      @log.puts("log")
+    end
+
+    def test_write
+      mock(@logger).write("log")
+      @log.write("log")
+    end
+
+    def test_out
+      assert_equal(@log.out, @logger.out)
+      @log.out = Object.new
+      assert_equal(@log.out, @logger.out)
+    end
+
+    def test_optional_header
+      assert_equal(@log.optional_header, @logger.optional_header)
+      @log.optional_header = "optional_header"
+      assert_equal(@log.optional_header, @logger.optional_header)
+    end
+
+    def test_optional_attrs
+      assert_equal(@log.optional_attrs, @logger.optional_attrs)
+      @log.optional_attrs = "optional_attrs"
+      assert_equal(@log.optional_attrs, @logger.optional_attrs)
+    end
+  end
+end
