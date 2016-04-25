@@ -1,7 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/filter_stdout'
 require 'timecop'
-require 'flexmock'
+require 'flexmock/test_unit'
 
 class StdoutFilterTest < Test::Unit::TestCase
   include Fluent
@@ -13,6 +13,8 @@ class StdoutFilterTest < Test::Unit::TestCase
   end
 
   def teardown
+    super # FlexMock::TestCase requires this
+    # http://flexmock.rubyforge.org/FlexMock/TestCase.html
     Timecop.return
   end
 
@@ -101,12 +103,12 @@ class StdoutFilterTest < Test::Unit::TestCase
 
   # Capture the log output of the block given
   def capture_log(d, &block)
-    tmp = d.instance.log
-    d.instance.log = StringIO.new
+    tmp = d.instance.log.out
+    d.instance.log.out = StringIO.new
     yield
-    return d.instance.log.string
+    return d.instance.log.out.string
   ensure
-    d.instance.log = tmp
+    d.instance.log.out = tmp
   end
 end
 
