@@ -19,8 +19,9 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:append)
       assert chunk.respond_to?(:commit)
       assert chunk.respond_to?(:rollback)
+      assert chunk.respond_to?(:bytesize)
       assert chunk.respond_to?(:size)
-      assert chunk.respond_to?(:records)
+      assert chunk.respond_to?(:length)
       assert chunk.respond_to?(:empty?)
       assert chunk.respond_to?(:close)
       assert chunk.respond_to?(:purge)
@@ -31,8 +32,9 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(NotImplementedError){ chunk.append(nil) }
       assert_raise(NotImplementedError){ chunk.commit }
       assert_raise(NotImplementedError){ chunk.rollback }
+      assert_raise(NotImplementedError){ chunk.bytesize }
       assert_raise(NotImplementedError){ chunk.size }
-      assert_raise(NotImplementedError){ chunk.records }
+      assert_raise(NotImplementedError){ chunk.length }
       assert_raise(NotImplementedError){ chunk.empty? }
       assert_raise(NotImplementedError){ chunk.close }
       assert_raise(NotImplementedError){ chunk.purge }

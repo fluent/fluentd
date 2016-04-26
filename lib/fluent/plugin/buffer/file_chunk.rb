@@ -47,7 +47,7 @@ module Fluent
 
           @permission = perm
 
-          @bytesize = @records = @adding_bytes = @adding_records = 0
+          @bytesize = @size = @adding_bytes = @adding_size = 0
 
           case mode
           when :create then create_new_chunk(path, perm)
@@ -71,18 +71,18 @@ module Fluent
           @chunk.write adding
 
           @adding_bytes += bytes
-          @adding_records += data.size
+          @adding_size += data.size
 
           true
         end
 
-        def concat(bulk, records)
+        def concat(bulk, bulk_size)
           raise "BUG: appending to non-staged chunk, now '#{@state}'" unless @state == :staged
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk.write bulk
           @adding_bytes += bulk.bytesize
-          @adding_records += records
+          @adding_size += bulk_size
           true
         end
 
@@ -90,9 +90,9 @@ module Fluent
           write_metadata # this should be at first: of course, this operation may fail
 
           @commit_position = @chunk.pos
-          @records += @adding_records
+          @size += @adding_size
           @bytesize += @adding_bytes
-          @adding_bytes = @adding_records = 0
+          @adding_bytes = @adding_size = 0
           @modified_at = Time.now
 
           true
@@ -103,16 +103,16 @@ module Fluent
             @chunk.seek(@commit_position, IO::SEEK_SET)
             @chunk.truncate(@commit_position)
           end
-          @adding_bytes = @adding_records = 0
+          @adding_bytes = @adding_size = 0
           true
         end
 
-        def size
+        def bytesize
           @bytesize + @adding_bytes
         end
 
-        def records
-          @records + @adding_records
+        def size
+          @size + @adding_size
         end
 
         def empty?
@@ -133,7 +133,7 @@ module Fluent
           @state = :closed
           @chunk.close
           @meta.close if @meta
-          @bytesize = @records = @adding_bytes = @adding_records = 0
+          @bytesize = @size = @adding_bytes = @adding_size = 0
           File.unlink(@path, @meta_path)
         end
 
@@ -192,7 +192,7 @@ module Fluent
           now = Time.now
 
           @unique_id = data[:id] || self.class.unique_id_from_path(@path) || @unique_id
-          @records = data[:r] || 0
+          @size = data[:s] || 0
           @created_at = Time.at(data.fetch(:c, now.to_i))
           @modified_at = Time.at(data.fetch(:m, now.to_i))
 
@@ -203,7 +203,7 @@ module Fluent
 
         def restore_metadata_partially(chunk)
           @unique_id = self.class.unique_id_from_path(chunk.path) || @unique_id
-          @records = 0
+          @size = 0
           @created_at = chunk.ctime # birthtime isn't supported on Windows (and Travis?)
           @modified_at = chunk.mtime
 
@@ -215,7 +215,7 @@ module Fluent
         def write_metadata(update: true)
           data = @metadata.to_h.merge({
               id: @unique_id,
-              r: (update ? @records + @adding_records : @records),
+              s: (update ? @size + @adding_size : @size),
               c: @created_at.to_i,
               m: (update ? Time.now : @modified_at).to_i,
           })
@@ -274,7 +274,7 @@ module Fluent
           @bytesize = 0
           @commit_position = @chunk.pos # must be 0
           @adding_bytes = 0
-          @adding_records = 0
+          @adding_size = 0
         end
 
         def load_existing_staged_chunk(path)
@@ -302,7 +302,7 @@ module Fluent
             @bytesize = @chunk.size
             @commit_position = @chunk.pos
             @adding_bytes = 0
-            @adding_records = 0
+            @adding_size = 0
           else
             # classic buffer chunk - read only chunk
             @chunk = File.open(@path, 'rb')
