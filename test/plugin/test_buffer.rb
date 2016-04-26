@@ -26,7 +26,7 @@ module FluentPluginBufferTest
       @append_count += 1
       super
     end
-    def concat(data, records)
+    def concat(data, size)
       @append_count += 1
       super
     end
@@ -262,14 +262,14 @@ class BufferTest < Test::Unit::TestCase
       assert_equal @dm3, m2
     end
 
-    test '#queued_records returns total number of records in all chunks in queue' do
+    test '#queued_records returns total number of size in all chunks in queue' do
       assert_equal 3, @p.queue.size
 
-      r0 = @p.queue[0].records
+      r0 = @p.queue[0].size
       assert_equal 1, r0
-      r1 = @p.queue[1].records
+      r1 = @p.queue[1].size
       assert_equal 1, r1
-      r2 = @p.queue[2].records
+      r2 = @p.queue[2].size
       assert_equal 1, r2
 
       assert_equal (r0+r1+r2), @p.queued_records
@@ -577,7 +577,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1,m], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
-      assert_equal 1024*1024, @p.stage[m].size
+      assert_equal 1024*1024, @p.stage[m].bytesize
       assert_equal 3, @p.queue.last.append_count # 1 -> emit (2) -> emit_step_by_step (3)
       assert @p.queue.last.rollbacked
     end
@@ -695,7 +695,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1,m], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
-      assert_equal 1024*1024, @p.stage[m].size
+      assert_equal 1024*1024, @p.stage[m].bytesize
       assert_equal 2, @p.queue.last.append_count # 1 -> emit (2) -> rollback&enqueue
       assert @p.queue.last.rollbacked
     end
@@ -866,7 +866,7 @@ class BufferTest < Test::Unit::TestCase
       m = create_metadata(Time.parse('2016-04-11 16:40:00 +0000').to_i)
 
       c1 = create_chunk(m, ["a" * 128] * 6)
-      assert_equal 6, c1.records
+      assert_equal 6, c1.size
       assert !@p.chunk_size_over?(c1)
 
       c2 = create_chunk(m, ["a" * 128] * 7)
@@ -882,7 +882,7 @@ class BufferTest < Test::Unit::TestCase
       m = create_metadata(Time.parse('2016-04-11 16:40:00 +0000').to_i)
 
       c1 = create_chunk(m, ["a" * 128] * 5)
-      assert_equal 5, c1.records
+      assert_equal 5, c1.size
       assert !@p.chunk_size_full?(c1)
 
       c2 = create_chunk(m, ["a" * 128] * 6)

@@ -18,11 +18,11 @@ class FileBufferTest < Test::Unit::TestCase
     Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
   end
 
-  def write_metadata(path, chunk_id, metadata, records, ctime, mtime)
+  def write_metadata(path, chunk_id, metadata, size, ctime, mtime)
     metadata = {
       timekey: metadata.timekey, tag: metadata.tag, variables: metadata.variables,
       id: chunk_id,
-      r: records,
+      s: size,
       c: ctime,
       m: mtime,
     }
@@ -361,12 +361,12 @@ class FileBufferTest < Test::Unit::TestCase
 
       m3 = metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i)
       assert_equal @c3id, stage[m3].unique_id
-      assert_equal 4, stage[m3].records
+      assert_equal 4, stage[m3].size
       assert_equal :staged, stage[m3].state
 
       m4 = metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i)
       assert_equal @c4id, stage[m4].unique_id
-      assert_equal 3, stage[m4].records
+      assert_equal 3, stage[m4].size
       assert_equal :staged, stage[m4].state
     end
 
@@ -385,7 +385,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_nil queue[0].metadata.variables
       assert_equal Time.parse('2016-04-17 13:58:00 -0700').localtime, queue[0].created_at
       assert_equal Time.parse('2016-04-17 13:58:22 -0700').localtime, queue[0].modified_at
-      assert_equal 4, queue[0].records
+      assert_equal 4, queue[0].size
 
       assert_equal @c2id, queue[1].unique_id
       assert_equal :queued, queue[1].state
@@ -394,7 +394,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_nil queue[1].metadata.variables
       assert_equal Time.parse('2016-04-17 13:59:00 -0700').localtime, queue[1].created_at
       assert_equal Time.parse('2016-04-17 13:59:23 -0700').localtime, queue[1].modified_at
-      assert_equal 3, queue[1].records
+      assert_equal 3, queue[1].size
     end
   end
 
@@ -477,25 +477,25 @@ class FileBufferTest < Test::Unit::TestCase
 
       assert_equal @c1id, queue[0].unique_id
       assert_equal m, queue[0].metadata
-      assert_equal 0, queue[0].records
+      assert_equal 0, queue[0].size
       assert_equal :queued, queue[0].state
       assert_equal Time.parse('2016-04-17 13:58:28 -0700'), queue[0].modified_at
 
       assert_equal @c2id, queue[1].unique_id
       assert_equal m, queue[1].metadata
-      assert_equal 0, queue[1].records
+      assert_equal 0, queue[1].size
       assert_equal :queued, queue[1].state
       assert_equal Time.parse('2016-04-17 13:59:30 -0700'), queue[1].modified_at
 
       assert_equal @c3id, queue[2].unique_id
       assert_equal m, queue[2].metadata
-      assert_equal 0, queue[2].records
+      assert_equal 0, queue[2].size
       assert_equal :queued, queue[2].state
       assert_equal Time.parse('2016-04-17 14:00:29 -0700'), queue[2].modified_at
 
       assert_equal @c4id, queue[3].unique_id
       assert_equal m, queue[3].metadata
-      assert_equal 0, queue[3].records
+      assert_equal 0, queue[3].size
       assert_equal :queued, queue[3].state
       assert_equal Time.parse('2016-04-17 14:01:22 -0700'), queue[3].modified_at
     end

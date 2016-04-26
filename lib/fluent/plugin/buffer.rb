@@ -91,13 +91,13 @@ module Fluent
         @stage, @queue = resume
         @stage.each_pair do |metadata, chunk|
           @metadata_list << metadata unless @metadata_list.include?(metadata)
-          @stage_size += chunk.size
+          @stage_size += chunk.bytesize
         end
         @queue.each do |chunk|
           @metadata_list << chunk.metadata unless @metadata_list.include?(chunk.metadata)
           @queued_num[chunk.metadata] ||= 0
           @queued_num[chunk.metadata] += 1
-          @queue_size += chunk.size
+          @queue_size += chunk.bytesize
         end
       end
 
@@ -176,14 +176,14 @@ module Fluent
 
         # the case whole data can be stored in staged chunk: almost all emits will success
         chunk = synchronize { @stage[metadata] ||= generate_chunk(metadata) }
-        original_size = chunk.size
+        original_bytesize = chunk.bytesize
         chunk.synchronize do
           begin
             chunk.append(data)
             if !chunk_size_over?(chunk) || force
               chunk.commit
               stored = true
-              @stage_size += (chunk.size - original_size)
+              @stage_size += (chunk.bytesize - original_bytesize)
             else
               chunk.rollback
             end
@@ -198,7 +198,7 @@ module Fluent
         emit_step_by_step(metadata, data)
       end
 
-      def emit_bulk(metadata, bulk, records)
+      def emit_bulk(metadata, bulk, size)
         return if bulk.nil? || bulk.empty?
         raise BufferOverflowError unless storable?
 
@@ -213,7 +213,7 @@ module Fluent
             chunk.synchronize do # critical section for chunk (chunk append/commit/rollback)
               begin
                 empty_chunk = chunk.empty?
-                chunk.concat(bulk, records)
+                chunk.concat(bulk, size)
 
                 if chunk_size_over?(chunk)
                   if empty_chunk
@@ -242,7 +242,7 @@ module Fluent
       end
 
       def queued_records
-        synchronize { @queue.reduce(0){|r, chunk| r + chunk.records } }
+        synchronize { @queue.reduce(0){|r, chunk| r + chunk.size } }
       end
 
       def queued?(metadata=nil)
@@ -270,9 +270,9 @@ module Fluent
               chunk.enqueued! if chunk.respond_to?(:enqueued!)
             end
           end
-          size = chunk.size
-          @stage_size -= size
-          @queue_size += size
+          bytesize = chunk.bytesize
+          @stage_size -= bytesize
+          @queue_size += bytesize
         end
         nil
       end
@@ -324,9 +324,9 @@ module Fluent
 
           metadata = chunk.metadata
           begin
-            size = chunk.size
+            bytesize = chunk.bytesize
             chunk.purge
-            @queue_size -= size
+            @queue_size -= bytesize
           rescue => e
             log.error "failed to purge buffer chunk", chunk_id: dump_unique_id_hex(chunk_id), error_class: e.class, error: e
           end
@@ -343,7 +343,7 @@ module Fluent
           until @queue.empty?
             begin
               q = @queue.shift
-              log.debug("purging a chunk in queue"){ {id: dump_unique_id_hex(chunk.unique_id), size: chunk.size, records: chunk.records} }
+              log.debug("purging a chunk in queue"){ {id: dump_unique_id_hex(chunk.unique_id), bytesize: chunk.bytesize, size: chunk.size} }
               q.purge
             rescue => e
               log.error "unexpected error while clearing buffer queue", error_class: e.class, error: e
@@ -354,11 +354,11 @@ module Fluent
       end
 
       def chunk_size_over?(chunk)
-        chunk.size > @chunk_bytes_limit || (@chunk_records_limit && chunk.records > @chunk_records_limit)
+        chunk.bytesize > @chunk_bytes_limit || (@chunk_records_limit && chunk.size > @chunk_records_limit)
       end
 
       def chunk_size_full?(chunk)
-        chunk.size >= @chunk_bytes_limit || (@chunk_records_limit && chunk.records >= @chunk_records_limit)
+        chunk.bytesize >= @chunk_bytes_limit || (@chunk_records_limit && chunk.size >= @chunk_records_limit)
       end
 
       def emit_step_by_step(metadata, data)
@@ -378,7 +378,7 @@ module Fluent
             chunk.synchronize do # critical section for chunk (chunk append/commit/rollback)
               begin
                 empty_chunk = chunk.empty?
-                original_size = chunk.size
+                original_bytesize = chunk.bytesize
 
                 attempt = data.slice(0, attempt_records)
                 chunk.append(attempt)
@@ -403,7 +403,7 @@ module Fluent
                 end
 
                 chunk.commit
-                @stage_size += (chunk.size - original_size)
+                @stage_size += (chunk.bytesize - original_bytesize)
                 data.slice!(0, attempt_records)
                 # same attempt size
                 nil # discard return value of data.slice!() immediately
