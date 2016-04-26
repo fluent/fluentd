@@ -146,7 +146,7 @@ module Fluent
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
-          paths += Dir.glob(path).select { |p|
+          paths += Dir.glob(File.expand_path(path)).select { |p|
             if File.readable?(p)
               true
             else
