@@ -21,7 +21,7 @@ class FileOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf = CONFIG)
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::FileOutput).configure(conf)
+    Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::FileOutput).configure(conf)
   end
 
   def with_timezone(timezone = 'UTC', &block)
@@ -144,11 +144,11 @@ class FileOutputTest < Test::Unit::TestCase
     d.emit({"a"=>2}, time)
 
     # FileOutput#write returns path
-    path = d.run
-    expect_path = "#{TMP_DIR}/out_file_test.20110102_0.log.gz"
-    assert_equal expect_path, path
+    paths = d.run
+    expect_paths = ["#{TMP_DIR}/out_file_test.20110102_0.log.gz"]
+    assert_equal expect_paths, paths
 
-    check_gzipped_result(path, %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
+    check_gzipped_result(paths[0], %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
   end
 
   class TestWithSystem < self
@@ -187,14 +187,14 @@ class FileOutputTest < Test::Unit::TestCase
       d.emit({"a"=>2}, time)
 
       # FileOutput#write returns path
-      path = d.run
-      expect_path = "#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz"
-      assert_equal expect_path, path
+      paths = d.run
+      expect_paths = ["#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz"]
+      assert_equal expect_paths, paths
 
-      check_gzipped_result(path, %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
+      check_gzipped_result(paths[0], %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
       dir_mode = "%o" % File::stat(TMP_DIR_WITH_SYSTEM).mode
       assert_equal(OVERRIDE_DIR_PERMISSION, dir_mode[-3, 3].to_i)
-      file_mode = "%o" % File::stat(path).mode
+      file_mode = "%o" % File::stat(paths[0]).mode
       assert_equal(OVERRIDE_FILE_PERMISSION, file_mode[-3, 3].to_i)
     end
   end
@@ -207,8 +207,8 @@ class FileOutputTest < Test::Unit::TestCase
     d.emit({"a"=>2}, time)
 
     # FileOutput#write returns path
-    path = d.run
-    check_gzipped_result(path, %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
+    paths = d.run
+    check_gzipped_result(paths[0], %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
   end
 
   def test_write_with_format_ltsv
@@ -219,8 +219,8 @@ class FileOutputTest < Test::Unit::TestCase
     d.emit({"a"=>2}, time)
 
     # FileOutput#write returns path
-    path = d.run
-    check_gzipped_result(path, %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
+    paths = d.run
+    check_gzipped_result(paths[0], %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
   end
 
   def test_write_with_format_single_value
@@ -231,53 +231,66 @@ class FileOutputTest < Test::Unit::TestCase
     d.emit({"a"=>2}, time)
 
     # FileOutput#write returns path
-    path = d.run
-    check_gzipped_result(path, %[1\n] + %[2\n])
+    paths = d.run
+    check_gzipped_result(paths[0], %[1\n] + %[2\n])
   end
 
   def test_write_path_increment
-    d = create_driver
-
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
+    write_once = ->(){
+      d = create_driver
+      d.emit({"a"=>1}, time)
+      d.emit({"a"=>2}, time)
+      d.run
+    }
+
+    assert !File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.gz")
+
     # FileOutput#write returns path
-    path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test.20110102_0.log.gz", path
-    check_gzipped_result(path, formatted_lines)
-    path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test.20110102_1.log.gz", path
-    check_gzipped_result(path, formatted_lines)
-    path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test.20110102_2.log.gz", path
-    check_gzipped_result(path, formatted_lines)
+    paths = write_once.call
+    assert_equal ["#{TMP_DIR}/out_file_test.20110102_0.log.gz"], paths
+    check_gzipped_result(paths[0], formatted_lines)
+    assert_equal 1, Dir.glob("#{TMP_DIR}/out_file_test.*").size
+
+    paths = write_once.call
+    assert_equal ["#{TMP_DIR}/out_file_test.20110102_1.log.gz"], paths
+    check_gzipped_result(paths[0], formatted_lines)
+    assert_equal 2, Dir.glob("#{TMP_DIR}/out_file_test.*").size
+
+    paths = write_once.call
+    assert_equal ["#{TMP_DIR}/out_file_test.20110102_2.log.gz"], paths
+    check_gzipped_result(paths[0], formatted_lines)
+    assert_equal 3, Dir.glob("#{TMP_DIR}/out_file_test.*").size
   end
 
   def test_write_with_append
-    d = create_driver %[
-      path #{TMP_DIR}/out_file_test
-      compress gz
-      utc
-      append true
-    ]
-
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
+    write_once = ->(){
+      d = create_driver %[
+        path #{TMP_DIR}/out_file_test
+        compress gz
+        utc
+        append true
+      ]
+      d.emit({"a"=>1}, time)
+      d.emit({"a"=>2}, time)
+      d.run
+    }
+
     # FileOutput#write returns path
-    path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-    check_gzipped_result(path, formatted_lines)
-    path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-    check_gzipped_result(path, formatted_lines * 2)
-    path = d.run
-    assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
-    check_gzipped_result(path, formatted_lines * 3)
+    paths = write_once.call
+    assert_equal ["#{TMP_DIR}/out_file_test.20110102.log.gz"], paths
+    check_gzipped_result(paths[0], formatted_lines)
+    paths = write_once.call
+    assert_equal ["#{TMP_DIR}/out_file_test.20110102.log.gz"], paths
+    check_gzipped_result(paths[0], formatted_lines * 2)
+    paths = write_once.call
+    assert_equal ["#{TMP_DIR}/out_file_test.20110102.log.gz"], paths
+    check_gzipped_result(paths[0], formatted_lines * 3)
   end
 
   def test_write_with_symlink
@@ -320,8 +333,8 @@ class FileOutputTest < Test::Unit::TestCase
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       d.emit({"a"=>1}, time)
       # FileOutput#write returns path
-      path = d.run
-      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13_0.log", path
+      paths = d.run
+      assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.log"], paths
     end
 
     test 'normal with append' do
@@ -333,8 +346,8 @@ class FileOutputTest < Test::Unit::TestCase
       ])
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       d.emit({"a"=>1}, time)
-      path = d.run
-      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13.log", path
+      paths = d.run
+      assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.log"], paths
     end
 
     test '*' do
@@ -345,8 +358,8 @@ class FileOutputTest < Test::Unit::TestCase
       ])
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       d.emit({"a"=>1}, time)
-      path = d.run
-      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13_0.txt", path
+      paths = d.run
+      assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.txt"], paths
     end
 
     test '* with append' do
@@ -358,8 +371,8 @@ class FileOutputTest < Test::Unit::TestCase
       ])
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       d.emit({"a"=>1}, time)
-      path = d.run
-      assert_equal "#{TMP_DIR}/out_file_test.2011-01-02-13.txt", path
+      paths = d.run
+      assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.txt"], paths
     end
   end
 end

@@ -85,13 +85,7 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          key = ''
-          if @instance.respond_to?(:time_slicer)
-            # this block is only for test_out_file
-            time, _record = @entries.first
-            key = @instance.time_slicer.call(time)
-          end
-          chunk = @instance.buffer.new_chunk(key)
+          chunk = @instance.buffer.new_chunk('')
           chunk << buffer
           begin
             result = @instance.write(chunk)
