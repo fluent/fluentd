@@ -157,7 +157,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
 
       staged_chunk = @i.buffer.stage[@i.buffer.stage.keys.first]
-      assert{ staged_chunk.records != 0 }
+      assert{ staged_chunk.size != 0 }
 
       @i.emit("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
 
@@ -165,7 +165,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       waiting(10) do
         Thread.pass until @i.buffer.queue.size == 0 && @i.buffer.dequeued.size == 0
-        Thread.pass until staged_chunk.records == 0
+        Thread.pass until staged_chunk.size == 0
       end
 
       assert_equal 1, ary.size
@@ -257,7 +257,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       3.times do |i|
         rand_records = rand(1..5)
         es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
-        assert_equal rand_records, es.records
+        assert_equal rand_records, es.size
 
         @i.interrupt_flushes
 
@@ -266,13 +266,13 @@ class BufferedOutputTest < Test::Unit::TestCase
         assert{ @i.buffer.stage.size == 1 }
 
         staged_chunk = @i.instance_eval{ @buffer.stage[@buffer.stage.keys.first] }
-        assert{ staged_chunk.records != 0 }
+        assert{ staged_chunk.size != 0 }
 
         @i.enqueue_thread_wait
 
         waiting(10) do
           Thread.pass until @i.buffer.queue.size == 0 && @i.buffer.dequeued.size == 0
-          Thread.pass until staged_chunk.records == 0
+          Thread.pass until staged_chunk.size == 0
         end
 
         assert_equal rand_records, ary.size
@@ -364,7 +364,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       3.times do |i|
         rand_records = rand(1..5)
         es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
-        assert_equal rand_records, es.records
+        assert_equal rand_records, es.size
         @i.emit("test.tag", es)
 
         assert{ @i.buffer.stage.size == 0 && (@i.buffer.queue.size == 1 || @i.buffer.dequeued.size == 1 || ary.size > 0) }

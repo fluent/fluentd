@@ -469,7 +469,7 @@ module Fluent
         @counters_monitor.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          @counters_monitor.synchronize{ @emit_records += es.records }
+          @counters_monitor.synchronize{ @emit_records += es.size }
         rescue
           @counters_monitor.synchronize{ @num_errors += 1 }
           raise
@@ -562,7 +562,7 @@ module Fluent
           records += 1
         end
         meta_and_data.each_pair do |meta, es|
-          @buffer.emit_bulk(meta, es.to_msgpack_stream(time_int: @time_as_integer), es.records)
+          @buffer.emit_bulk(meta, es.to_msgpack_stream(time_int: @time_as_integer), es.size)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         meta_and_data.keys
@@ -570,14 +570,14 @@ module Fluent
 
       def handle_stream_simple(tag, es)
         meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
-        es_records = es.records
+        es_size = es.size
         es_bulk = if @custom_format
                     es.map{|time,record| format(tag, time, record) }.join
                   else
                     es.to_msgpack_stream(time_int: @time_as_integer)
                   end
-        @buffer.emit_bulk(meta, es_bulk, es_records)
-        @counters_monitor.synchronize{ @emit_records += es_records }
+        @buffer.emit_bulk(meta, es_bulk, es_size)
+        @counters_monitor.synchronize{ @emit_records += es_size }
         [meta]
       end
 

@@ -86,7 +86,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream, es.records)
+      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream, es.size)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -100,7 +100,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream(time_int: true), es.records)
+      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream(time_int: true), es.size)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -116,7 +116,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream, es.records)
+      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream, es.size)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -130,7 +130,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream(time_int: true), es.records)
+      buffer_mock.should_receive(:emit_bulk).once.with(m, es.to_msgpack_stream(time_int: true), es.size)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -261,7 +261,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:emit_bulk).once.with(m, es.map{|t,r| [t,r].to_json }.join, es.records)
+      buffer_mock.should_receive(:emit_bulk).once.with(m, es.map{|t,r| [t,r].to_json }.join, es.size)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -278,7 +278,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:emit_bulk).once.with(m, es.map{|t,r| [t,r].to_json }.join, es.records)
+      buffer_mock.should_receive(:emit_bulk).once.with(m, es.map{|t,r| [t,r].to_json }.join, es.size)
 
       @i.execute_chunking("mytag.test", es)
     end
