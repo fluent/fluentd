@@ -36,7 +36,7 @@ module Fluent
         #             k: time slice key (optional)
         #
         #             id: unique_id of chunk (*)
-        #             r: number of records (*)
+        #             s: size (number of events in chunk) (*)
         #             c: created_at as unix time (*)
         #             m: modified_at as unix time (*)
         #              (*): fields automatically injected by chunk itself
