@@ -22,17 +22,25 @@ module Fluent
       class MemoryChunk < Chunk
         def initialize(metadata)
           super
-          @chunk = ''.force_encoding('ASCII-8BIT')
+          @chunk = ''.force_encoding(Encoding::ASCII_8BIT)
           @chunk_bytes = 0
           @adding_bytes = 0
           @adding_records = 0
         end
 
         def append(data)
-          adding = data.join.force_encoding('ASCII-8BIT')
+          adding = data.join.force_encoding(Encoding::ASCII_8BIT)
           @chunk << adding
           @adding_bytes += adding.bytesize
           @adding_records += data.size
+          true
+        end
+
+        def concat(bulk, records)
+          bulk.force_encoding(Encoding::ASCII_8BIT)
+          @chunk << bulk
+          @adding_bytes += bulk.bytesize
+          @adding_records += records
           true
         end
 

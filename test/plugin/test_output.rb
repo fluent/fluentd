@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/output'
 require 'fluent/plugin/buffer'
+require 'fluent/event'
 
 require 'json'
 require 'time'
@@ -25,10 +26,20 @@ module FluentPluginOutputTest
       @write ? @write.call(chunk) : nil
     end
   end
+  class DummyAsyncStandardOutput < DummyBareOutput
+    def write(chunk)
+      @write ? @write.call(chunk) : nil
+    end
+  end
   class DummyDelayedOutput < DummyBareOutput
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
+    def try_write(chunk)
+      @try_write ? @try_write.call(chunk) : nil
+    end
+  end
+  class DummyDelayedStandardOutput < DummyBareOutput
     def try_write(chunk)
       @try_write ? @try_write.call(chunk) : nil
     end
@@ -61,7 +72,9 @@ class OutputTest < Test::Unit::TestCase
     when :bare     then FluentPluginOutputTest::DummyBareOutput.new
     when :sync     then FluentPluginOutputTest::DummySyncOutput.new
     when :buffered then FluentPluginOutputTest::DummyAsyncOutput.new
+    when :standard then FluentPluginOutputTest::DummyAsyncStandardOutput.new
     when :delayed  then FluentPluginOutputTest::DummyDelayedOutput.new
+    when :sdelayed then FluentPluginOutputTest::DummyDelayedStandardOutput.new
     when :full     then FluentPluginOutputTest::DummyFullFeatureOutput.new
     else
       raise ArgumentError, "unknown type: #{type}"
@@ -91,26 +104,43 @@ class OutputTest < Test::Unit::TestCase
       assert !i1.implement?(:synchronous)
       assert !i1.implement?(:buffered)
       assert !i1.implement?(:delayed_commit)
+      assert !i1.implement?(:custom_format)
 
       i2 = FluentPluginOutputTest::DummySyncOutput.new
       assert i2.implement?(:synchronous)
       assert !i2.implement?(:buffered)
       assert !i2.implement?(:delayed_commit)
+      assert !i2.implement?(:custom_format)
 
       i3 = FluentPluginOutputTest::DummyAsyncOutput.new
       assert !i3.implement?(:synchronous)
       assert i3.implement?(:buffered)
       assert !i3.implement?(:delayed_commit)
+      assert i3.implement?(:custom_format)
 
-      i4 = FluentPluginOutputTest::DummyDelayedOutput.new
+      i4 = FluentPluginOutputTest::DummyAsyncStandardOutput.new
       assert !i4.implement?(:synchronous)
-      assert !i4.implement?(:buffered)
-      assert i4.implement?(:delayed_commit)
+      assert i4.implement?(:buffered)
+      assert !i4.implement?(:delayed_commit)
+      assert !i4.implement?(:custom_format)
 
-      i5 = FluentPluginOutputTest::DummyFullFeatureOutput.new
-      assert i5.implement?(:synchronous)
-      assert i5.implement?(:buffered)
+      i5 = FluentPluginOutputTest::DummyDelayedOutput.new
+      assert !i5.implement?(:synchronous)
+      assert !i5.implement?(:buffered)
       assert i5.implement?(:delayed_commit)
+      assert i5.implement?(:custom_format)
+
+      i6 = FluentPluginOutputTest::DummyDelayedStandardOutput.new
+      assert !i6.implement?(:synchronous)
+      assert !i6.implement?(:buffered)
+      assert i6.implement?(:delayed_commit)
+      assert !i6.implement?(:custom_format)
+
+      i6 = FluentPluginOutputTest::DummyFullFeatureOutput.new
+      assert i6.implement?(:synchronous)
+      assert i6.implement?(:buffered)
+      assert i6.implement?(:delayed_commit)
+      assert i6.implement?(:custom_format)
     end
 
     test 'plugin lifecycle for configure/start/stop/before_shutdown/shutdown/after_shutdown/close/terminate' do
@@ -259,7 +289,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       assert process_called
 
@@ -274,7 +304,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       assert_equal 2, format_called_times
 
@@ -296,7 +326,7 @@ class OutputTest < Test::Unit::TestCase
       assert !i.prefer_buffered_processing
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       waiting(4){ Thread.pass until process_called }
 
@@ -321,7 +351,7 @@ class OutputTest < Test::Unit::TestCase
       assert i.prefer_buffered_processing
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       assert !process_called
       assert_equal 2, format_called_times
@@ -338,7 +368,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until write_called }
@@ -357,7 +387,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until try_write_called }
@@ -381,7 +411,7 @@ class OutputTest < Test::Unit::TestCase
       assert !i.prefer_delayed_commit
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until write_called || try_write_called }
@@ -406,7 +436,7 @@ class OutputTest < Test::Unit::TestCase
       assert i.prefer_delayed_commit
 
       t = event_time()
-      i.emit('tag', [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until write_called || try_write_called }
@@ -442,7 +472,7 @@ class OutputTest < Test::Unit::TestCase
       @i.start
 
       t = event_time()
-      es = [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]
+      es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
       5.times do
         @i.emit('tag', es)
       end

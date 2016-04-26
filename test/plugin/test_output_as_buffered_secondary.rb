@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/output'
 require 'fluent/plugin/buffer'
+require 'fluent/event'
 
 require 'json'
 require 'time'
@@ -71,11 +72,11 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
     end
   end
   def dummy_event_stream
-    [
+    Fluent::ArrayEventStream.new([
       [ event_time('2016-04-13 18:33:00'), {"name" => "moris", "age" => 36, "message" => "data1"} ],
       [ event_time('2016-04-13 18:33:13'), {"name" => "moris", "age" => 36, "message" => "data2"} ],
       [ event_time('2016-04-13 18:33:32'), {"name" => "moris", "age" => 36, "message" => "data3"} ],
-    ]
+    ])
   end
 
   teardown do

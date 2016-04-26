@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/output'
 require 'fluent/plugin/buffer'
+require 'fluent/event'
 
 require 'json'
 require 'time'
@@ -125,7 +126,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]
+      es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -151,14 +152,14 @@ class BufferedOutputTest < Test::Unit::TestCase
       event_size = [tag, t, r].to_json.size # 195
 
       (1024 / event_size).times do |i|
-        @i.emit("test.tag", [ [t, r] ])
+        @i.emit("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
       end
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
 
       staged_chunk = @i.buffer.stage[@i.buffer.stage.keys.first]
       assert{ staged_chunk.records != 0 }
 
-      @i.emit("test.tag", [ [t, r] ])
+      @i.emit("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
 
       assert{ @i.buffer.queue.size > 0 || @i.buffer.dequeued.size > 0 || ary.size > 0 }
 
@@ -184,7 +185,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       event_size = [tag, t, r].to_json.size # 195
 
       (1024 / event_size).times do |i|
-        @i.emit("test.tag", [ [t, r] ])
+        @i.emit("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
       end
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
 
@@ -225,7 +226,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]
+      es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -255,8 +256,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       3.times do |i|
         rand_records = rand(1..5)
-        es = [ [t, r] ] * rand_records
-        assert_equal rand_records, es.size
+        es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
+        assert_equal rand_records, es.records
 
         @i.interrupt_flushes
 
@@ -292,7 +293,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       event_size = [tag, t, r].to_json.size # 195
 
       (1024 / event_size).times do |i|
-        @i.emit("test.tag", [ [t, r] ])
+        @i.emit("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
       end
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
 
@@ -332,7 +333,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]
+      es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -362,8 +363,8 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       3.times do |i|
         rand_records = rand(1..5)
-        es = [ [t, r] ] * rand_records
-        assert_equal rand_records, es.size
+        es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
+        assert_equal rand_records, es.records
         @i.emit("test.tag", es)
 
         assert{ @i.buffer.stage.size == 0 && (@i.buffer.queue.size == 1 || @i.buffer.dequeued.size == 1 || ary.size > 0) }
@@ -387,7 +388,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       (0...10).each do |i|
         r["key#{i}"] = "value #{i}"
       end
-      @i.emit("test.tag", [ [t, r] ])
+      @i.emit("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
 
       @i.stop
       @i.before_shutdown
@@ -437,7 +438,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]
+      es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -490,7 +491,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 3 }
       assert{ @i.write_count == 0 }
@@ -569,7 +570,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 3 }
       assert{ @i.write_count == 0 }
@@ -645,7 +646,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]
+      es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -699,7 +700,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 2 } # test.tag.1 x1, test.tag.2 x1
 
@@ -790,7 +791,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 2 } # test.tag.1 x1, test.tag.2 x1
 
@@ -861,10 +862,10 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [
+      es = Fluent::ArrayEventStream.new([
         [t, {"key" => "value1", "name" => "moris", "service" => "a"}],
         [t, {"key" => "value2", "name" => "moris", "service" => "b"}],
-      ]
+      ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -909,7 +910,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 3 }
 
@@ -999,7 +1000,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 3 }
 
@@ -1096,10 +1097,10 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| ary << [tag, time, record]; '' }
 
       t = event_time()
-      es = [
+      es = Fluent::ArrayEventStream.new([
         [t, {"key" => "value1", "name" => "moris", "service" => "a"}],
         [t, {"key" => "value2", "name" => "moris", "service" => "b"}],
-      ]
+      ])
 
       5.times do
         @i.emit('tag.test', es)
@@ -1152,7 +1153,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 2 }
 
@@ -1271,7 +1272,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 2 }
 
@@ -1431,7 +1432,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.interrupt_flushes
 
       events.shuffle.each do |tag, time, record|
-        @i.emit(tag, [ [time, record] ])
+        @i.emit(tag, Fluent::ArrayEventStream.new([ [time, record] ]))
       end
       assert{ @i.buffer.stage.size == 2 }
 

@@ -180,7 +180,7 @@ module Fluent
         chunk.synchronize do
           begin
             chunk.append(data)
-            if !size_over?(chunk) || force
+            if !chunk_size_over?(chunk) || force
               chunk.commit
               stored = true
               @stage_size += (chunk.size - original_size)
@@ -196,6 +196,49 @@ module Fluent
 
         # try step-by-step appending if data can't be stored into existing a chunk
         emit_step_by_step(metadata, data)
+      end
+
+      def emit_bulk(metadata, bulk, records)
+        return if bulk.nil? || bulk.empty?
+        raise BufferOverflowError unless storable?
+
+        stored = false
+        synchronize do # critical section for buffer (stage/queue)
+          until stored
+            chunk = @stage[metadata]
+            unless chunk
+              chunk = @stage[metadata] = generate_chunk(metadata)
+            end
+
+            chunk.synchronize do # critical section for chunk (chunk append/commit/rollback)
+              begin
+                empty_chunk = chunk.empty?
+                chunk.concat(bulk, records)
+
+                if chunk_size_over?(chunk)
+                  if empty_chunk
+                    log.warn "chunk bytes limit exceeds for a bulk event stream: #{bulk.bytesize}bytes"
+                  else
+                    chunk.rollback
+                    enqueue_chunk(metadata)
+                    next
+                  end
+                end
+
+                chunk.commit
+                stored = true
+                @stage_size += bulk.bytesize
+                if chunk_size_full?(chunk)
+                  enqueue_chunk(metadata)
+                end
+              rescue
+                chunk.rollback
+                raise
+              end
+            end
+          end
+        end
+        nil
       end
 
       def queued_records
@@ -310,8 +353,12 @@ module Fluent
         end
       end
 
-      def size_over?(chunk)
+      def chunk_size_over?(chunk)
         chunk.size > @chunk_bytes_limit || (@chunk_records_limit && chunk.records > @chunk_records_limit)
+      end
+
+      def chunk_size_full?(chunk)
+        chunk.size >= @chunk_bytes_limit || (@chunk_records_limit && chunk.records >= @chunk_records_limit)
       end
 
       def emit_step_by_step(metadata, data)
@@ -336,7 +383,7 @@ module Fluent
                 attempt = data.slice(0, attempt_records)
                 chunk.append(attempt)
 
-                if size_over?(chunk)
+                if chunk_size_over?(chunk)
                   chunk.rollback
 
                   if attempt_records <= MINIMUM_APPEND_ATTEMPT_RECORDS
