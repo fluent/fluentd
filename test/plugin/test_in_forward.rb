@@ -857,7 +857,7 @@ class ForwardInputTest < Test::Unit::TestCase
   # '' : socket is disconnected without any data
   # nil: socket read timeout
   def read_data(io, timeout)
-    skip unless io.respond_to?(:read_nonblock)
+    skip if Fluent.windows? && RUBY_VERSION < "2.3.0"
     res = ''
     timeout_at = Time.now + timeout
     begin
