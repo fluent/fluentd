@@ -37,7 +37,7 @@ module Fluent
       #   end
       # end
 
-      def initialize(name, param_name: nil, final: nil, init: nil, required: nil, multi: nil, alias: nil, type_lookup: nil)
+      def initialize(name, param_name: nil, final: nil, init: nil, required: nil, multi: nil, alias: nil, type_lookup:)
         @name = name.to_sym
         @final = final
 
@@ -108,6 +108,7 @@ module Fluent
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
         options[:final] = @final || other.final
+        options[:type_lookup] = @type_lookup
 
         merged = self.class.new(other.name, options)
 
@@ -166,6 +167,7 @@ module Fluent
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
         options[:final]  = true
+        options[:type_lookup] = @type_lookup
 
         merged = self.class.new(other.name, options)
 

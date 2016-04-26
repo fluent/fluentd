@@ -10,10 +10,10 @@ module Fluent::Config
     sub_test_case 'to generate a instance' do
       sub_test_case '#initialize' do
         test 'has default values' do
-          proxy = Fluent::Config::ConfigureProxy.new('section')
+          proxy = Fluent::Config::ConfigureProxy.new('section', type_lookup: @type_lookup)
           assert_equal(:section, proxy.name)
 
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
           assert_equal(:section, proxy.name)
           assert_equal(:section, proxy.param_name)
           assert_nil(proxy.init)
@@ -24,7 +24,7 @@ module Fluent::Config
         end
 
         test 'can specify param_name/required/multi with optional arguments' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: 'sections', init: true, required: false, multi: true)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: 'sections', init: true, required: false, multi: true, type_lookup: @type_lookup)
           assert_equal(:section, proxy.name)
           assert_equal(:sections, proxy.param_name)
           assert_false(proxy.required)
@@ -32,7 +32,7 @@ module Fluent::Config
           assert_true(proxy.multi)
           assert_true(proxy.multi?)
 
-          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false, type_lookup: @type_lookup)
           assert_equal(:section, proxy.name)
           assert_equal(:sections, proxy.param_name)
           assert_true(proxy.required)
@@ -42,14 +42,14 @@ module Fluent::Config
         end
         test 'raise error if both of init and required are true' do
           assert_raise "init and required are exclusive" do
-            Fluent::Config::ConfigureProxy.new(:section, init: true, required: true)
+            Fluent::Config::ConfigureProxy.new(:section, init: true, required: true, type_lookup: @type_lookup)
           end
         end
       end
 
       sub_test_case '#merge' do
         test 'generate a new instance which values are overwritten by the argument object' do
-          proxy = p1 = Fluent::Config::ConfigureProxy.new(:section)
+          proxy = p1 = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
           assert_equal(:section, proxy.name)
           assert_equal(:section, proxy.param_name)
           assert_nil(proxy.init)
@@ -59,7 +59,7 @@ module Fluent::Config
           assert_true(proxy.multi?)
           assert_nil(proxy.configured_in_section)
 
-          p2 = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false)
+          p2 = Fluent::Config::ConfigureProxy.new(:section, param_name: :sections, init: false, required: true, multi: false, type_lookup: @type_lookup)
           proxy = p1.merge(p2)
           assert_equal(:section, proxy.name)
           assert_equal(:sections, proxy.param_name)
@@ -73,10 +73,10 @@ module Fluent::Config
         end
 
         test 'does not overwrite with argument object without any specifications of required/multi' do
-          p1 = Fluent::Config::ConfigureProxy.new(:section1)
+          p1 = Fluent::Config::ConfigureProxy.new(:section1, type_lookup: @type_lookup)
           p1.configured_in_section = :subsection
-          p2 = Fluent::Config::ConfigureProxy.new(:section2, param_name: :sections, init: false, required: true, multi: false)
-          p3 = Fluent::Config::ConfigureProxy.new(:section3)
+          p2 = Fluent::Config::ConfigureProxy.new(:section2, param_name: :sections, init: false, required: true, multi: false, type_lookup: @type_lookup)
+          p3 = Fluent::Config::ConfigureProxy.new(:section3, type_lookup: @type_lookup)
           proxy = p1.merge(p2).merge(p3)
           assert_equal(:section3, proxy.name)
           assert_equal(:section3, proxy.param_name)
@@ -126,13 +126,13 @@ module Fluent::Config
 
       sub_test_case '#configured_in' do
         test 'sets a section name which have configuration parameters of target plugin in owners configuration' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
           proxy.configured_in(:mysection)
           assert_equal :mysection, proxy.configured_in_section
         end
 
         test 'do not permit to be called twice' do
-          proxy = Fluent::Config::ConfigureProxy.new(:section)
+          proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
           proxy.configured_in(:mysection)
           assert_raise(ArgumentError) { proxy.configured_in(:myothersection) }
         end
