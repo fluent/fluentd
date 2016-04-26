@@ -200,21 +200,13 @@ module Fluent
         end
       end
 
-      def parameter_configuration(name, *args, &block)
+      def parameter_configuration(name, type = nil, **kwargs, &block)
         name = name.to_sym
 
         opts = {}
-        args.each { |a|
-          if a.is_a?(Symbol)
-            opts[:type] = a
-          elsif a.is_a?(Hash)
-            opts.merge!(a)
-          else
-            raise ArgumentError, "#{self.name}: wrong number of arguments (#{1 + args.length} for #{block ? 2 : 3})"
-          end
-        }
+        opts[:type] = type
+        opts.merge!(kwargs)
 
-        type = opts[:type]
         if block && type
           raise ArgumentError, "#{self.name}: both of block and type cannot be specified"
         end
@@ -245,18 +237,18 @@ module Fluent
         @configured_in_section = section_name.to_sym
       end
 
-      def config_argument(name, *args, &block)
+      def config_argument(name, type = nil, **kwargs, &block)
         if @argument
           raise ArgumentError, "#{self.name}: config_argument called twice"
         end
-        name, block, opts = parameter_configuration(name, *args, &block)
+        name, block, opts = parameter_configuration(name, type, **kwargs, &block)
 
         @argument = [name, block, opts]
         name
       end
 
-      def config_param(name, *args, &block)
-        name, block, opts = parameter_configuration(name, *args, &block)
+      def config_param(name, type = nil, **kwargs, &block)
+        name, block, opts = parameter_configuration(name, type, **kwargs, &block)
 
         if @current_description
           config_set_desc(name, @current_description)

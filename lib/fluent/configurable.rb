@@ -126,8 +126,8 @@ module Fluent
         configure_proxy(self.name).configured_in(section_name)
       end
 
-      def config_param(name, *args, &block)
-        configure_proxy(self.name).config_param(name, *args, &block)
+      def config_param(name, type = nil, **kwargs, &block)
+        configure_proxy(self.name).config_param(name, type, **kwargs, &block)
         attr_accessor name
       end
 
