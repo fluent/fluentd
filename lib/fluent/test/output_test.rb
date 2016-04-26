@@ -85,13 +85,7 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          key = ''
-          if @instance.respond_to?(:time_slicer)
-            # this block is only for test_out_file
-            time, _record = @entries.first
-            key = @instance.time_slicer.call(time)
-          end
-          chunk = @instance.buffer.new_chunk(key)
+          chunk = @instance.buffer.new_chunk('')
           chunk << buffer
           begin
             result = @instance.write(chunk)
@@ -141,17 +135,19 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          chunks = @instance.instance_eval {
-            @buffer.instance_eval {
-              chunks = []
-              @map.keys.each {|key|
-                chunks.push(@map.delete(key))
-              }
-              chunks
-            }
-          }
+          chunks = []
+          @instance.instance_eval do
+            @buffer.instance_eval{ @map.keys }.each do |key|
+              @buffer.push(key)
+              chunks << @buffer.instance_eval{ @queue.pop }
+            end
+          end
           chunks.each { |chunk|
-            result.push(@instance.write(chunk))
+            begin
+              result.push(@instance.write(chunk))
+            ensure
+              chunk.purge
+            end
           }
         }
         result
