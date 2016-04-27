@@ -52,6 +52,21 @@ module Fluent
     desc "Create symlink to temporary buffered file when buffer_type is file."
     config_param :symlink_path, :string, default: nil
 
+    module SymlinkBufferMixin
+      def symlink_path=(path)
+        @_symlink_path = path
+      end
+
+      def generate_chunk(metadata)
+        chunk = super
+        latest_chunk = metadata_list.sort_by(&:timekey).last
+        if chunk.metadata == latest_chunk
+          FileUtils.ln_sf(chunk.path, @_symlink_path)
+        end
+        chunk
+      end
+    end
+
     def initialize
       require 'zlib'
       require 'time'
@@ -87,7 +102,13 @@ module Fluent
       @formatter = Plugin.new_formatter(@format)
       @formatter.configure(conf)
 
-      @buffer.symlink_path = @symlink_path if @symlink_path
+      if @symlink_path && @buffer.respond_to?(:path)
+        (class << @buffer; self; end).module_eval do
+          prepend SymlinkBufferMixin
+        end
+        @buffer.symlink_path = @symlink_path
+      end
+
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
     end
