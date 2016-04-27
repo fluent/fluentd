@@ -146,9 +146,14 @@ module Fluent
         end
 
         def naive_next_time(retry_next_times)
-          interval = @constant_factor * ( @backoff_base ** ( retry_next_times - 1 ) )
-          intr = if @max_interval && interval > @max_interval
-                   @max_interval
+          # make it infinite if calculated "interval" is too big
+          interval = @constant_factor.to_f * ( @backoff_base ** ( retry_next_times - 1 ) )
+          intr = if interval.finite?
+                   if @max_interval && interval > @max_interval
+                     @max_interval
+                   else
+                     interval
+                   end
                  else
                    interval
                  end
