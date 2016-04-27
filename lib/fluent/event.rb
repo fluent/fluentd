@@ -21,9 +21,10 @@ module Fluent
     include Enumerable
     include MessagePackFactory::Mixin
 
-    def records
+    def size
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
+    alias :length :size
 
     def repeatable?
       false
@@ -61,7 +62,7 @@ module Fluent
       OneEventStream.new(@time, @record.dup)
     end
 
-    def records
+    def size
       1
     end
 
@@ -89,7 +90,7 @@ module Fluent
       ArrayEventStream.new(entries)
     end
 
-    def records
+    def size
       @entries.size
     end
 
@@ -131,7 +132,7 @@ module Fluent
       es
     end
 
-    def records
+    def size
       @time_array.size
     end
 
@@ -160,13 +161,13 @@ module Fluent
 
   class MessagePackEventStream < EventStream
     # Keep cached_unpacker argument for existence plugins
-    def initialize(data, records = 0, cached_unpacker = nil)
+    def initialize(data, cached_unpacker = nil, size = 0)
       @data = data
-      @records = records
+      @size = size
     end
 
-    def records
-      @records
+    def size
+      @size
     end
 
     def repeatable?

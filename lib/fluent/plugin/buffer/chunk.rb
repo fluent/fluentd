@@ -36,7 +36,7 @@ module Fluent
         #             k: time slice key (optional)
         #
         #             id: unique_id of chunk (*)
-        #             r: number of records (*)
+        #             s: size (number of events in chunk) (*)
         #             c: created_at as unix time (*)
         #             m: modified_at as unix time (*)
         #              (*): fields automatically injected by chunk itself
@@ -52,7 +52,7 @@ module Fluent
           @unique_id = generate_unique_id
           @metadata = metadata
 
-          @records = 0
+          @size = 0
           @created_at = Time.now
           @modified_at = Time.now
         end
@@ -77,13 +77,14 @@ module Fluent
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def size
+        def bytesize
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def records
+        def size
           raise NotImplementedError, "Implement this method in child class"
         end
+        alias :length :size
 
         def empty?
           size == 0

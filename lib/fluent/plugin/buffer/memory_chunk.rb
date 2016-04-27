@@ -25,46 +25,46 @@ module Fluent
           @chunk = ''.force_encoding(Encoding::ASCII_8BIT)
           @chunk_bytes = 0
           @adding_bytes = 0
-          @adding_records = 0
+          @adding_size = 0
         end
 
         def append(data)
           adding = data.join.force_encoding(Encoding::ASCII_8BIT)
           @chunk << adding
           @adding_bytes += adding.bytesize
-          @adding_records += data.size
+          @adding_size += data.size
           true
         end
 
-        def concat(bulk, records)
+        def concat(bulk, bulk_size)
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk << bulk
           @adding_bytes += bulk.bytesize
-          @adding_records += records
+          @adding_size += bulk_size
           true
         end
 
         def commit
-          @records += @adding_records
+          @size += @adding_size
           @chunk_bytes += @adding_bytes
 
-          @adding_bytes = @adding_records = 0
+          @adding_bytes = @adding_size = 0
           @modified_at = Time.now
           true
         end
 
         def rollback
           @chunk.slice!(@chunk_bytes, @adding_bytes)
-          @adding_bytes = @adding_records = 0
+          @adding_bytes = @adding_size = 0
           true
         end
 
-        def size
+        def bytesize
           @chunk_bytes + @adding_bytes
         end
 
-        def records
-          @records + @adding_records
+        def size
+          @size + @adding_size
         end
 
         def empty?
@@ -77,7 +77,7 @@ module Fluent
 
         def purge
           @chunk = ''.force_encoding("ASCII-8BIT")
-          @chunk_bytes = @records = @adding_bytes = @adding_records = 0
+          @chunk_bytes = @size = @adding_bytes = @adding_size = 0
           true
         end
 

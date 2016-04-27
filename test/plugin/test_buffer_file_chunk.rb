@@ -198,7 +198,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal Encoding::ASCII_8BIT, content.encoding
     end
 
-    test 'has #size and #records' do
+    test 'has #bytesize and #size' do
       assert @c.empty?
 
       d1 = {"f1" => 'v1', "f2" => 'v2', "f3" => 'v3'}
@@ -206,27 +206,27 @@ class BufferFileChunkTest < Test::Unit::TestCase
       data = [d1.to_json + "\n", d2.to_json + "\n"]
       @c.append(data)
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-      assert_equal 2, @c.records
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
       @c.commit
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-      assert_equal 2, @c.records
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
-      first_size = @c.size
+      first_bytesize = @c.bytesize
 
       d3 = {"f1" => 'x', "f2" => 'y', "f3" => 'z'}
       d4 = {"f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @c.append([d3.to_json + "\n", d4.to_json + "\n"])
 
-      assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-      assert_equal 4, @c.records
+      assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 4, @c.size
 
       @c.commit
 
-      assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-      assert_equal 4, @c.records
+      assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 4, @c.size
     end
 
     test 'can #rollback to revert non-committed data' do
@@ -237,8 +237,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       data = [d1.to_json + "\n", d2.to_json + "\n"]
       @c.append(data)
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-      assert_equal 2, @c.records
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
       @c.rollback
 
@@ -252,22 +252,22 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.append(data)
       @c.commit
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-      assert_equal 2, @c.records
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
-      first_size = @c.size
+      first_bytesize = @c.bytesize
 
       d3 = {"f1" => 'x', "f2" => 'y', "f3" => 'z'}
       d4 = {"f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @c.append([d3.to_json + "\n", d4.to_json + "\n"])
 
-      assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-      assert_equal 4, @c.records
+      assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 4, @c.size
 
       @c.rollback
 
-      assert_equal first_size, @c.size
-      assert_equal 2, @c.records
+      assert_equal first_bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
       assert_equal (d1.to_json + "\n" + d2.to_json + "\n"), File.open(@c.path, 'rb'){|f| f.read }
     end
@@ -280,8 +280,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       data = [d1.to_json + "\n", d2.to_json + "\n"].join
       @c.concat(data, 2)
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-      assert_equal 2, @c.records
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
       @c.rollback
 
@@ -295,22 +295,22 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.append(data)
       @c.commit
 
-      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-      assert_equal 2, @c.records
+      assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
-      first_size = @c.size
+      first_bytesize = @c.bytesize
 
       d3 = {"f1" => 'x', "f2" => 'y', "f3" => 'z'}
       d4 = {"f1" => 'a', "f2" => 'b', "f3" => 'c'}
       @c.concat([d3.to_json + "\n", d4.to_json + "\n"].join, 2)
 
-      assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-      assert_equal 4, @c.records
+      assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+      assert_equal 4, @c.size
 
       @c.rollback
 
-      assert_equal first_size, @c.size
-      assert_equal 2, @c.records
+      assert_equal first_bytesize, @c.bytesize
+      assert_equal 2, @c.size
 
       assert_equal (d1.to_json + "\n" + d2.to_json + "\n"), File.open(@c.path, 'rb'){|f| f.read }
     end
@@ -329,7 +329,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       content = @c.read
 
       unique_id = @c.unique_id
-      records = @c.records
+      size = @c.size
       created_at = @c.created_at
       modified_at = @c.modified_at
 
@@ -340,7 +340,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       stored_meta = {
         timekey: nil, tag: nil, variables: nil,
         id: unique_id,
-        r: records,
+        s: size,
         c: @c.created_at.to_i,
         m: @c.modified_at.to_i,
       }
@@ -362,8 +362,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.purge
 
       assert @c.empty?
+      assert_equal 0, @c.bytesize
       assert_equal 0, @c.size
-      assert_equal 0, @c.records
 
       assert !File.exist?(@c.path)
       assert !File.exist?(@c.path + '.meta')
@@ -415,7 +415,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       expected = {
         timekey: nil, tag: nil, variables: nil,
         id: @c.unique_id,
-        r: @c.records,
+        s: @c.size,
         c: @c.created_at.to_i,
         m: @c.modified_at.to_i,
       }
@@ -433,7 +433,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       expected = {
         timekey: nil, tag: nil, variables: nil,
         id: @c.unique_id,
-        r: @c.records,
+        s: @c.size,
         c: @c.created_at.to_i,
         m: dummy_now.to_i,
       }
@@ -444,7 +444,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       expected = {
         timekey: nil, tag: nil, variables: nil,
         id: @c.unique_id,
-        r: @c.records,
+        s: @c.size,
         c: @c.created_at.to_i,
         m: @c.modified_at.to_i,
       }
@@ -453,7 +453,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       content = @c.read
 
       unique_id = @c.unique_id
-      records = @c.records
+      size = @c.size
       created_at = @c.created_at
       modified_at = @c.modified_at
 
@@ -464,7 +464,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       stored_meta = {
         timekey: nil, tag: nil, variables: nil,
         id: unique_id,
-        r: records,
+        s: size,
         c: @c.created_at.to_i,
         m: @c.modified_at.to_i,
       }
@@ -491,7 +491,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @metadata = {
         timekey: nil, tag: 'testing', variables: {k: "x"},
         id: @chunk_id,
-        r: 4,
+        s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
         m: Time.parse('2016-04-07 17:44:13 +0900').to_i,
       }
@@ -519,7 +519,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal 'testing', @c.metadata.tag
       assert_equal({k: "x"}, @c.metadata.variables)
 
-      assert_equal 4, @c.records
+      assert_equal 4, @c.size
       assert_equal Time.parse('2016-04-07 17:44:00 +0900'), @c.created_at
       assert_equal Time.parse('2016-04-07 17:44:13 +0900'), @c.modified_at
 
@@ -548,7 +548,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal 'testing', @c.metadata.tag
       assert_equal({k: "x"}, @c.metadata.variables)
 
-      assert_equal 4, @c.records
+      assert_equal 4, @c.size
       assert_equal Time.parse('2016-04-07 17:44:00 +0900'), @c.created_at
       assert_equal Time.parse('2016-04-07 17:44:13 +0900'), @c.modified_at
 
@@ -564,7 +564,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       metadata = {
         timekey: nil, tag: 'testing', variables: {k: "x"},
         id: @chunk_id,
-        r: 4,
+        s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
         m: Time.parse('2016-04-07 17:44:13 +0900').to_i,
       }
@@ -575,7 +575,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       metadata = {
         timekey: nil, tag: 'testing', variables: {k: "x"},
         id: @chunk_id,
-        r: 5,
+        s: 5,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
         m: Time.parse('2016-04-07 17:44:38 +0900').to_i,
       }
@@ -601,7 +601,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
       assert f.binmode?
       assert f.sync
-      assert_equal data.size, f.size
+      assert_equal data.bytesize, f.size
 
       io = nil
       @c.file_rename(f, testing_file1, testing_file2, ->(new_io){ io = new_io })
@@ -614,7 +614,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal Encoding::ASCII_8BIT, io.external_encoding
       assert io.sync
       assert io.binmode?
-      assert_equal data.size, io.size
+      assert_equal data.bytesize, io.size
 
       assert_equal pos, io.pos
 
@@ -644,7 +644,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @metadata = {
         timekey: @dummy_timekey, tag: 'testing', variables: {k: "x"},
         id: @chunk_id,
-        r: 4,
+        s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
         m: Time.parse('2016-04-07 17:44:13 +0900').to_i,
       }
@@ -671,8 +671,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal gen_metadata(timekey: @dummy_timekey, tag: 'testing', variables: {k: "x"}), @c.metadata
       assert_equal Time.at(@metadata[:c]), @c.created_at
       assert_equal Time.at(@metadata[:m]), @c.modified_at
-      assert_equal @metadata[:r], @c.records
-      assert_equal @d.size, @c.size
+      assert_equal @metadata[:s], @c.size
+      assert_equal @d.bytesize, @c.bytesize
       assert_equal @d, @c.read
 
       assert_raise "BUG: appending to non-staged chunk, now 'queued'" do
@@ -713,8 +713,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal :queued, @c.state
       assert_equal @chunk_id, @c.unique_id
       assert_equal gen_metadata, @c.metadata
-      assert_equal @d.size, @c.size
-      assert_equal 0, @c.records
+      assert_equal @d.bytesize, @c.bytesize
+      assert_equal 0, @c.size
       assert_equal @d, @c.read
 
       assert_raise "BUG: appending to non-staged chunk, now 'queued'" do
@@ -755,8 +755,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal :queued, @c.state
       assert_equal @chunk_id, @c.unique_id
       assert_equal gen_metadata, @c.metadata
-      assert_equal @d.size, @c.size
-      assert_equal 0, @c.records
+      assert_equal @d.bytesize, @c.bytesize
+      assert_equal 0, @c.size
       assert_equal @d, @c.read
 
       assert_raise "BUG: appending to non-staged chunk, now 'queued'" do

@@ -13,7 +13,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     assert_equal '', @c.instance_eval{ @chunk }
     assert_equal 0, @c.instance_eval{ @chunk_bytes }
     assert_equal 0, @c.instance_eval{ @adding_bytes }
-    assert_equal 0, @c.instance_eval{ @adding_records }
+    assert_equal 0, @c.instance_eval{ @adding_size }
   end
 
   test 'can #append, #commit and #read it' do
@@ -88,7 +88,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     assert_equal Encoding::ASCII_8BIT, content.encoding
   end
 
-  test 'has #size and #records' do
+  test 'has #bytesize and #size' do
     assert @c.empty?
 
     d1 = {"f1" => 'v1', "f2" => 'v2', "f3" => 'v3'}
@@ -96,27 +96,27 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     data = [d1.to_json + "\n", d2.to_json + "\n"]
     @c.append(data)
 
-    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-    assert_equal 2, @c.records
+    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 2, @c.size
 
     @c.commit
 
-    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-    assert_equal 2, @c.records
+    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 2, @c.size
 
-    first_size = @c.size
+    first_bytesize = @c.bytesize
 
     d3 = {"f1" => 'x', "f2" => 'y', "f3" => 'z'}
     d4 = {"f1" => 'a', "f2" => 'b', "f3" => 'c'}
     @c.append([d3.to_json + "\n", d4.to_json + "\n"])
 
-    assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-    assert_equal 4, @c.records
+    assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 4, @c.size
 
     @c.commit
 
-    assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-    assert_equal 4, @c.records
+    assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 4, @c.size
   end
 
   test 'can #rollback to revert non-committed data' do
@@ -127,8 +127,8 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     data = [d1.to_json + "\n", d2.to_json + "\n"]
     @c.append(data)
 
-    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-    assert_equal 2, @c.records
+    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 2, @c.size
 
     @c.rollback
 
@@ -142,22 +142,22 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     @c.append(data)
     @c.commit
 
-    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-    assert_equal 2, @c.records
+    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 2, @c.size
 
-    first_size = @c.size
+    first_bytesize = @c.bytesize
 
     d3 = {"f1" => 'x', "f2" => 'y', "f3" => 'z'}
     d4 = {"f1" => 'a', "f2" => 'b', "f3" => 'c'}
     @c.append([d3.to_json + "\n", d4.to_json + "\n"])
 
-    assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-    assert_equal 4, @c.records
+    assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 4, @c.size
 
     @c.rollback
 
-    assert_equal first_size, @c.size
-    assert_equal 2, @c.records
+    assert_equal first_bytesize, @c.bytesize
+    assert_equal 2, @c.size
   end
 
   test 'can #rollback to revert non-committed data from #concat' do
@@ -168,8 +168,8 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     data = [d1.to_json + "\n", d2.to_json + "\n"].join
     @c.concat(data, 2)
 
-    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-    assert_equal 2, @c.records
+    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 2, @c.size
 
     @c.rollback
 
@@ -183,22 +183,22 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     @c.append(data)
     @c.commit
 
-    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").size, @c.size
-    assert_equal 2, @c.records
+    assert_equal (d1.to_json + "\n" + d2.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 2, @c.size
 
-    first_size = @c.size
+    first_bytesize = @c.bytesize
 
     d3 = {"f1" => 'x', "f2" => 'y', "f3" => 'z'}
     d4 = {"f1" => 'a', "f2" => 'b', "f3" => 'c'}
     @c.concat([d3.to_json + "\n", d4.to_json + "\n"].join, 2)
 
-    assert_equal first_size + (d3.to_json + "\n" + d4.to_json + "\n").size, @c.size
-    assert_equal 4, @c.records
+    assert_equal first_bytesize + (d3.to_json + "\n" + d4.to_json + "\n").bytesize, @c.bytesize
+    assert_equal 4, @c.size
 
     @c.rollback
 
-    assert_equal first_size, @c.size
-    assert_equal 2, @c.records
+    assert_equal first_bytesize, @c.bytesize
+    assert_equal 2, @c.size
   end
 
   test 'does nothing for #close' do
@@ -233,8 +233,8 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     @c.purge
 
     assert @c.empty?
+    assert_equal 0, @c.bytesize
     assert_equal 0, @c.size
-    assert_equal 0, @c.records
     assert_equal '', @c.read
   end
 
