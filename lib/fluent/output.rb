@@ -450,9 +450,17 @@ module Fluent
       super
     end
 
+    def format_stream(tag, es)
+      if @time_as_integer
+        es.to_msgpack_stream_forced_integer
+      else
+        es.to_msgpack_stream
+      end
+    end
+
     def emit(tag, es, chain)
       @emit_count += 1
-      data = es.to_msgpack_stream
+      data = format_stream(tag, es)
       key = tag
       if @buffer.emit(key, data, chain)
         submit_flush
