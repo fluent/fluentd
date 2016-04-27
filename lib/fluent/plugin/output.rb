@@ -143,10 +143,30 @@ module Fluent
 
       def initialize
         super
+        @counters_monitor = Monitor.new
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
         @primary_instance = nil
+
+        # TODO: well organized counters
+        @num_errors = 0
+        @emit_count = 0
+        @emit_records = 0
+        @write_count = 0
+        @rollback_count = 0
+
+        # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
+        if implement?(:synchronous)
+          if implement?(:buffered) || implement?(:delayed_commit)
+            @buffering = nil # do #configure or #start to determine this for full-featured plugins
+          else
+            @buffering = false
+          end
+        else
+          @buffering = true
+        end
+        @custom_format = implement?(:custom_format)
       end
 
       def acts_as_secondary(primary)
@@ -268,13 +288,6 @@ module Fluent
 
       def start
         super
-        # TODO: well organized counters
-        @counters_monitor = Monitor.new
-        @num_errors = 0
-        @emit_count = 0
-        @emit_records = 0
-        @write_count = 0
-        @rollback_count = 0
 
         if @buffering.nil?
           @buffering = prefer_buffered_processing
@@ -296,7 +309,7 @@ module Fluent
                               implement?(:delayed_commit)
                             end
           @delayed_commit_timeout = @buffer_config.delayed_commit_timeout
-        else # !@buffered
+        else # !@buffering
           m = method(:emit_sync)
           (class << self; self; end).module_eval do
             define_method(:emit, m)
