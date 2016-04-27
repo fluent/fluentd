@@ -21,7 +21,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf = CONFIG, tag = 'test')
-    Fluent::Test::OutputTestDriver.new(Fluent::ExecFilterOutput, tag).configure(conf)
+    Fluent::Test::BufferedOutputTestDriver.new(Fluent::ExecFilterOutput, tag).configure(conf)
   end
 
   def sed_unbuffered_support?
@@ -37,6 +37,8 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
+
+    assert d.instance.instance_eval{ @overrides_format_stream }
 
     assert_equal ["time_in","tag","k1"], d.instance.in_keys
     assert_equal ["time_out","tag","k2"], d.instance.out_keys
