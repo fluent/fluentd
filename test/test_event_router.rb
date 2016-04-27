@@ -97,7 +97,7 @@ class EventRouterTest < ::Test::Unit::TestCase
 
     test 'set one output' do
       @pipeline.set_output(output)
-      @pipeline.emit('test', @es, nil)
+      @pipeline.emit_events('test', @es)
       assert_equal 1, output.events.size
       assert_equal 'value', output.events['test'].first['key']
     end
@@ -109,7 +109,7 @@ class EventRouterTest < ::Test::Unit::TestCase
 
       test 'set one filer' do
         @pipeline.add_filter(filter)
-        @pipeline.emit('test', @es, nil)
+        @pipeline.emit_events('test', @es)
         assert_equal 1, output.events.size
         assert_equal 'value', output.events['test'].first['key']
         assert_equal 0, output.events['test'].first['__test__']
@@ -117,7 +117,7 @@ class EventRouterTest < ::Test::Unit::TestCase
 
       test 'set one filer with multi events' do
         @pipeline.add_filter(filter)
-        @pipeline.emit('test', events, nil)
+        @pipeline.emit_events('test', events)
         assert_equal 1, output.events.size
         assert_equal 5, output.events['test'].size
         DEFAULT_EVENT_NUM.times { |i|
@@ -140,7 +140,7 @@ class EventRouterTest < ::Test::Unit::TestCase
     sub_test_case 'default collector' do
       test 'call default collector when no output' do
         assert_rr do
-          mock(default_collector).emit('test', is_a(OneEventStream), NullOutputChain.instance)
+          mock(default_collector).emit_events('test', is_a(OneEventStream))
           event_router.emit('test', Engine.now, 'k' => 'v')
         end
       end
@@ -149,7 +149,7 @@ class EventRouterTest < ::Test::Unit::TestCase
         event_router.add_rule('test', filter)
         assert_rr do
           # After apply Filter, EventStream becomes MultiEventStream by default
-          mock(default_collector).emit('test', is_a(MultiEventStream), NullOutputChain.instance)
+          mock(default_collector).emit_events('test', is_a(MultiEventStream))
           event_router.emit('test', Engine.now, 'k' => 'v')
         end
         assert_equal 1, filter.num
@@ -158,7 +158,7 @@ class EventRouterTest < ::Test::Unit::TestCase
       test "call default collector when no matched with output" do
         event_router.add_rule('test', output)
         assert_rr do
-          mock(default_collector).emit('dummy', is_a(OneEventStream), NullOutputChain.instance)
+          mock(default_collector).emit_events('dummy', is_a(OneEventStream))
           event_router.emit('dummy', Engine.now, 'k' => 'v')
         end
       end
@@ -166,7 +166,7 @@ class EventRouterTest < ::Test::Unit::TestCase
       test "don't call default collector when tag matched" do
         event_router.add_rule('test', output)
         assert_rr do
-          dont_allow(default_collector).emit('test', is_a(OneEventStream), NullOutputChain.instance)
+          dont_allow(default_collector).emit_events('test', is_a(OneEventStream))
           event_router.emit('test', Engine.now, 'k' => 'v')
         end
         # check emit handler doesn't catch rr error
@@ -224,6 +224,7 @@ class EventRouterTest < ::Test::Unit::TestCase
       test 'call handle_emits_error when emit failed' do
         event_router.add_rule('test', error_output)
 
+        event_router.emit('test', Engine.now, 'k' => 'v')
         assert_rr do
           mock(emit_handler).handle_emits_error('test', is_a(OneEventStream), is_a(RuntimeError))
           event_router.emit('test', Engine.now, 'k' => 'v')

@@ -198,12 +198,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -260,12 +260,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -323,12 +323,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -397,12 +397,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -472,8 +472,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
@@ -554,12 +554,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -622,12 +622,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -690,12 +690,12 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors

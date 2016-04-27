@@ -164,7 +164,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:32 -0700')
       Timecop.freeze( now )
@@ -203,7 +203,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:32 -0700')
       Timecop.freeze( now )
@@ -255,12 +255,12 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -317,7 +317,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 0 }
       assert{ written_tags.all?{|t| t == 'test.tag.1' } }
 
-      @i.emit("test.tag.3", dummy_event_stream())
+      @i.emit_events("test.tag.3", dummy_event_stream())
 
       logs = @i.log.out.logs
       assert{ logs.any?{|l| l.include?("[error]: failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.") } }
@@ -342,12 +342,12 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -390,7 +390,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 0 }
       assert{ written_tags.all?{|t| t == 'test.tag.1' } }
 
-      @i.emit("test.tag.3", dummy_event_stream())
+      @i.emit_events("test.tag.3", dummy_event_stream())
 
       logs = @i.log.out.logs
       assert{ logs.any?{|l| l.include?("[error]: failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.") && l.include?("retry_times=10") } }
@@ -420,7 +420,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:32 -0700')
       Timecop.freeze( now )
@@ -463,12 +463,12 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -513,7 +513,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
 
       chunks = @i.buffer.queue.dup
 
-      @i.emit("test.tag.3", dummy_event_stream())
+      @i.emit_events("test.tag.3", dummy_event_stream())
 
       now = @i.next_flush_time
       Timecop.freeze( now )
@@ -555,12 +555,12 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -604,7 +604,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ written_tags.all?{|t| t == 'test.tag.1' } }
 
 
-      @i.emit("test.tag.3", dummy_event_stream())
+      @i.emit_events("test.tag.3", dummy_event_stream())
 
       logs = @i.log.out.logs
       assert{ logs.any?{|l| l.include?("[error]: failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.") && l.include?("retry_times=10") } }
@@ -650,12 +650,12 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -718,12 +718,12 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:31 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.2", dummy_event_stream())
+      @i.emit_events("test.tag.2", dummy_event_stream())
 
       assert_equal 0, @i.write_count
       assert_equal 0, @i.num_errors
@@ -783,7 +783,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
-      @i.emit("test.tag.1", dummy_event_stream())
+      @i.emit_events("test.tag.1", dummy_event_stream())
 
       now = Time.parse('2016-04-13 18:33:32 -0700')
       Timecop.freeze( now )
