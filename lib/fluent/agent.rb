@@ -160,7 +160,7 @@ module Fluent
         @count = 0
       end
 
-      def emit(tag, es, chain)
+      def emit_events(tag, es)
         # TODO use time instead of num of records
         c = (@count += 1)
         if c < 512

@@ -470,7 +470,7 @@ module Fluent
         end
       end
 
-      def emit(tag, es)
+      def emit_events(tag, es)
         # actually this method will be overwritten by #configure
         if @buffering
           emit_buffered(tag, es)
@@ -514,18 +514,28 @@ module Fluent
         # this arguments are ordered in output plugin's rule
         # Metadata 's argument order is different from this one (timekey, tag, variables)
 
+        raise ArgumentError, "tag must be a String: #{tag.class}" unless tag.nil? || tag.is_a?(String)
+        raise ArgumentError, "time must be a Fluent::EventTime (or Integer): #{time.class}" unless time.nil? || time.is_a?(Fluent::EventTime) || time.is_a?(Integer)
+        raise ArgumentError, "record must be a Hash: #{record.class}" unless record.nil? || record.is_a?(Hash)
+
+        if @chunk_keys.nil? && @chunk_key_time.nil? && @chunk_key_tag.nil?
+          # for tests
+          return Struct.new(:timekey, :tag, :variables).new
+        end
+
         # timekey is int from epoch, and `timekey - timekey % 60` is assumed to mach with 0s of each minutes.
         # it's wrong if timezone is configured as one which supports leap second, but it's very rare and
         # we can ignore it (especially in production systems).
-        timekey_range = @buffer_config.timekey_range
         if @chunk_keys.empty?
           if !@chunk_key_time && !@chunk_key_tag
             @buffer.metadata()
           elsif @chunk_key_time && @chunk_key_tag
+            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
             timekey = time_int - (time_int % timekey_range)
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
+            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
             timekey = time_int - (time_int % timekey_range)
             @buffer.metadata(timekey: timekey)
@@ -533,6 +543,7 @@ module Fluent
             @buffer.metadata(tag: tag)
           end
         else
+          timekey_range = @buffer_config.timekey_range
           timekey = if @chunk_key_time
                       time_int = time.to_i
                       time_int - (time_int % timekey_range)
@@ -588,14 +599,22 @@ module Fluent
 
       def handle_stream_simple(tag, es)
         meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
-        es_size = es.size
-        es_bulk = if @custom_format
-                    es.map{|time,record| format(tag, time, record) }.join
-                  else
-                    es.to_msgpack_stream(time_int: @time_as_integer)
-                  end
+        records = es.size
+        if @custom_format
+          records = 0
+          es_size = 0
+          es_bulk = ''
+          es.each do |time,record|
+            es_bulk << format(tag, time, record)
+            es_size += 1
+            records += 1
+          end
+        else
+          es_size = es.size
+          es_bulk = es.to_msgpack_stream(time_int: @time_as_integer)
+        end
         @buffer.emit_bulk(meta, es_bulk, es_size)
-        @counters_monitor.synchronize{ @emit_records += es_size }
+        @counters_monitor.synchronize{ @emit_records += records }
         [meta]
       end
 
