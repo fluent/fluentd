@@ -23,7 +23,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::OutputTestDriver.new(Fluent::ForwardOutput) {
+    Fluent::Test::BufferedOutputTestDriver.new(Fluent::ForwardOutput) {
       attr_reader :responses, :exceptions
 
       def initialize
@@ -231,10 +231,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     d.run_timeout = 2
 
-    target_input_driver.run do
-      d.run do
-        records.each do |record|
-          d.emit record, time
+    assert_raise Fluent::ForwardOutputACKTimeoutError do
+      target_input_driver.run do
+        d.run do
+          records.each do |record|
+            d.emit record, time
+          end
         end
       end
     end
@@ -272,10 +274,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     d.run_timeout = 2
 
-    target_input_driver.run do
-      d.run do
-        records.each do |record|
-          d.emit record, time
+    assert_raise Fluent::ForwardOutputConnectionClosedError do
+      target_input_driver.run do
+        d.run do
+          records.each do |record|
+            d.emit record, time
+          end
         end
       end
     end
@@ -318,7 +322,10 @@ class ForwardOutputTest < Test::Unit::TestCase
         end
 
         def close
-          @sock.close
+          unless @sock.closed?
+            @sock.close_write
+            @sock.close
+          end
         end
       }
 
@@ -332,6 +339,7 @@ class ForwardOutputTest < Test::Unit::TestCase
                 handler.on_read(raw_data)
                 # chunk_counter is reset to zero only after all the data have been received and successfully deserialized.
                 break if handler.chunk_counter == 0
+                break if sock.closed?
               end
               if disconnect
                 handler.close
@@ -339,7 +347,10 @@ class ForwardOutputTest < Test::Unit::TestCase
               end
               sleep  # wait for connection to be closed by client
             ensure
-              sock.close if sock
+              if sock && !sock.closed?
+                sock.close_write
+                sock.close
+              end
             end
           end
         end
@@ -370,10 +381,6 @@ class ForwardOutputTest < Test::Unit::TestCase
     def initialize(klass, &block)
       super(klass, &block)
       @engine = DummyEngineClass.new
-      @klass = klass
-      # To avoid accessing Fluent::Engine, set Engine as a plugin's class constant (Fluent::SomePlugin::Engine).
-      # But this makes it impossible to run tests concurrently by threading in a process.
-      @klass.const_set(:Engine, @engine)
     end
 
     def inject_router
@@ -383,9 +390,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     def run(&block)
       super(&block)
-      @klass.class_eval do
-        remove_const(:Engine)
-      end
     end
 
     def emits
