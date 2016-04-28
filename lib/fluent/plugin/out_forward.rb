@@ -30,6 +30,9 @@ module Fluent
   class ForwardOutputResponseError < ForwardOutputError
   end
 
+  class ForwardOutputConnectionClosedError < ForwardOutputError
+  end
+
   class ForwardOutputACKTimeoutError < ForwardOutputResponseError
   end
 
