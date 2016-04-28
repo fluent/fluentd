@@ -294,7 +294,6 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_not_supporting_responses_to_respond_with_ack
-    # in_forward, that doesn't support ack feature, and keep connection alive
     target_input_driver = create_target_input_driver(->(options){ nil }, true)
 
     d = create_driver(CONFIG + %[
@@ -314,7 +313,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     d.run_timeout = 2
 
-    assert_raise Fluent::ForwardOutputACKTimeoutError do
+    assert_raise Fluent::ForwardOutputConnectionClosedError do
       target_input_driver.run do
         d.run do
           records.each do |record|
