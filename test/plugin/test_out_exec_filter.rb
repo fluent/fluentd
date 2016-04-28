@@ -74,6 +74,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15")
 
+    d.expected_emits_length = 2
     d.run do
       d.emit({"k1"=>1}, time)
       d.emit({"k1"=>2}, time)
@@ -99,6 +100,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15")
 
+    d.expected_emits_length = 2
     d.run do
       d.emit({"k1"=>1}, time)
       d.emit({"k1"=>2}, time)
@@ -124,6 +126,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15")
 
+    d.expected_emits_length = 2
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
       d.emit({"val1"=>"sed-ed value poo"}, time)
@@ -145,6 +148,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15")
 
+    d.expected_emits_length = 2
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
       d.emit({"val1"=>"sed-ed value poo"}, time)
@@ -172,6 +176,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15")
 
+    d.expected_emits_length = 2
     d.run do
       d.emit({"val1"=>"sed-ed value foo"}, time)
       d.emit({"val1"=>"sed-ed value poo"}, time)
@@ -196,6 +201,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15")
 
+    d.expected_emits_length = 1
     d.run do
       d.emit({"message"=>%[{"time":#{time},"tag":"t1","k1":"v1"}]}, time+10)
     end
@@ -218,6 +224,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     float_time = Time.parse("2011-01-02 13:14:15").to_f
     time = Fluent::EventTime.from_time(Time.at(float_time))
 
+    d.expected_emits_length = 1
     d.run do
       d.emit({"message"=>%[{"time":#{float_time},"tag":"t1","k1":"v1"}]}, time+10)
     end
@@ -241,6 +248,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     time_str = "28/Feb/2013 12:00:00.123456789 +0900"
     time = Fluent::EventTime.from_time(Time.strptime(time_str, "%d/%b/%Y %H:%M:%S.%N %z"))
 
+    d.expected_emits_length = 1
     d.run do
       d.emit({"message"=>%[{"time":"#{time_str}","tag":"t1","k1":"v1"}]}, time+10)
     end
