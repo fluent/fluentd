@@ -16,6 +16,7 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/output'
+require 'fluent/compat/call_super_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 
@@ -140,16 +141,57 @@ module Fluent
         end
       end
 
-      ## emit must be implemented in plugin
-      # def emit(tag, es, chain)
-      # end
-
       def process(tag, es)
         emit(tag, es, NULL_OUTPUT_CHAIN)
+      end
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
+
+      # These definitions are to get instance methods of superclass of 3rd party plugins
+      # to make it sure to call super
+      def start
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
+      def shutdown
+        super
       end
     end
 
     class MultiOutput < Output
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
+
+      # These definitions are to get instance methods of superclass of 3rd party plugins
+      # to make it sure to call super
+      def start
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
+      def shutdown
+        super
+      end
     end
 
     class BufferedOutput < Fluent::Plugin::Output
@@ -270,6 +312,29 @@ module Fluent
       def extract_placeholders(str, metadata)
         raise "BUG: compat plugin does not support extract_placeholders: use newer plugin API"
       end
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
+
+      # These definitions are to get instance methods of superclass of 3rd party plugins
+      # to make it sure to call super
+      def start
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
+      def shutdown
+        super
+      end
     end
 
     class ObjectBufferedOutput < Fluent::Plugin::Output
@@ -380,6 +445,29 @@ module Fluent
       def extract_placeholders(str, metadata)
         raise "BUG: compat plugin does not support extract_placeholders: use newer plugin API"
       end
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
+
+      # These definitions are to get instance methods of superclass of 3rd party plugins
+      # to make it sure to call super
+      def start
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
+      def shutdown
+        super
+      end
     end
 
     class TimeSlicedOutput < Fluent::Plugin::Output
@@ -456,6 +544,12 @@ module Fluent
       def initialize
         super
         @localtime = true
+
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
       end
 
       def configure(conf)
@@ -529,6 +623,20 @@ module Fluent
 
       def extract_placeholders(str, metadata)
         raise "BUG: compat plugin does not support extract_placeholders: use newer plugin API"
+      end
+
+      # These definitions are to get instance methods of superclass of 3rd party plugins
+      # to make it sure to call super
+      def start
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
+      def shutdown
+        super
       end
     end
   end

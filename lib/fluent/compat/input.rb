@@ -16,11 +16,35 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/input'
+require 'fluent/compat/call_super_mixin'
 
 module Fluent
   module Compat
     class Input < Fluent::Plugin::Input
       # TODO: warn when deprecated
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
+
+      # These definitions are to get instance methods of superclass of 3rd party plugins
+      # to make it sure to call super
+      def start
+        super
+      end
+
+      def before_shutdown
+        super
+      end
+
+      def shutdown
+        super
+      end
     end
   end
 end
