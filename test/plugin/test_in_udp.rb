@@ -65,42 +65,71 @@ class UdpInputTest < Test::Unit::TestCase
     }
   end
 
-  {
-    'none' => [
-      {'msg' => "tcptest1\n", 'expected' => 'tcptest1'},
-      {'msg' => "tcptest2\n", 'expected' => 'tcptest2'},
-    ],
-    'json' => [
-      {'msg' => {'k' => 123, 'message' => 'tcptest1'}.to_json + "\n", 'expected' => 'tcptest1'},
-      {'msg' => {'k' => 'tcptest2', 'message' => 456}.to_json + "\n", 'expected' => 456},
-    ],
-    '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/' => [
-      {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 100 + "\n", 'expected' => 'localhost: ' + 'x' * 100},
-      {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 1024 + "\n", 'expected' => 'localhost: ' + 'x' * 1024},
-    ]
-  }.each { |format, test_cases|
-    define_method("test_msg_size_#{format[0] == '/' ? 'regexp' : format}") do
-      d = create_driver(BASE_CONFIG + "format #{format}")
-      tests = test_cases
+  data('none' => {'format' => 'none',
+                  'tests'  => [{'msg' => "tcptest1\n", 'expected' => 'tcptest1'},
+                               {'msg' => "tcptest2\n", 'expected' => 'tcptest2'}]},
+       'json' => {'format' => 'json',
+                  'tests'  => [{'msg' => {'k' => 123, 'message' => 'tcptest1'}.to_json + "\n", 'expected' => 'tcptest1'},
+                               {'msg' => {'k' => 'tcptest2', 'message' => 456}.to_json + "\n", 'expected' => 456}]},
+       'regexp' => {'format' => '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/',
+                    'tests' => [{'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 100 + "\n", 'expected' => 'localhost: ' + 'x' * 100},
+                                {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 1024 + "\n", 'expected' => 'localhost: ' + 'x' * 1024},
+                               ]})
+  test('test_msg_size') do |data|
+    format = data['format']
+    d = create_driver(BASE_CONFIG + "format #{format}")
+    tests = data['tests']
 
-      d.run do
-        u = UDPSocket.new
-        u.connect('127.0.0.1', PORT)
-        tests.each { |test|
-          u.send(test['msg'], 0)
-        }
-        sleep 1
-      end
-
-      compare_test_result(d.emits, tests)
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each { |test|
+        u.send(test['msg'], 0)
+      }
+      sleep 0.1
     end
-  }
+
+    compare_test_result(d.emits, tests)
+  end
 
   def compare_test_result(emits, tests)
     assert_equal(2, emits.size)
     emits.each_index {|i|
       assert_equal(tests[i]['expected'], emits[i][2]['message'])
       assert(emits[i][1].is_a?(Fluent::EventTime))
+    }
+  end
+
+  data('none' => {'format'    => 'none',
+                  'delimiter' => "@",
+                  'msg'       => "tcptest3@tcptest4\n",
+                  'expected'  => ['tcptest3', 'tcptest4']},
+       'json' => {'format'    => 'json',
+                  'delimiter' => "@",
+                  'msg'       =>  {'k' => 10, 'message' => 100}.to_json + "@" + {'k' => 20, 'message' => 200}.to_json + "\n",
+                  'expected'  =>  [100, 200]},
+       'regexp' => {'format'    => '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/',
+                    'delimiter' => "@",
+                    'msg'       => "[Sep 10 00:00:00] message1@[Sep 10 00:00:00] message2\n",
+                    'expected'  => ['message1', 'message2']})
+  test('test_delimiter') do |data|
+    format = data['format']
+    delimiter = data['delimiter']
+    msg = data['msg']
+    expected = data['expected']
+
+    d = create_driver([BASE_CONFIG, "format #{format}", "delimiter #{delimiter}"].join("\n"))
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      u.send(msg, 0)
+      sleep 0.1
+    end
+
+    assert_equal(2, d.emits.size)
+    d.emits.each_index {|i|
+      assert_equal(expected[i], d.emits[i][2]['message'])
+      assert(d.emits[i][1].is_a?(Fluent::EventTime))
     }
   end
 end
