@@ -56,26 +56,7 @@ module Fluent
       RESERVED_PARAMS = %W(@type @id @label @log_level)
 
       def parse_element(root_element, elem_name, attrs = {}, elems = [])
-        multiline_key = ""
         while true
-          if !multiline_key.empty?
-            k = multiline_key
-            v = scan_nonquoted_string(/("|\\#{LINE_END_WITHOUT_SPACING_AND_COMMENT})/)
-            if s = check(LINE_END_WITHOUT_SPACING_AND_COMMENT)
-              v << s
-            elsif check(/\\/)
-              skip(/\\/)
-            elsif check(/"/)
-              multiline_key = ""
-              skip(/"/)
-            end
-            attrs[k] << v
-            unless line_end
-              parse_error! "expected end of line"
-            end
-            next
-          end
-
           spacing
           if eof?
             if root_element
@@ -146,9 +127,6 @@ module Fluent
                   end
                 end
 
-                if check(/\"[^"]*#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
-                  multiline_key = k
-                end
                 v = parse_literal
                 unless line_end
                   parse_error! "expected end of line"
