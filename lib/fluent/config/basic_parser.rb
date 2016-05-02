@@ -28,6 +28,7 @@ module Fluent
       SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))+/
       ZERO_OR_MORE_SPACING = /(?:[ \t\r\n]|\z|\#.*?(?:\z|[\r\n]))*/
       SPACING_WITHOUT_COMMENT = /(?:[ \t\r\n]|\z)+/
+      LINE_END_WITHOUT_SPACING_AND_COMMENT = /(?:\z|[\r\n])/
 
       module ClassMethods
         def symbol(string)
@@ -69,6 +70,10 @@ module Fluent
 
       def prev_match
         @ss[0]
+      end
+
+      def check(pattern)
+        @ss.check(pattern)
       end
 
       def line_end

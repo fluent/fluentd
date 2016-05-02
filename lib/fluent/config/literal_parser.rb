@@ -81,6 +81,12 @@ module Fluent
         while true
           if skip(/\"/)
             return string.join
+          elsif check(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
+            if s = check(/[^\\]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
+              string << s
+            end
+            skip(/[^"]/)
+            return string.join
           elsif s = scan(/\\./)
             string << eval_escape_char(s[1,1])
           elsif skip(/\#\{/)
