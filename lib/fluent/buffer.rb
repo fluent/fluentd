@@ -150,7 +150,7 @@ module Fluent
     desc 'The length limit of the chunk queue.'
     config_param :buffer_queue_limit, :integer, default: 256
     desc 'The action when the size of buffer queue exceeds the buffer_queue_limit.'
-    config_param :buffer_queue_full_action, :enum, list: [:exception, :block], default: :exception
+    config_param :buffer_queue_full_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception
 
     alias chunk_limit buffer_chunk_limit
     alias chunk_limit= buffer_chunk_limit=
@@ -212,6 +212,9 @@ module Fluent
             $log.debug "buffer queue is full. Wait 1 second to re-emit events"
             sleep 1
             retry
+          when :drop_oldest_chunk
+            $log.debug "buffer queue is full. Dropping oldest chunk"
+            pop(nil)
           end
         end
 
@@ -326,7 +329,7 @@ module Fluent
       begin
         # #push(key) does not push empty chunks into queue.
         # so this check is nonsense...
-        if !chunk.empty?
+        if !chunk.empty? && !out.nil?
           write_chunk(chunk, out)
         end
 
