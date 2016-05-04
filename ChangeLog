@@ -1,13 +1,22 @@
 # v0.12
 
-## Release 0.12.22 - 2015/03/10
+## Release 0.12.23 - 2016/05/03
+
+### Bug fixes
+
+* Fix string-scrub dependency on ruby > 2
+  https://github.com/fluent/fluentd/pull/933
+* fluent-debug: Fix regression
+  https://github.com/fluent/fluentd/pull/894
+
+## Release 0.12.22 - 2016/03/10
 
 ### Bug fixes
 
 * supervisor: Require fcntl library for daemonize
   https://github.com/fluent/fluentd/pull/845
 
-## Release 0.12.21 - 2015/03/03
+## Release 0.12.21 - 2016/03/03
 
 ### New features / Enhancement
 
@@ -30,7 +39,7 @@
 * filter_record_transformer: Fix record_transformer to be thread-safe
   https://github.com/fluent/fluentd/pull/816
 
-## Release 0.12.20 - 2015/01/26
+## Release 0.12.20 - 2016/01/26
 
 ### New features / Enhancement
 
