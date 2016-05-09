@@ -313,7 +313,7 @@ module Fluent
       desc 'The length limit of the chunk queue.'
       config_param :buffer_queue_limit, :integer, default: 256
       desc 'The action when the size of buffer queue exceeds the buffer_queue_limit.'
-      config_param :buffer_queue_full_action, :enum, list: [:exception, :block], default: :exception
+      config_param :buffer_queue_full_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception
 
       config_param :flush_at_shutdown, :bool, default: true
 
@@ -330,7 +330,7 @@ module Fluent
         "max_retry_wait"      => "retry_max_interval",
         "buffer_chunk_limit"  => "chunk_bytes_limit",
         "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "buffer_queue_full_action" => "overflow_action",
         "flush_at_shutdown" => "flush_at_shutdown",
       }
 
@@ -426,7 +426,7 @@ module Fluent
       desc 'The length limit of the chunk queue.'
       config_param :buffer_queue_limit, :integer, default: 256
       desc 'The action when the size of buffer queue exceeds the buffer_queue_limit.'
-      config_param :buffer_queue_full_action, :enum, list: [:exception, :block], default: :exception
+      config_param :buffer_queue_full_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception
 
       config_param :flush_at_shutdown, :bool, default: false
 
@@ -448,7 +448,7 @@ module Fluent
         "max_retry_wait"      => "retry_max_interval",
         "buffer_chunk_limit"  => "chunk_bytes_limit",
         "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "buffer_queue_full_action" => "overflow_action",
         "flush_at_shutdown" => "flush_at_shutdown",
         "time_slice_wait" => "timekey_wait",
       }
