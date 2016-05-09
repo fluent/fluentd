@@ -34,6 +34,12 @@ module Fluent
         conf.elements.select{|e| e.name == 'secondary'}.first
       end
 
+      def self.inject_type_from_obsoleted_name(secconf, log)
+        if secconf['type'] && !secconf['@type']
+          secconf['@type'] = secconf['type']
+          log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
+        end
+      end
     end
 
     module BufferedEventStreamMixin
@@ -220,10 +226,7 @@ module Fluent
 
           secconf = CompatOutputUtils.secondary_section(conf)
           if secconf
-            if secconf['type'] && !secconf['@type']
-              secconf['@type'] = secconf['type']
-              log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
-            end
+            CompatOutputUtils.inject_type_from_obsoleted_name(secconf, log)
           end
         end
 
@@ -349,10 +352,7 @@ module Fluent
 
           secconf = CompatOutputUtils.secondary_section(conf)
           if secconf
-            if secconf['type'] && !secconf['@type']
-              secconf['@type'] = secconf['type']
-              log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
-            end
+            CompatOutputUtils.inject_type_from_obsoleted_name(secconf, log)
           end
         end
 
@@ -505,10 +505,7 @@ module Fluent
 
           secconf = CompatOutputUtils.secondary_section(conf)
           if secconf
-            if secconf['type'] && !secconf['@type']
-              secconf['@type'] = secconf['type']
-              log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
-            end
+            CompatOutputUtils.inject_type_from_obsoleted_name(secconf, log)
           end
         end
 
