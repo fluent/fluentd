@@ -128,7 +128,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:prefer_buffered_processing){ true }
       @i.start
 
-      assert_equal :expbackoff, @i.buffer_config.retry_type
+      assert_equal :exponential_backoff, @i.buffer_config.retry_type
       assert_equal 1, @i.buffer_config.retry_wait
       assert_equal 2.0, @i.buffer_config.retry_backoff_base
       assert !@i.buffer_config.retry_randomize
@@ -231,7 +231,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         prev_write_count = @i.write_count
         prev_num_errors = @i.num_errors
       end
-      # expbackoff interval: 1 * 2 ** 10 == 1024
+      # exponential backoff interval: 1 * 2 ** 10 == 1024
       # but it should be limited by retry_max_interval=60
       assert_equal 60, (@i.next_flush_time - now)
     end
@@ -635,7 +635,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       hash = {
         'flush_interval' => 1,
         'flush_burst_interval' => 0.1,
-        'retry_type' => :expbackoff,
+        'retry_type' => :exponential_backoff,
         'retry_forever' => true,
         'retry_randomize' => false,
         'retry_timeout' => 3600,

@@ -608,7 +608,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
     test 'primary plugin will emit event streams to secondary after retries for time of retry_timeout * retry_secondary_threshold' do
       written = []
-      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :expbackoff, 'retry_wait' => 1, 'retry_timeout' => 60, 'retry_randomize' => false})
+      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :exponential_backoff, 'retry_wait' => 1, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
@@ -676,7 +676,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'exponential backoff interval will be initialized when switched to secondary' do
-      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :expbackoff, 'retry_wait' => 1, 'retry_timeout' => 60, 'retry_randomize' => false})
+      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :exponential_backoff, 'retry_wait' => 1, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
