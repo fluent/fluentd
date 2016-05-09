@@ -23,7 +23,7 @@ module Fluent
           secondary: false, secondary_threshold: 0.8
       )
         case retry_type
-        when :expbackoff
+        when :exponential_backoff
           ExponentialBackOffRetry.new(title, wait, timeout, forever, max_steps, randomize, randomize_width, backoff_base, max_interval, secondary, secondary_threshold)
         when :periodic
           PeriodicRetry.new(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threshold)

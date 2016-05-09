@@ -73,7 +73,7 @@ module Fluent
         # expornential backoff sequence will be initialized at the time of this threshold
 
         desc 'How to wait next retry to flush buffer.'
-        config_param :retry_type, :enum, list: [:expbackoff, :periodic], default: :expbackoff
+        config_param :retry_type, :enum, list: [:exponential_backoff, :periodic], default: :exponential_backoff
         ### Periodic -> fixed :retry_wait
         ### Exponencial backoff: k is number of retry times
         # c: constant factor, @retry_wait

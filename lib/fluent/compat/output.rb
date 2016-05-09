@@ -208,7 +208,7 @@ module Fluent
         if config_style == :v0
           buf_params = {
             "flush_mode" => "fast",
-            "retry_type" => "expbackoff",
+            "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
             buf_params[newer] = conf[older] if conf.has_key?(older)
@@ -337,7 +337,7 @@ module Fluent
         if config_style == :v0
           buf_params = {
             "flush_mode" => "fast",
-            "retry_type" => "expbackoff",
+            "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
             buf_params[newer] = conf[older] if conf.has_key?(older)
@@ -465,7 +465,7 @@ module Fluent
           buf_params = {
             "@type"      => "file2",
             "flush_mode" => (conf['flush_interval'] ? "fast" : "none"),
-            "retry_type" => "expbackoff",
+            "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
             buf_params[newer] = conf[older] if conf.has_key?(older)
