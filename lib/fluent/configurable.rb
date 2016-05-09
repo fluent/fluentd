@@ -126,8 +126,8 @@ module Fluent
         configure_proxy(self.name).configured_in(section_name)
       end
 
-      def config_param(name, *args, &block)
-        configure_proxy(self.name).config_param(name, *args, &block)
+      def config_param(name, type = nil, **kwargs, &block)
+        configure_proxy(self.name).config_param(name, type, **kwargs, &block)
         attr_accessor name
       end
 
@@ -139,8 +139,8 @@ module Fluent
         configure_proxy(self.name).config_set_desc(name, desc)
       end
 
-      def config_section(name, *args, &block)
-        configure_proxy(self.name).config_section(name, *args, &block)
+      def config_section(name, **kwargs, &block)
+        configure_proxy(self.name).config_section(name, **kwargs, &block)
         attr_accessor configure_proxy(self.name).sections[name].param_name
       end
 

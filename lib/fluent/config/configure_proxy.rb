@@ -37,16 +37,16 @@ module Fluent
       #   end
       # end
 
-      def initialize(name, opts = {})
+      def initialize(name, param_name: nil, final: nil, init: nil, required: nil, multi: nil, alias: nil, type_lookup:)
         @name = name.to_sym
-        @final = opts[:final]
+        @final = final
 
-        @param_name = (opts[:param_name] || @name).to_sym
-        @init = opts[:init]
-        @required = opts[:required]
-        @multi = opts[:multi]
-        @alias = opts[:alias]
-        @type_lookup = opts[:type_lookup]
+        @param_name = (param_name || @name).to_sym
+        @init = init
+        @required = required
+        @multi = multi
+        @alias = binding.local_variable_get(:alias)
+        @type_lookup = type_lookup
 
         raise "init and required are exclusive" if @init && @required
 
@@ -108,6 +108,7 @@ module Fluent
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
         options[:final] = @final || other.final
+        options[:type_lookup] = @type_lookup
 
         merged = self.class.new(other.name, options)
 
@@ -166,6 +167,7 @@ module Fluent
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
         options[:final]  = true
+        options[:type_lookup] = @type_lookup
 
         merged = self.class.new(other.name, options)
 
@@ -200,21 +202,13 @@ module Fluent
         end
       end
 
-      def parameter_configuration(name, *args, &block)
+      def parameter_configuration(name, type = nil, **kwargs, &block)
         name = name.to_sym
 
         opts = {}
-        args.each { |a|
-          if a.is_a?(Symbol)
-            opts[:type] = a
-          elsif a.is_a?(Hash)
-            opts.merge!(a)
-          else
-            raise ArgumentError, "#{self.name}: wrong number of arguments (#{1 + args.length} for #{block ? 2 : 3})"
-          end
-        }
+        opts[:type] = type
+        opts.merge!(kwargs)
 
-        type = opts[:type]
         if block && type
           raise ArgumentError, "#{self.name}: both of block and type cannot be specified"
         end
@@ -245,18 +239,18 @@ module Fluent
         @configured_in_section = section_name.to_sym
       end
 
-      def config_argument(name, *args, &block)
+      def config_argument(name, type = nil, **kwargs, &block)
         if @argument
           raise ArgumentError, "#{self.name}: config_argument called twice"
         end
-        name, block, opts = parameter_configuration(name, *args, &block)
+        name, block, opts = parameter_configuration(name, type, **kwargs, &block)
 
         @argument = [name, block, opts]
         name
       end
 
-      def config_param(name, *args, &block)
-        name, block, opts = parameter_configuration(name, *args, &block)
+      def config_param(name, type = nil, **kwargs, &block)
+        name, block, opts = parameter_configuration(name, type, **kwargs, &block)
 
         if @current_description
           config_set_desc(name, @current_description)
@@ -294,19 +288,13 @@ module Fluent
         @current_description = description
       end
 
-      def config_section(name, opts = {}, &block)
+      def config_section(name, **kwargs, &block)
         unless block_given?
           raise ArgumentError, "#{self.name}: config_section requires block parameter"
         end
         name = name.to_sym
 
-        unless opts.is_a?(Hash)
-          raise ArgumentError, "#{self.name}: unknown config_section arguments: #{opts.inspect}"
-        end
-
-        opts[:type_lookup] = @type_lookup
-
-        sub_proxy = ConfigureProxy.new(name, opts)
+        sub_proxy = ConfigureProxy.new(name, type_lookup: @type_lookup, **kwargs)
         sub_proxy.instance_exec(&block)
 
         if sub_proxy.init?
