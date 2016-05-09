@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require "string-scrub" unless "".respond_to?(:scrub)
+
 module Fluent
   module StringUtil
     def match_regexp(regexp, string)
