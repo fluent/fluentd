@@ -134,16 +134,6 @@ module Fluent
         end
       end
 
-      # def configure(conf)
-      #   super
-      #   if @buffer_config
-      #     raise Fluent::ConfigError, "<buffer> can't be specified because this is non-buffered output plugin: '#{self.class}'"
-      #   end
-      #   if @secondary_config
-      #     raise Fluent::ConfigError, "<buffer> can't be specified because this is non-buffered output plugin: '#{self.class}'"
-      #   end
-      # end
-
       ## emit must be implemented in plugin
       # def emit(tag, es, chain)
       # end
@@ -256,7 +246,7 @@ module Fluent
       # #write is also
 
       # This method overrides Fluent::Plugin::Output#handle_stream_simple
-      # because v0.12 BufferedOutput may overrides #format_stream, but original method doesn't consider about it
+      # because v0.12 BufferedOutput may overrides #format_stream, but original #handle_stream_simple method doesn't consider about it
       def handle_stream_simple(tag, es)
         if @overrides_format_stream
           meta = metadata(nil, nil, nil)
@@ -440,9 +430,6 @@ module Fluent
 
       attr_accessor :localtime
 
-      # config_section :buffer, param_name: :buffer_config, init: true, required: false, multi: false, final: true do
-      #   config_set_default :@type, 'file2'
-      # end
       config_section :buffer, param_name: :buffer_config do
         config_set_default :@type, 'file2'
       end
