@@ -187,20 +187,20 @@ module Fluent
 
       config_param :flush_at_shutdown, :bool, default: true
 
-      PARAMS_MAP = [
-        ["buffer_type", "@type"],
-        ["num_threads",    "flush_threads"],
-        ["flush_interval", "flush_interval"],
-        ["try_flush_interval",          "flush_thread_interval"],
-        ["queued_chunk_flush_interval", "flush_burst_interval"],
-        ["disable_retry_limit",         "retry_forever"],
-        ["retry_limit",                 "retry_max_times"],
-        ["max_retry_wait",              "retry_max_interval"],
-        ["buffer_chunk_limit", "chunk_bytes_limit"],
-        ["buffer_queue_limit", "queue_length_limit"],
-        ["buffer_queue_full_action", nil], # TODO: implement this on fluent/plugin/buffer
-        ["flush_at_shutdown",  "flush_at_shutdown"],
-      ]
+      PARAMS_MAP = {
+        "buffer_type" => "@type",
+        "num_threads"                 => "flush_threads",
+        "flush_interval"              => "flush_interval",
+        "try_flush_interval"          => "flush_thread_interval",
+        "queued_chunk_flush_interval" => "flush_burst_interval",
+        "disable_retry_limit" => "retry_forever",
+        "retry_limit"         => "retry_max_times",
+        "max_retry_wait"      => "retry_max_interval",
+        "buffer_chunk_limit"  => "chunk_bytes_limit",
+        "buffer_queue_limit"  => "queue_length_limit",
+        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "flush_at_shutdown" => "flush_at_shutdown",
+      }
 
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
@@ -316,20 +316,20 @@ module Fluent
 
       config_set_default :time_as_integer, true
 
-      PARAMS_MAP = [
-        ["buffer_type", "@type"],
-        ["num_threads",    "flush_threads"],
-        ["flush_interval", "flush_interval"],
-        ["try_flush_interval",          "flush_thread_interval"],
-        ["queued_chunk_flush_interval", "flush_burst_interval"],
-        ["disable_retry_limit",         "retry_forever"],
-        ["retry_limit",                 "retry_max_times"],
-        ["max_retry_wait",              "retry_max_interval"],
-        ["buffer_chunk_limit", "chunk_bytes_limit"],
-        ["buffer_queue_limit", "queue_length_limit"],
-        ["buffer_queue_full_action", nil], # TODO: implement this on fluent/plugin/buffer
-        ["flush_at_shutdown",  "flush_at_shutdown"],
-      ]
+      PARAMS_MAP = {
+        "buffer_type" => "@type",
+        "num_threads"                 => "flush_threads",
+        "flush_interval"              => "flush_interval",
+        "try_flush_interval"          => "flush_thread_interval",
+        "queued_chunk_flush_interval" => "flush_burst_interval",
+        "disable_retry_limit" => "retry_forever",
+        "retry_limit"         => "retry_max_times",
+        "max_retry_wait"      => "retry_max_interval",
+        "buffer_chunk_limit"  => "chunk_bytes_limit",
+        "buffer_queue_limit"  => "queue_length_limit",
+        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "flush_at_shutdown" => "flush_at_shutdown",
+      }
 
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
@@ -436,22 +436,22 @@ module Fluent
         config_set_default :@type, 'file2'
       end
 
-      PARAMS_MAP = [
-        ["buffer_type", "@type"],
-        ["buffer_path", "path"],
-        ["num_threads",    "flush_threads"],
-        ["flush_interval", "flush_interval"],
-        ["try_flush_interval",          "flush_thread_interval"],
-        ["queued_chunk_flush_interval", "flush_burst_interval"],
-        ["disable_retry_limit",         "retry_forever"],
-        ["retry_limit",                 "retry_max_times"],
-        ["max_retry_wait",              "retry_max_interval"],
-        ["buffer_chunk_limit", "chunk_bytes_limit"],
-        ["buffer_queue_limit", "queue_length_limit"],
-        ["buffer_queue_full_action", nil], # TODO: implement this on fluent/plugin/buffer
-        ["flush_at_shutdown",  "flush_at_shutdown"],
-        ["time_slice_wait", "timekey_wait"],
-      ]
+      PARAMS_MAP = {
+        "buffer_type" => "@type",
+        "buffer_path" => "path",
+        "num_threads"                 => "flush_threads",
+        "flush_interval"              => "flush_interval",
+        "try_flush_interval"          => "flush_thread_interval",
+        "queued_chunk_flush_interval" => "flush_burst_interval",
+        "disable_retry_limit" => "retry_forever",
+        "retry_limit"         => "retry_max_times",
+        "max_retry_wait"      => "retry_max_interval",
+        "buffer_chunk_limit"  => "chunk_bytes_limit",
+        "buffer_queue_limit"  => "queue_length_limit",
+        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "flush_at_shutdown" => "flush_at_shutdown",
+        "time_slice_wait" => "timekey_wait",
+      }
 
       def initialize
         super
