@@ -222,6 +222,7 @@ module Fluent
           if secconf
             if secconf['type'] && !secconf['@type']
               secconf['@type'] = secconf['type']
+              log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
             end
           end
         end
@@ -350,6 +351,7 @@ module Fluent
           if secconf
             if secconf['type'] && !secconf['@type']
               secconf['@type'] = secconf['type']
+              log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
             end
           end
         end
@@ -505,6 +507,7 @@ module Fluent
           if secconf
             if secconf['type'] && !secconf['@type']
               secconf['@type'] = secconf['type']
+              log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
             end
           end
         end
