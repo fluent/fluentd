@@ -101,7 +101,13 @@ module Fluent
 
     def start
       log.debug "listening http on #{@bind}:#{@port}"
-      lsock = TCPServer.new(@bind, @port)
+
+      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+      if Fluent.windows?
+        socket_manager_path = socket_manager_path.to_i
+      end
+      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      lsock = client.listen_tcp(@bind, @port)
 
       detach_multi_process do
         super

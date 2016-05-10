@@ -182,13 +182,18 @@ module Fluent
 
     def listen(callback)
       log.info "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
+      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+      if Fluent.windows?
+        socket_manager_path = socket_manager_path.to_i
+      end
+      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
       if @protocol_type == :udp
-        @usock = SocketUtil.create_udp_socket(@bind)
-        @usock.bind(@bind, @port)
+        @usock = client.listen_udp(@bind, @port)
         SocketUtil::UdpHandler.new(@usock, log, 2048, callback)
       else
         # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
-        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback)
+        lsock = client.listen_tcp(@bind, @port)
+        Coolio::TCPServer.new(lsock, nil, SocketUtil::TcpHandler, log, "\n", callback)
       end
     end
 
