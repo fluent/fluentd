@@ -451,11 +451,7 @@ module Fluent
     end
 
     def format_stream(tag, es)
-      if @time_as_integer
-        es.to_msgpack_stream_forced_integer
-      else
-        es.to_msgpack_stream
-      end
+      es.to_msgpack_stream
     end
 
     def emit(tag, es, chain)
