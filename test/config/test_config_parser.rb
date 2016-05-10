@@ -5,6 +5,7 @@ require "fluent/config/error"
 require "fluent/config/basic_parser"
 require "fluent/config/literal_parser"
 require "fluent/config/v1_parser"
+require 'fluent/config/parser'
 
 module Fluent::Config
   module V1TestHelper
@@ -115,6 +116,7 @@ module Fluent::Config
         test "requires escaping double quote" do
           assert_text_parsed_as(e('ROOT', '', {"k1" => '"'}), '  k1 "\\""')
           assert_parse_error('  k1 """')
+          assert_parse_error('  k1 ""\'')
         end
 
         test "removes backslash in front of a normal character" do
@@ -123,6 +125,39 @@ module Fluent::Config
 
         test "accepts escape characters" do
           assert_text_parsed_as(e('ROOT', '', {"k1" => "\n"}), '  k1 "\\n"')
+        end
+
+        test "support multiline string" do
+          assert_text_parsed_as(e('ROOT', '',
+            {"k1" => %[line1
+                       line2]
+            }),
+            %[k1      "line1
+                       line2"]
+          )
+          assert_text_parsed_as(e('ROOT', '',
+            {"k1" => %[line1                       line2]
+            }),
+            %[k1      "line1\\
+                       line2"]
+          )
+          assert_text_parsed_as(e('ROOT', '',
+            {"k1" => %[line1
+                       line2
+                       line3]
+            }),
+            %[k1      "line1
+                       line2
+                       line3"]
+          )
+          assert_text_parsed_as(e('ROOT', '',
+            {"k1" => %[line1
+                       line2                       line3]
+            }),
+            %[k1      "line1
+                       line2\\
+                       line3"]
+          )
         end
       end
 
