@@ -59,6 +59,7 @@ module Fluent
 
       @lsock = listen
       @loop.attach(@lsock)
+      @connections = []
 
       @usock = SocketUtil.create_udp_socket(@bind)
       @usock.bind(@bind, @port)
@@ -84,11 +85,15 @@ module Fluent
       @usock.close
       @thread.join
       @lsock.close
+      @connections.each { |c| c.close }
     end
 
     def listen
       log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
+      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message)) do |connection|
+        @connections.reject! { |conn| conn.closed? }
+        @connections << connection
+      end
       s.listen(@backlog) unless @backlog.nil?
       s
     end
