@@ -125,7 +125,7 @@ module Fluent
 
       def shutdown
         @loop.watchers.each { |w| w.detach }
-        @loop.stop
+        @loop.stop if @loop.instance_variable_get("@running")
         @handler.close
         @thread.join
       end

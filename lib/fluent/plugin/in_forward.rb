@@ -57,11 +57,16 @@ module Fluent
     def start
       @loop = Coolio::Loop.new
 
-      @lsock = listen
+      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+      if Fluent.windows?
+        socket_manager_path = socket_manager_path.to_i
+      end
+      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+
+      @lsock = listen(client)
       @loop.attach(@lsock)
 
-      @usock = SocketUtil.create_udp_socket(@bind)
-      @usock.bind(@bind, @port)
+      @usock = client.listen_udp(@bind, @port)
       @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
       @hbr = HeartbeatRequestHandler.new(@usock, method(:on_heartbeat_request))
       @loop.attach(@hbr)
@@ -86,9 +91,10 @@ module Fluent
       @lsock.close
     end
 
-    def listen
+    def listen(client)
       log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
+      sock = client.listen_tcp(@bind, @port)
+      s = Coolio::TCPServer.new(sock, nil, Handler, @linger_timeout, log, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s
     end

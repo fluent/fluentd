@@ -53,9 +53,34 @@ module Fluent
       end
     end
 
-    def initialize(out=STDERR, level=LEVEL_TRACE, opts={})
-      @out = out
-      @level = level
+    def initialize(logger, opts={})
+      # overwrites logger.level= so that config reloading resets level of Fluentd::Log
+      orig_logger_level_setter = logger.class.public_instance_method(:level=).bind(logger)
+      me = self
+      # The original ruby logger sets the number as each log level like below.
+      # DEBUG = 0
+      # INFO  = 1
+      # WARN  = 2
+      # ERROR = 3
+      # FATAL = 4
+      # Serverengine use this original log number. In addition to this, serverengine sets -1 as TRACE level.
+      # TRACE = -1
+      #
+      # On the other hand, in fluentd side, it sets the number like below.
+      # TRACE = 0
+      # DEBUG = 1
+      # INFO  = 2
+      # WARN  = 3
+      # ERROR = 4
+      # FATAL = 5
+      #
+      # Then fluentd's level is set as serverengine's level + 1.
+      # So if serverengine's logger level is changed, fluentd's log level will be changed to that + 1.
+      logger.define_singleton_method(:level=) {|level| orig_logger_level_setter.call(level); me.level = self.level + 1 }
+
+      @logger = logger
+      @out = logger.instance_variable_get(:@logdev)
+      @level = logger.level + 1
       @debug_mode = false
       @self_event = false
       @tag = 'fluent'
@@ -74,7 +99,10 @@ module Fluent
     end
 
     def dup
-      clone = self.class.new(@out, @level, suppress_repeated_stacktrace: @suppress_repeated_stacktrace)
+      dl_opts = {}
+      dl_opts[:log_level] = @level - 1
+      logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
+      clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace)
       clone.tag = @tag
       clone.time_format = @time_format
       # optional headers/attrs are not copied, because new PluginLogger should have another one of it
@@ -86,6 +114,18 @@ module Fluent
     attr_accessor :tag
     attr_accessor :time_format
     attr_accessor :optional_header, :optional_attrs
+
+    def logdev=(logdev)
+      @out = logdev
+      @logger.instance_variable_set(:@logdev, logdev)
+      nil
+    end
+
+    def reopen!
+      # do noting in @logger.reopen! because it's already reopened in Supervisor.load_config
+      @logger.reopen! if @logger
+      nil
+    end
 
     def enable_debug(b=true)
       @debug_mode = b
@@ -238,7 +278,7 @@ module Fluent
     end
 
     def puts(msg)
-      @out.puts(msg)
+      @logger << msg + "\n"
       @out.flush
       msg
     rescue

@@ -260,4 +260,9 @@ end
 exit 0 if early_exit
 
 require 'fluent/supervisor'
-Fluent::Supervisor.new(opts).start
+if opts[:supervise]
+  Fluent::Supervisor.new(opts).run_supervisor
+else
+  Fluent::Supervisor.new(opts).run_worker
+end
+

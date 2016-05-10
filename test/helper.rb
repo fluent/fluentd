@@ -47,6 +47,7 @@ require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
 require 'fluent/time'
+require 'serverengine'
 
 module Fluent
   module Plugin
@@ -104,4 +105,8 @@ def ipv6_enabled?
   end
 end
 
-$log = Fluent::Log.new(Fluent::Test::DummyLogDevice.new, Fluent::Log::LEVEL_WARN)
+dl_opts = {}
+dl_opts[:log_level] = ServerEngine::DaemonLogger::WARN
+logdev = Fluent::Test::DummyLogDevice.new
+logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+$log ||= Fluent::Log.new(logger)

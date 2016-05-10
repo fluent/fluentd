@@ -22,5 +22,10 @@ require 'fluent/test/output_test'
 require 'fluent/test/filter_test'
 require 'fluent/test/parser_test'
 require 'fluent/test/formatter_test'
+require 'serverengine'
 
-$log ||= Fluent::Log.new(Fluent::Test::DummyLogDevice.new)
+dl_opts = {}
+dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
+logdev = Fluent::Test::DummyLogDevice.new
+logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+$log ||= Fluent::Log.new(logger)
