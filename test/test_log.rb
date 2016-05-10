@@ -26,7 +26,43 @@ class LogTest < Test::Unit::TestCase
     )
     def test_output(data)
       log_level, start = data
-      log = Fluent::Log.new(@log_device, log_level)
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
+      log.level = log_level
+      log.trace "trace log"
+      log.debug "debug log"
+      log.info "info log"
+      log.warn "warn log"
+      log.error "error log"
+      log.fatal "fatal log"
+      expected = [
+        "#{@timestamp_str} [trace]: trace log\n",
+        "#{@timestamp_str} [debug]: debug log\n",
+        "#{@timestamp_str} [info]: info log\n",
+        "#{@timestamp_str} [warn]: warn log\n",
+        "#{@timestamp_str} [error]: error log\n",
+        "#{@timestamp_str} [fatal]: fatal log\n"
+      ][start..-1]
+      assert_equal(expected, log.out.logs)
+    end
+
+    data(
+        trace: [ServerEngine::DaemonLogger::TRACE, 0],
+        debug: [ServerEngine::DaemonLogger::DEBUG, 1],
+        info: [ServerEngine::DaemonLogger::INFO, 2],
+        warn: [ServerEngine::DaemonLogger::WARN, 3],
+        error: [ServerEngine::DaemonLogger::ERROR, 4],
+        fatal: [ServerEngine::DaemonLogger::FATAL, 5],
+    )
+    def test_output_with_serverengine_loglevel(data)
+      log_level, start = data
+
+      dl_opts = {}
+      dl_opts[:log_level] = log_level
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      log = Fluent::Log.new(logger)
       log.trace "trace log"
       log.debug "debug log"
       log.info "info log"
@@ -54,7 +90,44 @@ class LogTest < Test::Unit::TestCase
     )
     def test_output_with_block(data)
       log_level, start = data
-      log = Fluent::Log.new(@log_device, log_level)
+
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
+      log.level = log_level
+      log.trace { "trace log" }
+      log.debug { "debug log" }
+      log.info { "info log" }
+      log.warn { "warn log" }
+      log.error { "error log" }
+      log.fatal { "fatal log" }
+      expected = [
+        "#{@timestamp_str} [trace]: trace log\n",
+        "#{@timestamp_str} [debug]: debug log\n",
+        "#{@timestamp_str} [info]: info log\n",
+        "#{@timestamp_str} [warn]: warn log\n",
+        "#{@timestamp_str} [error]: error log\n",
+        "#{@timestamp_str} [fatal]: fatal log\n"
+      ][start..-1]
+      assert_equal(expected, log.out.logs)
+    end
+
+    data(
+        trace: [ServerEngine::DaemonLogger::TRACE, 0],
+        debug: [ServerEngine::DaemonLogger::DEBUG, 1],
+        info: [ServerEngine::DaemonLogger::INFO, 2],
+        warn: [ServerEngine::DaemonLogger::WARN, 3],
+        error: [ServerEngine::DaemonLogger::ERROR, 4],
+        fatal: [ServerEngine::DaemonLogger::FATAL, 5],
+    )
+    def test_output_with_block_with_serverengine_loglevel(data)
+      log_level, start = data
+
+      dl_opts = {}
+      dl_opts[:log_level] = log_level
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      log = Fluent::Log.new(logger)
       log.trace { "trace log" }
       log.debug { "debug log" }
       log.info { "info log" }
@@ -82,7 +155,42 @@ class LogTest < Test::Unit::TestCase
     )
     def test_execute_block(data)
       log_level, expected = data
-      log = Fluent::Log.new(@log_device, log_level)
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
+      log.level = log_level
+      block_called = {
+        trace: false,
+        debug: false,
+        info: false,
+        warn: false,
+        error: false,
+        fatal: false,
+      }
+      log.trace { block_called[:trace] = true }
+      log.debug { block_called[:debug] = true }
+      log.info { block_called[:info] = true }
+      log.warn { block_called[:warn] = true }
+      log.error { block_called[:error] = true }
+      log.fatal { block_called[:fatal] = true }
+      assert_equal(expected, block_called)
+    end
+
+    data(
+      trace: [ServerEngine::DaemonLogger::TRACE, { trace: true, debug: true, info: true, warn: true, error: true, fatal: true }],
+      debug: [ServerEngine::DaemonLogger::DEBUG, { trace: false, debug: true, info: true, warn: true, error: true, fatal: true }],
+      info: [ServerEngine::DaemonLogger::INFO, { trace: false, debug: false, info: true, warn: true, error: true, fatal: true }],
+      warn: [ServerEngine::DaemonLogger::WARN, { trace: false, debug: false, info: false, warn: true, error: true, fatal: true }],
+      error: [ServerEngine::DaemonLogger::ERROR, { trace: false, debug: false, info: false, warn: false, error: true, fatal: true }],
+      fatal: [ServerEngine::DaemonLogger::FATAL, { trace: false, debug: false, info: false, warn: false, error: false, fatal: true }],
+    )
+    def test_execute_block_with_serverengine_loglevel(data)
+      log_level, expected = data
+      dl_opts = {}
+      dl_opts[:log_level] = log_level
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      log = Fluent::Log.new(logger)
       block_called = {
         trace: false,
         debug: false,
@@ -111,7 +219,55 @@ class LogTest < Test::Unit::TestCase
     def test_backtrace(data)
       log_level, start = data
       backtrace = ["line 1", "line 2", "line 3"]
-      log = Fluent::Log.new(@log_device, log_level)
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
+      log.level = log_level
+      log.trace_backtrace(backtrace)
+      log.debug_backtrace(backtrace)
+      log.info_backtrace(backtrace)
+      log.warn_backtrace(backtrace)
+      log.error_backtrace(backtrace)
+      log.fatal_backtrace(backtrace)
+      expected = [
+        "  #{@timestamp_str} [trace]: line 1\n",
+        "  #{@timestamp_str} [trace]: line 2\n",
+        "  #{@timestamp_str} [trace]: line 3\n",
+        "  #{@timestamp_str} [debug]: line 1\n",
+        "  #{@timestamp_str} [debug]: line 2\n",
+        "  #{@timestamp_str} [debug]: line 3\n",
+        "  #{@timestamp_str} [info]: line 1\n",
+        "  #{@timestamp_str} [info]: line 2\n",
+        "  #{@timestamp_str} [info]: line 3\n",
+        "  #{@timestamp_str} [warn]: line 1\n",
+        "  #{@timestamp_str} [warn]: line 2\n",
+        "  #{@timestamp_str} [warn]: line 3\n",
+        "  #{@timestamp_str} [error]: line 1\n",
+        "  #{@timestamp_str} [error]: line 2\n",
+        "  #{@timestamp_str} [error]: line 3\n",
+        "  #{@timestamp_str} [fatal]: line 1\n",
+        "  #{@timestamp_str} [fatal]: line 2\n",
+        "  #{@timestamp_str} [fatal]: line 3\n"
+      ][start..-1]
+      assert_equal(expected, log.out.logs)
+    end
+
+    data(
+      trace: [ServerEngine::DaemonLogger::TRACE, 0],
+      debug: [ServerEngine::DaemonLogger::DEBUG, 3],
+      info: [ServerEngine::DaemonLogger::INFO, 6],
+      warn: [ServerEngine::DaemonLogger::WARN, 9],
+      error: [ServerEngine::DaemonLogger::ERROR, 12],
+      fatal: [ServerEngine::DaemonLogger::FATAL, 15],
+    )
+    def test_backtrace_with_serverengine_loglevel(data)
+      log_level, start = data
+      backtrace = ["line 1", "line 2", "line 3"]
+      dl_opts = {}
+      dl_opts[:log_level] = log_level
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      log = Fluent::Log.new(logger)
       log.trace_backtrace(backtrace)
       log.debug_backtrace(backtrace)
       log.info_backtrace(backtrace)
@@ -145,7 +301,13 @@ class LogTest < Test::Unit::TestCase
   sub_test_case "suppress repeated backtrace" do
     def test_same_log_level
       backtrace = ["line 1", "line 2", "line 3"]
-      log = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE, suppress_repeated_stacktrace: true)
+      dl_opts = {}
+      dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      opts = {}
+      opts[:suppress_repeated_stacktrace] = true
+      log = Fluent::Log.new(logger, opts)
       log.trace_backtrace(backtrace)
       log.trace_backtrace(backtrace)
       log.trace_backtrace(backtrace + ["line 4"])
@@ -170,7 +332,13 @@ class LogTest < Test::Unit::TestCase
 
     def test_different_log_level
       backtrace = ["line 1", "line 2", "line 3"]
-      log = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE, suppress_repeated_stacktrace: true)
+      dl_opts = {}
+      dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      opts = {}
+      opts[:suppress_repeated_stacktrace] = true
+      log = Fluent::Log.new(logger, opts)
       log.trace_backtrace(backtrace)
       log.debug_backtrace(backtrace)
       log.info_backtrace(backtrace)
@@ -192,7 +360,11 @@ class LogTest < Test::Unit::TestCase
   end
 
   def test_dup
-    log1 = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE)
+    dl_opts = {}
+    dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+    logdev = @log_device
+    logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+    log1 = Fluent::Log.new(logger)
     log2 = log1.dup
     log1.level = Fluent::Log::LEVEL_DEBUG
     original_tag = log1.tag
@@ -204,12 +376,31 @@ class LogTest < Test::Unit::TestCase
   end
 
   def test_disable_events
-    log = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE)
+    dl_opts = {}
+    dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+    logdev = @log_device
+    logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+    log = Fluent::Log.new(logger)
     engine = log.instance_variable_get("@engine")
     mock(engine).push_log_event(anything, anything, anything).once
     log.trace "trace log"
     log.disable_events(Thread.current)
     log.trace "trace log"
+  end
+
+  def test_level_reload
+    dl_opts = {}
+    dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+    logdev = @log_device
+    logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+    log = Fluent::Log.new(logger)
+    assert_equal(ServerEngine::DaemonLogger::TRACE, logger.level)
+    assert_equal(Fluent::Log::LEVEL_TRACE, log.level)
+    # change daemon logger side level
+    logger.level = ServerEngine::DaemonLogger::DEBUG
+    assert_equal(ServerEngine::DaemonLogger::DEBUG, logger.level)
+    # check fluentd log side level is also changed
+    assert_equal(Fluent::Log::LEVEL_DEBUG, log.level)
   end
 end
 
@@ -219,7 +410,11 @@ class PluginLoggerTest < Test::Unit::TestCase
     @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
     stub(Time).now { @timestamp }
-    @logger = Fluent::Log.new(@log_device, Fluent::Log::LEVEL_TRACE)
+    dl_opts = {}
+    dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+    logdev = @log_device
+    logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+    @logger = Fluent::Log.new(logger)
   end
 
   def teardown
