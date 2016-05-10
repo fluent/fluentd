@@ -157,14 +157,23 @@ class ConfigTest < Test::Unit::TestCase
   end
 
   def test_inline
-    prepare_config 
+    prepare_config
     opts = {
-      config_path: "#{TMP_DIR}/config_test_1.conf",
-      inline_config: "<source>\n  type http\n  port 2222\n </source>"
+        :config_path => "#{TMP_DIR}/config_test_1.conf",
+        :inline_config => "<source>\n  type http\n  port 2222\n </source>"
     }
     assert_nothing_raised do
       Fluent::Supervisor.new(opts)
-    end  
+    end
+    create_warn_dummy_logger
+  end
+
+  def create_warn_dummy_logger
+    dl_opts = {}
+    dl_opts[:log_level] = ServerEngine::DaemonLogger::WARN
+    logdev = Fluent::Test::DummyLogDevice.new
+    logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+    $log = Fluent::Log.new(logger)
   end
 end
 

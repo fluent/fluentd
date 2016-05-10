@@ -17,6 +17,7 @@
 require 'fluent/engine'
 require 'fluent/system_config'
 require 'fluent/config'
+require 'serverengine'
 
 module Fluent
   module Test
@@ -119,7 +120,11 @@ module Fluent
     class TestLogger < Fluent::PluginLogger
       def initialize
         @logdev = DummyLogDevice.new
-        super(Fluent::Log.new(@logdev))
+        dl_opts = {}
+        dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
+        logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
+        log = Fluent::Log.new(logger)
+        super(log)
       end
 
       def reset
