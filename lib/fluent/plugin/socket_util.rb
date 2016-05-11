@@ -55,6 +55,7 @@ module Fluent
 
       def initialize(io, log, delimiter, callback)
         super(io)
+        @timeout = 0
         if io.is_a?(TCPSocket)
           @addr = (io.peeraddr rescue PEERADDR_FAILED)
 

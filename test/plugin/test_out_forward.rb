@@ -385,6 +385,7 @@ class ForwardOutputTest < Test::Unit::TestCase
           @log = log
           @chunk_counter = 0
           @on_message = on_message
+          @source = nil
         end
 
         if do_respond

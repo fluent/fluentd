@@ -45,6 +45,8 @@ module Fluent
       super
       require 'fluent/plugin/socket_util'
       @nodes = []  #=> [Node]
+      @loop = nil
+      @thread = nil
     end
 
     desc 'The timeout time when sending event logs.'
