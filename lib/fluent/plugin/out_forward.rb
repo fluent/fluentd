@@ -440,7 +440,6 @@ module Fluent
     end
 
     def on_heartbeat(sockaddr, msg)
-      port, host = Socket.unpack_sockaddr_in(sockaddr)
       if node = @nodes.find {|n| n.sockaddr == sockaddr }
         #log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
         if node.heartbeat
