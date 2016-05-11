@@ -65,6 +65,10 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
     es
   end
 
+  setup do
+    @i = nil
+  end
+
   teardown do
     if @i
       @i.stop unless @i.stopped?
