@@ -103,15 +103,16 @@ module Fluent
     module Mixin
       def system_config
         require 'fluent/engine'
-        unless $_system_config
+        unless defined?($_system_config)
           $_system_config = nil
         end
-        @_system_config || $_system_config || Fluent::Engine.system_config
+        (instance_variable_defined?("@_system_config") && @_system_config) ||
+          $_system_config || Fluent::Engine.system_config
       end
 
       def system_config_override(opts={})
         require 'fluent/engine'
-        unless @_system_config
+        if !instance_variable_defined?("@_system_config") || @_system_config.nil?
           @_system_config = ($_system_config || Fluent::Engine.system_config).dup
         end
         opts.each_pair do |key, value|
