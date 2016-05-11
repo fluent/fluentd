@@ -234,7 +234,7 @@ class BufferTest < Test::Unit::TestCase
 
     test '#new_metadata creates metadata instance without inserting metadata_list' do
       assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-      m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
+      _m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
       assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
     end
 
@@ -242,7 +242,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      mx = @p.add_metadata(m)
+      _mx = @p.add_metadata(m)
       assert_equal [@dm2,@dm3,@dm0,@dm1,m], @p.metadata_list
       assert_equal m.object_id, m.object_id
 
@@ -278,7 +278,7 @@ class BufferTest < Test::Unit::TestCase
     test '#queued? returns queue has any chunks or not without arguments' do
       assert @p.queued?
 
-      @p.queue.reject!{|c| true }
+      @p.queue.reject!{|_c| true }
       assert !@p.queued?
     end
 
