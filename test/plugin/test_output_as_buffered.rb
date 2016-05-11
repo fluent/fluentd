@@ -15,11 +15,20 @@ module FluentPluginOutputAsBufferedTest
     end
   end
   class DummySyncOutput < DummyBareOutput
+    def initialize
+      super
+      @process = nil
+    end
     def process(tag, es)
       @process ? @process.call(tag, es) : nil
     end
   end
   class DummyAsyncOutput < DummyBareOutput
+    def initialize
+      super
+      @format = nil
+      @write = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -28,6 +37,12 @@ module FluentPluginOutputAsBufferedTest
     end
   end
   class DummyDelayedOutput < DummyBareOutput
+    def initialize
+      super
+      @format = nil
+      @try_write = nil
+      @shutdown_hook = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -42,6 +57,15 @@ module FluentPluginOutputAsBufferedTest
     end
   end
   class DummyFullFeatureOutput < DummyBareOutput
+    def initialize
+      super
+      @prefer_buffered_processing = nil
+      @prefer_delayed_commit = nil
+      @process = nil
+      @format = nil
+      @write = nil
+      @try_write = nil
+    end
     def prefer_buffered_processing
       @prefer_buffered_processing ? @prefer_buffered_processing.call : false
     end
