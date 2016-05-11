@@ -89,7 +89,7 @@ class OutputTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      STDERR.print(*@i.log.out.logs)
       raise
     end
   end
