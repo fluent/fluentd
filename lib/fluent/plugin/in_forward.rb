@@ -242,7 +242,7 @@ module Fluent
         @log.trace {
           begin
             remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername)
-          rescue => e
+          rescue
             remote_port = nil
             remote_addr = nil
           end
