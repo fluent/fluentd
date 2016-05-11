@@ -27,11 +27,15 @@ module Fluent
       end
 
       def owner
-        @_owner
+        if instance_variable_defined?("@_owner")
+          @_owner
+        end
       end
 
       def log
-        @log
+        if instance_variable_defined?("@log")
+          @log
+        end
       end
     end
   end
