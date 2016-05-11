@@ -570,8 +570,6 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
 
-      prev_stage_size = @p.stage_size
-
       @p.emit(m, [row])
 
       assert_equal [@dm0,@dm1,@dm1,m], @p.queue.map(&:metadata)
