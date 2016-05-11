@@ -229,7 +229,7 @@ module Fluent
         super(io)
 
         if io.is_a?(TCPSocket) # for unix domain socket support in the future
-          proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
+          _proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
           @source = "host: #{host}, addr: #{addr}, port: #{port}"
 
           opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
