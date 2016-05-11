@@ -390,7 +390,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         if do_respond
           def write(data)
             @sock.write data
-          rescue => e
+          rescue
             @sock.close_write
             @sock.close
           end
