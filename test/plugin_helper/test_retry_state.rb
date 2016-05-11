@@ -7,6 +7,7 @@ require 'time'
 class Fluent::PluginHelper::RetryState::RetryStateMachine
   def override_current_time(time)
     (class << self; self; end).module_eval do
+      alias_method(:current_time_orig, :current_time)
       define_method(:current_time){ time }
     end
   end
