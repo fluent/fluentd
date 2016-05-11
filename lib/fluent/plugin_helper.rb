@@ -32,7 +32,7 @@ module Fluent
 
     def helpers(*snake_case_symbols)
       helper_modules = snake_case_symbols.map{|name| Fluent::PluginHelper.const_get(name.to_s.split('_').map(&:capitalize).join) }
-      include *helper_modules
+      include(*helper_modules)
     end
   end
 end
