@@ -353,7 +353,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       prev_write_count = @i.write_count
       prev_num_errors = @i.num_errors
 
-      first_failure = @i.retry.start
+      _first_failure = @i.retry.start
 
       chunks = @i.buffer.queue.dup
 
@@ -569,7 +569,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       prev_write_count = @i.write_count
       prev_num_errors = @i.num_errors
 
-      first_failure = @i.retry.start
+      _first_failure = @i.retry.start
 
       chunks = @i.buffer.queue.dup
 
