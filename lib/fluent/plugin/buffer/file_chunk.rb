@@ -44,6 +44,7 @@ module Fluent
           super(metadata)
           # state: staged/queued/closed
           @state = nil
+          @meta = nil
 
           @permission = perm
 
