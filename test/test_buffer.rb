@@ -589,6 +589,24 @@ module FluentBufferTest
         assert db.emit('key', data, chain)
       end
 
+      def test_emit_with_drop_oldest_chunk
+        db = dummy_buffer(:drop_oldest_chunk)
+      
+        assert !db.emit('key', data, chain)
+        assert db.emit('key', data, chain)
+        
+        # oldest (and only) chunk in queue is dropped before newer data is enqueued 
+        assert db.emit('key', data, chain)
+        
+        assert db.queue.size == 1
+
+        assert !pop_chunk(db)
+        assert db.queue.size == 0
+
+        # queue is now empty so can emit data again
+        assert db.emit('key', data, chain)
+      end
+
       def pop_chunk(db)
         out = DummyOutput.new
         c1 = DummyChunk.new('k1', 1)
