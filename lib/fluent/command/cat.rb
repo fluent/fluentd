@@ -21,7 +21,7 @@ op = OptionParser.new
 
 op.banner += " <tag>"
 
-port = Fluent::DEFAULT_LISTEN_PORT
+port = 24224
 host = '127.0.0.1'
 unix = false
 socket_path = Fluent::DEFAULT_SOCKET_PATH
