@@ -129,6 +129,7 @@ class BufferedOutputTest < Test::Unit::TestCase
     setup do
       hash = {
         'flush_mode' => 'none',
+        'flush_burst_interval' => 0.01,
         'flush_threads' => 2,
         'chunk_bytes_limit' => 1024,
       }
@@ -231,6 +232,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_mode' => 'fast',
         'flush_interval' => 1,
         'flush_threads' => 1,
+        'flush_burst_interval' => 0.01,
         'chunk_bytes_limit' => 1024,
       }
       @i = create_output(:buffered)
@@ -340,6 +342,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       hash = {
         'flush_mode' => 'immediate',
         'flush_threads' => 1,
+        'flush_burst_interval' => 0.01,
         'chunk_bytes_limit' => 1024,
       }
       @i = create_output(:buffered)
@@ -434,6 +437,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'timekey_range' => 30, # per 30seconds
         'timekey_wait' => 5, # 5 second delay for flush
         'flush_threads' => 1,
+        'flush_burst_interval' => 0.01,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))

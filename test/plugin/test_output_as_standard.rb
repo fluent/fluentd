@@ -113,7 +113,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
   sub_test_case 'standard buffered with tag chunk key' do
     test '#execute_chunking calls @buffer.write(bulk: true) just once with predefined msgpack format' do
       @i = create_output(:standard)
-      @i.configure(config_element('ROOT','',{},[config_element('buffer','tag')]))
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',{'flush_burst_interval' => 0.01})]))
       @i.start
 
       m = create_metadata(tag: "mytag.test")
@@ -127,7 +127,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
     test '#execute_chunking calls @buffer.write(bulk: true) just once with predefined msgpack format, but time will be int if time_as_integer specified' do
       @i = create_output(:standard)
-      @i.configure(config_element('ROOT','',{"time_as_integer"=>"true"},[config_element('buffer','tag')]))
+      @i.configure(config_element('ROOT','',{"time_as_integer"=>"true"},[config_element('buffer','tag',{'flush_burst_interval' => 0.01})]))
       @i.start
 
       m = create_metadata(tag: "mytag.test")
@@ -143,7 +143,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
   sub_test_case 'standard buffered with time chunk key' do
     test '#execute_chunking calls @buffer.write(bulk: true) with predefined msgpack format' do
       @i = create_output(:standard)
-      @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey_range" => "60"})]))
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey_range" => "60",'flush_burst_interval' => 0.01})]))
       @i.start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
@@ -175,7 +175,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
     test '#execute_chunking calls @buffer.write(bulk: true) with predefined msgpack format, but time will be int if time_as_integer specified' do
       @i = create_output(:standard)
-      @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','time',{"timekey_range" => "60"})]))
+      @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','time',{"timekey_range" => "60",'flush_burst_interval' => 0.01})]))
       @i.start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
@@ -209,7 +209,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
   sub_test_case 'standard buffered with variable chunk keys' do
     test '#execute_chunking calls @buffer.write(bulk: true) with predefined msgpack format' do
       @i = create_output(:standard)
-      @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name')]))
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name',{'flush_burst_interval' => 0.01})]))
       @i.start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
@@ -236,7 +236,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
     test '#execute_chunking calls @buffer.write(bulk: true) in times of # of variable variations with predefined msgpack format, but time will be int if time_as_integer specified' do
       @i = create_output(:standard)
-      @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','key,name')]))
+      @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','key,name',{'flush_burst_interval' => 0.01})]))
       @i.start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
@@ -283,7 +283,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
     test '#execute_chunking calls @buffer.write(bulk: true) just once with customized format' do
       @i = create_output(:buffered)
       @i.register(:format){|tag, time, record| [time, record].to_json }
-      @i.configure(config_element('ROOT','',{},[config_element('buffer','tag')]))
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',{'flush_burst_interval' => 0.01})]))
       @i.start
 
       m = create_metadata(tag: "mytag.test")
@@ -299,7 +299,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
     test '#execute_chunking calls @buffer.write with customized format' do
       @i = create_output(:buffered)
       @i.register(:format){|tag, time, record| [time, record].to_json }
-      @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey_range" => "60"})]))
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey_range" => "60",'flush_burst_interval' => 0.01})]))
       @i.start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
@@ -334,7 +334,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
     test '#execute_chunking calls @buffer.write in times of # of variable variations with customized format' do
       @i = create_output(:buffered)
       @i.register(:format){|tag, time, record| [time, record].to_json }
-      @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name')]))
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name',{'flush_burst_interval' => 0.01})]))
       @i.start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
