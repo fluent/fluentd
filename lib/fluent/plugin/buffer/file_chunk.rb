@@ -42,7 +42,6 @@ module Fluent
 
         def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION)
           super(metadata)
-          @meta = nil
           @permission = perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
 
