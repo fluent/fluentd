@@ -47,6 +47,7 @@ module Fluent
       @nodes = []  #=> [Node]
       @loop = nil
       @thread = nil
+      @finished = false
     end
 
     desc 'The timeout time when sending event logs.'
