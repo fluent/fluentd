@@ -64,6 +64,8 @@ module Fluent
 
         config_param :delayed_commit_timeout, :time, default: 60, desc: 'Seconds of timeout for buffer chunks to be committed by plugins later.'
 
+        config_param :overflow_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception, desc: 'The action when the size of buffer exceeds the limit.'
+
         config_param :retry_forever, :bool, default: false, desc: 'If true, plugin will ignore retry_timeout and retry_max_times options and retry flushing forever.'
         config_param :retry_timeout, :time, default: 72 * 60 * 60, desc: 'The maximum seconds to retry to flush while failing, until plugin discards buffer chunks.'
         # 72hours == 17 times with exponential backoff (not to change default behavior)
@@ -560,6 +562,41 @@ module Fluent
         end
       end
 
+      def write_guard(&block)
+        begin
+          block.call
+        rescue Fluent::Plugin::Buffer::BufferOverflowError
+          log.warn "failed to write data into buffer by buffer overflow"
+          case @buffer_config.overflow_action
+          when :exception
+            raise
+          when :block
+            log.debug "buffer.write is now blocking"
+            until @buffer.storable?
+              sleep 1
+            end
+            log.debug "retrying buffer.write after blocked operation"
+            retry
+          when :drop_oldest_chunk
+            begin
+              oldest = @buffer.dequeue_chunk
+              if oldest
+                log.warn "dropping oldest chunk to make space after buffer overflow", chunk_id: oldest.unique_id
+                @buffer.purge_chunk(oldest.unique_id)
+              else
+                log.error "no queued chunks to be dropped for drop_oldest_chunk"
+              end
+            rescue
+              # ignore any errors
+            end
+            raise unless @buffer.storable?
+            retry
+          else
+            raise "BUG: unknown overflow_action '#{@buffer_config.overflow_action}'"
+          end
+        end
+      end
+
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
@@ -569,7 +606,9 @@ module Fluent
           meta_and_data[meta] << format(tag, time, record)
           records += 1
         end
-        @buffer.write(meta_and_data, bulk: false, enqueue: enqueue)
+        write_guard do
+          @buffer.write(meta_and_data, bulk: false, enqueue: enqueue)
+        end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
@@ -587,7 +626,9 @@ module Fluent
         meta_and_data.each_pair do |meta, es|
           meta_and_data_bulk[meta] = [es.to_msgpack_stream(time_int: @time_as_integer), es.size]
         end
-        @buffer.write(meta_and_data_bulk, bulk: true, enqueue: enqueue)
+        write_guard do
+          @buffer.write(meta_and_data_bulk, bulk: true, enqueue: enqueue)
+        end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
@@ -608,7 +649,9 @@ module Fluent
           es_size = es.size
           es_bulk = es.to_msgpack_stream(time_int: @time_as_integer)
         end
-        @buffer.write({meta => [es_bulk, es_size]}, bulk: true, enqueue: enqueue)
+        write_guard do
+          @buffer.write({meta => [es_bulk, es_size]}, bulk: true, enqueue: enqueue)
+        end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
