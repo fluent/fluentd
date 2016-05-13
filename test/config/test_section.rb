@@ -59,6 +59,20 @@ module Fluent::Config
             assert_equal('myid', s1['@id'.to_sym])
             assert_equal('myid', s1.__send__('@id'.to_sym))
           end
+
+          test 'creates object and config element which corresponds to section object itself' do
+            hash = {
+              name: 'tagomoris',
+              age: 34,
+              send: 'email',
+              class: 'normal',
+              keys: 5,
+            }
+            hash['@id'.to_sym] = 'myid'
+            conf = config_element('section', '', {'name' => 'tagomoris', 'age' => 34, 'send' => 'email', 'class' => 'normal', 'keys' => 5})
+            s2 = Fluent::Config::Section.new(hash, conf)
+            assert s2.corresponding_config_element.is_a?(Fluent::Config::Element)
+          end
         end
 
         sub_test_case '#object_id' do
