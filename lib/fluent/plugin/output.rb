@@ -301,7 +301,7 @@ module Fluent
         if @buffering
           m = method(:emit_buffered)
           (class << self; self; end).module_eval do
-            define_method(:emit, m)
+            define_method(:emit_events, m)
           end
 
           @custom_format = implement?(:custom_format)
@@ -314,7 +314,7 @@ module Fluent
         else # !@buffering
           m = method(:emit_sync)
           (class << self; self; end).module_eval do
-            define_method(:emit, m)
+            define_method(:emit_events, m)
           end
         end
 
