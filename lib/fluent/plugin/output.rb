@@ -820,8 +820,10 @@ module Fluent
       end
 
       def force_flush
-        @buffer.enqueue_all
-        submit_flush_all
+        if @buffering
+          @buffer.enqueue_all
+          submit_flush_all
+        end
       end
 
       def submit_flush_all

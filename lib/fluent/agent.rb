@@ -34,8 +34,15 @@ module Fluent
       @context = nil
       @outputs = []
       @filters = []
-      @started_outputs = []
-      @started_filters = []
+
+      @lifecycle_control_list = nil
+      # lifecycle_control_list is the list of plugins in this agent, and ordered
+      # from plugins which DOES emit, then DOESN'T emit
+      # (input -> output w/ router -> filter -> output w/o router)
+      # for start: use this order DESC
+      #   (because plugins which appears later in configurations will receive events from plugins which appears ealier)
+      # for stop/before_shutdown/shutdown/after_shutdown/close/terminate: use this order ASC
+      @lifecycle_cache = nil
 
       @log = log
       @event_router = EventRouter.new(NoMatchMatch.new(log), self)
@@ -64,63 +71,58 @@ module Fluent
       }
     end
 
-    def start
-      @outputs.each { |o|
-        o.start
-        @started_outputs << o
+    def lifecycle_control_list
+      return @lifecycle_control_list if @lifecycle_control_list
+
+      lifecycle_control_list = {
+        input: [],
+        output_with_router: [],
+        filter: [],
+        output: [],
       }
-
-      @filters.each { |f|
-        f.start
-        @started_filters << f
-      }
-    end
-
-    def shutdown
-      @started_filters.map { |f|
-        Thread.new do
-          begin
-            log.info "shutting down filter#{@context.nil? ? '' : " in #{@context}"}", type: Plugin.lookup_type_from_class(f.class), plugin_id: f.plugin_id
-            f.shutdown
-          rescue => e
-            log.warn "unexpected error while shutting down filter plugins", plugin: f.class, plugin_id: f.plugin_id, error: e
-            log.warn_backtrace
-          end
+      if self.respond_to?(:inputs)
+        inputs.each do |i|
+          lifecycle_control_list[:input] << i
         end
-      }.each { |t| t.join }
-
-      # Output plugin as filter emits records at shutdown so emit problem still exist.
-      # This problem will be resolved after actual filter mechanizm.
-      @started_outputs.map { |o|
-        Thread.new do
-          begin
-            log.info "shutting down output#{@context.nil? ? '' : " in #{@context}"}", type: Plugin.lookup_type_from_class(o.class), plugin_id: o.plugin_id
-            o.shutdown
-          rescue => e
-            log.warn "unexpected error while shutting down output plugins", plugin: o.class, plugin_id: o.plugin_id, error: e
-            log.warn_backtrace
+      end
+      recursive_output_traverse = ->(o) {
+        if o.respond_to?(:outputs)
+          o.outputs.each do |store|
+            recursive_output_traverse.call(store)
           end
-        end
-      }.each { |t| t.join }
-    end
-
-    def flush!
-      flush_recursive(@outputs)
-    end
-
-    def flush_recursive(array)
-      array.each { |o|
-        begin
-          if o.is_a?(BufferedOutput)
-            o.force_flush
-          elsif o.is_a?(MultiOutput)
-            flush_recursive(o.outputs)
-          end
-        rescue => e
-          log.debug "error while force flushing", error: e
-          log.debug_backtrace
+        elsif o.has_router?
+          lifecycle_control_list[:output_with_router] << o
+        else
+          lifecycle_control_list[:output] << o
         end
       }
+      outputs.each do |o|
+        recursive_output_traverse.call(o)
+      end
+      filters.each do |f|
+        lifecycle_control_list[:filter] << f
+      end
+
+      @lifecycle_control_list = lifecycle_control_list
+    end
+
+    def lifecycle(desc: false)
+      kind_list = if desc
+                    [:output, :filter, :output_with_router]
+                  else
+                    [:output_with_router, :filter, :output]
+                  end
+      kind_list.each do |kind|
+        list = if desc
+                 lifecycle_control_list[kind].reverse
+               else
+                 lifecycle_control_list[kind]
+               end
+        display_kind = (kind == :output_with_router ? :output : kind)
+        list.each do |instance|
+          yield instance, display_kind
+        end
+      end
     end
 
     def add_match(type, pattern, conf)

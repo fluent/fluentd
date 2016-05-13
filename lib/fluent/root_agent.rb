@@ -52,7 +52,6 @@ module Fluent
 
       @labels = {}
       @inputs = []
-      @started_inputs = []
       @suppress_emit_error_log_interval = 0
       @next_emit_error_log_time = nil
       @without_source = false
@@ -105,38 +104,106 @@ module Fluent
       @error_collector = error_label.event_router
     end
 
-    def start
-      super
-
-      @labels.each { |n, l|
-        l.start
-      }
-
-      @inputs.each { |i|
-        i.start
-        @started_inputs << i
-      }
+    def lifecycle(desc: false)
+      kind_or_label_list = if desc
+                    [:output, :filter, @labels.values.reverse, :output_with_router, :input].flatten
+                  else
+                    [:input, :output_with_router, @labels.values, :filter, :output].flatten
+                  end
+      kind_or_label_list.each do |kind|
+        if kind.respond_to?(:lifecycle)
+          label = kind
+          label.lifecycle(desc: desc) do |plugin, display_kind|
+            yield plugin, display_kind
+          end
+        else
+          list = if desc
+                   lifecycle_control_list[kind].reverse
+                 else
+                   lifecycle_control_list[kind]
+                 end
+          display_kind = (kind == :output_with_router ? :output : kind)
+          list.each do |instance|
+            yield instance, display_kind
+          end
+        end
+      end
     end
 
-    def shutdown
-      # Shutdown Input plugin first to prevent emitting to terminated Output plugin
-      @started_inputs.map { |i|
-        Thread.new do
+    def start
+      lifecycle(desc: true) do |i| # instance
+        i.start
+      end
+    end
+
+    def flush!
+      log.info "flushing all buffer forcedly"
+      flushing_threads = []
+      lifecycle(desc: true) do |instance|
+        if instance.respond_to?(:force_flush)
+          t = Thread.new do
+            Thread.current.abort_on_exception = true
+            begin
+              instance.force_flush
+            rescue => e
+              log.warn "unexpected error while flushing buffer", plugin: instance.class, plugin_id: instance.plugin_id, error: e
+              log.warn_backtrace
+            end
+          end
+          flushing_threads = []
+        end
+      end
+      flushing_threads.each{|t| t.join }
+    end
+
+    def shutdown # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
+      lifecycle_safe_sequence = ->(method) {
+        lifecycle do |instance, kind|
           begin
-            log.info "shutting down input", type: Plugin.lookup_type_from_class(i.class), plugin_id: i.plugin_id
-            i.shutdown
+            log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+            instance.send(method)
           rescue => e
-            log.warn "unexpected error while shutting down input plugin", plugin: i.class, plugin_id: i.plugin_id, error: e
+            log.warn "unexpected error while calling #{method} on #{kind} plugin", pluguin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
           end
         end
-      }.each { |t| t.join }
-
-      @labels.each { |n, l|
-        l.shutdown
       }
 
-      super
+      lifecycle_unsafe_sequence = ->(method) {
+        operation = case method
+                    when :shutdown then "shutting down"
+                    when :close    then "closing"
+                    else
+                      raise "BUG: unknown method name '#{method}'"
+                    end
+        operation_threads = []
+        lifecycle do |instance, kind|
+          t = Thread.new do
+            Thread.current.abort_on_exception = true
+            begin
+              log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+              instance.send(method)
+            rescue => e
+              log.warn "unexpected error while #{operation} #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
+              log.warn_backtrace
+            end
+          end
+          operation_threads << t
+        end
+        operation_threads.each{|t| t.join }
+      }
+
+      lifecycle_safe_sequence.call(:stop)
+
+      lifecycle_safe_sequence.call(:before_shutdown)
+
+      lifecycle_unsafe_sequence.call(:shutdown)
+
+      lifecycle_safe_sequence.call(:after_shutdown)
+
+      lifecycle_unsafe_sequence.call(:close)
+
+      lifecycle_safe_sequence.call(:terminate)
     end
 
     def suppress_interval(interval_time)

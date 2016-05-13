@@ -43,9 +43,6 @@ class RootAgentTest < ::Test::Unit::TestCase
       assert_empty ra.labels
       assert_empty ra.outputs
       assert_empty ra.filters
-      [:@started_inputs, :@started_outputs, :@started_filters].each { |k|
-        assert_empty ra.instance_variable_get(k)
-      }
       assert_nil ra.context
       assert_nil ra.error_collector
     end
@@ -82,9 +79,6 @@ EOC
       assert_kind_of FluentTestInput, ra.inputs.first
       assert_kind_of RelabelOutput, ra.outputs.first
       assert_kind_of FluentTestFilter, ra.filters.first
-      [:@started_inputs, :@started_outputs, :@started_filters].each { |k|
-        assert_empty ra.instance_variable_get(k)
-      }
       assert ra.error_collector
 
       %W(@test @ERROR).each { |label_symbol|
