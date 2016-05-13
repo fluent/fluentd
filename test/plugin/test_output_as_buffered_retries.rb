@@ -15,11 +15,24 @@ module FluentPluginOutputAsBufferedRetryTest
     end
   end
   class DummySyncOutput < DummyBareOutput
+    def initialize
+      super
+      @process = nil
+    end
     def process(tag, es)
       @process ? @process.call(tag, es) : nil
     end
   end
   class DummyFullFeatureOutput < DummyBareOutput
+    def initialize
+      super
+      @prefer_buffered_processing = nil
+      @prefer_delayed_commit = nil
+      @process = nil
+      @format = nil
+      @write = nil
+      @try_write = nil
+    end
     def prefer_buffered_processing
       @prefer_buffered_processing ? @prefer_buffered_processing.call : false
     end
@@ -67,7 +80,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      STDERR.print(*@i.log.out.logs)
       raise
     end
   end
@@ -85,6 +98,10 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       log_time = Time.parse($1)
     end
     log_time
+  end
+
+  setup do
+    @i = create_output
   end
 
   teardown do
@@ -107,7 +124,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_burst_interval' => 0.1,
         'retry_randomize' => false,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.start
@@ -139,7 +155,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_max_interval' => 60 * 60,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -179,7 +194,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_max_interval' => 60,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -232,7 +246,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_timeout' => 3600,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -320,7 +333,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_max_times' => 10,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -353,7 +365,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       prev_write_count = @i.write_count
       prev_num_errors = @i.num_errors
 
-      first_failure = @i.retry.start
+      _first_failure = @i.retry.start
 
       chunks = @i.buffer.queue.dup
 
@@ -399,7 +411,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 3,
         'retry_randomize' => false,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -443,7 +454,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_timeout' => 120,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -536,7 +546,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_max_times' => 10,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -569,7 +578,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       prev_write_count = @i.write_count
       prev_num_errors = @i.num_errors
 
-      first_failure = @i.retry.start
+      _first_failure = @i.retry.start
 
       chunks = @i.buffer.queue.dup
 
@@ -632,7 +641,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_timeout' => 3600,
         'retry_max_times' => 10,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -701,7 +709,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_timeout' => 360,
         'retry_max_times' => 10,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
@@ -766,7 +773,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_max_interval' => 60 * 60,
       }
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ true }

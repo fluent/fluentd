@@ -14,11 +14,20 @@ module FluentPluginOutputTest
     end
   end
   class DummySyncOutput < DummyBareOutput
+    def initialize
+      super
+      @process = nil
+    end
     def process(tag, es)
       @process ? @process.call(tag, es) : nil
     end
   end
   class DummyAsyncOutput < DummyBareOutput
+    def initialize
+      super
+      @format = nil
+      @write = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -27,11 +36,20 @@ module FluentPluginOutputTest
     end
   end
   class DummyAsyncStandardOutput < DummyBareOutput
+    def initialize
+      super
+      @write = nil
+    end
     def write(chunk)
       @write ? @write.call(chunk) : nil
     end
   end
   class DummyDelayedOutput < DummyBareOutput
+    def initialize
+      super
+      @format = nil
+      @try_write = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -40,11 +58,24 @@ module FluentPluginOutputTest
     end
   end
   class DummyDelayedStandardOutput < DummyBareOutput
+    def initialize
+      super
+      @try_write = nil
+    end
     def try_write(chunk)
       @try_write ? @try_write.call(chunk) : nil
     end
   end
   class DummyFullFeatureOutput < DummyBareOutput
+    def initialize
+      super
+      @prefer_buffered_processing = nil
+      @prefer_delayed_commit = nil
+      @process = nil
+      @format = nil
+      @write = nil
+      @try_write = nil
+    end
     def prefer_buffered_processing
       @prefer_buffered_processing ? @prefer_buffered_processing.call : false
     end
@@ -89,7 +120,7 @@ class OutputTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      STDERR.print(*@i.log.out.logs)
       raise
     end
   end

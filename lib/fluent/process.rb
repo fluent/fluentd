@@ -116,7 +116,7 @@ module Fluent
     end
 
     def process_parent(ipr, opw, pid, delegate_object)
-      child_uri = read_header(ipr)
+      # child_uri = read_header(ipr)
 
       # read event stream from the pipe and forward to Engine.emit_stream
       forward_thread = Thread.new(ipr, pid, &method(:input_forward_main))

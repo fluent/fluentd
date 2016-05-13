@@ -77,13 +77,13 @@ class ThreadTest < Test::Unit::TestCase
   test 'can wait until all threads start' do
     d1 = Dummy.new.configure(config_element()).start
     ary = []
-    t1 = d1.thread_create(:t1) do
+    d1.thread_create(:t1) do
       ary << 1
     end
-    t2 = d1.thread_create(:t2) do
+    d1.thread_create(:t2) do
       ary << 2
     end
-    t3 = d1.thread_create(:t3) do
+    d1.thread_create(:t3) do
       ary << 3
     end
     Timeout.timeout(10) do

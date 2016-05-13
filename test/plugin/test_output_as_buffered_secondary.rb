@@ -15,11 +15,24 @@ module FluentPluginOutputAsBufferedSecondaryTest
     end
   end
   class DummySyncOutput < DummyBareOutput
+    def initialize
+      super
+      @process = nil
+    end
     def process(tag, es)
       @process ? @process.call(tag, es) : nil
     end
   end
   class DummyFullFeatureOutput < DummyBareOutput
+    def initialize
+      super
+      @prefer_buffered_processing = nil
+      @prefer_delayed_commit = nil
+      @process = nil
+      @format = nil
+      @write = nil
+      @try_write = nil
+    end
     def prefer_buffered_processing
       @prefer_buffered_processing ? @prefer_buffered_processing.call : false
     end
@@ -67,7 +80,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      STDERR.print(*@i.log.out.logs)
       raise
     end
   end
@@ -77,6 +90,10 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       [ event_time('2016-04-13 18:33:13'), {"name" => "moris", "age" => 36, "message" => "data2"} ],
       [ event_time('2016-04-13 18:33:32'), {"name" => "moris", "age" => 36, "message" => "data3"} ],
     ])
+  end
+
+  setup do
+    @i = create_output
   end
 
   teardown do
@@ -169,7 +186,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       written = []
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ false }
@@ -232,7 +248,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       written = []
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ true }
@@ -296,7 +311,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       chunks = []
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ true }
@@ -371,7 +385,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       chunks = []
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ false }
@@ -446,7 +459,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       chunks = []
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'delayed_commit_timeout' => 2, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ false }
@@ -530,7 +542,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
     test 'retry_wait for secondary is same with one for primary' do
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ false }
@@ -599,7 +610,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       written = []
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :expbackoff, 'retry_wait' => 1, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ false }
@@ -668,7 +678,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
     test 'exponential backoff interval will be initialized when switched to secondary' do
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :expbackoff, 'retry_wait' => 1, 'retry_timeout' => 60, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
-      @i = create_output()
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }
       @i.register(:prefer_delayed_commit){ false }

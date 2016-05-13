@@ -50,7 +50,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      STDERR.print(*@i.log.out.logs)
       raise
     end
   end
@@ -63,6 +63,10 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
     es.add(event_time('2016-04-21 17:20:13 -0700'), {"key" => "my value", "name" => "moris1", "message" => "hello!"})
     es.add(event_time('2016-04-21 17:21:32 -0700'), {"key" => "my value", "name" => "moris1", "message" => "hello!"})
     es
+  end
+
+  setup do
+    @i = nil
   end
 
   teardown do

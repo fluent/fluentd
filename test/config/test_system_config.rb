@@ -21,6 +21,8 @@ module Fluent::Config
       @suppress_repeated_stacktrace = nil
       @without_source = nil
       @emit_error_log_interval = nil
+      @file_permission = nil
+      @dir_permission = nil
     end
   end
 

@@ -15,11 +15,20 @@ module FluentPluginOutputAsBufferedTest
     end
   end
   class DummySyncOutput < DummyBareOutput
+    def initialize
+      super
+      @process = nil
+    end
     def process(tag, es)
       @process ? @process.call(tag, es) : nil
     end
   end
   class DummyAsyncOutput < DummyBareOutput
+    def initialize
+      super
+      @format = nil
+      @write = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -28,6 +37,12 @@ module FluentPluginOutputAsBufferedTest
     end
   end
   class DummyDelayedOutput < DummyBareOutput
+    def initialize
+      super
+      @format = nil
+      @try_write = nil
+      @shutdown_hook = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -42,6 +57,15 @@ module FluentPluginOutputAsBufferedTest
     end
   end
   class DummyFullFeatureOutput < DummyBareOutput
+    def initialize
+      super
+      @prefer_buffered_processing = nil
+      @prefer_delayed_commit = nil
+      @process = nil
+      @format = nil
+      @write = nil
+      @try_write = nil
+    end
     def prefer_buffered_processing
       @prefer_buffered_processing ? @prefer_buffered_processing.call : false
     end
@@ -84,7 +108,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      STDERR.print(*@i.log.out.logs)
       raise
     end
   end
@@ -252,7 +276,6 @@ class BufferedOutputTest < Test::Unit::TestCase
       (0...10).each do |i|
         r["key#{i}"] = "value #{i}"
       end
-      event_size = [tag, t, r].to_json.size # 195
 
       3.times do |i|
         rand_records = rand(1..5)
@@ -261,7 +284,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
         @i.interrupt_flushes
 
-        @i.emit("test.tag", es)
+        @i.emit(tag, es)
 
         assert{ @i.buffer.stage.size == 1 }
 
@@ -359,13 +382,12 @@ class BufferedOutputTest < Test::Unit::TestCase
       (0...10).each do |i|
         r["key#{i}"] = "value #{i}"
       end
-      event_size = [tag, t, r].to_json.size # 195
 
       3.times do |i|
         rand_records = rand(1..5)
         es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
         assert_equal rand_records, es.size
-        @i.emit("test.tag", es)
+        @i.emit(tag, es)
 
         assert{ @i.buffer.stage.size == 0 && (@i.buffer.queue.size == 1 || @i.buffer.dequeued.size == 1 || ary.size > 0) }
 

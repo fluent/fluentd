@@ -59,7 +59,7 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
+      d.expected_emits.each {|tag, _time, record|
         send_data Fluent::Engine.msgpack_factory.packer.write([tag, 0, record]).to_s
       }
     end
@@ -74,8 +74,8 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+      d.expected_emits.each {|tag, _time, record|
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s
       }
     end
   end
@@ -89,8 +89,8 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s
+      d.expected_emits.each {|tag, _time, record|
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s
       }
     end
   end
@@ -104,13 +104,13 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a" => 2}
 
     d.run do
-      entries = d.expected_emits.map { |tag, time, record| [tag, time, record] }
+      entries = d.expected_emits.map {|tag, _time, record| [tag, _time, record] }
       # These entries are skipped
       entries << ['tag1', true, {'a' => 3}] << ['tag2', time, 'invalid record']
 
-      entries.each { |tag, time, record|
+      entries.each {|tag, _time, record|
         # Without ack, logs are sometimes not saved to logs during test.
-        send_data Fluent::Engine.msgpack_factory.packer.write([tag, time, record]).to_s, true
+        send_data Fluent::Engine.msgpack_factory.packer.write([tag, _time, record]).to_s, true
       }
     end
 
@@ -127,7 +127,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = []
-      d.expected_emits.each {|tag,time,record|
+      d.expected_emits.each {|tag, _time,record|
         entries << [time, record]
       }
       send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
@@ -144,8 +144,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = []
-      d.expected_emits.each {|tag,time,record|
-        entries << [time, record]
+      d.expected_emits.each {|_tag, _time, record|
+        entries << [_time, record]
       }
       send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
@@ -160,7 +160,7 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag1", time, {"a" => 2}
 
     d.run do
-      entries = d.expected_emits.map { |tag, time, record| [time, record] }
+      entries = d.expected_emits.map {|_tag, _time, record| [_time, record] }
       # These entries are skipped
       entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
 
@@ -180,8 +180,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = ''
-      d.expected_emits.each {|tag,time,record|
-        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
+      d.expected_emits.each {|_tag, _time, record|
+        Fluent::Engine.msgpack_factory.packer(entries).write([_time, record]).flush
       }
       send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
@@ -197,8 +197,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = ''
-      d.expected_emits.each {|tag,time,record|
-        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
+      d.expected_emits.each {|_tag, _time, record|
+        Fluent::Engine.msgpack_factory.packer(entries).write([_time, record]).flush
       }
       send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
     end
@@ -213,13 +213,13 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag1", time, {"a" => 2}
 
     d.run do
-      entries = d.expected_emits.map { |tag ,time, record| [time, record] }
+      entries = d.expected_emits.map {|_tag , _time, record| [_time, record] }
       # These entries are skipped
       entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
 
       packed_entries = ''
-      entries.each { |time, record|
-        Fluent::Engine.msgpack_factory.packer(packed_entries).write([time, record]).flush
+      entries.each {|_time, record|
+        Fluent::Engine.msgpack_factory.packer(packed_entries).write([_time, record]).flush
       }
       send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", packed_entries]).to_s
     end
@@ -236,8 +236,8 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expect_emit "tag2", time, {"a"=>2}
 
     d.run do
-      d.expected_emits.each {|tag,time,record|
-        send_data [tag, time, record].to_json
+      d.expected_emits.each {|tag, _time, record|
+        send_data [tag, _time, record].to_json
       }
     end
   end
@@ -266,7 +266,7 @@ class ForwardInputTest < Test::Unit::TestCase
     emits = d.emits
     assert_equal 16, emits.size
     assert emits.map(&:first).all?{|t| t == "test.tag" }
-    assert_equal (0...16).to_a, emits.map{|tag, t, record| t - time }
+    assert_equal (0...16).to_a, emits.map{|_tag, t, _record| t - time }
 
     # check log
     assert d.instance.log.logs.select{|line|
@@ -363,10 +363,10 @@ class ForwardInputTest < Test::Unit::TestCase
     expected_acks = []
 
     d.run do
-      events.each {|tag,time,record|
+      events.each {|tag, _time, record|
         op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
         expected_acks << op['chunk']
-        send_data [tag, time, record, op].to_msgpack, true
+        send_data [tag, _time, record, op].to_msgpack, true
       }
     end
 
@@ -390,7 +390,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = []
-      events.each {|tag,time,record|
+      events.each {|_tag, _time, record|
         entries << [time, record]
       }
       op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
@@ -417,8 +417,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = ''
-      events.each {|tag,time,record|
-        [time, record].to_msgpack(entries)
+      events.each {|_tag, _time, record|
+        [_time, record].to_msgpack(entries)
       }
       op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
       expected_acks << op['chunk']
@@ -443,10 +443,10 @@ class ForwardInputTest < Test::Unit::TestCase
     expected_acks = []
 
     d.run do
-      events.each {|tag,time,record|
+      events.each {|tag, _time, record|
         op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
         expected_acks << op['chunk']
-        send_data [tag, time, record, op].to_json, true
+        send_data [tag, _time, record, op].to_json, true
       }
     end
 
@@ -467,8 +467,8 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expected_emits_length = events.length
 
     d.run do
-      events.each {|tag,time,record|
-        send_data [tag, time, record].to_msgpack, true
+      events.each {|tag, _time, record|
+        send_data [tag, _time, record].to_msgpack, true
       }
     end
 
@@ -489,8 +489,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = []
-      events.each {|tag,time,record|
-        entries << [time, record]
+      events.each {|_tag, _time, record|
+        entries << [_time, record]
       }
       send_data ["tag1", entries].to_msgpack, true
     end
@@ -512,8 +512,8 @@ class ForwardInputTest < Test::Unit::TestCase
 
     d.run do
       entries = ''
-      events.each {|tag,time,record|
-        [time, record].to_msgpack(entries)
+      events.each {|_tag, _time, record|
+        [_time, record].to_msgpack(entries)
       }
       send_data ["tag1", entries].to_msgpack, true
     end
@@ -534,8 +534,8 @@ class ForwardInputTest < Test::Unit::TestCase
     d.expected_emits_length = events.length
 
     d.run do
-      events.each {|tag,time,record|
-        send_data [tag, time, record].to_json, true
+      events.each {|tag, _time, record|
+        send_data [tag, _time, record].to_json, true
       }
     end
 

@@ -45,6 +45,9 @@ module Fluent
       super
       require 'fluent/plugin/socket_util'
       @nodes = []  #=> [Node]
+      @loop = nil
+      @thread = nil
+      @finished = false
     end
 
     desc 'The timeout time when sending event logs.'
@@ -102,9 +105,9 @@ module Fluent
         log.warn "'host' option in forward output is obsoleted. Use '<server> host xxx </server>' instead."
         port = conf['port']
         port = port ? port.to_i : LISTEN_PORT
-        e = conf.add_element('server')
-        e['host'] = host
-        e['port'] = port.to_s
+        element = conf.add_element('server')
+        element['host'] = host
+        element['port'] = port.to_s
       end
 
       recover_sample_size = @recover_wait / @heartbeat_interval
@@ -440,7 +443,6 @@ module Fluent
     end
 
     def on_heartbeat(sockaddr, msg)
-      port, host = Socket.unpack_sockaddr_in(sockaddr)
       if node = @nodes.find {|n| n.sockaddr == sockaddr }
         #log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
         if node.heartbeat

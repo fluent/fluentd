@@ -678,7 +678,7 @@ module FluentFileBufferTest
 
         chunk = buf.new_chunk('key1')
         assert chunk
-        assert File.exists?(chunk.path)
+        assert File.exist?(chunk.path)
         assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
         chunk.close
 

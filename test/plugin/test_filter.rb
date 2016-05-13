@@ -218,8 +218,6 @@ class FilterPluginTest < Test::Unit::TestCase
       assert @p.router
 
       @p.router = DummyRouter.new([])
-      data = {'message' => 'mydata'}
-      dummy_error = EOFError.new("dummy eof")
 
       test_es = [
         [event_time('2016-04-19 13:01:00 -0700'), {"num" => "1", "message" => "Hello filters!"}],

@@ -44,6 +44,7 @@ module Fluent
           super(metadata)
           # state: staged/queued/closed
           @state = nil
+          @meta = nil
 
           @permission = perm
 
@@ -171,7 +172,7 @@ module Fluent
 
         def self.generate_queued_chunk_path(path, unique_id)
           chunk_id = Fluent::UniqueId.hex(unique_id)
-          if pos = path.index(".b#{chunk_id}.")
+          if path.index(".b#{chunk_id}.")
             path.sub(".b#{chunk_id}.", ".q#{chunk_id}.")
           else # for unexpected cases (ex: users rename files while opened by fluentd)
             path + ".q#{chunk_id}.chunk"

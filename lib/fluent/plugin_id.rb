@@ -47,11 +47,17 @@ module Fluent
     end
 
     def plugin_id_configured?
-      @_id_configured
+      if instance_variable_defined?("@_id_configured")
+        @_id_configured
+      end
     end
 
     def plugin_id
-      @id ? @id : "object:#{object_id.to_s(16)}"
+      if instance_variable_defined?("@id")
+        @id || "object:#{object_id.to_s(16)}"
+      else
+        "object:#{object_id.to_s(16)}"
+      end
     end
   end
 end

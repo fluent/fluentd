@@ -385,12 +385,13 @@ class ForwardOutputTest < Test::Unit::TestCase
           @log = log
           @chunk_counter = 0
           @on_message = on_message
+          @source = nil
         end
 
         if do_respond
           def write(data)
             @sock.write data
-          rescue => e
+          rescue
             @sock.close_write
             @sock.close
           end
@@ -410,7 +411,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
       define_method(:start) do
         @thread = Thread.new do
-          Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
+          Socket.tcp_server_loop(@bind, @port) do |sock, client_addrinfo|
             begin
               handler = handler_class.new(sock, @log, method(:on_message))
               loop do

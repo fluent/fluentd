@@ -281,7 +281,7 @@ class StorageHelperTest < Test::Unit::TestCase
     d.configure(conf)
     d.start
 
-    s = d.storage_create(usage: 'mydata')
+    d.storage_create(usage: 'mydata')
     assert_equal 0, d._timers.size
   end
 
@@ -293,7 +293,7 @@ class StorageHelperTest < Test::Unit::TestCase
     d.configure(conf)
     d.start
 
-    s = d.storage_create(usage: 'mydata')
+    d.storage_create(usage: 'mydata')
     assert_equal 1, d._timers.size
   end
 

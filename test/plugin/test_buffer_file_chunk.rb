@@ -341,8 +341,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
         timekey: nil, tag: nil, variables: nil,
         id: unique_id,
         s: size,
-        c: @c.created_at.to_i,
-        m: @c.modified_at.to_i,
+        c: created_at.to_i,
+        m: modified_at.to_i,
       }
 
       assert_equal stored_meta, read_metadata_file(@c.path + '.meta')
@@ -465,8 +465,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
         timekey: nil, tag: nil, variables: nil,
         id: unique_id,
         s: size,
-        c: @c.created_at.to_i,
-        m: @c.modified_at.to_i,
+        c: created_at.to_i,
+        m: modified_at.to_i,
       }
 
       assert_equal stored_meta, read_metadata_file(@c.path + '.meta')
