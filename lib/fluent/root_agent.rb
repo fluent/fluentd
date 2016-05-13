@@ -69,7 +69,7 @@ module Fluent
 
       # initialize <label> elements before configuring all plugins to avoid 'label not found' in input, filter and output.
       label_configs = {}
-      conf.elements.select { |e| e.name == 'label' }.each { |e|
+      conf.elements(name: 'label').each { |e|
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
 
@@ -90,7 +90,7 @@ module Fluent
       if @without_source
         log.info "'--without-source' is applied. Ignore <source> sections"
       else
-        conf.elements.select { |e| e.name == 'source' }.each { |e|
+        conf.elements(name: 'source').each { |e|
           type = e['@type'] || e['type']
           raise ConfigError, "Missing 'type' parameter on <source> directive" unless type
           add_source(type, e)

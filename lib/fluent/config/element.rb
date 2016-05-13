@@ -34,9 +34,23 @@ module Fluent
         @unused_in = false # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
       end
 
-      attr_accessor :name, :arg, :elements, :unused, :v1_config, :corresponding_proxies, :unused_in
+      attr_accessor :name, :arg, :unused, :v1_config, :corresponding_proxies, :unused_in
+      attr_writer :elements
 
-      def add_element(name, arg='')
+      def elements(*names, name: nil, arg: nil)
+        raise ArgumentError, "name and names are exclusive" if name && !names.empty?
+        raise ArgumentError, "arg is available only with name" if arg && !name
+
+        if name
+          @elements.select{|e| e.name == name && (!arg || e.arg == arg) }
+        elsif !names.empty?
+          @elements.select{|e| names.include?(e.name) }
+        else
+          @elements
+        end
+      end
+
+      def add_element(name, arg = '')
         e = Element.new(name, arg, {}, [])
         e.v1_config = @v1_config
         @elements << e
@@ -63,6 +77,7 @@ module Fluent
         e
       end
 
+      # no code in fluentd uses this method
       def each_element(*names, &block)
         if names.empty?
           @elements.each(&block)

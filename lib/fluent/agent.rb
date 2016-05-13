@@ -53,7 +53,7 @@ module Fluent
       super
 
       # initialize <match> and <filter> elements
-      conf.elements.select { |e| e.name == 'filter' || e.name == 'match' }.each { |e|
+      conf.elements('filter', 'match').each { |e|
         pattern = e.arg.empty? ? '**' : e.arg
         type = e['@type'] || e['type']
         if e.name == 'filter'
