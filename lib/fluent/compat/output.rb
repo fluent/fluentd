@@ -153,45 +153,9 @@ module Fluent
           end
         end
       end
-
-      # These definitions are to get instance methods of superclass of 3rd party plugins
-      # to make it sure to call super
-      def start
-        super
-      end
-
-      def before_shutdown
-        super
-      end
-
-      def shutdown
-        super
-      end
     end
 
     class MultiOutput < Output
-      def initialize
-        super
-        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
-        end
-      end
-
-      # These definitions are to get instance methods of superclass of 3rd party plugins
-      # to make it sure to call super
-      def start
-        super
-      end
-
-      def before_shutdown
-        super
-      end
-
-      def shutdown
-        super
-      end
     end
 
     class BufferedOutput < Fluent::Plugin::Output
@@ -321,20 +285,6 @@ module Fluent
           end
         end
       end
-
-      # These definitions are to get instance methods of superclass of 3rd party plugins
-      # to make it sure to call super
-      def start
-        super
-      end
-
-      def before_shutdown
-        super
-      end
-
-      def shutdown
-        super
-      end
     end
 
     class ObjectBufferedOutput < Fluent::Plugin::Output
@@ -453,20 +403,6 @@ module Fluent
             prepend Fluent::Compat::CallSuperMixin
           end
         end
-      end
-
-      # These definitions are to get instance methods of superclass of 3rd party plugins
-      # to make it sure to call super
-      def start
-        super
-      end
-
-      def before_shutdown
-        super
-      end
-
-      def shutdown
-        super
       end
     end
 
@@ -623,20 +559,6 @@ module Fluent
 
       def extract_placeholders(str, metadata)
         raise "BUG: compat plugin does not support extract_placeholders: use newer plugin API"
-      end
-
-      # These definitions are to get instance methods of superclass of 3rd party plugins
-      # to make it sure to call super
-      def start
-        super
-      end
-
-      def before_shutdown
-        super
-      end
-
-      def shutdown
-        super
       end
     end
   end
