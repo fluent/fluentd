@@ -163,7 +163,7 @@ module Fluent
           raise "BUG: output plugin must implement some methods. see developer documents."
         end
 
-        has_buffer_section = (conf.elements.select{|e| e.name == 'buffer' }.size > 0)
+        has_buffer_section = (conf.elements(name: 'buffer').size > 0)
 
         super
 
@@ -225,7 +225,7 @@ module Fluent
           end
 
           buffer_type = @buffer_config[:@type]
-          buffer_conf = conf.elements.select{|e| e.name == 'buffer' }.first || Fluent::Config::Element.new('buffer', '', {}, [])
+          buffer_conf = conf.elements(name: 'buffer').first || Fluent::Config::Element.new('buffer', '', {}, [])
           @buffer = Plugin.new_buffer(buffer_type, parent: self)
           @buffer.configure(buffer_conf)
 
@@ -250,7 +250,7 @@ module Fluent
           raise Fluent::ConfigError, "<secondary> section and 'retry_forever' are exclusive" if @buffer_config.retry_forever
 
           secondary_type = @secondary_config[:@type]
-          secondary_conf = conf.elements.select{|e| e.name == 'secondary' }.first
+          secondary_conf = conf.elements(name: 'secondary').first
           @secondary = Plugin.new_output(secondary_type)
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)

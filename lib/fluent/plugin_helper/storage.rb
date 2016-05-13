@@ -95,7 +95,7 @@ module Fluent
           if @_storages[section.usage]
             raise Fluent::ConfigError, "duplicated storages configured: #{section.usage}"
           end
-          config = conf.elements.select{|e| e.name == 'storage' && e.arg == section.usage }.first
+          config = conf.elements(name: 'storage', arg: section.usage).first
           raise "storage section with argument '#{section.usage}' not found. it may be a bug." unless config
 
           storage = Plugin.new_storage(section[:@type])

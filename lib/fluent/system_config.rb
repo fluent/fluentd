@@ -39,9 +39,7 @@ module Fluent
     end
 
     def self.create(conf)
-      systems = conf.elements.select { |e|
-        e.name == 'system'
-      }
+      systems = conf.elements(name: 'system')
       return SystemConfig.new if systems.empty?
       raise Fluent::ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
 
