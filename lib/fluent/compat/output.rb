@@ -16,6 +16,7 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
 require 'fluent/compat/call_super_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
@@ -28,11 +29,11 @@ module Fluent
 
     module CompatOutputUtils
       def self.buffer_section(conf)
-        conf.elements.select{|e| e.name == 'buffer'}.first
+        conf.elements(name: 'buffer').first
       end
 
       def self.secondary_section(conf)
-        conf.elements.select{|e| e.name == 'secondary'}.first
+        conf.elements(name: 'secondary').first
       end
 
       def self.inject_type_from_obsoleted_name(secconf, log)
@@ -155,7 +156,15 @@ module Fluent
       end
     end
 
-    class MultiOutput < Output
+    class MultiOutput < Fluent::Plugin::MultiOutput
+      def initialize
+        super
+        @compat = true
+      end
+
+      def process(tag, es)
+        emit(tag, es, NULL_OUTPUT_CHAIN)
+      end
     end
 
     class BufferedOutput < Fluent::Plugin::Output
