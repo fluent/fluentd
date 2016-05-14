@@ -232,6 +232,12 @@ module Fluent::Config
     sub_test_case 'with include conf' do
       def setup
         prepare_config1
+        Dir.glob("#{TMP_DIR}/*").sort.each { |entry|
+          puts entry
+        }
+        Dir.glob("#{TMP_DIR}/dir/*").sort.each { |entry|
+          puts entry
+        }
         @root = Fluent::Config::DSL::Parser.parse(DSL_CONFIG_EXAMPLE_FOR_INCLUDE_CONF, 'dsl_config_for_include.conf')
       end
       test 'include config' do

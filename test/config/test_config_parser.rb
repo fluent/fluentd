@@ -383,6 +383,12 @@ module Fluent::Config
 
       test 'parses @include / include correctly' do
         prepare_config
+        Dir.glob("#{TMP_DIR}/*").sort.each { |entry|
+          puts entry
+        }
+        Dir.glob("#{TMP_DIR}/dir/*").sort.each { |entry|
+          puts entry
+        }
         c = read_config("#{TMP_DIR}/config_test_1.conf")
         assert_equal('root_config', c['k1'])
         assert_equal('relative_path_include', c['k2'])

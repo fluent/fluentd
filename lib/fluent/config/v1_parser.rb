@@ -156,6 +156,8 @@ module Fluent
             pattern = path
           end
 
+          puts "pattern = %s"%(pattern)
+
           Dir.glob(pattern).sort.each { |entry|
             basepath = File.dirname(entry)
             fname = File.basename(entry)
