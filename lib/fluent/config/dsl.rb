@@ -103,6 +103,8 @@ module Fluent
 
         def include(*args)
           ::Kernel.raise ::ArgumentError, "#{name} block requires arguments for include path" if args.nil? || args.size != 1
+          ::Kernel.puts "pattern = %s"%(args.first)
+          ::Kernel.puts "basepath = %s"%(@proxy.include_basepath)
           if args.first =~ /\.rb$/
             path = File.expand_path(args.first)
             data = File.read(path)

@@ -156,10 +156,14 @@ module Fluent
             pattern = path
           end
 
+          puts "@include_basepath = %s"%(@include_basepath)
           puts "pattern = %s"%(pattern)
 
           Dir.glob(pattern).sort.each { |entry|
             basepath = File.dirname(entry)
+
+            puts "basepath = %s"%(basepath)
+
             fname = File.basename(entry)
             data = File.read(entry)
             data.force_encoding('UTF-8')

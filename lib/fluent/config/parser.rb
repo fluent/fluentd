@@ -81,10 +81,14 @@ module Fluent
             pattern = path
           end
 
+          puts "@basepath = %s"%(@basepath)
           puts "pattern = %s"%(pattern)
 
           Dir.glob(pattern).sort.each { |entry|
             basepath = File.dirname(entry)
+
+            puts "basepath = %s"%(basepath)
+
             fname = File.basename(entry)
             File.open(entry) { |f|
               Parser.new(basepath, f.each_line, fname).parse!(allow_include, nil, attrs, elems)
