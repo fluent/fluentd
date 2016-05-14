@@ -148,6 +148,10 @@ module Fluent
 
       def eval_include(attrs, elems, uri)
         u = URI.parse(uri)
+
+        puts "u.scheme = %s"%(u.scheme)
+        puts "u.path = %s"%(u.path)
+
         if u.scheme == 'file' || u.path == uri  # file path
           path = u.path
           if path[0] != ?/
