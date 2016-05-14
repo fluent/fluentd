@@ -148,14 +148,15 @@ module Fluent
 
       def eval_include(attrs, elems, uri)
         u = URI.parse(uri)
-        if u.scheme == 'file' || u.path == uri  # file path
+        if u.scheme == 'file' || (!u.scheme.nil? && u.scheme.length == 1) || u.path == uri # file path
+          # When the Windows absolute path then u.scheme.length == 1
+          # e.g. C:
           path = u.path
           if path[0] != ?/
             pattern = File.expand_path("#{@include_basepath}/#{path}")
           else
             pattern = path
           end
-
           Dir.glob(pattern).sort.each { |entry|
             basepath = File.dirname(entry)
             fname = File.basename(entry)
