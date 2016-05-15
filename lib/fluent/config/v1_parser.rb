@@ -152,7 +152,7 @@ module Fluent
         puts "u.scheme = %s"%(u.scheme)
         puts "u.path = %s"%(u.path)
 
-        if u.scheme == 'file' || u.scheme.length == 1 || u.path == uri  # file path
+        if u.scheme == 'file' || (!u.scheme.nil? && u.scheme.length == 1) || u.path == uri  # file path
           path = u.path
           if path[0] != ?/
             pattern = File.expand_path("#{@include_basepath}/#{path}")
