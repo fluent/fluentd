@@ -23,7 +23,7 @@ module Fluent
         return regexp.match(string)
       rescue ArgumentError => e
         raise e unless e.message.index("invalid byte sequence in".freeze).zero?
-        log.info "invalid byte sequence is replaced in `#{string}`"
+        $log.info "invalid byte sequence is replaced in `#{string}`"
         string = string.scrub('?')
         retry
       end
