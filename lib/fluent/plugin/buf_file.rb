@@ -23,7 +23,7 @@ require 'fluent/system_config'
 module Fluent
   module Plugin
     class FileBuffer < Fluent::Plugin::Buffer
-      Plugin.register_buffer('file2', self)
+      Plugin.register_buffer('file', self)
 
       include SystemConfig::Mixin
 

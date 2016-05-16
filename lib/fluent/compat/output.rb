@@ -466,7 +466,7 @@ module Fluent
       attr_accessor :localtime
 
       config_section :buffer, param_name: :buffer_config do
-        config_set_default :@type, 'file2'
+        config_set_default :@type, 'file'
       end
 
       PARAMS_MAP = {
@@ -502,7 +502,7 @@ module Fluent
         config_style = (bufconf ? :v1 : :v0)
         if config_style == :v0
           buf_params = {
-            "@type"      => "file2",
+            "@type"      => "file",
             "flush_mode" => (conf['flush_interval'] ? "fast" : "none"),
             "retry_type" => "exponential_backoff",
           }
@@ -510,7 +510,7 @@ module Fluent
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
           unless buf_params.has_key?("@type")
-            buf_params["@type"] = "file2"
+            buf_params["@type"] = "file"
           end
 
           if conf['timezone']

@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/plugin/buf_memory2'
+require 'fluent/plugin/buf_memory'
 require 'fluent/plugin/output'
 require 'flexmock/test_unit'
 

@@ -20,7 +20,7 @@ require 'fluent/plugin/buffer/memory_chunk'
 module Fluent
   module Plugin
     class MemoryBuffer < Fluent::Plugin::Buffer
-      Plugin.register_buffer('memory2', self)
+      Plugin.register_buffer('memory', self)
 
       def resume
         return {}, []

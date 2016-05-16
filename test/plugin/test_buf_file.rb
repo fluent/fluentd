@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/plugin/buf_file2'
+require 'fluent/plugin/buf_file'
 require 'fluent/plugin/output'
 require 'fluent/unique_id'
 require 'fluent/system_config'

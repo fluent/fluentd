@@ -20,6 +20,7 @@ require 'fluent/input'
 require 'fluent/config/error'
 require 'fluent/event'
 require 'fluent/system_config'
+require 'fluent/plugin/buffer'
 
 if Fluent.windows?
   require_relative 'file_wrapper'
@@ -270,7 +271,7 @@ module Fluent
       log.error_backtrace
     end
 
-    # @return true if no error or unrecoverable error happens in emit action. false if got BufferQueueLimitError
+    # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
     def receive_lines(lines, tail_watcher)
       es = @receive_handler.call(lines, tail_watcher)
       unless es.empty?
@@ -281,7 +282,7 @@ module Fluent
               end
         begin
           router.emit_stream(tag, es)
-        rescue BufferQueueLimitError
+        rescue Fluent::Plugin::Buffer::BufferOverflowError
           return false
         rescue
           # ignore non BufferQueueLimitError errors because in_tail can't recover. Engine shows logs and backtraces.

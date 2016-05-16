@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/test'
 require 'fluent/plugin/in_tail'
+require 'fluent/plugin/buffer'
 require 'fluent/system_config'
 require 'net/http'
 require 'flexmock/test_unit'
@@ -770,7 +771,7 @@ class TailInputTest < Test::Unit::TestCase
 
   sub_test_case 'emit error cases' do
     def test_emit_error_with_buffer_queue_limit_error
-      emits = execute_test(::Fluent::BufferQueueLimitError, "queue size exceeds limit")
+      emits = execute_test(Fluent::Plugin::Buffer::BufferOverflowError, "buffer space has too many data")
       assert_equal(10, emits.length)
       10.times { |i|
         assert_equal({"message" => "test#{i}"}, emits[i][2])
