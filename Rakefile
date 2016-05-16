@@ -16,6 +16,7 @@ Rake::TestTask.new(:base_test) do |t|
   t.test_files = Dir["test/**/test_*.rb"].sort
   t.verbose = false
   t.warning = false
+  t.ruby_opts = ["-Eascii-8bit:ascii-8bit"]
 end
 
 task :parallel_test do

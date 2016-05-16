@@ -421,12 +421,14 @@ module Fluent
       $log.info "starting fluentd-#{Fluent::VERSION}"
 
       if Fluent.windows?
-        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + ' "' + $0.gsub('"', '""') + '" '
+        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
+        fluentd_spawn_cmd << ' "' + $0.gsub('"', '""') + '" '
         $fluentdargv.each{|a|
           fluentd_spawn_cmd << ('"' + a.gsub('"', '""') + '" ')
         }
       else
-        fluentd_spawn_cmd = $0.shellescape + ' '
+        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
+        fluentd_spawn_cmd << $0.shellescape + ' '
         $fluentdargv.each{|a|
           fluentd_spawn_cmd << (a.shellescape + " ")
         }
