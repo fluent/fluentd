@@ -57,10 +57,6 @@ module Fluent
       @system_config = system_config
 
       BasicSocket.do_not_reverse_lookup = true
-      if defined?(Encoding)
-        Encoding.default_internal = 'ASCII-8BIT' if Encoding.respond_to?(:default_internal)
-        Encoding.default_external = 'ASCII-8BIT' if Encoding.respond_to?(:default_external)
-      end
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
