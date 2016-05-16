@@ -919,11 +919,9 @@ class TailInputTest < Test::Unit::TestCase
 
       emits = d.emits
       assert(emits.length == 4)
-      assert_equal("#{TMP_DIR}/tail1.txt", emits[0][2]["path"])
-      assert_equal("#{TMP_DIR}/tail2.txt", emits[1][2]["path"])
+      assert_equal(files, [emits[0][2]["path"], emits[1][2]["path"]].sort)
       # "test4" events are here because these events are flushed at shutdown phase
-      assert_equal("#{TMP_DIR}/tail1.txt", emits[2][2]["path"])
-      assert_equal("#{TMP_DIR}/tail2.txt", emits[3][2]["path"])
+      assert_equal(files, [emits[2][2]["path"], emits[3][2]["path"]].sort)
     end
   end
 end
