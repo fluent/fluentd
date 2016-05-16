@@ -86,14 +86,16 @@ module Fluent
         end
       end
       recursive_output_traverse = ->(o) {
+        if o.has_router?
+          lifecycle_control_list[:output_with_router] << o
+        else
+          lifecycle_control_list[:output] << o
+        end
+
         if o.respond_to?(:outputs)
           o.outputs.each do |store|
             recursive_output_traverse.call(store)
           end
-        elsif o.has_router?
-          lifecycle_control_list[:output_with_router] << o
-        else
-          lifecycle_control_list[:output] << o
         end
       }
       outputs.each do |o|

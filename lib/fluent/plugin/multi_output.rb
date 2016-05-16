@@ -45,8 +45,8 @@ module Fluent
         @num_errors = 0
         @emit_count = 0
         @emit_records = 0
-        @write_count = 0
-        @rollback_count = 0
+        # @write_count = 0
+        # @rollback_count = 0
       end
 
       def configure(conf)
@@ -76,6 +76,11 @@ module Fluent
           @outputs << output
         end
       end
+
+      # Child plugin's lifecycles are controlled by agent automatically.
+      # It calls `outputs` to traverse plugins, and invoke start/stop/*shutdown/close/terminate on these directly.
+      # * `start` of this plugin will be called after child plugins
+      # * `stop`, `*shutdown`, `close` and `terminate` of this plugin will be called before child plugins
 
       def emit_sync(tag, es)
         @counters_monitor.synchronize{ @emit_count += 1 }
