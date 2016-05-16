@@ -71,6 +71,8 @@ module Fluent
         raise ConfigError, e.message
       end
     end
+    desc 'Add the log path being tailed to records. Specify the field name to be used.'
+    config_param :path_key, :string, default: nil
 
     attr_reader :paths
 
@@ -252,6 +254,7 @@ module Fluent
                   else
                     @tag
                   end
+            record[@path_key] ||= tw.path unless @path_key.nil?
             router.emit(tag, time, record)
           else
             log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
@@ -289,12 +292,13 @@ module Fluent
       return true
     end
 
-    def convert_line_to_event(line, es)
+    def convert_line_to_event(line, es, tail_watcher)
       begin
         line.chomp!  # remove \n
         line.force_encoding(@encoding) if @encoding
         @parser.parse(line) { |time, record|
           if time && record
+            record[@path_key] ||= tail_watcher.path unless @path_key.nil?
             es.add(time, record)
           else
             log.warn "pattern not match: #{line.inspect}"
@@ -309,7 +313,7 @@ module Fluent
     def parse_singleline(lines, tail_watcher)
       es = MultiEventStream.new
       lines.each { |line|
-        convert_line_to_event(line, es)
+        convert_line_to_event(line, es, tail_watcher)
       }
       es
     end
@@ -322,7 +326,7 @@ module Fluent
         lines.each { |line|
           if @parser.firstline?(line)
             if lb
-              convert_line_to_event(lb, es)
+              convert_line_to_event(lb, es, tail_watcher)
             end
             lb = line
           else
@@ -339,7 +343,7 @@ module Fluent
           lb << line
           @parser.parse(lb) { |time, record|
             if time && record
-              convert_line_to_event(lb, es)
+              convert_line_to_event(lb, es, tail_watcher)
               lb = ''
             end
           }
