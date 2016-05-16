@@ -210,6 +210,7 @@ module Fluent
 
       PARAMS_MAP = {
         "buffer_type" => "@type",
+        "buffer_path" => "path",
         "num_threads"                 => "flush_threads",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
@@ -345,6 +346,7 @@ module Fluent
 
       PARAMS_MAP = {
         "buffer_type" => "@type",
+        "buffer_path" => "path",
         "num_threads"                 => "flush_threads",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
