@@ -51,15 +51,12 @@ module Fluent
           @unique_id = generate_unique_id
           @metadata = metadata
 
-          # state: staged/queued/closed
-          @state = :staged
-
           @size = 0
           @created_at = Time.now
           @modified_at = Time.now
         end
 
-        attr_reader :unique_id, :metadata, :created_at, :modified_at, :state
+        attr_reader :unique_id, :metadata, :created_at, :modified_at
 
         # data is array of formatted record string
         def append(data)
@@ -92,28 +89,15 @@ module Fluent
           size == 0
         end
 
-        def staged?
-          @state == :staged
-        end
-
-        def queued?
-          @state == :queued
-        end
-
-        def closed?
-          @state == :closed
-        end
-
-        def enqueued!
-          @state = :queued
-        end
+        ## method for post-process of enqueue (e.g., renaming file for file chunks)
+        # def enqueued!
 
         def close
-          @state = :closed
+          raise NotImplementedError, "Implement this method in child class"
         end
 
         def purge
-          @state = :closed
+          raise NotImplementedError, "Implement this method in child class"
         end
 
         def read
