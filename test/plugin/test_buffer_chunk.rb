@@ -10,6 +10,9 @@ class BufferChunkTest < Test::Unit::TestCase
       assert{ chunk.metadata.object_id == meta.object_id }
       assert{ chunk.created_at.is_a? Time }
       assert{ chunk.modified_at.is_a? Time }
+      assert chunk.staged?
+      assert !chunk.queued?
+      assert !chunk.closed?
     end
 
     test 'has many methods for chunks, but not implemented' do
@@ -23,8 +26,6 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:size)
       assert chunk.respond_to?(:length)
       assert chunk.respond_to?(:empty?)
-      assert chunk.respond_to?(:close)
-      assert chunk.respond_to?(:purge)
       assert chunk.respond_to?(:read)
       assert chunk.respond_to?(:open)
       assert chunk.respond_to?(:write_to)
@@ -36,8 +37,6 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(NotImplementedError){ chunk.size }
       assert_raise(NotImplementedError){ chunk.length }
       assert_raise(NotImplementedError){ chunk.empty? }
-      assert_raise(NotImplementedError){ chunk.close }
-      assert_raise(NotImplementedError){ chunk.purge }
       assert_raise(NotImplementedError){ chunk.read }
       assert_raise(NotImplementedError){ chunk.open(){} }
       assert_raise(NotImplementedError){ chunk.write_to(nil) }
@@ -62,6 +61,25 @@ class BufferChunkTest < Test::Unit::TestCase
   end
 
   sub_test_case 'minimum chunk implements #size and #open' do
+    test 'chunk lifecycle' do
+      c = TestChunk.new(Object.new)
+      assert c.staged?
+      assert !c.queued?
+      assert !c.closed?
+
+      c.enqueued!
+
+      assert !c.staged?
+      assert c.queued?
+      assert !c.closed?
+
+      c.close
+
+      assert !c.staged?
+      assert !c.queued?
+      assert c.closed?
+    end
+
     test 'can respond to #empty? correctly' do
       c = TestChunk.new(Object.new)
       assert_equal 0, c.size
