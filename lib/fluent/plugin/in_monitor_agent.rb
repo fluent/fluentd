@@ -32,6 +32,7 @@ module Fluent
     config_param :port, :integer, default: 24220
     config_param :tag, :string, default: nil
     config_param :emit_interval, :time, default: 60
+    config_param :emit_config, :bool, default: false
 
     class MonitorServlet < WEBrick::HTTPServlet::AbstractServlet
       def initialize(server, agent)
@@ -253,7 +254,7 @@ module Fluent
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
         @loop = Coolio::Loop.new
-        opts = {with_config: false}
+        opts = {with_config: @emit_config}
         timer = TimerWatcher.new(@emit_interval, log) {
           es = MultiEventStream.new
           now = Engine.now
