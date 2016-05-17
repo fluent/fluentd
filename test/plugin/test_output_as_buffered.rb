@@ -129,6 +129,7 @@ class BufferedOutputTest < Test::Unit::TestCase
     setup do
       hash = {
         'flush_mode' => 'none',
+        'flush_burst_interval' => 0.01,
         'flush_threads' => 2,
         'chunk_bytes_limit' => 1024,
       }
@@ -152,12 +153,12 @@ class BufferedOutputTest < Test::Unit::TestCase
       t = event_time()
       es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
-      5.times do
+      4.times do
         @i.emit_events('tag.test', es)
       end
 
-      assert_equal 10, ary.size
-      5.times do |i|
+      assert_equal 8, ary.size
+      4.times do |i|
         assert_equal ["tag.test", t, {"key" => "value1"}], ary[i*2]
         assert_equal ["tag.test", t, {"key" => "value2"}], ary[i*2+1]
       end
@@ -175,7 +176,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
       event_size = [tag, t, r].to_json.size # 195
 
-      (1024 / event_size).times do |i|
+      (1024 * 0.9 / event_size).to_i.times do |i|
         @i.emit_events("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
       end
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
@@ -208,7 +209,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
       event_size = [tag, t, r].to_json.size # 195
 
-      (1024 / event_size).times do |i|
+      (1024 * 0.9 / event_size).to_i.times do |i|
         @i.emit_events("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
       end
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
@@ -221,7 +222,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       waiting(10) do
         Thread.pass until ary.size == 1
       end
-      assert_equal [tag,t,r].to_json * (1024 / event_size), ary.first
+      assert_equal [tag,t,r].to_json * (1024 * 0.9 / event_size), ary.first
     end
   end
 
@@ -231,6 +232,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_mode' => 'fast',
         'flush_interval' => 1,
         'flush_threads' => 1,
+        'flush_burst_interval' => 0.01,
         'chunk_bytes_limit' => 1024,
       }
       @i = create_output(:buffered)
@@ -252,12 +254,12 @@ class BufferedOutputTest < Test::Unit::TestCase
       t = event_time()
       es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
-      5.times do
+      4.times do
         @i.emit_events('tag.test', es)
       end
 
-      assert_equal 10, ary.size
-      5.times do |i|
+      assert_equal 8, ary.size
+      4.times do |i|
         assert_equal ["tag.test", t, {"key" => "value1"}], ary[i*2]
         assert_equal ["tag.test", t, {"key" => "value2"}], ary[i*2+1]
       end
@@ -278,14 +280,17 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
 
       3.times do |i|
-        rand_records = rand(1..5)
+        rand_records = rand(1..4)
         es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
         assert_equal rand_records, es.size
 
         @i.interrupt_flushes
 
+        assert{ @i.buffer.queue.size == 0 }
+
         @i.emit_events("test.tag", es)
 
+        assert{ @i.buffer.queue.size == 0 }
         assert{ @i.buffer.stage.size == 1 }
 
         staged_chunk = @i.instance_eval{ @buffer.stage[@buffer.stage.keys.first] }
@@ -315,7 +320,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
       event_size = [tag, t, r].to_json.size # 195
 
-      (1024 / event_size).times do |i|
+      (1024 * 0.9 / event_size).to_i.times do |i|
         @i.emit_events("test.tag", Fluent::ArrayEventStream.new([ [t, r] ]))
       end
       assert{ @i.buffer.queue.size == 0 && ary.size == 0 }
@@ -328,7 +333,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       waiting(10) do
         Thread.pass until ary.size == 1
       end
-      assert_equal [tag,t,r].to_json * (1024 / event_size), ary.first
+      assert_equal [tag,t,r].to_json * (1024 * 0.9 / event_size), ary.first
     end
   end
 
@@ -337,6 +342,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       hash = {
         'flush_mode' => 'immediate',
         'flush_threads' => 1,
+        'flush_burst_interval' => 0.01,
         'chunk_bytes_limit' => 1024,
       }
       @i = create_output(:buffered)
@@ -358,12 +364,12 @@ class BufferedOutputTest < Test::Unit::TestCase
       t = event_time()
       es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
 
-      5.times do
+      4.times do
         @i.emit_events('tag.test', es)
       end
 
-      assert_equal 10, ary.size
-      5.times do |i|
+      assert_equal 8, ary.size
+      4.times do |i|
         assert_equal ["tag.test", t, {"key" => "value1"}], ary[i*2]
         assert_equal ["tag.test", t, {"key" => "value2"}], ary[i*2+1]
       end
@@ -431,6 +437,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'timekey_range' => 30, # per 30seconds
         'timekey_wait' => 5, # 5 second delay for flush
         'flush_threads' => 1,
+        'flush_burst_interval' => 0.01,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))

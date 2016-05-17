@@ -64,6 +64,8 @@ module Fluent
 
         config_param :delayed_commit_timeout, :time, default: 60, desc: 'Seconds of timeout for buffer chunks to be committed by plugins later.'
 
+        config_param :overflow_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception, desc: 'The action when the size of buffer exceeds the limit.'
+
         config_param :retry_forever, :bool, default: false, desc: 'If true, plugin will ignore retry_timeout and retry_max_times options and retry flushing forever.'
         config_param :retry_timeout, :time, default: 72 * 60 * 60, desc: 'The maximum seconds to retry to flush while failing, until plugin discards buffer chunks.'
         # 72hours == 17 times with exponential backoff (not to change default behavior)
@@ -493,12 +495,7 @@ module Fluent
       def emit_buffered(tag, es)
         @counters_monitor.synchronize{ @emit_count += 1 }
         begin
-          metalist = execute_chunking(tag, es)
-          if @flush_mode == :immediate
-            metalist.each do |meta|
-              @buffer.enqueue_chunk(meta)
-            end
-          end
+          execute_chunking(tag, es, enqueue: (@flush_mode == :immediate))
           if !@retry && @buffer.queued?
             submit_flush_once
           end
@@ -532,12 +529,12 @@ module Fluent
           elsif @chunk_key_time && @chunk_key_tag
             timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
-            timekey = time_int - (time_int % timekey_range)
+            timekey = (time_int - (time_int % timekey_range)).to_i
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
             timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
-            timekey = time_int - (time_int % timekey_range)
+            timekey = (time_int - (time_int % timekey_range)).to_i
             @buffer.metadata(timekey: timekey)
           else
             @buffer.metadata(tag: tag)
@@ -546,7 +543,7 @@ module Fluent
           timekey_range = @buffer_config.timekey_range
           timekey = if @chunk_key_time
                       time_int = time.to_i
-                      time_int - (time_int % timekey_range)
+                      (time_int - (time_int % timekey_range)).to_i
                     else
                       nil
                     end
@@ -555,17 +552,52 @@ module Fluent
         end
       end
 
-      def execute_chunking(tag, es)
+      def execute_chunking(tag, es, enqueue: false)
         if @simple_chunking
-          handle_stream_simple(tag, es)
+          handle_stream_simple(tag, es, enqueue: enqueue)
         elsif @custom_format
-          handle_stream_with_custom_format(tag, es)
+          handle_stream_with_custom_format(tag, es, enqueue: enqueue)
         else
-          handle_stream_with_standard_format(tag, es)
+          handle_stream_with_standard_format(tag, es, enqueue: enqueue)
         end
       end
 
-      def handle_stream_with_custom_format(tag, es)
+      def write_guard(&block)
+        begin
+          block.call
+        rescue Fluent::Plugin::Buffer::BufferOverflowError
+          log.warn "failed to write data into buffer by buffer overflow"
+          case @buffer_config.overflow_action
+          when :exception
+            raise
+          when :block
+            log.debug "buffer.write is now blocking"
+            until @buffer.storable?
+              sleep 1
+            end
+            log.debug "retrying buffer.write after blocked operation"
+            retry
+          when :drop_oldest_chunk
+            begin
+              oldest = @buffer.dequeue_chunk
+              if oldest
+                log.warn "dropping oldest chunk to make space after buffer overflow", chunk_id: oldest.unique_id
+                @buffer.purge_chunk(oldest.unique_id)
+              else
+                log.error "no queued chunks to be dropped for drop_oldest_chunk"
+              end
+            rescue
+              # ignore any errors
+            end
+            raise unless @buffer.storable?
+            retry
+          else
+            raise "BUG: unknown overflow_action '#{@buffer_config.overflow_action}'"
+          end
+        end
+      end
+
+      def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -574,14 +606,14 @@ module Fluent
           meta_and_data[meta] << format(tag, time, record)
           records += 1
         end
-        meta_and_data.each_pair do |meta, data|
-          @buffer.emit(meta, data)
+        write_guard do
+          @buffer.write(meta_and_data, bulk: false, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
-        meta_and_data.keys
+        true
       end
 
-      def handle_stream_with_standard_format(tag, es)
+      def handle_stream_with_standard_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -590,14 +622,18 @@ module Fluent
           meta_and_data[meta].add(time, record)
           records += 1
         end
+        meta_and_data_bulk = {}
         meta_and_data.each_pair do |meta, es|
-          @buffer.emit_bulk(meta, es.to_msgpack_stream(time_int: @time_as_integer), es.size)
+          meta_and_data_bulk[meta] = [es.to_msgpack_stream(time_int: @time_as_integer), es.size]
+        end
+        write_guard do
+          @buffer.write(meta_and_data_bulk, bulk: true, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
-        meta_and_data.keys
+        true
       end
 
-      def handle_stream_simple(tag, es)
+      def handle_stream_simple(tag, es, enqueue: false)
         meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
         records = es.size
         if @custom_format
@@ -613,9 +649,11 @@ module Fluent
           es_size = es.size
           es_bulk = es.to_msgpack_stream(time_int: @time_as_integer)
         end
-        @buffer.emit_bulk(meta, es_bulk, es_size)
+        write_guard do
+          @buffer.write({meta => [es_bulk, es_size]}, bulk: true, enqueue: enqueue)
+        end
         @counters_monitor.synchronize{ @emit_records += records }
-        [meta]
+        true
       end
 
       def commit_write(chunk_id, delayed: @delayed_commit, secondary: false)
