@@ -88,6 +88,11 @@ module Fluent
         def open(&block)
           StringIO.open(@chunk, &block)
         end
+
+        def write_to(io)
+          # re-implementation to optimize not to create StringIO
+          io.write @chunk
+        end
       end
     end
   end

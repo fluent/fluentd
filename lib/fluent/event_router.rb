@@ -46,7 +46,6 @@ module Fluent
       @match_cache = MatchCache.new
       @default_collector = default_collector
       @emit_error_handler = emit_error_handler
-      @chain = NullOutputChain.instance
     end
 
     attr_accessor :default_collector
@@ -88,7 +87,7 @@ module Fluent
     end
 
     def emit_stream(tag, es)
-      match(tag).emit(tag, es, @chain)
+      match(tag).emit_events(tag, es)
     rescue => e
       @emit_error_handler.handle_emits_error(tag, es, e)
     end
@@ -147,12 +146,12 @@ module Fluent
         @output = output
       end
 
-      def emit(tag, es, chain)
+      def emit_events(tag, es)
         processed = es
         @filters.each { |filter|
           processed = filter.filter_stream(tag, processed)
         }
-        @output.emit(tag, processed, chain)
+        @output.emit_events(tag, processed)
       end
     end
 

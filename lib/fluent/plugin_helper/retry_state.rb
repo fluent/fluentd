@@ -23,7 +23,7 @@ module Fluent
           secondary: false, secondary_threshold: 0.8
       )
         case retry_type
-        when :expbackoff
+        when :exponential_backoff
           ExponentialBackOffRetry.new(title, wait, timeout, forever, max_steps, randomize, randomize_width, backoff_base, max_interval, secondary, secondary_threshold)
         when :periodic
           PeriodicRetry.new(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threshold)
@@ -146,9 +146,14 @@ module Fluent
         end
 
         def naive_next_time(retry_next_times)
-          interval = @constant_factor * ( @backoff_base ** ( retry_next_times - 1 ) )
-          intr = if @max_interval && interval > @max_interval
-                   @max_interval
+          # make it infinite if calculated "interval" is too big
+          interval = @constant_factor.to_f * ( @backoff_base ** ( retry_next_times - 1 ) )
+          intr = if interval.finite?
+                   if @max_interval && interval > @max_interval
+                     @max_interval
+                   else
+                     interval
+                   end
                  else
                    interval
                  end

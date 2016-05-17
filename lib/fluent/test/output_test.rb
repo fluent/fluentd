@@ -43,9 +43,7 @@ module Fluent
 
       def emit(record, time=Engine.now)
         es = OneEventStream.new(time, record)
-        chain = TestOutputChain.new
-        @instance.emit(@tag, es, chain)
-        assert_equal 1, chain.called
+        @instance.emit_events(@tag, es)
       end
     end
 
@@ -85,13 +83,13 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          key = if @instance.is_a? Fluent::ObjectBufferedOutput
-                  @tag
-                else
-                  ''
-                end
-          chunk = @instance.buffer.new_chunk(key)
-          chunk << buffer
+          chunk = if @instance.instance_eval{ @chunk_key_tag }
+                    @instance.buffer.generate_chunk(@instance.metadata(@tag, nil, nil))
+                  else
+                    @instance.buffer.generate_chunk(@instance.metadata(nil, nil, nil))
+                  end
+          chunk.concat(buffer, es.size)
+
           begin
             result = @instance.write(chunk)
           ensure
@@ -105,7 +103,7 @@ module Fluent
     class TimeSlicedOutputTestDriver < InputTestDriver
       def initialize(klass, tag='test', &block)
         super(klass, &block)
-        @entries = {}
+        @entries = []
         @expected_buffer = nil
         @tag = tag
       end
@@ -113,10 +111,7 @@ module Fluent
       attr_accessor :tag
 
       def emit(record, time=Engine.now)
-        slicer = @instance.instance_eval{@time_slicer}
-        key = slicer.call(time)
-        @entries[key] = [] unless @entries.has_key?(key)
-        @entries[key] << [time, record]
+        @entries << [time, record]
         self
       end
 
@@ -130,30 +125,30 @@ module Fluent
           block.call if block
 
           buffer = ''
-          @entries.keys.each {|key|
-            es = ArrayEventStream.new(@entries[key])
-            @instance.emit(@tag, es, NullOutputChain.instance)
-            buffer << @instance.format_stream(@tag, es)
-          }
+          lines = {}
+          # v0.12 TimeSlicedOutput doesn't call #format_stream
+          @entries.each do |time, record|
+            meta = @instance.metadata(@tag, time, record)
+            line = @instance.format(@tag, time, record)
+            buffer << line
+            lines[meta] ||= []
+            lines[meta] << line
+          end
 
           if @expected_buffer
             assert_equal(@expected_buffer, buffer)
           end
 
           chunks = []
-          @instance.instance_eval do
-            @buffer.instance_eval{ @map.keys }.each do |key|
-              @buffer.push(key)
-              chunks << @buffer.instance_eval{ @queue.pop }
-            end
-          end
-          chunks.each { |chunk|
+          lines.keys.each do |meta|
+            chunk = @instance.buffer.generate_chunk(meta)
+            chunk.append(lines[meta])
             begin
               result.push(@instance.write(chunk))
             ensure
               chunk.purge
             end
-          }
+          end
         }
         result
       end
