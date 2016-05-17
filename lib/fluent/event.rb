@@ -179,7 +179,8 @@ module Fluent
       nil
     end
 
-    def to_msgpack_stream
+    def to_msgpack_stream(time_int: false)
+      # time_int is always ignored because @data is always packed binary in this class
       @data
     end
   end
@@ -196,7 +197,8 @@ module Fluent
     end
     alias :msgpack_each :each
 
-    def to_msgpack_stream
+    def to_msgpack_stream(time_int: false)
+      # time_int is always ignored because data is already packed and written in chunk
       read
     end
   end
