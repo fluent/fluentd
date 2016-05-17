@@ -15,42 +15,6 @@
 #
 
 module Fluent
-  class Match
-    def initialize(pattern_str, output)
-      patterns = pattern_str.split(/\s+/).map {|str|
-        MatchPattern.create(str)
-      }
-      if patterns.length == 1
-        @pattern = patterns[0]
-      else
-        @pattern = OrMatchPattern.new(patterns)
-      end
-      @output = output
-    end
-
-    attr_reader :output
-
-    def emit(tag, es)
-      chain = NullOutputChain.instance
-      @output.emit(tag, es, chain)
-    end
-
-    def start
-      @output.start
-    end
-
-    def shutdown
-      @output.shutdown
-    end
-
-    def match(tag)
-      if @pattern.match(tag)
-        return true
-      end
-      return false
-    end
-  end
-
   class MatchPattern
     def self.create(str)
       if str == '**'

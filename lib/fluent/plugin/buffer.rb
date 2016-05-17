@@ -176,7 +176,7 @@ module Fluent
       # metadata_and_data MUST be a hash of { metadata => data }
       def write(metadata_and_data, bulk: false, enqueue: false)
         return if metadata_and_data.size < 1
-        raise BufferOverflowError unless storable?
+        raise BufferOverflowError, "buffer space has too many data" unless storable?
 
         staged_bytesize = 0
         operated_chunks = []

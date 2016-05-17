@@ -42,7 +42,7 @@ module Fluent
 
     def fork(delegate_object)
       ipr, ipw = IO.pipe  # child Engine.emit_stream -> parent Engine.emit_stream
-      opr, opw = IO.pipe  # parent target.emit -> child target.emit
+      opr, opw = IO.pipe  # parent target.emit_events -> child target.emit_events
 
       pid = Process.fork
       if pid
@@ -153,7 +153,7 @@ module Fluent
       read_event_stream(opr) {|tag,es|
         # FIXME error handling
         begin
-          target.emit(tag, es, NullOutputChain.instance)
+          target.emit_events(tag, es)
         rescue
           $log.warn "failed to emit", error: $!.to_s, pid: Process.pid
           $log.warn_backtrace
@@ -365,7 +365,7 @@ module Fluent
         }
       end
 
-      # override target.emit and write event stream to the pipe
+      # override target.emit_events and write event stream to the pipe
       forwarders = children.map {|pair| pair[1].forwarder }
       if forwarders.length > 1
         # use roundrobin
@@ -373,9 +373,8 @@ module Fluent
       else
         fwd = forwarders[0]
       end
-      define_singleton_method(:emit) do |tag,es,chain|
-        chain.next
-        fwd.emit(tag, es)
+      define_singleton_method(:emit_events) do |tag,es|
+        fwd.emit_events(tag, es)
       end
     end
 

@@ -15,6 +15,7 @@
 #
 
 require 'fluent/compat/output'
+require 'fluent/output_chain'
 
 module Fluent
   Output               = Fluent::Compat::Output

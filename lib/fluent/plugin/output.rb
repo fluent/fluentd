@@ -42,7 +42,7 @@ module Fluent
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
       config_section :buffer, param_name: :buffer_config, init: true, required: false, multi: false, final: true do
         config_argument :chunk_keys, :array, value_type: :string, default: []
-        config_param :@type, :string, default: 'memory2'
+        config_param :@type, :string, default: 'memory'
 
         config_param :timekey_range, :time, default: nil # range size to be used: `time.to_i / @timekey_range`
         config_param :timekey_wait, :time, default: 600
@@ -301,7 +301,7 @@ module Fluent
         if @buffering
           m = method(:emit_buffered)
           (class << self; self; end).module_eval do
-            define_method(:emit, m)
+            define_method(:emit_events, m)
           end
 
           @custom_format = implement?(:custom_format)
@@ -314,7 +314,7 @@ module Fluent
         else # !@buffering
           m = method(:emit_sync)
           (class << self; self; end).module_eval do
-            define_method(:emit, m)
+            define_method(:emit_events, m)
           end
         end
 
@@ -820,8 +820,10 @@ module Fluent
       end
 
       def force_flush
-        @buffer.enqueue_all
-        submit_flush_all
+        if @buffering
+          @buffer.enqueue_all
+          submit_flush_all
+        end
       end
 
       def submit_flush_all

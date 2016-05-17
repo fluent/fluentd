@@ -16,6 +16,8 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
+require 'fluent/compat/call_super_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 
@@ -27,11 +29,11 @@ module Fluent
 
     module CompatOutputUtils
       def self.buffer_section(conf)
-        conf.elements.select{|e| e.name == 'buffer'}.first
+        conf.elements(name: 'buffer').first
       end
 
       def self.secondary_section(conf)
-        conf.elements.select{|e| e.name == 'secondary'}.first
+        conf.elements(name: 'secondary').first
       end
 
       def self.inject_type_from_obsoleted_name(secconf, log)
@@ -140,16 +142,29 @@ module Fluent
         end
       end
 
-      ## emit must be implemented in plugin
-      # def emit(tag, es, chain)
-      # end
+      def process(tag, es)
+        emit(tag, es, NULL_OUTPUT_CHAIN)
+      end
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
+    end
+
+    class MultiOutput < Fluent::Plugin::MultiOutput
+      def initialize
+        super
+        @compat = true
+      end
 
       def process(tag, es)
         emit(tag, es, NULL_OUTPUT_CHAIN)
       end
-    end
-
-    class MultiOutput < Output
     end
 
     class BufferedOutput < Fluent::Plugin::Output
@@ -195,6 +210,7 @@ module Fluent
 
       PARAMS_MAP = {
         "buffer_type" => "@type",
+        "buffer_path" => "path",
         "num_threads"                 => "flush_threads",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
@@ -270,6 +286,15 @@ module Fluent
       def extract_placeholders(str, metadata)
         raise "BUG: compat plugin does not support extract_placeholders: use newer plugin API"
       end
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
     end
 
     class ObjectBufferedOutput < Fluent::Plugin::Output
@@ -313,7 +338,7 @@ module Fluent
       desc 'The length limit of the chunk queue.'
       config_param :buffer_queue_limit, :integer, default: 256
       desc 'The action when the size of buffer queue exceeds the buffer_queue_limit.'
-      config_param :buffer_queue_full_action, :enum, list: [:exception, :block], default: :exception
+      config_param :buffer_queue_full_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception
 
       config_param :flush_at_shutdown, :bool, default: true
 
@@ -321,6 +346,7 @@ module Fluent
 
       PARAMS_MAP = {
         "buffer_type" => "@type",
+        "buffer_path" => "path",
         "num_threads"                 => "flush_threads",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
@@ -330,7 +356,7 @@ module Fluent
         "max_retry_wait"      => "retry_max_interval",
         "buffer_chunk_limit"  => "chunk_bytes_limit",
         "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "buffer_queue_full_action" => "overflow_action",
         "flush_at_shutdown" => "flush_at_shutdown",
       }
 
@@ -380,6 +406,15 @@ module Fluent
       def extract_placeholders(str, metadata)
         raise "BUG: compat plugin does not support extract_placeholders: use newer plugin API"
       end
+
+      def initialize
+        super
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
+      end
     end
 
     class TimeSlicedOutput < Fluent::Plugin::Output
@@ -426,14 +461,14 @@ module Fluent
       desc 'The length limit of the chunk queue.'
       config_param :buffer_queue_limit, :integer, default: 256
       desc 'The action when the size of buffer queue exceeds the buffer_queue_limit.'
-      config_param :buffer_queue_full_action, :enum, list: [:exception, :block], default: :exception
+      config_param :buffer_queue_full_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception
 
       config_param :flush_at_shutdown, :bool, default: false
 
       attr_accessor :localtime
 
       config_section :buffer, param_name: :buffer_config do
-        config_set_default :@type, 'file2'
+        config_set_default :@type, 'file'
       end
 
       PARAMS_MAP = {
@@ -448,7 +483,7 @@ module Fluent
         "max_retry_wait"      => "retry_max_interval",
         "buffer_chunk_limit"  => "chunk_bytes_limit",
         "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => nil, # TODO: implement this on fluent/plugin/buffer
+        "buffer_queue_full_action" => "overflow_action",
         "flush_at_shutdown" => "flush_at_shutdown",
         "time_slice_wait" => "timekey_wait",
       }
@@ -456,6 +491,12 @@ module Fluent
       def initialize
         super
         @localtime = true
+
+        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
+          self.class.module_eval do
+            prepend Fluent::Compat::CallSuperMixin
+          end
+        end
       end
 
       def configure(conf)
@@ -463,7 +504,7 @@ module Fluent
         config_style = (bufconf ? :v1 : :v0)
         if config_style == :v0
           buf_params = {
-            "@type"      => "file2",
+            "@type"      => "file",
             "flush_mode" => (conf['flush_interval'] ? "fast" : "none"),
             "retry_type" => "exponential_backoff",
           }
@@ -471,7 +512,7 @@ module Fluent
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
           unless buf_params.has_key?("@type")
-            buf_params["@type"] = "file2"
+            buf_params["@type"] = "file"
           end
 
           if conf['timezone']

@@ -300,7 +300,6 @@ class FileOutputTest < Test::Unit::TestCase
     ]
     symlink_path = "#{SYMLINK_PATH}"
 
-    Fluent::FileBuffer.clear_buffer_paths
     d = Fluent::Test::TestDriver.new(Fluent::FileOutput).configure(conf)
 
     begin

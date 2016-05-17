@@ -26,12 +26,17 @@ module Fluent
         'Fluent::Config::Section'
       end
 
-      def initialize(params = {})
+      def initialize(params = {}, config_element = nil)
         @klass = 'Fluent::Config::Section'
         @params = params
+        @corresponding_config_element = config_element
       end
 
       alias :object_id :__id__
+
+      def corresponding_config_element
+        @corresponding_config_element
+      end
 
       def to_s
         inspect
@@ -165,7 +170,7 @@ module Fluent
           end
         end
 
-        Section.new(section_params)
+        Section.new(section_params, conf)
       end
 
       def self.check_unused_section(proxy, conf, plugin_class)

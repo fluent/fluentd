@@ -1,690 +1,503 @@
-# -*- coding: utf-8 -*-
 require_relative '../helper'
-require 'fluent/test'
 require 'fluent/plugin/buf_file'
+require 'fluent/plugin/output'
+require 'fluent/unique_id'
 require 'fluent/system_config'
+require 'fluent/env'
 
-require 'fileutils'
-
-require 'stringio'
 require 'msgpack'
 
-module FluentFileBufferTest
-  class FileBufferChunkTest < Test::Unit::TestCase
-    BUF_FILE_TMPDIR = File.expand_path(File.join(File.dirname(__FILE__), '..', 'tmp', 'buf_file_chunk'))
+module FluentPluginFileBufferTest
+  class DummyOutputPlugin < Fluent::Plugin::Output
+    Fluent::Plugin.register_output('buffer_file_test_output', self)
+  end
+end
 
-    def setup
-      FileUtils.rm_rf(BUF_FILE_TMPDIR, secure: true)
-      FileUtils.mkdir_p BUF_FILE_TMPDIR
-    end
+class FileBufferTest < Test::Unit::TestCase
+  def metadata(timekey: nil, tag: nil, variables: nil)
+    Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
+  end
 
-    def bufpath(unique, link=false)
-      File.join(BUF_FILE_TMPDIR, unique + '.log' + (link ? '.link' : ''))
-    end
-
-    def filebufferchunk(key, unique, opts={})
-      Fluent::FileBufferChunk.new(key, bufpath(unique), unique, opts[:mode] || "a+", opts[:symlink])
-    end
-
-    def test_init
-      omit "Windows doesn't support symlink" if Fluent.windows?
-      chunk = filebufferchunk('key', 'init1')
-      assert_equal 'key', chunk.key
-      assert_equal 'init1', chunk.unique_id
-      assert_equal bufpath('init1'), chunk.path
-
-      chunk.close # size==0, then, unlinked
-
-      symlink_path = bufpath('init2', true)
-
-      chunk = filebufferchunk('key2', 'init2', symlink: symlink_path)
-      assert_equal 'key2', chunk.key
-      assert_equal 'init2', chunk.unique_id
-      assert File.exist?(symlink_path) && File.symlink?(symlink_path)
-
-      chunk.close # unlink
-
-      assert File.symlink?(symlink_path)
-      File.unlink(symlink_path)
-    end
-
-    class TestWithSystem < self
-      include Fluent::SystemConfig::Mixin
-
-      OVERRIDE_FILE_PERMISSION = 0620
-      CONFIG_SYSTEM = %[
-        <system>
-          file_permission #{OVERRIDE_FILE_PERMISSION}
-        </system>
-      ]
-
-      def parse_system(text)
-        basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-        Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
-      end
-
-      def setup
-        omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-        # Store default permission
-        @default_permission = system_config.instance_variable_get(:@file_permission)
-      end
-
-      def teardown
-        # Restore default permission
-        system_config.instance_variable_set(:@file_permission, @default_permission)
-      end
-
-      def test_init_with_system
-        system_conf = parse_system(CONFIG_SYSTEM)
-        sc = Fluent::SystemConfig.new(system_conf)
-        Fluent::Engine.init(sc)
-        chunk = filebufferchunk('key', 'init3')
-        assert_equal 'key', chunk.key
-        assert_equal 'init3', chunk.unique_id
-        assert_equal bufpath('init3'), chunk.path
-        mode = "%o" % File.stat(chunk.path).mode
-        assert_equal OVERRIDE_FILE_PERMISSION, mode[-3, 3].to_i
-
-        chunk.close # size==0, then, unlinked
-      end
-    end
-
-    def test_buffer_chunk_interface
-      chunk = filebufferchunk('key', 'interface1')
-
-      assert chunk.respond_to?(:empty?)
-      assert chunk.respond_to?(:<<)
-      assert chunk.respond_to?(:size)
-      assert chunk.respond_to?(:close)
-      assert chunk.respond_to?(:purge)
-      assert chunk.respond_to?(:read)
-      assert chunk.respond_to?(:open)
-      assert chunk.respond_to?(:write_to)
-      assert chunk.respond_to?(:msgpack_each)
-
-      chunk.close
-    end
-
-    def test_empty?
-      chunk = filebufferchunk('e1', 'empty1')
-      assert chunk.empty?
-      chunk.close
-
-      open(bufpath('empty2'), 'w') do |file|
-        file.write "data1\ndata2\n"
-      end
-      chunk = filebufferchunk('e2', 'empty2')
-      assert !(chunk.empty?)
-      chunk.close
-    end
-
-    def test_append_close_purge
-      chunk = filebufferchunk('a1', 'append1')
-      assert chunk.empty?
-
-      test_data1 = ("1" * 9 + "\n" + "2" * 9 + "\n").force_encoding('ASCII-8BIT')
-      test_data2 = "日本語Japanese\n".force_encoding('UTF-8')
-      chunk << test_data1
-      chunk << test_data2
-      assert_equal 38, chunk.size
-      chunk.close
-
-      assert File.exist?(bufpath('append1'))
-
-      chunk = filebufferchunk('a1', 'append1', mode: 'r')
-      test_data = test_data1.force_encoding('ASCII-8BIT') + test_data2.force_encoding('ASCII-8BIT')
-
-      #### TODO: This assertion currently fails. Oops.
-      # FileBuffer#read does NOT do force_encoding('ASCII-8BIT'). So encoding of output string instance are 'UTF-8'.
-      # I think it is a kind of bug, but fixing it may break some behavior of buf_file. So I cannot be sure to fix it just now.
-      #
-      # assert_equal test_data, chunk.read
-
-      chunk.purge
-
-      assert !(File.exist?(bufpath('append1')))
-    end
-
-    def test_empty_chunk_key # for BufferedOutput#emit
-      chunk = filebufferchunk('', 'append1')
-      assert chunk.empty?
-
-      test_data1 = ("1" * 9 + "\n" + "2" * 9 + "\n").force_encoding('ASCII-8BIT')
-      test_data2 = "日本語Japanese\n".force_encoding('UTF-8')
-      chunk << test_data1
-      chunk << test_data2
-      assert_equal 38, chunk.size
-      chunk.close
-    end
-
-    def test_read
-      chunk = filebufferchunk('r1', 'read1')
-      assert chunk.empty?
-
-      d1 = "abcde" * 200 + "\n"
-      chunk << d1
-      d2 = "12345" * 200 + "\n"
-      chunk << d2
-      assert_equal (d1.size + d2.size), chunk.size
-
-      read_data = chunk.read
-      assert_equal (d1 + d2), read_data
-
-      chunk.purge
-    end
-
-    def test_open
-      chunk = filebufferchunk('o1', 'open1')
-      assert chunk.empty?
-
-      d1 = "abcde" * 200 + "\n"
-      chunk << d1
-      d2 = "12345" * 200 + "\n"
-      chunk << d2
-      assert_equal (d1.size + d2.size), chunk.size
-
-      read_data = chunk.open do |io|
-        io.read
-      end
-      assert_equal (d1 + d2), read_data
-
-      chunk.purge
-    end
-
-    def test_write_to
-      chunk = filebufferchunk('w1', 'write1')
-      assert chunk.empty?
-
-      d1 = "abcde" * 200 + "\n"
-      chunk << d1
-      d2 = "12345" * 200 + "\n"
-      chunk << d2
-      assert_equal (d1.size + d2.size), chunk.size
-
-      dummy_dst = StringIO.new
-
-      chunk.write_to(dummy_dst)
-      assert_equal (d1 + d2), dummy_dst.string
-
-      chunk.purge
-    end
-
-    def test_msgpack_each
-      chunk = filebufferchunk('m1', 'msgpack1')
-      assert chunk.empty?
-
-      d0 = MessagePack.pack([[1, "foo"], [2, "bar"], [3, "baz"]])
-      d1 = MessagePack.pack({"key1" => "value1", "key2" => "value2"})
-      d2 = MessagePack.pack("string1")
-      d3 = MessagePack.pack(1)
-      d4 = MessagePack.pack(nil)
-      chunk << d0
-      chunk << d1
-      chunk << d2
-      chunk << d3
-      chunk << d4
-
-      store = []
-      chunk.msgpack_each do |data|
-        store << data
-      end
-
-      assert_equal 5, store.size
-      assert_equal [[1, "foo"], [2, "bar"], [3, "baz"]], store[0]
-      assert_equal({"key1" => "value1", "key2" => "value2"}, store[1])
-      assert_equal "string1", store[2]
-      assert_equal 1, store[3]
-      assert_equal nil, store[4]
-
-      chunk.purge
-    end
-
-    def test_mv
-      chunk = filebufferchunk('m1', 'move1')
-      assert chunk.empty?
-
-      d1 = "abcde" * 200 + "\n"
-      chunk << d1
-      d2 = "12345" * 200 + "\n"
-      chunk << d2
-      assert_equal (d1.size + d2.size), chunk.size
-
-      assert_equal bufpath('move1'), chunk.path
-
-      assert File.exist?( bufpath( 'move1' ) )
-      assert !(File.exist?( bufpath( 'move2' ) ))
-
-      chunk.mv(bufpath('move2'))
-
-      assert !(File.exist?( bufpath( 'move1' ) ))
-      assert File.exist?( bufpath( 'move2' ) )
-
-      assert_equal bufpath('move2'), chunk.path
-
-      chunk.purge
+  def write_metadata(path, chunk_id, metadata, size, ctime, mtime)
+    metadata = {
+      timekey: metadata.timekey, tag: metadata.tag, variables: metadata.variables,
+      id: chunk_id,
+      s: size,
+      c: ctime,
+      m: mtime,
+    }
+    File.open(path, 'wb') do |f|
+      f.write metadata.to_msgpack
     end
   end
 
-  class FileBufferTest < Test::Unit::TestCase
-    BUF_FILE_TMPDIR = File.expand_path(File.join(File.dirname(__FILE__), '..', 'tmp', 'buf_file'))
+  sub_test_case 'non configured buffer plugin instance' do
+    setup do
+      Fluent::Test.setup
 
-    def setup
-      FileUtils.rm_rf(BUF_FILE_TMPDIR, secure: true)
-      FileUtils.mkdir_p BUF_FILE_TMPDIR
-    end
-
-    def bufpath(basename)
-      File.join(BUF_FILE_TMPDIR, basename)
-    end
-
-    def filebuffer(key, unique, opts={})
-      Fluent::FileBufferChunk.new(key, bufpath(unique), unique, opts[:mode] || "a+", opts[:symlink])
-    end
-
-    def test_init_configure
-      buf = Fluent::FileBuffer.new
-
-      assert_raise(Fluent::ConfigError){ buf.configure({}) }
-
-      buf.configure({'buffer_path' => bufpath('configure1.*.log')})
-      assert_equal bufpath('configure1.*.log'), buf.buffer_path
-      assert_equal nil, buf.symlink_path
-      assert_equal false, buf.instance_eval{ @flush_at_shutdown }
-
-      buf2 = Fluent::FileBuffer.new
-
-      # Same buffer_path value is rejected, not to overwrite exisitng buffer file.
-      assert_raise(Fluent::ConfigError){ buf2.configure({'buffer_path' => bufpath('configure1.*.log')}) }
-
-      buf2.configure({'buffer_path' => bufpath('configure2.*.log'), 'flush_at_shutdown' => ''})
-      assert_equal bufpath('configure2.*.log'), buf2.buffer_path
-      assert_equal true, buf2.instance_eval{ @flush_at_shutdown }
-    end
-
-    def test_configure_path_prefix_suffix
-      # With '*' in path, prefix is the part before '*', suffix is the part after '*'
-      buf = Fluent::FileBuffer.new
-
-      path1 = bufpath('suffpref1.*.log')
-      prefix1, suffix1 = path1.split('*', 2)
-      buf.configure({'buffer_path' => path1})
-      assert_equal prefix1, buf.instance_eval{ @buffer_path_prefix }
-      assert_equal suffix1, buf.instance_eval{ @buffer_path_suffix }
-
-      # Without '*', prefix is the string of whole path + '.', suffix is '.log'
-      path2 = bufpath('suffpref2')
-      buf.configure({'buffer_path' => path2})
-      assert_equal path2 + '.', buf.instance_eval{ @buffer_path_prefix }
-      assert_equal '.log', buf.instance_eval{ @buffer_path_suffix }
-    end
-
-    class DummyOutput
-      attr_accessor :written
-
-      def write(chunk)
-        @written ||= []
-        @written.push chunk
-        "return value"
+      @dir = File.expand_path('../../tmp/buffer_file_dir', __FILE__)
+      unless File.exist?(@dir)
+        FileUtils.mkdir_p @dir
+      end
+      Dir.glob(File.join(@dir, '*')).each do |path|
+        next if ['.', '..'].include?(File.basename(path))
+        File.delete(path)
       end
     end
 
-    def test_encode_key
-      buf = Fluent::FileBuffer.new
-      safe_chars = '-_.abcdefgxyzABCDEFGXYZ0123456789'
-      assert_equal safe_chars, buf.send(:encode_key, safe_chars)
-      unsafe_chars = '-_.abcdefgxyzABCDEFGXYZ0123456789 ~/*()'
-      assert_equal safe_chars + '%20%7E%2F%2A%28%29', buf.send(:encode_key, unsafe_chars)
+    test 'path should include * normally' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer.*.file')}))
+      assert_equal File.join(@dir, 'buffer.*.file'), p.path
     end
 
-    def test_decode_key
-      buf = Fluent::FileBuffer.new
-      safe_chars = '-_.abcdefgxyzABCDEFGXYZ0123456789'
-      assert_equal safe_chars, buf.send(:decode_key, safe_chars)
-      unsafe_chars = '-_.abcdefgxyzABCDEFGXYZ0123456789 ~/*()'
-      assert_equal unsafe_chars, buf.send(:decode_key, safe_chars + '%20%7E%2F%2A%28%29')
-
-      assert_equal safe_chars, buf.send(:decode_key, buf.send(:encode_key, safe_chars))
-      assert_equal unsafe_chars, buf.send(:decode_key, buf.send(:encode_key, unsafe_chars))
+    test 'existing directory will be used with additional default file name' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => @dir}))
+      assert_equal File.join(@dir, 'buffer.*.log'), p.path
     end
 
-    def test_make_path
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('makepath.*.log')})
-      prefix = buf.instance_eval{ @buffer_path_prefix }
-      suffix = buf.instance_eval{ @buffer_path_suffix }
+    test 'unexisting path without * handled as directory' do
+      d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      p = Fluent::Plugin::FileBuffer.new
+      p.owner = d
+      p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer')}))
+      assert_equal File.join(@dir, 'buffer', 'buffer.*.log'), p.path
+    end
+  end
 
-      path,tsuffix = buf.send(:make_path, buf.send(:encode_key, 'foo bar'), 'b')
-      assert path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.[bq][0-9a-f]+#{suffix}\Z/, "invalid format:#{path}"
-      assert tsuffix =~ /\A[0-9a-f]+\Z/, "invalid hexadecimal:#{tsuffix}"
+  sub_test_case 'buffer plugin configured only with path' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+      @bufpath = File.join(@bufdir, 'testbuf.*.log')
+      FileUtils.rm_r @bufdir if File.exist?(@bufdir)
 
-      path,tsuffix = buf.send(:make_path, buf.send(:encode_key, 'baz 123'), 'q')
-      assert path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.[bq][0-9a-f]+#{suffix}\Z/, "invalid format:#{path}"
-      assert tsuffix =~ /\A[0-9a-f]+\Z/, "invalid hexadecimal:#{tsuffix}"
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
     end
 
-    def test_tsuffix_to_unique_id
-      buf = Fluent::FileBuffer.new
-      # why *2 ? frsyuki said "I forgot why completely."
-      assert_equal "\xFF\xFF\xFF\xFF".force_encoding('ASCII-8BIT'), buf.send(:tsuffix_to_unique_id, 'ffff')
-      assert_equal "\x88\x00\xFF\x00\x11\xEE\x88\x00\xFF\x00\x11\xEE".force_encoding('ASCII-8BIT'), buf.send(:tsuffix_to_unique_id, '8800ff0011ee')
-    end
-
-    def test_start_makes_parent_directories
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('start/base.*.log')})
-      parent_dirname = File.dirname(buf.instance_eval{ @buffer_path_prefix })
-      assert !(Dir.exist?(parent_dirname))
-      buf.start
-      assert Dir.exist?(parent_dirname)
-    end
-
-    def test_new_chunk
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('new_chunk_1')})
-      prefix = buf.instance_eval{ @buffer_path_prefix }
-      suffix = buf.instance_eval{ @buffer_path_suffix }
-
-      chunk = buf.new_chunk('key1')
-      assert chunk
-      assert File.exist?(chunk.path)
-      assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
-      chunk.close
-    end
-
-    def test_chunk_identifier_in_path
-      buf1 = Fluent::FileBuffer.new
-      buf1.configure({'buffer_path' => bufpath('chunkid1')})
-      prefix1 = buf1.instance_eval{ @buffer_path_prefix }
-      suffix1 = buf1.instance_eval{ @buffer_path_suffix }
-
-      chunk1 = buf1.new_chunk('key1')
-      assert_equal chunk1.path, prefix1 + buf1.chunk_identifier_in_path(chunk1.path) + suffix1
-
-      buf2 = Fluent::FileBuffer.new
-      buf2.configure({'buffer_path' => bufpath('chunkid2')})
-      prefix2 = buf2.instance_eval{ @buffer_path_prefix }
-      suffix2 = buf2.instance_eval{ @buffer_path_suffix }
-
-      chunk2 = buf2.new_chunk('key2')
-      assert_equal chunk2.path, prefix2 + buf2.chunk_identifier_in_path(chunk2.path) + suffix2
-    end
-
-    def test_enqueue_moves_chunk_from_b_to_q
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('enqueue1')})
-      prefix = buf.instance_eval{ @buffer_path_prefix }
-      suffix = buf.instance_eval{ @buffer_path_suffix }
-
-      chunk = buf.new_chunk('key1')
-      chunk << "data1\ndata2\n"
-
-      assert chunk
-      old_path = chunk.path.dup
-      assert File.exist?(chunk.path)
-      assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
-
-      buf.enqueue(chunk)
-
-      assert chunk
-      assert File.exist?(chunk.path)
-      assert !(File.exist?(old_path))
-      assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.q[0-9a-f]+#{suffix}\Z/, "enqueued chunk's path must be a 'q' buffer chunk"
-
-      data = chunk.read
-      assert "data1\ndata2\n", data
-    end
-
-    # empty chunk keys are used w/ BufferedOutput
-    #  * ObjectBufferedOutput's keys are tag
-    #  * TimeSlicedOutput's keys are time_key
-    def test_enqueue_chunk_with_empty_key
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('enqueue2')})
-      prefix = buf.instance_eval{ @buffer_path_prefix }
-      suffix = buf.instance_eval{ @buffer_path_suffix }
-
-      chunk = buf.new_chunk('')
-      chunk << "data1\ndata2\n"
-
-      assert chunk
-      old_path = chunk.path.dup
-      assert File.exist?(chunk.path)
-      # chunk key is empty
-      assert chunk.path =~ /\A#{prefix}\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
-
-      buf.enqueue(chunk)
-
-      assert chunk
-      assert File.exist?(chunk.path)
-      assert !(File.exist?(old_path))
-      # chunk key is empty
-      assert chunk.path =~ /\A#{prefix}\.q[0-9a-f]+#{suffix}\Z/, "enqueued chunk's path must be a 'q' buffer chunk"
-
-      data = chunk.read
-      assert "data1\ndata2\n", data
-    end
-
-    def test_before_shutdown_without_flush_at_shutdown
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('before_shutdown1')})
-      buf.start
-
-      # before_shutdown does nothing
-
-      c1 = [ buf.new_chunk('k0'), buf.new_chunk('k1'), buf.new_chunk('k2'), buf.new_chunk('k3') ]
-      c2 = [ buf.new_chunk('q0'), buf.new_chunk('q1') ]
-
-      buf.instance_eval do
-        @map = {
-          'k0' => c1[0], 'k1' => c1[1], 'k2' => c1[2], 'k3' => c1[3],
-          'q0' => c2[0], 'q1' => c2[1]
-        }
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
       end
-      c1[0] << "data1\ndata2\n"
-      c1[1] << "data1\ndata2\n"
-      c1[2] << "data1\ndata2\n"
-      # k3 chunk is empty!
-
-      c2[0] << "data1\ndata2\n"
-      c2[1] << "data1\ndata2\n"
-      buf.push('q0')
-      buf.push('q1')
-
-      buf.instance_eval do
-        @enqueue_hook_times = 0
-        def enqueue(chunk)
-          @enqueue_hook_times += 1
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
         end
       end
-      assert_equal 0, buf.instance_eval{ @enqueue_hook_times }
-
-      out = DummyOutput.new
-      assert_equal nil, out.written
-
-      buf.before_shutdown(out)
-
-      assert_equal 0, buf.instance_eval{ @enqueue_hook_times } # k0, k1, k2
-      assert_nil out.written
     end
 
-    def test_before_shutdown_with_flush_at_shutdown
-      buf = Fluent::FileBuffer.new
-      buf.configure({'buffer_path' => bufpath('before_shutdown2'), 'flush_at_shutdown' => 'true'})
-      buf.start
+    test 'this is persistent plugin' do
+      assert @p.persistent?
+    end
 
-      # before_shutdown flushes all chunks in @map and @queue
+    test '#start creates directory for buffer chunks' do
+      plugin = Fluent::Plugin::FileBuffer.new
+      plugin.owner = @d
+      rand_num = rand(0..100)
+      bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
+      bufdir = File.dirname(bufpath)
 
-      c1 = [ buf.new_chunk('k0'), buf.new_chunk('k1'), buf.new_chunk('k2'), buf.new_chunk('k3') ]
-      c2 = [ buf.new_chunk('q0'), buf.new_chunk('q1') ]
+      FileUtils.rm_r bufdir if File.exist?(bufdir)
+      assert !File.exist?(bufdir)
 
-      buf.instance_eval do
-        @map = {
-          'k0' => c1[0], 'k1' => c1[1], 'k2' => c1[2], 'k3' => c1[3],
-          'q0' => c2[0], 'q1' => c2[1]
-        }
+      plugin.configure(config_element('buffer', '', {'path' => bufpath}))
+      assert !File.exist?(bufdir)
+
+      plugin.start
+      assert File.exist?(bufdir)
+      assert{ File.stat(bufdir).mode.to_s(8).end_with?('755') }
+
+      plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
+      FileUtils.rm_r bufdir
+    end
+
+    test '#start creates directory for buffer chunks with specified permission' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+      plugin = Fluent::Plugin::FileBuffer.new
+      plugin.owner = @d
+      rand_num = rand(0..100)
+      bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
+      bufdir = File.dirname(bufpath)
+
+      FileUtils.rm_r bufdir if File.exist?(bufdir)
+      assert !File.exist?(bufdir)
+
+      plugin.configure(config_element('buffer', '', {'path' => bufpath, 'dir_permission' => 0700}))
+      assert !File.exist?(bufdir)
+
+      plugin.start
+      assert File.exist?(bufdir)
+      assert{ File.stat(bufdir).mode.to_s(8).end_with?('700') }
+
+      plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
+      FileUtils.rm_r bufdir
+    end
+
+    test '#start creates directory for buffer chunks with specified permission via system config' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+      sysconf = {'dir_permission' => '700'}
+      Fluent::SystemConfig.overwrite_system_config(sysconf) do
+        plugin = Fluent::Plugin::FileBuffer.new
+        plugin.owner = @d
+        rand_num = rand(0..100)
+        bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
+        bufdir = File.dirname(bufpath)
+
+        FileUtils.rm_r bufdir if File.exist?(bufdir)
+        assert !File.exist?(bufdir)
+
+        plugin.configure(config_element('buffer', '', {'path' => bufpath}))
+        assert !File.exist?(bufdir)
+
+        plugin.start
+        assert File.exist?(bufdir)
+        assert{ File.stat(bufdir).mode.to_s(8).end_with?('700') }
+
+        plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
+        FileUtils.rm_r bufdir
       end
-      c1[0] << "data1\ndata2\n"
-      c1[1] << "data1\ndata2\n"
-      c1[2] << "data1\ndata2\n"
-      # k3 chunk is empty!
+    end
 
-      c2[0] << "data1\ndata2\n"
-      c2[1] << "data1\ndata2\n"
-      buf.push('q0')
-      buf.push('q1')
+    test '#generate_chunk generates blank file chunk on path from unique_id of metadata' do
+      m1 = metadata()
+      c1 = @p.generate_chunk(m1)
+      assert c1.is_a? Fluent::Plugin::Buffer::FileChunk
+      assert_equal m1, c1.metadata
+      assert c1.empty?
+      assert_equal :staged, c1.state
+      assert_equal Fluent::Plugin::Buffer::FileChunk::FILE_PERMISSION, c1.permission
+      assert_equal @bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c1.unique_id)}."), c1.path
+      assert{ File.stat(c1.path).mode.to_s(8).end_with?('644') }
 
-      buf.instance_eval do
-        @enqueue_hook_times = 0
-        def enqueue(chunk)
-          @enqueue_hook_times += 1
+      m2 = metadata(timekey: event_time('2016-04-17 11:15:00 -0700').to_i)
+      c2 = @p.generate_chunk(m2)
+      assert c2.is_a? Fluent::Plugin::Buffer::FileChunk
+      assert_equal m2, c2.metadata
+      assert c2.empty?
+      assert_equal :staged, c2.state
+      assert_equal Fluent::Plugin::Buffer::FileChunk::FILE_PERMISSION, c2.permission
+      assert_equal @bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c2.unique_id)}."), c2.path
+      assert{ File.stat(c2.path).mode.to_s(8).end_with?('644') }
+
+      c1.purge
+      c2.purge
+    end
+
+    test '#generate_chunk generates blank file chunk with specified permission' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+      plugin = Fluent::Plugin::FileBuffer.new
+      plugin.owner = @d
+      rand_num = rand(0..100)
+      bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
+      bufdir = File.dirname(bufpath)
+
+      FileUtils.rm_r bufdir if File.exist?(bufdir)
+      assert !File.exist?(bufdir)
+
+      plugin.configure(config_element('buffer', '', {'path' => bufpath, 'file_permission' => 0600}))
+      assert !File.exist?(bufdir)
+      plugin.start
+
+      m = metadata()
+      c = plugin.generate_chunk(m)
+      assert c.is_a? Fluent::Plugin::Buffer::FileChunk
+      assert_equal m, c.metadata
+      assert c.empty?
+      assert_equal :staged, c.state
+      assert_equal 0600, c.permission
+      assert_equal bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c.unique_id)}."), c.path
+      assert{ File.stat(c.path).mode.to_s(8).end_with?('600') }
+
+      c.purge
+
+      plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
+      FileUtils.rm_r bufdir
+    end
+  end
+
+
+  sub_test_case 'there are no existing file chunks' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+      @bufpath = File.join(@bufdir, 'testbuf.*.log')
+      FileUtils.rm_r @bufdir if File.exist?(@bufdir)
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
+    end
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
         end
       end
-      assert_equal 0, buf.instance_eval{ @enqueue_hook_times }
-
-      out = DummyOutput.new
-      assert_equal nil, out.written
-
-      buf.before_shutdown(out)
-
-      assert_equal 3, buf.instance_eval{ @enqueue_hook_times } # k0, k1, k2
-      assert_equal 5, out.written.size
-      assert_equal [c2[0], c2[1], c1[0], c1[1], c1[2]], out.written
     end
 
-    def test_resume
-      buffer_path_for_resume_test = bufpath('resume')
+    test '#resume returns empty buffer state' do
+      ary = @p.resume
+      assert_equal({}, ary[0])
+      assert_equal([], ary[1])
+    end
+  end
 
-      buf1 = Fluent::FileBuffer.new
-      buf1.configure({'buffer_path' => buffer_path_for_resume_test})
-      prefix = buf1.instance_eval{ @buffer_path_prefix }
-      suffix = buf1.instance_eval{ @buffer_path_suffix }
+  sub_test_case 'there are some existing file chunks' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+      FileUtils.mkdir_p @bufdir unless File.exist?(@bufdir)
 
-      buf1.start
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c1id)}.log")
+      File.open(p1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        p1 + '.meta', @c1id, metadata(timekey: event_time('2016-04-17 13:58:00 -0700').to_i),
+        4, event_time('2016-04-17 13:58:00 -0700').to_i, event_time('2016-04-17 13:58:22 -0700').to_i
+      )
 
-      chunk1 = buf1.new_chunk('key1')
-      chunk1 << "data1\ndata2\n"
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c2id)}.log")
+      File.open(p2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        p2 + '.meta', @c2id, metadata(timekey: event_time('2016-04-17 13:59:00 -0700').to_i),
+        3, event_time('2016-04-17 13:59:00 -0700').to_i, event_time('2016-04-17 13:59:23 -0700').to_i
+      )
 
-      chunk2 = buf1.new_chunk('key2')
-      chunk2 << "data3\ndata4\n"
+      @c3id = Fluent::UniqueId.generate
+      p3 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c3id)}.log")
+      File.open(p3, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        p3 + '.meta', @c3id, metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i),
+        4, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i
+      )
 
-      assert chunk1
-      assert chunk1.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
+      @c4id = Fluent::UniqueId.generate
+      p4 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c4id)}.log")
+      File.open(p4, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        p4 + '.meta', @c4id, metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i),
+        3, event_time('2016-04-17 14:01:00 -0700').to_i, event_time('2016-04-17 14:01:25 -0700').to_i
+      )
 
-      buf1.enqueue(chunk1)
+      @bufpath = File.join(@bufdir, 'etest.*.log')
 
-      assert chunk1
-      assert chunk1.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.q[0-9a-f]+#{suffix}\Z/, "chunk1 must be enqueued"
-      assert chunk2
-      assert chunk2.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "chunk2 is not enqueued yet"
-
-      buf1.shutdown
-
-      buf2 = Fluent::FileBuffer.new
-      Fluent::FileBuffer.send(:class_variable_set, :'@@buffer_paths', {})
-      buf2.configure({'buffer_path' => buffer_path_for_resume_test})
-      prefix = buf2.instance_eval{ @buffer_path_prefix }
-      suffix = buf2.instance_eval{ @buffer_path_suffix }
-
-      # buf1.start -> resume is normal operation, but now, we cannot it.
-      queue, map = buf2.resume
-
-      assert_equal 1, queue.size
-      assert_equal 1, map.size
-
-      resumed_chunk1 = queue.first
-      assert_equal chunk1.path, resumed_chunk1.path
-      resumed_chunk2 = map['key2']
-      assert_equal chunk2.path, resumed_chunk2.path
-
-      assert_equal "data1\ndata2\n", resumed_chunk1.read
-      assert_equal "data3\ndata4\n", resumed_chunk2.read
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
     end
 
-    class DummyChain
-      def next
-        true
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
       end
     end
 
-    def test_resume_only_for_my_buffer_path
-      chain = DummyChain.new
+    test '#resume returns staged/queued chunks with metadata' do
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
 
-      buffer_path_for_resume_test_1 = bufpath('resume_fix.1.*.log')
-      buffer_path_for_resume_test_2 = bufpath('resume_fix.*.log')
+      stage = @p.stage
 
-      buf1 = Fluent::FileBuffer.new
-      buf1.configure({'buffer_path' => buffer_path_for_resume_test_1})
-      buf1.start
+      m3 = metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i)
+      assert_equal @c3id, stage[m3].unique_id
+      assert_equal 4, stage[m3].size
+      assert_equal :staged, stage[m3].state
 
-      buf1.emit('key1', "x1\ty1\tz1\n", chain)
-      buf1.emit('key1', "x2\ty2\tz2\n", chain)
-
-      assert buf1.instance_eval{ @map['key1'] }
-
-      buf1.shutdown
-
-      buf2 = Fluent::FileBuffer.new
-      buf2.configure({'buffer_path' => buffer_path_for_resume_test_2}) # other buffer_path
-
-      queue, map = buf2.resume
-
-      assert_equal 0, queue.size
-
-      ### TODO: This map size MUST be 0, but actually, 1
-      # This is because 1.XXXXX is misunderstood like chunk key of resume_fix.*.log.
-      # This may be a kind of bug, but we cannot decide whether 1. is a part of chunk key or not,
-      # because current version of buffer plugin uses '.'(dot) as a one of chars for chunk encoding.
-      # I think that this is a mistake of design, but we cannot fix it because updated plugin become
-      # not to be able to resume existing file buffer chunk.
-      # We will fix it in next API version of buffer plugin.
-      assert_equal 1, map.size
+      m4 = metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i)
+      assert_equal @c4id, stage[m4].unique_id
+      assert_equal 3, stage[m4].size
+      assert_equal :staged, stage[m4].state
     end
 
-    class TestWithSystem < self
-      include Fluent::SystemConfig::Mixin
+    test '#resume returns queued chunks ordered by last modified time (FIFO)' do
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
 
-      OVERRIDE_DIR_PERMISSION = 720
-      CONFIG_WITH_SYSTEM = %[
-        <system>
-          dir_permission #{OVERRIDE_DIR_PERMISSION}
-        </system>
-      ]
+      queue = @p.queue
 
-      def setup_system_config
-        system_conf = parse_system(CONFIG_WITH_SYSTEM)
-        sc = Fluent::SystemConfig.new(system_conf)
-        Fluent::Engine.init(sc)
+      assert{ queue[0].modified_at < queue[1].modified_at }
+
+      assert_equal @c1id, queue[0].unique_id
+      assert_equal :queued, queue[0].state
+      assert_equal event_time('2016-04-17 13:58:00 -0700').to_i, queue[0].metadata.timekey
+      assert_nil queue[0].metadata.tag
+      assert_nil queue[0].metadata.variables
+      assert_equal Time.parse('2016-04-17 13:58:00 -0700').localtime, queue[0].created_at
+      assert_equal Time.parse('2016-04-17 13:58:22 -0700').localtime, queue[0].modified_at
+      assert_equal 4, queue[0].size
+
+      assert_equal @c2id, queue[1].unique_id
+      assert_equal :queued, queue[1].state
+      assert_equal event_time('2016-04-17 13:59:00 -0700').to_i, queue[1].metadata.timekey
+      assert_nil queue[1].metadata.tag
+      assert_nil queue[1].metadata.variables
+      assert_equal Time.parse('2016-04-17 13:59:00 -0700').localtime, queue[1].created_at
+      assert_equal Time.parse('2016-04-17 13:59:23 -0700').localtime, queue[1].modified_at
+      assert_equal 3, queue[1].size
+    end
+  end
+
+  sub_test_case 'there are some existing file chunks without metadata file' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "etest.201604171358.q#{Fluent::UniqueId.hex(@c1id)}.log")
+      File.open(p1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}].to_json + "\n"
       end
+      FileUtils.touch(p1, mtime: Time.parse('2016-04-17 13:58:28 -0700'))
 
-      def setup
-        omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-        setup_system_config
-        FileUtils.rm_rf(BUF_FILE_TMPDIR, secure: true)
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@bufdir, "etest.201604171359.q#{Fluent::UniqueId.hex(@c2id)}.log")
+      File.open(p2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
       end
+      FileUtils.touch(p2, mtime: Time.parse('2016-04-17 13:59:30 -0700'))
 
-      def parse_system(text)
-        basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-        Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+      @c3id = Fluent::UniqueId.generate
+      p3 = File.join(@bufdir, "etest.201604171400.b#{Fluent::UniqueId.hex(@c3id)}.log")
+      File.open(p3, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}].to_json + "\n"
       end
+      FileUtils.touch(p3, mtime: Time.parse('2016-04-17 14:00:29 -0700'))
 
-      def test_new_chunk
-        buf = Fluent::FileBuffer.new
-        buf.configure({'buffer_path' => bufpath('new_chunk_1')})
-        prefix = buf.instance_eval{ @buffer_path_prefix }
-        suffix = buf.instance_eval{ @buffer_path_suffix }
-
-        # To create buffer directory
-        buf.start
-
-        chunk = buf.new_chunk('key1')
-        assert chunk
-        assert File.exist?(chunk.path)
-        assert chunk.path =~ /\A#{prefix}[-_.a-zA-Z0-9\%]+\.b[0-9a-f]+#{suffix}\Z/, "path from new_chunk must be a 'b' buffer chunk"
-        chunk.close
-
-        mode = "%o" % File.stat(BUF_FILE_TMPDIR).mode
-        assert_equal(OVERRIDE_DIR_PERMISSION, mode[-3, 3].to_i)
+      @c4id = Fluent::UniqueId.generate
+      p4 = File.join(@bufdir, "etest.201604171401.b#{Fluent::UniqueId.hex(@c4id)}.log")
+      File.open(p4, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
       end
+      FileUtils.touch(p4, mtime: Time.parse('2016-04-17 14:01:22 -0700'))
+
+      @bufpath = File.join(@bufdir, 'etest.*.log')
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
+    end
+
+    test '#resume returns queued chunks for files without metadata' do
+      assert_equal 0, @p.stage.size
+      assert_equal 4, @p.queue.size
+
+      queue = @p.queue
+
+      m = metadata()
+
+      assert_equal @c1id, queue[0].unique_id
+      assert_equal m, queue[0].metadata
+      assert_equal 0, queue[0].size
+      assert_equal :queued, queue[0].state
+      assert_equal Time.parse('2016-04-17 13:58:28 -0700'), queue[0].modified_at
+
+      assert_equal @c2id, queue[1].unique_id
+      assert_equal m, queue[1].metadata
+      assert_equal 0, queue[1].size
+      assert_equal :queued, queue[1].state
+      assert_equal Time.parse('2016-04-17 13:59:30 -0700'), queue[1].modified_at
+
+      assert_equal @c3id, queue[2].unique_id
+      assert_equal m, queue[2].metadata
+      assert_equal 0, queue[2].size
+      assert_equal :queued, queue[2].state
+      assert_equal Time.parse('2016-04-17 14:00:29 -0700'), queue[2].modified_at
+
+      assert_equal @c4id, queue[3].unique_id
+      assert_equal m, queue[3].metadata
+      assert_equal 0, queue[3].size
+      assert_equal :queued, queue[3].state
+      assert_equal Time.parse('2016-04-17 14:01:22 -0700'), queue[3].modified_at
     end
   end
 end

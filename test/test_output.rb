@@ -300,6 +300,8 @@ module FluentOutputTest
       end
 
       test "emit with valid event" do
+        omit "there's no #emit method anymore in output plugins"
+
         d = create_driver
         d.instance.start
         if d.instance.method(:emit).arity == 3

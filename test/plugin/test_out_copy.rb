@@ -108,7 +108,19 @@ class CopyOutputTest < Test::Unit::TestCase
 
   def create_event_test_driver(is_deep_copy = false)
     deep_copy_config = %[
-deep_copy true
+deep_copy #{is_deep_copy}
+    <store>
+      type test
+      name c0
+    </store>
+    <store>
+      type test
+      name c1
+    </store>
+    <store>
+      type test
+      name c2
+    </store>
 ]
 
     output1 = Fluent::Plugin.new_output('test')
@@ -131,7 +143,7 @@ deep_copy true
     outputs = [output1, output2]
 
     d = Fluent::Test::OutputTestDriver.new(Fluent::CopyOutput)
-    d = d.configure(deep_copy_config) if is_deep_copy
+    d = d.configure(deep_copy_config)
     d.instance.instance_eval { @outputs = outputs }
     d
   end

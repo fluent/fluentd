@@ -19,6 +19,7 @@ module Fluent
     Plugin.register_output('test', self)
 
     def initialize
+      super
       @emit_streams = []
       @name = nil
     end
@@ -60,9 +61,11 @@ module Fluent
     end
 
     def start
+      super
     end
 
     def shutdown
+      super
     end
 
     def emit(tag, es, chain)

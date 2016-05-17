@@ -14,22 +14,14 @@
 #    limitations under the License.
 #
 
-require 'fluent/buffer'
 require 'fluent/engine'
 require 'fluent/time'
 require 'fluent/test/base'
 
 module Fluent
-  class FileBuffer < BasicBuffer
-    def self.clear_buffer_paths
-      @@buffer_paths = {}
-    end
-  end
-
   module Test
     class InputTestDriver < TestDriver
       def initialize(klass, &block)
-        FileBuffer.clear_buffer_paths
         super(klass, &block)
         @emit_streams = []
         @expects = nil
