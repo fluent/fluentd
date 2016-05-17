@@ -29,8 +29,6 @@ module Fluent
         end
 
         def append(data)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
-
           adding = data.join.force_encoding(Encoding::ASCII_8BIT)
           @chunk << adding
           @adding_bytes += adding.bytesize
@@ -39,8 +37,6 @@ module Fluent
         end
 
         def concat(bulk, bulk_size)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
-
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk << bulk
           @adding_bytes += bulk.bytesize
@@ -75,8 +71,11 @@ module Fluent
           @chunk.empty?
         end
 
+        def close
+          true
+        end
+
         def purge
-          super
           @chunk = ''.force_encoding("ASCII-8BIT")
           @chunk_bytes = @size = @adding_bytes = @adding_size = 0
           true
