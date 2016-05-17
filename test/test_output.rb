@@ -3,7 +3,7 @@ require 'fluent/test'
 require 'fluent/output'
 require 'fluent/output_chain'
 require 'timecop'
-require 'flexmock/test_unit'
+require 'flexmock'
 
 module FluentOutputTest
   include Fluent
@@ -58,15 +58,12 @@ module FluentOutputTest
       d = create_driver(CONFIG + %[disable_retry_limit true])
       assert_equal true, d.instance.disable_retry_limit
 
-      #### retry_state cares it
-      # # retry_wait is converted to Float for calc_retry_wait
-      # d = create_driver(CONFIG + %[retry_wait 1s])
-      # assert_equal Float, d.instance.retry_wait.class
+      # retry_wait is converted to Float for calc_retry_wait
+      d = create_driver(CONFIG + %[retry_wait 1s])
+      assert_equal Float, d.instance.retry_wait.class
     end
 
     def test_calc_retry_wait
-      omit "too internal test"
-
       # default
       d = create_driver
       d.instance.retry_limit.times {
@@ -85,8 +82,6 @@ module FluentOutputTest
     end
 
     def test_calc_retry_wait_with_integer_retry_wait
-      omit "too internal test"
-
       d = create_driver(CONFIG + %[retry_wait 2s])
       d.instance.retry_limit.times {
         d.instance.instance_eval { @num_errors += 1 }
@@ -95,8 +90,6 @@ module FluentOutputTest
     end
 
     def test_large_num_retries
-      omit "too internal test"
-
       # Test that everything works properly after a very large number of
       # retries and we hit the expected max_retry_wait.
       exp_max_retry_wait = 300
@@ -142,8 +135,6 @@ module FluentOutputTest
     end
 
     def test_submit_flush_target
-      omit "too internal test"
-
       # default
       d = create_mock_driver
       d.instance.start_mock
@@ -197,8 +188,6 @@ module FluentOutputTest
       end
 
       test "force_flush works on retrying" do
-        omit "too internal test"
-
         d = create_driver(CONFIG)
         d.instance.start
         buffer = d.instance.instance_variable_get(:@buffer)
@@ -247,19 +236,10 @@ module FluentOutputTest
 
     TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/time_sliced_output")
 
-    CONFIG = %[
-      buffer_path #{TMP_DIR}/foo
-      time_slice_format %Y%m%d
-    ]
-
-    class TimeSlicedOutputTestPlugin < Fluent::TimeSlicedOutput
-      def format(tag, time, record)
-        ''
-      end
-    end
+    CONFIG = %[buffer_path #{TMP_DIR}/foo]
 
     def create_driver(conf=CONFIG)
-      Fluent::Test::TimeSlicedOutputTestDriver.new(TimeSlicedOutputTestPlugin).configure(conf, true)
+      Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::TimeSlicedOutput).configure(conf, true)
     end
 
     sub_test_case "force_flush test" do
@@ -274,8 +254,6 @@ module FluentOutputTest
       end
 
       test "force_flush immediately flushes" do
-        omit "too internal test"
-
         d = create_driver(CONFIG + %[
           time_format %Y%m%d%H%M%S
         ])
@@ -302,20 +280,15 @@ module FluentOutputTest
       test "emit with valid event" do
         d = create_driver
         d.instance.start
-        if d.instance.method(:emit).arity == 3
-          d.instance.emit('test', OneEventStream.new(@time.to_i, {"message" => "foo"}), NullOutputChain.instance)
-        else
-          d.instance.emit('test', OneEventStream.new(@time.to_i, {"message" => "foo"}))
-        end
+        d.instance.emit('test', OneEventStream.new(@time.to_i, {"message" => "foo"}), NullOutputChain.instance)
         assert_equal 0, d.instance.log.logs.size
       end
 
       test "emit with invalid event" do
         d = create_driver
         d.instance.start
-        assert_raise ArgumentError, "time must be a Fluent::EventTime (or Integer)" do
-          d.instance.emit_events('test', OneEventStream.new('string', 10))
-        end
+        d.instance.emit('test', OneEventStream.new('string', 10), NullOutputChain.instance)
+        assert_equal 1, d.instance.log.logs.count { |line| line =~ /dump an error event/ }
       end
     end
   end

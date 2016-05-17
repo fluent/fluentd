@@ -70,8 +70,6 @@ module Fluent
             @path = File.join(@path, 'buffer.*.log')
           elsif File.basename(@path).include?('.*.')
             # valid path (buffer.*.log will be ignored)
-          elsif File.basename(@path).end_with?('.*')
-            @path = @path + '.log'
           else
             # existing file will be ignored
             @path = @path + '.*.log'
@@ -79,8 +77,6 @@ module Fluent
         else # path doesn't exist
           if File.basename(@path).include?('.*.')
             # valid path
-          elsif File.basename(@path).end_with?('.*')
-            @path = @path + '.log'
           else
             # path is handled as directory, and it will be created at #start
             @path = File.join(@path, 'buffer.*.log')

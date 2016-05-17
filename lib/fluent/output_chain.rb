@@ -14,10 +14,44 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/output_chain'
-
+# OutputChain will be removed since v0.14.
 module Fluent
-  OutputChain = Fluent::Compat::OutputChain
-  CopyOutputChain = Fluent::Compat::CopyOutputChain
-  NullOutputChain = Fluent::Compat::NullOutputChain
+  class OutputChain
+    def initialize(array, tag, es, chain=NullOutputChain.instance)
+      @array = array
+      @tag = tag
+      @es = es
+      @offset = 0
+      @chain = chain
+    end
+
+    def next
+      if @array.length <= @offset
+        return @chain.next
+      end
+      @offset += 1
+      result = @array[@offset-1].emit(@tag, @es, self)
+      result
+    end
+  end
+
+  class CopyOutputChain < OutputChain
+    def next
+      if @array.length <= @offset
+        return @chain.next
+      end
+      @offset += 1
+      es = @array.length > @offset ? @es.dup : @es
+      result = @array[@offset-1].emit(@tag, es, self)
+      result
+    end
+  end
+
+  class NullOutputChain
+    require 'singleton'
+    include Singleton
+
+    def next
+    end
+  end
 end
