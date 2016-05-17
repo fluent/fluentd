@@ -45,9 +45,10 @@ module Fluent
         config_param :@type, :string, default: 'memory2'
 
         config_param :timekey_range, :time, default: nil # range size to be used: `time.to_i / @timekey_range`
-        config_param :timekey_use_utc, :bool, default: false # default is localtime
-        config_param :timekey_zone, :string, default: Time.now.strftime('%z') # '+0900'
         config_param :timekey_wait, :time, default: 600
+        # These are for #extract_placeholders
+        config_param :timekey_use_utc, :bool, default: false # default is localtime
+        config_param :timekey_zone, :string, default: Time.now.strftime('%z') # e.g., "-0700" or "Asia/Tokyo"
 
         desc 'If true, plugin will try to flush buffer just before shutdown.'
         config_param :flush_at_shutdown, :bool, default: nil # change default by buffer_plugin.persistent?
@@ -72,7 +73,7 @@ module Fluent
         # expornential backoff sequence will be initialized at the time of this threshold
 
         desc 'How to wait next retry to flush buffer.'
-        config_param :retry_type, :enum, list: [:expbackoff, :periodic], default: :expbackoff
+        config_param :retry_type, :enum, list: [:exponential_backoff, :periodic], default: :exponential_backoff
         ### Periodic -> fixed :retry_wait
         ### Exponencial backoff: k is number of retry times
         # c: constant factor, @retry_wait
@@ -142,10 +143,30 @@ module Fluent
 
       def initialize
         super
+        @counters_monitor = Monitor.new
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
         @primary_instance = nil
+
+        # TODO: well organized counters
+        @num_errors = 0
+        @emit_count = 0
+        @emit_records = 0
+        @write_count = 0
+        @rollback_count = 0
+
+        # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
+        if implement?(:synchronous)
+          if implement?(:buffered) || implement?(:delayed_commit)
+            @buffering = nil # do #configure or #start to determine this for full-featured plugins
+          else
+            @buffering = false
+          end
+        else
+          @buffering = true
+        end
+        @custom_format = implement?(:custom_format)
       end
 
       def acts_as_secondary(primary)
@@ -267,13 +288,6 @@ module Fluent
 
       def start
         super
-        # TODO: well organized counters
-        @counters_monitor = Monitor.new
-        @num_errors = 0
-        @emit_count = 0
-        @emit_records = 0
-        @write_count = 0
-        @rollback_count = 0
 
         if @buffering.nil?
           @buffering = prefer_buffered_processing
@@ -295,7 +309,7 @@ module Fluent
                               implement?(:delayed_commit)
                             end
           @delayed_commit_timeout = @buffer_config.delayed_commit_timeout
-        else # !@buffered
+        else # !@buffering
           m = method(:emit_sync)
           (class << self; self; end).module_eval do
             define_method(:emit, m)
@@ -456,7 +470,7 @@ module Fluent
         end
       end
 
-      def emit(tag, es)
+      def emit_events(tag, es)
         # actually this method will be overwritten by #configure
         if @buffering
           emit_buffered(tag, es)
@@ -499,15 +513,29 @@ module Fluent
       def metadata(tag, time, record)
         # this arguments are ordered in output plugin's rule
         # Metadata 's argument order is different from this one (timekey, tag, variables)
-        timekey_range = @buffer_config.timekey_range
+
+        raise ArgumentError, "tag must be a String: #{tag.class}" unless tag.nil? || tag.is_a?(String)
+        raise ArgumentError, "time must be a Fluent::EventTime (or Integer): #{time.class}" unless time.nil? || time.is_a?(Fluent::EventTime) || time.is_a?(Integer)
+        raise ArgumentError, "record must be a Hash: #{record.class}" unless record.nil? || record.is_a?(Hash)
+
+        if @chunk_keys.nil? && @chunk_key_time.nil? && @chunk_key_tag.nil?
+          # for tests
+          return Struct.new(:timekey, :tag, :variables).new
+        end
+
+        # timekey is int from epoch, and `timekey - timekey % 60` is assumed to mach with 0s of each minutes.
+        # it's wrong if timezone is configured as one which supports leap second, but it's very rare and
+        # we can ignore it (especially in production systems).
         if @chunk_keys.empty?
           if !@chunk_key_time && !@chunk_key_tag
             @buffer.metadata()
           elsif @chunk_key_time && @chunk_key_tag
+            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
             timekey = time_int - (time_int % timekey_range)
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
+            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
             timekey = time_int - (time_int % timekey_range)
             @buffer.metadata(timekey: timekey)
@@ -515,6 +543,7 @@ module Fluent
             @buffer.metadata(tag: tag)
           end
         else
+          timekey_range = @buffer_config.timekey_range
           timekey = if @chunk_key_time
                       time_int = time.to_i
                       time_int - (time_int % timekey_range)
@@ -570,14 +599,22 @@ module Fluent
 
       def handle_stream_simple(tag, es)
         meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
-        es_size = es.size
-        es_bulk = if @custom_format
-                    es.map{|time,record| format(tag, time, record) }.join
-                  else
-                    es.to_msgpack_stream(time_int: @time_as_integer)
-                  end
+        records = es.size
+        if @custom_format
+          records = 0
+          es_size = 0
+          es_bulk = ''
+          es.each do |time,record|
+            es_bulk << format(tag, time, record)
+            es_size += 1
+            records += 1
+          end
+        else
+          es_size = es.size
+          es_bulk = es.to_msgpack_stream(time_int: @time_as_integer)
+        end
         @buffer.emit_bulk(meta, es_bulk, es_size)
-        @counters_monitor.synchronize{ @emit_records += es_size }
+        @counters_monitor.synchronize{ @emit_records += records }
         [meta]
       end
 
@@ -663,6 +700,10 @@ module Fluent
         if @retry_mutex.synchronize{ @retry && @retry.secondary? }
           output = @secondary
           using_secondary = true
+        end
+
+        unless @custom_format
+          chunk.extend ChunkMessagePackEventStreamer
         end
 
         begin

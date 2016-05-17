@@ -18,7 +18,6 @@ require 'fluent/plugin/buffer'
 require 'fluent/unique_id'
 require 'fluent/event'
 
-require 'fileutils'
 require 'monitor'
 
 module Fluent
@@ -111,7 +110,7 @@ module Fluent
 
         def write_to(io)
           open do |i|
-            FileUtils.copy_stream(i, io)
+            IO.copy_stream(i, io)
           end
         end
       end

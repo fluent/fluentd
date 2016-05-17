@@ -14,8 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/input'
+require 'fluent/plugin'
+require 'fluent/plugin/input'
 
 module Fluent
-  Input = Fluent::Compat::Input
+  module Compat
+    class Input < Fluent::Plugin::Input
+      # TODO: warn when deprecated
+    end
+  end
 end

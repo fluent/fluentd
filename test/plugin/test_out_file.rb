@@ -306,17 +306,22 @@ class FileOutputTest < Test::Unit::TestCase
     begin
       d.instance.start
       10.times { sleep 0.05 }
+
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       es = Fluent::OneEventStream.new(time, {"a"=>1})
-      d.instance.emit('tag', es, Fluent::NullOutputChain.instance)
+      d.instance.emit_events('tag', es)
 
       assert File.exist?(symlink_path)
       assert File.symlink?(symlink_path)
 
-      d.instance.enqueue_buffer
+      es = Fluent::OneEventStream.new(event_time("2011-01-03 14:15:16 UTC"), {"a"=>2})
+      d.instance.emit_events('tag', es)
 
-      assert !File.exist?(symlink_path)
+      assert File.exist?(symlink_path)
       assert File.symlink?(symlink_path)
+
+      meta = d.instance.metadata('tag', event_time("2011-01-03 14:15:16 UTC"), {})
+      assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
     ensure
       d.instance.shutdown
       FileUtils.rm_rf(symlink_path)
