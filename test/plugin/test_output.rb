@@ -320,7 +320,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       assert process_called
 
@@ -335,7 +335,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       assert_equal 2, format_called_times
 
@@ -357,7 +357,7 @@ class OutputTest < Test::Unit::TestCase
       assert !i.prefer_buffered_processing
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       waiting(4){ Thread.pass until process_called }
 
@@ -382,7 +382,7 @@ class OutputTest < Test::Unit::TestCase
       assert i.prefer_buffered_processing
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
 
       assert !process_called
       assert_equal 2, format_called_times
@@ -399,7 +399,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until write_called }
@@ -418,7 +418,7 @@ class OutputTest < Test::Unit::TestCase
       i.start
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until try_write_called }
@@ -442,7 +442,7 @@ class OutputTest < Test::Unit::TestCase
       assert !i.prefer_delayed_commit
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until write_called || try_write_called }
@@ -467,7 +467,7 @@ class OutputTest < Test::Unit::TestCase
       assert i.prefer_delayed_commit
 
       t = event_time()
-      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.emit('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
       i.force_flush
 
       waiting(4){ Thread.pass until write_called || try_write_called }
@@ -505,7 +505,7 @@ class OutputTest < Test::Unit::TestCase
       t = event_time()
       es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
       5.times do
-        @i.emit_events('tag', es)
+        @i.emit('tag', es)
       end
       assert_equal 5, ary.size
 

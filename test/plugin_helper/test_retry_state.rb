@@ -23,13 +23,13 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'randomize can generate value within specified +/- range' do
-    s = @d.retry_state_create(:t1, :exponential_backoff, 0.1, 30) # default enabled w/ 0.125
+    s = @d.retry_state_create(:t1, :expbackoff, 0.1, 30) # default enabled w/ 0.125
     500.times do
       r = s.randomize(1000)
       assert{ r >= 875 && r < 1125 }
     end
 
-    s = @d.retry_state_create(:t1, :exponential_backoff, 0.1, 30, randomize_width: 0.25)
+    s = @d.retry_state_create(:t1, :expbackoff, 0.1, 30, randomize_width: 0.25)
     500.times do
       r = s.randomize(1000)
       assert{ r >= 750 && r < 1250 }
@@ -37,7 +37,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'plugin can create retry_state machine' do
-    s = @d.retry_state_create(:t1, :exponential_backoff, 0.1, 30)
+    s = @d.retry_state_create(:t1, :expbackoff, 0.1, 30)
     # attr_reader :title, :start, :steps, :next_time, :timeout_at, :current, :secondary_transition_at, :secondary_transition_times
 
     assert_equal :t1, s.title
@@ -179,7 +179,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'exponential backoff forever without randomization' do
-    s = @d.retry_state_create(:t11, :exponential_backoff, 0.1, 300, randomize: false, forever: true, backoff_base: 2)
+    s = @d.retry_state_create(:t11, :expbackoff, 0.1, 300, randomize: false, forever: true, backoff_base: 2)
     dummy_current_time = s.start
     s.override_current_time(dummy_current_time)
 
@@ -199,7 +199,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'exponential backoff with max_interval' do
-    s = @d.retry_state_create(:t12, :exponential_backoff, 0.1, 300, randomize: false, forever: true, backoff_base: 2, max_interval: 100)
+    s = @d.retry_state_create(:t12, :expbackoff, 0.1, 300, randomize: false, forever: true, backoff_base: 2, max_interval: 100)
     dummy_current_time = s.start
     s.override_current_time(dummy_current_time)
 
@@ -228,7 +228,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'exponential backoff with shorter timeout' do
-    s = @d.retry_state_create(:t13, :exponential_backoff, 1, 12, randomize: false, backoff_base: 2, max_interval: 10)
+    s = @d.retry_state_create(:t13, :expbackoff, 1, 12, randomize: false, backoff_base: 2, max_interval: 10)
     dummy_current_time = s.start
     s.override_current_time(dummy_current_time)
 
@@ -269,7 +269,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'exponential backoff with max_steps' do
-    s = @d.retry_state_create(:t14, :exponential_backoff, 1, 120, randomize: false, backoff_base: 2, max_interval: 10, max_steps: 6)
+    s = @d.retry_state_create(:t14, :expbackoff, 1, 120, randomize: false, backoff_base: 2, max_interval: 10, max_steps: 6)
     dummy_current_time = s.start
     s.override_current_time(dummy_current_time)
 
@@ -320,7 +320,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'exponential backoff retries with secondary' do
-    s = @d.retry_state_create(:t15, :exponential_backoff, 1, 100, randomize: false, backoff_base: 2, secondary: true) # threshold 0.8
+    s = @d.retry_state_create(:t15, :expbackoff, 1, 100, randomize: false, backoff_base: 2, secondary: true) # threshold 0.8
     dummy_current_time = s.start
     s.override_current_time(dummy_current_time)
 
@@ -388,7 +388,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
   end
 
   test 'exponential backoff retries with secondary and specified threshold' do
-    s = @d.retry_state_create(:t16, :exponential_backoff, 1, 100, randomize: false, secondary: true, backoff_base: 2, secondary_threshold: 0.75)
+    s = @d.retry_state_create(:t16, :expbackoff, 1, 100, randomize: false, secondary: true, backoff_base: 2, secondary_threshold: 0.75)
     dummy_current_time = s.start
     s.override_current_time(dummy_current_time)
 
