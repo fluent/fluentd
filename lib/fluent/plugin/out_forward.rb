@@ -193,6 +193,8 @@ module Fluent
       end
       @thread.join if @thread
       @usock.close if @usock
+
+      super
     end
 
     def run

@@ -51,15 +51,19 @@ module Fluent
     end
 
     def start
-      @outputs.each {|o|
-        o.start
-      }
+      super
+
+      @outputs.each do |o|
+        o.start unless o.started?
+      end
     end
 
     def shutdown
-      @outputs.each {|o|
-        o.shutdown
-      }
+      @outputs.each do |o|
+        o.shutdown unless o.shutdown?
+      end
+
+      super
     end
 
     def emit(tag, es, chain)

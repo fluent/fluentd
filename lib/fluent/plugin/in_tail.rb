@@ -118,6 +118,8 @@ module Fluent
     end
 
     def start
+      super
+
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
@@ -139,6 +141,8 @@ module Fluent
       @loop.stop rescue nil # when all watchers are detached, `stop` raises RuntimeError. We can ignore this exception.
       @thread.join
       @pf_file.close if @pf_file
+
+      super
     end
 
     def expand_paths

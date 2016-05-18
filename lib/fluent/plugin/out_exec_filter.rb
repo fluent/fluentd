@@ -220,21 +220,22 @@ module Fluent
     end
 
     def before_shutdown
-      super
       log.debug "out_exec_filter#before_shutdown called"
       @children.each {|c|
         c.finished = true
       }
       sleep 0.5  # TODO wait time before killing child process
+
+      super
     end
 
     def shutdown
-      super
-
       @children.reject! {|c|
         c.shutdown
         true
       }
+
+      super
     end
 
     def format_stream(tag, es)

@@ -42,6 +42,8 @@ module Fluent
     end
 
     def start
+      super
+
       if @unix_path
         require 'drb/unix'
         uri = "drbunix:#{@unix_path}"
@@ -55,6 +57,8 @@ module Fluent
 
     def shutdown
       @server.stop_service if @server
+
+      super
     end
   end
 end

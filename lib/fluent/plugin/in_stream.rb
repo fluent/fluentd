@@ -35,6 +35,8 @@ module Fluent
     end
 
     def start
+      super
+
       @loop = Coolio::Loop.new
       @lsock = listen
       @loop.attach(@lsock)
@@ -46,6 +48,8 @@ module Fluent
       @loop.stop
       @lsock.close
       @thread.join
+
+      super
     end
 
     #def listen

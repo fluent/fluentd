@@ -110,6 +110,8 @@ module Fluent
     end
 
     def start
+      super
+
       callback = if @use_default
                    method(:receive_data)
                  else
@@ -128,6 +130,8 @@ module Fluent
       @loop.stop
       @handler.close
       @thread.join
+
+      super
     end
 
     def run

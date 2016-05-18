@@ -112,7 +112,6 @@ module Fluent
       detach_multi_process do
         super
         @km = KeepaliveManager.new(@keepalive_timeout)
-        #@lsock = Coolio::TCPServer.new(@bind, @port, Handler, @km, method(:on_request), @body_size_limit)
         @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request),
                                        @body_size_limit, @format, log,
                                        @cors_allow_origins)
@@ -131,6 +130,8 @@ module Fluent
       @loop.stop
       @lsock.close
       @thread.join
+
+      super
     end
 
     def run

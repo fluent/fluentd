@@ -235,6 +235,8 @@ module Fluent
     end
 
     def start
+      super
+
       log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
       @srv = WEBrick::HTTPServer.new({
           BindAddress: @bind,
@@ -290,6 +292,8 @@ module Fluent
         @thread_for_emit.join
         @thread_for_emit = nil
       end
+
+      super
     end
 
     MONITOR_INFO = {

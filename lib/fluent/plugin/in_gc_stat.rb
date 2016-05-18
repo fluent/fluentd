@@ -50,6 +50,8 @@ module Fluent
     end
 
     def start
+      super
+
       @loop = Coolio::Loop.new
       @timer = TimerWatcher.new(@emit_interval, true, log, &method(:on_timer))
       @loop.attach(@timer)
@@ -60,6 +62,8 @@ module Fluent
       @loop.watchers.each {|w| w.detach }
       @loop.stop
       @thread.join
+
+      super
     end
 
     def run

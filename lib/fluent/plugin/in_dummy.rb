@@ -64,6 +64,7 @@ module Fluent
     def shutdown
       @running = false
       @thread.join
+      super
     end
 
     def run

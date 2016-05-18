@@ -55,6 +55,8 @@ module Fluent
     end
 
     def start
+      super
+
       @loop = Coolio::Loop.new
 
       socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
@@ -89,6 +91,8 @@ module Fluent
       @usock.close
       @thread.join
       @lsock.close
+
+      super
     end
 
     def listen(client)
