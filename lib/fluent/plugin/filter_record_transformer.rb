@@ -315,6 +315,7 @@ module Fluent
       class CleanroomExpander
         def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
           tags = tag_parts # for old version compatibility
+          _ = tags # to suppress "unused variable" warning for tags
           Thread.current[:record_transformer_record] = record # for old version compatibility
           instance_eval(__str_to_eval__)
         end

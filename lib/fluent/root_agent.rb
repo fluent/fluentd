@@ -150,7 +150,7 @@ module Fluent
               log.warn_backtrace
             end
           end
-          flushing_threads = []
+          flushing_threads << t
         end
       end
       flushing_threads.each{|t| t.join }

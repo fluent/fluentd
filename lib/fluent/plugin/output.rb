@@ -169,6 +169,12 @@ module Fluent
           @buffering = true
         end
         @custom_format = implement?(:custom_format)
+
+        @buffer = nil
+        @secondary = nil
+        @simple_chunking = nil
+        @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
+        @flush_mode = nil
       end
 
       def acts_as_secondary(primary)
@@ -623,8 +629,8 @@ module Fluent
           records += 1
         end
         meta_and_data_bulk = {}
-        meta_and_data.each_pair do |meta, es|
-          meta_and_data_bulk[meta] = [es.to_msgpack_stream(time_int: @time_as_integer), es.size]
+        meta_and_data.each_pair do |meta, m_es|
+          meta_and_data_bulk[meta] = [m_es.to_msgpack_stream(time_int: @time_as_integer), m_es.size]
         end
         write_guard do
           @buffer.write(meta_and_data_bulk, bulk: true, enqueue: enqueue)
@@ -694,7 +700,6 @@ module Fluent
       end
 
       def try_rollback_write
-        now = Time.now
         @dequeued_chunks_mutex.synchronize do
           while @dequeued_chunks.first && @dequeued_chunks.first.expired?
             info = @dequeued_chunks.shift

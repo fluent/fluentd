@@ -99,14 +99,26 @@ module Fluent
         false
       end
 
+      module EmitStreamWrapper
+        def emit_stream_callee=(method)
+          @emit_stream_callee = method
+        end
+        def emit_stream(tag, es)
+          @emit_stream_callee.call(tag, es)
+        end
+      end
+
       def run(num_waits = 10, &block)
         m = method(:emit_stream)
-        Engine.define_singleton_method(:emit_stream) {|tag,es|
-          m.call(tag, es)
-        }
-        instance.router.define_singleton_method(:emit_stream) {|tag,es|
-          m.call(tag, es)
-        }
+        (class << Engine; self; end).module_eval do
+          prepend EmitStreamWrapper
+        end
+        Engine.emit_stream_callee = m
+        (class << instance.router; self; end).module_eval do
+          prepend EmitStreamWrapper
+        end
+        instance.router.emit_stream_callee = m
+
         super(num_waits) {
           block.call if block
 

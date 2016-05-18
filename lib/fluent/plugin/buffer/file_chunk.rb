@@ -44,6 +44,7 @@ module Fluent
           super(metadata)
           @permission = perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
+          @meta = nil
 
           case mode
           when :create then create_new_chunk(path, perm)
