@@ -59,13 +59,13 @@ module Fluent
           begin
             yield
             thread_exit = true
-          rescue => e
+          rescue Exception => e
             log.warn "thread exited by unexpected error", plugin: self.class, title: title, error: e
             thread_exit = true
             raise
           ensure
             unless thread_exit
-              log.warn "thread doesn't exit correctly (killed or other reason)", plugin: self.class, title: title
+              log.warn "thread doesn't exit correctly (killed or other reason)", plugin: self.class, title: title, error: $!
             end
             @_threads_mutex.synchronize do
               @_threads.delete(::Thread.current.object_id)
