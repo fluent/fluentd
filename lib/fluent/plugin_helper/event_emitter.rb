@@ -14,7 +14,6 @@
 #    limitations under the License.
 #
 
-require 'fluent/engine'
 require 'fluent/time'
 
 module Fluent
@@ -49,6 +48,7 @@ module Fluent
       end
 
       def configure(conf)
+        require 'fluent/engine'
         super
 
         if label_name = conf['@label']
