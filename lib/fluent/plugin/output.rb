@@ -878,7 +878,7 @@ module Fluent
 
         begin
           while @output_flush_threads_running
-            now = Time.now
+            now_int = Time.now.to_i
             if @output_flush_interrupted
               sleep interval
               next
@@ -887,16 +887,18 @@ module Fluent
             @output_enqueue_thread_mutex.lock
             begin
               if @flush_mode == :fast
-                flush_interval = @buffer_config.flush_interval
-                @buffer.enqueue_all{ |metadata, chunk| chunk.created_at + flush_interval <= now }
+                flush_interval = @buffer_config.flush_interval.to_i
+                # This block should be done by integer values.
+                # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
+                # If we use integered values for this comparison, expected actual flush timing is 1.0s.
+                @buffer.enqueue_all{ |metadata, chunk| chunk.created_at.to_i + flush_interval <= now_int }
               end
 
               if @chunk_key_time
                 timekey_range = @buffer_config.timekey_range
                 timekey_wait = @buffer_config.timekey_wait
-                current_time_int = now.to_i
-                current_time_range = current_time_int - current_time_int % timekey_range
-                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_time_range && metadata.timekey + timekey_range + timekey_wait <= current_time_int }
+                current_time_range = now_int - now_int % timekey_range
+                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_time_range && metadata.timekey + timekey_range + timekey_wait <= now_int }
               end
             rescue => e
               log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e
