@@ -251,7 +251,7 @@ class HttpInputTest < Test::Unit::TestCase
         body = record.map { |k, v|
           v.to_s
         }.join(':')
-        res = post("/#{tag}?time=#{_time.to_s}", body)
+        res = post("/#{tag}?time=#{_time.to_s}", body, {'Content-Type' => 'application/octet-stream'})
         assert_equal "200", res.code
       }
     end
@@ -273,7 +273,7 @@ class HttpInputTest < Test::Unit::TestCase
     d.run do
       d.expected_emits.each { |tag, _time, record|
         body = record.map { |k, v| v }.to_csv
-        res = post("/#{tag}?time=#{_time.to_s}", body)
+        res = post("/#{tag}?time=#{_time.to_s}", body, {'Content-Type' => 'text/comma-separated-values'})
         assert_equal "200", res.code
       }
     end
@@ -308,7 +308,7 @@ class HttpInputTest < Test::Unit::TestCase
     begin
       d.run do
         Net::HTTP.start("127.0.0.1", PORT) do |http|
-          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://foo.com"})
+          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://foo.com", "Content-Type" => "application/octet-stream"})
           res = http.request(req)
 
           acao = res["Access-Control-Allow-Origin"]
@@ -333,7 +333,7 @@ class HttpInputTest < Test::Unit::TestCase
     begin
       d.run do
         Net::HTTP.start("127.0.0.1", PORT) do |http|
-          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://bar.com"})
+          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://bar.com", "Content-Type" => "application/octet-stream"})
           res = http.request(req)
 
           response_code = res.code
@@ -352,6 +352,10 @@ class HttpInputTest < Test::Unit::TestCase
   $test_in_http_content_types = []
   $test_in_http_content_types_flag = false
   module ContentTypeHook
+    def initialize(*args)
+      @io_handler = nil
+      super
+    end
     def on_headers_complete(headers)
       super
       if $test_in_http_content_types_flag
@@ -402,8 +406,14 @@ class HttpInputTest < Test::Unit::TestCase
     http = Net::HTTP.new("127.0.0.1", PORT)
     req = Net::HTTP::Post.new(path, header)
     if params.is_a?(String)
+      unless header.has_key?('Content-Type')
+        header['Content-Type'] = 'application/octet-stream'
+      end
       req.body = params
     else
+      unless header.has_key?('Content-Type')
+        header['Content-Type'] = 'application/x-www-form-urlencoded'
+      end
       req.set_form_data(params)
     end
     http.request(req)
