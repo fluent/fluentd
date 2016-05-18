@@ -190,16 +190,17 @@ module Fluent
           @default_loop = nil
         end
 
-      rescue => e
+      rescue Exception => e
         $log.error "unexpected error", error: e
         $log.error_backtrace
-      ensure
-        $log.info "shutting down fluentd"
-        shutdown
-        if @log_emit_thread
-          @log_event_loop_stop = true
-          @log_emit_thread.join
-        end
+        raise
+      end
+
+      $log.info "shutting down fluentd"
+      shutdown
+      if @log_emit_thread
+        @log_event_loop_stop = true
+        @log_emit_thread.join
       end
     end
 
