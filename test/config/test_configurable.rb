@@ -665,14 +665,14 @@ module Fluent::Config
           checker = lambda { |conf| ConfigurableSpec::Example0.new.configure(conf) }
 
           assert_nothing_raised { checker.call(complete) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "stringvalue" }) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "boolvalue"   }) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "integervalue"}) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "sizevalue"   }) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "timevalue"   }) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "floatvalue"  }) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "hashvalue"   }) }
-          assert_raise(Fluent::ConfigError) { checker.call(complete.reject{|k,v| k == "arrayvalue"  }) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("stringvalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("boolvalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("integervalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("sizevalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("timevalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("floatvalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("hashvalue"); checker.call(c) }
+          assert_raise(Fluent::ConfigError) { c = complete.dup; c.delete("arrayvalue"); checker.call(c) }
         end
 
         test 'generates section with default values for init:true sections' do
