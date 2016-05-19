@@ -5,13 +5,13 @@ require 'fluent/plugin/in_object_space'
 require 'timeout'
 
 class ObjectSpaceInputTest < Test::Unit::TestCase
-  def waiting(seconds)
+  def waiting(seconds, instance)
     begin
       Timeout.timeout(seconds) do
         yield
       end
     rescue Timeout::Error
-      STDERR.print(*@i.log.out.logs)
+      STDERR.print(*instance.log.out.logs)
       raise
     end
   end
@@ -47,13 +47,108 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
     d = create_driver
 
     d.run do
-      waiting(10) do
+      waiting(10, d.instance) do
         sleep 0.5 until d.emit_streams.size > 3
       end
     end
 
     emits = d.emits
-    assert_equal true, emits.length > 0
+    assert{ emits.length > 0 }
+
+    emits.each { |tag, time, record|
+      assert_equal d.instance.tag, tag
+      assert_equal d.instance.top, record.keys.size
+      assert(time.is_a?(Fluent::EventTime))
+    }
+  end
+
+  def test_emit_2
+    d = create_driver
+
+    d.run do
+      waiting(20, d.instance) do
+        sleep 0.5 until d.emit_streams.size > 3
+      end
+    end
+
+    emits = d.emits
+    assert{ emits.length > 0 }
+
+    emits.each { |tag, time, record|
+      assert_equal d.instance.tag, tag
+      assert_equal d.instance.top, record.keys.size
+      assert(time.is_a?(Fluent::EventTime))
+    }
+  end
+
+  def test_emit_3
+    d = create_driver
+
+    d.run do
+      waiting(30, d.instance) do
+        sleep 0.5 until d.emit_streams.size > 3
+      end
+    end
+
+    emits = d.emits
+    assert{ emits.length > 0 }
+
+    emits.each { |tag, time, record|
+      assert_equal d.instance.tag, tag
+      assert_equal d.instance.top, record.keys.size
+      assert(time.is_a?(Fluent::EventTime))
+    }
+  end
+
+  def test_emit_1b
+    d = create_driver
+
+    d.run do
+      waiting(10, d.instance) do
+        sleep 0.5 until d.emit_streams.size > 3
+      end
+    end
+
+    emits = d.emits
+    assert{ emits.length > 0 }
+
+    emits.each { |tag, time, record|
+      assert_equal d.instance.tag, tag
+      assert_equal d.instance.top, record.keys.size
+      assert(time.is_a?(Fluent::EventTime))
+    }
+  end
+
+  def test_emit_2b
+    d = create_driver
+
+    d.run do
+      waiting(20, d.instance) do
+        sleep 0.5 until d.emit_streams.size > 3
+      end
+    end
+
+    emits = d.emits
+    assert{ emits.length > 0 }
+
+    emits.each { |tag, time, record|
+      assert_equal d.instance.tag, tag
+      assert_equal d.instance.top, record.keys.size
+      assert(time.is_a?(Fluent::EventTime))
+    }
+  end
+
+  def test_emit_3b
+    d = create_driver
+
+    d.run do
+      waiting(30, d.instance) do
+        sleep 0.5 until d.emit_streams.size > 3
+      end
+    end
+
+    emits = d.emits
+    assert{ emits.length > 0 }
 
     emits.each { |tag, time, record|
       assert_equal d.instance.tag, tag
