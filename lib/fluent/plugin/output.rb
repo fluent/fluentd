@@ -400,11 +400,13 @@ module Fluent
           @buffer.after_shutdown
 
           @output_flush_threads_running = false
-          @output_flush_threads.each do |state|
-            state.thread.run if state.thread.alive? # to wakeup thread and make it to stop by itself
-          end
-          @output_flush_threads.each do |state|
-            state.thread.join
+          if @output_flush_threads && !@output_flush_threads.empty?
+            @output_flush_threads.each do |state|
+              state.thread.run if state.thread.alive? # to wakeup thread and make it to stop by itself
+            end
+            @output_flush_threads.each do |state|
+              state.thread.join
+            end
           end
         end
 
