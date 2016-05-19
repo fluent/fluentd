@@ -157,6 +157,10 @@ module Fluent
     end
 
     def shutdown # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
+      # Thesee method callers does `rescue Exception` to call methods of shutdown sequence as far as possible
+      # if plugin methods does something like infinite recursive call, `exit`, unregistering signal handlers or others.
+      # Plugins should be separated and be in sandbox to protect data in each plugins/buffers.
+
       lifecycle_safe_sequence = ->(method, checker) {
         lifecycle do |instance, kind|
           begin
