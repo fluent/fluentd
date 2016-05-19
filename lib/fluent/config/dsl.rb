@@ -77,6 +77,10 @@ module Fluent
           @proxy    = proxy
         end
 
+        def to_int
+          __id__
+        end
+
         def method_missing(name, *args, &block)
           ::Kernel.raise ::ArgumentError, "Configuration DSL Syntax Error: only one argument allowed" if args.size > 1
           value = args.first
