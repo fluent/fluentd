@@ -1,5 +1,29 @@
 # v0.12
 
+## Release 0.12.24 - 2016/05/20
+
+### New features / Enhancement
+
+* buffer: Add drop_oldest_chunk to buffer_queue_full_action parameter
+  https://github.com/fluent/fluentd/pull/934
+* in_tail: Add "encoding" parameter
+  https://github.com/fluent/fluentd/pull/889
+* in_tail: Add "path_key" patameter
+  https://github.com/fluent/fluentd/pull/951
+* in_monitor_agent: Add emit_config parameter to emit plugin configuration together
+  https://github.com/fluent/fluentd/pull/963
+* config: Support multiline string in " quoted string
+  https://github.com/fluent/fluentd/pull/929
+
+### Bug fixes
+
+* in_http: Add 'Access-Control-Allow-Origin' to response header
+  https://github.com/fluent/fluentd/pull/882
+* parser: Fix logger on Fluent::StringUtil to use $log
+  https://github.com/fluent/fluentd/pull/926
+* out_forward: Add missing error class definition
+  https://github.com/fluent/fluentd/pull/953
+
 ## Release 0.12.23 - 2016/05/03
 
 ### Bug fixes
