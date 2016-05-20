@@ -117,13 +117,13 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       config = %[
         enable_ruby yes
         <record>
-          message ${hostname} ${tag_parts.last} ${URI.encode(message)}
+          message ${hostname} ${tag_parts.last} ${"'" + message + "'"}
         </record>
       ]
       msgs = ['1', '2']
       es = emit(config, msgs)
       es.each_with_index do |(_t, r), i|
-        assert_equal("#{@hostname} #{@tag_parts[-1]} #{msgs[i]}", r['message'])
+        assert_equal("#{@hostname} #{@tag_parts[-1]} '#{msgs[i]}'", r['message'])
       end
     end
 

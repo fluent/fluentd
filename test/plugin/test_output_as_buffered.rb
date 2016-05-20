@@ -272,7 +272,6 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time,record].to_json + "\n" }
       @i.register(:write){|chunk| chunk.read.split("\n").reject{|l| l.empty? }.each{|data| ary << data } }
 
-      tag = "test.tag"
       t = event_time()
       r = {}
       (0...10).each do |i|
@@ -382,7 +381,6 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time,record].to_json + "\n" }
       @i.register(:write){|chunk| chunk.read.split("\n").reject{|l| l.empty? }.each{|data| ary << data } }
 
-      tag = "test.tag"
       t = event_time()
       r = {}
       (0...10).each do |i|

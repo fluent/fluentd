@@ -34,7 +34,7 @@ module Fluent
             @on_memory = true
           end
         elsif @path
-          path = @path.dup
+          # ok
         else # @_plugin_id_configured is true
           raise NotImplementedError, "implement this feature later with system_config"
           ## TODO: get process-wide directory for plugin storage, and generate path for this plugin storage instance

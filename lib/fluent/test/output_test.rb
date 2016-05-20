@@ -139,7 +139,6 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          chunks = []
           lines.keys.each do |meta|
             chunk = @instance.buffer.generate_chunk(meta)
             chunk.append(lines[meta])

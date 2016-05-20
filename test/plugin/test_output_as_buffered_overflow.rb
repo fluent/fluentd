@@ -15,6 +15,10 @@ module FluentPluginOutputAsBufferedOverflowTest
     end
   end
   class DummyAsyncOutput < DummyBareOutput
+    def initialize
+      super
+      @format = @write = nil
+    end
     def format(tag, time, record)
       @format ? @format.call(tag, time, record) : [tag, time, record].to_json
     end
@@ -37,7 +41,8 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
         yield
       end
     rescue Timeout::Error
-      STDERR.print *(@i.log.out.logs)
+      logs = @i.log.out.logs
+      STDERR.print(*logs)
       raise
     end
   end
@@ -133,7 +138,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
 
       assert !@i.buffer.storable?
 
-      thread = Thread.new do
+      Thread.new do
         sleep 3
         failing = false
       end
