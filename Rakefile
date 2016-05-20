@@ -14,8 +14,8 @@ Rake::TestTask.new(:base_test) do |t|
   #  $ bundle exec rake base_test TEST=test/test_*.rb
   t.libs << "test"
   t.test_files = Dir["test/**/test_*.rb"].sort
-  t.verbose = false
-  t.warning = false
+  t.verbose = true
+  t.warning = true
   t.ruby_opts = ["-Eascii-8bit:ascii-8bit"]
 end
 
