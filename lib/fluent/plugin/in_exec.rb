@@ -103,6 +103,8 @@ module Fluent
     end
 
     def start
+      super
+
       if @run_interval
         @finished = false
         @thread = Thread.new(&method(:run_periodic))
@@ -134,6 +136,8 @@ module Fluent
         end
         @thread.join
       end
+
+      super
     end
 
     def run

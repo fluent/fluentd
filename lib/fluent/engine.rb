@@ -46,6 +46,8 @@ module Fluent
       @system_config = SystemConfig.new
     end
 
+    MAINLOOP_SLEEP_INTERVAL = 0.3
+
     MATCH_CACHE_SIZE = 1024
     LOG_EMIT_INTERVAL = 0.1
 
@@ -177,38 +179,24 @@ module Fluent
           @log_emit_thread = Thread.new(&method(:log_event_loop))
         end
 
-        unless @engine_stopped
-          # for empty loop
-          @default_loop = Coolio::Loop.default
-          @default_loop.attach Coolio::TimerWatcher.new(1, true)
-          # TODO attach async watch for thread pool
-          @default_loop.run
-        end
+        sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
 
-        if @engine_stopped and @default_loop
-          @default_loop.stop
-          @default_loop = nil
-        end
-
-      rescue => e
+      rescue Exception => e
         $log.error "unexpected error", error: e
         $log.error_backtrace
-      ensure
-        $log.info "shutting down fluentd"
-        shutdown
-        if @log_emit_thread
-          @log_event_loop_stop = true
-          @log_emit_thread.join
-        end
+        raise
+      end
+
+      $log.info "shutting down fluentd"
+      shutdown
+      if @log_emit_thread
+        @log_event_loop_stop = true
+        @log_emit_thread.join
       end
     end
 
     def stop
       @engine_stopped = true
-      if @default_loop
-        @default_loop.stop
-        @default_loop = nil
-      end
       nil
     end
 

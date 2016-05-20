@@ -132,7 +132,7 @@ module Fluent
 
     def start
       lifecycle(desc: true) do |i| # instance
-        i.start
+        i.start unless i.started?
       end
     end
 
@@ -157,19 +157,23 @@ module Fluent
     end
 
     def shutdown # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
-      lifecycle_safe_sequence = ->(method) {
+      # Thesee method callers does `rescue Exception` to call methods of shutdown sequence as far as possible
+      # if plugin methods does something like infinite recursive call, `exit`, unregistering signal handlers or others.
+      # Plugins should be separated and be in sandbox to protect data in each plugins/buffers.
+
+      lifecycle_safe_sequence = ->(method, checker) {
         lifecycle do |instance, kind|
           begin
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-            instance.send(method)
-          rescue => e
+            instance.send(method) unless instance.send(checker)
+          rescue Exception => e
             log.warn "unexpected error while calling #{method} on #{kind} plugin", pluguin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
           end
         end
       }
 
-      lifecycle_unsafe_sequence = ->(method) {
+      lifecycle_unsafe_sequence = ->(method, checker) {
         operation = case method
                     when :shutdown then "shutting down"
                     when :close    then "closing"
@@ -182,9 +186,9 @@ module Fluent
             Thread.current.abort_on_exception = true
             begin
               log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-              instance.send(method)
-            rescue => e
-              log.warn "unexpected error while #{operation} #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
+              instance.send(method) unless instance.send(checker)
+            rescue Exception => e
+              log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
               log.warn_backtrace
             end
           end
@@ -193,17 +197,17 @@ module Fluent
         operation_threads.each{|t| t.join }
       }
 
-      lifecycle_safe_sequence.call(:stop)
+      lifecycle_safe_sequence.call(:stop, :stopped?)
 
-      lifecycle_safe_sequence.call(:before_shutdown)
+      lifecycle_safe_sequence.call(:before_shutdown, :before_shutdown?)
 
-      lifecycle_unsafe_sequence.call(:shutdown)
+      lifecycle_unsafe_sequence.call(:shutdown, :shutdown?)
 
-      lifecycle_safe_sequence.call(:after_shutdown)
+      lifecycle_safe_sequence.call(:after_shutdown, :after_shutdown?)
 
-      lifecycle_unsafe_sequence.call(:close)
+      lifecycle_unsafe_sequence.call(:close, :closed?)
 
-      lifecycle_safe_sequence.call(:terminate)
+      lifecycle_safe_sequence.call(:terminate, :terminated?)
     end
 
     def suppress_interval(interval_time)

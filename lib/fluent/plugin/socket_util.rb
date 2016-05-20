@@ -118,6 +118,8 @@ module Fluent
       end
 
       def start
+        super
+
         @loop = Coolio::Loop.new
         @handler = listen(method(:on_message))
         @loop.attach(@handler)
@@ -129,6 +131,8 @@ module Fluent
         @loop.stop if @loop.instance_variable_get("@running")
         @handler.close
         @thread.join
+
+        super
       end
 
       def run

@@ -455,10 +455,19 @@ module Fluent
     end
 
     def install_main_process_signal_handlers
+      # Fluentd worker process (worker of ServerEngine) don't use code in serverengine to set signal handlers,
+      # because it does almost nothing.
+      # This method is the only method to set signal handlers in Fluentd worker process.
+
       # When user use Ctrl + C not SIGINT, SIGINT is sent to all process in same process group.
-      # Then serverengine can't handle signal, so need to handle it in this process.
+      # ServerEngine server process will send SIGTERM to child(spawned) processes by that SIGINT, so
+      # worker process SHOULD NOT do anything with SIGINT, SHOULD just ignore.
       trap :INT do
         $log.debug "fluentd main process get SIGINT"
+      end
+
+      trap :TERM do
+        $log.debug "fluentd main process get SIGTERM"
         unless @finished
           @finished = true
           $log.debug "getting start to shutdown main process"

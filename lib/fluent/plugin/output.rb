@@ -360,13 +360,13 @@ module Fluent
       end
 
       def stop
-        super
         @secondary.stop if @secondary
         @buffer.stop if @buffering && @buffer
+
+        super
       end
 
       def before_shutdown
-        super
         @secondary.before_shutdown if @secondary
 
         if @buffering && @buffer
@@ -375,16 +375,18 @@ module Fluent
           end
           @buffer.before_shutdown
         end
+
+        super
       end
 
       def shutdown
-        super
         @secondary.shutdown if @secondary
         @buffer.shutdown if @buffering && @buffer
+
+        super
       end
 
       def after_shutdown
-        super
         try_rollback_all if @buffering && !@as_secondary # rollback regardless with @delayed_commit, because secondary may do it
         @secondary.after_shutdown if @secondary
 
@@ -399,18 +401,22 @@ module Fluent
             state.thread.join
           end
         end
+
+        super
       end
 
       def close
-        super
         @buffer.close if @buffering && @buffer
         @secondary.close if @secondary
+
+        super
       end
 
       def terminate
-        super
         @buffer.terminate if @buffering && @buffer
         @secondary.terminate if @secondary
+
+        super
       end
 
       def support_in_v12_style?(feature)
