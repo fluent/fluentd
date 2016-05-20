@@ -106,16 +106,18 @@ class TestConfigElement < ::Test::Unit::TestCase
         assert_true(e1 == e2)
       end
 
-      test 'not equal' do
-        e1 = element('ROOT', '', {}, [])
-        e2 = element('ROOT', 'mydata', {}, [])
-        e3 = element('ROOT', 'mydata', {"k1" => "v1"}, [])
-        e4 = element('ROOT', 'mydata', {"k1" => "v1"}, [
-                       element('test', 'mydata', {'k3' => 'v3'}, [])
-                     ])
+      data("differ args" => [Fluent::Config::Element.new('ROOT', '', {}, []),
+                             Fluent::Config::Element.new('ROOT', 'mydata', {}, [])],
+           "differ keys" => [Fluent::Config::Element.new('ROOT', 'mydata', {}, []),
+                             Fluent::Config::Element.new('ROOT', 'mydata', {"k1" => "v1"}, [])],
+           "differ elemnts" =>
+           [Fluent::Config::Element.new('ROOT', 'mydata', {"k1" => "v1"}, []),
+            Fluent::Config::Element.new('ROOT', 'mydata', {"k1" => "v1"}, [
+              Fluent::Config::Element.new('test', 'mydata', {'k3' => 'v3'}, [])
+            ])])
+      test 'not equal' do |data|
+        e1, e2 = data
         assert_false(e1 == e2)
-        assert_false(e2 == e3)
-        assert_false(e3 == e4)
       end
     end
   end
@@ -149,30 +151,9 @@ class TestConfigElement < ::Test::Unit::TestCase
     end
   end
 
-  sub_test_case '#to_s' do
-    test 'dump config element with #to_s' do
-      e = element('ROOT', '', {'k1' => 'v1', "k2" =>"\"stringVal\""}, [
-                    element('test', 'ext', {'k2' => 'v2'}, [])
-                  ])
-      dump = <<-CONF
-<ROOT>
-  k1 v1
-  k2 "stringVal"
-  <test ext>
-    k2 v2
-  </test>
-</ROOT>
-CONF
-      assert_not_equal(e.inspect, e.to_s)
-      assert_equal(dump, e.to_s)
-    end
 
-    test 'dump config element with #to_s with v1_config' do
-      e = element('ROOT', '', {'k1' => 'v1', "k2" =>"\"stringVal\""}, [
-                    element('test', 'ext', {'k2' => 'v2'}, [])
-                  ])
-      e.v1_config = true
-      dump = <<-CONF
+  sub_test_case '#to_s' do
+    data("without v1_config" => [false, <<-CONF
 <ROOT>
   k1 v1
   k2 "stringVal"
@@ -181,6 +162,25 @@ CONF
   </test>
 </ROOT>
 CONF
+                                ],
+         "with v1_config" => [true, <<-CONF
+<ROOT>
+  k1 v1
+  k2 "stringVal"
+  <test ext>
+    k2 v2
+  </test>
+</ROOT>
+CONF
+                             ],
+        )
+    test 'dump config element with #to_s' do |data|
+      v1_config, expected = data
+      e = element('ROOT', '', {'k1' => 'v1', "k2" =>"\"stringVal\""}, [
+                    element('test', 'ext', {'k2' => 'v2'}, [])
+                  ])
+      e.v1_config = v1_config
+      dump = expected
       assert_not_equal(e.inspect, e.to_s)
       assert_equal(dump, e.to_s)
     end
