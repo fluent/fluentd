@@ -165,6 +165,24 @@ CONF
       assert_not_equal(e.inspect, e.to_s)
       assert_equal(dump, e.to_s)
     end
+
+    test 'dump config element with #to_s with v1_config' do
+      e = element('ROOT', '', {'k1' => 'v1', "k2" =>"\"stringVal\""}, [
+                    element('test', 'ext', {'k2' => 'v2'}, [])
+                  ])
+      e.v1_config = true
+      dump = <<-CONF
+<ROOT>
+  k1 v1
+  k2 "stringVal"
+  <test ext>
+    k2 v2
+  </test>
+</ROOT>
+CONF
+      assert_not_equal(e.inspect, e.to_s)
+      assert_equal(dump, e.to_s)
+    end
   end
 
   sub_test_case '#inspect' do
