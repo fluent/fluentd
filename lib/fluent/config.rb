@@ -20,18 +20,32 @@ require 'fluent/configurable'
 
 module Fluent
   module Config
-    def self.parse(str, fname, basepath = Dir.pwd, v1_config = false)
-      if fname =~ /\.rb$/
+    def self.parse(str, fname, basepath = Dir.pwd, v1_config = nil, syntax: :v1)
+      parser = if fname =~ /\.rb$/ || syntax == :ruby
+                 :ruby
+               elsif v1_config.nil?
+                 case syntax
+                 when :v1 then :v1
+                 when :v0 then :v0
+                 else
+                   raise ArgumentError, "Unknown Fluentd configuration syntax: '#{syntax}'"
+                 end
+               elsif v1_config then :v1
+               else :v0
+               end
+      case parser
+      when :v1
+        require 'fluent/config/v1_parser'
+        V1Parser.parse(str, fname, basepath, Kernel.binding)
+      when :v0
+        # TODO: show deprecated message in v1
+        require 'fluent/config/parser'
+        Parser.parse(str, fname, basepath)
+      when :ruby
         require 'fluent/config/dsl'
         Config::DSL::Parser.parse(str, File.join(basepath, fname))
       else
-        if v1_config
-          require 'fluent/config/v1_parser'
-          V1Parser.parse(str, fname, basepath, Kernel.binding)
-        else
-          require 'fluent/config/parser'
-          Parser.parse(str, fname, basepath)
-        end
+        raise "[BUG] unknown configuration parser specification:'#{parser}'"
       end
     end
 
