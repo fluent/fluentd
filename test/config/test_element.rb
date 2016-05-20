@@ -151,12 +151,13 @@ class TestConfigElement < ::Test::Unit::TestCase
 
   sub_test_case '#to_s' do
     test 'dump config element with #to_s' do
-      e = element('ROOT', '', {'k1' => 'v1'}, [
+      e = element('ROOT', '', {'k1' => 'v1', "k2" =>"\"stringVal\""}, [
                     element('test', 'ext', {'k2' => 'v2'}, [])
                   ])
       dump = <<-CONF
 <ROOT>
   k1 v1
+  k2 "stringVal"
   <test ext>
     k2 v2
   </test>
