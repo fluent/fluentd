@@ -123,7 +123,7 @@ class TestConfigElement < ::Test::Unit::TestCase
   sub_test_case '#+' do
     test 'can merge 2 elements: object side is primary' do
       e1 = element('ROOT', 'mydata', {"k1" => "v1"}, [])
-      e2 = element('ROOT', 'mydata2', {"k2" => "v2"}, [
+      e2 = element('ROOT', 'mydata2', {"k1" => "ignored", "k2" => "v2"}, [
                      element('test', 'ext', {'k3' => 'v3'}, [])
                    ])
       e = e1 + e2
