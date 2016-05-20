@@ -119,7 +119,7 @@ module Fluent
             section_params[key] = self.instance_exec(conf.arg, opts, name, &block)
           end
           unless section_params.has_key?(proxy.argument.first)
-            logger.error "config error in:\n#{conf}"
+            logger.error "config error in:\n#{conf}" if logger # logger should exist, but somethimes it's nil (e.g, in tests)
             raise ConfigError, "'<#{proxy.name} ARG>' section requires argument" + section_stack
           end
         end
@@ -136,7 +136,7 @@ module Fluent
             section_params[varname] = self.instance_exec(val, opts, name, &block)
           end
           unless section_params.has_key?(varname)
-            logger.error "config error in:\n#{conf}"
+            logger.error "config error in:\n#{conf}" if logger
             raise ConfigError, "'#{name}' parameter is required" + section_stack
           end
         end
@@ -156,14 +156,14 @@ module Fluent
           }
 
           if subproxy.required? && elements.size < 1
-            logger.error "config error in:\n#{conf}"
+            logger.error "config error in:\n#{conf}" if logger
             raise ConfigError, "'<#{subproxy.name}>' sections are required" + section_stack
           end
           if subproxy.multi?
             section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, stack + [subproxy.name]) }
           else
             if elements.size > 1
-              logger.error "config error in:\n#{conf}"
+              logger.error "config error in:\n#{conf}" if logger
               raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more" + section_stack
             end
             section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, stack + [subproxy.name])
