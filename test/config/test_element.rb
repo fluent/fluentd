@@ -143,6 +143,29 @@ class TestConfigElement < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case '#check_not_fetched' do
+    sub_test_case 'without unused' do
+      test 'can get attribute keys and original Config::Element' do
+        e = element('ROOT', 'mydata', {"k1" => "v1"}, [])
+        e.check_not_fetched { |key, elem|
+          assert_equal("k1", key)
+          assert_equal(e, elem)
+        }
+      end
+    end
+
+    sub_test_case 'with unused' do
+      test 'can get unused marked attribute keys and original Config::Element' do
+        e = element('ROOT', 'mydata', {"k1" => "v1", "k2" => "unused", "k3" => "k3"})
+        e.unused = "k2"
+        e.check_not_fetched { |key, elem|
+          assert_equal("k2", key)
+          assert_equal(e, elem)
+        }
+      end
+    end
+  end
+
   sub_test_case '#has_key?' do
     test 'can get boolean with key name' do
       e = element('ROOT', 'mydata', {"k1" => "v1"}, [])
