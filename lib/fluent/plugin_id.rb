@@ -21,7 +21,7 @@ module Fluent
     @@configured_ids = Set.new
 
     def configure(conf)
-      @id = conf['@id'] || conf['id']
+      @id = conf['@id']
       @_id_configured = !!@id # plugin id is explicitly configured by users (or not)
       if @id
         @id = @id.to_s

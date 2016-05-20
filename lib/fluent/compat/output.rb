@@ -35,13 +35,6 @@ module Fluent
       def self.secondary_section(conf)
         conf.elements(name: 'secondary').first
       end
-
-      def self.inject_type_from_obsoleted_name(secconf, log)
-        if secconf['type'] && !secconf['@type']
-          secconf['@type'] = secconf['type']
-          log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
-        end
-      end
     end
 
     module BufferedEventStreamMixin
@@ -236,14 +229,7 @@ module Fluent
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
 
-          bufconf = Fluent::Config::Element.new('buffer', '', buf_params, [])
-
-          conf.elements << bufconf
-
-          secconf = CompatOutputUtils.secondary_section(conf)
-          if secconf
-            CompatOutputUtils.inject_type_from_obsoleted_name(secconf, log)
-          end
+          conf.elements << Fluent::Config::Element.new('buffer', '', buf_params, [])
         end
 
         methods_of_plugin = self.class.instance_methods(false)
@@ -372,14 +358,7 @@ module Fluent
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
 
-          bufconf = Fluent::Config::Element.new('buffer', 'tag', buf_params, [])
-
-          conf.elements << bufconf
-
-          secconf = CompatOutputUtils.secondary_section(conf)
-          if secconf
-            CompatOutputUtils.inject_type_from_obsoleted_name(secconf, log)
-          end
+          conf.elements << Fluent::Config::Element.new('buffer', 'tag', buf_params, [])
         end
 
         super
@@ -540,14 +519,7 @@ module Fluent
                             end
           buf_params["timekey_range"] = @_timekey_range
 
-          bufconf = Fluent::Config::Element.new('buffer', 'time', buf_params, [])
-
-          conf.elements << bufconf
-
-          secconf = CompatOutputUtils.secondary_section(conf)
-          if secconf
-            CompatOutputUtils.inject_type_from_obsoleted_name(secconf, log)
-          end
+          conf.elements << Fluent::Config::Element.new('buffer', 'time', buf_params, [])
         end
 
         super

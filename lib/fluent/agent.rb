@@ -62,7 +62,7 @@ module Fluent
       # initialize <match> and <filter> elements
       conf.elements('filter', 'match').each { |e|
         pattern = e.arg.empty? ? '**' : e.arg
-        type = e['@type'] || e['type']
+        type = e['@type']
         if e.name == 'filter'
           add_filter(type, pattern, e)
         else
