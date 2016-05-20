@@ -2,8 +2,8 @@ require_relative '../helper'
 require 'fluent/config/element'
 
 class TestConfigElement < ::Test::Unit::TestCase
-  def element(name = 'ROOT', arg = '', attrs = {}, elements = [])
-    Fluent::Config::Element.new(name, arg, attrs, elements)
+  def element(name = 'ROOT', arg = '', attrs = {}, elements = [], unused = nil)
+    Fluent::Config::Element.new(name, arg, attrs, elements, unused)
   end
 
   sub_test_case 'Most test' do
@@ -83,6 +83,56 @@ class TestConfigElement < ::Test::Unit::TestCase
         assert_equal('test', e.name)
         assert_equal('mydata',  e.arg)
         assert_equal('v3', e["k3"])
+      end
+    end
+
+    test 'creates object which contains attrs, elements and unused' do
+      e = element('ROOT', '', {"k1" => "v1", "k2" => "v2", "k4" => "v4"}, [
+                    element('test', 'mydata', {'k3' => 'v3'}, [])
+                  ], "k3")
+      assert_equal("k3", e.unused)
+      assert_equal('ROOT', e.name)
+      assert_equal('',  e.arg)
+      assert_equal('v1', e["k1"])
+      assert_equal('v2', e["k2"])
+      assert_equal('v4', e["k4"])
+      assert_equal(1, e.elements.size)
+      e.each_element('test') do |e|
+        assert_equal('test', e.name)
+        assert_equal('mydata',  e.arg)
+        assert_equal('v3', e["k3"])
+      end
+      assert_equal("k3", e.unused)
+    end
+  end
+
+  sub_test_case "@unused" do
+    sub_test_case '#[] has side effect for @unused' do
+      test 'without unused argument' do
+        e = element('ROOT', '', {"k1" => "v1", "k2" => "v2", "k4" => "v4"}, [
+                      element('test', 'mydata', {'k3' => 'v3'}, [])
+                    ])
+        assert_equal(["k1", "k2", "k4"], e.unused)
+        assert_equal('v1', e["k1"])
+        assert_equal(["k2", "k4"], e.unused)
+        assert_equal('v2', e["k2"])
+        assert_equal(["k4"], e.unused)
+        assert_equal('v4', e["k4"])
+        assert_equal([], e.unused)
+      end
+
+      test 'with unused argument' do
+        e = element('ROOT', '', {"k1" => "v1", "k2" => "v2", "k4" => "v4"}, [
+                      element('test', 'mydata', {'k3' => 'v3'}, [])
+                    ], ["k4"])
+        assert_equal(["k4"], e.unused)
+        assert_equal('v1', e["k1"])
+        assert_equal(["k4"], e.unused)
+        assert_equal('v2', e["k2"])
+        assert_equal(["k4"], e.unused)
+        assert_equal('v4', e["k4"])
+        # only consume for "k4"
+        assert_equal([], e.unused)
       end
     end
   end
