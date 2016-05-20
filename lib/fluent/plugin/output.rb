@@ -42,7 +42,7 @@ module Fluent
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
       config_section :buffer, param_name: :buffer_config, init: true, required: false, multi: false, final: true do
         config_argument :chunk_keys, :array, value_type: :string, default: []
-        config_param :@type, :string, default: 'memory'
+        config_param :@type, :string, default: 'memory', alias: :type
 
         config_param :timekey_range, :time, default: nil # range size to be used: `time.to_i / @timekey_range`
         config_param :timekey_wait, :time, default: 600
@@ -90,7 +90,7 @@ module Fluent
       end
 
       config_section :secondary, param_name: :secondary_config, required: false, multi: false, final: true do
-        config_param :@type, :string, default: nil
+        config_param :@type, :string, default: nil, alias: :type
         config_section :buffer, required: false, multi: false do
           # dummy to detect invalid specification for here
         end
