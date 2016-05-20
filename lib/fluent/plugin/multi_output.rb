@@ -57,11 +57,7 @@ module Fluent
 
         @stores.each do |store|
           store_conf = store.corresponding_config_element
-          type = store[:@type]
-          if !type && store_conf['type']
-            type = store_conf['type']
-            log.warn "'type' is deprecated, and will be ignored in v1: use '@type' instead."
-          end
+          type = store_conf['@type']
           unless type
             raise Fluent::ConfigError, "Missing '@type' parameter in <store> section"
           end

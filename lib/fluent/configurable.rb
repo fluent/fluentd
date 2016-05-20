@@ -32,11 +32,13 @@ module Fluent
       # to simulate implicit 'attr_accessor' by config_param / config_section and its value by config_set_default
       proxy = self.class.merged_configure_proxy
       proxy.params.keys.each do |name|
+        next if name.to_s.start_with?('@')
         if proxy.defaults.has_key?(name)
           instance_variable_set("@#{name}".to_sym, proxy.defaults[name])
         end
       end
       proxy.sections.keys.each do |name|
+        next if name.to_s.start_with?('@')
         subproxy = proxy.sections[name]
         if subproxy.multi?
           instance_variable_set("@#{subproxy.param_name}".to_sym, [])
@@ -49,7 +51,7 @@ module Fluent
     def configure(conf)
       @config = conf
 
-      logger = self.respond_to?(:log) ? log : $log
+      logger = self.respond_to?(:log) ? log : (defined?($log) ? $log : nil)
       proxy = self.class.merged_configure_proxy
       conf.corresponding_proxies << proxy
 
@@ -67,6 +69,7 @@ module Fluent
       @config_root_section = root
 
       root.instance_eval{ @params.keys }.each do |param_name|
+        next if param_name.to_s.start_with?('@')
         varname = "@#{param_name}".to_sym
         if (! root[param_name].nil?) || (instance_variable_defined?(varname) && instance_variable_get(varname).nil?)
           instance_variable_set(varname, root[param_name])
@@ -128,7 +131,8 @@ module Fluent
 
       def config_param(name, type = nil, **kwargs, &block)
         configure_proxy(self.name).config_param(name, type, **kwargs, &block)
-        attr_accessor name
+        # reserved names '@foo' are invalid as attr_accessor name
+        attr_accessor(name) unless Fluent::Config::Element::RESERVED_PARAMETERS.include?(name.to_s)
       end
 
       def config_set_default(name, defval)

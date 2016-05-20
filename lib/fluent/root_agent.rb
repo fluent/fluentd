@@ -90,7 +90,7 @@ module Fluent
         log.info "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements(name: 'source').each { |e|
-          type = e['@type'] || e['type']
+          type = e['@type']
           raise ConfigError, "Missing 'type' parameter on <source> directive" unless type
           add_source(type, e)
         }
