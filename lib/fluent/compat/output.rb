@@ -16,7 +16,7 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/output'
-require 'fluent/plugin/multi_output'
+require 'fluent/plugin/bare_output'
 require 'fluent/compat/call_super_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
@@ -149,11 +149,10 @@ module Fluent
       end
     end
 
-    class MultiOutput < Fluent::Plugin::MultiOutput
-      def initialize
-        super
-        @compat = true
-      end
+    class MultiOutput < Fluent::Plugin::BareOutput
+      # TODO: warn when deprecated
+
+      helpers :event_emitter
 
       def process(tag, es)
         emit(tag, es, NULL_OUTPUT_CHAIN)

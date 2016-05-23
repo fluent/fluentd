@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
 require 'fluent/event'
 
 require 'json'
@@ -175,40 +175,6 @@ class MultiOutputTest < Test::Unit::TestCase
       )
 
       assert_equal 2, @i.events.size
-    end
-  end
-
-  sub_test_case 'compat multi output plugin' do
-    setup do
-      Fluent::Test.setup
-      @i = create_output(:compat_multi)
-    end
-
-    teardown do
-      @i.log.out.reset
-    end
-
-    test '#configure raises error if <store> sections are missing' do
-      conf = config_element('ROOT', '', { '@type' => 'dummy_test_multi_output' }, [])
-      assert_raise Fluent::ConfigError do
-        @i.configure(conf)
-      end
-    end
-
-    test '#configure does NOT initialize child plugins' do
-      assert_equal [], @i.outputs
-
-      conf = config_element('ROOT', '', { '@type' => 'dummy_test_multi_output' },
-        [
-          config_element('store', '', { '@type' => 'dummy_test_multi_output_1' }),
-          config_element('store', '', { '@type' => 'dummy_test_multi_output_2' }),
-          config_element('store', '', { '@type' => 'dummy_test_multi_output_3' }),
-          config_element('store', '', { '@type' => 'dummy_test_multi_output_4' }),
-        ]
-      )
-      @i.configure(conf)
-
-      assert_equal [], @i.outputs
     end
   end
 end
