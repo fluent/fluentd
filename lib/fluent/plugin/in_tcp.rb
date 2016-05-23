@@ -29,11 +29,7 @@ module Fluent
     def listen(callback)
       log.info "listening tcp socket on #{@bind}:#{@port}"
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      client = Fluent::SocketUtil.create_client
       lsock = client.listen_tcp(@bind, @port)
       Coolio::TCPServer.new(lsock, nil, SocketUtil::TcpHandler, log, @delimiter, callback)
     end

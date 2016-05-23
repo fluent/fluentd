@@ -32,6 +32,23 @@ module Fluent
     end
     module_function :create_udp_socket
 
+    def create_server
+      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
+      server = ServerEngine::SocketManager::Server.open(socket_manager_path)
+      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+      server
+    end
+    module_function :create_server
+
+    def create_client
+      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+      if Fluent.windows?
+        socket_manager_path = socket_manager_path.to_i
+      end
+      ServerEngine::SocketManager::Client.new(socket_manager_path)
+    end
+    module_function :create_client
+
     class UdpHandler < Coolio::IO
       def initialize(io, log, body_size_limit, callback)
         super(io)

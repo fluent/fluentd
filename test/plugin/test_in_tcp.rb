@@ -5,9 +5,7 @@ require 'fluent/plugin/in_tcp'
 class TcpInputTest < Test::Unit::TestCase
   class << self
     def startup
-      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-      @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
-      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+      @server = Fluent::SocketUtil.create_server
     end
 
     def shutdown

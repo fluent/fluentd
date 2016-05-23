@@ -25,11 +25,7 @@ module Fluent
 
     def listen(callback)
       log.info "listening udp socket on #{@bind}:#{@port}"
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      client = Fluent::SocketUtil.create_client
       @usock = client.listen_udp(@bind, @port)
       SocketUtil::UdpHandler.new(@usock, log, @body_size_limit, callback)
     end
