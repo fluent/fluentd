@@ -23,6 +23,7 @@ require 'cool.io'
 require 'fluent/input'
 require 'fluent/event'
 require 'fluent/process'
+require 'fluent/plugin/socket_util'
 
 module Fluent
   class HttpInput < Input
@@ -102,11 +103,7 @@ module Fluent
     def start
       log.debug "listening http on #{@bind}:#{@port}"
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      client = Fluent::SocketUtil.create_client
       lsock = client.listen_tcp(@bind, @port)
 
       detach_multi_process do

@@ -20,6 +20,7 @@ require 'yajl'
 require 'fluent/input'
 require 'fluent/config/error'
 require 'fluent/parser'
+require 'fluent/plugin/socket_util'
 
 module Fluent
   class SyslogInput < Input
@@ -67,7 +68,6 @@ module Fluent
 
     def initialize
       super
-      require 'fluent/plugin/socket_util'
     end
 
     desc 'The port to listen to.'
@@ -186,11 +186,7 @@ module Fluent
 
     def listen(callback)
       log.info "listening syslog socket on #{@bind}:#{@port} with #{@protocol_type}"
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      client = Fluent::SocketUtil.create_client
       if @protocol_type == :udp
         @usock = client.listen_udp(@bind, @port)
         SocketUtil::UdpHandler.new(@usock, log, 2048, callback)

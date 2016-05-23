@@ -59,11 +59,7 @@ module Fluent
 
       @loop = Coolio::Loop.new
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      client = Fluent::SocketUtil.create_client
 
       @lsock = listen(client)
       @loop.attach(@lsock)

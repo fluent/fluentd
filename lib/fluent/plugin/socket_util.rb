@@ -40,6 +40,15 @@ module Fluent
     end
     module_function :create_server
 
+    def create_client
+      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+      if Fluent.windows?
+        socket_manager_path = socket_manager_path.to_i
+      end
+      ServerEngine::SocketManager::Client.new(socket_manager_path)
+    end
+    module_function :create_client
+
     class UdpHandler < Coolio::IO
       def initialize(io, log, body_size_limit, callback)
         super(io)
