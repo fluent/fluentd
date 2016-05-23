@@ -41,9 +41,9 @@ module Fluent
         next if name.to_s.start_with?('@')
         subproxy = proxy.sections[name]
         if subproxy.multi?
-          instance_variable_set("@#{subproxy.param_name}".to_sym, [])
+          instance_variable_set("@#{subproxy.variable_name}".to_sym, [])
         else
-          instance_variable_set("@#{subproxy.param_name}".to_sym, nil)
+          instance_variable_set("@#{subproxy.variable_name}".to_sym, nil)
         end
       end
     end
@@ -145,7 +145,7 @@ module Fluent
 
       def config_section(name, **kwargs, &block)
         configure_proxy(self.name).config_section(name, **kwargs, &block)
-        attr_accessor configure_proxy(self.name).sections[name].param_name
+        attr_accessor configure_proxy(self.name).sections[name].variable_name
       end
 
       def desc(description)

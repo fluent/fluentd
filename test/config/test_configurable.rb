@@ -215,74 +215,101 @@ module ConfigurableSpec
   end
 
   module Final
+    # Show what is allowed in finalized sections
+    # InheritsFinalized < Finalized < Base
     class Base
       include Fluent::Configurable
       config_section :appendix, multi: false, final: false do
-        config_param :name, :string, default: "x"
+        config_param :code, :string
+        config_param :name, :string
+        config_param :address, :string, default: ""
       end
     end
 
     class Finalized < Base
+      # to non-finalized section
+      # subclass can change type (code)
+      #          add default value (name)
+      #          change default value (address)
+      #          add field (age)
       config_section :appendix, final: true do
-        config_param :name, :string, default: "y"
+        config_param :code, :integer
+        config_set_default :name, "y"
+        config_set_default :address, "-"
         config_param :age, :integer, default: 10
       end
     end
 
     class InheritsFinalized < Finalized
+      # to finalized section
+      # subclass can add default value (code)
+      #              change default value (age)
+      #              add field (phone_no)
       config_section :appendix do
-        config_param :name, :string, default: "z"
-        config_param :age, :integer, default: 20
+        config_set_default :code, 2
+        config_set_default :age, 0
         config_param :phone_no, :string
       end
     end
 
+    # Show what is allowed/prohibited for finalized sections
     class FinalizedBase
       include Fluent::Configurable
-      config_section :appendix, required: true, multi: false, alias: "options", final: true do
-        config_param :name, :string, default: "x"
+      config_section :appendix, param_name: :apd, init: false, required: true, multi: false, alias: "options", final: true do
+        config_param :name, :string
       end
     end
 
-    class InheritsFinalized2 < FinalizedBase
+    class FinalizedBase2
+      include Fluent::Configurable
+      config_section :appendix, param_name: :apd, init: false, required: false, multi: false, alias: "options", final: true do
+        config_param :name, :string
+      end
+    end
+
+    # subclass can change init with adding default values
+    class OverwriteInit < FinalizedBase2
+      config_section :appendix, init: true do
+        config_set_default :name, "moris"
+        config_param :code, :integer, default: 0
+      end
+    end
+
+    # subclass cannot change type (name)
+    class Subclass < FinalizedBase
       config_section :appendix do
-        config_param :name, :string, default: "y"
-        config_param :age, :integer, default: 10
-        config_param :phone_no, :string
+        config_param :name, :integer
       end
     end
 
-    class InheritsFinalized3 < InheritsFinalized2
-      config_section :appendix do
-        config_param :name, :string, default: "y"
-        config_param :age, :integer, default: 20
-        config_param :phone_no, :string
+    # subclass cannot change param_name
+    class OverwriteParamName < FinalizedBase
+      config_section :appendix, param_name: :adx do
       end
     end
 
-    # Error
-    class InheritsFinalized4 < FinalizedBase
+    # subclass cannot change final (section)
+    class OverwriteFinal < FinalizedBase
       config_section :appendix, final: false do
-        config_param :age, :integer, default: 10
-        config_param :phone_no, :string
+        config_param :name, :integer
       end
     end
 
+    # subclass cannot change required
     class OverwriteRequired < FinalizedBase
       config_section :appendix, required: false do
-        config_param :phone_no, :string
       end
     end
 
+    # subclass cannot change multi
     class OverwriteMulti < FinalizedBase
       config_section :appendix, multi: true do
-        config_param :phone_no, :string
       end
     end
 
+    # subclass cannot change alias
     class OverwriteAlias < FinalizedBase
       config_section :appendix, alias: "options2" do
-        config_param :phone_no, :string
       end
     end
   end
@@ -862,60 +889,96 @@ module Fluent::Config
         end
 
         sub_test_case 'final' do
-          CONF = config_element('ROOT', '', {},
-                                [config_element('appendix', '', {"phone_no" => "+81-0000-0000"}, [])])
-          test 'subclass can overwrite appendix.name, appendix.age w/ level 2' do
-            finalized = ConfigurableSpec::Final::Finalized.new
-            finalized.configure(CONF)
-            expected = { name: "y", age: 10 }
-            actual = { name: finalized.appendix.name, age: finalized.appendix.age }
-            assert_equal(expected, actual)
+          test 'base class has designed params and default values' do
+            b = ConfigurableSpec::Final::Base.new
+            appendix_conf = config_element('appendix', '', {"code" => "b", "name" => "base"})
+            b.configure(config_element('ROOT', '', {}, [appendix_conf]))
+
+            assert_equal "b", b.appendix.code
+            assert_equal "base", b.appendix.name
+            assert_equal "", b.appendix.address
           end
 
-          test 'subclass cannot overwrite appendix.name, appendix.age w/ level 3' do
-            level3 = ConfigurableSpec::Final::InheritsFinalized.new
-            level3.configure(CONF)
-            expected = { name: "y", age: 10 }
-            actual = { name: level3.appendix.name, age: level3.appendix.age }
-            assert_equal(expected, actual)
+          test 'subclass can change type, add default value, change default value of parameters, and add parameters to non-finalized section' do
+            f = ConfigurableSpec::Final::Finalized.new
+            appendix_conf = config_element('appendix', '', {"code" => 1})
+            f.configure(config_element('ROOT', '', {}, [appendix_conf]))
+
+            assert_equal 1, f.appendix.code
+            assert_equal 'y', f.appendix.name
+            assert_equal "-", f.appendix.address
+            assert_equal 10, f.appendix.age
           end
 
-          test 'inherit finalized base' do
-            target1 = ConfigurableSpec::Final::InheritsFinalized2.new
-            target1.configure(CONF)
-            expected = { name: "x", age: 10 }
-            actual1 = { name: target1.appendix.name, age: target1.appendix.age }
-            assert_equal(expected, actual1)
+          test 'subclass can add default value, change default value of parameters, and add parameters to finalized section' do
+            i = ConfigurableSpec::Final::InheritsFinalized.new
+            appendix_conf = config_element('appendix', '', {"phone_no" => "00-0000-0000"})
+            i.configure(config_element('ROOT', '', {}, [appendix_conf]))
 
-            target2 = ConfigurableSpec::Final::InheritsFinalized3.new
-            target2.configure(CONF)
-            actual2 = { name: target2.appendix.name, age: target2.appendix.age }
-            assert_equal(expected, actual2)
+            assert_equal 2, i.appendix.code
+            assert_equal 0, i.appendix.age
+            assert_equal "00-0000-0000", i.appendix.phone_no
           end
 
-          test 'failed to overwrite finalized base' do
+          test 'finalized base class works as designed' do
+            b = ConfigurableSpec::Final::FinalizedBase.new
+            appendix_conf = config_element('options', '', {"name" => "moris"})
+
+            assert_nothing_raised do
+              b.configure(config_element('ROOT', '', {}, [appendix_conf]))
+            end
+            assert b.apd
+            assert_equal "moris", b.apd.name
+          end
+
+          test 'subclass can change init' do
+            n = ConfigurableSpec::Final::OverwriteInit.new
+
+            assert_nothing_raised do
+              n.configure(config_element('ROOT', ''))
+            end
+            assert n.apd
+            assert_equal "moris", n.apd.name
+            assert_equal 0, n.apd.code
+          end
+
+          test 'subclass cannot change parameter types in finalized sections' do
+            s = ConfigurableSpec::Final::Subclass.new
+            appendix_conf = config_element('options', '', {"name" => "1"})
+
+            assert_nothing_raised do
+              s.configure(config_element('ROOT', '', {}, [appendix_conf]))
+            end
+            assert_equal "1", s.apd.name
+          end
+
+          test 'subclass cannot change param_name of finalized section' do
+            assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: param_name")) do
+              ConfigurableSpec::Final::OverwriteParamName.new
+            end
+          end
+
+          test 'subclass cannot change final of finalized section' do
             assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite finalized base class's config_section")) do
-              ConfigurableSpec::Final::InheritsFinalized4.new.configure(CONF)
+              ConfigurableSpec::Final::OverwriteFinal.new
             end
           end
 
-          sub_test_case 'overwrite' do
-            test 'required' do
-              assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: required")) do
-                ConfigurableSpec::Final::OverwriteRequired.new.configure(CONF)
-              end
+          test 'subclass cannot change required of finalized section' do
+            assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: required")) do
+              ConfigurableSpec::Final::OverwriteRequired.new
             end
+          end
 
-            test 'multi' do
-              assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: multi")) do
-                ConfigurableSpec::Final::OverwriteMulti.new.configure(CONF)
-              end
+          test 'subclass cannot change multi of finalized section' do
+            assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: multi")) do
+              ConfigurableSpec::Final::OverwriteMulti.new
             end
+          end
 
-            test 'alias' do
-              assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: alias")) do
-                ConfigurableSpec::Final::OverwriteAlias.new.configure(CONF)
-              end
+          test 'subclass cannot change alias of finalized section' do
+            assert_raise(Fluent::ConfigError.new("BUG: subclass cannot overwrite base class's config_section: alias")) do
+              ConfigurableSpec::Final::OverwriteAlias.new
             end
           end
         end

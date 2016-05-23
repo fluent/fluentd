@@ -144,7 +144,7 @@ module Fluent
         check_unused_section(proxy, conf, plugin_class)
 
         proxy.sections.each do |name, subproxy|
-          varname = subproxy.param_name.to_sym
+          varname = subproxy.variable_name
           elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
           if elements.empty? && subproxy.init? && !subproxy.multi?
             elements << Fluent::Config::Element.new(subproxy.name.to_s, '', {}, [])
