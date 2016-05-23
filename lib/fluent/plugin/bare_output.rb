@@ -23,6 +23,11 @@ require 'fluent/plugin_helper'
 module Fluent
   module Plugin
     class BareOutput < Base
+      # DO NOT USE THIS plugin for normal output plugin. Use Output instead.
+      # This output plugin base class is only for meta-output plugins
+      # which cannot be implemented on MultiOutput.
+      # E.g,: forest, config-expander
+
       include PluginId
       include PluginLoggerMixin
       include PluginHelper::Mixin
