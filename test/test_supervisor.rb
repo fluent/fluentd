@@ -6,6 +6,7 @@ require_relative 'test_plugin_classes'
 
 require 'net/http'
 require 'uri'
+require 'fileutils'
 
 class SupervisorTest < ::Test::Unit::TestCase
   include Fluent
@@ -14,6 +15,10 @@ class SupervisorTest < ::Test::Unit::TestCase
   include WorkerModule
 
   TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
+
+  def setup
+    FileUtils.mkdir_p('test/tmp/supervisor')
+  end
 
   def write_config(path, data)
     FileUtils.mkdir_p(File.dirname(path))
@@ -189,7 +194,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     params = {}
     params['use_v1_config'] = true
-    params['log_path'] = 'log_path'
+    params['log_path'] = 'test/tmp/supervisor/log'
     params['suppress_repeated_stacktrace'] = true
     params['log_level'] = Fluent::Log::LEVEL_INFO
     load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_dir, params) }
