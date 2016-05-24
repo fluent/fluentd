@@ -27,7 +27,7 @@ module Fluent
       PARAMS_MAP = {
         "buffer_type" => "@type",
         "buffer_path" => "path",
-        "num_threads"                 => "flush_threads",
+        "num_threads"                 => "flush_thread_count",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
         "queued_chunk_flush_interval" => "flush_burst_interval",

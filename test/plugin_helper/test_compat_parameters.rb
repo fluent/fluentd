@@ -73,7 +73,7 @@ class CompatParameterTest < Test::Unit::TestCase
 
       assert_equal 'memory', @i.buffer_config[:@type]
       assert_equal [], @i.buffer_config.chunk_keys
-      assert_equal 8, @i.buffer_config.flush_threads
+      assert_equal 8, @i.buffer_config.flush_thread_count
       assert_equal 10, @i.buffer_config.flush_interval
       assert @i.buffer_config.flush_at_shutdown
 
@@ -162,7 +162,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i.configure(conf)
 
       assert_equal 'memory', @i.buffer_config[:@type]
-      assert_equal 10, @i.buffer_config.flush_threads
+      assert_equal 10, @i.buffer_config.flush_thread_count
       assert_equal 10, @i.buffer_config.flush_interval
       assert_equal 0.1, @i.buffer_config.flush_thread_interval
       assert_equal 0.5, @i.buffer_config.flush_burst_interval

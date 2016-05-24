@@ -62,7 +62,7 @@ class ExecOutputTest < Test::Unit::TestCase
     ]
     d = create_driver(conf)
     assert_equal 3600, d.instance.buffer_config.timekey
-    assert_equal 5, d.instance.buffer_config.flush_threads
+    assert_equal 5, d.instance.buffer_config.flush_thread_count
     assert_equal 50*1024*1024, d.instance.buffer.chunk_limit_size
     assert_equal 128, d.instance.buffer.queue_length_limit
     assert d.instance.buffer_config.flush_at_shutdown

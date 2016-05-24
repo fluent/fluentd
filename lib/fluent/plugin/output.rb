@@ -57,7 +57,7 @@ module Fluent
         config_param :flush_mode, :enum, list: [:default, :lazy, :interval, :immediate], default: :default
         config_param :flush_interval, :time, default: 60, desc: 'The interval between buffer chunk flushes.'
 
-        config_param :flush_threads, :integer, default: 1, desc: 'The number of threads to flush the buffer.'
+        config_param :flush_thread_count, :integer, default: 1, desc: 'The number of threads to flush the buffer.'
 
         config_param :flush_thread_interval, :float, default: 1.0, desc: 'Seconds to sleep between checks for buffer flushes in flush threads.'
         config_param :flush_burst_interval, :float, default: 1.0, desc: 'Seconds to sleep between flushes when many buffer chunks are queued.'
@@ -353,7 +353,7 @@ module Fluent
           @dequeued_chunks = []
           @dequeued_chunks_mutex = Mutex.new
 
-          @buffer_config.flush_threads.times do |i|
+          @buffer_config.flush_thread_count.times do |i|
             thread_title = "flush_thread_#{i}".to_sym
             thread_state = FlushThreadState.new(nil, nil)
             thread = thread_create(thread_title) do
@@ -833,7 +833,7 @@ module Fluent
 
       def submit_flush_once
         # Without locks: it is rough but enough to select "next" writer selection
-        @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_threads
+        @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
         state.next_time = 0
         state.thread.run
