@@ -165,7 +165,7 @@ class CompatParameterTest < Test::Unit::TestCase
       assert_equal 10, @i.buffer_config.flush_thread_count
       assert_equal 10, @i.buffer_config.flush_interval
       assert_equal 0.1, @i.buffer_config.flush_thread_interval
-      assert_equal 0.5, @i.buffer_config.flush_burst_interval
+      assert_equal 0.5, @i.buffer_config.flush_thread_burst_interval
 
       assert !@i.chunk_key_time
       assert @i.chunk_key_tag

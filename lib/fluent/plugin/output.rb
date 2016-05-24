@@ -60,7 +60,7 @@ module Fluent
         config_param :flush_thread_count, :integer, default: 1, desc: 'The number of threads to flush the buffer.'
 
         config_param :flush_thread_interval, :float, default: 1.0, desc: 'Seconds to sleep between checks for buffer flushes in flush threads.'
-        config_param :flush_burst_interval, :float, default: 1.0, desc: 'Seconds to sleep between flushes when many buffer chunks are queued.'
+        config_param :flush_thread_burst_interval, :float, default: 1.0, desc: 'Seconds to sleep between flushes when many buffer chunks are queued.'
 
         config_param :delayed_commit_timeout, :time, default: 60, desc: 'Seconds of timeout for buffer chunks to be committed by plugins later.'
 
@@ -742,7 +742,7 @@ module Fluent
       def next_flush_time
         if @buffer.queued?
           @retry_mutex.synchronize do
-            @retry ? @retry.next_time : Time.now + @buffer_config.flush_burst_interval
+            @retry ? @retry.next_time : Time.now + @buffer_config.flush_thread_burst_interval
           end
         else
           Time.now + @buffer_config.flush_thread_interval
@@ -849,7 +849,7 @@ module Fluent
       def submit_flush_all
         while !@retry && @buffer.queued?
           submit_flush_once
-          sleep @buffer_config.flush_burst_interval
+          sleep @buffer_config.flush_thread_burst_interval
         end
       end
 
@@ -951,7 +951,7 @@ module Fluent
 
             if state.next_time <= time
               try_flush
-              # next_flush_interval uses flush_thread_interval or flush_burst_interval (or retrying)
+              # next_flush_interval uses flush_thread_interval or flush_thread_burst_interval (or retrying)
               interval = next_flush_time.to_f - Time.now.to_f
               # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected (because @retry still exists)
               #   @retry should be cleard if delayed commit is enabled? Or any other solution?

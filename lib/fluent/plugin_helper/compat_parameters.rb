@@ -30,7 +30,7 @@ module Fluent
         "num_threads"                 => "flush_thread_count",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
-        "queued_chunk_flush_interval" => "flush_burst_interval",
+        "queued_chunk_flush_interval" => "flush_thread_burst_interval",
         "disable_retry_limit" => "retry_forever",
         "retry_limit"         => "retry_max_times",
         "max_retry_wait"      => "retry_max_interval",

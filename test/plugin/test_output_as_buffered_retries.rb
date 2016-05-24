@@ -121,7 +121,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
@@ -151,7 +151,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_max_interval' => 60 * 60,
       }
@@ -190,7 +190,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_max_interval' => 60,
       }
@@ -242,7 +242,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_timeout' => 3600,
       }
@@ -329,7 +329,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_max_times' => 10,
       }
@@ -406,7 +406,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_type' => :periodic,
         'retry_wait' => 3,
         'retry_randomize' => false,
@@ -448,7 +448,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_type' => :periodic,
         'retry_wait' => 30,
         'retry_randomize' => false,
@@ -540,7 +540,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_type' => :periodic,
         'retry_wait' => 3,
         'retry_randomize' => false,
@@ -634,7 +634,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_type' => :exponential_backoff,
         'retry_forever' => true,
         'retry_randomize' => false,
@@ -701,7 +701,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_type' => :periodic,
         'retry_forever' => true,
         'retry_randomize' => false,
@@ -769,7 +769,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_max_interval' => 60 * 60,
       }
