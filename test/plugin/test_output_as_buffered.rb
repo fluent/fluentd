@@ -131,7 +131,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_mode' => 'none',
         'flush_burst_interval' => 0.01,
         'flush_threads' => 2,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
@@ -233,7 +233,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_interval' => 1,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
@@ -342,7 +342,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_mode' => 'immediate',
         'flush_threads' => 1,
         'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
@@ -650,7 +650,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_interval' => 10,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
@@ -866,7 +866,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_interval' => 10,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
@@ -1078,7 +1078,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_interval' => 10,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
@@ -1094,7 +1094,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_interval' => 10,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
@@ -1112,7 +1112,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_threads' => 1,
         'flush_burst_interval' => 0.1,
         'delayed_commit_timeout' => 30,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:delayed)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))

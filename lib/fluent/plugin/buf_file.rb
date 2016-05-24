@@ -27,8 +27,8 @@ module Fluent
 
       include SystemConfig::Mixin
 
-      DEFAULT_CHUNK_BYTES_LIMIT = 256 * 1024 * 1024        # 256MB
-      DEFAULT_TOTAL_BYTES_LIMIT =  64 * 1024 * 1024 * 1024 #  64GB, same with v0.12 (TimeSlicedOutput + buf_file)
+      DEFAULT_CHUNK_LIMIT_SIZE = 256 * 1024 * 1024        # 256MB
+      DEFAULT_TOTAL_LIMIT_SIZE =  64 * 1024 * 1024 * 1024 #  64GB, same with v0.12 (TimeSlicedOutput + buf_file)
 
       DIR_PERMISSION = 0755
 
@@ -36,8 +36,8 @@ module Fluent
       desc 'The path where buffer chunks are stored.'
       config_param :path, :string
 
-      config_set_default :chunk_bytes_limit, DEFAULT_CHUNK_BYTES_LIMIT
-      config_set_default :total_bytes_limit, DEFAULT_TOTAL_BYTES_LIMIT
+      config_set_default :chunk_limit_size, DEFAULT_CHUNK_LIMIT_SIZE
+      config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
 
       config_param :file_permission, :string, default: nil # '0644'
       config_param :dir_permission,  :string, default: nil # '0755'

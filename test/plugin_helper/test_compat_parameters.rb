@@ -77,7 +77,7 @@ class CompatParameterTest < Test::Unit::TestCase
       assert_equal 10, @i.buffer_config.flush_interval
       assert @i.buffer_config.flush_at_shutdown
 
-      assert_equal 8*1024*1024, @i.buffer.chunk_bytes_limit
+      assert_equal 8*1024*1024, @i.buffer.chunk_limit_size
       assert_equal 1024, @i.buffer.queue_length_limit
     end
   end

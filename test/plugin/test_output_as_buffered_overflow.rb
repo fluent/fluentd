@@ -64,8 +64,8 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       hash = {
         'flush_mode' => 'none',
         'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
-        'total_bytes_limit' => 4096,
+        'chunk_limit_size' => 1024,
+        'total_limit_size' => 4096,
       }
       @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',hash)]))
@@ -101,8 +101,8 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       hash = {
         'flush_mode' => 'none',
         'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
-        'total_bytes_limit' => 4096,
+        'chunk_limit_size' => 1024,
+        'total_limit_size' => 4096,
         'overflow_action' => "block",
       }
       @i = create_output()
@@ -162,8 +162,8 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       hash = {
         'flush_mode' => 'none',
         'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
-        'total_bytes_limit' => 4096,
+        'chunk_limit_size' => 1024,
+        'total_limit_size' => 4096,
         'overflow_action' => "drop_oldest_chunk",
       }
       @i = create_output()
