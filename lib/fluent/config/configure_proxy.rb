@@ -41,7 +41,7 @@ module Fluent
         @name = name.to_sym
         @final = final
 
-        @param_name = (param_name || @name).to_sym
+        @param_name = param_name && param_name.to_sym
         @init = init
         @required = required
         @multi = multi
@@ -63,6 +63,10 @@ module Fluent
         @current_description = nil
       end
 
+      def variable_name
+        @param_name || @name
+      end
+
       def init?
         @init.nil? ? false : @init
       end
@@ -82,26 +86,17 @@ module Fluent
       def merge(other) # self is base class, other is subclass
         return merge_for_finalized(other) if self.final?
 
-        if overwrite?(other, :init)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: init"
-        end
-        if overwrite?(other, :required)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
-        end
-        if overwrite?(other, :multi)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: multi"
-        end
-        if overwrite?(other, :alias)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
-        end
-        if overwrite?(other, :configured_in_section)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: configured_in"
+        [:param_name, :required, :multi, :alias, :configured_in_section].each do |prohibited_name|
+          if overwrite?(other, prohibited_name)
+            raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: #{prohibited_name}"
+          end
         end
 
         options = {}
-        # param_name is used not to ovewrite plugin's instance
-        # varible, so this should be able to be overwritten
-        options[:param_name] = other.param_name
+        # param_name affects instance variable name, which is just "internal" of each plugins.
+        # so it must not be changed. base class's name (or param_name) is always used.
+        options[:param_name] = @param_name
+
         # subclass cannot overwrite base class's definition
         options[:init] = @init.nil? ? other.init : self.init
         options[:required] = @required.nil? ? other.required : self.required
@@ -110,7 +105,7 @@ module Fluent
         options[:final] = @final || other.final
         options[:type_lookup] = @type_lookup
 
-        merged = self.class.new(other.name, options)
+        merged = self.class.new(@name, options)
 
         # configured_in MUST be kept
         merged.configured_in_section = self.configured_in_section
@@ -137,45 +132,36 @@ module Fluent
 
       def merge_for_finalized(other)
         # list what subclass can do for finalized section
-        #  * overwrite param_name to escape duplicated name of instance variable
         #  * append params/defaults/sections which are missing in superclass
+        #  * change default values of superclass
+        #  * overwrite init to make it enable to instantiate section objects with added default values
 
         if other.final == false && overwrite?(other, :final)
           raise ConfigError, "BUG: subclass cannot overwrite finalized base class's config_section"
         end
 
-        if overwrite?(other, :init)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: init"
-        end
-        if overwrite?(other, :required)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: required"
-        end
-        if overwrite?(other, :multi)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: multi"
-        end
-        if overwrite?(other, :alias)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: alias"
-        end
-        if overwrite?(other, :configured_in_section)
-          raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: configured_in"
+        [:param_name, :required, :multi, :alias, :configured_in_section].each do |prohibited_name|
+          if overwrite?(other, prohibited_name)
+            raise ConfigError, "BUG: subclass cannot overwrite base class's config_section: #{prohibited_name}"
+          end
         end
 
         options = {}
-        options[:param_name] = other.param_name
-        options[:init] = @init.nil? ? other.init : self.init
+        options[:param_name] = @param_name
+        options[:init] = @init || other.init
         options[:required] = @required.nil? ? other.required : self.required
         options[:multi] = @multi.nil? ? other.multi : self.multi
         options[:alias] = @alias.nil? ? other.alias : self.alias
         options[:final]  = true
         options[:type_lookup] = @type_lookup
 
-        merged = self.class.new(other.name, options)
+        merged = self.class.new(@name, options)
 
         merged.configured_in_section = self.configured_in_section
 
         merged.argument = self.argument || other.argument
         merged.params = other.params.merge(self.params)
-        merged.defaults = other.defaults.merge(self.defaults)
+        merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = {}
         (self.sections.keys + other.sections.keys).uniq.each do |section_key|
           self_section = self.sections[section_key]
