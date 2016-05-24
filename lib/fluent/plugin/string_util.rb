@@ -15,18 +15,23 @@
 #
 
 module Fluent
-  module StringUtil
-    def match_regexp(regexp, string)
-      begin
-        return regexp.match(string)
-      rescue ArgumentError => e
-        raise e unless e.message.index("invalid byte sequence in".freeze).zero?
-        $log.info "invalid byte sequence is replaced in `#{string}`"
-        string = string.scrub('?')
-        retry
+  module Plugin
+    module StringUtil
+      def match_regexp(regexp, string)
+        begin
+          return regexp.match(string)
+        rescue ArgumentError => e
+          raise e unless e.message.index("invalid byte sequence in".freeze).zero?
+          $log.info "invalid byte sequence is replaced in `#{string}`"
+          string = string.scrub('?')
+          retry
+        end
+        return true
       end
-      return true
+      module_function :match_regexp
     end
-    module_function :match_regexp
   end
+
+  # obsolete
+  StringUtil = Fluent::Plugin::StringUtil
 end
