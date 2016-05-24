@@ -16,12 +16,14 @@
 
 require 'json'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/config/error'
 
-module Fluent
+module Fluent::Plugin
   class DummyInput < Input
     Fluent::Plugin.register_input('dummy', self)
+
+    helpers :thread, :storage
 
     BIN_NUM = 10
 
@@ -48,37 +50,39 @@ module Fluent
       dummy
     end
 
+    def initialize
+      super
+      @storage = nil
+    end
+
     def configure(conf)
       super
-
-      @increment_value = 0
       @dummy_index = 0
     end
 
     def start
       super
-      @running = true
-      @thread = Thread.new(&method(:run))
-    end
 
-    def shutdown
-      @running = false
-      @thread.join
-      super
+      @storage = storage_create(type: 'local')
+      if @auto_increment_key && !@storage.get(:auto_increment_value)
+        @storage.put(:auto_increment_value, -1)
+      end
+
+      thread_create(:dummy_input, &method(:run))
     end
 
     def run
       batch_num    = (@rate / BIN_NUM).to_i
       residual_num = (@rate % BIN_NUM)
-      while @running
+      while thread_current_running?
         current_time = Time.now.to_i
         BIN_NUM.times do
-          break unless (@running && Time.now.to_i <= current_time)
+          break unless (thread_current_running? && Time.now.to_i <= current_time)
           wait(0.1) { emit(batch_num) }
         end
         emit(residual_num)
         # wait for next second
-        while @running && Time.now.to_i <= current_time
+        while thread_current_running? && Time.now.to_i <= current_time
           sleep 0.01
         end
       end
@@ -97,8 +101,7 @@ module Fluent
       @dummy_index += 1
       if @auto_increment_key
         d = d.dup
-        d[@auto_increment_key] = @increment_value
-        @increment_value += 1
+        d[@auto_increment_key] = @storage.update(:auto_increment_value){|v| v + 1 }
       end
       d
     end

@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_dummy'
 
 class DummyTest < Test::Unit::TestCase
@@ -8,7 +8,7 @@ class DummyTest < Test::Unit::TestCase
   end
 
   def create_driver(conf)
-    Fluent::Test::InputTestDriver.new(Fluent::DummyInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::DummyInput).configure(conf)
   end
 
   sub_test_case 'configure' do
@@ -71,11 +71,9 @@ class DummyTest < Test::Unit::TestCase
 
     test 'simple' do
       d = create_driver(config)
-      d.run {
-        # d.run sleeps 0.5 sec
-      }
-      emits = d.emits
-      emits.each do |tag, time, record|
+      d.run(timeout: 0.5)
+
+      d.events.each do |tag, time, record|
         assert_equal("dummy", tag)
         assert_equal({"foo"=>"bar"}, record)
         assert(time.is_a?(Fluent::EventTime))
@@ -84,11 +82,9 @@ class DummyTest < Test::Unit::TestCase
 
     test 'with auto_increment_key' do
       d = create_driver(config + %[auto_increment_key id])
-      d.run {
-        # d.run sleeps 0.5 sec
-      }
-      emits = d.emits
-      emits.each_with_index do |(tag, _time, record), i|
+      d.run(timeout: 0.5)
+
+      d.events.each_with_index do |(tag, _time, record), i|
         assert_equal("dummy", tag)
         assert_equal({"foo"=>"bar", "id"=>i}, record)
       end
