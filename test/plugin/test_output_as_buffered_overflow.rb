@@ -62,7 +62,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
   sub_test_case 'buffered output with default configuration (throws exception for buffer overflow)' do
     setup do
       hash = {
-        'flush_mode' => 'none',
+        'flush_mode' => 'lazy',
         'flush_burst_interval' => 0.01,
         'chunk_limit_size' => 1024,
         'total_limit_size' => 4096,
@@ -99,7 +99,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
   sub_test_case 'buffered output configured with "overflow_action block"' do
     setup do
       hash = {
-        'flush_mode' => 'none',
+        'flush_mode' => 'lazy',
         'flush_burst_interval' => 0.01,
         'chunk_limit_size' => 1024,
         'total_limit_size' => 4096,
@@ -160,7 +160,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
   sub_test_case 'buffered output configured with "overflow_action drop_oldest_chunk"' do
     setup do
       hash = {
-        'flush_mode' => 'none',
+        'flush_mode' => 'lazy',
         'flush_burst_interval' => 0.01,
         'chunk_limit_size' => 1024,
         'total_limit_size' => 4096,

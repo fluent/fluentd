@@ -125,10 +125,10 @@ class BufferedOutputTest < Test::Unit::TestCase
     Timecop.return
   end
 
-  sub_test_case 'buffered output feature without any buffer key, flush_mode: none' do
+  sub_test_case 'buffered output feature without any buffer key, flush_mode: lazy' do
     setup do
       hash = {
-        'flush_mode' => 'none',
+        'flush_mode' => 'lazy',
         'flush_burst_interval' => 0.01,
         'flush_threads' => 2,
         'chunk_limit_size' => 1024,
@@ -226,10 +226,10 @@ class BufferedOutputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'buffered output feature without any buffer key, flush_mode: fast' do
+  sub_test_case 'buffered output feature without any buffer key, flush_mode: interval' do
     setup do
       hash = {
-        'flush_mode' => 'fast',
+        'flush_mode' => 'interval',
         'flush_interval' => 1,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.01,
@@ -449,8 +449,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
     end
 
-    test 'default flush_mode is set to :none' do
-      assert_equal :none, @i.instance_eval{ @flush_mode }
+    test 'default flush_mode is set to :lazy' do
+      assert_equal :lazy, @i.instance_eval{ @flush_mode }
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -657,8 +657,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.start
     end
 
-    test 'default flush_mode is set to :fast' do
-      assert_equal :fast, @i.instance_eval{ @flush_mode }
+    test 'default flush_mode is set to :interval' do
+      assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -873,8 +873,8 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.start
     end
 
-    test 'default flush_mode is set to :fast' do
-      assert_equal :fast, @i.instance_eval{ @flush_mode }
+    test 'default flush_mode is set to :interval' do
+      assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -1072,7 +1072,7 @@ class BufferedOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'buffered output feature with many keys' do
-    test 'default flush mode is set to :fast if keys does not include time' do
+    test 'default flush mode is set to :interval if keys does not include time' do
       chunk_key = 'name,service,tag'
       hash = {
         'flush_interval' => 10,
@@ -1084,10 +1084,10 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
 
-      assert_equal :fast, @i.instance_eval{ @flush_mode }
+      assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
 
-    test 'default flush mode is set to :none if keys includes time' do
+    test 'default flush mode is set to :lazy if keys includes time' do
       chunk_key = 'name,service,tag,time'
       hash = {
         'timekey' => 60,
@@ -1100,7 +1100,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
 
-      assert_equal :none, @i.instance_eval{ @flush_mode }
+      assert_equal :lazy, @i.instance_eval{ @flush_mode }
     end
   end
 

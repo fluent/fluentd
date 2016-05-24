@@ -53,8 +53,8 @@ module Fluent
         desc 'If true, plugin will try to flush buffer just before shutdown.'
         config_param :flush_at_shutdown, :bool, default: nil # change default by buffer_plugin.persistent?
 
-        desc 'How to enqueue chunks to be flushed. "fast" flushes per flush_interval, "immediate" flushes just after event arrival.'
-        config_param :flush_mode, :enum, list: [:default, :none, :fast, :immediate], default: :default
+        desc 'How to enqueue chunks to be flushed. "interval" flushes per flush_interval, "immediate" flushes just after event arrival.'
+        config_param :flush_mode, :enum, list: [:default, :lazy, :interval, :immediate], default: :default
         config_param :flush_interval, :time, default: 60, desc: 'The interval between buffer chunk flushes.'
 
         config_param :flush_threads, :integer, default: 1, desc: 'The number of threads to flush the buffer.'
@@ -258,7 +258,7 @@ module Fluent
 
           @flush_mode = @buffer_config.flush_mode
           if @flush_mode == :default
-            @flush_mode = (@chunk_key_time ? :none : :fast)
+            @flush_mode = (@chunk_key_time ? :lazy : :interval)
           end
 
           buffer_type = @buffer_config[:@type]
@@ -367,7 +367,7 @@ module Fluent
           @output_flush_thread_current_position = 0
 
           unless @in_tests
-            if @flush_mode == :fast || @chunk_key_time
+            if @flush_mode == :interval || @chunk_key_time
               thread_create(:enqueue_thread, &method(:enqueue_thread_run))
             end
           end
@@ -880,7 +880,7 @@ module Fluent
 
       def enqueue_thread_run
         value_for_interval = nil
-        if @flush_mode == :fast
+        if @flush_mode == :interval
           value_for_interval = @buffer_config.flush_interval
         end
         if @chunk_key_time
@@ -906,7 +906,7 @@ module Fluent
 
             @output_enqueue_thread_mutex.lock
             begin
-              if @flush_mode == :fast
+              if @flush_mode == :interval
                 flush_interval = @buffer_config.flush_interval.to_i
                 # This block should be done by integer values.
                 # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
