@@ -136,6 +136,13 @@ module Fluent
         def run(expect_emits: nil, expect_records: nil, timeout: nil, start: true, shutdown: true, &block)
           instance_start if start
 
+          if @instance.respond_to?(:thread_wait_until_start)
+            @instance.thread_wait_until_start
+          end
+          if @instance.respond_to?(:event_loop_wait_until_start)
+            @instance.event_loop_wait_until_start
+          end
+
           begin
             run_actual(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout, &block)
           ensure
@@ -158,6 +165,14 @@ module Fluent
           @instance.stop            unless @instance.stopped?
           @instance.before_shutdown unless @instance.before_shutdown?
           @instance.shutdown        unless @instance.shutdown?
+
+          if @instance.respond_to?(:event_loop_wait_until_stop)
+            @instance.event_loop_wait_until_stop
+          end
+          if @instance.respond_to?(:thread_wait_until_stop)
+            @instance.thread_wait_until_stop
+          end
+
           @instance.after_shutdown  unless @instance.after_shutdown?
           @instance.close     unless @instance.closed?
           @instance.terminate unless @instance.terminated?
