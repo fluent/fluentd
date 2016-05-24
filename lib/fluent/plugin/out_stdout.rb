@@ -14,28 +14,26 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 
-module Fluent
+module Fluent::Plugin
   class StdoutOutput < Output
-    Plugin.register_output('stdout', self)
+    Fluent::Plugin.register_output('stdout', self)
 
     desc 'Output format.(json,hash)'
     config_param :output_type, default: 'json'
 
     def configure(conf)
       super
-      @formatter = Plugin.new_formatter(@output_type)
+      @formatter = Fluent::Plugin.new_formatter(@output_type, parent: self)
       @formatter.configure(conf)
     end
 
-    def emit(tag, es, chain)
+    def process(tag, es)
       es.each {|time,record|
         $log.write "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
       }
       $log.flush
-
-      chain.next
     end
   end
 end
