@@ -15,6 +15,7 @@
 #
 
 require 'time'
+require 'msgpack'
 
 module Fluent
   class EventTime
