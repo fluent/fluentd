@@ -155,10 +155,10 @@ module Fluent
         end
 
         def instance_shutdown
-          @instance.stop             unless @instance.stopped?
-          @instance.before_shutdown? unless @instance.before_shutdown?
-          @instance.shutdown         unless @instance.shutdown?
-          @instance.after_shutdown?  unless @instance.after_shutdown?
+          @instance.stop            unless @instance.stopped?
+          @instance.before_shutdown unless @instance.before_shutdown?
+          @instance.shutdown        unless @instance.shutdown?
+          @instance.after_shutdown  unless @instance.after_shutdown?
           @instance.close     unless @instance.closed?
           @instance.terminate unless @instance.terminated?
         end
