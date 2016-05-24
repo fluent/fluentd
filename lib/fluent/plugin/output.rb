@@ -64,7 +64,7 @@ module Fluent
 
         config_param :delayed_commit_timeout, :time, default: 60, desc: 'Seconds of timeout for buffer chunks to be committed by plugins later.'
 
-        config_param :overflow_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception, desc: 'The action when the size of buffer exceeds the limit.'
+        config_param :overflow_action, :enum, list: [:throw_exception, :block, :drop_oldest_chunk], default: :throw_exception, desc: 'The action when the size of buffer exceeds the limit.'
 
         config_param :retry_forever, :bool, default: false, desc: 'If true, plugin will ignore retry_timeout and retry_max_times options and retry flushing forever.'
         config_param :retry_timeout, :time, default: 72 * 60 * 60, desc: 'The maximum seconds to retry to flush while failing, until plugin discards buffer chunks.'
@@ -589,7 +589,7 @@ module Fluent
         rescue Fluent::Plugin::Buffer::BufferOverflowError
           log.warn "failed to write data into buffer by buffer overflow"
           case @buffer_config.overflow_action
-          when :exception
+          when :throw_exception
             raise
           when :block
             log.debug "buffer.write is now blocking"

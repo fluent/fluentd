@@ -214,7 +214,13 @@ module Fluent
           }
           PARAMS_MAP.each do |older, newer|
             next unless newer
-            buf_params[newer] = conf[older] if conf.has_key?(older)
+            if conf.has_key?(older)
+              if older == 'buffer_queue_full_action' && conf[older] == 'exception'
+                buf_params[newer] = 'throw_exception'
+              else
+                buf_params[newer] = conf[older]
+              end
+            end
           end
 
           conf.elements << Fluent::Config::Element.new('buffer', '', buf_params, [])
@@ -330,7 +336,13 @@ module Fluent
           }
           PARAMS_MAP.each do |older, newer|
             next unless newer
-            buf_params[newer] = conf[older] if conf.has_key?(older)
+            if conf.has_key?(older)
+              if older == 'buffer_queue_full_action' && conf[older] == 'exception'
+                buf_params[newer] = 'throw_exception'
+              else
+                buf_params[newer] = conf[older]
+              end
+            end
           end
 
           conf.elements << Fluent::Config::Element.new('buffer', 'tag', buf_params, [])
@@ -449,7 +461,13 @@ module Fluent
           }
           PARAMS_MAP.each do |older, newer|
             next unless newer
-            buf_params[newer] = conf[older] if conf.has_key?(older)
+            if conf.has_key?(older)
+              if older == 'buffer_queue_full_action' && conf[older] == 'exception'
+                buf_params[newer] = 'throw_exception'
+              else
+                buf_params[newer] = conf[older]
+              end
+            end
           end
           unless buf_params.has_key?("@type")
             buf_params["@type"] = "file"

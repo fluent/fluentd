@@ -56,7 +56,13 @@ module Fluent
           attr = {}
           PARAMS_MAP.each do |compat, current|
             next unless current
-            attr[current] = conf[compat] if conf.has_key?(compat)
+            if conf.has_key?(compat)
+              if compat == 'buffer_queue_full_action' && conf[compat] == 'exception'
+                attr[current] = 'throw_exception'
+              else
+                attr[current] = conf[compat]
+              end
+            end
           end
           TIME_SLICED_PARAMS.each do |compat, current|
             next unless current
