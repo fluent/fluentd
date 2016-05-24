@@ -40,7 +40,7 @@ module Fluent
       @parent_uri = DRb.uri
     end
 
-    def fork(delegate_object)
+    def fork(forward_interval, delegate_object)
       ipr, ipw = IO.pipe  # child Engine.emit_stream -> parent Engine.emit_stream
       opr, opw = IO.pipe  # parent target.emit -> child target.emit
 
@@ -49,14 +49,14 @@ module Fluent
         # parent process
         ipw.close
         opr.close
-        forward_thread = process_parent(ipr, opw, pid, delegate_object)
+        forward_thread = process_parent(ipr, opw, pid, forward_interval, delegate_object)
         return pid, forward_thread
       end
 
       # child process
       ipr.close
       opw.close
-      forward_thread = process_child(ipw, opr, delegate_object)
+      forward_thread = process_child(ipw, opr, forward_interval, delegate_object)
       return nil, forward_thread
     end
 
@@ -77,14 +77,14 @@ module Fluent
     end
 
     private
-    def process_child(ipw, opr, delegate_object)
+    def process_child(ipw, opr, forward_interval, delegate_object)
       DRb.start_service(create_drb_uri, delegate_object)
       child_uri = DRb.uri
 
       send_header(ipw, child_uri)
 
       # override target.emit_stream to write event stream to the pipe
-      fwd = new_forwarder(ipw, 0.5)  # TODO interval
+      fwd = new_forwarder(ipw, forward_interval)
       Engine.define_singleton_method(:emit_stream) do |tag,es|
         fwd.emit(tag, es)
       end
@@ -115,7 +115,7 @@ module Fluent
       ]
     end
 
-    def process_parent(ipr, opw, pid, delegate_object)
+    def process_parent(ipr, opw, pid, forward_interval, delegate_object)
       child_uri = read_header(ipr)
 
       # read event stream from the pipe and forward to Engine.emit_stream
@@ -127,7 +127,7 @@ module Fluent
 
       # return forwarder for DetachProcessMixin to
       # override target.emit and write event stream to the pipe
-      fwd = new_forwarder(opw, 0.5)  # TODO interval
+      fwd = new_forwarder(opw, forward_interval)
       # note: override emit method on DetachProcessMixin
       forward_thread.define_singleton_method(:forwarder) do
         fwd
@@ -300,11 +300,11 @@ module Fluent
 
     private
 
-    def detach_process_impl(num, &block)
+    def detach_process_impl(num, forward_interval, &block)
       children = []
 
       num.times do |i|
-        pid, forward_thread = DetachProcessManager.instance.fork(self)
+        pid, forward_thread = DetachProcessManager.instance.fork(forward_interval, self)
 
         if pid
           # parent process
@@ -438,11 +438,17 @@ module Fluent
           @detach_process = false
         end
       end
+
+      if forward_interval = conf['detach_process_forward_interval']
+        @forward_interval = Config.time_value(forward_interval)
+      else
+        @forward_interval = 0.5
+      end
     end
 
     def detach_process(&block)
       if @detach_process
-        detach_process_impl(1, &block)
+        detach_process_impl(1, @forward_interval, &block)
       else
         block.call
       end
@@ -480,13 +486,19 @@ module Fluent
           @detach_process = false
         end
       end
+
+      if forward_interval = conf['detach_process_forward_interval']
+        @forward_interval = Config.time_value(forward_interval)
+      else
+        @forward_interval = 0.5
+      end
     end
 
     private
 
     def detach_multi_process(&block)
       if @detach_process
-        detach_process_impl(@detach_process_num, &block)
+        detach_process_impl(@detach_process_num, @forward_interval, &block)
       else
         block.call
       end
