@@ -40,7 +40,7 @@ class BufferedNullOutputTestCase < Test::Unit::TestCase
       end
 
       assert_equal 1, data.size
-      chunk_id, tag, binary = data.first
+      _, tag, binary = data.first
       events = []
       Fluent::MessagePackFactory.unpacker.feed_each(binary){|obj| events << obj }
       assert_equal 'test', tag

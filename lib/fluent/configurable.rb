@@ -132,7 +132,7 @@ module Fluent
       def config_param(name, type = nil, **kwargs, &block)
         configure_proxy(self.name).config_param(name, type, **kwargs, &block)
         # reserved names '@foo' are invalid as attr_accessor name
-        attr_accessor(name) unless Fluent::Config::Element::RESERVED_PARAMETERS.include?(name.to_s)
+        attr_accessor(name) unless kwargs[:skip_accessor] || Fluent::Config::Element::RESERVED_PARAMETERS.include?(name.to_s)
       end
 
       def config_set_default(name, defval)

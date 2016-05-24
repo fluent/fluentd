@@ -33,7 +33,13 @@ module Fluent
 
       def thread_wait_until_start
         until @_threads_mutex.synchronize{ @_threads.values.reduce(true){|r,t| r && t[:_fluentd_plugin_helper_thread_started] } }
-          ::Thread.pass
+          sleep 0.1
+        end
+      end
+
+      def thread_wait_until_stop
+        until @_threads_mutex.synchronize{ @_threads.values.reduce(true){|r,t| r && ![:_fluentd_plugin_helper_thread_running] } }
+          sleep 0.1
         end
       end
 

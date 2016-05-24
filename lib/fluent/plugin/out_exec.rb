@@ -40,7 +40,7 @@ module Fluent::Plugin
     desc 'The format for event time used when the time_key parameter is specified. The default is UNIX time (integer).'
     config_param :time_format, :string, default: nil
     desc "The format used to map the incoming events to the program input. (#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
-    config_param :format, default: :tsv do |val|
+    config_param :format, default: :tsv, skip_accessor: true do |val|
       f = ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported format '#{val}'" unless f
       f

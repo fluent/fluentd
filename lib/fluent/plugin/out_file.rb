@@ -38,7 +38,7 @@ module Fluent
     desc "The Path of the file."
     config_param :path, :string
     desc "The format of the file content. The default is out_file."
-    config_param :format, :string, default: 'out_file'
+    config_param :format, :string, default: 'out_file', skip_accessor: true
     desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, default: false
     desc "Compress flushed file."

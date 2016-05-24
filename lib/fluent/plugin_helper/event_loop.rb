@@ -40,7 +40,11 @@ module Fluent
       end
 
       def event_loop_wait_until_start
-        ::Thread.pass until event_loop_running?
+        sleep(0.1) until event_loop_running?
+      end
+
+      def event_loop_wait_until_stop
+        sleep(0.1) while event_loop_running?
       end
 
       def event_loop_running?
@@ -74,7 +78,7 @@ module Fluent
           @_event_loop.watchers.each {|w| w.detach if w.attached? }
         end
         while @_event_loop_running
-          ::Thread.pass
+          sleep 0.1
         end
 
         super
