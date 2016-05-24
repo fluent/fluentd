@@ -33,17 +33,17 @@ module Fluent
 
       MINIMUM_APPEND_ATTEMPT_RECORDS = 10
 
-      DEFAULT_CHUNK_BYTES_LIMIT =   8 * 1024 * 1024 # 8MB
-      DEFAULT_TOTAL_BYTES_LIMIT = 512 * 1024 * 1024 # 512MB, same with v0.12 (BufferedOutput + buf_memory: 64 x 8MB)
+      DEFAULT_CHUNK_LIMIT_SIZE =   8 * 1024 * 1024 # 8MB
+      DEFAULT_TOTAL_LIMIT_SIZE = 512 * 1024 * 1024 # 512MB, same with v0.12 (BufferedOutput + buf_memory: 64 x 8MB)
 
       DEFAULT_CHUNK_FULL_THRESHOLD = 0.95
 
       configured_in :buffer
 
-      # TODO: system total buffer bytes limit by SystemConfig
+      # TODO: system total buffer limit size in bytes by SystemConfig
 
-      config_param :chunk_bytes_limit, :size, default: DEFAULT_CHUNK_BYTES_LIMIT
-      config_param :total_bytes_limit, :size, default: DEFAULT_TOTAL_BYTES_LIMIT
+      config_param :chunk_limit_size, :size, default: DEFAULT_CHUNK_LIMIT_SIZE
+      config_param :total_limit_size, :size, default: DEFAULT_TOTAL_LIMIT_SIZE
 
       # If user specify this value and (chunk_size * queue_length) is smaller than total_size,
       # then total_size is automatically configured to that value
@@ -64,8 +64,8 @@ module Fluent
       def initialize
         super
 
-        @chunk_bytes_limit = nil
-        @total_bytes_limit = nil
+        @chunk_limit_size = nil
+        @total_limit_size = nil
         @queue_length_limit = nil
         @chunk_records_limit = nil
 
@@ -86,7 +86,7 @@ module Fluent
         super
 
         unless @queue_length_limit.nil?
-          @total_bytes_limit = @chunk_bytes_limit * @queue_length_limit
+          @total_limit_size = @chunk_limit_size * @queue_length_limit
         end
       end
 
@@ -128,7 +128,7 @@ module Fluent
       end
 
       def storable?
-        @total_bytes_limit > @stage_size + @queue_size
+        @total_limit_size > @stage_size + @queue_size
       end
 
       ## TODO: for back pressure feature
@@ -348,11 +348,11 @@ module Fluent
       end
 
       def chunk_size_over?(chunk)
-        chunk.bytesize > @chunk_bytes_limit || (@chunk_records_limit && chunk.size > @chunk_records_limit)
+        chunk.bytesize > @chunk_limit_size || (@chunk_records_limit && chunk.size > @chunk_records_limit)
       end
 
       def chunk_size_full?(chunk)
-        chunk.bytesize >= @chunk_bytes_limit * @chunk_full_threshold || (@chunk_records_limit && chunk.size >= @chunk_records_limit * @chunk_full_threshold)
+        chunk.bytesize >= @chunk_limit_size * @chunk_full_threshold || (@chunk_records_limit && chunk.size >= @chunk_records_limit * @chunk_full_threshold)
       end
 
       class ShouldRetry < StandardError; end

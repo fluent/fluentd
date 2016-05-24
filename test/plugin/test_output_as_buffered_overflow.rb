@@ -62,10 +62,10 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
   sub_test_case 'buffered output with default configuration (throws exception for buffer overflow)' do
     setup do
       hash = {
-        'flush_mode' => 'none',
-        'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
-        'total_bytes_limit' => 4096,
+        'flush_mode' => 'lazy',
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
+        'total_limit_size' => 4096,
       }
       @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',hash)]))
@@ -99,10 +99,10 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
   sub_test_case 'buffered output configured with "overflow_action block"' do
     setup do
       hash = {
-        'flush_mode' => 'none',
-        'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
-        'total_bytes_limit' => 4096,
+        'flush_mode' => 'lazy',
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
+        'total_limit_size' => 4096,
         'overflow_action' => "block",
       }
       @i = create_output()
@@ -160,10 +160,10 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
   sub_test_case 'buffered output configured with "overflow_action drop_oldest_chunk"' do
     setup do
       hash = {
-        'flush_mode' => 'none',
-        'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
-        'total_bytes_limit' => 4096,
+        'flush_mode' => 'lazy',
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
+        'total_limit_size' => 4096,
         'overflow_action' => "drop_oldest_chunk",
       }
       @i = create_output()

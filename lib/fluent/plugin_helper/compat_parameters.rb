@@ -27,14 +27,14 @@ module Fluent
       PARAMS_MAP = {
         "buffer_type" => "@type",
         "buffer_path" => "path",
-        "num_threads"                 => "flush_threads",
+        "num_threads"                 => "flush_thread_count",
         "flush_interval"              => "flush_interval",
         "try_flush_interval"          => "flush_thread_interval",
-        "queued_chunk_flush_interval" => "flush_burst_interval",
+        "queued_chunk_flush_interval" => "flush_thread_burst_interval",
         "disable_retry_limit" => "retry_forever",
         "retry_limit"         => "retry_max_times",
         "max_retry_wait"      => "retry_max_interval",
-        "buffer_chunk_limit"  => "chunk_bytes_limit",
+        "buffer_chunk_limit"  => "chunk_limit_size",
         "buffer_queue_limit"  => "queue_length_limit",
         "buffer_queue_full_action" => "overflow_action",
         "flush_at_shutdown" => "flush_at_shutdown",
@@ -56,7 +56,13 @@ module Fluent
           attr = {}
           PARAMS_MAP.each do |compat, current|
             next unless current
-            attr[current] = conf[compat] if conf.has_key?(compat)
+            if conf.has_key?(compat)
+              if compat == 'buffer_queue_full_action' && conf[compat] == 'exception'
+                attr[current] = 'throw_exception'
+              else
+                attr[current] = conf[compat]
+              end
+            end
           end
           TIME_SLICED_PARAMS.each do |compat, current|
             next unless current
@@ -67,18 +73,18 @@ module Fluent
 
           if conf.has_key?('time_slice_format')
             chunk_key = 'time'
-            attr['timekey_range'] = case conf['time_slice_format']
-                                    when /\%S/ then 1
-                                    when /\%M/ then 60
-                                    when /\%H/ then 3600
-                                    when /\%d/ then 86400
-                                    else
-                                      raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
-                                    end
+            attr['timekey'] = case conf['time_slice_format']
+                              when /\%S/ then 1
+                              when /\%M/ then 60
+                              when /\%H/ then 3600
+                              when /\%d/ then 86400
+                              else
+                                raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
+                              end
           else
             chunk_key = compat_parameters_default_chunk_key
             if chunk_key == 'time'
-              attr['timekey_range'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
+              attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
             end
           end
 

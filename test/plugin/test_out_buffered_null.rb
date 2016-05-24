@@ -6,7 +6,7 @@ class BufferedNullOutputTestCase < Test::Unit::TestCase
   sub_test_case 'BufferedNullOutput' do
     test 'default chunk limit size is 100' do
       d = Fluent::Test::Driver::Output.new(Fluent::Plugin::BufferedNullOutput).configure('')
-      assert_equal 10 * 1024, d.instance.buffer_config.chunk_bytes_limit
+      assert_equal 10 * 1024, d.instance.buffer_config.chunk_limit_size
       assert d.instance.buffer_config.flush_at_shutdown
       assert_equal ['tag'], d.instance.buffer_config.chunk_keys
       assert d.instance.chunk_key_tag

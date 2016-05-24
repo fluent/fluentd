@@ -44,7 +44,7 @@ module Fluent
         config_argument :chunk_keys, :array, value_type: :string, default: []
         config_param :@type, :string, default: 'memory', alias: :type
 
-        config_param :timekey_range, :time, default: nil # range size to be used: `time.to_i / @timekey_range`
+        config_param :timekey, :time, default: nil # range size to be used: `time.to_i / @timekey`
         config_param :timekey_wait, :time, default: 600
         # These are for #extract_placeholders
         config_param :timekey_use_utc, :bool, default: false # default is localtime
@@ -53,18 +53,18 @@ module Fluent
         desc 'If true, plugin will try to flush buffer just before shutdown.'
         config_param :flush_at_shutdown, :bool, default: nil # change default by buffer_plugin.persistent?
 
-        desc 'How to enqueue chunks to be flushed. "fast" flushes per flush_interval, "immediate" flushes just after event arrival.'
-        config_param :flush_mode, :enum, list: [:default, :none, :fast, :immediate], default: :default
+        desc 'How to enqueue chunks to be flushed. "interval" flushes per flush_interval, "immediate" flushes just after event arrival.'
+        config_param :flush_mode, :enum, list: [:default, :lazy, :interval, :immediate], default: :default
         config_param :flush_interval, :time, default: 60, desc: 'The interval between buffer chunk flushes.'
 
-        config_param :flush_threads, :integer, default: 1, desc: 'The number of threads to flush the buffer.'
+        config_param :flush_thread_count, :integer, default: 1, desc: 'The number of threads to flush the buffer.'
 
         config_param :flush_thread_interval, :float, default: 1.0, desc: 'Seconds to sleep between checks for buffer flushes in flush threads.'
-        config_param :flush_burst_interval, :float, default: 1.0, desc: 'Seconds to sleep between flushes when many buffer chunks are queued.'
+        config_param :flush_thread_burst_interval, :float, default: 1.0, desc: 'Seconds to sleep between flushes when many buffer chunks are queued.'
 
         config_param :delayed_commit_timeout, :time, default: 60, desc: 'Seconds of timeout for buffer chunks to be committed by plugins later.'
 
-        config_param :overflow_action, :enum, list: [:exception, :block, :drop_oldest_chunk], default: :exception, desc: 'The action when the size of buffer exceeds the limit.'
+        config_param :overflow_action, :enum, list: [:throw_exception, :block, :drop_oldest_chunk], default: :throw_exception, desc: 'The action when the size of buffer exceeds the limit.'
 
         config_param :retry_forever, :bool, default: false, desc: 'If true, plugin will ignore retry_timeout and retry_max_times options and retry flushing forever.'
         config_param :retry_timeout, :time, default: 72 * 60 * 60, desc: 'The maximum seconds to retry to flush while failing, until plugin discards buffer chunks.'
@@ -79,11 +79,11 @@ module Fluent
         ### Periodic -> fixed :retry_wait
         ### Exponencial backoff: k is number of retry times
         # c: constant factor, @retry_wait
-        # b: base factor, @retry_backoff_base
+        # b: base factor, @retry_exponential_backoff_base
         # k: times
         # total retry time: c + c * b^1 + (...) + c*b^k = c*b^(k+1) - 1
         config_param :retry_wait, :time, default: 1, desc: 'Seconds to wait before next retry to flush, or constant factor of exponential backoff.'
-        config_param :retry_backoff_base, :float, default: 2, desc: 'The base number of exponencial backoff for retries.'
+        config_param :retry_exponential_backoff_base, :float, default: 2, desc: 'The base number of exponencial backoff for retries.'
         config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponencial backoff between retries while failing.'
 
         config_param :retry_randomize, :bool, default: true, desc: 'If true, output plugin will retry after randomized interval not to do burst retries.'
@@ -247,7 +247,7 @@ module Fluent
           end
 
           if @chunk_key_time
-            raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey_range is not configured" unless @buffer_config.timekey_range
+            raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey is not configured" unless @buffer_config.timekey
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @buffer_config.timekey_zone = '+0000' if @buffer_config.timekey_use_utc
             @output_time_formatter_cache = {}
@@ -258,7 +258,7 @@ module Fluent
 
           @flush_mode = @buffer_config.flush_mode
           if @flush_mode == :default
-            @flush_mode = (@chunk_key_time ? :none : :fast)
+            @flush_mode = (@chunk_key_time ? :lazy : :interval)
           end
 
           buffer_type = @buffer_config[:@type]
@@ -353,7 +353,7 @@ module Fluent
           @dequeued_chunks = []
           @dequeued_chunks_mutex = Mutex.new
 
-          @buffer_config.flush_threads.times do |i|
+          @buffer_config.flush_thread_count.times do |i|
             thread_title = "flush_thread_#{i}".to_sym
             thread_state = FlushThreadState.new(nil, nil)
             thread = thread_create(thread_title) do
@@ -367,7 +367,7 @@ module Fluent
           @output_flush_thread_current_position = 0
 
           unless @in_tests
-            if @flush_mode == :fast || @chunk_key_time
+            if @flush_mode == :interval || @chunk_key_time
               thread_create(:enqueue_thread, &method(:enqueue_thread_run))
             end
           end
@@ -551,23 +551,20 @@ module Fluent
           if !@chunk_key_time && !@chunk_key_tag
             @buffer.metadata()
           elsif @chunk_key_time && @chunk_key_tag
-            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
-            timekey = (time_int - (time_int % timekey_range)).to_i
+            timekey = (time_int - (time_int % @buffer_config.timekey)).to_i
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
-            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
-            timekey = (time_int - (time_int % timekey_range)).to_i
+            timekey = (time_int - (time_int % @buffer_config.timekey)).to_i
             @buffer.metadata(timekey: timekey)
           else
             @buffer.metadata(tag: tag)
           end
         else
-          timekey_range = @buffer_config.timekey_range
           timekey = if @chunk_key_time
                       time_int = time.to_i
-                      (time_int - (time_int % timekey_range)).to_i
+                      (time_int - (time_int % @buffer_config.timekey)).to_i
                     else
                       nil
                     end
@@ -592,7 +589,7 @@ module Fluent
         rescue Fluent::Plugin::Buffer::BufferOverflowError
           log.warn "failed to write data into buffer by buffer overflow"
           case @buffer_config.overflow_action
-          when :exception
+          when :throw_exception
             raise
           when :block
             log.debug "buffer.write is now blocking"
@@ -745,7 +742,7 @@ module Fluent
       def next_flush_time
         if @buffer.queued?
           @retry_mutex.synchronize do
-            @retry ? @retry.next_time : Time.now + @buffer_config.flush_burst_interval
+            @retry ? @retry.next_time : Time.now + @buffer_config.flush_thread_burst_interval
           end
         else
           Time.now + @buffer_config.flush_thread_interval
@@ -819,7 +816,7 @@ module Fluent
         if @secondary
           retry_state_create(
             :output_retries, @buffer_config.retry_type, @buffer_config.retry_wait, @buffer_config.retry_timeout,
-            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_backoff_base,
+            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_exponential_backoff_base,
             max_interval: @buffer_config.retry_max_interval,
             secondary: true, secondary_threshold: @buffer_config.retry_secondary_threshold,
             randomize: randomize
@@ -827,7 +824,7 @@ module Fluent
         else
           retry_state_create(
             :output_retries, @buffer_config.retry_type, @buffer_config.retry_wait, @buffer_config.retry_timeout,
-            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_backoff_base,
+            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_exponential_backoff_base,
             max_interval: @buffer_config.retry_max_interval,
             randomize: randomize
           )
@@ -836,7 +833,7 @@ module Fluent
 
       def submit_flush_once
         # Without locks: it is rough but enough to select "next" writer selection
-        @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_threads
+        @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
         state.next_time = 0
         state.thread.run
@@ -852,7 +849,7 @@ module Fluent
       def submit_flush_all
         while !@retry && @buffer.queued?
           submit_flush_once
-          sleep @buffer_config.flush_burst_interval
+          sleep @buffer_config.flush_thread_burst_interval
         end
       end
 
@@ -883,12 +880,12 @@ module Fluent
 
       def enqueue_thread_run
         value_for_interval = nil
-        if @flush_mode == :fast
+        if @flush_mode == :interval
           value_for_interval = @buffer_config.flush_interval
         end
         if @chunk_key_time
-          if !value_for_interval || @buffer_config.timekey_range < value_for_interval
-            value_for_interval = @buffer_config.timekey_range
+          if !value_for_interval || @buffer_config.timekey < value_for_interval
+            value_for_interval = @buffer_config.timekey
           end
         end
         unless value_for_interval
@@ -909,7 +906,7 @@ module Fluent
 
             @output_enqueue_thread_mutex.lock
             begin
-              if @flush_mode == :fast
+              if @flush_mode == :interval
                 flush_interval = @buffer_config.flush_interval.to_i
                 # This block should be done by integer values.
                 # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
@@ -918,10 +915,10 @@ module Fluent
               end
 
               if @chunk_key_time
-                timekey_range = @buffer_config.timekey_range
+                timekey_unit = @buffer_config.timekey
                 timekey_wait = @buffer_config.timekey_wait
-                current_time_range = now_int - now_int % timekey_range
-                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_time_range && metadata.timekey + timekey_range + timekey_wait <= now_int }
+                current_timekey = now_int - now_int % timekey_unit
+                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_timekey && metadata.timekey + timekey_unit + timekey_wait <= now_int }
               end
             rescue => e
               log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e
@@ -954,7 +951,7 @@ module Fluent
 
             if state.next_time <= time
               try_flush
-              # next_flush_interval uses flush_thread_interval or flush_burst_interval (or retrying)
+              # next_flush_interval uses flush_thread_interval or flush_thread_burst_interval (or retrying)
               interval = next_flush_time.to_f - Time.now.to_f
               # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected (because @retry still exists)
               #   @retry should be cleard if delayed commit is enabled? Or any other solution?

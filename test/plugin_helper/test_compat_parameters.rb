@@ -73,11 +73,11 @@ class CompatParameterTest < Test::Unit::TestCase
 
       assert_equal 'memory', @i.buffer_config[:@type]
       assert_equal [], @i.buffer_config.chunk_keys
-      assert_equal 8, @i.buffer_config.flush_threads
+      assert_equal 8, @i.buffer_config.flush_thread_count
       assert_equal 10, @i.buffer_config.flush_interval
       assert @i.buffer_config.flush_at_shutdown
 
-      assert_equal 8*1024*1024, @i.buffer.chunk_bytes_limit
+      assert_equal 8*1024*1024, @i.buffer.chunk_limit_size
       assert_equal 1024, @i.buffer.queue_length_limit
     end
   end
@@ -100,7 +100,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
-      assert_equal 24*60*60, @i.buffer_config.timekey_range
+      assert_equal 24*60*60, @i.buffer_config.timekey
       assert @i.buffer_config.retry_forever
       assert_equal 60*60, @i.buffer_config.retry_max_interval
       assert_equal :block, @i.buffer_config.overflow_action
@@ -131,7 +131,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
-      assert_equal 60*60, @i.buffer_config.timekey_range
+      assert_equal 60*60, @i.buffer_config.timekey
       assert_equal 10, @i.buffer_config.timekey_wait
       assert_equal 1024, @i.buffer_config.retry_max_times
       assert_equal :drop_oldest_chunk, @i.buffer_config.overflow_action
@@ -162,10 +162,10 @@ class CompatParameterTest < Test::Unit::TestCase
       @i.configure(conf)
 
       assert_equal 'memory', @i.buffer_config[:@type]
-      assert_equal 10, @i.buffer_config.flush_threads
+      assert_equal 10, @i.buffer_config.flush_thread_count
       assert_equal 10, @i.buffer_config.flush_interval
       assert_equal 0.1, @i.buffer_config.flush_thread_interval
-      assert_equal 0.5, @i.buffer_config.flush_burst_interval
+      assert_equal 0.5, @i.buffer_config.flush_thread_burst_interval
 
       assert !@i.chunk_key_time
       assert @i.chunk_key_tag

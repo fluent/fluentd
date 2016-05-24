@@ -64,8 +64,8 @@ module Fluent
         @_time_slice_format = format
       end
 
-      def timekey_range=(range)
-        @_timekey_range = range
+      def timekey=(unit)
+        @_timekey = unit
       end
 
       def timezone=(tz)
@@ -87,7 +87,7 @@ module Fluent
           # file creation time is assumed in the time range of that time slice
           # because the first record should be in that range.
           time_int = self.created_at.to_i
-          self.metadata.timekey = time_int - (time_int % @_timekey_range)
+          self.metadata.timekey = time_int - (time_int % @_timekey)
         end
       end
 
@@ -116,7 +116,7 @@ module Fluent
         chunk.extend(ChunkSizeCompatMixin)
         chunk.extend(AddTimeSliceKeyToChunkMixin)
         chunk.time_slice_format = @time_slice_format
-        chunk.timekey_range = @_timekey_range
+        chunk.timekey = @_timekey
         chunk.timezone = @timezone
         chunk.assume_timekey!
         super
@@ -209,12 +209,18 @@ module Fluent
         config_style = (bufconf ? :v1 : :v0)
         if config_style == :v0
           buf_params = {
-            "flush_mode" => "fast",
+            "flush_mode" => "interval",
             "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
             next unless newer
-            buf_params[newer] = conf[older] if conf.has_key?(older)
+            if conf.has_key?(older)
+              if older == 'buffer_queue_full_action' && conf[older] == 'exception'
+                buf_params[newer] = 'throw_exception'
+              else
+                buf_params[newer] = conf[older]
+              end
+            end
           end
 
           conf.elements << Fluent::Config::Element.new('buffer', '', buf_params, [])
@@ -325,12 +331,18 @@ module Fluent
         config_style = (bufconf ? :v1 : :v0)
         if config_style == :v0
           buf_params = {
-            "flush_mode" => "fast",
+            "flush_mode" => "interval",
             "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
             next unless newer
-            buf_params[newer] = conf[older] if conf.has_key?(older)
+            if conf.has_key?(older)
+              if older == 'buffer_queue_full_action' && conf[older] == 'exception'
+                buf_params[newer] = 'throw_exception'
+              else
+                buf_params[newer] = conf[older]
+              end
+            end
           end
 
           conf.elements << Fluent::Config::Element.new('buffer', 'tag', buf_params, [])
@@ -444,12 +456,18 @@ module Fluent
         if config_style == :v0
           buf_params = {
             "@type"      => "file",
-            "flush_mode" => (conf['flush_interval'] ? "fast" : "none"),
+            "flush_mode" => (conf['flush_interval'] ? "interval" : "lazy"),
             "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
             next unless newer
-            buf_params[newer] = conf[older] if conf.has_key?(older)
+            if conf.has_key?(older)
+              if older == 'buffer_queue_full_action' && conf[older] == 'exception'
+                buf_params[newer] = 'throw_exception'
+              else
+                buf_params[newer] = conf[older]
+              end
+            end
           end
           unless buf_params.has_key?("@type")
             buf_params["@type"] = "file"
@@ -469,16 +487,16 @@ module Fluent
             @localtime = false
           end
 
-          @_timekey_range = case conf['time_slice_format']
-                            when /\%S/ then 1
-                            when /\%M/ then 60
-                            when /\%H/ then 3600
-                            when /\%d/ then 86400
-                            when nil   then 86400 # default value of TimeSlicedOutput.time_slice_format is '%Y%m%d'
-                            else
-                              raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
-                            end
-          buf_params["timekey_range"] = @_timekey_range
+          @_timekey = case conf['time_slice_format']
+                      when /\%S/ then 1
+                      when /\%M/ then 60
+                      when /\%H/ then 3600
+                      when /\%d/ then 86400
+                      when nil   then 86400 # default value of TimeSlicedOutput.time_slice_format is '%Y%m%d'
+                      else
+                        raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
+                      end
+          buf_params["timekey"] = @_timekey
 
           conf.elements << Fluent::Config::Element.new('buffer', 'time', buf_params, [])
         end

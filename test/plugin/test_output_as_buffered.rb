@@ -125,13 +125,13 @@ class BufferedOutputTest < Test::Unit::TestCase
     Timecop.return
   end
 
-  sub_test_case 'buffered output feature without any buffer key, flush_mode: none' do
+  sub_test_case 'buffered output feature without any buffer key, flush_mode: lazy' do
     setup do
       hash = {
-        'flush_mode' => 'none',
-        'flush_burst_interval' => 0.01,
-        'flush_threads' => 2,
-        'chunk_bytes_limit' => 1024,
+        'flush_mode' => 'lazy',
+        'flush_thread_burst_interval' => 0.01,
+        'flush_thread_count' => 2,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
@@ -226,14 +226,14 @@ class BufferedOutputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'buffered output feature without any buffer key, flush_mode: fast' do
+  sub_test_case 'buffered output feature without any buffer key, flush_mode: interval' do
     setup do
       hash = {
-        'flush_mode' => 'fast',
+        'flush_mode' => 'interval',
         'flush_interval' => 1,
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
@@ -340,9 +340,9 @@ class BufferedOutputTest < Test::Unit::TestCase
     setup do
       hash = {
         'flush_mode' => 'immediate',
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.01,
-        'chunk_bytes_limit' => 1024,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
@@ -432,25 +432,25 @@ class BufferedOutputTest < Test::Unit::TestCase
     setup do
       chunk_key = 'time'
       hash = {
-        'timekey_range' => 30, # per 30seconds
+        'timekey' => 30, # per 30seconds
         'timekey_wait' => 5, # 5 second delay for flush
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.01,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.01,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
     end
 
-    test '#configure raises config error if timekey_range is not specified' do
+    test '#configure raises config error if timekey is not specified' do
       i = create_output(:buffered)
       assert_raise Fluent::ConfigError do
         i.configure(config_element('ROOT','',{},[config_element('buffer','time',)]))
       end
     end
 
-    test 'default flush_mode is set to :none' do
-      assert_equal :none, @i.instance_eval{ @flush_mode }
+    test 'default flush_mode is set to :lazy' do
+      assert_equal :lazy, @i.instance_eval{ @flush_mode }
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -648,17 +648,17 @@ class BufferedOutputTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 10,
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.1,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
     end
 
-    test 'default flush_mode is set to :fast' do
-      assert_equal :fast, @i.instance_eval{ @flush_mode }
+    test 'default flush_mode is set to :interval' do
+      assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -755,7 +755,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.buffer.stage.size == 2 }
 
-      # to trigger try_flush with flush_burst_interval
+      # to trigger try_flush with flush_thread_burst_interval
       Timecop.freeze( Time.parse('2016-04-13 14:04:11 +0900') )
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:15 +0900') )
@@ -864,17 +864,17 @@ class BufferedOutputTest < Test::Unit::TestCase
       chunk_key = 'name,service'
       hash = {
         'flush_interval' => 10,
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.1,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
     end
 
-    test 'default flush_mode is set to :fast' do
-      assert_equal :fast, @i.instance_eval{ @flush_mode }
+    test 'default flush_mode is set to :interval' do
+      assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -966,7 +966,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.buffer.stage.size == 3 }
 
-      # to trigger try_flush with flush_burst_interval
+      # to trigger try_flush with flush_thread_burst_interval
       Timecop.freeze( Time.parse('2016-04-13 14:04:11 +0900') )
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:12 +0900') )
@@ -1072,35 +1072,35 @@ class BufferedOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'buffered output feature with many keys' do
-    test 'default flush mode is set to :fast if keys does not include time' do
+    test 'default flush mode is set to :interval if keys does not include time' do
       chunk_key = 'name,service,tag'
       hash = {
         'flush_interval' => 10,
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.1,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
 
-      assert_equal :fast, @i.instance_eval{ @flush_mode }
+      assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
 
-    test 'default flush mode is set to :none if keys includes time' do
+    test 'default flush mode is set to :lazy if keys includes time' do
       chunk_key = 'name,service,tag,time'
       hash = {
-        'timekey_range' => 60,
+        'timekey' => 60,
         'flush_interval' => 10,
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.1,
-        'chunk_bytes_limit' => 1024,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.1,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
 
-      assert_equal :none, @i.instance_eval{ @flush_mode }
+      assert_equal :lazy, @i.instance_eval{ @flush_mode }
     end
   end
 
@@ -1109,10 +1109,10 @@ class BufferedOutputTest < Test::Unit::TestCase
       chunk_key = 'tag'
       hash = {
         'flush_interval' => 10,
-        'flush_threads' => 1,
-        'flush_burst_interval' => 0.1,
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.1,
         'delayed_commit_timeout' => 30,
-        'chunk_bytes_limit' => 1024,
+        'chunk_limit_size' => 1024,
       }
       @i = create_output(:delayed)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
@@ -1212,7 +1212,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.buffer.stage.size == 2 }
 
-      # to trigger try_flush with flush_burst_interval
+      # to trigger try_flush with flush_thread_burst_interval
       Timecop.freeze( Time.parse('2016-04-13 14:04:11 +0900') )
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:12 +0900') )
@@ -1331,7 +1331,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.buffer.stage.size == 2 }
 
-      # to trigger try_flush with flush_burst_interval
+      # to trigger try_flush with flush_thread_burst_interval
       Timecop.freeze( Time.parse('2016-04-13 14:04:11 +0900') )
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:12 +0900') )
@@ -1491,7 +1491,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ @i.buffer.stage.size == 2 }
 
-      # to trigger try_flush with flush_burst_interval
+      # to trigger try_flush with flush_thread_burst_interval
       Timecop.freeze( Time.parse('2016-04-13 14:04:11 +0900') )
       @i.enqueue_thread_wait
       Timecop.freeze( Time.parse('2016-04-13 14:04:12 +0900') )

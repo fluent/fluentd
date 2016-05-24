@@ -214,7 +214,7 @@ class OutputTest < Test::Unit::TestCase
     end
 
     test '#extract_placeholders can extract time if time key and range are configured' do
-      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey_range' => 60*30, 'timekey_zone' => "+0900"})]))
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
       assert !@i.chunk_key_tag
       assert_equal [], @i.chunk_keys
@@ -250,7 +250,7 @@ class OutputTest < Test::Unit::TestCase
     end
 
     test '#extract_placeholders can extract all chunk keys if configured' do
-      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey_range' => 60*30, 'timekey_zone' => "+0900"})]))
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
       assert @i.chunk_key_tag
       assert_equal ['key1','key2'], @i.chunk_keys
@@ -262,7 +262,7 @@ class OutputTest < Test::Unit::TestCase
     end
 
     test '#extract_placeholders removes out-of-range tag part and unknown variable placeholders' do
-      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey_range' => 60*30, 'timekey_zone' => "+0900"})]))
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
       assert @i.chunk_key_tag
       assert_equal ['key1','key2'], @i.chunk_keys
@@ -288,7 +288,7 @@ class OutputTest < Test::Unit::TestCase
       assert_equal create_metadata(tag: tag), i2.metadata(tag, time, record)
 
       i3 = create_output(:buffered)
-      i3.configure(config_element('ROOT','',{},[config_element('buffer', 'time', {"timekey_range" => 3600, "timekey_zone" => "-0700"})]))
+      i3.configure(config_element('ROOT','',{},[config_element('buffer', 'time', {"timekey" => 3600, "timekey_zone" => "-0700"})]))
       assert_equal create_metadata(timekey: timekey), i3.metadata(tag, time, record)
 
       i4 = create_output(:buffered)
@@ -300,15 +300,15 @@ class OutputTest < Test::Unit::TestCase
       assert_equal create_metadata(variables: {key1: "value1", num1: 1}), i5.metadata(tag, time, record)
 
       i6 = create_output(:buffered)
-      i6.configure(config_element('ROOT','',{},[config_element('buffer', 'tag,time', {"timekey_range" => 3600, "timekey_zone" => "-0700"})]))
+      i6.configure(config_element('ROOT','',{},[config_element('buffer', 'tag,time', {"timekey" => 3600, "timekey_zone" => "-0700"})]))
       assert_equal create_metadata(timekey: timekey, tag: tag), i6.metadata(tag, time, record)
 
       i7 = create_output(:buffered)
-      i7.configure(config_element('ROOT','',{},[config_element('buffer', 'tag,num1', {"timekey_range" => 3600, "timekey_zone" => "-0700"})]))
+      i7.configure(config_element('ROOT','',{},[config_element('buffer', 'tag,num1', {"timekey" => 3600, "timekey_zone" => "-0700"})]))
       assert_equal create_metadata(tag: tag, variables: {num1: 1}), i7.metadata(tag, time, record)
 
       i8 = create_output(:buffered)
-      i8.configure(config_element('ROOT','',{},[config_element('buffer', 'time,tag,key1', {"timekey_range" => 3600, "timekey_zone" => "-0700"})]))
+      i8.configure(config_element('ROOT','',{},[config_element('buffer', 'time,tag,key1', {"timekey" => 3600, "timekey_zone" => "-0700"})]))
       assert_equal create_metadata(timekey: timekey, tag: tag, variables: {key1: "value1"}), i8.metadata(tag, time, record)
     end
 
