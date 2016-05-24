@@ -440,7 +440,7 @@ module Fluent
       end
 
       if forward_interval = conf['detach_process_forward_interval']
-        @forward_interval = forward_interval.to_f
+        @forward_interval = Config.time_value(forward_interval)
       else
         @forward_interval = 0.5
       end
@@ -488,7 +488,7 @@ module Fluent
       end
 
       if forward_interval = conf['detach_process_forward_interval']
-        @forward_interval = forward_interval.to_f
+        @forward_interval = Config.time_value(forward_interval)
       else
         @forward_interval = 0.5
       end
