@@ -130,7 +130,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
 
       assert_equal :exponential_backoff, @i.buffer_config.retry_type
       assert_equal 1, @i.buffer_config.retry_wait
-      assert_equal 2.0, @i.buffer_config.retry_backoff_base
+      assert_equal 2.0, @i.buffer_config.retry_exponential_backoff_base
       assert !@i.buffer_config.retry_randomize
 
       now = Time.parse('2016-04-13 18:17:00 -0700')

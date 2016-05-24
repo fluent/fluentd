@@ -79,11 +79,11 @@ module Fluent
         ### Periodic -> fixed :retry_wait
         ### Exponencial backoff: k is number of retry times
         # c: constant factor, @retry_wait
-        # b: base factor, @retry_backoff_base
+        # b: base factor, @retry_exponential_backoff_base
         # k: times
         # total retry time: c + c * b^1 + (...) + c*b^k = c*b^(k+1) - 1
         config_param :retry_wait, :time, default: 1, desc: 'Seconds to wait before next retry to flush, or constant factor of exponential backoff.'
-        config_param :retry_backoff_base, :float, default: 2, desc: 'The base number of exponencial backoff for retries.'
+        config_param :retry_exponential_backoff_base, :float, default: 2, desc: 'The base number of exponencial backoff for retries.'
         config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponencial backoff between retries while failing.'
 
         config_param :retry_randomize, :bool, default: true, desc: 'If true, output plugin will retry after randomized interval not to do burst retries.'
@@ -816,7 +816,7 @@ module Fluent
         if @secondary
           retry_state_create(
             :output_retries, @buffer_config.retry_type, @buffer_config.retry_wait, @buffer_config.retry_timeout,
-            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_backoff_base,
+            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_exponential_backoff_base,
             max_interval: @buffer_config.retry_max_interval,
             secondary: true, secondary_threshold: @buffer_config.retry_secondary_threshold,
             randomize: randomize
@@ -824,7 +824,7 @@ module Fluent
         else
           retry_state_create(
             :output_retries, @buffer_config.retry_type, @buffer_config.retry_wait, @buffer_config.retry_timeout,
-            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_backoff_base,
+            forever: @buffer_config.retry_forever, max_steps: @buffer_config.retry_max_times, backoff_base: @buffer_config.retry_exponential_backoff_base,
             max_interval: @buffer_config.retry_max_interval,
             randomize: randomize
           )
