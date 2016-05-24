@@ -16,18 +16,16 @@
 
 require 'tempfile'
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 require 'fluent/config/error'
 require 'fluent/plugin/exec_util'
+require 'fluent/mixin' # for TimeFormatter
 
-module Fluent
-  class ExecOutput < TimeSlicedOutput
-    Plugin.register_output('exec', self)
+module Fluent::Plugin
+  class ExecOutput < Output
+    Fluent::Plugin.register_output('exec', self)
 
-    def initialize
-      super
-      @localtime = false
-    end
+    helpers :compat_parameters
 
     desc 'The command (program) to execute. The exec plugin passes the path of a TSV file as the last argumen'
     config_param :command, :string
@@ -47,6 +45,12 @@ module Fluent
       raise ConfigError, "Unsupported format '#{val}'" unless f
       f
     end
+    config_param :localtime, :bool, default: false
+    config_param :timezone, :string, default: nil
+
+    def compat_parameters_default_chunk_key
+      'time'
+    end
 
     def configure(conf)
       super
@@ -54,7 +58,7 @@ module Fluent
       @formatter = case @format
                    when :tsv
                      if @keys.empty?
-                       raise ConfigError, "keys option is required on exec output for tsv format"
+                       raise Fluent::ConfigError, "keys option is required on exec output for tsv format"
                      end
                      ExecUtil::TSVFormatter.new(@keys)
                    when :json
@@ -65,7 +69,7 @@ module Fluent
 
       if @time_key
         if @time_format
-          tf = TimeFormatter.new(@time_format, @localtime, @timezone)
+          tf = Fluent::TimeFormatter.new(@time_format, @localtime, @timezone)
           @time_format_proc = tf.method(:format)
         else
           @time_format_proc = Proc.new { |time| time.to_s }
