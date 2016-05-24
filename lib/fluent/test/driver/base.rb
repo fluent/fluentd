@@ -169,12 +169,14 @@ module Fluent
           if @instance.respond_to?(:event_loop_wait_until_stop)
             @instance.event_loop_wait_until_stop
           end
+
+          @instance.after_shutdown  unless @instance.after_shutdown?
+          @instance.close     unless @instance.closed?
+
           if @instance.respond_to?(:thread_wait_until_stop)
             @instance.thread_wait_until_stop
           end
 
-          @instance.after_shutdown  unless @instance.after_shutdown?
-          @instance.close     unless @instance.closed?
           @instance.terminate unless @instance.terminated?
         end
 
