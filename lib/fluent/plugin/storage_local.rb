@@ -27,10 +27,14 @@ module Fluent
 
         @on_memory = false
         if !@path && !@_plugin_id_configured
-          if @autosave || @persistent
+          if @persistent
             raise Fluent::ConfigError, "Plugin @id or path for <storage> required to save data"
           else
-            log.info "both of Plugin @id and path for <storage> are not specified. Using on-memory store."
+            if @autosave
+              log.warn "both of Plugin @id and path for <storage> are not specified. Using on-memory store."
+            else
+              log.info "both of Plugin @id and path for <storage> are not specified. Using on-memory store."
+            end
             @on_memory = true
           end
         elsif @path
