@@ -46,6 +46,7 @@ require 'fluent/plugin/base'
 require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
+require 'fluent/msgpack_factory'
 require 'fluent/time'
 require 'serverengine'
 
@@ -78,6 +79,19 @@ def event_time(str=nil)
   end
 end
 
+def msgpack(type)
+  case type
+  when :factory
+    Fluent::MessagePackFactory.factory
+  when :packer
+    Fluent::MessagePackFactory.packer
+  when :unpacker
+    Fluent::MessagePackFactory.unpacker
+  else
+    raise ArgumentError, "unknown msgpack object type '#{type}'"
+  end
+end
+
 def unused_port(num = 1)
   ports = []
   sockets = []
@@ -91,6 +105,21 @@ def unused_port(num = 1)
     return ports.first
   else
     return *ports
+  end
+end
+
+def waiting(seconds, logs: nil, plugin: nil)
+  begin
+    Timeout.timeout(seconds) do
+      yield
+    end
+  rescue Timeout::Error
+    if logs
+      STDERR.print(*logs)
+    elsif plugin
+      STDERR.print(*plugin.log.out.logs)
+    end
+    raise
   end
 end
 
