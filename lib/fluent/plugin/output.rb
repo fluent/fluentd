@@ -141,7 +141,10 @@ module Fluent
 
       # for tests
       attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_time, :chunk_key_tag
-      attr_accessor :output_enqueue_thread_waiting
+      attr_accessor :output_enqueue_thread_waiting, :in_tests
+
+      # output_enqueue_thread_waiting: for test of output.rb itself
+      # in_tests: for tests of plugins with test drivers
 
       def initialize
         super
@@ -149,6 +152,7 @@ module Fluent
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
+        @in_tests = false
         @primary_instance = nil
 
         # TODO: well organized counters
@@ -172,6 +176,10 @@ module Fluent
 
         @buffer = nil
         @secondary = nil
+        @retry = nil
+        @dequeued_chunks = nil
+        @output_flush_threads = nil
+
         @simple_chunking = nil
         @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
         @flush_mode = nil
@@ -231,7 +239,7 @@ module Fluent
         if (@buffering || @buffering.nil?) && !@as_secondary
           # When @buffering.nil?, @buffer_config was initialized with default value for all parameters.
           # If so, this configuration MUST success.
-          @chunk_keys = @buffer_config.chunk_keys
+          @chunk_keys = @buffer_config.chunk_keys.dup
           @chunk_key_time = !!@chunk_keys.delete('time')
           @chunk_key_tag = !!@chunk_keys.delete('tag')
           if @chunk_keys.any?{ |key| key !~ CHUNK_KEY_PATTERN }
@@ -358,8 +366,10 @@ module Fluent
           end
           @output_flush_thread_current_position = 0
 
-          if @flush_mode == :fast || @chunk_key_time
-            thread_create(:enqueue_thread, &method(:enqueue_thread_run))
+          unless @in_tests
+            if @flush_mode == :fast || @chunk_key_time
+              thread_create(:enqueue_thread, &method(:enqueue_thread_run))
+            end
           end
         end
         @secondary.start if @secondary

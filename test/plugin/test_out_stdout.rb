@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/plugin/out_stdout'
 
 class StdoutOutputTest < Test::Unit::TestCase
@@ -11,7 +11,7 @@ class StdoutOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf = CONFIG)
-    Fluent::Test::OutputTestDriver.new(Fluent::StdoutOutput).configure(conf)
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::StdoutOutput).configure(conf)
   end
 
   def test_configure
@@ -34,28 +34,36 @@ class StdoutOutputTest < Test::Unit::TestCase
   data('oj' => 'oj', 'yajl' => 'yajl')
   def test_emit_json(data)
     d = create_driver(CONFIG + "\noutput_type json\njson_parser #{data}")
-    time = Time.now
-    out = capture_log { d.emit({'test' => 'test'}, Fluent::EventTime.from_time(time)) }
-    assert_equal "#{time.localtime} test: {\"test\":\"test\"}\n", out
+    time = event_time()
+    out = capture_log do
+      d.run(default_tag: 'test') do
+        d.feed(time, {'test' => 'test'})
+      end
+    end
+    assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
 
     if data == 'yajl'
       # NOTE: Float::NAN is not jsonable
-      assert_raise(Yajl::EncodeError) { d.emit({'test' => Float::NAN}, time) }
+      assert_raise(Yajl::EncodeError) { d.feed('test', time, {'test' => Float::NAN}) }
     else
-      out = capture_log { d.emit({'test' => Float::NAN}, Fluent::EventTime.from_time(time)) }
-      assert_equal "#{time.localtime} test: {\"test\":NaN}\n", out
+      out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
+      assert_equal "#{Time.at(time).localtime} test: {\"test\":NaN}\n", out
     end
   end
 
   def test_emit_hash
     d = create_driver(CONFIG + "\noutput_type hash")
-    time = Time.now
-    out = capture_log { d.emit({'test' => 'test'}, time) }
-    assert_equal "#{time.localtime} test: {\"test\"=>\"test\"}\n", out
+    time = event_time()
+    out = capture_log do
+      d.run(default_tag: 'test') do
+        d.feed(time, {'test' => 'test'})
+      end
+    end
+    assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test\"}\n", out
 
     # NOTE: Float::NAN is not jsonable, but hash string can output it.
-    out = capture_log { d.emit({'test' => Float::NAN}, Fluent::EventTime.from_time(time)) }
-    assert_equal "#{time.localtime} test: {\"test\"=>NaN}\n", out
+    out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
+    assert_equal "#{Time.at(time).localtime} test: {\"test\"=>NaN}\n", out
   end
 
   private

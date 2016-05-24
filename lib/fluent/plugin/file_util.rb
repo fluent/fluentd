@@ -15,38 +15,43 @@
 #
 
 module Fluent
-  module FileUtil
-    # Check file is writable if file exists
-    # Check directory is writable if file does not exist
-    #
-    # @param [String] path File path
-    # @return [Boolean] file is writable or not
-    def writable?(path)
-      return false if File.directory?(path)
-      return File.writable?(path) if File.exist?(path)
+  module Plugin
+    module FileUtil
+      # Check file is writable if file exists
+      # Check directory is writable if file does not exist
+      #
+      # @param [String] path File path
+      # @return [Boolean] file is writable or not
+      def writable?(path)
+        return false if File.directory?(path)
+        return File.writable?(path) if File.exist?(path)
 
-      dirname = File.dirname(path)
-      return false if !File.directory?(dirname)
-      File.writable?(dirname)
-    end
-    module_function :writable?
-
-    # Check file is writable in conjunction wtih mkdir_p(dirname(path))
-    #
-    # @param [String] path File path
-    # @return [Boolean] file writable or not
-    def writable_p?(path)
-      return false if File.directory?(path)
-      return File.writable?(path) if File.exist?(path)
-
-      dirname = File.dirname(path)
-      until File.exist?(dirname)
-        dirname = File.dirname(dirname)
+        dirname = File.dirname(path)
+        return false if !File.directory?(dirname)
+        File.writable?(dirname)
       end
+      module_function :writable?
 
-      return false if !File.directory?(dirname)
-      File.writable?(dirname)
+      # Check file is writable in conjunction wtih mkdir_p(dirname(path))
+      #
+      # @param [String] path File path
+      # @return [Boolean] file writable or not
+      def writable_p?(path)
+        return false if File.directory?(path)
+        return File.writable?(path) if File.exist?(path)
+
+        dirname = File.dirname(path)
+        until File.exist?(dirname)
+          dirname = File.dirname(dirname)
+        end
+
+        return false if !File.directory?(dirname)
+        File.writable?(dirname)
+      end
+      module_function :writable_p?
     end
-    module_function :writable_p?
   end
+
+  # obsolete
+  FileUtil = Fluent::Plugin::FileUtil
 end

@@ -14,24 +14,22 @@
 #    limitations under the License.
 #
 
+require 'fluent/test/driver/base'
+require 'fluent/test/driver/event_feeder'
+
+require 'fluent/plugin/filter'
+
 module Fluent
-  module Plugin
-    module StringUtil
-      def match_regexp(regexp, string)
-        begin
-          return regexp.match(string)
-        rescue ArgumentError => e
-          raise e unless e.message.index("invalid byte sequence in".freeze).zero?
-          $log.info "invalid byte sequence is replaced in `#{string}`"
-          string = string.scrub('?')
-          retry
+  module Test
+    module Driver
+      class Filter < Base
+        include EventFeeder
+
+        def initialize(klass, opts: {}, &block)
+          super
+          raise ArgumentError, "plugin is not an instance of Fluent::Plugin::Filter" unless @instance.is_a? Fluent::Plugin::Filter
         end
-        return true
       end
-      module_function :match_regexp
     end
   end
-
-  # obsolete
-  StringUtil = Fluent::Plugin::StringUtil
 end

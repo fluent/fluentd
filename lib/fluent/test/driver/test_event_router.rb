@@ -14,24 +14,32 @@
 #    limitations under the License.
 #
 
+require 'fluent/event'
+
 module Fluent
-  module Plugin
-    module StringUtil
-      def match_regexp(regexp, string)
-        begin
-          return regexp.match(string)
-        rescue ArgumentError => e
-          raise e unless e.message.index("invalid byte sequence in".freeze).zero?
-          $log.info "invalid byte sequence is replaced in `#{string}`"
-          string = string.scrub('?')
-          retry
+  module Test
+    module Driver
+      class TestEventRouter
+        def initialize(driver)
+          @driver = driver
         end
-        return true
+
+        def emit(tag, time, record)
+          @driver.emit_event_stream(tag, OneEventStream.new(time, record))
+        end
+
+        def emit_array(tag, array)
+          @driver.emit_event_stream(tag, ArrayEventStream.new(array))
+        end
+
+        def emit_stream(tag, es)
+          @driver.emit_event_stream(tag, es)
+        end
+
+        def emit_error_event(tag, time, record, error)
+          @driver.emit_error_event(tag, time, record, error)
+        end
       end
-      module_function :match_regexp
     end
   end
-
-  # obsolete
-  StringUtil = Fluent::Plugin::StringUtil
 end

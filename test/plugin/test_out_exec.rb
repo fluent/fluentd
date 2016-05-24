@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/plugin/out_exec'
 require 'fileutils'
 
@@ -32,7 +32,7 @@ class ExecOutputTest < Test::Unit::TestCase
 
   def create_driver(conf = TSV_CONFIG)
     config = CONFIG + conf
-    Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::ExecOutput).configure(config, true)
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::ExecOutput).configure(config)
   end
 
   def create_test_case
@@ -51,42 +51,60 @@ class ExecOutputTest < Test::Unit::TestCase
     assert_equal true, d.instance.localtime
   end
 
+  def test_configure_with_compat_buffer_parameters
+    conf = TSV_CONFIG + %[
+      buffer_type memory
+      time_slice_format %Y%m%d%H
+      num_threads 5
+      buffer_chunk_limit 50m
+      buffer_queue_limit 128
+      flush_at_shutdown yes
+    ]
+    d = create_driver(conf)
+    assert_equal 3600, d.instance.buffer_config.timekey_range
+    assert_equal 5, d.instance.buffer_config.flush_threads
+    assert_equal 50*1024*1024, d.instance.buffer.chunk_bytes_limit
+    assert_equal 128, d.instance.buffer.queue_length_limit
+    assert d.instance.buffer_config.flush_at_shutdown
+  end
+
   def test_format
     d = create_driver
     time, tests = create_test_case
 
-    tests.each { |test|
-      d.emit(test, time)
-    }
+    d.run(default_tag: 'test') do
+      d.feed(time, tests[0])
+      d.feed(time, tests[1])
+    end
 
-    d.expect_format %[2011-01-02 13:14:15\ttest\tv1\n]
-    d.expect_format %[2011-01-02 13:14:15\ttest\tv2\n]
-
-    d.run
+    assert_equal %[2011-01-02 13:14:15\ttest\tv1\n], d.formatted[0]
+    assert_equal %[2011-01-02 13:14:15\ttest\tv2\n], d.formatted[1]
   end
 
   def test_format_json
     d = create_driver("format json")
     time, tests = create_test_case
 
-    tests.each { |test|
-      d.emit(test, time)
-      d.expect_format Yajl.dump(test) + "\n"
-    }
+    d.run(default_tag: 'test') do
+      d.feed(time, tests[0])
+      d.feed(time, tests[1])
+    end
 
-    d.run
+    assert_equal Yajl.dump(tests[0]) + "\n", d.formatted[0]
+    assert_equal Yajl.dump(tests[1]) + "\n", d.formatted[1]
   end
 
   def test_format_msgpack
     d = create_driver("format msgpack")
     time, tests = create_test_case
 
-    tests.each { |test|
-      d.emit(test, time)
-      d.expect_format test.to_msgpack
-    }
+    d.run(default_tag: 'test') do
+      d.feed(time, tests[0])
+      d.feed(time, tests[1])
+    end
 
-    d.run
+    assert_equal tests[0].to_msgpack, d.formatted[0]
+    assert_equal tests[1].to_msgpack, d.formatted[1]
   end
 
   def test_format_time
@@ -98,30 +116,33 @@ class ExecOutputTest < Test::Unit::TestCase
     ]
     d = create_driver(config)
 
-    time = Fluent::EventTime::from_time(Time.parse("2011-01-02 13:14:15.123"))
+    time = event_time("2011-01-02 13:14:15.123")
     tests = [{"k1"=>"v1","kx"=>"vx"}, {"k1"=>"v2","kx"=>"vx"}]
 
-    tests.each { |test|
-      d.emit(test, time)
-    }
+    d.run(default_tag: 'test') do
+      d.feed(time, tests[0])
+      d.feed(time, tests[1])
+    end
 
-    d.expect_format %[2011-01-02 13:14:15.123\ttest\tv1\n]
-    d.expect_format %[2011-01-02 13:14:15.123\ttest\tv2\n]
-
-    d.run
+    assert_equal %[2011-01-02 13:14:15.123\ttest\tv1\n], d.formatted[0]
+    assert_equal %[2011-01-02 13:14:15.123\ttest\tv2\n], d.formatted[1]
   end
 
   def test_write
     d = create_driver
     time, tests = create_test_case
 
-    tests.each { |test|
-      d.emit(test, time)
-    }
-
-    d.run
+    d.run(default_tag: 'test', flush: true) do
+      d.feed(time, tests[0])
+      d.feed(time, tests[1])
+    end
 
     expect_path = "#{TMP_DIR}/out"
+
+    waiting(10, plugin: d.instance) do
+      sleep(0.1) until File.exist?(expect_path)
+    end
+
     assert_equal true, File.exist?(expect_path)
 
     data = File.read(expect_path)

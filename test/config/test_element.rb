@@ -79,10 +79,10 @@ class TestConfigElement < ::Test::Unit::TestCase
       assert_equal('v1', e["k1"])
       assert_equal('v2', e["k2"])
       assert_equal(1, e.elements.size)
-      e.each_element('test') do |e|
-        assert_equal('test', e.name)
-        assert_equal('mydata',  e.arg)
-        assert_equal('v3', e["k3"])
+      e.each_element('test') do |el|
+        assert_equal('test', el.name)
+        assert_equal('mydata', el.arg)
+        assert_equal('v3', el["k3"])
       end
     end
 
@@ -97,10 +97,10 @@ class TestConfigElement < ::Test::Unit::TestCase
       assert_equal('v2', e["k2"])
       assert_equal('v4', e["k4"])
       assert_equal(1, e.elements.size)
-      e.each_element('test') do |e|
-        assert_equal('test', e.name)
-        assert_equal('mydata',  e.arg)
-        assert_equal('v3', e["k3"])
+      e.each_element('test') do |el|
+        assert_equal('test', el.name)
+        assert_equal('mydata', el.arg)
+        assert_equal('v3', el["k3"])
       end
       assert_equal("k3", e.unused)
     end
@@ -185,10 +185,10 @@ class TestConfigElement < ::Test::Unit::TestCase
       assert_equal('v1', e['k1'])
       assert_equal('v2', e['k2'])
       assert_equal(1, e.elements.size)
-      e.each_element('test') do |e|
-        assert_equal('test', e.name)
-        assert_equal('ext',  e.arg)
-        assert_equal('v3', e["k3"])
+      e.each_element('test') do |el|
+        assert_equal('test', el.name)
+        assert_equal('ext', el.arg)
+        assert_equal('v3', el["k3"])
       end
     end
   end
