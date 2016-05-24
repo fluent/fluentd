@@ -915,10 +915,10 @@ module Fluent
               end
 
               if @chunk_key_time
-                timekey = @buffer_config.timekey
+                timekey_unit = @buffer_config.timekey
                 timekey_wait = @buffer_config.timekey_wait
-                current_timekey = now_int - now_int % timekey
-                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_time_range && metadata.timekey + timekey + timekey_wait <= now_int }
+                current_timekey = now_int - now_int % timekey_unit
+                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_timekey && metadata.timekey + timekey_unit + timekey_wait <= now_int }
               end
             rescue => e
               log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e
