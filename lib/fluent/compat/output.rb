@@ -21,6 +21,8 @@ require 'fluent/compat/call_super_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 
+require 'fluent/plugin_helper/compat_parameters'
+
 require 'time'
 
 module Fluent
@@ -200,21 +202,7 @@ module Fluent
 
       config_param :flush_at_shutdown, :bool, default: true
 
-      PARAMS_MAP = {
-        "buffer_type" => "@type",
-        "buffer_path" => "path",
-        "num_threads"                 => "flush_threads",
-        "flush_interval"              => "flush_interval",
-        "try_flush_interval"          => "flush_thread_interval",
-        "queued_chunk_flush_interval" => "flush_burst_interval",
-        "disable_retry_limit" => "retry_forever",
-        "retry_limit"         => "retry_max_times",
-        "max_retry_wait"      => "retry_max_interval",
-        "buffer_chunk_limit"  => "chunk_bytes_limit",
-        "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => "overflow_action",
-        "flush_at_shutdown" => "flush_at_shutdown",
-      }
+      PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP
 
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
@@ -225,6 +213,7 @@ module Fluent
             "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
+            next unless newer
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
 
@@ -329,21 +318,7 @@ module Fluent
 
       config_set_default :time_as_integer, true
 
-      PARAMS_MAP = {
-        "buffer_type" => "@type",
-        "buffer_path" => "path",
-        "num_threads"                 => "flush_threads",
-        "flush_interval"              => "flush_interval",
-        "try_flush_interval"          => "flush_thread_interval",
-        "queued_chunk_flush_interval" => "flush_burst_interval",
-        "disable_retry_limit" => "retry_forever",
-        "retry_limit"         => "retry_max_times",
-        "max_retry_wait"      => "retry_max_interval",
-        "buffer_chunk_limit"  => "chunk_bytes_limit",
-        "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => "overflow_action",
-        "flush_at_shutdown" => "flush_at_shutdown",
-      }
+      PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP
 
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
@@ -354,6 +329,7 @@ module Fluent
             "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
+            next unless newer
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
 
@@ -449,22 +425,7 @@ module Fluent
         config_set_default :@type, 'file'
       end
 
-      PARAMS_MAP = {
-        "buffer_type" => "@type",
-        "buffer_path" => "path",
-        "num_threads"                 => "flush_threads",
-        "flush_interval"              => "flush_interval",
-        "try_flush_interval"          => "flush_thread_interval",
-        "queued_chunk_flush_interval" => "flush_burst_interval",
-        "disable_retry_limit" => "retry_forever",
-        "retry_limit"         => "retry_max_times",
-        "max_retry_wait"      => "retry_max_interval",
-        "buffer_chunk_limit"  => "chunk_bytes_limit",
-        "buffer_queue_limit"  => "queue_length_limit",
-        "buffer_queue_full_action" => "overflow_action",
-        "flush_at_shutdown" => "flush_at_shutdown",
-        "time_slice_wait" => "timekey_wait",
-      }
+      PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP.merge(Fluent::PluginHelper::CompatParameters::TIME_SLICED_PARAMS)
 
       def initialize
         super
@@ -487,6 +448,7 @@ module Fluent
             "retry_type" => "exponential_backoff",
           }
           PARAMS_MAP.each do |older, newer|
+            next unless newer
             buf_params[newer] = conf[older] if conf.has_key?(older)
           end
           unless buf_params.has_key?("@type")
