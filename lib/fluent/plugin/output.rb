@@ -44,7 +44,7 @@ module Fluent
         config_argument :chunk_keys, :array, value_type: :string, default: []
         config_param :@type, :string, default: 'memory', alias: :type
 
-        config_param :timekey_range, :time, default: nil # range size to be used: `time.to_i / @timekey_range`
+        config_param :timekey, :time, default: nil # range size to be used: `time.to_i / @timekey`
         config_param :timekey_wait, :time, default: 600
         # These are for #extract_placeholders
         config_param :timekey_use_utc, :bool, default: false # default is localtime
@@ -247,7 +247,7 @@ module Fluent
           end
 
           if @chunk_key_time
-            raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey_range is not configured" unless @buffer_config.timekey_range
+            raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey is not configured" unless @buffer_config.timekey
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @buffer_config.timekey_zone = '+0000' if @buffer_config.timekey_use_utc
             @output_time_formatter_cache = {}
@@ -551,23 +551,20 @@ module Fluent
           if !@chunk_key_time && !@chunk_key_tag
             @buffer.metadata()
           elsif @chunk_key_time && @chunk_key_tag
-            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
-            timekey = (time_int - (time_int % timekey_range)).to_i
+            timekey = (time_int - (time_int % @buffer_config.timekey)).to_i
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
-            timekey_range = @buffer_config.timekey_range
             time_int = time.to_i
-            timekey = (time_int - (time_int % timekey_range)).to_i
+            timekey = (time_int - (time_int % @buffer_config.timekey)).to_i
             @buffer.metadata(timekey: timekey)
           else
             @buffer.metadata(tag: tag)
           end
         else
-          timekey_range = @buffer_config.timekey_range
           timekey = if @chunk_key_time
                       time_int = time.to_i
-                      (time_int - (time_int % timekey_range)).to_i
+                      (time_int - (time_int % @buffer_config.timekey)).to_i
                     else
                       nil
                     end
@@ -887,8 +884,8 @@ module Fluent
           value_for_interval = @buffer_config.flush_interval
         end
         if @chunk_key_time
-          if !value_for_interval || @buffer_config.timekey_range < value_for_interval
-            value_for_interval = @buffer_config.timekey_range
+          if !value_for_interval || @buffer_config.timekey < value_for_interval
+            value_for_interval = @buffer_config.timekey
           end
         end
         unless value_for_interval
@@ -918,10 +915,10 @@ module Fluent
               end
 
               if @chunk_key_time
-                timekey_range = @buffer_config.timekey_range
+                timekey = @buffer_config.timekey
                 timekey_wait = @buffer_config.timekey_wait
-                current_time_range = now_int - now_int % timekey_range
-                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_time_range && metadata.timekey + timekey_range + timekey_wait <= now_int }
+                current_timekey = now_int - now_int % timekey
+                @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_time_range && metadata.timekey + timekey + timekey_wait <= now_int }
               end
             rescue => e
               log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e

@@ -100,7 +100,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
-      assert_equal 24*60*60, @i.buffer_config.timekey_range
+      assert_equal 24*60*60, @i.buffer_config.timekey
       assert @i.buffer_config.retry_forever
       assert_equal 60*60, @i.buffer_config.retry_max_interval
       assert_equal :block, @i.buffer_config.overflow_action
@@ -131,7 +131,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
-      assert_equal 60*60, @i.buffer_config.timekey_range
+      assert_equal 60*60, @i.buffer_config.timekey
       assert_equal 10, @i.buffer_config.timekey_wait
       assert_equal 1024, @i.buffer_config.retry_max_times
       assert_equal :drop_oldest_chunk, @i.buffer_config.overflow_action

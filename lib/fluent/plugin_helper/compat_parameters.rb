@@ -67,18 +67,18 @@ module Fluent
 
           if conf.has_key?('time_slice_format')
             chunk_key = 'time'
-            attr['timekey_range'] = case conf['time_slice_format']
-                                    when /\%S/ then 1
-                                    when /\%M/ then 60
-                                    when /\%H/ then 3600
-                                    when /\%d/ then 86400
-                                    else
-                                      raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
-                                    end
+            attr['timekey'] = case conf['time_slice_format']
+                              when /\%S/ then 1
+                              when /\%M/ then 60
+                              when /\%H/ then 3600
+                              when /\%d/ then 86400
+                              else
+                                raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
+                              end
           else
             chunk_key = compat_parameters_default_chunk_key
             if chunk_key == 'time'
-              attr['timekey_range'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
+              attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
             end
           end
 

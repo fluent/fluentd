@@ -432,7 +432,7 @@ class BufferedOutputTest < Test::Unit::TestCase
     setup do
       chunk_key = 'time'
       hash = {
-        'timekey_range' => 30, # per 30seconds
+        'timekey' => 30, # per 30seconds
         'timekey_wait' => 5, # 5 second delay for flush
         'flush_threads' => 1,
         'flush_burst_interval' => 0.01,
@@ -442,7 +442,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.start
     end
 
-    test '#configure raises config error if timekey_range is not specified' do
+    test '#configure raises config error if timekey is not specified' do
       i = create_output(:buffered)
       assert_raise Fluent::ConfigError do
         i.configure(config_element('ROOT','',{},[config_element('buffer','time',)]))
@@ -1090,7 +1090,7 @@ class BufferedOutputTest < Test::Unit::TestCase
     test 'default flush mode is set to :none if keys includes time' do
       chunk_key = 'name,service,tag,time'
       hash = {
-        'timekey_range' => 60,
+        'timekey' => 60,
         'flush_interval' => 10,
         'flush_threads' => 1,
         'flush_burst_interval' => 0.1,
