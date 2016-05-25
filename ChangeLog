@@ -1,5 +1,17 @@
 # v0.12
 
+## Release 0.12.25 - 2016/05/25
+
+### New features / Enhancement
+
+* process: Add detach_process_forward_interval parameter to control emit interval
+  https://github.com/fluent/fluentd/pull/982
+
+### Bug fixes
+
+* Fix string-scrub dependency for ruby 2.0 or earlier support
+  https://github.com/fluent/fluentd/pull/986
+
 ## Release 0.12.24 - 2016/05/20
 
 ### New features / Enhancement
