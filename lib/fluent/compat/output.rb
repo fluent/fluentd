@@ -299,10 +299,14 @@ module Fluent
         if @overrides_emit
           current_emit_count = @emit_count
           size = es.size
-          emit(tag, es, NULL_OUTPUT_CHAIN)
-          @emit_count = current_emit_count
-          key, data = self.last_emit_via_buffer
-          self.last_emit_via_buffer = nil
+          key = data = nil
+          begin
+            emit(tag, es, NULL_OUTPUT_CHAIN)
+            key, data = self.last_emit_via_buffer
+          ensure
+            @emit_count = current_emit_count
+            self.last_emit_via_buffer = nil
+          end
           # on-the-fly key assignment can be done, and it's not configurable if Plugin#emit does it dynamically
           meta = @buffer.metadata(variables: (key && !key.empty? ? {key: key} : nil))
           write_guard do
