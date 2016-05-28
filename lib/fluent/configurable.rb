@@ -145,7 +145,10 @@ module Fluent
 
       def config_section(name, **kwargs, &block)
         configure_proxy(self.name).config_section(name, **kwargs, &block)
-        attr_accessor configure_proxy(self.name).sections[name].variable_name
+        variable_name = configure_proxy(self.name).sections[name].variable_name
+        unless self.respond_to?(variable_name)
+          attr_accessor variable_name
+        end
       end
 
       def desc(description)
