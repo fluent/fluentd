@@ -18,6 +18,7 @@ require 'fluent/plugin'
 require 'fluent/plugin/output'
 require 'fluent/plugin/bare_output'
 require 'fluent/compat/call_super_mixin'
+require 'fluent/compat/propagate_default'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 require 'fluent/mixin'
@@ -212,6 +213,11 @@ module Fluent
 
       PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP
 
+      def self.propagate_default_params
+        PARAMS_MAP
+      end
+      include PropagateDefault
+
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
         config_style = (bufconf ? :v1 : :v0)
@@ -400,6 +406,11 @@ module Fluent
 
       PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP
 
+      def self.propagate_default_params
+        PARAMS_MAP
+      end
+      include PropagateDefault
+
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
         config_style = (bufconf ? :v1 : :v0)
@@ -507,7 +518,7 @@ module Fluent
 
       attr_accessor :localtime
 
-      config_section :buffer, param_name: :buffer_config do
+      config_section :buffer do
         config_set_default :@type, 'file'
       end
 
@@ -524,12 +535,16 @@ module Fluent
         end
       end
 
+      def self.propagate_default_params
+        PARAMS_MAP
+      end
+      include PropagateDefault
+
       def configure(conf)
         bufconf = CompatOutputUtils.buffer_section(conf)
         config_style = (bufconf ? :v1 : :v0)
         if config_style == :v0
           buf_params = {
-            "@type"      => "file",
             "flush_mode" => (conf['flush_interval'] ? "interval" : "lazy"),
             "retry_type" => "exponential_backoff",
           }
@@ -542,9 +557,6 @@ module Fluent
                 buf_params[newer] = conf[older]
               end
             end
-          end
-          unless buf_params.has_key?("@type")
-            buf_params["@type"] = "file"
           end
 
           if conf['timezone']
@@ -599,3 +611,4 @@ module Fluent
     end
   end
 end
+
