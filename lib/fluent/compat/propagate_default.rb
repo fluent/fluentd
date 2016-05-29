@@ -53,8 +53,6 @@ module Fluent
 
             CONFIGURABLE_CLASS_METHODS.instance_method(:config_section).bind(self).call(:buffer) do
               self.config_set_default newer, defval
-              p(name: name, newer: newer, defval: defval, defaults: self.defaults)
-              p self.dump
             end
           end
         end
