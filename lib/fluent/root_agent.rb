@@ -175,6 +175,7 @@ module Fluent
 
       lifecycle_unsafe_sequence = ->(method, checker) {
         operation = case method
+                    when :before_shutdown then "preparing shutdown"
                     when :shutdown then "shutting down"
                     when :close    then "closing"
                     else
@@ -199,7 +200,8 @@ module Fluent
 
       lifecycle_safe_sequence.call(:stop, :stopped?)
 
-      lifecycle_safe_sequence.call(:before_shutdown, :before_shutdown?)
+      # before_shutdown does force_flush for output plugins: it should block, so it's unsafe operation
+      lifecycle_unsafe_sequence.call(:before_shutdown, :before_shutdown?)
 
       lifecycle_unsafe_sequence.call(:shutdown, :shutdown?)
 
