@@ -1,5 +1,11 @@
 # v0.12
 
+## Release 0.12.26 - 2016/05/30
+
+### Bug fixes
+
+* Fix regression of not require sigdump
+
 ## Release 0.12.25 - 2016/05/25
 
 ### New features / Enhancement
