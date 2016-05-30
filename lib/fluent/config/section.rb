@@ -38,6 +38,10 @@ module Fluent
         @corresponding_config_element
       end
 
+      def class
+        Section
+      end
+
       def to_s
         inspect
       end
