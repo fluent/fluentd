@@ -297,9 +297,9 @@ module Fluent
     end
 
     MONITOR_INFO = {
-      'output_plugin' => 'is_a?(::Fluent::Output)', # deprecated. Use plugin_category instead
-      'buffer_queue_length' => '@buffer.queue_size',
-      'buffer_total_queued_size' => '@buffer.total_queued_chunk_size',
+      'output_plugin' => 'is_a?(::Fluent::Plugin::Output)',
+      'buffer_queue_length' => '@buffer.queue.size',
+      'buffer_total_queued_size' => '@buffer.stage_size + @buffer.queue_size',
       'retry_count' => '@num_errors',
     }
 
@@ -420,11 +420,11 @@ module Fluent
 
     def plugin_category(pe)
       case pe
-      when Fluent::Input
+      when Fluent::Plugin::Input
         'input'.freeze
-      when Fluent::Output
+      when Fluent::Plugin::Output, Fluent::Plugin::BareOutput
         'output'.freeze
-      when Fluent::Filter
+      when Fluent::Plugin::Filter
         'filter'.freeze
       else
         'unknown'.freeze
