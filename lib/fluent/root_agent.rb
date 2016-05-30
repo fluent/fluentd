@@ -104,7 +104,7 @@ module Fluent
       @error_collector = error_label.event_router
     end
 
-    def lifecycle(desc: false)
+    def lifecycle(desc: false, kind_callback: nil)
       kind_or_label_list = if desc
                     [:output, :filter, @labels.values.reverse, :output_with_router, :input].flatten
                   else
@@ -126,6 +126,9 @@ module Fluent
           list.each do |instance|
             yield instance, display_kind
           end
+        end
+        if kind_callback
+          kind_callback.call
         end
       end
     end
@@ -182,7 +185,11 @@ module Fluent
                       raise "BUG: unknown method name '#{method}'"
                     end
         operation_threads = []
-        lifecycle do |instance, kind|
+        callback = ->(){
+          operation_threads.each{|t| t.join }
+          operation_threads.clear
+        }
+        lifecycle(kind_callback: callback) do |instance, kind|
           t = Thread.new do
             Thread.current.abort_on_exception = true
             begin
@@ -195,7 +202,6 @@ module Fluent
           end
           operation_threads << t
         end
-        operation_threads.each{|t| t.join }
       }
 
       lifecycle_safe_sequence.call(:stop, :stopped?)
