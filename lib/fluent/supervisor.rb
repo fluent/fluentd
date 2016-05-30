@@ -359,7 +359,11 @@ module Fluent
     end
 
     def run_worker
-      require 'sigdump/setup'
+      begin
+        require 'sigdump/setup'
+      rescue Exception
+        # ignore LoadError and others (related with signals): it may raise these errors in Windows
+      end
       @log.init
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
