@@ -17,6 +17,12 @@
 require 'etc'
 require 'fcntl'
 
+begin
+  require 'sigdump/setup'
+rescue Exception
+  # ignore LoadError and others (related with signals): it may raise these errors in Windows
+end
+
 require 'fluent/config'
 require 'fluent/env'
 require 'fluent/engine'
