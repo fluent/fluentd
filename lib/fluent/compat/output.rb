@@ -240,9 +240,12 @@ module Fluent
           conf.elements << Fluent::Config::Element.new('buffer', '', buf_params, [])
         end
 
+        @includes_record_filter = self.class.ancestors.include?(Fluent::RecordFilterMixin) # TODO rename Compat::RecordFilterMixin
+
         methods_of_plugin = self.class.instance_methods(false)
         @overrides_emit = methods_of_plugin.include?(:emit)
-        @overrides_format_stream = methods_of_plugin.include?(:format_stream)
+        # RecordFilter mixin uses its own #format_stream method implementation
+        @overrides_format_stream = methods_of_plugin.include?(:format_stream) || @includes_record_filter
 
         super
 
