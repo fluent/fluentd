@@ -422,7 +422,7 @@ module Fluent
       case pe
       when Fluent::Plugin::Input
         'input'.freeze
-      when Fluent::Plugin::Output
+      when Fluent::Plugin::Output, Fluent::Plugin::BareOutput
         'output'.freeze
       when Fluent::Plugin::Filter
         'filter'.freeze
