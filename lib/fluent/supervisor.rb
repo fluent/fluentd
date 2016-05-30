@@ -359,6 +359,7 @@ module Fluent
     end
 
     def run_worker
+      require 'sigdump/setup'
       @log.init
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
