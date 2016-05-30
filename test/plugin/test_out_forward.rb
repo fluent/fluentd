@@ -39,6 +39,13 @@ class ForwardOutputTest < Test::Unit::TestCase
         @exceptions << e
         raise e
       end
+
+      # Fluentd v0.12 BufferedOutputTestDriver calls this method.
+      # BufferedOutput#format_stream calls format method, but ForwardOutput#format is not defined.
+      # Because ObjectBufferedOutput#emit calls es.to_msgpack_stream directly.
+      def format_stream(tag, es)
+        es.to_msgpack_stream
+      end
     }.configure(conf)
   end
 
