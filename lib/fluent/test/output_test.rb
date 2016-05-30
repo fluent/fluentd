@@ -76,20 +76,24 @@ module Fluent
       def run(num_waits = 10, &block)
         result = nil
         super(num_waits) {
+          block.call if block
+
           es = ArrayEventStream.new(@entries)
           buffer = @instance.format_stream(@tag, es)
-
-          block.call if block
 
           if @expected_buffer
             assert_equal(@expected_buffer, buffer)
           end
 
-          key = ''
-          if @instance.respond_to?(:time_slicer)
+          case
+          when @instance.is_a?(Fluent::ObjectBufferedOutput)
+            key = @tag
+          when @instance.respond_to?(:time_slicer)
             # this block is only for test_out_file
-            time, record = @entries.first
+            time, _record = @entries.first
             key = @instance.time_slicer.call(time)
+          else
+            key = ''
           end
           chunk = @instance.buffer.new_chunk(key)
           chunk << buffer
@@ -128,14 +132,14 @@ module Fluent
       def run(&block)
         result = []
         super {
+          block.call if block
+
           buffer = ''
           @entries.keys.each {|key|
             es = ArrayEventStream.new(@entries[key])
             @instance.emit(@tag, es, NullOutputChain.instance)
             buffer << @instance.format_stream(@tag, es)
           }
-
-          block.call if block
 
           if @expected_buffer
             assert_equal(@expected_buffer, buffer)
