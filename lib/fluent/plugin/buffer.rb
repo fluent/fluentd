@@ -219,6 +219,7 @@ module Fluent
               errors << e
             end
           end
+          operated_chunks.clear if errors.empty?
 
           @stage_size += staged_bytesize
 
@@ -226,12 +227,11 @@ module Fluent
             log.warn "error occurs in committing chunks: only first one raised", errors: errors.map(&:class)
             raise errors.first
           end
-        rescue
+        ensure
           operated_chunks.each do |chunk|
             chunk.rollback rescue nil # nothing possible to do for #rollback failure
             chunk.mon_exit rescue nil # this may raise ThreadError for chunks already committed
           end
-          raise
         end
       end
 
