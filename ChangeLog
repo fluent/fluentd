@@ -33,6 +33,8 @@ This list includes changes of 0.14.0.pre.1 and release candidates.
   https://github.com/fluent/fluentd/pull/912
   https://github.com/fluent/fluentd/pull/969
   https://github.com/fluent/fluentd/pull/974
+  https://github.com/fluent/fluentd/pull/992
+  https://github.com/fluent/fluentd/pull/999
 * Add Plugin Storage API
   https://github.com/fluent/fluentd/pull/864
   https://github.com/fluent/fluentd/pull/910
