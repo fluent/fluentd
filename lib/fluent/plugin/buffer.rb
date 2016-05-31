@@ -219,6 +219,7 @@ module Fluent
               errors << e
             end
           end
+          operated_chunks.clear if errors.empty?
 
           @stage_size += staged_bytesize
 
@@ -226,12 +227,11 @@ module Fluent
             log.warn "error occurs in committing chunks: only first one raised", errors: errors.map(&:class)
             raise errors.first
           end
-        rescue
+        ensure
           operated_chunks.each do |chunk|
             chunk.rollback rescue nil # nothing possible to do for #rollback failure
             chunk.mon_exit rescue nil # this may raise ThreadError for chunks already committed
           end
-          raise
         end
       end
 
@@ -365,6 +365,7 @@ module Fluent
         adding_bytesize = nil
 
         chunk = synchronize { @stage[metadata] ||= generate_chunk(metadata) }
+        enqueue_list = []
 
         chunk.synchronize do
           # retry this method if chunk is already queued (between getting chunk and entering critical section)
@@ -402,7 +403,7 @@ module Fluent
           elsif bulk
             # this metadata might be enqueued already by other threads
             # but #enqueue_chunk does nothing in such case
-            enqueue_chunk(metadata)
+            enqueue_list << metadata
             raise ShouldRetry
           end
         end
@@ -412,6 +413,9 @@ module Fluent
           write_step_by_step(metadata, data, data.size / 3, &block)
         end
       rescue ShouldRetry
+        enqueue_list.each do |metadata|
+          enqueue_chunk(metadata)
+        end
         retry
       end
 
