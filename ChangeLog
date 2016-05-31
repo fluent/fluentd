@@ -1,20 +1,261 @@
 # v0.14
 
-## Release 0.14.0.pre.1 - 2015/10/29
+## Release 0.14.0 - 2016/05/25
 
 ### New features / Enhancement
 
-* Sub-second event time support
-  https://github.com/fluent/fluentd/pull/653
-* Windows support
-  https://github.com/fluent/fluentd/pull/674
-* Remove in_status plugin
-  https://github.com/fluent/fluentd/pull/690
+This list includes changes of 0.14.0.pre.1 and release candidates.
+
 * Update supported Ruby version to 2.1 or later
   https://github.com/fluent/fluentd/pull/692
+* Sub-second event time support
+  https://github.com/fluent/fluentd/pull/653
+* Windows support and supervisor improvement
+  https://github.com/fluent/fluentd/pull/674
+  https://github.com/fluent/fluentd/pull/831
+  https://github.com/fluent/fluentd/pull/880
+* Add New plugin API
+  https://github.com/fluent/fluentd/pull/800
+  https://github.com/fluent/fluentd/pull/843
+  https://github.com/fluent/fluentd/pull/866
+  https://github.com/fluent/fluentd/pull/905
+  https://github.com/fluent/fluentd/pull/906
+  https://github.com/fluent/fluentd/pull/917
+  https://github.com/fluent/fluentd/pull/928
+  https://github.com/fluent/fluentd/pull/943
+  https://github.com/fluent/fluentd/pull/964
+  https://github.com/fluent/fluentd/pull/965
+  https://github.com/fluent/fluentd/pull/972
+  https://github.com/fluent/fluentd/pull/983
+* Add standard chunking format
+  https://github.com/fluent/fluentd/pull/914
+* Add Compatibility layer for v0.12 plugins
+  https://github.com/fluent/fluentd/pull/912
+  https://github.com/fluent/fluentd/pull/969
+  https://github.com/fluent/fluentd/pull/974
+  https://github.com/fluent/fluentd/pull/992
+  https://github.com/fluent/fluentd/pull/999
+* Add Plugin Storage API
+  https://github.com/fluent/fluentd/pull/864
+  https://github.com/fluent/fluentd/pull/910
+* Enforce to use router.emit instead of Engine.emit
+  https://github.com/fluent/fluentd/pull/883
+* log: Show plugin name and id in logs
+  https://github.com/fluent/fluentd/pull/860
+* log: Dump configurations with v1 syntax in logs
+  https://github.com/fluent/fluentd/pull/867
+* log: Dump errors with class in logs
+  https://github.com/fluent/fluentd/pull/899
+* config: Add simplified syntax for configuration values of hash and array
+  https://github.com/fluent/fluentd/pull/875
+* config: Add 'init' option to config_section to initialize section objects
+  https://github.com/fluent/fluentd/pull/877
+* config: Support multiline string in quoted strings
+  https://github.com/fluent/fluentd/pull/929
+* config: Add optional arguments on Element#elements to select child elements
+  https://github.com/fluent/fluentd/pull/948
+* config: Show deprecated warnings for reserved parameters
+  https://github.com/fluent/fluentd/pull/971
+* config: Make the detach process forward interval configurable
+  https://github.com/fluent/fluentd/pull/982
+* in_tail: Add 'path_key' option to inject tailing path
+  https://github.com/fluent/fluentd/pull/951
+* Remove in_status plugin
+  https://github.com/fluent/fluentd/pull/690
+
+### Bug fixes
+
+* config: Enum list must be of symbols
+  https://github.com/fluent/fluentd/pull/821
+* config: Fix to dup values in default
+  https://github.com/fluent/fluentd/pull/827
+* config: Fix problems about overwriting subsections
+  https://github.com/fluent/fluentd/pull/844
+  https://github.com/fluent/fluentd/pull/981
+* log: Serialize Fluent::EventTime as Integer in JSON
+  https://github.com/fluent/fluentd/pull/904
+* out_forward: Add missing error class and tests for it
+  https://github.com/fluent/fluentd/pull/922
+
+### Internal fix / Refactoring
+
+* Fix dependencies between files
+  https://github.com/fluent/fluentd/pull/799
+  https://github.com/fluent/fluentd/pull/808  
+  https://github.com/fluent/fluentd/pull/823
+  https://github.com/fluent/fluentd/pull/824
+  https://github.com/fluent/fluentd/pull/825
+  https://github.com/fluent/fluentd/pull/826
+  https://github.com/fluent/fluentd/pull/828
+  https://github.com/fluent/fluentd/pull/859
+  https://github.com/fluent/fluentd/pull/892
+* Separate PluginId from config
+  https://github.com/fluent/fluentd/pull/832
+* Separate MessagePack factory from Engine
+  https://github.com/fluent/fluentd/pull/871
+* Register plugins to registry
+  https://github.com/fluent/fluentd/pull/838
+* Move TypeConverter mixin to mixin.rb
+  https://github.com/fluent/fluentd/pull/842
+* Override default configurations by <system>
+  https://github.com/fluent/fluentd/pull/854
+* Suppress Ruby level warnings
+  https://github.com/fluent/fluentd/pull/846
+  https://github.com/fluent/fluentd/pull/852
+  https://github.com/fluent/fluentd/pull/890
+  https://github.com/fluent/fluentd/pull/946
+  https://github.com/fluent/fluentd/pull/955
+  https://github.com/fluent/fluentd/pull/966
 
 
 # v0.12
+
+## Release 0.12.24 - 2016/05/20
+
+### New features / Enhancement
+
+* buffer: Add drop_oldest_chunk to buffer_queue_full_action parameter
+  https://github.com/fluent/fluentd/pull/934
+* in_tail: Add "encoding" parameter
+  https://github.com/fluent/fluentd/pull/889
+* in_tail: Add "path_key" patameter
+  https://github.com/fluent/fluentd/pull/951
+* in_monitor_agent: Add emit_config parameter to emit plugin configuration together
+  https://github.com/fluent/fluentd/pull/963
+* config: Support multiline string in " quoted string
+  https://github.com/fluent/fluentd/pull/929
+
+### Bug fixes
+
+* in_http: Add 'Access-Control-Allow-Origin' to response header
+  https://github.com/fluent/fluentd/pull/882
+* parser: Fix logger on Fluent::StringUtil to use $log
+  https://github.com/fluent/fluentd/pull/926
+* out_forward: Add missing error class definition
+  https://github.com/fluent/fluentd/pull/953
+
+## Release 0.12.23 - 2016/05/03
+
+### Bug fixes
+
+* Fix string-scrub dependency on ruby > 2
+  https://github.com/fluent/fluentd/pull/933
+* fluent-debug: Fix regression
+  https://github.com/fluent/fluentd/pull/894
+
+## Release 0.12.22 - 2016/03/10
+
+### Bug fixes
+
+* supervisor: Require fcntl library for daemonize
+  https://github.com/fluent/fluentd/pull/845
+
+## Release 0.12.21 - 2016/03/03
+
+### New features / Enhancement
+
+* output: Use error stream in TimeSlicedOutput#emit
+  https://github.com/fluent/fluentd/pull/791
+* in_tail: Avoid unnecessary open call
+  https://github.com/fluent/fluentd/pull/788
+* in_tail: Add enable_watch_timer option
+  https://github.com/fluent/fluentd/pull/811
+* filter_record_transformer: Relax conditions which auto_typecast is applied when enable_ruby yes
+  https://github.com/fluent/fluentd/pull/817
+* Backport v0.14 refactoring changes
+
+### Bug fixes
+
+* in_tail: Fix input messages loss when receive_lines fail with BufferQueueLimitError
+  https://github.com/fluent/fluentd/pull/810
+* in_monitor_agent: Remove unnecessary fields from API response with debug mode
+  https://github.com/fluent/fluentd/pull/802
+* filter_record_transformer: Fix record_transformer to be thread-safe
+  https://github.com/fluent/fluentd/pull/816
+
+## Release 0.12.20 - 2016/01/26
+
+### New features / Enhancement
+
+* in_forward: Add skip_invalid_event paramter to check and skip invalid event
+  https://github.com/fluent/fluentd/pull/776
+* in_tail: Add multiline_flush_interval parameter for periodic flush with multiline format
+  https://github.com/fluent/fluentd/pull/775
+* filter_record_transformer: Improve ruby placeholder performance and adding 'record["key"]' syntax
+  https://github.com/fluent/fluentd/pull/766
+* Add on_exit_process hook point to DetachProcessMixin
+  https://github.com/fluent/fluentd/pull/757
+* Add descriptions to BufferedOutput and TimeSlicedOutput
+  https://github.com/fluent/fluentd/pull/759
+  https://github.com/fluent/fluentd/pull/760
+
+### Bug fixes
+
+* parser: Don't use BigDecimal in JSON parsing result with Oj
+  https://github.com/fluent/fluentd/pull/778
+* config: Fix the regression of unused parameter warning inside sub section
+  https://github.com/fluent/fluentd/pull/765
+
+## Release 0.12.19 - 2015/12/21
+
+### New features / Enhancement
+
+* input: Standardize logging level for source configs
+  https://github.com/fluent/fluentd/pull/743
+* buffer: Add buffer_queue_full_action parameter
+  https://github.com/fluent/fluentd/pull/745
+* parser/formatter: Use 'oj' when oj is installed in json parser/formatter
+  https://github.com/fluent/fluentd/pull/748
+
+### Bug fixes
+
+* fluent-cat: fix the regression of --msgpack option
+  https://github.com/fluent/fluentd/pull/747
+
+## Release 0.12.18 - 2015/12/09
+
+### New features / Enhancement
+
+* in_exec: Stop in_exec immediately at shutdown
+  https://github.com/fluent/fluentd/pull/526
+* in_exec: Support built-in text parsers
+  https://github.com/fluent/fluentd/pull/704
+* out_forward: raises ZeroDivisionError when no <server> is available
+  https://github.com/fluent/fluentd/pull/707
+* Add process_name parameter in system to change fluentd's process name
+  https://github.com/fluent/fluentd/pull/708
+* test: Add ParserTestDriver
+  https://github.com/fluent/fluentd/pull/702
+* test: Add FormatterTestDriver
+  https://github.com/fluent/fluentd/pull/712
+* Add parameter description to built-in plugins
+
+### Bug fixes
+
+* fix bug not to protect in-memory-buffer for multi thread emitting / run loop
+  https://github.com/fluent/fluentd/pull/710
+* in_tail: expand_paths exclude unreadable files
+  https://github.com/fluent/fluentd/pull/734
+
+## Release 0.12.17 - 2015/11/04
+
+### New features / Enhancement
+
+* Engine: Add Engine#msgpack_factory for v0.14 compatibility
+  https://github.com/fluent/fluentd/pull/693
+* Log shutdown plugin info to check shutdown sequence
+  https://github.com/fluent/fluentd/pull/689
+* in_monitor_agent: Emit plugin info to use existing plugins
+  https://github.com/fluent/fluentd/pull/670
+* config: Improve describing plugin parameters
+  https://github.com/fluent/fluentd/pull/683
+
+### Bug fixes
+
+* Tempfile should be binary mode
+  https://github.com/fluent/fluentd/pull/691
+* filter_record_transformer: Don't use popular name to prevent field overwrite when enable_ruby is true
+  https://github.com/fluent/fluentd/pull/687
 
 ## Release 0.12.16 - 2015/09/30
 
