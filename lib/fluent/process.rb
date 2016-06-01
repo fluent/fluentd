@@ -14,10 +14,15 @@
 #    limitations under the License.
 #
 
+# This feature will be deprecated after introducing
+#  symmetric multi processing in core.
+
 require 'thread'
 
 require 'fluent/config'
-require 'fluent/engine'
+## This comment out (to remove circular reference) is a bit risky,
+## but in all known cases this file is required after 'fluent/engine'.
+# require 'fluent/engine'
 require 'fluent/event'
 
 module Fluent

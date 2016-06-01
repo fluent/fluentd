@@ -22,6 +22,7 @@ require 'fluent/compat/propagate_default'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 require 'fluent/mixin'
+require 'fluent/process' # to load Fluent::DetachProcessMixin
 
 require 'fluent/plugin_helper/compat_parameters'
 
