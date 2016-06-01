@@ -37,9 +37,15 @@ module Fluent
       #   end
       # end
 
-      def initialize(name, param_name: nil, final: nil, init: nil, required: nil, multi: nil, alias: nil, type_lookup:)
+      def initialize(name, root: false, param_name: nil, final: nil, init: nil, required: nil, multi: nil, alias: nil, type_lookup:)
         @name = name.to_sym
         @final = final
+
+        # For ConfigureProxy of root section, "@name" should be a class name of plugins.
+        # Otherwise (like subsections), "@name" should be a name of section, like "buffer", "store".
+        # For subsections, name will be used as parameter names (unless param_name exists), so overriding proxy's name
+        #   should override "@name".
+        @root_section = root
 
         @param_name = param_name && param_name.to_sym
         @init = init
@@ -65,6 +71,10 @@ module Fluent
 
       def variable_name
         @param_name || @name
+      end
+
+      def root?
+        @root_section
       end
 
       def init?
@@ -105,7 +115,12 @@ module Fluent
         options[:final] = @final || other.final
         options[:type_lookup] = @type_lookup
 
-        merged = self.class.new(@name, options)
+        merged = if self.root?
+                   options[:root] = true
+                   self.class.new(other.name, options)
+                 else
+                   self.class.new(@name, options)
+                 end
 
         # configured_in MUST be kept
         merged.configured_in_section = self.configured_in_section
@@ -155,7 +170,12 @@ module Fluent
         options[:final]  = true
         options[:type_lookup] = @type_lookup
 
-        merged = self.class.new(@name, options)
+        merged = if self.root?
+                   options[:root] = true
+                   self.class.new(other.name, options)
+                 else
+                   self.class.new(@name, options)
+                 end
 
         merged.configured_in_section = self.configured_in_section
 
