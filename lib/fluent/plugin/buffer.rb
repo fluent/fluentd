@@ -413,8 +413,8 @@ module Fluent
           write_step_by_step(metadata, data, data.size / 3, &block)
         end
       rescue ShouldRetry
-        enqueue_list.each do |metadata|
-          enqueue_chunk(metadata)
+        enqueue_list.each do |m|
+          enqueue_chunk(m)
         end
         retry
       end
