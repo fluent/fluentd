@@ -119,7 +119,7 @@ module Fluent
         map = configure_proxy_map
         unless map[mod_name]
           type_lookup = ->(type) { Fluent::Configurable.lookup_type(type) }
-          proxy = Fluent::Config::ConfigureProxy.new(mod_name, required: true, multi: false, type_lookup: type_lookup)
+          proxy = Fluent::Config::ConfigureProxy.new(mod_name, root: true, required: true, multi: false, type_lookup: type_lookup)
           map[mod_name] = proxy
         end
         map[mod_name]

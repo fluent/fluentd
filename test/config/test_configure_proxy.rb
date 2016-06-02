@@ -17,6 +17,7 @@ module Fluent::Config
           assert_equal(:section, proxy.name)
           assert_nil(proxy.param_name)
           assert_equal(:section, proxy.variable_name)
+          assert_false(proxy.root?)
           assert_nil(proxy.init)
           assert_nil(proxy.required)
           assert_false(proxy.required?)
@@ -93,6 +94,20 @@ module Fluent::Config
           assert_false(proxy.multi)
           assert_false(proxy.multi?)
           assert_equal :subsection, proxy.configured_in_section
+        end
+
+        test "does overwrite name of proxy for root sections which are used for plugins" do
+          # latest plugin class shows actual plugin implementation
+          p1 = Fluent::Config::ConfigureProxy.new('Fluent::Plugin::MyP1'.to_sym, root: true, required: true, multi: false, type_lookup: @type_lookup)
+          p1.config_param :key1, :integer
+
+          p2 = Fluent::Config::ConfigureProxy.new('Fluent::Plugin::MyP2'.to_sym, root: true, required: true, multi: false, type_lookup: @type_lookup)
+          p2.config_param :key2, :string, default: "value2"
+
+          merged = p1.merge(p2)
+
+          assert_equal 'Fluent::Plugin::MyP2'.to_sym, merged.name
+          assert_true merged.root?
         end
       end
 
