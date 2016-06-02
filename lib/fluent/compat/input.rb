@@ -17,6 +17,7 @@
 require 'fluent/plugin'
 require 'fluent/plugin/input'
 require 'fluent/compat/call_super_mixin'
+require 'fluent/process' # to load Fluent::DetachProcessMixin
 
 module Fluent
   module Compat
