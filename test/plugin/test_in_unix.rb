@@ -1,6 +1,6 @@
 require_relative '../helper'
 require 'fluent/test'
-require 'fluent/plugin/in_stream'
+require 'fluent/plugin/in_unix'
 
 module StreamInputTest
   def setup
