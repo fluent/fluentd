@@ -201,7 +201,9 @@ module Fluent
       logger_initializer.init
       logger = $log
 
-      daemonize = params.fetch('daemonize', false)
+      # ServerEngine's "daemonize" option is boolean, and path of pid file is brought by "pid_path"
+      pid_path = params['daemonize']
+      daemonize = !!params['daemonize']
       main_cmd = params['main_cmd']
 
       se_config = {
@@ -232,6 +234,9 @@ module Fluent
           fluentd_conf: fluentd_conf,
           main_cmd: main_cmd,
       }
+      if daemonize
+        se_config[:pid_path] = pid_path
+      end
       pre_params = params.dup
       params['pre_loadtime'] = Time.now.to_i
       params['pre_config_mtime'] = config_mtime
