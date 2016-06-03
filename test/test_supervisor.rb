@@ -210,6 +210,73 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal se_config[:log_stderr], false
     assert_equal se_config[:enable_heartbeat], true
     assert_equal se_config[:auto_heartbeat], false
+    assert_equal false, se_config[:daemonize]
+    assert_nil se_config[:pid_path]
+
+    # second call immediately(reuse config)
+    se_config = load_config_proc.call
+    pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
+    pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
+    assert_nil pre_config_mtime
+    assert_nil pre_loadtime
+
+    sleep 5
+
+    # third call after 5 seconds(don't reuse config)
+    se_config = load_config_proc.call
+    pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
+    pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
+    assert_not_nil pre_config_mtime
+    assert_not_nil pre_loadtime
+
+    # forth call immediately(reuse config)
+    se_config = load_config_proc.call
+    # test that pre_config_mtime and pre_loadtime are not changed from previous one because reused pre_config
+    assert_equal se_config[:windows_daemon_cmdline][5]['pre_config_mtime'], pre_config_mtime
+    assert_equal se_config[:windows_daemon_cmdline][5]['pre_loadtime'], pre_loadtime
+
+    write_config tmp_dir, conf_debug_str
+
+    # fifth call after changed conf file(don't reuse config)
+    se_config = load_config_proc.call
+    assert_equal se_config[:log_level], Fluent::Log::LEVEL_DEBUG
+  end
+
+  def test_load_config_for_daemonize
+    tmp_dir = "#{TMP_DIR}/dir/test_load_config.conf"
+    conf_info_str = %[
+<system>
+  log_level info
+</system>
+]
+    conf_debug_str = %[
+<system>
+  log_level debug
+</system>
+]
+    write_config tmp_dir, conf_info_str
+
+    params = {}
+    params['use_v1_config'] = true
+    params['log_path'] = 'test/tmp/supervisor/log'
+    params['suppress_repeated_stacktrace'] = true
+    params['log_level'] = Fluent::Log::LEVEL_INFO
+    params['daemonize'] = './fluentd.pid'
+    load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_dir, params) }
+
+    # first call
+    se_config = load_config_proc.call
+    assert_equal se_config[:log_level], Fluent::Log::LEVEL_INFO
+    assert_equal se_config[:suppress_repeated_stacktrace], true
+    assert_equal se_config[:worker_type], 'spawn'
+    assert_equal se_config[:workers], 1
+    assert_equal se_config[:log_stdin], false
+    assert_equal se_config[:log_stdout], false
+    assert_equal se_config[:log_stderr], false
+    assert_equal se_config[:enable_heartbeat], true
+    assert_equal se_config[:auto_heartbeat], false
+    assert_equal true, se_config[:daemonize]
+    assert_equal './fluentd.pid', se_config[:pid_path]
 
     # second call immediately(reuse config)
     se_config = load_config_proc.call
