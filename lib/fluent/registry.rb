@@ -18,7 +18,7 @@ require 'fluent/config/error'
 
 module Fluent
   class Registry
-    DEFAULT_PLUGIN_PATH = File.expand_path('plugin', __FILE__)
+    DEFAULT_PLUGIN_PATH = File.expand_path('../plugin', __FILE__)
 
     def initialize(kind, search_prefix)
       @kind = kind
