@@ -311,6 +311,7 @@ module Fluent
         without_source: false,
         use_v1_config: true,
         supervise: true,
+        worker_with_supervisor: false,
         signame: nil,
         winsvcreg: nil,
       }
@@ -319,6 +320,7 @@ module Fluent
     def initialize(opt)
       @daemonize = opt[:daemonize]
       @supervise = opt[:supervise]
+      @worker_with_supervisor = opt[:worker_with_supervisor]
       @config_path = opt[:config_path]
       @inline_config = opt[:inline_config]
       @use_v1_config = opt[:use_v1_config]
@@ -381,6 +383,7 @@ module Fluent
       $log.info "starting fluentd-#{Fluent::VERSION} without supervision"
 
       main_process do
+        create_socket_manager unless @worker_with_supervisor
         change_privilege
         init_engine
         run_configure
@@ -390,6 +393,12 @@ module Fluent
     end
 
     private
+
+    def create_socket_manager
+      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
+      ServerEngine::SocketManager::Server.open(socket_manager_path)
+      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+    end
 
     def dry_run
       $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode"
@@ -444,7 +453,7 @@ module Fluent
         }
       end
 
-      fluentd_spawn_cmd << ("--no-supervisor")
+      fluentd_spawn_cmd << ("--run-worker")
       $log.info "spawn command to main: " + fluentd_spawn_cmd
 
       params = {}

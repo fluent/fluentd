@@ -60,6 +60,11 @@ op.on('-d', '--daemon PIDFILE', "daemonize fluent process") {|s|
   opts[:daemonize] = s
 }
 
+op.on('--run-worker', "run fluent worker under supervisor") {
+  opts[:supervise] = false
+  opts[:worker_with_supervisor] = true
+}
+
 op.on('--no-supervisor', "run without fluent supervisor") {
   opts[:supervise] = false
 }
