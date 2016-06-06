@@ -196,8 +196,6 @@ module Fluent
       end
 
       def configure(conf)
-        primary_type = conf['@type']
-
         unless implement?(:synchronous) || implement?(:buffered) || implement?(:delayed_commit)
           raise "BUG: output plugin must implement some methods. see developer documents."
         end
@@ -290,7 +288,7 @@ module Fluent
 
           secondary_type = @secondary_config[:@type]
           unless secondary_type
-            secondary_type = primary_type
+            secondary_type = conf['@type'] # primary plugin type
           end
           secondary_conf = conf.elements(name: 'secondary').first
           @secondary = Plugin.new_output(secondary_type)
