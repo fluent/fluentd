@@ -169,16 +169,6 @@ class StorageHelperTest < Test::Unit::TestCase
     assert{ s.implementation.is_a? ExampleStorage }
   end
 
-  test 'raises exception for storage creation without explicit type specification' do
-    @d = d = Dummy.new
-    d.configure(config_element())
-    d.start
-
-    assert_raises ArgumentError do
-      d.storage_create(usage: 'mydata', conf: config_element('storage', 'mydata', {'@type' => 'example'}))
-    end
-  end
-
   test 'creates 2 or more storage plugin instances' do
     @d = d = Dummy.new
     conf = config_element('ROOT', '', {}, [
@@ -369,6 +359,8 @@ class StorageHelperTest < Test::Unit::TestCase
     assert_equal 1, s.implementation.load_times
     assert_equal 0, s.implementation.save_times
 
+    d.before_shutdown
+
     d.shutdown
 
     assert_equal 1, s.implementation.load_times
@@ -407,5 +399,80 @@ class StorageHelperTest < Test::Unit::TestCase
 
     assert_equal 0, s.implementation.data.size
     assert_equal 0, s.implementation.saved.size
+  end
+
+  test 'calls lifecycle methods for all plugin instances via owner plugin' do
+    @d = d = Dummy.new
+    conf = config_element('ROOT', '', {}, [ config_element('storage', '', {'@type' => 'example'}), config_element('storage', 'e2', {'@type' => 'example'}) ])
+    d.configure(conf)
+    d.start
+
+    i1 = d.storage_create(usage: '')
+    i2 = d.storage_create(usage: 'e2')
+    i3 = d.storage_create(usage: 'e3', type: 'ex2')
+
+    assert i1.started?
+    assert i2.started?
+    assert i3.started?
+
+    assert !i1.stopped?
+    assert !i2.stopped?
+    assert !i3.stopped?
+
+    d.stop
+
+    assert i1.stopped?
+    assert i2.stopped?
+    assert i3.stopped?
+
+    assert !i1.before_shutdown?
+    assert !i2.before_shutdown?
+    assert !i3.before_shutdown?
+
+    d.before_shutdown
+
+    assert i1.before_shutdown?
+    assert i2.before_shutdown?
+    assert i3.before_shutdown?
+
+    assert !i1.shutdown?
+    assert !i2.shutdown?
+    assert !i3.shutdown?
+
+    d.shutdown
+
+    assert i1.shutdown?
+    assert i2.shutdown?
+    assert i3.shutdown?
+
+    assert !i1.after_shutdown?
+    assert !i2.after_shutdown?
+    assert !i3.after_shutdown?
+
+    d.after_shutdown
+
+    assert i1.after_shutdown?
+    assert i2.after_shutdown?
+    assert i3.after_shutdown?
+
+    assert !i1.closed?
+    assert !i2.closed?
+    assert !i3.closed?
+
+    d.close
+
+    assert i1.closed?
+    assert i2.closed?
+    assert i3.closed?
+
+    assert !i1.terminated?
+    assert !i2.terminated?
+    assert !i3.terminated?
+
+    d.terminate
+
+    assert i1.terminated?
+    assert i2.terminated?
+    assert i3.terminated?
   end
 end
