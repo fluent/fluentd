@@ -19,7 +19,7 @@ module Fluent
     class ConfigureProxy
       attr_accessor :name, :final, :param_name, :init, :required, :multi, :alias, :configured_in_section
       attr_accessor :argument, :params, :defaults, :descriptions, :sections
-      # config_param :desc, :string, :default => '....'
+      # config_param :desc, :string, default: '....'
       # config_set_default :buffer_type, :memory
       #
       # config_section :default, required: true, multi: false do
