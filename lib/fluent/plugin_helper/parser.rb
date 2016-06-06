@@ -14,9 +14,6 @@
 #    limitations under the License.
 #
 
-require 'monitor'
-require 'forwardable'
-
 require 'fluent/plugin'
 require 'fluent/plugin/parser'
 require 'fluent/config/element'
@@ -30,7 +27,7 @@ module Fluent
 
         if !type
           raise ArgumentError, "BUG: both type and conf are not specified" unless conf
-          raise Fluent::ConfigError, "@type is not specified for <parse>" unless conf['@type']
+          raise Fluent::ConfigError, "@type is required in <parse>" unless conf['@type']
           type = conf['@type']
         end
         parser = Fluent::Plugin.new_parser(type, parent: self)
@@ -107,7 +104,6 @@ module Fluent
 
       def stop
         super
-        # timer stops automatically in super
         parser_operate(:stop)
       end
 
@@ -133,6 +129,7 @@ module Fluent
 
       def terminate
         parser_operate(:terminate)
+        @_parsers_started = false
         @_parsers = {}
         super
       end

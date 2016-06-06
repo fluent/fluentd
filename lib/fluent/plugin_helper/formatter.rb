@@ -14,9 +14,6 @@
 #    limitations under the License.
 #
 
-require 'monitor'
-require 'forwardable'
-
 require 'fluent/plugin'
 require 'fluent/plugin/formatter'
 require 'fluent/config/element'
@@ -30,7 +27,7 @@ module Fluent
 
         if !type
           raise ArgumentError, "BUG: both type and conf are not specified" unless conf
-          raise Fluent::ConfigError, "@type is not specified for <format>" unless conf['@type']
+          raise Fluent::ConfigError, "@type is required in <format>" unless conf['@type']
           type = conf['@type']
         end
         formatter = Fluent::Plugin.new_formatter(type, parent: self)
@@ -107,7 +104,6 @@ module Fluent
 
       def stop
         super
-        # timer stops automatically in super
         formatter_operate(:stop)
       end
 
@@ -133,6 +129,7 @@ module Fluent
 
       def terminate
         formatter_operate(:terminate)
+        @_formatters_started = false
         @_formatters = {}
         super
       end
