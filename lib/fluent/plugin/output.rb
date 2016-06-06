@@ -196,6 +196,8 @@ module Fluent
       end
 
       def configure(conf)
+        primary_type = conf['@type']
+
         unless implement?(:synchronous) || implement?(:buffered) || implement?(:delayed_commit)
           raise "BUG: output plugin must implement some methods. see developer documents."
         end
@@ -287,6 +289,9 @@ module Fluent
           raise Fluent::ConfigError, "<secondary> section and 'retry_forever' are exclusive" if @buffer_config.retry_forever
 
           secondary_type = @secondary_config[:@type]
+          unless secondary_type
+            secondary_type = primary_type
+          end
           secondary_conf = conf.elements(name: 'secondary').first
           @secondary = Plugin.new_output(secondary_type)
           @secondary.acts_as_secondary(self)
