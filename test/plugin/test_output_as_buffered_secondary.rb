@@ -134,6 +134,19 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       end
     end
 
+    test 'uses same plugin type with primary if @type is missing in secondary' do
+      bufconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 30, 'retry_randomize' => false})
+      secconf = config_element('secondary','',{})
+      priconf = config_element('ROOT', '', {'@type' => 'output_secondary_test'}, [bufconf, secconf])
+      i = create_output()
+      assert_nothing_raised do
+        i.configure(priconf)
+      end
+      logs = i.log.out.logs
+      assert{ logs.empty? }
+      assert{ i.secondary.is_a? FluentPluginOutputAsBufferedSecondaryTest::DummyFullFeatureOutput }
+    end
+
     test 'warns if secondary plugin is different type from primary one' do
       priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 30, 'retry_randomize' => false})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})

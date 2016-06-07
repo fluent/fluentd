@@ -287,6 +287,9 @@ module Fluent
           raise Fluent::ConfigError, "<secondary> section and 'retry_forever' are exclusive" if @buffer_config.retry_forever
 
           secondary_type = @secondary_config[:@type]
+          unless secondary_type
+            secondary_type = conf['@type'] # primary plugin type
+          end
           secondary_conf = conf.elements(name: 'secondary').first
           @secondary = Plugin.new_output(secondary_type)
           @secondary.acts_as_secondary(self)
