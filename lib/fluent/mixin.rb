@@ -17,6 +17,7 @@
 require 'fluent/timezone'
 require 'fluent/time'
 require 'fluent/config/error'
+require 'fluent/compat/record_filter_mixin'
 
 module Fluent
   class TimeFormatter
@@ -111,21 +112,7 @@ module Fluent
     end
   end
 
-
-  module RecordFilterMixin
-    def filter_record(tag, time, record)
-    end
-
-    def format_stream(tag, es)
-      out = ''
-      es.each {|time,record|
-        tag_temp = tag.dup
-        filter_record(tag_temp, time, record)
-        out << format(tag_temp, time, record)
-      }
-      out
-    end
-  end
+  RecordFilterMixin = Fluent::Compat::RecordFilterMixin
 
   module HandleTagNameMixin
     include RecordFilterMixin
