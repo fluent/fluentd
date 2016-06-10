@@ -14,26 +14,47 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 
-module Fluent
-  class BufferedStdoutOutput < ObjectBufferedOutput
-    Plugin.register_output('buffered_stdout', self)
+module Fluent::Plugin
+  class BufferedStdoutOutput < Output
+    Fluent::Plugin.register_output('buffered_stdout', self)
 
     desc 'Output format.(json,hash)'
     config_param :output_type, default: 'json'
+    config_section :buffer do
+      config_set_default :chunk_keys, ['tag']
+      config_set_default :flush_at_shutdown, true
+      config_set_default :chunk_limit_size, 10 * 1024
+    end
+
+    attr_accessor :delayed
+
+    def initialize
+      super
+      @delayed = false
+    end
+
+    def prefer_delayed_commit
+      @delayed
+    end
 
     def configure(conf)
       super
-      @formatter = Plugin.new_formatter(@output_type)
+      @formatter = Fluent::Plugin.new_formatter(@output_type, parent: self)
       @formatter.configure(conf)
     end
 
-    def write_objects(tag, chunk)
-      chunk.msgpack_each {|time,record|
-        log.write "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
-      }
-      log.flush
+    def write(chunk)
+      chunk.write_to($log)
+    end
+
+    def try_write(chunk)
+      chunk.write_to($log)
+    end
+
+    def format(tag, time, record)
+      "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
     end
   end
 end
