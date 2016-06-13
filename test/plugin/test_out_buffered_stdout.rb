@@ -45,7 +45,7 @@ class BufferedStdoutOutputTest < Test::Unit::TestCase
 
       out = capture_log do
         d.run(default_tag: 'test', flush: true) do
-        d.feed(time, {'test' => 'test'})
+          d.feed(time, {'test' => 'test'})
         end
       end
       assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
