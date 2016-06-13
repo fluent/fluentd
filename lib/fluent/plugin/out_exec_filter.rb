@@ -367,7 +367,7 @@ module Fluent::Plugin
       if val = record.delete(@out_time_key)
         time = @time_parse_proc.call(val)
       else
-        time = Engine.now
+        time = Fluent::Engine.now
       end
 
       if val = record.delete(@out_tag_key)
