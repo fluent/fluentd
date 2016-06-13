@@ -23,9 +23,9 @@ require 'fluent/timezone'
 require 'fluent/plugin/exec_util'
 require 'fluent/config/error'
 
-module Fluent
-  class ExecFilterOutput < BufferedOutput
-    Plugin.register_output('exec_filter', self)
+module Fluent::Plugin
+  class ExecFilterOutput < Output
+    Fluent::Plugin.register_output('exec_filter', self)
 
     def initialize
       super
@@ -93,6 +93,8 @@ module Fluent
 
     config_set_default :flush_interval, 1
 
+    helpers :event_emitter
+
     def configure(conf)
       if tag_key = conf['tag_key']
         # TODO obsoleted?
@@ -131,7 +133,7 @@ module Fluent
 
       if @in_time_key
         if f = @in_time_format
-          tf = TimeFormatter.new(f, @localtime, @timezone)
+          tf = Fluent::TimeFormatter.new(f, @localtime, @timezone)
           @time_format_proc = tf.method(:format)
         else
           @time_format_proc = Proc.new {|time| time.to_s }
@@ -238,7 +240,7 @@ module Fluent
       super
     end
 
-    def format_stream(tag, es)
+    def format(tag, time, record)
       if @remove_prefix
         if (tag[0, @removed_length] == @removed_prefix_string and tag.length > @removed_length) or tag == @removed_prefix
           tag = tag[@removed_length..-1] || ''
@@ -247,16 +249,13 @@ module Fluent
 
       out = ''
 
-      es.each {|time,record|
-        if @in_time_key
-          record[@in_time_key] = @time_format_proc.call(time)
-        end
-        if @in_tag_key
-          record[@in_tag_key] = tag
-        end
-        @formatter.call(record, out)
-      }
-
+      if @in_time_key
+        record[@in_time_key] = @time_format_proc.call(time)
+      end
+      if @in_tag_key
+        record[@in_tag_key] = tag
+      end
+      @formatter.call(record, out)
       out
     end
 
