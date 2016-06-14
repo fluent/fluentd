@@ -5,7 +5,7 @@ require 'fluent/plugin/parser'
 class Apache2ParserTest < ::Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @parser = Fluent::TextParser::ApacheParser.new
+    @parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::ApacheParser)
     @expected = {
       'user'    => nil,
       'method'  => 'GET',
@@ -19,16 +19,18 @@ class Apache2ParserTest < ::Test::Unit::TestCase
   end
 
   def test_parse
-    @parser.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
+    @parser.instance.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
       assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
     }
-    assert_equal(Fluent::TextParser::ApacheParser::REGEXP, @parser.patterns['format'])
-    assert_equal(Fluent::TextParser::ApacheParser::TIME_FORMAT, @parser.patterns['time_format'])
+    assert_equal(Fluent::TextParser::ApacheParser::REGEXP,
+                 @parser.instance.patterns['format'])
+    assert_equal(Fluent::TextParser::ApacheParser::TIME_FORMAT,
+                 @parser.instance.patterns['time_format'])
   end
 
   def test_parse_without_http_version
-    @parser.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0"') { |time, record|
+    @parser.instance.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0"') { |time, record|
       assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
     }

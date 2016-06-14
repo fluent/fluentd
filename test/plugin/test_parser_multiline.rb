@@ -8,8 +8,7 @@ class MultilineParserTest < ::Test::Unit::TestCase
   end
 
   def create_parser(conf)
-    parser = Fluent::Plugin.new_parser('multiline')
-    parser.configure(conf)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::MultilineParser).configure(conf)
     parser
   end
 
@@ -23,7 +22,7 @@ class MultilineParserTest < ::Test::Unit::TestCase
 
   def test_parse
     parser = create_parser('format1' => '/^(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}) \[(?<thread>.*)\] (?<level>[^\s]+)(?<message>.*)/')
-    parser.parse(<<EOS.chomp) { |time, record|
+    parser.instance.parse(<<EOS.chomp) { |time, record|
 2013-3-03 14:27:33 [main] ERROR Main - Exception
 javax.management.RuntimeErrorException: null
 \tat Main.main(Main.java:16) ~[bin/:na]
@@ -40,13 +39,13 @@ EOS
 
   def test_parse_with_firstline
     parser = create_parser('format_firstline' => '/----/', 'format1' => '/time=(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}).*message=(?<message>.*)/')
-    parser.parse(<<EOS.chomp) { |time, record|
+    parser.instance.parse(<<EOS.chomp) { |time, record|
 ----
 time=2013-3-03 14:27:33
 message=test1
 EOS
 
-      assert(parser.firstline?('----'))
+      assert(parser.instance.firstline?('----'))
       assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
       assert_equal({"message" => "test1"}, record)
     }
@@ -60,7 +59,7 @@ EOS
                            'format4' => '/  Rendered (?<template>[^ ]+) within (?<layout>.+) \([\d\.]+ms\)\n/',
                            'format5' => '/Completed (?<code>[^ ]+) [^ ]+ in (?<runtime>[\d\.]+)ms \(Views: (?<view_runtime>[\d\.]+)ms \| ActiveRecord: (?<ar_runtime>[\d\.]+)ms\)/'
                            )
-    parser.parse(<<EOS.chomp) { |time, record|
+    parser.instance.parse(<<EOS.chomp) { |time, record|
 Started GET "/users/123/" for 127.0.0.1 at 2013-06-14 12:00:11 +0900
 Processing by UsersController#show as HTML
   Parameters: {"user_id"=>"123"}
@@ -68,7 +67,7 @@ Processing by UsersController#show as HTML
 Completed 200 OK in 4ms (Views: 3.2ms | ActiveRecord: 0.0ms)
 EOS
 
-      assert(parser.firstline?('Started GET "/users/123/" for 127.0.0.1...'))
+      assert(parser.instance.firstline?('Started GET "/users/123/" for 127.0.0.1...'))
       assert_equal(str2time('2013-06-14 12:00:11 +0900').to_i, time)
       assert_equal({
                      "method" => "GET",
@@ -89,13 +88,12 @@ EOS
   end
 
   def test_parse_with_keep_time_key
-    parser = Fluent::TextParser::MultilineParser.new
-    parser.configure(
-                     'format1' => '/^(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2})/',
-                     'keep_time_key' => 'true'
-                     )
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::MultilineParser).configure(
+      'format1' => '/^(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2})/',
+      'keep_time_key' => 'true'
+    )
     text = '2013-3-03 14:27:33'
-    parser.parse(text) { |time, record|
+    parser.instance.parse(text) { |time, record|
       assert_equal text, record['time']
     }
   end

@@ -8,34 +8,6 @@ module ParserTest
       Fluent::Test.setup
     end
 
-    def create_parser
-      parser = Fluent::Parser.new
-      parser.configure({})
-      parser
-    end
-
-    def test_init
-      assert_true create_parser.estimate_current_event
-    end
-
-    def test_parse
-      assert_raise NotImplementedError do
-        create_parser.parse('')
-      end
-    end
-
-    def test_call
-      assert_raise NotImplementedError do
-        create_parser.call('')
-      end
-    end
-  end
-
-  class BaseParserTestWithTestDriver < ::Test::Unit::TestCase
-    def setup
-      Fluent::Test.setup
-    end
-
     def create_driver(conf={})
       Fluent::Test::Driver::Parser.new(Fluent::Plugin::Parser).configure(conf)
     end

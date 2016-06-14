@@ -5,7 +5,7 @@ require 'fluent/plugin/parser'
 class SyslogParserTest < ::Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @parser = Fluent::Test::ParserTestDriver.new('syslog')
+    @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::SyslogParser)
     @expected = {
       'host'    => '192.168.0.1',
       'ident'   => 'fluentd',
@@ -16,7 +16,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
 
   def test_parse
     @parser.configure({})
-    @parser.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+    @parser.instance.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
@@ -26,7 +26,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
 
   def test_parse_with_time_format
     @parser.configure('time_format' => '%b %d %M:%S:%H')
-    @parser.parse('Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+    @parser.instance.parse('Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
@@ -35,7 +35,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
 
   def test_parse_with_priority
     @parser.configure('with_priority' => true)
-    @parser.parse('<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+    @parser.instance.parse('<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected.merge('pri' => 6), record)
     }
@@ -45,7 +45,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
 
   def test_parse_without_colon
     @parser.configure({})
-    @parser.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111] [error] Syslog test') { |time, record|
+    @parser.instance.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111] [error] Syslog test') { |time, record|
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
@@ -59,7 +59,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
                       'keep_time_key'=>'true',
                       )
     text = 'Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test'
-    @parser.parse(text) do |time, record|
+    @parser.instance.parse(text) do |time, record|
       assert_equal "Feb 28 00:00:12", record['time']
     end
   end

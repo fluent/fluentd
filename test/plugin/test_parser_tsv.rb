@@ -9,24 +9,24 @@ class TSVParserTest < ::Test::Unit::TestCase
 
   data('array param' => '["a","b"]', 'string param' => 'a,b')
   def test_config_params(param)
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
 
-    assert_equal "\t", parser.delimiter
+    assert_equal "\t", parser.instance.delimiter
 
     parser.configure(
                      'keys' => param,
                      'delimiter' => ',',
                      )
 
-    assert_equal ['a', 'b'], parser.keys
-    assert_equal ",", parser.delimiter
+    assert_equal ['a', 'b'], parser.instance.keys
+    assert_equal ",", parser.instance.delimiter
   end
 
   data('array param' => '["time","a","b"]', 'string param' => 'time,a,b')
   def test_parse(param)
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
     parser.configure('keys' => param, 'time_key' => 'time')
-    parser.parse("2013/02/28 12:00:00\t192.168.0.1\t111") { |time, record|
+    parser.instance.parse("2013/02/28 12:00:00\t192.168.0.1\t111") { |time, record|
       assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
                      'a' => '192.168.0.1',
@@ -38,9 +38,9 @@ class TSVParserTest < ::Test::Unit::TestCase
   def test_parse_with_time
     time_at_start = Time.now.to_i
 
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
     parser.configure('keys' => 'a,b')
-    parser.parse("192.168.0.1\t111") { |time, record|
+    parser.instance.parse("192.168.0.1\t111") { |time, record|
       assert time && time >= time_at_start, "parser puts current time without time input"
       assert_equal({
                      'a' => '192.168.0.1',
@@ -48,10 +48,10 @@ class TSVParserTest < ::Test::Unit::TestCase
                    }, record)
     }
 
-    parser = Fluent::TextParser::TSVParser.new
-    parser.estimate_current_event = false
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
+    parser.instance.estimate_current_event = false
     parser.configure('keys' => 'a,b', 'time_key' => 'time')
-    parser.parse("192.168.0.1\t111") { |time, record|
+    parser.instance.parse("192.168.0.1\t111") { |time, record|
       assert_equal({
                      'a' => '192.168.0.1',
                      'b' => '111',
@@ -70,15 +70,15 @@ class TSVParserTest < ::Test::Unit::TestCase
   def test_black_column(data)
     line, expected = data
 
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
     parser.configure('keys' => '1,2,3')
-    parser.parse(line) { |time, record|
+    parser.instance.parse(line) { |time, record|
       assert_equal(expected, record)
     }
   end
 
   def test_parse_with_keep_time_key
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
     parser.configure(
                      'keys'=>'time',
                      'time_key'=>'time',
@@ -86,20 +86,20 @@ class TSVParserTest < ::Test::Unit::TestCase
                      'keep_time_key'=>'true',
                      )
     text = '28/Feb/2013:12:00:00 +0900'
-    parser.parse(text) do |time, record|
+    parser.instance.parse(text) do |time, record|
       assert_equal text, record['time']
     end
   end
 
   data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
   def test_parse_with_null_value_pattern
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
     parser.configure(
                      'keys'=>param,
                      'time_key'=>'time',
                      'null_value_pattern'=>'^(-|null|NULL)$'
                      )
-    parser.parse("-\tnull\tNULL\t\t--\tnuLL") do |time, record|
+    parser.instance.parse("-\tnull\tNULL\t\t--\tnuLL") do |time, record|
       assert_nil record['a']
       assert_nil record['b']
       assert_nil record['c']
@@ -111,13 +111,13 @@ class TSVParserTest < ::Test::Unit::TestCase
 
   data('array param' => '["a","b"]', 'string param' => 'a,b')
   def test_parse_with_null_empty_string
-    parser = Fluent::TextParser::TSVParser.new
+    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::TSVParser)
     parser.configure(
                      'keys'=>param,
                      'time_key'=>'time',
                      'null_empty_string'=>true
                      )
-    parser.parse("\t ") do |time, record|
+    parser.instance.parse("\t ") do |time, record|
       assert_nil record['a']
       assert_equal record['b'], ' '
     end
