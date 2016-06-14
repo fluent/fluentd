@@ -77,7 +77,7 @@ class RootAgentTest < ::Test::Unit::TestCase
 EOC
       ra = configure_ra(conf)
       assert_kind_of FluentTestInput, ra.inputs.first
-      assert_kind_of RelabelOutput, ra.outputs.first
+      assert_kind_of Plugin::RelabelOutput, ra.outputs.first
       assert_kind_of FluentTestFilter, ra.filters.first
       assert ra.error_collector
 
@@ -99,6 +99,7 @@ EOC
   sub_test_case 'start/shutdown' do
     setup do
       @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent { @ra }
       @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
 <source>
   @type test_in
