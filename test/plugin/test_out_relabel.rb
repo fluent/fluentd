@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/plugin/out_relabel'
 
 class RelabelOutputTest < Test::Unit::TestCase
@@ -8,22 +8,21 @@ class RelabelOutputTest < Test::Unit::TestCase
   end
 
   def default_config
-    config_element('ROOT', '', {"@type"=>"forward", "@label"=>"@FORWARD"})
+    config_element('ROOT', '', {"@type"=>"relabel", "@label"=>"@RELABELED"})
   end
 
   def create_driver(conf = default_config)
-    Fluent::Test::OutputTestDriver.new(Fluent::RelabelOutput).configure(conf)
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::RelabelOutput).configure(conf)
   end
 
-  def test_emit
+  def test_process
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.run do
-      d.emit({"a"=>1}, time)
-      d.emit({"a"=>2}, time)
+    time = event_time("2011-01-02 13:14:15 UTC")
+    d.run(default_tag: 'test') do
+      d.feed(time, {"a"=>1})
+      d.feed(time, {"a"=>2})
     end
-    emits = d.emits
-    assert_equal [["test", time, {"a"=>1}], ["test", time, {"a"=>2}]], emits
+    assert_equal [["test", time, {"a"=>1}], ["test", time, {"a"=>2}]], d.events
   end
 end
