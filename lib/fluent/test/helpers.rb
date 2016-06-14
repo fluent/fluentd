@@ -45,6 +45,14 @@ module Fluent
           raise ArgumentError, "unknown msgpack object type '#{type}'"
         end
       end
+
+      def str2time(str_time, format = nil)
+        if format
+          Fluent::EventTime.from_time(Time.strptime(str_time, format))
+        else
+          Fluent::EventTime.parse(str_time)
+        end
+      end
     end
   end
 end
