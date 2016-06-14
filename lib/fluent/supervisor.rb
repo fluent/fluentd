@@ -453,7 +453,7 @@ module Fluent
         }
       end
 
-      fluentd_spawn_cmd << ("--run-worker")
+      fluentd_spawn_cmd << ("--under-supervisor")
       $log.info "spawn command to main: " + fluentd_spawn_cmd
 
       params = {}
