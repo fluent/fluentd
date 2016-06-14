@@ -56,7 +56,7 @@ module Fluent
           if conf.is_a?(Fluent::Config::Element)
             @config = conf
           elsif conf.is_a?(Hash)
-            @config = Fluent::Config::Element.new(@section_name, "", Hash[conf.map{|k,v| [k.to_s, v]}])
+            @config = Fluent::Config::Element.new(@section_name, "", Hash[conf.map{|k,v| [k.to_s, v]}], [])
           else
             @config = Fluent::Config.parse(conf, @section_name, "", syntax: syntax)
           end
