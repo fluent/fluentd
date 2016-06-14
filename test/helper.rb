@@ -42,6 +42,7 @@ require 'fileutils'
 require 'fluent/config/element'
 require 'fluent/log'
 require 'fluent/test'
+require 'fluent/test/helpers'
 require 'fluent/plugin/base'
 require 'fluent/log'
 require 'fluent/plugin_id'
@@ -67,30 +68,7 @@ unless defined?(Test::Unit::AssertionFailedError)
   end
 end
 
-def config_element(name = 'test', argument = '', params = {}, elements = [])
-  Fluent::Config::Element.new(name, argument, params, elements)
-end
-
-def event_time(str=nil)
-  if str
-    Fluent::EventTime.parse(str)
-  else
-    Fluent::EventTime.now
-  end
-end
-
-def msgpack(type)
-  case type
-  when :factory
-    Fluent::MessagePackFactory.factory
-  when :packer
-    Fluent::MessagePackFactory.packer
-  when :unpacker
-    Fluent::MessagePackFactory.unpacker
-  else
-    raise ArgumentError, "unknown msgpack object type '#{type}'"
-  end
-end
+include Fluent::Test::Helpers
 
 def unused_port(num = 1)
   ports = []

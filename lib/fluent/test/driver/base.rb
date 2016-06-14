@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/config/element'
+require 'fluent/log'
 require 'fluent/test/driver/test_event_router'
 
 require 'timeout'
