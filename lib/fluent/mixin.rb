@@ -20,6 +20,7 @@ require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/handle_tag_name_mixin'
 require 'fluent/compat/set_time_key_mixin'
+require 'fluent/compat/set_tag_key_mixin'
 
 module Fluent
   class TimeFormatter
@@ -117,33 +118,7 @@ module Fluent
   RecordFilterMixin = Fluent::Compat::RecordFilterMixin
   HandleTagNameMixin = Fluent::Compat::HandleTagNameMixin
   SetTimeKeyMixin = Fluent::Compat::SetTimeKeyMixin
-
-  module SetTagKeyMixin
-    include RecordFilterMixin
-
-    attr_accessor :include_tag_key, :tag_key
-
-    def configure(conf)
-      @include_tag_key = false
-
-      super
-
-      if s = conf['include_tag_key']
-        include_tag_key = Config.bool_value(s)
-        raise ConfigError, "Invalid boolean expression '#{s}' for include_tag_key parameter" if include_tag_key.nil?
-
-        @include_tag_key = include_tag_key
-      end
-
-      @tag_key = conf['tag_key'] || 'tag' if @include_tag_key
-    end
-
-    def filter_record(tag, time, record)
-      super
-
-      record[@tag_key] = tag if @include_tag_key
-    end
-  end
+  SetTagKeyMixin = Fluent::Compat::SetTagKeyMixin
 
   module TypeConverter
     Converters = {
