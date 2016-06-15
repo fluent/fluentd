@@ -19,6 +19,7 @@ require 'fluent/time'
 require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/handle_tag_name_mixin'
+require 'fluent/compat/set_time_key_mixin'
 
 module Fluent
   class TimeFormatter
@@ -115,52 +116,7 @@ module Fluent
 
   RecordFilterMixin = Fluent::Compat::RecordFilterMixin
   HandleTagNameMixin = Fluent::Compat::HandleTagNameMixin
-
-  module SetTimeKeyMixin
-    require 'fluent/timezone'
-    include RecordFilterMixin
-
-    attr_accessor :include_time_key, :time_key, :localtime, :timezone
-
-    def configure(conf)
-      @include_time_key = false
-      @localtime = false
-      @timezone = nil
-
-      super
-
-      if s = conf['include_time_key']
-        include_time_key = Config.bool_value(s)
-        raise ConfigError, "Invalid boolean expression '#{s}' for include_time_key parameter" if include_time_key.nil?
-
-        @include_time_key = include_time_key
-      end
-
-      if @include_time_key
-        @time_key     = conf['time_key'] || 'time'
-        @time_format  = conf['time_format']
-
-        if    conf['localtime']
-          @localtime = true
-        elsif conf['utc']
-          @localtime = false
-        end
-
-        if conf['timezone']
-          @timezone = conf['timezone']
-          Fluent::Timezone.validate!(@timezone)
-        end
-
-        @timef = TimeFormatter.new(@time_format, @localtime, @timezone)
-      end
-    end
-
-    def filter_record(tag, time, record)
-      super
-
-      record[@time_key] = @timef.format(time) if @include_time_key
-    end
-  end
+  SetTimeKeyMixin = Fluent::Compat::SetTimeKeyMixin
 
   module SetTagKeyMixin
     include RecordFilterMixin
