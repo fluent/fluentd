@@ -104,7 +104,7 @@ class ForwardInputTest < Test::Unit::TestCase
           send_data packer.write([tag, 0, record]).to_s
         }
       end
-      assert_equal(records, d.emits.sort_by{|a, b| a[0] <=> b[0] })
+      assert_equal(records, d.emits.sort_by {|a| a[0] })
     end
 
     def test_plain
@@ -192,7 +192,7 @@ class ForwardInputTest < Test::Unit::TestCase
         }
       end
 
-      assert_equal(records, d.emits.sort_by{|a, b| a[1] <=> b[1] })
+      assert_equal(records, d.emits.sort_by {|a| a[1] })
     end
   end
 
