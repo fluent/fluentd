@@ -37,10 +37,10 @@ class StdoutOutputTest < Test::Unit::TestCase
     time = event_time()
     out = capture_log do
       d.run(default_tag: 'test') do
-        d.feed(time, {'test' => 'test'})
+        d.feed(time, {'test' => 'test1'})
       end
     end
-    assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+    assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
 
     if data == 'yajl'
       # NOTE: Float::NAN is not jsonable
@@ -56,10 +56,10 @@ class StdoutOutputTest < Test::Unit::TestCase
     time = event_time()
     out = capture_log do
       d.run(default_tag: 'test') do
-        d.feed(time, {'test' => 'test'})
+        d.feed(time, {'test' => 'test2'})
       end
     end
-    assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test\"}\n", out
+    assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test2\"}\n", out
 
     # NOTE: Float::NAN is not jsonable, but hash string can output it.
     out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }

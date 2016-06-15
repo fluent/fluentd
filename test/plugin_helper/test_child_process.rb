@@ -313,6 +313,7 @@ class ChildProcessTest < Test::Unit::TestCase
     arguments = ["-e", "10.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 10
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       assert @d.log.out.logs.clear
+      assert_equal [], @d.log.out.logs
       @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 2, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
