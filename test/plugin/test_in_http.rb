@@ -335,50 +335,34 @@ class HttpInputTest < Test::Unit::TestCase
     d = create_driver(CONFIG + "cors_allow_origins [\"http://foo.com\"]")
     assert_equal ["http://foo.com"], d.instance.cors_allow_origins
 
-    test_in_http_cros_allowed = nil
-    acao = nil
+    time = Fluent::EventTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
-    begin
-      d.run do
-        Net::HTTP.start("127.0.0.1", PORT) do |http|
-          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://foo.com", "Content-Type" => "application/octet-stream"})
-          res = http.request(req)
+    d.expect_emit "tag1", time, {"a"=>1}
+    d.expect_emit "tag2", time, {"a"=>1}
 
-          acao = res["Access-Control-Allow-Origin"]
-        end
-      end
-      test_in_http_cros_allowed = true
-    rescue
-      test_in_http_cros_allowed = false
+    d.run do
+      d.expected_emits.each {|tag,_time,record|
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>_time.to_s}, {"Origin"=>"http://foo.com"})
+        assert_equal "200", res.code
+        assert_equal "http://foo.com", res["Access-Control-Allow-Origin"]
+      }
     end
-
-    assert_equal true, test_in_http_cros_allowed
-    assert_equal "http://foo.com", acao
   end
 
   def test_cors_disallowed
     d = create_driver(CONFIG + "cors_allow_origins [\"http://foo.com\"]")
     assert_equal ["http://foo.com"], d.instance.cors_allow_origins
 
-    test_in_http_cros_disallowed = nil
-    response_code = nil
+    time = Fluent::EventTime.new(Time.parse("2011-01-02 13:14:15 UTC").to_i)
 
-    begin
-      d.run do
-        Net::HTTP.start("127.0.0.1", PORT) do |http|
-          req = Net::HTTP::Post.new("/foo/bar", {"Origin" => "http://bar.com", "Content-Type" => "application/octet-stream"})
-          res = http.request(req)
+    d.expected_emits_length = 0
+    d.run do
+      res = post("/tag1", {"json"=>{"a"=>1}.to_json, "time"=>time.to_s}, {"Origin"=>"http://bar.com"})
+      assert_equal "403", res.code
 
-          response_code = res.code
-        end
-      end
-      test_in_http_cros_disallowed = true
-    rescue
-      test_in_http_cros_disallowed = false
+      res = post("/tag2", {"json"=>{"a"=>1}.to_json, "time"=>time.to_s}, {"Origin"=>"http://bar.com"})
+      assert_equal "403", res.code
     end
-
-    assert_equal true, test_in_http_cros_disallowed
-    assert_equal "403", response_code
   end
 
   $test_in_http_connection_object_ids = []
