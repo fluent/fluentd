@@ -41,9 +41,11 @@ module Fluent
           end
           owner.log = TestLogger.new
 
-          @instance.owner = owner
-          if opts
-            @instance.system_config_override(opts)
+          if @instance.respond_to?(:owner=)
+            @instance.owner = owner
+            if opts
+              @instance.system_config_override(opts)
+            end
           end
 
           @logs = owner.log.out.logs
