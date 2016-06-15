@@ -7,7 +7,7 @@ require 'fluent/env'
 require 'fluent/plugin/in_forward'
 
 class ForwardInputTest < Test::Unit::TestCase
-  class << self
+  module StartupShutdown
     def startup
       socket_manager_path = ServerEngine::SocketManager::Server.generate_path
       @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
@@ -86,6 +86,8 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Message < self
+    extend StartupShutdown
+
     def test_time
       d = create_driver
 
@@ -197,6 +199,8 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Forward < self
+    extend StartupShutdown
+
     data(tcp: {
            config: CONFIG,
            options: {
@@ -309,6 +313,8 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class PackedForward < self
+    extend StartupShutdown
+
     data(tcp: {
            config: CONFIG,
            options: {
@@ -424,6 +430,8 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Warning < self
+    extend StartupShutdown
+
     def test_send_large_chunk_warning
       d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M
@@ -533,6 +541,8 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class RespondToRequiringAck < self
+    extend StartupShutdown
+
     data(tcp: {
            config: CONFIG,
            options: {
@@ -699,6 +709,8 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class NotRespondToNotRequiringAck < self
+    extend StartupShutdown
+
     data(tcp: {
            config: CONFIG,
            options: {
