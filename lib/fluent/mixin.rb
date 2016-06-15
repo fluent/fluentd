@@ -14,9 +14,6 @@
 #    limitations under the License.
 #
 
-require 'fluent/timezone'
-require 'fluent/time'
-require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/handle_tag_name_mixin'
 require 'fluent/compat/set_time_key_mixin'
