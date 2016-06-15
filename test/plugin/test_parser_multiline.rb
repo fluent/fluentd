@@ -88,7 +88,7 @@ EOS
   end
 
   def test_parse_with_keep_time_key
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::MultilineParser).configure(
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::MultilineParser).configure(
       'format1' => '/^(?<time>\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2})/',
       'keep_time_key' => 'true'
     )

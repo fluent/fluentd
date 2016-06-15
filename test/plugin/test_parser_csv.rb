@@ -9,7 +9,7 @@ class CSVParserTest < ::Test::Unit::TestCase
 
   data('array param' => '["time","c","d"]', 'string param' => 'time,c,d')
   def test_parse(param)
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::CSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure('keys' => param, 'time_key' => 'time')
     parser.instance.parse("2013/02/28 12:00:00,192.168.0.1,111") { |time, record|
       assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
@@ -24,7 +24,7 @@ class CSVParserTest < ::Test::Unit::TestCase
   def test_parse_without_time(param)
     time_at_start = Time.now.to_i
 
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::CSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure('keys' => param)
     parser.instance.parse("192.168.0.1,111") { |time, record|
       assert time && time >= time_at_start, "parser puts current time without time input"
@@ -34,7 +34,7 @@ class CSVParserTest < ::Test::Unit::TestCase
                    }, record)
     }
 
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::CSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.instance.estimate_current_event = false
     parser.configure('keys' => param, 'time_key' => 'time')
     parser.instance.parse("192.168.0.1,111") { |time, record|
@@ -47,7 +47,7 @@ class CSVParserTest < ::Test::Unit::TestCase
   end
 
   def test_parse_with_keep_time_key
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::CSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure(
                      'keys'=>'time',
                      'time_key'=>'time',
@@ -62,7 +62,7 @@ class CSVParserTest < ::Test::Unit::TestCase
 
   data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
   def test_parse_with_null_value_pattern
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::CSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure(
                      'keys'=>param,
                      'time_key'=>'time',
@@ -80,7 +80,7 @@ class CSVParserTest < ::Test::Unit::TestCase
 
   data('array param' => '["a","b"]', 'string param' => 'a,b')
   def test_parse_with_null_empty_string
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::CSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure(
                      'keys'=>param,
                      'time_key'=>'time',

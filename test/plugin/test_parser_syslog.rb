@@ -20,7 +20,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
-    assert_equal(Fluent::TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+    assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
@@ -39,7 +39,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected.merge('pri' => 6), record)
     }
-    assert_equal(Fluent::TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+    assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
@@ -49,7 +49,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
-    assert_equal(Fluent::TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+    assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 

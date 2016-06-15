@@ -5,7 +5,7 @@ require 'fluent/plugin/parser'
 class Apache2ParserTest < ::Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::ApacheParser)
+    @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::Apache2Parser)
     @expected = {
       'user'    => nil,
       'method'  => 'GET',
@@ -23,9 +23,9 @@ class Apache2ParserTest < ::Test::Unit::TestCase
       assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
     }
-    assert_equal(Fluent::TextParser::ApacheParser::REGEXP,
+    assert_equal(Fluent::Plugin::Apache2Parser::REGEXP,
                  @parser.instance.patterns['format'])
-    assert_equal(Fluent::TextParser::ApacheParser::TIME_FORMAT,
+    assert_equal(Fluent::Plugin::Apache2Parser::TIME_FORMAT,
                  @parser.instance.patterns['time_format'])
   end
 

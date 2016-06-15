@@ -5,7 +5,7 @@ require 'fluent/plugin/parser'
 class JsonParserTest < ::Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::JSONParser)
+    @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')
@@ -43,7 +43,7 @@ class JsonParserTest < ::Test::Unit::TestCase
                    }, record)
     }
 
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::JSONParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
     parser.instance.estimate_current_event = false
     parser.configure('json_parser' => data)
     parser.instance.parse('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
@@ -66,7 +66,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
   data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse_float_time(data)
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::JSONParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
     parser.configure('json_parser' => data)
     text = "100.1"
     parser.instance.parse("{\"time\":\"#{text}\"}") do |time, record|
@@ -77,7 +77,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
   data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse_with_keep_time_key(data)
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::JSONParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
     format = "%d/%b/%Y:%H:%M:%S %z"
     parser.configure(
                      'time_format' => format,
@@ -93,7 +93,7 @@ class JsonParserTest < ::Test::Unit::TestCase
 
   data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse_with_keep_time_key_without_time_format(data)
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::JSONParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
     parser.configure(
                      'keep_time_key' => 'true',
                      'json_parser' => data

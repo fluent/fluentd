@@ -25,7 +25,7 @@ class ApacheParserTest < ::Test::Unit::TestCase
   end
 
   def test_parse_with_keep_time_key
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::ApacheParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin.new_parser('apache'))
     parser.instance.configure(
                               'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
                               'keep_time_key'=>'true',

@@ -67,7 +67,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
   def test_parse_without_time
     time_at_start = Time.now.to_i
 
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::LabeledTSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
     parser.configure({})
     parser.instance.parse("host:192.168.0.1\treq_id:111") { |time, record|
       assert time && time >= time_at_start, "parser puts current time without time input"
@@ -77,7 +77,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
                    }, record)
     }
 
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::LabeledTSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
     parser.instance.estimate_current_event = false
     parser.configure({})
     parser.instance.parse("host:192.168.0.1\treq_id:111") { |time, record|
@@ -90,7 +90,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
   end
 
   def test_parse_with_keep_time_key
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::LabeledTSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
     parser.configure(
                      'time_format'=>"%d/%b/%Y:%H:%M:%S %z",
                      'keep_time_key'=>'true',
@@ -102,7 +102,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
   end
 
   def test_parse_with_null_value_pattern
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::LabeledTSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
     parser.configure(
                      'null_value_pattern'=>'^(-|null|NULL)$'
                      )
@@ -117,7 +117,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
   end
 
   def test_parse_with_null_empty_string
-    parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::LabeledTSVParser)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
     parser.configure(
                      'null_empty_string'=>true
                      )
