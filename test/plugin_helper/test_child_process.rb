@@ -319,8 +319,9 @@ class ChildProcessTest < Test::Unit::TestCase
       assert_equal 1, @d._child_process_processes.size
       @d.stop
       warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "10.times{ puts \'okay\'; STDOUT.flush rescue nil; sleep 0.5 }"] interval=2 parallel=false' + "\n"
-      assert{ @d.log.out.logs.first.end_with?(warn_msg) }
-      assert{ @d.log.out.logs.all?{|line| line.end_with?(warn_msg) } }
+      logs = @d.log.out.logs
+      assert{ logs.first.end_with?(warn_msg) }
+      assert{ logs.all?{|line| line.end_with?(warn_msg) } }
       @d.shutdown; @d.close; @d.terminate
       assert_equal [], @d.log.out.logs
     end
