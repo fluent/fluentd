@@ -106,7 +106,7 @@ module Fluent
           if args.first =~ /\.rb$/
             path = File.expand_path(args.first)
             data = File.read(path)
-            self.instance_eval(data, @proxy.include_basepath)
+            self.instance_eval(data, path)
           else
             ss = StringScanner.new('')
             Config::V1Parser.new(ss, @proxy.include_basepath, '', nil).eval_include(@attrs, @elements, args.first)
