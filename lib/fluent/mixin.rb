@@ -21,6 +21,7 @@ require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/handle_tag_name_mixin'
 require 'fluent/compat/set_time_key_mixin'
 require 'fluent/compat/set_tag_key_mixin'
+require 'fluent/compat/type_converter'
 
 module Fluent
   class TimeFormatter
@@ -119,75 +120,5 @@ module Fluent
   HandleTagNameMixin = Fluent::Compat::HandleTagNameMixin
   SetTimeKeyMixin = Fluent::Compat::SetTimeKeyMixin
   SetTagKeyMixin = Fluent::Compat::SetTagKeyMixin
-
-  module TypeConverter
-    Converters = {
-      'string' => lambda { |v| v.to_s },
-      'integer' => lambda { |v| v.to_i },
-      'float' => lambda { |v| v.to_f },
-      'bool' => lambda { |v|
-        case v.downcase
-        when 'true', 'yes', '1'
-          true
-        else
-          false
-        end
-      },
-      'time' => lambda { |v, time_parser|
-        time_parser.parse(v)
-      },
-      'array' => lambda { |v, delimiter|
-        v.to_s.split(delimiter)
-      }
-    }
-
-    def self.included(klass)
-      klass.instance_eval {
-        config_param :types, :string, default: nil
-        config_param :types_delimiter, :string, default: ','
-        config_param :types_label_delimiter, :string, default: ':'
-      }
-    end
-
-    def configure(conf)
-      super
-
-      @type_converters = nil
-      @type_converters = parse_types_parameter unless @types.nil?
-    end
-
-    private
-
-    def convert_type(name, value)
-      converter = @type_converters[name]
-      converter.nil? ? value : converter.call(value)
-    end
-
-    def parse_types_parameter
-      converters = {}
-
-      @types.split(@types_delimiter).each { |pattern_name|
-        name, type, format = pattern_name.split(@types_label_delimiter, 3)
-        raise ConfigError, "Type is needed" if type.nil?
-
-        case type
-        when 'time'
-          require 'fluent/parser'
-          t_parser = Fluent::TextParser::TimeParser.new(format)
-          converters[name] = lambda { |v|
-            Converters[type].call(v, t_parser)
-          }
-        when 'array'
-          delimiter = format || ','
-          converters[name] = lambda { |v|
-            Converters[type].call(v, delimiter)
-          }
-        else
-          converters[name] = Converters[type]
-        end
-      }
-
-      converters
-    end
-  end
+  TypeConverter = Fluent::Compat::TypeConverter
 end
