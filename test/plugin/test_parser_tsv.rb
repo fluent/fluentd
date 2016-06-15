@@ -27,7 +27,7 @@ class TSVParserTest < ::Test::Unit::TestCase
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::TSVParser)
     parser.configure('keys' => param, 'time_key' => 'time')
     parser.instance.parse("2013/02/28 12:00:00\t192.168.0.1\t111") { |time, record|
-      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+      assert_equal(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
                      'a' => '192.168.0.1',
                      'b' => '111',

@@ -10,13 +10,13 @@ class RegexpParserTest < ::Test::Unit::TestCase
   def internal_test_case(parser)
     text = '192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777'
     parser.parse(text) { |time, record|
-      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal({
                      'user' => '-',
                      'flag' => true,
                      'code' => 200.0,
                      'size' => 777,
-                     'date' => str2time('14/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'),
+                     'date' => event_time('14/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'),
                      'host' => '192.168.0.1',
                      'path' => ['/', '/user']
                    }, record)

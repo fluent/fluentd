@@ -28,7 +28,7 @@ javax.management.RuntimeErrorException: null
 \tat Main.main(Main.java:16) ~[bin/:na]
 EOS
 
-      assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
+      assert_equal(event_time('2013-3-03 14:27:33').to_i, time)
       assert_equal({
                      "thread"  => "main",
                      "level"   => "ERROR",
@@ -46,7 +46,7 @@ message=test1
 EOS
 
       assert(parser.instance.firstline?('----'))
-      assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
+      assert_equal(event_time('2013-3-03 14:27:33').to_i, time)
       assert_equal({"message" => "test1"}, record)
     }
   end
@@ -68,7 +68,7 @@ Completed 200 OK in 4ms (Views: 3.2ms | ActiveRecord: 0.0ms)
 EOS
 
       assert(parser.instance.firstline?('Started GET "/users/123/" for 127.0.0.1...'))
-      assert_equal(str2time('2013-06-14 12:00:11 +0900').to_i, time)
+      assert_equal(event_time('2013-06-14 12:00:11 +0900').to_i, time)
       assert_equal({
                      "method" => "GET",
                      "path" => "/users/123/",

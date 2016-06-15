@@ -26,7 +26,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
     parser = Fluent::Test::Driver::Parser.new(Fluent::TextParser::LabeledTSVParser)
     parser.configure({})
     parser.instance.parse("time:2013/02/28 12:00:00\thost:192.168.0.1\treq_id:111") { |time, record|
-      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+      assert_equal(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
                      'host'   => '192.168.0.1',
                      'req_id' => '111',
@@ -41,7 +41,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
                      'label_delimiter' => '=',
                      )
     parser.instance.parse('time=2013/02/28 12:00:00,host=192.168.0.1,req_id=111') { |time, record|
-      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+      assert_equal(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
                      'host'   => '192.168.0.1',
                      'req_id' => '111',
@@ -56,7 +56,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
                      'time_format' => '%d/%b/%Y:%H:%M:%S %z',
                      )
     parser.instance.parse("mytime:28/Feb/2013:12:00:00 +0900\thost:192.168.0.1\treq_id:111") { |time, record|
-      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal({
                      'host'   => '192.168.0.1',
                      'req_id' => '111',

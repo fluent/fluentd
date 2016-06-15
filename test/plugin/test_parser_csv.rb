@@ -12,7 +12,7 @@ class CSVParserTest < ::Test::Unit::TestCase
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure('keys' => param, 'time_key' => 'time')
     parser.instance.parse("2013/02/28 12:00:00,192.168.0.1,111") { |time, record|
-      assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+      assert_equal(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
       assert_equal({
                      'c' => '192.168.0.1',
                      'd' => '111',

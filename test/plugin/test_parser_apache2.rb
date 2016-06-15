@@ -20,7 +20,7 @@ class Apache2ParserTest < ::Test::Unit::TestCase
 
   def test_parse
     @parser.instance.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
-      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
     }
     assert_equal(Fluent::Plugin::Apache2Parser::REGEXP,
@@ -31,7 +31,7 @@ class Apache2ParserTest < ::Test::Unit::TestCase
 
   def test_parse_without_http_version
     @parser.instance.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0"') { |time, record|
-      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
     }
   end

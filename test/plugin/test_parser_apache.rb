@@ -12,7 +12,7 @@ class ApacheParserTest < ::Test::Unit::TestCase
   def test_call(method_name)
     m = @parser.instance.method(method_name)
     m.call('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777') { |time, record|
-      assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal({
                      'user'    => '-',
                      'method'  => 'GET',

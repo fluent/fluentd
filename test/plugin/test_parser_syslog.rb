@@ -17,7 +17,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
   def test_parse
     @parser.configure({})
     @parser.instance.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
-      assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+      assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
     assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])
@@ -27,7 +27,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
   def test_parse_with_time_format
     @parser.configure('time_format' => '%b %d %M:%S:%H')
     @parser.instance.parse('Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
-      assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+      assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
     assert_equal('%b %d %M:%S:%H', @parser.instance.patterns['time_format'])
@@ -36,7 +36,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
   def test_parse_with_priority
     @parser.configure('with_priority' => true)
     @parser.instance.parse('<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
-      assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+      assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected.merge('pri' => 6), record)
     }
     assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
@@ -46,7 +46,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
   def test_parse_without_colon
     @parser.configure({})
     @parser.instance.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111] [error] Syslog test') { |time, record|
-      assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+      assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
     assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])

@@ -12,7 +12,7 @@ class TimeParserTest < ::Test::Unit::TestCase
 
     assert(parser.instance.parse('2013-09-18 12:00:00 +0900').is_a?(Fluent::EventTime))
 
-    time = str2time('2013-09-18 12:00:00 +0900')
+    time = event_time('2013-09-18 12:00:00 +0900')
     assert_equal(time, parser.instance.parse('2013-09-18 12:00:00 +0900'))
   end
 
@@ -21,7 +21,7 @@ class TimeParserTest < ::Test::Unit::TestCase
 
     assert(parser.instance.parse('28/Feb/2013:12:00:00 +0900').is_a?(Fluent::EventTime))
 
-    time = str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z')
+    time = event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z')
     assert_equal(time, parser.instance.parse('28/Feb/2013:12:00:00 +0900'))
   end
 
@@ -30,7 +30,7 @@ class TimeParserTest < ::Test::Unit::TestCase
 
     assert(parser.instance.parse('28/Feb/2013:12:00:00:123456789 +0900').is_a?(Fluent::EventTime))
 
-    time = str2time('28/Feb/2013:12:00:00:123456789 +0900', '%d/%b/%Y:%H:%M:%S:%N %z')
+    time = event_time('28/Feb/2013:12:00:00:123456789 +0900', format: '%d/%b/%Y:%H:%M:%S:%N %z')
     assert_equal_event_time(time, parser.instance.parse('28/Feb/2013:12:00:00:123456789 +0900'))
   end
 
