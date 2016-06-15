@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/config/error'
+require 'fluent/config/types'
 require 'fluent/compat/record_filter_mixin'
 
 module Fluent

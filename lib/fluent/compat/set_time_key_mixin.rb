@@ -14,7 +14,9 @@
 #    limitations under the License.
 #
 
+require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
+require 'fluent/compat/time_formatter'
 
 module Fluent
   module Compat
@@ -53,7 +55,7 @@ module Fluent
              Fluent::Timezone.validate!(@timezone)
            end
 
-           @timef = Fluent::TimeFormatter.new(@time_format, @localtime, @timezone)
+           @timef = Fluent::Compat::TimeFormatter.new(@time_format, @localtime, @timezone)
          end
        end
 
