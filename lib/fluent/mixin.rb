@@ -21,101 +21,11 @@ require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/handle_tag_name_mixin'
 require 'fluent/compat/set_time_key_mixin'
 require 'fluent/compat/set_tag_key_mixin'
+require 'fluent/compat/time_formatter'
 require 'fluent/compat/type_converter'
 
 module Fluent
-  class TimeFormatter
-    def initialize(format, localtime, timezone = nil)
-      @tc1 = 0
-      @tc1_str = nil
-      @tc2 = 0
-      @tc2_str = nil
-
-      if format && format =~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
-        define_singleton_method(:format) {|time|
-          format_with_subsec(time)
-        }
-      else
-        define_singleton_method(:format) {|time|
-          format_without_subsec(time)
-        }
-      end
-
-      if formatter = Fluent::Timezone.formatter(timezone, format)
-        define_singleton_method(:format_nocache) {|time|
-          formatter.call(time)
-        }
-        return
-      end
-
-      if format
-        if localtime
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).strftime(format)
-          }
-        else
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).utc.strftime(format)
-          }
-        end
-      else
-        if localtime
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).iso8601
-          }
-        else
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).utc.iso8601
-          }
-        end
-      end
-    end
-
-    def format_without_subsec(time)
-      if @tc1 == time
-        return @tc1_str
-      elsif @tc2 == time
-        return @tc2_str
-      else
-        str = format_nocache(time)
-        if @tc1 < @tc2
-          @tc1 = time
-          @tc1_str = str
-        else
-          @tc2 = time
-          @tc2_str = str
-        end
-        return str
-      end
-    end
-
-    def format_with_subsec(time)
-      if Fluent::EventTime.eq?(@tc1, time)
-        return @tc1_str
-      elsif Fluent::EventTime.eq?(@tc2, time)
-        return @tc2_str
-      else
-        str = format_nocache(time)
-        if @tc1 < @tc2
-          @tc1 = time
-          @tc1_str = str
-        else
-          @tc2 = time
-          @tc2_str = str
-        end
-        return str
-      end
-    end
-
-    def format(time)
-      # will be overridden in initialize
-    end
-
-    def format_nocache(time)
-      # will be overridden in initialize
-    end
-  end
-
+  TimeFormatter = Fluent::Compat::TimeFormatter
   RecordFilterMixin = Fluent::Compat::RecordFilterMixin
   HandleTagNameMixin = Fluent::Compat::HandleTagNameMixin
   SetTimeKeyMixin = Fluent::Compat::SetTimeKeyMixin
