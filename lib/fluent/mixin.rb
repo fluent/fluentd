@@ -18,6 +18,7 @@ require 'fluent/timezone'
 require 'fluent/time'
 require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
+require 'fluent/compat/handle_tag_name_mixin'
 
 module Fluent
   class TimeFormatter
@@ -113,38 +114,7 @@ module Fluent
   end
 
   RecordFilterMixin = Fluent::Compat::RecordFilterMixin
-
-  module HandleTagNameMixin
-    include RecordFilterMixin
-
-    attr_accessor :remove_tag_prefix, :remove_tag_suffix, :add_tag_prefix, :add_tag_suffix
-    def configure(conf)
-      super
-
-      @remove_tag_prefix = if conf.has_key?('remove_tag_prefix')
-                             Regexp.new('^' + Regexp.escape(conf['remove_tag_prefix']))
-                           else
-                             nil
-                           end
-
-      @remove_tag_suffix = if conf.has_key?('remove_tag_suffix')
-                             Regexp.new(Regexp.escape(conf['remove_tag_suffix']) + '$')
-                           else
-                             nil
-                           end
-
-      @add_tag_prefix = conf['add_tag_prefix']
-      @add_tag_suffix = conf['add_tag_suffix']
-    end
-
-    def filter_record(tag, time, record)
-      tag.sub!(@remove_tag_prefix, '') if @remove_tag_prefix
-      tag.sub!(@remove_tag_suffix, '') if @remove_tag_suffix
-      tag.insert(0, @add_tag_prefix) if @add_tag_prefix
-      tag << @add_tag_suffix if @add_tag_suffix
-      super(tag, time, record)
-    end
-  end
+  HandleTagNameMixin = Fluent::Compat::HandleTagNameMixin
 
   module SetTimeKeyMixin
     require 'fluent/timezone'
