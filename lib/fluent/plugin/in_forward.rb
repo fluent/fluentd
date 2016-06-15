@@ -157,7 +157,7 @@ module Fluent
     def listen(client)
       log.info "listening fluent socket on #{@bind}:#{@port}"
       sock = client.listen_tcp(@bind, @port)
-      s = Coolio::TCPServer.new(sock, nil, Handler, @linger_timeout, log, method(:on_message))
+      s = Coolio::TCPServer.new(sock, nil, Handler, @linger_timeout, log, method(:emit_message))
       s.listen(@backlog) unless @backlog.nil?
       s
     end
