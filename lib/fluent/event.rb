@@ -26,6 +26,10 @@ module Fluent
     end
     alias :length :size
 
+    def empty?
+      size == 0
+    end
+
     def repeatable?
       false
     end
@@ -164,6 +168,12 @@ module Fluent
     def initialize(data, cached_unpacker = nil, size = 0)
       @data = data
       @size = size
+    end
+
+    def empty?
+      # This is not correct, but actual number of records will be shown after iteration, and
+      # "size" argument is always 0 currently (because forward protocol doesn't tell it to destination)
+      false
     end
 
     def size

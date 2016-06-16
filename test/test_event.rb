@@ -12,6 +12,10 @@ module EventTest
       @es = OneEventStream.new(@time, @record)
     end
 
+    test 'empty?' do
+      assert_false @es.empty?
+    end
+
     test 'repeatable?' do
       assert_true @es.repeatable?
     end
@@ -151,6 +155,10 @@ module EventTest
         pk.write([_time, record])
       }
       @es = MessagePackEventStream.new(pk.to_s)
+    end
+
+    test 'empty?' do
+      assert_false @es.empty?
     end
 
     test 'repeatable?' do
