@@ -125,6 +125,57 @@ class BufferedOutputTest < Test::Unit::TestCase
     Timecop.return
   end
 
+  sub_test_case 'buffered output configured with many chunk keys' do
+    setup do
+      @stored_global_logger = $log
+      $log = Fluent::Test::TestLogger.new
+      @hash = {
+        'flush_mode' => 'interval',
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
+        'timekey' => 60,
+      }
+      @i = create_output(:buffered)
+    end
+    teardown do
+      $log = @stored_global_logger
+    end
+    test 'nothing are warned with less chunk keys' do
+      chunk_keys = 'time,key1,key2,key3'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+      @i.start
+      assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
+    end
+
+    test 'a warning reported with 4 chunk keys' do
+      chunk_keys = 'key1,key2,key3,key4'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+
+      @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
+      assert_equal ['key1', 'key2', 'key3', 'key4'], @i.chunk_keys
+
+      assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
+    end
+
+    test 'a warning reported with 4 chunk keys including "tag"' do
+      chunk_keys = 'tag,key1,key2,key3'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+      @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
+      assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
+    end
+
+    test 'time key is not included for warned chunk keys' do
+      chunk_keys = 'time,key1,key2,key3'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+      @i.start
+      assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
+    end
+  end
+
   sub_test_case 'buffered output feature without any buffer key, flush_mode: lazy' do
     setup do
       hash = {
