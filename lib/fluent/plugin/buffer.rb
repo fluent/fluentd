@@ -172,9 +172,9 @@ module Fluent
       end
 
       # metadata MUST have consistent object_id for each variation
-      # data MUST be Array of serialized events
+      # data MUST be Array of serialized events, or EventStream
       # metadata_and_data MUST be a hash of { metadata => data }
-      def write(metadata_and_data, bulk: false, enqueue: false)
+      def write(metadata_and_data, format: nil, enqueue: false)
         return if metadata_and_data.size < 1
         raise BufferOverflowError, "buffer space has too many data" unless storable?
 
@@ -183,7 +183,7 @@ module Fluent
 
         begin
           metadata_and_data.each do |metadata, data|
-            write_once(metadata, data, bulk: bulk) do |chunk, adding_bytesize|
+            write_once(metadata, data, format: format) do |chunk, adding_bytesize|
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
               staged_bytesize += adding_bytesize
@@ -357,9 +357,8 @@ module Fluent
 
       class ShouldRetry < StandardError; end
 
-      def write_once(metadata, data, bulk: false, &block)
-        return if !bulk && (data.nil? || data.empty?)
-        return if bulk && (data.empty? || data.first.nil? || data.first.empty?)
+      def write_once(metadata, data, format: nil, &block)
+        return if data.empty?
 
         stored = false
         adding_bytesize = nil
@@ -375,16 +374,16 @@ module Fluent
 
           original_bytesize = chunk.bytesize
           begin
-            if bulk
-              content, size = data
-              chunk.concat(content, size)
+            if format
+              serialized = format.call(data)
+              chunk.concat(content, data.size)
             else
               chunk.append(data)
             end
             adding_bytesize = chunk.bytesize - original_bytesize
 
             if chunk_size_over?(chunk)
-              if empty_chunk && bulk
+              if empty_chunk && format ## TODO: re-split data into chunks
                 log.warn "chunk bytes limit exceeds for a bulk event stream: #{bulk.bytesize}bytes"
                 stored = true
               else
@@ -441,7 +440,7 @@ module Fluent
 
                 if attempt_records <= MINIMUM_APPEND_ATTEMPT_RECORDS
                   if empty_chunk # record is too large even for empty chunk
-                    raise BufferChunkOverflowError, "minimum append butch exceeds chunk bytes limit"
+                    raise BufferChunkOverflowError, "minimum append batch '#{attempt.size}' records exceeds chunk bytes limit"
                   end
                   # no more records for this chunk -> enqueue -> to be flushed
                   enqueue_chunk(metadata) # `chunk` will be removed from stage

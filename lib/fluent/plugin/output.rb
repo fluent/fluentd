@@ -627,6 +627,15 @@ module Fluent
         end
       end
 
+      # metadata_and_data is a Hash of:
+      #  (standard format) metadata => event stream
+      #  (custom format)   metadata => array of formatted event
+      # For standard format, formatting should be done for whole event stream, but
+      #   "whole event stream" may be a split of "es" here when it's bigger than chunk_limit_size.
+      #   `@buffer.write` will do this splitting.
+      # For custom format, formatting will be done here. Custom formatting always requires
+      #   iteration of event stream, and it should be done just once even if total event stream size
+      #   is biggar than chunk_limit_size because of performance.
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
@@ -637,13 +646,14 @@ module Fluent
           records += 1
         end
         write_guard do
-          @buffer.write(meta_and_data, bulk: false, enqueue: enqueue)
+          @buffer.write(meta_and_data, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
 
       def handle_stream_with_standard_format(tag, es, enqueue: false)
+        format_proc = ->(es){ es.to_msgpack_stream(time_int: @time_as_integer) }
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -652,35 +662,30 @@ module Fluent
           meta_and_data[meta].add(time, record)
           records += 1
         end
-        meta_and_data_bulk = {}
-        meta_and_data.each_pair do |meta, m_es|
-          meta_and_data_bulk[meta] = [m_es.to_msgpack_stream(time_int: @time_as_integer), m_es.size]
-        end
         write_guard do
-          @buffer.write(meta_and_data_bulk, bulk: true, enqueue: enqueue)
+          @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
 
       def handle_stream_simple(tag, es, enqueue: false)
+        format_proc = nil
         meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
         records = es.size
         if @custom_format
           records = 0
-          es_size = 0
-          es_bulk = ''
-          es.each do |time,record|
-            es_bulk << format(tag, time, record)
-            es_size += 1
+          data = []
+          es.each do |time, record|
+            data << format(tag, time, record)
             records += 1
           end
         else
-          es_size = es.size
-          es_bulk = es.to_msgpack_stream(time_int: @time_as_integer)
+          format_proc = ->(es){ es.to_msgpack_stream(time_int: @time_as_integer) }
+          data = es
         end
         write_guard do
-          @buffer.write({meta => [es_bulk, es_size]}, bulk: true, enqueue: enqueue)
+          @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         true
