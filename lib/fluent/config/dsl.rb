@@ -35,12 +35,17 @@ module Fluent
       end
 
       class Proxy
-        def initialize(name, arg)
+        def initialize(name, arg, include_basepath = Dir.pwd)
           @element = Element.new(name, arg, self)
+          @include_basepath = include_basepath
         end
 
         def element
           @element
+        end
+
+        def include_basepath
+          @include_basepath
         end
 
         def eval(source, source_path)
@@ -98,6 +103,18 @@ module Fluent
           end
 
           self
+        end
+
+        def include(*args)
+          ::Kernel.raise ::ArgumentError, "#{name} block requires arguments for include path" if args.nil? || args.size != 1
+          if args.first =~ /\.rb$/
+            path = File.expand_path(args.first)
+            data = File.read(path)
+            self.instance_eval(data, path)
+          else
+            ss = StringScanner.new('')
+            Config::V1Parser.new(ss, @proxy.include_basepath, '', nil).eval_include(@attrs, @elements, args.first)
+          end
         end
 
         def source(&block)
