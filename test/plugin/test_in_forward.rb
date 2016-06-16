@@ -7,18 +7,6 @@ require 'fluent/env'
 require 'fluent/plugin/in_forward'
 
 class ForwardInputTest < Test::Unit::TestCase
-  module StartupShutdown
-    def startup
-      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-      @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
-      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
-    end
-
-    def shutdown
-      @server.close
-    end
-  end
-
   def setup
     Fluent::Test.setup
     @responses = []  # for testing responses after sending data
@@ -86,7 +74,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Message < self
-    extend StartupShutdown
+    extend Fluent::Test::StartupShutdown
 
     def test_time
       d = create_driver
@@ -199,7 +187,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Forward < self
-    extend StartupShutdown
+    extend Fluent::Test::StartupShutdown
 
     data(tcp: {
            config: CONFIG,
@@ -313,7 +301,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class PackedForward < self
-    extend StartupShutdown
+    extend Fluent::Test::StartupShutdown
 
     data(tcp: {
            config: CONFIG,
@@ -430,7 +418,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class Warning < self
-    extend StartupShutdown
+    extend Fluent::Test::StartupShutdown
 
     def test_send_large_chunk_warning
       d = create_driver(CONFIG + %[
@@ -541,7 +529,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class RespondToRequiringAck < self
-    extend StartupShutdown
+    extend Fluent::Test::StartupShutdown
 
     data(tcp: {
            config: CONFIG,
@@ -709,7 +697,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class NotRespondToNotRequiringAck < self
-    extend StartupShutdown
+    extend Fluent::Test::StartupShutdown
 
     data(tcp: {
            config: CONFIG,
