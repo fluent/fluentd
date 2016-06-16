@@ -3,6 +3,8 @@ require 'fluent/test'
 require 'fluent/plugin/out_forward'
 
 class ForwardOutputTest < Test::Unit::TestCase
+  extend Fluent::Test::StartupShutdown
+
   def setup
     Fluent::Test.setup
   end
