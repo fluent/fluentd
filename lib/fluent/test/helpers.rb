@@ -25,9 +25,13 @@ module Fluent
         Fluent::Config::Element.new(name, argument, params, elements)
       end
 
-      def event_time(str=nil)
+      def event_time(str=nil, format: nil)
         if str
-          Fluent::EventTime.parse(str)
+          if format
+            Fluent::EventTime.from_time(Time.strptime(str, format))
+          else
+            Fluent::EventTime.parse(str)
+          end
         else
           Fluent::EventTime.now
         end
