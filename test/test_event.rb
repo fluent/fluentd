@@ -114,6 +114,35 @@ module EventTest
       assert_true ArrayEventStream.new([]).empty?
     end
 
+    test 'size' do
+      assert_equal 2, @es.size
+      assert_equal 0, ArrayEventStream.new([]).size
+    end
+
+    test 'slice' do
+      sliced = @es.slice(1,1)
+      assert_kind_of EventStream, sliced
+      assert_equal 1, sliced.size
+
+      sliced.each do |time, record|
+        assert_equal @times[1], time
+        assert_equal 'v2', record['k']
+        assert_equal 2, record['n']
+      end
+
+      sliced = @es.slice(0,2)
+      assert_kind_of EventStream, sliced
+      assert_equal 2, sliced.size
+
+      counter = 0
+      sliced.each do |time, record|
+        assert_equal @times[counter], time
+        assert_equal @records[counter]['k'], record['k']
+        assert_equal @records[counter]['n'], record['n']
+        counter += 1
+      end
+    end
+
     test 'each' do
       i = 0
       @es.each { |time, record|
@@ -164,6 +193,35 @@ module EventTest
       assert_true MultiEventStream.new.empty?
     end
 
+    test 'size' do
+      assert_equal 2, @es.size
+      assert_equal 0, MultiEventStream.new.size
+    end
+
+    test 'slice' do
+      sliced = @es.slice(1,1)
+      assert_kind_of EventStream, sliced
+      assert_equal 1, sliced.size
+
+      sliced.each do |time, record|
+        assert_equal @times[1], time
+        assert_equal 'v2', record['k']
+        assert_equal 2, record['n']
+      end
+
+      sliced = @es.slice(0,2)
+      assert_kind_of EventStream, sliced
+      assert_equal 2, sliced.size
+
+      counter = 0
+      sliced.each do |time, record|
+        assert_equal @times[counter], time
+        assert_equal @records[counter]['k'], record['k']
+        assert_equal @records[counter]['n'], record['n']
+        counter += 1
+      end
+    end
+
     test 'each' do
       i = 0
       @es.each { |time, record|
@@ -204,14 +262,49 @@ module EventTest
       assert_kind_of MessagePackEventStream, dupped
       assert_not_equal @es.object_id, dupped.object_id
       assert_duplicated_records @es, dupped
+
+      # After iteration of events (done in assert_duplicated_records),
+      # duplicated event stream still has unpacked objects and correct size
+      dupped = @es.dup
+      assert_equal 2, dupped.instance_eval{ @size }
     end
 
     test 'empty?' do
       assert_false @es.empty?
+      assert_true MessagePackEventStream.new('', 0).empty?
+    end
+
+    test 'size' do
+      assert_equal 2, @es.size
+      assert_equal 0, MessagePackEventStream.new('').size
     end
 
     test 'repeatable?' do
       assert_true @es.repeatable?
+    end
+
+    test 'slice' do
+      sliced = @es.slice(1,1)
+      assert_kind_of EventStream, sliced
+      assert_equal 1, sliced.size
+
+      sliced.each do |time, record|
+        assert_equal @times[1], time
+        assert_equal 'v2', record['k']
+        assert_equal 2, record['n']
+      end
+
+      sliced = @es.slice(0,2)
+      assert_kind_of EventStream, sliced
+      assert_equal 2, sliced.size
+
+      counter = 0
+      sliced.each do |time, record|
+        assert_equal @times[counter], time
+        assert_equal @records[counter]['k'], record['k']
+        assert_equal @records[counter]['n'], record['n']
+        counter += 1
+      end
     end
 
     test 'each' do

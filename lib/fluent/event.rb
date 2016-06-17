@@ -44,6 +44,10 @@ module Fluent
       false
     end
 
+    def slice(index, num)
+      raise NotImplementedError, "DO NOT USE THIS CLASS directly."
+    end
+
     def each(&block)
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
@@ -124,6 +128,10 @@ module Fluent
       @entries.empty?
     end
 
+    def slice(index, num)
+      ArrayEventStream.new(@entries.slice(index, num))
+    end
+
     def each(&block)
       @entries.each(&block)
       nil
@@ -167,6 +175,10 @@ module Fluent
       @time_array.empty?
     end
 
+    def slice(index, num)
+      MultiEventStream.new(@time_array.slice(index, num), @record_array.slice(index, num))
+    end
+
     def each(&block)
       time_array = @time_array
       record_array = @record_array
@@ -178,23 +190,32 @@ module Fluent
   end
 
   class MessagePackEventStream < EventStream
-    # Keep cached_unpacker argument for existence plugins
-    def initialize(data, cached_unpacker = nil, size = 0)
+    # https://github.com/msgpack/msgpack-ruby/issues/119
+
+    # Keep cached_unpacker argument for existing plugins
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil)
       @data = data
       @size = size
+      @unpacked_times = unpacked_times
+      @unpacked_records = unpacked_records
     end
 
     def empty?
-      # This is not correct, but actual number of records will be shown after iteration, and
-      # "size" argument is always 0 currently (because forward protocol doesn't tell it to destination)
-      false
+      @data.empty?
     end
 
     def dup
-      MessagePackEventStream.new(@data.dup, @size)
+      if @unpacked_times
+        MessagePackEventStream.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
+      else
+        MessagePackEventStream.new(@data.dup, nil, @size)
+      end
     end
 
     def size
+      # @size is unbelievable always when @size == 0
+      # If the number of events is really zero, unpacking events takes very short time.
+      ensure_unpacked! if @size == 0
       @size
     end
 
@@ -202,8 +223,41 @@ module Fluent
       true
     end
 
+    def ensure_unpacked!
+      return if @unpacked_times && @unpacked_records
+      @unpacked_times = []
+      @unpacked_records = []
+      msgpack_unpacker.feed_each(@data) do |time, record|
+        @unpacked_times << time
+        @unpacked_records << record
+      end
+      # @size should be updated always right after unpack.
+      # The real size of unpacked objects are correct, rather than given size.
+      @size = @unpacked_times.size
+    end
+
+    # This method returns MultiEventStream, because there are no reason
+    # to surve binary serialized by msgpack.
+    def slice(index, num)
+      ensure_unpacked!
+      MultiEventStream.new(@unpacked_times.slice(index, num), @unpacked_records.slice(index, num))
+    end
+
     def each(&block)
-      msgpack_unpacker.feed_each(@data, &block)
+      if @unpacked_times
+        @unpacked_times.each_with_index do |time, i|
+          block.call(time, @unpacked_records[i])
+        end
+      else
+        @unpacked_times = []
+        @unpacked_records = []
+        msgpack_unpacker.feed_each(@data) do |time, record|
+          @unpacked_times << time
+          @unpacked_records << record
+          block.call(time, record)
+        end
+        @size = @unpacked_times.size
+      end
       nil
     end
 
