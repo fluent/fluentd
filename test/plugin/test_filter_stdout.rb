@@ -39,6 +39,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     assert_equal([{'test' => 'test'}], filtered)
   end
 
+  sub_test_case "configure" do
   def test_configure_default
     d = create_driver
     assert_equal 'json', d.instance.formatter.output_type
@@ -56,6 +57,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     assert_raise(Fluent::ConfigError) do
       d = create_driver(CONFIG + "\noutput_type foo")
     end
+  end
   end
 
   def test_output_type_json
