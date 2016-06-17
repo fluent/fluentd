@@ -235,9 +235,7 @@ module Fluent
             # TODO: logging message content
             # log.trace "sent response to fluent socket"
           end
-          unless @keepalive
-            conn.close
-          end
+          conn.close
         else
           raise "BUG: unknown session state: #{state}"
         end
@@ -404,7 +402,7 @@ module Fluent
     def generate_helo(nonce, user_auth_salt)
       log.debug "generating helo"
       # ['HELO', options(hash)]
-      [ 'HELO', {'nonce' => nonce, 'auth' => (@security ? user_auth_salt : ''), 'keepalive' => @allow_keepalive } ]
+      ['HELO', {'nonce' => nonce, 'auth' => (@security ? user_auth_salt : '')}]
     end
 
     ##### Authentication Handshake
@@ -419,7 +417,6 @@ module Fluent
     #   * options:
     #     * nonce: string (required)
     #     * auth: string or blank_string (string: authentication required, and its salt is this value)
-    #     * keepalive: bool (allowed or not)
     # 4. (client) send PING
     #   * ['PING', selfhostname, sharedkey_salt, sha512_hex(sharedkey_salt + selfhostname + nonce + sharedkey), username || '', sha512_hex(auth_salt + username + password) || '']
     # 5. (server) check PING
@@ -433,7 +430,7 @@ module Fluent
     #   * check sharedkey
     #   * disconnect when failed
     # 8. connection established
-    #   * send data from client (until keepalive expiration)
+    #   * send data from client
     def check_ping(message, remote_addr, user_auth_salt, nonce)
       log.debug "checking ping"
       # ['PING', self_hostname, shared_key_salt, sha512_hex(shared_key_salt + self_hostname + nonce + shared_key), username || '', sha512_hex(auth_salt + username + password) || '']
