@@ -48,12 +48,12 @@ class StdoutFilterTest < Test::Unit::TestCase
     data(json: "json",
          hash: "hash",
          ltsv: "ltsv")
-    def test_configure_output_type(data)
+    def test_output_type(data)
       d = create_driver(CONFIG + "\noutput_type #{data}")
       assert_equal data, d.instance.formatter.output_type
     end
 
-    def test_configure_invalid_output_type
+    def test_invalid_output_type
       assert_raise(Fluent::ConfigError) do
         d = create_driver(CONFIG + "\noutput_type foo")
       end
