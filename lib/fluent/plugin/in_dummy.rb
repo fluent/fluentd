@@ -91,7 +91,7 @@ module Fluent::Plugin
     def emit(num)
       begin
         num.times { router.emit(@tag, Fluent::Engine.now, generate()) }
-      rescue => e
+      rescue => _
         # ignore all errors not to stop emits by emit errors
       end
     end
