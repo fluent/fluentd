@@ -55,7 +55,7 @@ class StdoutFilterTest < Test::Unit::TestCase
 
     def test_invalid_output_type
       assert_raise(Fluent::ConfigError) do
-        d = create_driver(CONFIG + "\noutput_type foo")
+        create_driver(CONFIG + "\noutput_type foo")
       end
     end
   end
