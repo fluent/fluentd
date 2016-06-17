@@ -3,8 +3,26 @@ require 'fluent/test'
 require 'fluent/event'
 
 module EventTest
+  module DeepCopyAssertion
+    def assert_duplicated_records(es1, es2)
+      ary1 = []
+      es1.each do |_, record|
+        ary1 << record
+      end
+      ary2 = []
+      es2.each do |_, record|
+        ary2 << record
+      end
+      assert_equal ary1.size, ary2.size
+      ary1.each_with_index do |r, i|
+        assert_not_equal r.object_id, ary2[i].object_id
+      end
+    end
+  end
+
   class OneEventStreamTest < ::Test::Unit::TestCase
     include Fluent
+    include DeepCopyAssertion
 
     def setup
       @time = event_time()
@@ -16,6 +34,10 @@ module EventTest
       assert_false @es.empty?
     end
 
+    test 'size' do
+      assert_equal 1, @es.size
+    end
+
     test 'repeatable?' do
       assert_true @es.repeatable?
     end
@@ -24,6 +46,7 @@ module EventTest
       dupped = @es.dup
       assert_kind_of OneEventStream, dupped
       assert_not_equal @es.object_id, dupped.object_id
+      assert_duplicated_records @es, dupped
     end
 
     test 'each' do
@@ -52,6 +75,7 @@ module EventTest
 
   class ArrayEventStreamTest < ::Test::Unit::TestCase
     include Fluent
+    include DeepCopyAssertion
 
     def setup
       time = Engine.now
@@ -68,6 +92,7 @@ module EventTest
       dupped = @es.dup
       assert_kind_of ArrayEventStream, dupped
       assert_not_equal @es.object_id, dupped.object_id
+      assert_duplicated_records @es, dupped
     end
 
     test 'empty?' do
@@ -97,6 +122,7 @@ module EventTest
 
   class MultiEventStreamTest < ::Test::Unit::TestCase
     include Fluent
+    include DeepCopyAssertion
 
     def setup
       time = Engine.now
@@ -116,6 +142,7 @@ module EventTest
       dupped = @es.dup
       assert_kind_of MultiEventStream, dupped
       assert_not_equal @es.object_id, dupped.object_id
+      assert_duplicated_records @es, dupped
     end
 
     test 'empty?' do
@@ -145,6 +172,7 @@ module EventTest
 
   class MessagePackEventStreamTest < ::Test::Unit::TestCase
     include Fluent
+    include DeepCopyAssertion
 
     def setup
       pk = Fluent::Engine.msgpack_factory.packer
@@ -155,6 +183,13 @@ module EventTest
         pk.write([_time, record])
       }
       @es = MessagePackEventStream.new(pk.to_s)
+    end
+
+    test 'dup' do
+      dupped = @es.dup
+      assert_kind_of MessagePackEventStream, dupped
+      assert_not_equal @es.object_id, dupped.object_id
+      assert_duplicated_records @es, dupped
     end
 
     test 'empty?' do

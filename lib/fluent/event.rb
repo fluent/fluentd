@@ -21,6 +21,11 @@ module Fluent
     include Enumerable
     include MessagePackFactory::Mixin
 
+    # dup does deep copy for event stream
+    def dup
+      raise NotImplementedError, "DO NOT USE THIS CLASS directly."
+    end
+
     def size
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
@@ -90,7 +95,7 @@ module Fluent
     end
 
     def dup
-      entries = @entries.map { |entry| entry.dup } # @entries.map(:dup) doesn't work by ArgumentError
+      entries = @entries.map{ |time, record| [time, record.dup] }
       ArrayEventStream.new(entries)
     end
 
@@ -123,17 +128,13 @@ module Fluent
   #  2. add events
   #     stream[tag].add(time, record)
   class MultiEventStream < EventStream
-    def initialize
-      @time_array = []
-      @record_array = []
+    def initialize(time_array = [], record_array = [])
+      @time_array = time_array
+      @record_array = record_array
     end
 
     def dup
-      es = MultiEventStream.new
-      @time_array.zip(@record_array).each { |time, record|
-        es.add(time, record.dup)
-      }
-      es
+      MultiEventStream.new(@time_array.dup, @record_array.map(&:dup))
     end
 
     def size
@@ -174,6 +175,10 @@ module Fluent
       # This is not correct, but actual number of records will be shown after iteration, and
       # "size" argument is always 0 currently (because forward protocol doesn't tell it to destination)
       false
+    end
+
+    def dup
+      MessagePackEventStream.new(@data.dup, @size)
     end
 
     def size
