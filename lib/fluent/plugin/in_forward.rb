@@ -235,7 +235,9 @@ module Fluent
             # TODO: logging message content
             # log.trace "sent response to fluent socket"
           end
-          conn.close
+          conn.on_write_complete do
+            conn.close
+          end
         else
           raise "BUG: unknown session state: #{state}"
         end
