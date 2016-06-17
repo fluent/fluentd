@@ -24,5 +24,6 @@ class NullOutputTest < Test::Unit::TestCase
         d.feed("test", Fluent::EventTime.now, {"test" => "null"})
       end
     end
+    assert_equal([], d.events(tag: "test"))
   end
 end
