@@ -234,8 +234,10 @@ module Fluent
             send_data.call(serializer, r)
             # TODO: logging message content
             # log.trace "sent response to fluent socket"
-          end
-          conn.on_write_complete do
+            conn.on_write_complete do
+              conn.close
+            end
+          else
             conn.close
           end
         else
