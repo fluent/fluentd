@@ -9,6 +9,8 @@ class StdoutFilterTest < Test::Unit::TestCase
 
   def setup
     Fluent::Test.setup
+    @old_tz = ENV["TZ"]
+    ENV["TZ"] = "UTC"
     Timecop.freeze
   end
 
@@ -16,6 +18,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     super # FlexMock::TestCase requires this
     # http://flexmock.rubyforge.org/FlexMock/TestCase.html
     Timecop.return
+    ENV["TZ"] = @old_tz
   end
 
   CONFIG = %[
@@ -90,7 +93,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     time = Time.now
     message_time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
     out = capture_log(d) { filter(d, message_time, {'test' => 'test'}) }
-    assert_equal "#{time.localtime} filter.test: {\"test\":\"test\",\"time\":\"2011-01-02T22:14:15+09:00\"}\n", out
+    assert_equal "#{time.localtime} filter.test: {\"test\":\"test\",\"time\":\"2011-01-02T13:14:15+00:00\"}\n", out
   end
 
   # out_stdout formatter itself can also be replaced
