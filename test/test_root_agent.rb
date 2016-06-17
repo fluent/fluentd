@@ -91,7 +91,7 @@ EOC
       assert_equal ra, test_label.root_agent
 
       error_label = ra.labels['@ERROR']
-      assert_kind_of NullOutput, error_label.outputs.first
+      assert_kind_of Fluent::Plugin::NullOutput, error_label.outputs.first
       assert_kind_of RootAgent::RootAgentProxyWithoutErrorCollector, error_label.root_agent
     end
   end
