@@ -97,20 +97,22 @@ class DummyTest < Test::Unit::TestCase
 
   sub_test_case "doesn't suspend internal counters in default" do
     config1 = {
-      '@id' => 'test-01',
       'tag' => 'dummy',
       'rate' => '2',
       'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
       'auto_increment_key' => 'id',
+      'suspend' => false,
     }
     conf1 = config_element('ROOT', '', config1, [])
     test "value of auto increment key is not suspended after stop-and-start" do
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
 
       d1 = create_driver(conf1)
-      d1.run(expect_emits: 4, timeout: 1)
+      d1.run(timeout: 0.5) do
+        d1.instance.emit(4)
+      end
 
-      first_id1 = d1.instance.events.first[2]['id']
+      first_id1 = d1.events.first[2]['id']
       assert_equal 0, first_id1
 
       last_id1 = d1.events.last[2]['id']
@@ -119,7 +121,9 @@ class DummyTest < Test::Unit::TestCase
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
 
       d2 = create_driver(conf1)
-      d2.run(expect_emits: 4, timeout: 1)
+      d2.run(timeout: 0.5) do
+        d2.instance.emit(4)
+      end
 
       first_id2 = d2.events.first[2]['id']
       assert_equal 0, first_id2
@@ -141,7 +145,7 @@ class DummyTest < Test::Unit::TestCase
       'rate' => '2',
       'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
       'auto_increment_key' => 'id',
-      'suspend' => true
+      'suspend' => true,
     }
     conf2 = config_element('ROOT', '', config2, [
               config_element(
@@ -157,7 +161,9 @@ class DummyTest < Test::Unit::TestCase
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
       d1 = create_driver(conf2)
-      d1.run(expect_emits: 4, timeout: 1)
+      d1.run(timeout: 0.5) do
+        d1.instance.emit(4)
+      end
 
       first_id1 = d1.events.first[2]['id']
       assert_equal 0, first_id1
@@ -168,7 +174,10 @@ class DummyTest < Test::Unit::TestCase
       assert File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
       d2 = create_driver(conf2)
-      d2.run(expect_emits: 4, timeout: 1)
+      d2.run(timeout: 0.5) do
+        d2.instance.emit(4)
+      end
+      d2.events
 
       first_id2 = d2.events.first[2]['id']
       assert_equal last_id1 + 1, first_id2
