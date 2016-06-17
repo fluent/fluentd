@@ -106,6 +106,7 @@ module Fluent
         end
 
         def events(tag: nil)
+          return [] if @event_streams.nil?
           selected = @event_streams.select{|e| tag.nil? ? true : e.tag == tag }
           if block_given?
             selected.each do |e|
