@@ -14,12 +14,11 @@
 #    limitations under the License.
 #
 
-require 'fluent/filter'
-require 'fluent/plugin'
+require 'fluent/plugin/filter'
 
-module Fluent
+module Fluent::Plugin
   class StdoutFilter < Filter
-    Plugin.register_filter('stdout', self)
+    Fluent::Plugin.register_filter('stdout', self)
 
     # for tests
     attr_reader :formatter
@@ -31,7 +30,7 @@ module Fluent
     def configure(conf)
       super
 
-      @formatter = Plugin.new_formatter(@format)
+      @formatter = Fluent::Plugin.new_formatter(@format)
       @formatter.configure(conf)
     end
 
