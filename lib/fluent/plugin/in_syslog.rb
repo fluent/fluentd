@@ -25,6 +25,8 @@ module Fluent::Plugin
   class SyslogInput < Input
     Fluent::Plugin.register_input('syslog', self)
 
+    helpers :thread
+
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
     FACILITY_MAP = {
@@ -122,14 +124,13 @@ module Fluent::Plugin
       @handler = listen(callback)
       @loop.attach(@handler)
 
-      @thread = Thread.new(&method(:run))
+      thread_create(:syslog_input, &method(:run))
     end
 
     def shutdown
       @loop.watchers.each {|w| w.detach }
       @loop.stop
       @handler.close
-      @thread.join
 
       super
     end
