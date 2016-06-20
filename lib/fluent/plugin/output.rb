@@ -37,6 +37,8 @@ module Fluent
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
 
+      CHUNKING_FIELD_WARN_NUM = 4
+
       config_param :time_as_integer, :bool, default: false
 
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
@@ -251,6 +253,10 @@ module Fluent
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @buffer_config.timekey_zone = '+0000' if @buffer_config.timekey_use_utc
             @output_time_formatter_cache = {}
+          end
+
+          if (@chunk_key_tag ? 1 : 0) + @chunk_keys.size >= CHUNKING_FIELD_WARN_NUM
+            log.warn "many chunk keys specified, and it may cause too many chunks on your system."
           end
 
           # no chunk keys or only tags (chunking can be done without iterating event stream)

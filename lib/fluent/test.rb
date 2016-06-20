@@ -16,6 +16,7 @@
 
 require 'test/unit'
 require 'fluent/env' # for Fluent.windows?
+require 'fluent/test/log'
 require 'fluent/test/base'
 require 'fluent/test/input_test'
 require 'fluent/test/output_test'
@@ -29,3 +30,22 @@ dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
 logdev = Fluent::Test::DummyLogDevice.new
 logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
 $log ||= Fluent::Log.new(logger)
+
+module Fluent
+  module Test
+    def self.setup
+      Fluent.__send__(:remove_const, :Engine)
+      engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
+
+      engine.define_singleton_method(:now=) {|n|
+        @now = n
+      }
+      engine.define_singleton_method(:now) {
+        @now ||= super()
+      }
+
+      nil
+    end
+  end
+end
+
