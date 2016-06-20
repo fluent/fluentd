@@ -16,11 +16,11 @@
 
 require 'cool.io'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 
-module Fluent
-  class GCStatInput < Input
-    Plugin.register_input('gc_stat', self)
+module Fluent::Plugin
+  class GCStatInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('gc_stat', self)
 
     def initialize
       super
@@ -74,7 +74,7 @@ module Fluent
     end
 
     def on_timer
-      now = Engine.now
+      now = Fluent::EventTime.now
       record = GC.stat
       router.emit(@tag, now, record)
     end
