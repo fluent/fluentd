@@ -627,6 +627,9 @@ module Fluent
         end
       end
 
+      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream }
+      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true) }
+
       # metadata_and_data is a Hash of:
       #  (standard format) metadata => event stream
       #  (custom format)   metadata => array of formatted event
@@ -653,7 +656,7 @@ module Fluent
       end
 
       def handle_stream_with_standard_format(tag, es, enqueue: false)
-        format_proc = ->(es){ es.to_msgpack_stream(time_int: @time_as_integer) }
+        format_proc = @time_as_integer ? FORMAT_MSGPACK_STREAM_TIME_INT : FORMAT_MSGPACK_STREAM
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -681,7 +684,7 @@ module Fluent
             records += 1
           end
         else
-          format_proc = ->(es){ es.to_msgpack_stream(time_int: @time_as_integer) }
+          format_proc = @time_as_integer ? FORMAT_MSGPACK_STREAM_TIME_INT : FORMAT_MSGPACK_STREAM
           data = es
         end
         write_guard do
