@@ -832,6 +832,4 @@ module Fluent::Plugin
       end
     end
   end
-
-  NewTailInput = TailInput # for backward compatibility
 end
