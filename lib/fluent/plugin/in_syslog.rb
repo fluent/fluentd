@@ -25,7 +25,7 @@ module Fluent::Plugin
   class SyslogInput < Input
     Fluent::Plugin.register_input('syslog', self)
 
-    helpers :thread
+    helpers :thread, :parser
 
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
@@ -101,12 +101,10 @@ module Fluent::Plugin
       @use_default = false
 
       if conf.has_key?('format')
-        @parser = Fluent::Plugin.new_parser(conf['format'])
-        @parser.configure(conf)
+        @parser = parser_create(usage: 'syslog_input', type: conf['format'], conf: conf)
       else
         conf['with_priority'] = true
-        @parser = Fluent::Plugin::SyslogParser.new
-        @parser.configure(conf)
+        @parser = parser_create(usage: 'syslog_input', type: 'syslog', conf: conf)
         @use_default = true
       end
     end
