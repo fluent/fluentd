@@ -475,18 +475,18 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
 
       events = d.events
-      assert(events.length == 3)
+      assert_equal(3, events.length)
       assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
       assert_equal({"message1" => "test5"}, events[1][2])
       assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
 
       sleep 3
       events = d.events
-      assert(events.length == 3)
+      assert_equal(3, events.length)
     end
 
     events = d.events
-    assert(events.length == 4)
+    assert_equal(4, events.length)
     assert_equal({"message1" => "test8"}, events[3][2])
   end
 
@@ -516,14 +516,14 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
 
       events = d.events
-      assert(events.length == 3)
+      assert_equal(3, events.length)
       assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
       assert_equal({"message1" => "test5"}, events[1][2])
       assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
 
       sleep 3
       events = d.events
-      assert(events.length == 4)
+      assert_equal(4, events.length)
       assert_equal({"message1" => "test8"}, events[3][2])
     end
   end
@@ -892,7 +892,7 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       events = d.events
-      assert(events.length == 4)
+      assert_equal(4, events.length)
       events.each do |emit|
         assert_equal("#{TMP_DIR}/tail.txt", emit[2]["path"])
       end
@@ -950,7 +950,7 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       events = d.events
-      assert(events.length == 4)
+      assert_equal(4, events.length)
       assert_equal(files, [events[0][2]["path"], events[1][2]["path"]].sort)
       # "test4" events are here because these events are flushed at shutdown phase
       assert_equal(files, [events[2][2]["path"], events[3][2]["path"]].sort)
