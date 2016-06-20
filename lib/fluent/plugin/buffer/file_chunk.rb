@@ -56,7 +56,7 @@ module Fluent
         end
 
         def concat(bulk, bulk_size)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
+          raise "BUG: appending to unwritable chunk, now '#{self.state}'" unless self.writable?
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk.write bulk
@@ -249,7 +249,7 @@ module Fluent
           @meta.sync = true
           @meta.binmode
 
-          @state = :staged
+          @state = :unstaged
           @bytesize = 0
           @commit_position = @chunk.pos # must be 0
           @adding_bytes = 0

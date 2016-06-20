@@ -122,7 +122,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert File.exist?(gen_chunk_path('b', @c.unique_id) + '.meta')
       assert{ File.stat(gen_chunk_path('b', @c.unique_id) + '.meta').mode.to_s(8).end_with?(@klass.const_get('FILE_PERMISSION').to_s(8)) }
 
-      assert_equal :staged, @c.state
+      assert_equal :unstaged, @c.state
       assert @c.empty?
     end
 

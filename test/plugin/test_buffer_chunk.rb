@@ -10,7 +10,8 @@ class BufferChunkTest < Test::Unit::TestCase
       assert{ chunk.metadata.object_id == meta.object_id }
       assert{ chunk.created_at.is_a? Time }
       assert{ chunk.modified_at.is_a? Time }
-      assert chunk.staged?
+      assert chunk.unstaged?
+      assert !chunk.staged?
       assert !chunk.queued?
       assert !chunk.closed?
     end
@@ -20,6 +21,7 @@ class BufferChunkTest < Test::Unit::TestCase
       chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
 
       assert chunk.respond_to?(:append)
+      assert chunk.respond_to?(:concat)
       assert chunk.respond_to?(:commit)
       assert chunk.respond_to?(:rollback)
       assert chunk.respond_to?(:bytesize)
@@ -31,6 +33,7 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:write_to)
       assert chunk.respond_to?(:msgpack_each)
       assert_raise(NotImplementedError){ chunk.append([]) }
+      assert_raise(NotImplementedError){ chunk.concat(nil, 0) }
       assert_raise(NotImplementedError){ chunk.commit }
       assert_raise(NotImplementedError){ chunk.rollback }
       assert_raise(NotImplementedError){ chunk.bytesize }
@@ -63,21 +66,76 @@ class BufferChunkTest < Test::Unit::TestCase
   sub_test_case 'minimum chunk implements #size and #open' do
     test 'chunk lifecycle' do
       c = TestChunk.new(Object.new)
+      assert c.unstaged?
+      assert !c.staged?
+      assert !c.queued?
+      assert !c.closed?
+      assert c.writable?
+
+      c.staged!
+
+      assert !c.unstaged?
       assert c.staged?
       assert !c.queued?
       assert !c.closed?
+      assert c.writable?
 
       c.enqueued!
 
+      assert !c.unstaged?
       assert !c.staged?
       assert c.queued?
       assert !c.closed?
+      assert !c.writable?
 
       c.close
 
+      assert !c.unstaged?
       assert !c.staged?
       assert !c.queued?
       assert c.closed?
+      assert !c.writable?
+    end
+
+    test 'chunk can be unstaged' do
+      c = TestChunk.new(Object.new)
+      assert c.unstaged?
+      assert !c.staged?
+      assert !c.queued?
+      assert !c.closed?
+      assert c.writable?
+
+      c.staged!
+
+      assert !c.unstaged?
+      assert c.staged?
+      assert !c.queued?
+      assert !c.closed?
+      assert c.writable?
+
+      c.unstaged!
+
+      assert c.unstaged?
+      assert !c.staged?
+      assert !c.queued?
+      assert !c.closed?
+      assert c.writable?
+
+      c.enqueued!
+
+      assert !c.unstaged?
+      assert !c.staged?
+      assert c.queued?
+      assert !c.closed?
+      assert !c.writable?
+
+      c.close
+
+      assert !c.unstaged?
+      assert !c.staged?
+      assert !c.queued?
+      assert c.closed?
+      assert !c.writable?
     end
 
     test 'can respond to #empty? correctly' do
