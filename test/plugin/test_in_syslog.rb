@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_syslog'
 
 class SyslogInputTest < Test::Unit::TestCase
@@ -34,7 +34,7 @@ class SyslogInputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::SyslogInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::SyslogInput).configure(conf)
   end
 
   def test_configure
@@ -69,9 +69,9 @@ class SyslogInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      emits = d.emits
-      emits.each_index {|i|
-        assert_equal_event_time(tests[i]['expected'], emits[i][1])
+      events = d.events
+      events.each_index {|i|
+        assert_equal_event_time(tests[i]['expected'], events[i][1])
       }
     }
   end
@@ -89,7 +89,7 @@ class SyslogInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    compare_test_result(d.emits, tests)
+    compare_test_result(d.events, tests)
   end
 
   def test_msg_size_with_tcp
@@ -105,7 +105,7 @@ class SyslogInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    compare_test_result(d.emits, tests)
+    compare_test_result(d.events, tests)
   end
 
   def test_msg_size_with_same_tcp_connection
@@ -121,7 +121,7 @@ class SyslogInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    compare_test_result(d.emits, tests)
+    compare_test_result(d.events, tests)
   end
 
   def test_msg_size_with_json_format
@@ -141,11 +141,11 @@ class SyslogInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    compare_test_result(d.emits, tests)
+    compare_test_result(d.events, tests)
   end
 
   def test_msg_size_with_include_source_host
-    d = create_driver([CONFIG, 'include_source_host'].join("\n"))
+    d = create_driver([CONFIG, 'include_source_host true'].join("\n"))
     tests = create_test_case
 
     host = nil
@@ -159,7 +159,7 @@ class SyslogInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    compare_test_result(d.emits, tests, host)
+    compare_test_result(d.events, tests, host)
   end
 
   def create_test_case
@@ -170,11 +170,11 @@ class SyslogInputTest < Test::Unit::TestCase
     ]
   end
 
-  def compare_test_result(emits, tests, host = nil)
-    emits.each_index { |i|
-      assert_equal('syslog.kern.info', emits[0][0]) # <6> means kern.info
-      assert_equal(tests[i]['expected'], emits[i][2]['message'])
-      assert_equal(host, emits[i][2]['source_host']) if host
+  def compare_test_result(events, tests, host = nil)
+    events.each_index { |i|
+      assert_equal('syslog.kern.info', events[i][0]) # <6> means kern.info
+      assert_equal(tests[i]['expected'], events[i][2]['message'])
+      assert_equal(host, events[i][2]['source_host']) if host
     }
   end
 end

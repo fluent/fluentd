@@ -17,13 +17,13 @@
 require 'cool.io'
 require 'yajl'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/config/error'
-require 'fluent/parser'
+require 'fluent/plugin/parser'
 
-module Fluent
+module Fluent::Plugin
   class SyslogInput < Input
-    Plugin.register_input('syslog', self)
+    Fluent::Plugin.register_input('syslog', self)
 
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
@@ -99,11 +99,11 @@ module Fluent
       @use_default = false
 
       if conf.has_key?('format')
-        @parser = Plugin.new_parser(conf['format'])
+        @parser = Fluent::Plugin.new_parser(conf['format'])
         @parser.configure(conf)
       else
         conf['with_priority'] = true
-        @parser = TextParser::SyslogParser.new
+        @parser = Fluent::Plugin::SyslogParser.new
         @parser.configure(conf)
         @use_default = true
       end
