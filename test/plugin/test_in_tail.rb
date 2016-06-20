@@ -842,49 +842,6 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'emit error cases' do
-    def test_emit_error_with_buffer_queue_limit_error
-      events = execute_test(Fluent::Plugin::Buffer::BufferOverflowError, "buffer space has too many data")
-      assert_equal(10, events.length)
-      10.times { |i|
-        assert_equal({"message" => "test#{i}"}, events[i][2])
-      }
-    end
-
-    def test_emit_error_with_non_buffer_queue_limit_error
-      events = execute_test(StandardError, "non BufferQueueLimitError error")
-      assert_true(events.size > 0 && events.size != 10)
-      events.size.times { |i|
-        assert_equal({"message" => "test#{10 - events.size + i}"}, events[i][2])
-      }
-    end
-
-    def execute_test(error_class, error_message)
-      d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
-      # Use define_singleton_method instead of d.emit_stream to capture local variable
-      # d.define_singleton_method(:emit_stream) do |tag, es|
-      #   p __callee__
-      #   @test_num_errors ||= 0
-      #   if @test_num_errors < 5
-      #     @test_num_errors += 1
-      #     raise error_class, error_message
-      #   else
-      #     @emit_streams << [tag, es.to_a]
-      #   end
-      # end
-
-      d.run do
-        10.times { |i|
-          File.open("#{TMP_DIR}/tail.txt", "ab") { |f| f.puts "test#{i}" }
-          sleep 0.5
-        }
-        sleep 1
-      end
-
-      d.events
-    end
-  end
-
   sub_test_case "tail_path" do
     def test_tail_path_with_singleline
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
