@@ -48,7 +48,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
     config = use_common_conf ? COMMON_CONFIG + conf : conf
-    Fluent::Test::InputTestDriver.new(Fluent::NewTailInput).configure(config)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::TailInput).configure(config)
   end
 
   def test_configure
@@ -117,13 +117,13 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message" => "test3"}, emits[0][2])
-    assert_equal({"message" => "test4"}, emits[1][2])
-    assert(emits[0][1].is_a?(Fluent::EventTime))
-    assert(emits[1][1].is_a?(Fluent::EventTime))
-    assert_equal(1, d.emit_streams.size)
+    events = d.events
+    assert_equal(true, events.length > 0)
+    assert_equal({"message" => "test3"}, events[0][2])
+    assert_equal({"message" => "test4"}, events[1][2])
+    assert(events[0][1].is_a?(Fluent::EventTime))
+    assert(events[1][1].is_a?(Fluent::EventTime))
+    assert_equal(1, d.event_streams.size)
   end
 
   class TestWithSystem < self
@@ -173,13 +173,13 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      emits = d.emits
-      assert_equal(true, emits.length > 0)
-      assert_equal({"message" => "test3"}, emits[0][2])
-      assert_equal({"message" => "test4"}, emits[1][2])
-      assert(emits[0][1].is_a?(Fluent::EventTime))
-      assert(emits[1][1].is_a?(Fluent::EventTime))
-      assert_equal(1, d.emit_streams.size)
+      events = d.events
+      assert_equal(true, events.length > 0)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+      assert(events[0][1].is_a?(Fluent::EventTime))
+      assert(events[1][1].is_a?(Fluent::EventTime))
+      assert_equal(1, d.event_streams.size)
       pos = d.instance.instance_variable_get(:@pf_file)
       mode = "%o" % File.stat(pos).mode
       assert_equal OVERRIDE_FILE_PERMISSION, mode[-3, 3].to_i
@@ -188,7 +188,7 @@ class TailInputTest < Test::Unit::TestCase
 
   data('1' => [1, 2], '10' => [10, 1])
   def test_emit_with_read_lines_limit(data)
-    limit, num_emits = data
+    limit, num_events = data
     d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + "read_lines_limit #{limit}")
     msg = 'test' * 500 # in_tail reads 2048 bytes at once.
 
@@ -202,11 +202,11 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message" => msg}, emits[0][2])
-    assert_equal({"message" => msg}, emits[1][2])
-    assert_equal(num_emits, d.emit_streams.size)
+    events = d.events
+    assert_equal(true, events.length > 0)
+    assert_equal({"message" => msg}, events[0][2])
+    assert_equal({"message" => msg}, events[1][2])
+    assert_equal(num_events, d.event_streams.size)
   end
 
   def test_emit_with_read_from_head
@@ -227,12 +227,12 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert(emits.length > 0)
-    assert_equal({"message" => "test1"}, emits[0][2])
-    assert_equal({"message" => "test2"}, emits[1][2])
-    assert_equal({"message" => "test3"}, emits[2][2])
-    assert_equal({"message" => "test4"}, emits[3][2])
+    events = d.events
+    assert(events.length > 0)
+    assert_equal({"message" => "test1"}, events[0][2])
+    assert_equal({"message" => "test2"}, events[1][2])
+    assert_equal({"message" => "test3"}, events[2][2])
+    assert_equal({"message" => "test4"}, events[3][2])
   end
 
   def test_emit_with_enable_watch_timer
@@ -255,34 +255,34 @@ class TailInputTest < Test::Unit::TestCase
       sleep 10
     end
 
-    emits = d.emits
-    assert(emits.length > 0)
-    assert_equal({"message" => "test3"}, emits[0][2])
-    assert_equal({"message" => "test4"}, emits[1][2])
+    events = d.events
+    assert(events.length > 0)
+    assert_equal({"message" => "test3"}, events[0][2])
+    assert_equal({"message" => "test4"}, events[1][2])
   end
 
   def test_rotate_file
-    emits = sub_test_rotate_file(SINGLE_LINE_CONFIG)
-    assert_equal(4, emits.length)
-    assert_equal({"message" => "test3"}, emits[0][2])
-    assert_equal({"message" => "test4"}, emits[1][2])
-    assert_equal({"message" => "test5"}, emits[2][2])
-    assert_equal({"message" => "test6"}, emits[3][2])
+    events = sub_test_rotate_file(SINGLE_LINE_CONFIG)
+    assert_equal(4, events.length)
+    assert_equal({"message" => "test3"}, events[0][2])
+    assert_equal({"message" => "test4"}, events[1][2])
+    assert_equal({"message" => "test5"}, events[2][2])
+    assert_equal({"message" => "test6"}, events[3][2])
   end
 
   def test_rotate_file_with_read_from_head
-    emits = sub_test_rotate_file(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
-    assert_equal(6, emits.length)
-    assert_equal({"message" => "test1"}, emits[0][2])
-    assert_equal({"message" => "test2"}, emits[1][2])
-    assert_equal({"message" => "test3"}, emits[2][2])
-    assert_equal({"message" => "test4"}, emits[3][2])
-    assert_equal({"message" => "test5"}, emits[4][2])
-    assert_equal({"message" => "test6"}, emits[5][2])
+    events = sub_test_rotate_file(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
+    assert_equal(6, events.length)
+    assert_equal({"message" => "test1"}, events[0][2])
+    assert_equal({"message" => "test2"}, events[1][2])
+    assert_equal({"message" => "test3"}, events[2][2])
+    assert_equal({"message" => "test4"}, events[3][2])
+    assert_equal({"message" => "test5"}, events[4][2])
+    assert_equal({"message" => "test6"}, events[5][2])
   end
 
   def test_rotate_file_with_write_old
-    emits = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
+    events = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
       rotated_file.puts "test7"
       rotated_file.puts "test8"
@@ -294,26 +294,26 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test6"
       }
     }
-    assert_equal(6, emits.length)
-    assert_equal({"message" => "test3"}, emits[0][2])
-    assert_equal({"message" => "test4"}, emits[1][2])
-    assert_equal({"message" => "test7"}, emits[2][2])
-    assert_equal({"message" => "test8"}, emits[3][2])
-    assert_equal({"message" => "test5"}, emits[4][2])
-    assert_equal({"message" => "test6"}, emits[5][2])
+    assert_equal(6, events.length)
+    assert_equal({"message" => "test3"}, events[0][2])
+    assert_equal({"message" => "test4"}, events[1][2])
+    assert_equal({"message" => "test7"}, events[2][2])
+    assert_equal({"message" => "test8"}, events[3][2])
+    assert_equal({"message" => "test5"}, events[4][2])
+    assert_equal({"message" => "test6"}, events[5][2])
   end
 
   def test_rotate_file_with_write_old_and_no_new_file
-    emits = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
+    events = sub_test_rotate_file(SINGLE_LINE_CONFIG) { |rotated_file|
       rotated_file.puts "test7"
       rotated_file.puts "test8"
       rotated_file.flush
     }
-    assert_equal(4, emits.length)
-    assert_equal({"message" => "test3"}, emits[0][2])
-    assert_equal({"message" => "test4"}, emits[1][2])
-    assert_equal({"message" => "test7"}, emits[2][2])
-    assert_equal({"message" => "test8"}, emits[3][2])
+    assert_equal(4, events.length)
+    assert_equal({"message" => "test3"}, events[0][2])
+    assert_equal({"message" => "test4"}, events[1][2])
+    assert_equal({"message" => "test7"}, events[2][2])
+    assert_equal({"message" => "test8"}, events[3][2])
   end
 
   def sub_test_rotate_file(config = nil)
@@ -352,7 +352,7 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    d.emits
+    d.events
   ensure
     file.close if file
   end
@@ -374,9 +374,9 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message" => "test3test4"}, emits[0][2])
+    events = d.events
+    assert_equal(true, events.length > 0)
+    assert_equal({"message" => "test3test4"}, events[0][2])
   end
 
   def test_whitespace
@@ -398,14 +398,14 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal(true, emits.length > 0)
-    assert_equal({"message" => "    "}, emits[0][2])
-    assert_equal({"message" => "    4 spaces"}, emits[1][2])
-    assert_equal({"message" => "4 spaces    "}, emits[2][2])
-    assert_equal({"message" => "	"}, emits[3][2])
-    assert_equal({"message" => "	tab"}, emits[4][2])
-    assert_equal({"message" => "tab	"}, emits[5][2])
+    events = d.events
+    assert_equal(true, events.length > 0)
+    assert_equal({"message" => "    "}, events[0][2])
+    assert_equal({"message" => "    4 spaces"}, events[1][2])
+    assert_equal({"message" => "4 spaces    "}, events[2][2])
+    assert_equal({"message" => "	"}, events[3][2])
+    assert_equal({"message" => "	tab"}, events[4][2])
+    assert_equal({"message" => "tab	"}, events[5][2])
   end
 
   data(
@@ -425,8 +425,8 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal(encoding, emits[0][2]['message'].encoding)
+    events = d.events
+    assert_equal(encoding, events[0][2]['message'].encoding)
   end
 
   def test_from_encoding
@@ -446,9 +446,9 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), emits[0][2]['message'])
-    assert_equal(Encoding::UTF_8, emits[0][2]['message'].encoding)
+    events = d.events
+    assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), events[0][2]['message'])
+    assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
 
   # multiline mode test
@@ -474,20 +474,20 @@ class TailInputTest < Test::Unit::TestCase
       }
       sleep 1
 
-      emits = d.emits
-      assert(emits.length == 3)
-      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, emits[0][2])
-      assert_equal({"message1" => "test5"}, emits[1][2])
-      assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
+      events = d.events
+      assert(events.length == 3)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
+      assert_equal({"message1" => "test5"}, events[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
 
       sleep 3
-      emits = d.emits
-      assert(emits.length == 3)
+      events = d.events
+      assert(events.length == 3)
     end
 
-    emits = d.emits
-    assert(emits.length == 4)
-    assert_equal({"message1" => "test8"}, emits[3][2])
+    events = d.events
+    assert(events.length == 4)
+    assert_equal({"message1" => "test8"}, events[3][2])
   end
 
   def test_multiline_with_flush_interval
@@ -515,16 +515,16 @@ class TailInputTest < Test::Unit::TestCase
       }
       sleep 1
 
-      emits = d.emits
-      assert(emits.length == 3)
-      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, emits[0][2])
-      assert_equal({"message1" => "test5"}, emits[1][2])
-      assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
+      events = d.events
+      assert(events.length == 3)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
+      assert_equal({"message1" => "test5"}, events[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
 
       sleep 3
-      emits = d.emits
-      assert(emits.length == 4)
-      assert_equal({"message1" => "test8"}, emits[3][2])
+      events = d.events
+      assert(events.length == 4)
+      assert_equal({"message1" => "test8"}, events[3][2])
     end
   end
 
@@ -549,9 +549,9 @@ class TailInputTest < Test::Unit::TestCase
       }
 
       sleep 4
-      emits = d.emits
-      assert_equal(1, emits.length)
-      assert_equal(encoding, emits[0][2]['message1'].encoding)
+      events = d.events
+      assert_equal(1, events.length)
+      assert_equal(encoding, events[0][2]['message1'].encoding)
     end
   end
 
@@ -573,10 +573,10 @@ class TailInputTest < Test::Unit::TestCase
       }
 
       sleep 4
-      emits = d.emits
-      assert_equal(1, emits.length)
-      assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), emits[0][2]['message1'])
-      assert_equal(Encoding::UTF_8, emits[0][2]['message1'].encoding)
+      events = d.events
+      assert_equal(1, events.length)
+      assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), events[0][2]['message1'])
+      assert_equal(Encoding::UTF_8, events[0][2]['message1'].encoding)
     end
   end
 
@@ -604,12 +604,12 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert(emits.length > 0)
-    assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, emits[0][2])
-    assert_equal({"message1" => "test5"}, emits[1][2])
-    assert_equal({"message1" => "test6", "message2" => "test7"}, emits[2][2])
-    assert_equal({"message1" => "test8"}, emits[3][2])
+    events = d.events
+    assert(events.length > 0)
+    assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
+    assert_equal({"message1" => "test5"}, events[1][2])
+    assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
+    assert_equal({"message1" => "test8"}, events[3][2])
   end
 
   def test_multilinelog_with_multiple_paths
@@ -636,12 +636,12 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal({"message" => "test1\nf test2\nf test3"}, emits[0][2])
-    assert_equal({"message" => "test1\nf test2\nf test3"}, emits[1][2])
+    events = d.events
+    assert_equal({"message" => "test1\nf test2\nf test3"}, events[0][2])
+    assert_equal({"message" => "test1\nf test2\nf test3"}, events[1][2])
     # "test4" events are here because these events are flushed at shutdown phase
-    assert_equal({"message" => "test4"}, emits[2][2])
-    assert_equal({"message" => "test4"}, emits[3][2])
+    assert_equal({"message" => "test4"}, events[2][2])
+    assert_equal({"message" => "test4"}, events[3][2])
   end
 
   def test_multiline_without_firstline
@@ -665,10 +665,10 @@ class TailInputTest < Test::Unit::TestCase
       sleep 1
     end
 
-    emits = d.emits
-    assert_equal(2, emits.length)
-    assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, emits[0][2])
-    assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, emits[1][2])
+    events = d.events
+    assert_equal(2, events.length)
+    assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, events[0][2])
+    assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, events[1][2])
   end
 
   # * path test
@@ -707,16 +707,16 @@ class TailInputTest < Test::Unit::TestCase
     plugin = create_driver(EX_CONFIG, false).instance
     sio = StringIO.new
     plugin.instance_eval do
-      @pf = Fluent::NewTailInput::PositionFile.parse(sio)
+      @pf = Fluent::Plugin::TailInput::PositionFile.parse(sio)
       @loop = Coolio::Loop.new
     end
 
     flexstub(Time) do |timeclass|
       timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6), Time.new(2010, 1, 2, 3, 4, 7))
 
-      flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
+      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:unwatched=).zero_or_more_times
@@ -731,8 +731,8 @@ class TailInputTest < Test::Unit::TestCase
         @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).zero_or_more_times
       end
 
-      flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::NewTailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
+      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
             watcher.should_receive(:unwatched=).zero_or_more_times
@@ -742,7 +742,7 @@ class TailInputTest < Test::Unit::TestCase
         plugin.refresh_watchers
       end
 
-      flexstub(Fluent::NewTailInput::TailWatcher) do |watcherclass|
+      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         watcherclass.should_receive(:new).never
         plugin.refresh_watchers
       end
@@ -835,42 +835,43 @@ class TailInputTest < Test::Unit::TestCase
         }
         sleep 1
       end
-      emits = d.emits
-      assert_equal(2, emits.length)
-      assert_equal({"message" => "test3"}, emits[0][2])
-      assert_equal({"message" => "test4"}, emits[1][2])
+      events = d.events
+      assert_equal(2, events.length)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
     end
   end
 
   sub_test_case 'emit error cases' do
     def test_emit_error_with_buffer_queue_limit_error
-      emits = execute_test(Fluent::Plugin::Buffer::BufferOverflowError, "buffer space has too many data")
-      assert_equal(10, emits.length)
+      events = execute_test(Fluent::Plugin::Buffer::BufferOverflowError, "buffer space has too many data")
+      assert_equal(10, events.length)
       10.times { |i|
-        assert_equal({"message" => "test#{i}"}, emits[i][2])
+        assert_equal({"message" => "test#{i}"}, events[i][2])
       }
     end
 
     def test_emit_error_with_non_buffer_queue_limit_error
-      emits = execute_test(StandardError, "non BufferQueueLimitError error")
-      assert_true(emits.size > 0 && emits.size != 10)
-      emits.size.times { |i|
-        assert_equal({"message" => "test#{10 - emits.size + i}"}, emits[i][2])
+      events = execute_test(StandardError, "non BufferQueueLimitError error")
+      assert_true(events.size > 0 && events.size != 10)
+      events.size.times { |i|
+        assert_equal({"message" => "test#{10 - events.size + i}"}, events[i][2])
       }
     end
 
     def execute_test(error_class, error_message)
       d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
       # Use define_singleton_method instead of d.emit_stream to capture local variable
-      d.define_singleton_method(:emit_stream) do |tag, es|
-        @test_num_errors ||= 0
-        if @test_num_errors < 5
-          @test_num_errors += 1
-          raise error_class, error_message
-        else
-          @emit_streams << [tag, es.to_a]
-        end
-      end
+      # d.define_singleton_method(:emit_stream) do |tag, es|
+      #   p __callee__
+      #   @test_num_errors ||= 0
+      #   if @test_num_errors < 5
+      #     @test_num_errors += 1
+      #     raise error_class, error_message
+      #   else
+      #     @emit_streams << [tag, es.to_a]
+      #   end
+      # end
 
       d.run do
         10.times { |i|
@@ -880,7 +881,7 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      d.emits
+      d.events
     end
   end
 
@@ -903,9 +904,9 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      emits = d.emits
-      assert_equal(true, emits.length > 0)
-      emits.each do |emit|
+      events = d.events
+      assert_equal(true, events.length > 0)
+      events.each do |emit|
         assert_equal("#{TMP_DIR}/tail.txt", emit[2]["path"])
       end
     end
@@ -933,9 +934,9 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      emits = d.emits
-      assert(emits.length == 4)
-      emits.each do |emit|
+      events = d.events
+      assert(events.length == 4)
+      events.each do |emit|
         assert_equal("#{TMP_DIR}/tail.txt", emit[2]["path"])
       end
     end
@@ -959,9 +960,9 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      emits = d.emits
-      assert(emits.length > 0)
-      emits.each do |emit|
+      events = d.events
+      assert(events.length > 0)
+      events.each do |emit|
         assert_equal("#{TMP_DIR}/tail.txt", emit[2]["path"])
       end
     end
@@ -991,11 +992,11 @@ class TailInputTest < Test::Unit::TestCase
         sleep 1
       end
 
-      emits = d.emits
-      assert(emits.length == 4)
-      assert_equal(files, [emits[0][2]["path"], emits[1][2]["path"]].sort)
+      events = d.events
+      assert(events.length == 4)
+      assert_equal(files, [events[0][2]["path"], events[1][2]["path"]].sort)
       # "test4" events are here because these events are flushed at shutdown phase
-      assert_equal(files, [emits[2][2]["path"], emits[3][2]["path"]].sort)
+      assert_equal(files, [events[2][2]["path"], events[3][2]["path"]].sort)
     end
   end
 end

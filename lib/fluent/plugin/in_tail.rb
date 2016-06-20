@@ -16,7 +16,7 @@
 
 require 'cool.io'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/config/error'
 require 'fluent/event'
 require 'fluent/system_config'
@@ -28,11 +28,11 @@ else
   Fluent::FileWrapper = File
 end
 
-module Fluent
-  class TailInput < Input
-    include SystemConfig::Mixin
+module Fluent::Plugin
+  class TailInput < Fluent::Plugin::Input
+    include Fluent::SystemConfig::Mixin
 
-    Plugin.register_input('tail', self)
+    Fluent::Plugin.register_input('tail', self)
 
     FILE_PERMISSION = 0644
 
@@ -81,7 +81,7 @@ module Fluent
 
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
-        raise ConfigError, "tail: 'path' parameter is required on tail input"
+        raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
 
       unless @pos_file
@@ -103,7 +103,7 @@ module Fluent
     end
 
     def configure_parser(conf)
-      @parser = Plugin.new_parser(conf['format'])
+      @parser = Fluent::Plugin.new_parser(conf['format'])
       @parser.configure(conf)
     end
 
@@ -218,7 +218,7 @@ module Fluent
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
             begin
-              pe.update(FileWrapper.stat(path).ino, 0)
+              pe.update(Fluent::FileWrapper.stat(path).ino, 0)
             rescue Errno::ENOENT
               $log.warn "#{path} not found. Continuing without tailing it."
             end
@@ -347,7 +347,7 @@ module Fluent
     end
 
     def parse_singleline(lines, tail_watcher)
-      es = MultiEventStream.new
+      es = Fluent::MultiEventStream.new
       lines.each { |line|
         convert_line_to_event(line, es, tail_watcher)
       }
@@ -356,7 +356,7 @@ module Fluent
 
     def parse_multilines(lines, tail_watcher)
       lb = tail_watcher.line_buffer
-      es = MultiEventStream.new
+      es = Fluent::MultiEventStream.new
       if @parser.has_firstline?
         tail_watcher.line_buffer_timer_flusher.reset_timer if tail_watcher.line_buffer_timer_flusher
         lines.each { |line|
@@ -660,7 +660,7 @@ module Fluent
 
         def on_notify
           begin
-            stat = FileWrapper.stat(@path)
+            stat = Fluent::FileWrapper.stat(@path)
             inode = stat.ino
             fsize = stat.size
           rescue Errno::ENOENT
@@ -673,7 +673,7 @@ module Fluent
             if @inode != inode || fsize < @fsize
               # rotated or truncated
               begin
-                io = FileWrapper.open(@path)
+                io = Fluent::FileWrapper.open(@path)
               rescue Errno::ENOENT
               end
               @on_rotate.call(io)
@@ -712,7 +712,6 @@ module Fluent
         end
       end
     end
-
 
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
