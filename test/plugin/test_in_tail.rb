@@ -16,7 +16,7 @@ class TailInputTest < Test::Unit::TestCase
       # ensure files are closed for Windows, on which deleted files
       # are still visible from filesystem
       GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
-      FileUtils.remove_entry_secure(TMP_DIR)
+      FileUtils.remove_entry_secure(TMP_DIR, true)
     end
     FileUtils.mkdir_p(TMP_DIR)
   end
