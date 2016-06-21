@@ -315,7 +315,7 @@ class ChildProcessTest < Test::Unit::TestCase
       assert_equal [], @d.log.out.logs
       @d.log.out.singleton_class.module_eval do
         define_method(:write){|message|
-          raise "boo" if message.include?('test: {"test":"test"}')
+          raise "boo" if message.include?('test: {"test":"test"}') || message.include?('test: {"test"=>"test"}')
           @logs.push message
         }
       end
