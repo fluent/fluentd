@@ -15,8 +15,8 @@
 #
 
 require 'time'
-require 'timezone'
 require 'msgpack'
+require 'fluent/timezone'
 
 module Fluent
   class EventTime
@@ -111,43 +111,19 @@ module Fluent
       @tc2_str = nil
 
       if format && format =~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
-        define_singleton_method(:format) {|time|
-          format_with_subsec(time)
-        }
+        define_singleton_method(:format, method(:format_with_subsec))
       else
-        define_singleton_method(:format) {|time|
-          format_without_subsec(time)
-        }
+        define_singleton_method(:format, method(:format_without_subsec))
       end
 
-      if formatter = Fluent::Timezone.formatter(timezone, format)
-        define_singleton_method(:format_nocache) {|time|
-          formatter.call(time)
-        }
-        return
-      end
-
-      if format
-        if localtime
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).strftime(format)
-          }
-        else
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).utc.strftime(format)
-          }
-        end
-      else
-        if localtime
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).iso8601
-          }
-        else
-          define_singleton_method(:format_nocache) {|time|
-            Time.at(time).utc.iso8601
-          }
-        end
-      end
+      formatter = Fluent::Timezone.formatter(timezone, format)
+      @format_nocache = case
+                        when formatter           then formatter
+                        when format && localtime then ->(time){ Time.at(time).strftime(format) }
+                        when format              then ->(time){ Time.at(time).utc.strftime(format) }
+                        when localtime           then ->(time){ Time.at(time).iso8601 }
+                        else                          ->(time){ Time.at(time).utc.iso8601 }
+                        end
     end
 
     def format_without_subsec(time)
@@ -186,12 +162,12 @@ module Fluent
       end
     end
 
-    def format(time)
-      # will be overridden in initialize
-    end
+    ## Dynamically defined in #initialize
+    # def format(time)
+    # end
 
     def format_nocache(time)
-      # will be overridden in initialize
+      @format_nocache.call(time)
     end
   end
 end

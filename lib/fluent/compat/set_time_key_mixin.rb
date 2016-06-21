@@ -16,12 +16,12 @@
 
 require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
-require 'fluent/compat/time_formatter'
+require 'fluent/time'
+require 'fluent/timezone'
 
 module Fluent
   module Compat
      module SetTimeKeyMixin
-       require 'fluent/timezone'
        include RecordFilterMixin
 
        attr_accessor :include_time_key, :time_key, :localtime, :timezone
@@ -55,7 +55,7 @@ module Fluent
              Fluent::Timezone.validate!(@timezone)
            end
 
-           @timef = Fluent::Compat::TimeFormatter.new(@time_format, @localtime, @timezone)
+           @timef = Fluent::TimeFormatter.new(@time_format, @localtime, @timezone)
          end
        end
 

@@ -20,7 +20,7 @@ require 'fluent/compat/set_time_key_mixin'
 require 'fluent/compat/set_tag_key_mixin'
 require 'fluent/compat/type_converter'
 
-require 'fluent/time'
+require 'fluent/time' # Fluent::TimeFormatter
 
 module Fluent
   RecordFilterMixin = Fluent::Compat::RecordFilterMixin
@@ -28,6 +28,4 @@ module Fluent
   SetTimeKeyMixin = Fluent::Compat::SetTimeKeyMixin
   SetTagKeyMixin = Fluent::Compat::SetTagKeyMixin
   TypeConverter = Fluent::Compat::TypeConverter
-
-  TimeFormatter = Fluent::TimeFormatter
 end
