@@ -89,6 +89,10 @@ module Fluent
     config_param :require_ack_response, :bool, default: false  # require in_forward to respond with ack
     desc 'This option is used when require_ack_response is true.'
     config_param :ack_response_timeout, :time, default: 190  # 0 means do not wait for ack responses
+    desc 'Reading data size from server'
+    config_param :read_length, :size, default: 512 # 512bytes
+    desc 'The interval while reading data from server'
+    config_param :read_interval_msec, :integer, default: 50 # 50ms
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
     desc 'Enable client-side DNS round robin.'
@@ -111,6 +115,7 @@ module Fluent
     config_param :host, :string, default: nil
 
     attr_accessor :extend_internal_protocol
+    attr_reader :read_interval
 
     def configure(conf)
       super
@@ -126,6 +131,7 @@ module Fluent
         @servers << s
       end
 
+      @read_interval = @read_interval_msec / 1000.0
       recover_sample_size = @recover_wait / @heartbeat_interval
 
       # add options here if any options addes which uses extended protocol
@@ -365,6 +371,10 @@ module Fluent
 
         @usock = nil
 
+        @shared_key_salt = generate_salt
+        @shared_key_nonce = ""
+        @unpacker = MessagePack::Unpacker.new
+
         @resolved_host = nil
         @resolved_time = 0
         resolved_host  # check dns
@@ -401,6 +411,28 @@ module Fluent
 
           opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
           sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+
+          loop do
+            break if @connection_hard_timeout && Time.now > @mtime + @connection_hard_timeout
+            begin
+              while buf = sock.read_nonblock(@sender.read_length)
+                if buf.empty?
+                  sleep @sender.read_interval
+                  next
+                end
+                @unpacker.feed_each(buf, &node.method(:on_read))
+                @mtime = Time.now
+              end
+            rescue SystemCallError => e
+              @log.warn "disconnected by error", error_class: e.class, error: e, host: @host, port: @port
+              disable!
+              break
+            rescue EOFError
+              @log.warn "disconnected", host: @host, port: @port
+              disable!
+              break
+            end
+          end
 
           # beginArray(2)
           sock.write @sender.forward_header
@@ -572,6 +604,94 @@ module Fluent
 
       def to_msgpack(out = '')
         [@host, @port, @weight, @available].to_msgpack(out)
+      end
+
+      def generate_salt
+        SecureRandom.hex(16)
+      end
+
+      def check_helo(message)
+        @log.debug "checking helo"
+        # ['HELO', options(hash)]
+        unless message.size == 2 && message[0] == 'HELO'
+          return false
+        end
+        opts = message[1]
+        @shared_key_nonce = opts['nonce'] || '' # make shared_key_check failed (instead of error) if protocol version mismatch exist
+        @authentication = opts['auth']
+        @mtime = Time.now
+        true
+      end
+
+      def generate_ping
+        @log.debug "generating ping"
+        # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
+        #  username || '', sha512\_hex(auth\_salt + username + password) || '']
+        shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt).update(@sender.self_hostname).update(@shared_key_nonce).update(@shared_key).hexdigest
+        ping = ['PING', @sender.self_hostname, @shared_key_salt, shared_key_hexdigest]
+        if @authentication != ''
+          password_hexdigest = Digest::SHA512.new.update(@authentication).update(@username).update(@password).hexdigest
+          ping.push(@username, password_hexdigest)
+        else
+          ping.push('','')
+        end
+        @mtime = Time.now
+        ping
+      end
+
+      def check_pong(message)
+        @log.debug "checking pong"
+        # ['PONG', bool(authentication result), 'reason if authentication failed',
+        #  self_hostname, sha512\_hex(salt + self_hostname + nonce + sharedkey)]
+        unless message.size == 5 && message[0] == 'PONG'
+          return false, 'invalid format for PONG message'
+        end
+        _pong, auth_result, reason, hostname, shared_key_hexdigest = message
+
+        unless auth_result
+          return false, 'authentication failed: ' + reason
+        end
+
+        if hostname == @sender.self_hostname
+          return false, 'same hostname between input and output: invalid configuration'
+        end
+
+        clientside = Digest::SHA512.new.update(@shared_key_salt).update(hostname).update(@shared_key_nonce).update(@shared_key).hexdigest
+        unless shared_key_hexdigest == clientside
+          return false, 'shared key mismatch'
+        end
+
+        @mtime = Time.now
+        return true, nil
+      end
+
+      def on_read(data)
+        @log.debug __callee__
+
+        return if established? # TODO
+
+        case @state
+        when :helo
+          unless check_helo(data)
+            @log.warn "received invalid helo message from #{@name}"
+            shutdown # TODO
+            return
+          end
+          sock.write(generate_ping.to_msgpack)
+          @mtime = Time.now
+          @state = :pingpong
+        when :pingpong
+          succeeded, reason = check_pong(data)
+          unless succeeded
+            log.warn "connection refused to #{@name}: #{reason}"
+            shutdown
+            return
+          end
+          @log.info "connection established to #{@name}" if @first_session
+          @state = :established
+          @mtime = Time.now
+          @log.debug "connection established", host: @host, port: @port
+        end
       end
     end
 
