@@ -232,6 +232,18 @@ module Fluent
       end
     end
 
+    # MessagePack FixArray length = 3 (if @extend_internal_protocol)
+    #                             = 2 (else)
+    FORWARD_HEADER = [0x92].pack('C').freeze
+    FORWARD_HEADER_EXT = [0x93].pack('C').freeze
+    def forward_header
+      if @extend_internal_protocol
+        FORWARD_HEADER_EXT
+      else
+        FORWARD_HEADER
+      end
+    end
+
     private
 
     def rebuild_weight_array
@@ -274,18 +286,6 @@ module Fluent
       weight_array.sort_by! { r.rand }
 
       @weight_array = weight_array
-    end
-
-    # MessagePack FixArray length = 3 (if @extend_internal_protocol)
-    #                             = 2 (else)
-    FORWARD_HEADER = [0x92].pack('C').freeze
-    FORWARD_HEADER_EXT = [0x93].pack('C').freeze
-    def self.forward_header
-      if @extend_internal_protocol
-        FORWARD_HEADER_EXT
-      else
-        FORWARD_HEADER
-      end
     end
 
     class HeartbeatRequestTimer < Coolio::TimerWatcher
@@ -403,7 +403,7 @@ module Fluent
           sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
           # beginArray(2)
-          sock.write Fluent::ForwardOutput.forward_header
+          sock.write @sender.forward_header
 
           # writeRaw(tag)
           sock.write tag.to_msgpack  # tag
