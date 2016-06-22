@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/multi_output'
 require 'fluent/plugin/out_roundrobin'
 
 class RoundRobinOutputTest < Test::Unit::TestCase
@@ -7,6 +7,7 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     def startup
       $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts'))
       require 'fluent/plugin/out_test'
+      require 'fluent/plugin/out_test2'
     end
 
     def shutdown
@@ -20,37 +21,37 @@ class RoundRobinOutputTest < Test::Unit::TestCase
 
   CONFIG = %[
     <store>
-      type test
+      @type test
       name c0
     </store>
     <store>
-      type test
+      @type test2
       name c1
     </store>
     <store>
-      type test
+      @type test
       name c2
     </store>
   ]
   CONFIG_WITH_WEIGHT = %[
     <store>
-      type test
+      @type test
       name c0
       weight 3
     </store>
     <store>
-      type test
+      @type test2
       name c1
       weight 3
     </store>
     <store>
-      type test
+      @type test
       name c2
     </store>
   ]
 
   def create_driver(conf = CONFIG)
-    Fluent::Test::OutputTestDriver.new(Fluent::RoundRobinOutput).configure(conf)
+    Fluent::Test::Driver::MultiOutput.new(Fluent::Plugin::RoundRobinOutput).configure(conf)
   end
 
   def test_configure
@@ -58,9 +59,16 @@ class RoundRobinOutputTest < Test::Unit::TestCase
 
     outputs = d.instance.outputs
     assert_equal 3, outputs.size
-    assert_equal Fluent::TestOutput, outputs[0].class
-    assert_equal Fluent::TestOutput, outputs[1].class
-    assert_equal Fluent::TestOutput, outputs[2].class
+
+    assert_equal Fluent::Plugin::TestOutput, outputs[0].class
+    assert_equal Fluent::Plugin::Test2Output, outputs[1].class
+    assert_equal Fluent::Plugin::TestOutput, outputs[2].class
+
+    assert !outputs[0].has_router?
+    assert outputs[1].has_router?
+    assert outputs[1].router
+    assert !outputs[2].has_router?
+
     assert_equal "c0", outputs[0].name
     assert_equal "c1", outputs[1].name
     assert_equal "c2", outputs[2].name
@@ -75,9 +83,11 @@ class RoundRobinOutputTest < Test::Unit::TestCase
 
     outputs = d.instance.outputs
     assert_equal 3, outputs.size
-    assert_equal Fluent::TestOutput, outputs[0].class
-    assert_equal Fluent::TestOutput, outputs[1].class
-    assert_equal Fluent::TestOutput, outputs[2].class
+
+    assert_equal Fluent::Plugin::TestOutput, outputs[0].class
+    assert_equal Fluent::Plugin::Test2Output, outputs[1].class
+    assert_equal Fluent::Plugin::TestOutput, outputs[2].class
+
     assert_equal "c0", outputs[0].name
     assert_equal "c1", outputs[1].name
     assert_equal "c2", outputs[2].name
@@ -89,15 +99,15 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     assert_equal 1, weights[2]
   end
 
-  def test_emit
+  def test_events_feeded_to_plugins_by_roundrobin
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.run do
-      d.emit({"a"=>1}, time)
-      d.emit({"a"=>2}, time)
-      d.emit({"a"=>3}, time)
-      d.emit({"a"=>4}, time)
+    time = event_time("2011-01-02 13:14:15 UTC")
+    d.run(default_tag: 'test') do
+      d.feed(time, {"a" => 1})
+      d.feed(time, {"a" => 2})
+      d.feed(time, {"a" => 3})
+      d.feed(time, {"a" => 4})
     end
 
     os = d.instance.outputs
@@ -114,19 +124,15 @@ class RoundRobinOutputTest < Test::Unit::TestCase
     assert_equal [
         [time, {"a"=>3}],
       ], os[2].events
-
-    d.instance.outputs.each {|o|
-      assert_not_nil o.router
-    }
   end
 
-  def test_emit_weighted
+  def test_events_feeded_with_specified_weights
     d = create_driver(CONFIG_WITH_WEIGHT)
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.run do
+    time = event_time("2011-01-02 13:14:15 UTC")
+    d.run(default_tag: 'test') do
       14.times do |i|
-        d.emit({"a"=>i}, time)
+        d.feed(time, {"a" => i})
       end
     end
 
