@@ -89,6 +89,16 @@ module Fluent
     desc 'Enable client-side DNS round robin.'
     config_param :dns_round_robin, :bool, default: false # heartbeat_type 'udp' is not available for this
 
+    config_section :server, param_name: :servers do
+      config_param :host, :string
+      config_param :name, :string, default: nil
+      config_param :port, :integer, default: LISTEN_PORT
+      config_param :shared_key, :string, default: nil, secret: true
+      config_param :username, :string, default: ''
+      config_param :password, :string, default: '', secret: true
+      config_param :standby, :bool, default: false
+      config_param :weight, :integer, default: 60
+    end
     attr_reader :nodes
 
     # backward compatibility
@@ -105,9 +115,10 @@ module Fluent
         log.warn "'host' option in forward output is obsoleted. Use '<server> host xxx </server>' instead."
         port = conf['port']
         port = port ? port.to_i : LISTEN_PORT
-        element = conf.add_element('server')
-        element['host'] = host
-        element['port'] = port.to_s
+        s = Fluent::Config::Section.new(
+          host: host, port: port, name: "#{host}:#{port}", shared_key: nil,
+          weight: 60, username: "", password: "", standby: false)
+        @servers << s
       end
 
       recover_sample_size = @recover_wait / @heartbeat_interval
@@ -125,35 +136,21 @@ module Fluent
         end
       end
 
-      conf.elements.each {|e|
-        next if e.name != "server"
-
-        host = e['host']
-        port = e['port']
-        port = port ? port.to_i : LISTEN_PORT
-
-        weight = e['weight']
-        weight = weight ? weight.to_i : 60
-
-        standby = !!e['standby']
-
-        name = e['name']
-        unless name
-          name = "#{host}:#{port}"
-        end
-
+      @servers.each do |server|
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
 
-        node_conf = NodeConfig.new(name, host, port, weight, standby, failure,
-          @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector, @dns_round_robin)
+        name = server.name || "#{server.host}:#{server.port}"
+        node_conf = NodeConfig.new(name, server.host, server.port, server.weight, server.standby,
+                                   failure, @phi_threshold, recover_sample_size, @expire_dns_cache, @phi_failure_detector, @dns_round_robin)
 
         if @heartbeat_type == :none
           @nodes << NoneHeartbeatNode.new(log, node_conf)
         else
           @nodes << Node.new(log, node_conf)
         end
-        log.info "adding forwarding server '#{name}'", host: host, port: port, weight: weight, plugin_id: plugin_id
-      }
+        log.info("adding forwarding server '#{name}'",
+                 host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id)
+      end
 
       if @nodes.empty?
         raise ConfigError, "forward output plugin requires at least one <server> is required"
