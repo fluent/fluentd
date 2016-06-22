@@ -50,6 +50,11 @@ module Fluent
       @finished = false
     end
 
+    desc 'The hostname'
+    config_param :self_hostname, :string
+
+    desc 'The timeout time while connecting'
+    config_param :connection_hard_timeout, :time, default: nil # specifying 0 explicitly means not to disconnect stuck connection forever
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, default: 60
     desc 'The transport protocol to use for heartbeats.(udp,tcp,none)'
