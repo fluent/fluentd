@@ -1,12 +1,14 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/multi_output'
 require 'fluent/plugin/out_copy'
+require 'fluent/event'
 
 class CopyOutputTest < Test::Unit::TestCase
   class << self
     def startup
       $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts'))
       require 'fluent/plugin/out_test'
+      require 'fluent/plugin/out_test2'
     end
 
     def shutdown
@@ -20,21 +22,21 @@ class CopyOutputTest < Test::Unit::TestCase
 
   CONFIG = %[
     <store>
-      type test
+      @type test
       name c0
     </store>
     <store>
-      type test
+      @type test2
       name c1
     </store>
     <store>
-      type test
+      @type test
       name c2
     </store>
   ]
 
   def create_driver(conf = CONFIG)
-    Fluent::Test::OutputTestDriver.new(Fluent::CopyOutput).configure(conf)
+    Fluent::Test::Driver::MultiOutput.new(Fluent::Plugin::CopyOutput).configure(conf)
   end
 
   def test_configure
@@ -42,158 +44,117 @@ class CopyOutputTest < Test::Unit::TestCase
 
     outputs = d.instance.outputs
     assert_equal 3, outputs.size
-    assert_equal Fluent::TestOutput, outputs[0].class
-    assert_equal Fluent::TestOutput, outputs[1].class
-    assert_equal Fluent::TestOutput, outputs[2].class
+    assert_equal Fluent::Plugin::TestOutput, outputs[0].class
+    assert_equal Fluent::Plugin::Test2Output, outputs[1].class
+    assert_equal Fluent::Plugin::TestOutput, outputs[2].class
     assert_equal "c0", outputs[0].name
     assert_equal "c1", outputs[1].name
     assert_equal "c2", outputs[2].name
   end
 
-  def test_emit
+  def test_feed_events
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
+    assert !d.instance.outputs[0].has_router?
+    assert_not_nil d.instance.outputs[1].router
+    assert !d.instance.outputs[2].has_router?
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    d.run(default_tag: 'test') do
+      d.feed(time, {"a" => 1})
+      d.feed(time, {"a" => 2})
+    end
 
     d.instance.outputs.each {|o|
-      assert_equal [
-          [time, {"a"=>1}],
-          [time, {"a"=>2}],
-        ], o.events
-    }
-
-    d.instance.outputs.each {|o|
-      assert_not_nil o.router
+      assert_equal [ [time, {"a"=>1}], [time, {"a"=>2}] ], o.events
     }
   end
 
-  def test_msgpack_es_emit_bug
-    d = Fluent::Test::OutputTestDriver.new(Fluent::CopyOutput)
+  def test_msgpack_unpacker_cache_bug_for_msgpack_event_stream
+    d = create_driver
 
-    outputs = %w(p1 p2).map do |pname|
-      p = Fluent::Plugin.new_output('test')
-      p.configure('name' => pname)
-      p.define_singleton_method(:emit) do |tag, es, chain|
-        es.each do |time, record|
-          super(tag, [[time, record]], chain)
-        end
-      end
-      p
+    time = event_time("2011-01-02 13:14:15 UTC")
+    source = Fluent::ArrayEventStream.new([ [time, {"a" => 1}], [time, {"a" => 2}] ])
+    es = Fluent::MessagePackEventStream.new(source.to_msgpack_stream)
+
+    d.run(default_tag: 'test') do
+      d.feed(es)
     end
-
-    d.instance.instance_eval { @outputs = outputs }
-
-    es = if defined?(MessagePack::Packer)
-           time = Time.parse("2013-05-26 06:37:22 UTC").to_i
-           packer = Fluent::Engine.msgpack_factory.packer
-           packer.pack([time, {"a" => 1}])
-           packer.pack([time, {"a" => 2}])
-           Fluent::MessagePackEventStream.new(packer.to_s)
-         else
-           events = "#{[time, {"a" => 1}].to_msgpack}#{[time, {"a" => 2}].to_msgpack}"
-           Fluent::MessagePackEventStream.new(events)
-         end
-
-    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
 
     d.instance.outputs.each { |o|
-      assert_equal [
-        [time, {"a"=>1}],
-        [time, {"a"=>2}],
-      ], o.events
+      assert_equal [ [time, {"a"=>1}], [time, {"a"=>2}] ], o.events
     }
   end
 
-  def create_event_test_driver(is_deep_copy = false)
-    deep_copy_config = %[
-deep_copy #{is_deep_copy}
-    <store>
-      type test
-      name c0
-    </store>
-    <store>
-      type test
-      name c1
-    </store>
-    <store>
-      type test
-      name c2
-    </store>
-]
+  def create_event_test_driver(does_deep_copy = false)
+    config = %[
+      deep_copy #{does_deep_copy}
+      <store>
+        @type test
+        name output1
+      </store>
+      <store>
+        @type test
+        name output2
+      </store>
+    ]
 
-    output1 = Fluent::Plugin.new_output('test')
-    output1.configure('name' => 'output1')
-    output1.define_singleton_method(:emit) do |tag, es, chain|
+    d = Fluent::Test::Driver::MultiOutput.new(Fluent::Plugin::CopyOutput).configure(config)
+    d.instance.outputs[0].define_singleton_method(:process) do |tag, es|
       es.each do |time, record|
         record['foo'] = 'bar'
-        super(tag, [[time, record]], chain)
       end
+      super(tag, es)
     end
-
-    output2 = Fluent::Plugin.new_output('test')
-    output2.configure('name' => 'output2')
-    output2.define_singleton_method(:emit) do |tag, es, chain|
-      es.each do |time, record|
-        super(tag, [[time, record]], chain)
-      end
-    end
-
-    outputs = [output1, output2]
-
-    d = Fluent::Test::OutputTestDriver.new(Fluent::CopyOutput)
-    d = d.configure(deep_copy_config)
-    d.instance.instance_eval { @outputs = outputs }
     d
   end
 
-  def test_one_event
-    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+  time = event_time("2013-05-26 06:37:22 UTC")
+  mes0 = Fluent::MultiEventStream.new
+  mes0.add(time, {"a" => 1})
+  mes0.add(time, {"b" => 1})
+  mes1 = Fluent::MultiEventStream.new
+  mes1.add(time, {"a" => 1})
+  mes1.add(time, {"b" => 1})
 
-    d = create_event_test_driver(false)
-    es = Fluent::OneEventStream.new(time, {"a" => 1})
-    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+  data(
+    "OneEventStream without deep_copy"   => [false, Fluent::OneEventStream.new(time, {"a" => 1})],
+    "OneEventStream with deep_copy"      => [true,  Fluent::OneEventStream.new(time, {"a" => 1})],
+    "ArrayEventStream without deep_copy" => [false, Fluent::ArrayEventStream.new([ [time, {"a" => 1}], [time, {"b" => 2}] ])],
+    "ArrayEventStream with deep_copy"    => [true,  Fluent::ArrayEventStream.new([ [time, {"a" => 1}], [time, {"b" => 2}] ])],
+    "MultiEventStream without deep_copy" => [false, mes0],
+    "MultiEventStream with deep_copy"    => [true,  mes1],
+  )
+  def test_deep_copy_controls_shallow_or_deep_copied(data)
+    does_deep_copy, es = data
 
-    assert_equal [
-      [[time, {"a"=>1, "foo"=>"bar"}]],
-      [[time, {"a"=>1, "foo"=>"bar"}]]
-    ], d.instance.outputs.map{ |o| o.events }
+    d = create_event_test_driver(does_deep_copy)
 
-    d = create_event_test_driver(true)
-    es = Fluent::OneEventStream.new(time, {"a" => 1})
-    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+    d.run(default_tag: 'test') do
+      d.feed(es)
+    end
 
-    assert_equal [
-      [[time, {"a"=>1, "foo"=>"bar"}]],
-      [[time, {"a"=>1}]]
-    ], d.instance.outputs.map{ |o| o.events }
-  end
+    events = d.instance.outputs.map(&:events)
 
-  def test_multi_event
-    time = Time.parse("2013-05-26 06:37:22 UTC").to_i
+    if does_deep_copy
+      events[0].each_with_index do |entry0, i|
+        record0 = entry0.last
+        record1 = events[1][i].last
 
-    d = create_event_test_driver(false)
-    es = Fluent::MultiEventStream.new
-    es.add(time, {"a" => 1})
-    es.add(time, {"b" => 2})
-    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
+        assert{ record0.object_id != record1.object_id }
+        assert_equal "bar", record0["foo"]
+        assert !record1.has_key?("foo")
+      end
+    else
+      events[0].each_with_index do |entry0, i|
+        record0 = entry0.last
+        record1 = events[1][i].last
 
-    assert_equal [
-      [[time, {"a"=>1, "foo"=>"bar"}], [time, {"b"=>2, "foo"=>"bar"}]],
-      [[time, {"a"=>1, "foo"=>"bar"}], [time, {"b"=>2, "foo"=>"bar"}]]
-    ], d.instance.outputs.map{ |o| o.events }
-
-    d = create_event_test_driver(true)
-    es = Fluent::MultiEventStream.new
-    es.add(time, {"a" => 1})
-    es.add(time, {"b" => 2})
-    d.instance.emit('test', es, Fluent::NullOutputChain.instance)
-
-    assert_equal [
-      [[time, {"a"=>1, "foo"=>"bar"}], [time, {"b"=>2, "foo"=>"bar"}]],
-      [[time, {"a"=>1}], [time, {"b"=>2}]]
-    ], d.instance.outputs.map{ |o| o.events }
+        assert{ record0.object_id == record1.object_id }
+        assert_equal "bar", record0["foo"]
+        assert_equal "bar", record1["foo"]
+      end
+    end
   end
 end
 
