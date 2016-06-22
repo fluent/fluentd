@@ -406,14 +406,14 @@ module Fluent
       def send_data(tag, chunk)
         sock = connect
         begin
-          opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
-          opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
+          opt = [@sender.send_timeout.to_i, 0].pack('L!L!')  # struct timeval
           sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
           loop do
-            break if @connection_hard_timeout && Time.now > @mtime + @connection_hard_timeout
+            break if @sender.connection_hard_timeout && Time.now > @mtime + @sender.connection_hard_timeout
             begin
               while buf = sock.read_nonblock(@sender.read_length)
                 if buf.empty?
