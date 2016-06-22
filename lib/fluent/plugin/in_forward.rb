@@ -50,7 +50,6 @@ module Fluent
     desc 'Skip an event if incoming event is invalid.'
     config_param :skip_invalid_event, :bool, default: false
 
-    # TODO check recent fluent-plugin-secure-forward updates
     config_section :security, required: false, multi: false do
       config_param :shared_key, :string
       config_param :user_auth, :bool, default: false
