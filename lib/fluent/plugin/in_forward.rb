@@ -534,9 +534,9 @@ module Fluent
         @idle_seconds = 0
         @on_read_callback.call(data)
       rescue => e
+        @log.error "unexpected error: #{e.class}: #{e.message}"
+        @log.error_backtrace
         close
-        #### TODO: error handling & logging
-        raise
       end
 
       def write(data)
