@@ -216,7 +216,7 @@ module Fluent
 
         if node.available?
           begin
-            send_data(node, tag, chunk)
+            node.send_data(tag, chunk)
             return
           rescue
             # for load balancing during detecting crashed servers
@@ -280,117 +280,12 @@ module Fluent
     #                             = 2 (else)
     FORWARD_HEADER = [0x92].pack('C').freeze
     FORWARD_HEADER_EXT = [0x93].pack('C').freeze
-    def forward_header
+    def self.forward_header
       if @extend_internal_protocol
         FORWARD_HEADER_EXT
       else
         FORWARD_HEADER
       end
-    end
-
-    #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
-    def send_heartbeat_tcp(node)
-      sock = connect(node)
-      begin
-        opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-        opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
-        # don't send any data to not cause a compatibility problem
-        #sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
-        #sock.write FORWARD_TCP_HEARTBEAT_DATA
-        node.heartbeat(true)
-      ensure
-        sock.close_write
-        sock.close
-      end
-    end
-
-    def send_data(node, tag, chunk)
-      sock = connect(node)
-      begin
-        opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-
-        opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
-
-        # beginArray(2)
-        sock.write forward_header
-
-        # writeRaw(tag)
-        sock.write tag.to_msgpack  # tag
-
-        # beginRaw(size)
-        sz = chunk.size
-        #if sz < 32
-        #  # FixRaw
-        #  sock.write [0xa0 | sz].pack('C')
-        #elsif sz < 65536
-        #  # raw 16
-        #  sock.write [0xda, sz].pack('Cn')
-        #else
-        # raw 32
-        sock.write [0xdb, sz].pack('CN')
-        #end
-
-        # writeRawBody(packed_es)
-        chunk.write_to(sock)
-
-        if @extend_internal_protocol
-          option = {}
-          option['chunk'] = Base64.encode64(chunk.unique_id) if @require_ack_response
-          sock.write option.to_msgpack
-
-          if @require_ack_response && @ack_response_timeout > 0
-            # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
-            # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
-            # and process them asynchronously.
-            if IO.select([sock], nil, nil, @ack_response_timeout)
-              begin
-                raw_data = sock.recv(1024)
-              rescue Errno::ECONNRESET
-                raw_data = ""
-              end
-
-              # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
-              # If this happens we assume the data wasn't delivered and retry it.
-              if raw_data.empty?
-                @log.warn "node #{node.host}:#{node.port} closed the connection. regard it as unavailable."
-                node.disable!
-                raise ForwardOutputConnectionClosedError, "node #{node.host}:#{node.port} closed connection"
-              else
-                # Serialization type of the response is same as sent data.
-                res = MessagePack.unpack(raw_data)
-
-                if res['ack'] != option['chunk']
-                  # Some errors may have occured when ack and chunk id is different, so send the chunk again.
-                  raise ForwardOutputResponseError, "ack in response and chunk id in sent data are different"
-                end
-              end
-
-            else
-              # IO.select returns nil on timeout.
-              # There are 2 types of cases when no response has been received:
-              # (1) the node does not support sending responses
-              # (2) the node does support sending response but responses have not arrived for some reasons.
-              @log.warn "no response from #{node.host}:#{node.port}. regard it as unavailable."
-              node.disable!
-              raise ForwardOutputACKTimeoutError, "node #{node.host}:#{node.port} does not return ACK"
-            end
-          end
-        end
-
-        node.heartbeat(false)
-        return res  # for test
-      ensure
-        sock.close_write
-        sock.close
-      end
-    end
-
-    def connect(node)
-      # TODO unix socket?
-      TCPSocket.new(node.resolved_host, node.port)
     end
 
     class HeartbeatRequestTimer < Coolio::TimerWatcher
@@ -414,11 +309,8 @@ module Fluent
         end
         begin
           #log.trace "sending heartbeat #{n.host}:#{n.port} on #{@heartbeat_type}"
-          if @heartbeat_type == :tcp
-            send_heartbeat_tcp(n)
-          else
-            @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
-          end
+          n.usock = @usock
+          n.send_heartbeat
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED
           # TODO log
           log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", error: $!.to_s
@@ -471,6 +363,8 @@ module Fluent
         @recover_sample_size = recover_sample_size
         @available = true
 
+        @usock = nil
+
         @resolved_host = nil
         @resolved_time = 0
         resolved_host  # check dns
@@ -480,6 +374,7 @@ module Fluent
       attr_reader :name, :host, :port, :weight
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
+      attr_accessor :usock
 
       def available?
         @available
@@ -491,6 +386,115 @@ module Fluent
 
       def standby?
         @conf.standby
+      end
+
+      def connect
+        # TODO unix socket?
+        TCPSocket.new(resolved_host, port)
+      end
+
+      def send_data(tag, chunk)
+        sock = connect
+        begin
+          opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+          sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+
+          opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
+          sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+
+          # beginArray(2)
+          sock.write Fluent::ForwardOutput.forward_header
+
+          # writeRaw(tag)
+          sock.write tag.to_msgpack  # tag
+
+          # beginRaw(size)
+          sz = chunk.size
+          #if sz < 32
+          #  # FixRaw
+          #  sock.write [0xa0 | sz].pack('C')
+          #elsif sz < 65536
+          #  # raw 16
+          #  sock.write [0xda, sz].pack('Cn')
+          #else
+          # raw 32
+          sock.write [0xdb, sz].pack('CN')
+          #end
+
+          # writeRawBody(packed_es)
+          chunk.write_to(sock)
+
+          if @sender.extend_internal_protocol
+            option = {}
+            option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
+            sock.write option.to_msgpack
+
+            if @sender.require_ack_response && @sender.ack_response_timeout > 0
+              # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
+              # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
+              # and process them asynchronously.
+              if IO.select([sock], nil, nil, @sender.ack_response_timeout)
+                begin
+                  raw_data = sock.recv(1024)
+                rescue Errno::ECONNRESET
+                  raw_data = ""
+                end
+
+                # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+                # If this happens we assume the data wasn't delivered and retry it.
+                if raw_data.empty?
+                  @log.warn "node #{host}:#{port} closed the connection. regard it as unavailable."
+                  disable!
+                  raise ForwardOutputConnectionClosedError, "node #{host}:#{port} closed connection"
+                else
+                  # Serialization type of the response is same as sent data.
+                  res = MessagePack.unpack(raw_data)
+
+                  if res['ack'] != option['chunk']
+                    # Some errors may have occured when ack and chunk id is different, so send the chunk again.
+                    raise ForwardOutputResponseError, "ack in response and chunk id in sent data are different"
+                  end
+                end
+
+              else
+                # IO.select returns nil on timeout.
+                # There are 2 types of cases when no response has been received:
+                # (1) the node does not support sending responses
+                # (2) the node does support sending response but responses have not arrived for some reasons.
+                @log.warn "no response from #{host}:#{port}. regard it as unavailable."
+                disable!
+                raise ForwardOutputACKTimeoutError, "node #{host}:#{port} does not return ACK"
+              end
+            end
+          end
+
+          heartbeat(false)
+          return res  # for test
+        ensure
+          sock.close_write
+          sock.close
+        end
+      end
+
+      #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
+      def send_heartbeat
+        if @sender.heartbeat_type == :tcp
+          sock = connect
+          begin
+            opt = [1, @send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
+            sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
+            # don't send any data to not cause a compatibility problem
+            #opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
+            #sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
+            #sock.write FORWARD_TCP_HEARTBEAT_DATA
+            heartbeat(true)
+          ensure
+            sock.close_write
+            sock.close
+          end
+        else
+          @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+        end
       end
 
       def resolved_host
