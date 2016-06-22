@@ -492,6 +492,8 @@ module Fluent
         @remote_port = port
         @remote_addr = addr
         @remote_host = host
+        @writing = false
+        @closing = false
 
         @chunk_counter = 0
         @on_connect_callback = on_connect_callback
