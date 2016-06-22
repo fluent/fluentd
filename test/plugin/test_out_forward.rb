@@ -12,6 +12,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   TARGET_HOST = '127.0.0.1'
   TARGET_PORT = unused_port
   CONFIG = %[
+    self_hostname localhost
     send_timeout 51
     heartbeat_type udp
     <server>
@@ -36,12 +37,19 @@ class ForwardOutputTest < Test::Unit::TestCase
         @exceptions = []
       end
 
-      def send_data(node, tag, chunk)
-        # Original #send_data returns nil when it does not wait for responses or when on response timeout.
-        @responses << super(node, tag, chunk)
-      rescue => e
-        @exceptions << e
-        raise e
+      def configure(conf)
+        super
+        m = Module.new do
+          def send_data(tag, chunk)
+            @sender.responses << super
+          rescue => e
+            @sender.exceptions << e
+            raise e
+          end
+        end
+        @nodes.each do |node|
+          node.singleton_class.prepend(m)
+        end
       end
     }.configure(conf)
     router = Object.new
@@ -54,6 +62,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver(%[
+      self_hostname localhost
       <server>
         name test
         host #{TARGET_HOST}
@@ -87,11 +96,9 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + "\nheartbeat_type tcp\ndns_round_robin true")
     assert_equal true, d.instance.dns_round_robin
-    assert_equal true, d.instance.nodes.first.conf.dns_round_robin
 
     d = create_driver(CONFIG + "\nheartbeat_type none\ndns_round_robin true")
     assert_equal true, d.instance.dns_round_robin
-    assert_equal true, d.instance.nodes.first.conf.dns_round_robin
   end
 
   def test_configure_no_server
