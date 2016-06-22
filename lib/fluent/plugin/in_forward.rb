@@ -183,7 +183,7 @@ module Fluent
     def handle_connection(conn)
       send_data = ->(serializer, data){ conn.write serializer.call(data) }
 
-      # TODO: trace logging to be connected this host!
+      log.trace "connected fluent socket from #{conn.remote_addr}:#{conn.remote_port}"
       state = :established
       nonce = nil
       user_auth_salt = nil
@@ -197,22 +197,7 @@ module Fluent
         state = :pingpong
       end
 
-      # TODO: trace logging to be connected this host!
-      #    if io.is_a?(TCPSocket)
-      #      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
-      #      proto, port, host, addr = ( io.peeraddr rescue PEERADDR_FAILED )
-      #      @source = "host: #{host}, addr: #{addr}, port: #{port}"
-      #    end
-      #   @log = log
-      #   @log.trace {
-      #     begin
-      #       remote_port, remote_addr = *Socket.unpack_sockaddr_in(@_io.getpeername)
-      #     rescue => e
-      #       remote_port = nil
-      #       remote_addr = nil
-      #     end
-      #     "accepted fluent socket from '#{remote_addr}:#{remote_port}': object_id=#{self.object_id}"
-      #   }
+      log.trace "accepted fluent socket from #{conn.remote_addr}:#{conn.remote_port}"
 
       read_messages(conn) do |msg, chunk_size, serializer|
         case state
@@ -225,14 +210,13 @@ module Fluent
           end
           send_data.call(serializer, generate_pong(true, reason_or_salt, nonce, shared_key))
 
-          # TODO: log.debug "connection established"
+          log.debug "connection established"
           state = :established
         when :established
           options = emit_message(msg, chunk_size, conn.remote_addr)
           if options && r = response(options)
             send_data.call(serializer, r)
-            # TODO: logging message content
-            # log.trace "sent response to fluent socket"
+            log.trace "sent response to fluent socket: message=#{msg}"
             conn.on_write_complete do
               conn.close
             end
