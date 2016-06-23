@@ -64,14 +64,10 @@ module Fluent
     config_param :multiline_flush_interval, :time, default: nil
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
+    desc 'The encoding after conversion of the input.'
+    config_param :encoding, default: nil
     desc 'The encoding of the input.'
-    config_param :encoding, default: nil do |encoding_name|
-      begin
-        Encoding.find(encoding_name)
-      rescue ArgumentError => e
-        raise ConfigError, e.message
-      end
-    end
+    config_param :from_encoding, default: nil
     desc 'Add the log path being tailed to records. Specify the field name to be used.'
     config_param :path_key, :string, default: nil
 
@@ -92,6 +88,8 @@ module Fluent
 
       configure_parser(conf)
       configure_tag
+      @encoding = parse_encoding_param(conf['encoding'])
+      @from_encoding = parse_encoding_param(conf['from_encoding'])
 
       @multiline_mode = conf['format'] =~ /multiline/
       @receive_handler = if @multiline_mode
@@ -114,6 +112,14 @@ module Fluent
       else
         @tag_prefix = nil
         @tag_suffix = nil
+      end
+    end
+
+    def parse_encoding_param(encoding_name)
+      begin
+        Encoding.find(encoding_name) if encoding_name
+      rescue ArgumentError => e
+        raise ConfigError, e.message
       end
     end
 
@@ -251,7 +257,11 @@ module Fluent
     def flush_buffer(tw)
       if lb = tw.line_buffer
         lb.chomp!
-        lb.force_encoding(@encoding) if @encoding
+        if @encoding && @from_encoding
+          lb.encode!(@encoding, @from_encoding)
+        elsif @encoding
+          lb.force_encoding(@encoding)
+        end
         @parser.parse(lb) { |time, record|
           if time && record
             tag = if @tag_prefix || @tag_suffix
@@ -300,7 +310,11 @@ module Fluent
     def convert_line_to_event(line, es, tail_watcher)
       begin
         line.chomp!  # remove \n
-        line.force_encoding(@encoding) if @encoding
+        if @encoding && @from_encoding
+          line.encode!(@encoding, @from_encoding)
+        elsif @encoding
+          line.force_encoding(@encoding)
+        end
         @parser.parse(line) { |time, record|
           if time && record
             record[@path_key] ||= tail_watcher.path unless @path_key.nil?
