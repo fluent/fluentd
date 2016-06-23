@@ -57,22 +57,19 @@ module Fluent
         "with_priority"    => "with_priority", # SyslogParser
       }
 
-      FORMATTER_PARAMS = {
-        "format" => "@type",
-
-        # TODO: convert to use 'inject'
-        "include_time_key" => "include_time_key",
-        "include_tag_key"  => "include_tag_key",
+      INJECT_PARAMS = {
         "time_key"      => "time_key",
         "time_format"   => "time_format",
-        "time_as_epoch" => "time_as_epoch",
-        "localtime" => "localtime",
-        "utc"       => "utc",
+        # "time_as_epoch" => "time_as_epoch",
+        # "localtime" => "localtime",
+        # "utc"       => "utc",
         "timezone"      => "timezone",
         "tag_key" => "tag_key",
+      }
 
+      FORMATTER_PARAMS = {
+        "format" => "@type",
         "delimiter" => "delimiter",
-
         "force_quotes" => "force_quotes", # CsvFormatter
         "fields" => "fields", # CsvFormatter
         "json_parser" => "json_parser", # JSONFormatter
@@ -92,10 +89,12 @@ module Fluent
       def configure(conf)
         case self
         when Fluent::Plugin::Output
+          compat_parameters_inject(conf)
           compat_parameters_buffer(conf)
         when Fluent::Plugin::Parser
           compat_parameters_parser(conf)
         when Fluent::Plugin::Formatter
+          compat_parameters_inject(conf)
           compat_parameters_formatter(conf)
         end
 
@@ -115,6 +114,47 @@ module Fluent
           end
         end
         attr
+      end
+
+      def compat_parameters_inject(conf)
+        return unless conf.elements('inject').empty?
+        return if INJECT_PARAMS.keys.all?{|k| !conf.has_key?(k) }
+
+        "time_key"      => "time_key",
+        "time_format"   => "time_format",
+        "timezone"      => "timezone",
+        "tag_key" => "tag_key",
+
+        # TODO: warn obsolete parameters if these are deprecated
+        attr = compat_parameters_copy_to_subsection_attributes(conf, INJECT_PARAMS) do |compat_key, value|
+          value
+        end
+
+        if conf.has_key?('include_time_key') && Fluent::Config.bool_value(conf['include_time_key'])
+          attr['time_key'] ||= 'time'
+        end
+        if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
+          attr['time_type'] = 'unixtime'
+        end
+        if conf.has_key?('localtime') || conf.has_key?('utc')
+          if conf.has_key?('localtime') && Fluent::Config.bool_value(conf['localtime'])
+            attr['localtime'] = true
+          elsif conf.has_key?('utc') && Fluent::Config.bool_value(conf['utc'])
+            attr['localtime'] = false
+            attr['timezone'] ||= "+0000"
+          else
+            log.warn "both of localtime and utc are specified as false"
+          end
+        end
+
+        if conf.has_key?('include_tag_key') && Fluent::Config.bool_value(conf['include_tag_key'])
+          attr['tag_key'] ||= 'tag'
+        end
+
+        e = Fluent::Config::Element.new('inject', '', attr, [])
+        conf.elements << e
+
+        conf
       end
 
       def compat_parameters_buffer(conf)
