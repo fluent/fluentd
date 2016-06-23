@@ -24,7 +24,7 @@ module Fluent
       # This helper is mainly to convert plugins from v0.12 API
       # to v0.14 API safely, without breaking user deployment.
 
-      PARAMS_MAP = {
+      BUFFER_PARAMS_MAP = {
         "buffer_type" => "@type",
         "buffer_path" => "path",
         "num_threads"                 => "flush_thread_count",
@@ -40,59 +40,70 @@ module Fluent
         "flush_at_shutdown" => "flush_at_shutdown",
       }
 
-      TIME_SLICED_PARAMS = {
+      BUFFER_TIME_SLICED_PARAMS = {
         "time_slice_format" => nil,
         "time_slice_wait" => "timekey_wait",
       }
 
-      def compat_parameters_default_chunk_key
+      def compat_parameters_buffer_default_chunk_key
         # '', 'time' or 'tag'
         raise NotImplementedError, "return one of '', 'time' or 'tag'"
       end
 
       def configure(conf)
-        if conf.elements('buffer').empty? && PARAMS_MAP.keys.any?{|k| conf.has_key?(k) } || TIME_SLICED_PARAMS.keys.any?{|k| conf.has_key?(k) }
-          # TODO: warn obsolete parameters if these are deprecated
-          attr = {}
-          PARAMS_MAP.each do |compat, current|
-            next unless current
-            if conf.has_key?(compat)
-              if compat == 'buffer_queue_full_action' && conf[compat] == 'exception'
-                attr[current] = 'throw_exception'
-              else
-                attr[current] = conf[compat]
-              end
-            end
-          end
-          TIME_SLICED_PARAMS.each do |compat, current|
-            next unless current
-            attr[current] = conf[compat] if conf.has_key?(compat)
-          end
-
-          chunk_key = nil
-
-          if conf.has_key?('time_slice_format')
-            chunk_key = 'time'
-            attr['timekey'] = case conf['time_slice_format']
-                              when /\%S/ then 1
-                              when /\%M/ then 60
-                              when /\%H/ then 3600
-                              when /\%d/ then 86400
-                              else
-                                raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
-                              end
-          else
-            chunk_key = compat_parameters_default_chunk_key
-            if chunk_key == 'time'
-              attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
-            end
-          end
-
-          e = Fluent::Config::Element.new('buffer', chunk_key, attr, [])
-          conf.elements << e
+        case self
+        when Fluent::Plugin::Output
+          compat_parameters_buffer(conf)
         end
 
         super
+      end
+
+      def compat_parameters_buffer(conf)
+        # return immediately if <buffer> section exists, or any buffer-related parameters don't exist
+        return unless conf.elements('buffer').empty?
+        return unless (BUFFER_PARAMS_MAP.keys + BUFFER_TIME_SLICED_PARAMS.keys).all?{|k| !conf.has_key?(k) }
+
+        # TODO: warn obsolete parameters if these are deprecated
+        attr = {}
+        BUFFER_PARAMS_MAP.each do |compat, current|
+          next unless current
+          if conf.has_key?(compat)
+            if compat == 'buffer_queue_full_action' && conf[compat] == 'exception'
+              attr[current] = 'throw_exception'
+            else
+              attr[current] = conf[compat]
+            end
+          end
+        end
+        BUFFER_TIME_SLICED_PARAMS.each do |compat, current|
+          next unless current
+          attr[current] = conf[compat] if conf.has_key?(compat)
+        end
+
+        chunk_key = nil
+
+        if conf.has_key?('time_slice_format')
+          chunk_key = 'time'
+          attr['timekey'] = case conf['time_slice_format']
+                            when /\%S/ then 1
+                            when /\%M/ then 60
+                            when /\%H/ then 3600
+                            when /\%d/ then 86400
+                            else
+                              raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
+                            end
+        else
+          chunk_key = compat_parameters_buffer_default_chunk_key
+          if chunk_key == 'time'
+            attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
+          end
+        end
+
+        e = Fluent::Config::Element.new('buffer', chunk_key, attr, [])
+        conf.elements << e
+
+        conf
       end
     end
   end
