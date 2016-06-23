@@ -32,7 +32,7 @@ Gem::Specification.new do |gem|
     gem.add_runtime_dependency("win32-service", ["~> 0.8.3"])
     gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
     gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
-    gem.add_runtime_dependency("windows-pr", ["~> 1.2.3"])
+    gem.add_runtime_dependency("windows-pr", ["~> 1.2.5"])
   end
   gem.add_runtime_dependency("strptime", [">= 0.1.7"])
 
