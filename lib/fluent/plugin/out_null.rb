@@ -14,14 +14,14 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 
-module Fluent
+module Fluent::Plugin
   class NullOutput < Output
-    Plugin.register_output('null', self)
+    Fluent::Plugin.register_output('null', self)
 
-    def emit(tag, es, chain)
-      chain.next
+    def process(tag, es)
+      # Do nothing
     end
   end
 end
