@@ -79,6 +79,25 @@ module Fluent
         "output_type" => "output_type", # StdoutFormatter
       }
 
+      def compat_parameters_convert(conf, *types, **kwargs)
+        types.each do |type|
+          case type
+          when :buffer
+            compat_parameters_buffer(conf, **kwargs)
+          when :inject
+            compat_parameters_inject(conf, **kwargs)
+          when :parser
+            compat_parameters_parser(conf, **kwargs)
+          when :formatter
+            compat_parameters_formatter(conf, **kwargs)
+          else
+            raise "BUG: unknown compat_parameters type: #{type}"
+          end
+        end
+
+        conf
+      end
+
       def compat_parameters_buffer(conf, default_chunk_key: '')
         # return immediately if <buffer> section exists, or any buffer-related parameters don't exist
         return unless conf.elements('buffer').empty?
