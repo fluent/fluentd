@@ -19,44 +19,50 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  class Dummy0 < Fluent::Plugin::Output
+  class DummyO0 < Fluent::Plugin::Output
     helpers :compat_parameters
-    def compat_parameters_default_chunk_key
-      ''
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: '')
+      super
     end
     def write(chunk)
       # dummy
     end
   end
-  class Dummy1 < Fluent::Plugin::Output
+  class DummyO1 < Fluent::Plugin::Output
     helpers :compat_parameters
-    def compat_parameters_default_chunk_key
-      'time'
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: 'time')
+      super
     end
     def write(chunk)
       # dummy
     end
   end
-  class Dummy2 < Fluent::Plugin::Output
+  class DummyO2 < Fluent::Plugin::Output
     helpers :compat_parameters
-    # for test to assume default key time by 'time_slice_format'
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: 'time')
+      super
+    end
     def write(chunk)
       # dummy
     end
   end
-  class Dummy3 < Fluent::Plugin::Output
+  class DummyO3 < Fluent::Plugin::Output
     helpers :compat_parameters
-    def compat_parameters_default_chunk_key
-      'tag'
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: 'tag')
+      super
     end
     def write(chunk)
       # dummy
     end
   end
 
-  sub_test_case 'plugins which does not have default chunk key' do
+  sub_test_case 'output plugins which does not have default chunk key' do
     setup do
-      @p = Dummy0
+      @p = DummyO0
     end
 
     test 'plugin helper converts parameters into plugin configuration parameters' do
@@ -82,9 +88,9 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'plugins which has default chunk key: time' do
+  sub_test_case 'output plugins which has default chunk key: time' do
     setup do
-      @p = Dummy1
+      @p = DummyO1
     end
 
     test 'plugin helper converts parameters into plugin configuration parameters' do
@@ -112,9 +118,9 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'plugins which does not have default chunk key' do
+  sub_test_case 'output plugins which does not have default chunk key' do
     setup do
-      @p = Dummy2
+      @p = DummyO2
     end
 
     test 'plugin helper converts parameters into plugin configuration parameters' do
@@ -144,9 +150,9 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'plugins which has default chunk key: tag' do
+  sub_test_case 'output plugins which has default chunk key: tag' do
     setup do
-      @p = Dummy3
+      @p = DummyO3
     end
 
     test 'plugin helper converts parameters into plugin configuration parameters' do
