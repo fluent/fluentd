@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/config/types'
 require 'fluent/config/element'
 
 module Fluent
@@ -60,9 +61,6 @@ module Fluent
       INJECT_PARAMS = {
         "time_key"      => "time_key",
         "time_format"   => "time_format",
-        # "time_as_epoch" => "time_as_epoch",
-        # "localtime" => "localtime",
-        # "utc"       => "utc",
         "timezone"      => "timezone",
         "tag_key" => "tag_key",
       }
@@ -81,49 +79,48 @@ module Fluent
         "output_type" => "output_type", # StdoutFormatter
       }
 
-      def compat_parameters_buffer_default_chunk_key
-        # '', 'time' or 'tag'
-        raise NotImplementedError, "return one of '', 'time' or 'tag'"
-      end
+      def compat_parameters_buffer(conf, default_chunk_key: '')
+        # return immediately if <buffer> section exists, or any buffer-related parameters don't exist
+        return unless conf.elements('buffer').empty?
+        return if (BUFFER_PARAMS.keys + BUFFER_TIME_SLICED_PARAMS.keys).all?{|k| !conf.has_key?(k) }
 
-      def configure(conf)
-        case self
-        when Fluent::Plugin::Output
-          compat_parameters_inject(conf)
-          compat_parameters_buffer(conf)
-        when Fluent::Plugin::Parser
-          compat_parameters_parser(conf)
-        when Fluent::Plugin::Formatter
-          compat_parameters_inject(conf)
-          compat_parameters_formatter(conf)
-        end
-
-        super
-      end
-
-      def compat_parameters_copy_to_subsection_attributes(conf, params, &block)
-        attr = {}
-        params.each do |compat, current|
-          next unless current
-          if conf.has_key?(compat)
-            if block_given?
-              attr[current] = block.call(compat, conf[compat])
-            else
-              attr[current] = conf[compat]
-            end
+        # TODO: warn obsolete parameters if these are deprecated
+        buffer_params = BUFFER_PARAMS.merge(BUFFER_TIME_SLICED_PARAMS)
+        attr = compat_parameters_copy_to_subsection_attributes(conf, buffer_params) do |compat_key, value|
+          if compat_key == 'buffer_queue_full_action' && value == 'exception'
+            'throw_exception'
+          else
+            value
           end
         end
-        attr
+
+        chunk_key = default_chunk_key
+
+        if conf.has_key?('time_slice_format')
+          chunk_key = 'time'
+          attr['timekey'] = case conf['time_slice_format']
+                            when /\%S/ then 1
+                            when /\%M/ then 60
+                            when /\%H/ then 3600
+                            when /\%d/ then 86400
+                            else
+                              raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
+                            end
+        else
+          if chunk_key == 'time'
+            attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
+          end
+        end
+
+        e = Fluent::Config::Element.new('buffer', chunk_key, attr, [])
+        conf.elements << e
+
+        conf
       end
 
       def compat_parameters_inject(conf)
         return unless conf.elements('inject').empty?
         return if INJECT_PARAMS.keys.all?{|k| !conf.has_key?(k) }
-
-        "time_key"      => "time_key",
-        "time_format"   => "time_format",
-        "timezone"      => "timezone",
-        "tag_key" => "tag_key",
 
         # TODO: warn obsolete parameters if these are deprecated
         attr = compat_parameters_copy_to_subsection_attributes(conf, INJECT_PARAMS) do |compat_key, value|
@@ -157,46 +154,6 @@ module Fluent
         conf
       end
 
-      def compat_parameters_buffer(conf)
-        # return immediately if <buffer> section exists, or any buffer-related parameters don't exist
-        return unless conf.elements('buffer').empty?
-        return if (BUFFER_PARAMS.keys + BUFFER_TIME_SLICED_PARAMS.keys).all?{|k| !conf.has_key?(k) }
-
-        # TODO: warn obsolete parameters if these are deprecated
-        buffer_params = BUFFER_PARAMS.merge(BUFFER_TIME_SLICED_PARAMS)
-        attr = compat_parameters_copy_to_subsection_attributes(conf, buffer_params) do |compat_key, value|
-          if compat_key == 'buffer_queue_full_action' && value == 'exception'
-            'throw_exception'
-          else
-            value
-          end
-        end
-
-        chunk_key = nil
-
-        if conf.has_key?('time_slice_format')
-          chunk_key = 'time'
-          attr['timekey'] = case conf['time_slice_format']
-                            when /\%S/ then 1
-                            when /\%M/ then 60
-                            when /\%H/ then 3600
-                            when /\%d/ then 86400
-                            else
-                              raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
-                            end
-        else
-          chunk_key = compat_parameters_buffer_default_chunk_key
-          if chunk_key == 'time'
-            attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
-          end
-        end
-
-        e = Fluent::Config::Element.new('buffer', chunk_key, attr, [])
-        conf.elements << e
-
-        conf
-      end
-
       def compat_parameters_parser(conf)
         return unless conf.elements('parse').empty?
         return if PARSER_PARAMS.keys.all?{|k| !conf.has_key?(k) }
@@ -221,6 +178,21 @@ module Fluent
         conf.elements << e
 
         conf
+      end
+
+      def compat_parameters_copy_to_subsection_attributes(conf, params, &block)
+        attr = {}
+        params.each do |compat, current|
+          next unless current
+          if conf.has_key?(compat)
+            if block_given?
+              attr[current] = block.call(compat, conf[compat])
+            else
+              attr[current] = conf[compat]
+            end
+          end
+        end
+        attr
       end
     end
   end
