@@ -672,8 +672,6 @@ module Fluent
       def on_read(data)
         @log.debug __callee__
 
-        return if established? # TODO
-
         case @state
         when :helo
           unless check_helo(data)
