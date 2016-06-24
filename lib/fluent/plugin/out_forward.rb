@@ -368,6 +368,7 @@ module Fluent
         @failure = failure
         @recover_sample_size = recover_sample_size
         @available = true
+        @first_session = true
 
         @usock = nil
 
@@ -694,6 +695,7 @@ module Fluent
             return
           end
           @log.info "connection established to #{@name}" if @first_session
+          @first_session = false
           @state = :established
           @mtime = Time.now
           @log.debug "connection established", host: @host, port: @port
