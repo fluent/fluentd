@@ -205,7 +205,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_to_a_node_supporting_responses
-    target_input_driver = create_target_input_driver(true)
+    target_input_driver = create_target_input_driver(redponse_stub: true)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -303,7 +303,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_not_supporting_responses_to_respond_with_ack
-    target_input_driver = create_target_input_driver(->(options){ nil }, true)
+    target_input_driver = create_target_input_driver(response_stub: ->(options){ nil }, dissconnect: true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -346,7 +346,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   # bdf1f4f104c00a791aa94dc20087fe2011e1fd83
   def test_require_a_node_not_supporting_responses_2_to_respond_with_ack
     # in_forward, that doesn't support ack feature, and disconnect immediately
-    target_input_driver = create_target_input_driver(false, true)
+    target_input_driver = create_target_input_driver(disconnect: true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -386,7 +386,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
   end
 
-  def create_target_input_driver(response_stub=nil, disconnect=false, conf=TARGET_CONFIG)
+  def create_target_input_driver(response_stub: nil, disconnect: false, conf: TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
     # TODO: Support actual TCP heartbeat test
