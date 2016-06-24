@@ -26,6 +26,7 @@ class ForwardInputTest < Test::Unit::TestCase
     port #{PORT}
     bind 127.0.0.1
     <security>
+      self_hostname localhost
       shared_key foobar1
       user_auth true
       <user>
