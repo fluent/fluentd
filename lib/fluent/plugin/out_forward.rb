@@ -373,6 +373,7 @@ module Fluent
         @recover_sample_size = recover_sample_size
         @available = true
         @first_session = true
+        @state = @sender.security ? :helo : :established
 
         @usock = nil
 
@@ -413,7 +414,6 @@ module Fluent
 
       def send_data(tag, chunk)
         sock = connect
-        @state = :helo
         begin
           opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
@@ -703,6 +703,8 @@ module Fluent
           @state = :established
           @mtime = Time.now
           @log.debug "connection established", host: @host, port: @port
+        else
+          raise "BUG: unknown session state: #{@state}"
         end
       end
     end
