@@ -424,9 +424,13 @@ module Fluent
                   sleep @sender.read_interval
                   next
                 end
-                @unpacker.feed_each(buf, &node.method(:on_read))
+                @unpacker.feed_each(buf) do |data|
+                  on_read(sock, data)
+                end
                 @mtime = Time.now
               end
+            rescue Errno::EAGAIN # TODO replace IO::WaitReadable if we drop Ruby2.0 support
+              break if @state == :established
             rescue SystemCallError => e
               @log.warn "disconnected by error", error_class: e.class, error: e, host: @host, port: @port
               disable!
@@ -669,7 +673,7 @@ module Fluent
         return true, nil
       end
 
-      def on_read(data)
+      def on_read(sock, data)
         @log.debug __callee__
 
         case @state
