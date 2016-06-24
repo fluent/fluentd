@@ -676,7 +676,7 @@ module Fluent
         when :helo
           unless check_helo(data)
             @log.warn "received invalid helo message from #{@name}"
-            shutdown # TODO
+            disable! # shutdown
             return
           end
           sock.write(generate_ping.to_msgpack)
@@ -685,8 +685,8 @@ module Fluent
         when :pingpong
           succeeded, reason = check_pong(data)
           unless succeeded
-            log.warn "connection refused to #{@name}: #{reason}"
-            shutdown
+            @log.warn "connection refused to #{@name}: #{reason}"
+            disable! # shutdown
             return
           end
           @log.info "connection established to #{@name}" if @first_session
