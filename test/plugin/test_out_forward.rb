@@ -23,6 +23,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   TARGET_CONFIG = %[
+    self_hostname in.localhost
     port #{TARGET_PORT}
     bind #{TARGET_HOST}
   ]
@@ -384,6 +385,99 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     node = d.instance.nodes.first
     assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
+  end
+
+  def test_authentication_with_shared_key
+    input_conf = TARGET_CONFIG + %[
+                   <security>
+                     shared_key fluentd-sharedkey
+                     <client>
+                       host 127.0.0.1
+                     </client>
+                   </security>
+                 ]
+    target_input_driver = create_target_input_driver(conf: input_conf)
+
+    output_conf = %[
+      self_hostname localhost
+      send_timeout 51
+      heartbeat_type udp
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+        shared_key fluentd-sharedkey
+      </server>
+    ]
+    d = create_driver(output_conf)
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit(record, time)
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal(['test', time, records[0]], emits[0])
+    assert_equal(['test', time, records[1]], emits[1])
+  end
+
+  def test_authentication_with_user_auth
+    input_conf = TARGET_CONFIG + %[
+                   <security>
+                     shared_key fluentd-sharedkey
+                     user_auth true
+                     <user>
+                       username fluentd
+                       password fluentd
+                     </user>
+                     <client>
+                       host 127.0.0.1
+                     </client>
+                   </security>
+                 ]
+    target_input_driver = create_target_input_driver(conf: input_conf)
+
+    output_conf = %[
+      self_hostname localhost
+      send_timeout 51
+      heartbeat_type udp
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+        shared_key fluentd-sharedkey
+        username fluentd
+        password fluentd
+      </server>
+    ]
+    d = create_driver(output_conf)
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit(record, time)
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal(['test', time, records[0]], emits[0])
+    assert_equal(['test', time, records[1]], emits[1])
   end
 
   def create_target_input_driver(response_stub: nil, disconnect: false, conf: TARGET_CONFIG)
