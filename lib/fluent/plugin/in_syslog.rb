@@ -25,7 +25,7 @@ module Fluent::Plugin
   class SyslogInput < Input
     Fluent::Plugin.register_input('syslog', self)
 
-    helpers :thread, :parser, :event_loop
+    helpers :parser, :event_loop
 
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
