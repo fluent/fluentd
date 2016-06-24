@@ -210,10 +210,10 @@ module Fluent
 
       config_param :flush_at_shutdown, :bool, default: true
 
-      PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP
+      BUFFER_PARAMS = Fluent::PluginHelper::CompatParameters::BUFFER_PARAMS
 
       def self.propagate_default_params
-        PARAMS_MAP
+        BUFFER_PARAMS
       end
       include PropagateDefault
 
@@ -225,7 +225,7 @@ module Fluent
             "flush_mode" => "interval",
             "retry_type" => "exponential_backoff",
           }
-          PARAMS_MAP.each do |older, newer|
+          BUFFER_PARAMS.each do |older, newer|
             next unless newer
             if conf.has_key?(older)
               if older == 'buffer_queue_full_action' && conf[older] == 'exception'
@@ -399,10 +399,10 @@ module Fluent
 
       config_set_default :time_as_integer, true
 
-      PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP
+      BUFFER_PARAMS = Fluent::PluginHelper::CompatParameters::BUFFER_PARAMS
 
       def self.propagate_default_params
-        PARAMS_MAP
+        BUFFER_PARAMS
       end
       include PropagateDefault
 
@@ -414,7 +414,7 @@ module Fluent
             "flush_mode" => "interval",
             "retry_type" => "exponential_backoff",
           }
-          PARAMS_MAP.each do |older, newer|
+          BUFFER_PARAMS.each do |older, newer|
             next unless newer
             if conf.has_key?(older)
               if older == 'buffer_queue_full_action' && conf[older] == 'exception'
@@ -513,7 +513,7 @@ module Fluent
         config_set_default :@type, 'file'
       end
 
-      PARAMS_MAP = Fluent::PluginHelper::CompatParameters::PARAMS_MAP.merge(Fluent::PluginHelper::CompatParameters::TIME_SLICED_PARAMS)
+      BUFFER_PARAMS = Fluent::PluginHelper::CompatParameters::BUFFER_PARAMS.merge(Fluent::PluginHelper::CompatParameters::BUFFER_TIME_SLICED_PARAMS)
 
       def initialize
         super
@@ -525,7 +525,7 @@ module Fluent
       end
 
       def self.propagate_default_params
-        PARAMS_MAP
+        BUFFER_PARAMS
       end
       include PropagateDefault
 
@@ -537,7 +537,7 @@ module Fluent
             "flush_mode" => (conf['flush_interval'] ? "interval" : "lazy"),
             "retry_type" => "exponential_backoff",
           }
-          PARAMS_MAP.each do |older, newer|
+          BUFFER_PARAMS.each do |older, newer|
             next unless newer
             if conf.has_key?(older)
               if older == 'buffer_queue_full_action' && conf[older] == 'exception'
