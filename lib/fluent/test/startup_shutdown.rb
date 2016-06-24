@@ -26,6 +26,6 @@ module Fluent
       def shutdown
         @server.close
       end
-    end    
+    end
   end
 end
