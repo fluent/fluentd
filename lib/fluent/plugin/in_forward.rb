@@ -32,6 +32,9 @@ module Fluent
       require 'fluent/plugin/socket_util'
     end
 
+    desc 'The hostname'
+    config_param :self_hostname, :string
+
     desc 'The port to listen to.'
     config_param :port, :integer, default: LISTEN_PORT
     desc 'The bind address to listen to.'
@@ -424,8 +427,7 @@ module Fluent
       unless message.size == 6 && message[0] == 'PING'
         return false, 'invalid ping message'
       end
-      ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
-      @self_hostname = hostname # FIXME clean up
+      _ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
 
       node = @nodes.select{|n| n[:address].include?(remote_addr) rescue false }.first
       if !node && !@security.allow_anonymous_source
