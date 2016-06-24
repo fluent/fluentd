@@ -619,7 +619,7 @@ module Fluent
         end
         opts = message[1]
         @shared_key_nonce = opts['nonce'] || '' # make shared_key_check failed (instead of error) if protocol version mismatch exist
-        @authentication = opts['auth']
+        @authentication = opts['auth'] || ''
         @mtime = Time.now
         true
       end
@@ -630,7 +630,7 @@ module Fluent
         #  username || '', sha512\_hex(auth\_salt + username + password) || '']
         shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt).update(@sender.self_hostname).update(@shared_key_nonce).update(@shared_key).hexdigest
         ping = ['PING', @sender.self_hostname, @shared_key_salt, shared_key_hexdigest]
-        if @authentication != ''
+        if !@authentication.empty?
           password_hexdigest = Digest::SHA512.new.update(@authentication).update(@username).update(@password).hexdigest
           ping.push(@username, password_hexdigest)
         else
