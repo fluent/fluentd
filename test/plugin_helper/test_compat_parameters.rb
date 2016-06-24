@@ -25,9 +25,7 @@ class CompatParameterTest < Test::Unit::TestCase
       compat_parameters_buffer(conf, default_chunk_key: '')
       super
     end
-    def write(chunk)
-      # dummy
-    end
+    def write(chunk); end # dummy
   end
   class DummyO1 < Fluent::Plugin::Output
     helpers :compat_parameters
@@ -35,9 +33,7 @@ class CompatParameterTest < Test::Unit::TestCase
       compat_parameters_buffer(conf, default_chunk_key: 'time')
       super
     end
-    def write(chunk)
-      # dummy
-    end
+    def write(chunk); end # dummy
   end
   class DummyO2 < Fluent::Plugin::Output
     helpers :compat_parameters
@@ -45,9 +41,7 @@ class CompatParameterTest < Test::Unit::TestCase
       compat_parameters_buffer(conf, default_chunk_key: 'time')
       super
     end
-    def write(chunk)
-      # dummy
-    end
+    def write(chunk); end # dummy
   end
   class DummyO3 < Fluent::Plugin::Output
     helpers :compat_parameters
@@ -55,16 +49,18 @@ class CompatParameterTest < Test::Unit::TestCase
       compat_parameters_buffer(conf, default_chunk_key: 'tag')
       super
     end
-    def write(chunk)
-      # dummy
+    def write(chunk); end # dummy
+  end
+  class DummyO4 < Fluent::Plugin::Output
+    helpers :compat_parameters
+    def configure(conf)
+      compat_parameters_convert(conf, :buffer, :inject, :formatter, default_chunk_key: 'tag')
+      super
     end
+    def write(chunk); end # dummy
   end
 
   sub_test_case 'output plugins which does not have default chunk key' do
-    setup do
-      @p = DummyO0
-    end
-
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'num_threads' => 8,
@@ -74,7 +70,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'flush_at_shutdown' => 'yes',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO0.new
       @i.configure(conf)
 
       assert_equal 'memory', @i.buffer_config[:@type]
@@ -89,10 +85,6 @@ class CompatParameterTest < Test::Unit::TestCase
   end
 
   sub_test_case 'output plugins which has default chunk key: time' do
-    setup do
-      @p = DummyO1
-    end
-
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'buffer_type' => 'file',
@@ -102,7 +94,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'buffer_queue_full_action' => 'block',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO1.new
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
@@ -119,10 +111,6 @@ class CompatParameterTest < Test::Unit::TestCase
   end
 
   sub_test_case 'output plugins which does not have default chunk key' do
-    setup do
-      @p = DummyO2
-    end
-
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'buffer_type' => 'file',
@@ -133,7 +121,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'buffer_queue_full_action' => 'drop_oldest_chunk',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO2.new
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
@@ -151,10 +139,6 @@ class CompatParameterTest < Test::Unit::TestCase
   end
 
   sub_test_case 'output plugins which has default chunk key: tag' do
-    setup do
-      @p = DummyO3
-    end
-
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'buffer_type' => 'memory',
@@ -164,7 +148,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'queued_chunk_flush_interval' => '0.5',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO3.new
       @i.configure(conf)
 
       assert_equal 'memory', @i.buffer_config[:@type]
