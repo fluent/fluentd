@@ -25,7 +25,7 @@ module Fluent::Plugin
   class SyslogInput < Input
     Fluent::Plugin.register_input('syslog', self)
 
-    helpers :thread, :parser
+    helpers :thread, :parser, :event_loop
 
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
@@ -107,6 +107,7 @@ module Fluent::Plugin
         @parser = parser_create(usage: 'syslog_input', type: 'syslog', conf: conf)
         @use_default = true
       end
+      @_event_loop_run_timeout = @blocking_timeout
     end
 
     def start
@@ -118,26 +119,14 @@ module Fluent::Plugin
                    method(:receive_data_parser)
                  end
 
-      @loop = Coolio::Loop.new
       @handler = listen(callback)
-      @loop.attach(@handler)
-
-      thread_create(:syslog_input, &method(:run))
+      event_loop_attach(@handler)
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
       @handler.close
 
       super
-    end
-
-    def run
-      @loop.run(@blocking_timeout)
-    rescue
-      log.error "unexpected error", error: $!.to_s
-      log.error_backtrace
     end
 
     private
