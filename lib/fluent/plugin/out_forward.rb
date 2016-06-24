@@ -50,9 +50,6 @@ module Fluent
       @finished = false
     end
 
-    desc 'The hostname'
-    config_param :self_hostname, :string
-
     desc 'The timeout time while connecting'
     config_param :connection_hard_timeout, :time, default: nil # specifying 0 explicitly means not to disconnect stuck connection forever
     desc 'The timeout time when sending event logs.'
@@ -97,6 +94,13 @@ module Fluent
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
     desc 'Enable client-side DNS round robin.'
     config_param :dns_round_robin, :bool, default: false # heartbeat_type 'udp' is not available for this
+
+    config_section :security, required: false, multi: false do
+      desc 'The hostname'
+      config_param :self_hostname, :string
+      desc 'Shared key'
+      config_param :shared_key, :string, secret: true
+    end
 
     config_section :server, param_name: :servers do
       config_param :host, :string
@@ -374,7 +378,7 @@ module Fluent
 
         @username = @conf.username
         @password = @conf.password
-        @shared_key = @conf.shared_key
+        @shared_key = @conf.shared_key || (sender.security && sender.security.shared_key) || ""
         @shared_key_salt = generate_salt
         @shared_key_nonce = ""
         @unpacker = MessagePack::Unpacker.new
@@ -636,8 +640,8 @@ module Fluent
         @log.debug "generating ping"
         # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
         #  username || '', sha512\_hex(auth\_salt + username + password) || '']
-        shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt).update(@sender.self_hostname).update(@shared_key_nonce).update(@shared_key).hexdigest
-        ping = ['PING', @sender.self_hostname, @shared_key_salt, shared_key_hexdigest]
+        shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt).update(@sender.security.self_hostname).update(@shared_key_nonce).update(@shared_key).hexdigest
+        ping = ['PING', @sender.security.self_hostname, @shared_key_salt, shared_key_hexdigest]
         if !@authentication.empty?
           password_hexdigest = Digest::SHA512.new.update(@authentication).update(@username).update(@password).hexdigest
           ping.push(@username, password_hexdigest)
@@ -661,7 +665,7 @@ module Fluent
           return false, 'authentication failed: ' + reason
         end
 
-        if hostname == @sender.self_hostname
+        if hostname == @sender.security.self_hostname
           return false, 'same hostname between input and output: invalid configuration'
         end
 

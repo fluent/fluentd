@@ -12,7 +12,6 @@ class ForwardOutputTest < Test::Unit::TestCase
   TARGET_HOST = '127.0.0.1'
   TARGET_PORT = unused_port
   CONFIG = %[
-    self_hostname localhost
     send_timeout 51
     heartbeat_type udp
     <server>
@@ -23,7 +22,6 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   TARGET_CONFIG = %[
-    self_hostname in.localhost
     port #{TARGET_PORT}
     bind #{TARGET_HOST}
   ]
@@ -390,6 +388,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   def test_authentication_with_shared_key
     input_conf = TARGET_CONFIG + %[
                    <security>
+                     self_hostname in.localhost
                      shared_key fluentd-sharedkey
                      <client>
                        host 127.0.0.1
@@ -399,9 +398,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     target_input_driver = create_target_input_driver(conf: input_conf)
 
     output_conf = %[
-      self_hostname localhost
       send_timeout 51
       heartbeat_type udp
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
       <server>
         name test
         host #{TARGET_HOST}
@@ -433,6 +435,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   def test_authentication_with_user_auth
     input_conf = TARGET_CONFIG + %[
                    <security>
+                     self_hostname in.localhost
                      shared_key fluentd-sharedkey
                      user_auth true
                      <user>
@@ -447,9 +450,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     target_input_driver = create_target_input_driver(conf: input_conf)
 
     output_conf = %[
-      self_hostname localhost
       send_timeout 51
       heartbeat_type udp
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
       <server>
         name test
         host #{TARGET_HOST}

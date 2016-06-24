@@ -32,9 +32,6 @@ module Fluent
       require 'fluent/plugin/socket_util'
     end
 
-    desc 'The hostname'
-    config_param :self_hostname, :string
-
     desc 'The port to listen to.'
     config_param :port, :integer, default: LISTEN_PORT
     desc 'The bind address to listen to.'
@@ -54,6 +51,8 @@ module Fluent
     config_param :skip_invalid_event, :bool, default: false
 
     config_section :security, required: false, multi: false do
+      desc 'The hostname'
+      config_param :self_hostname, :string
       config_param :shared_key, :string
       config_param :user_auth, :bool, default: false
       config_param :allow_anonymous_source, :bool, default: true
@@ -465,8 +464,8 @@ module Fluent
         return ['PONG', false, reason_or_salt, '', '']
       end
 
-      shared_key_digest_hex = Digest::SHA512.new.update(reason_or_salt).update(@self_hostname).update(nonce).update(shared_key).hexdigest
-      ['PONG', true, '', @self_hostname, shared_key_digest_hex]
+      shared_key_digest_hex = Digest::SHA512.new.update(reason_or_salt).update(@security.self_hostname).update(nonce).update(shared_key).hexdigest
+      ['PONG', true, '', @security.self_hostname, shared_key_digest_hex]
     end
 
     class Handler < Coolio::Socket
