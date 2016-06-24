@@ -371,6 +371,9 @@ module Fluent
 
         @usock = nil
 
+        @username = @conf.username
+        @password = @conf.password
+        @shared_key = @conf.shared_key
         @shared_key_salt = generate_salt
         @shared_key_nonce = ""
         @unpacker = MessagePack::Unpacker.new
