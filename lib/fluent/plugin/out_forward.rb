@@ -373,7 +373,7 @@ module Fluent
         @recover_sample_size = recover_sample_size
         @available = true
         @first_session = true
-        @state = @sender.security ? :helo : :established
+        @state = nil
 
         @usock = nil
 
@@ -414,6 +414,7 @@ module Fluent
 
       def send_data(tag, chunk)
         sock = connect
+        @state = @sender.security ? :helo : :established
         begin
           opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
           sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
