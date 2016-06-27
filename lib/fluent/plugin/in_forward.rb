@@ -53,23 +53,30 @@ module Fluent
     config_section :security, required: false, multi: false do
       desc 'The hostname'
       config_param :self_hostname, :string
+      desc 'Shared key for authentication'
       config_param :shared_key, :string
+      desc 'If true, use user based authentication'
       config_param :user_auth, :bool, default: false
+      desc 'Allow anonymous source. <client> sections required if disabled.'
       config_param :allow_anonymous_source, :bool, default: true
 
       ### User based authentication
       config_section :user, param_name: :users, required: false, multi: true do
-        desc 'Set username for authentication'
+        desc 'The username for authentication'
         config_param :username, :string
-        desc 'Set password for authentication'
+        desc 'The password for authentication'
         config_param :password, :string
       end
 
       ### Client ip/network authentication & per_host shared key
       config_section :client, param_name: :clients, required: false, multi: true do
+        desc 'The IP address or host name of the client'
         config_param :host, :string, default: nil
+        desc 'Network address specification'
         config_param :network, :string, default: nil
+        desc 'Shared key per client'
         config_param :shared_key, :string, default: nil
+        desc 'Array of username. '
         config_param :users, :array, default: []
       end
     end

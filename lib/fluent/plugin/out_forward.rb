@@ -98,18 +98,26 @@ module Fluent
     config_section :security, required: false, multi: false do
       desc 'The hostname'
       config_param :self_hostname, :string
-      desc 'Shared key'
+      desc 'Shared key for authentication'
       config_param :shared_key, :string, secret: true
     end
 
     config_section :server, param_name: :servers do
+      desc "The IP address or host name of the server."
       config_param :host, :string
+      desc "The name of the server. Used in log messages."
       config_param :name, :string, default: nil
+      desc "The port number of the host."
       config_param :port, :integer, default: LISTEN_PORT
+      desc "The shared key per server."
       config_param :shared_key, :string, default: nil, secret: true
+      desc "The username for authentication."
       config_param :username, :string, default: ''
+      desc "The password for authentication."
       config_param :password, :string, default: '', secret: true
+      desc "Marks a node as the standby node for an Active-Standby model between Fluentd nodes."
       config_param :standby, :bool, default: false
+      desc "The load balancing weight."
       config_param :weight, :integer, default: 60
     end
     attr_reader :nodes
