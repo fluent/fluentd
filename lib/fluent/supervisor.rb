@@ -441,6 +441,7 @@ module Fluent
 
       rubyopt = ENV["RUBYOPT"]
       if Fluent.windows?
+        # Shellwords doesn't work on windows, then used gsub for adapting space char instead of Shellwords
         fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
         fluentd_spawn_cmd << ' "' + rubyopt.gsub('"', '""') + '" ' if rubyopt
         fluentd_spawn_cmd << ' "' + $0.gsub('"', '""') + '" '
