@@ -331,7 +331,13 @@ class TailInputTest < Test::Unit::TestCase
       sleep(0.1) until d.event_streams.size >= size + 1
       size = d.event_streams.size
 
-      FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
+      if Fluent.windows?
+        file.close
+        FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt", force: true)
+        file = File.open("#{TMP_DIR}/tail.txt", "ab")
+      else
+        FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
+      end
       if block_given?
         yield file
         sleep(0.1) until d.stop?
@@ -349,7 +355,7 @@ class TailInputTest < Test::Unit::TestCase
 
     d.events
   ensure
-    file.close if file
+    file.close if file && !file.closed?
   end
 
   def test_lf
