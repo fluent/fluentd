@@ -365,7 +365,7 @@ module Fluent
         @log = sender.log
 
         @conf = conf
-        @name = @conf.name
+        @name = @conf.name || "#{@conf.host}:#{@conf.port}"
         @host = @conf.host
         @port = @conf.port
         @weight = @conf.weight
