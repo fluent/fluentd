@@ -31,7 +31,6 @@ module Fluent::Plugin
     end
 
     attr_reader :weights
-    attr_accessor :rand_seed
 
     def configure(conf)
       super
