@@ -488,9 +488,7 @@ module Fluent
         if splits_count > data.size
           splits_count = data.size
         end
-        slice_size = if splits_count > data.size
-                       data.size
-                     elsif data.size % splits_count == 0
+        slice_size = if data.size % splits_count == 0
                        data.size / splits_count
                      else
                        data.size / (splits_count - 1)
