@@ -79,6 +79,14 @@ module Fluent
       true
     end
 
+    def slice(index, num)
+      if index > 0 || num == 0
+        ArrayEventStream.new([])
+      else
+        self.dup
+      end
+    end
+
     def each(&block)
       block.call(@time, @record)
       nil
