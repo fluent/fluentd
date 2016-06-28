@@ -35,6 +35,11 @@ module Fluent
       size == 0
     end
 
+    # for tests
+    def ==(other)
+      other.is_a?(EventStream) && self.to_msgpack_stream == other.to_msgpack_stream
+    end
+
     def repeatable?
       false
     end
