@@ -207,11 +207,11 @@ class InjectHelperTest < Test::Unit::TestCase
     local_timezone = Time.now.strftime('%z')
     time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
     time_subsecond = 320_101_224
-    time_micro_second = time_in_unix + 0.320101
     time_in_rational = Rational(time_in_unix * 1_000_000_000 + time_subsecond, 1_000_000_000)
     time_in_localtime = Time.at(time_in_rational).localtime
     time_in_utc = Time.at(time_in_rational).utc
     time = Fluent::EventTime.new(time_in_unix, time_subsecond)
+    time_float = time.to_r.to_f
 
     data(
       "OneEventStream" => Fluent::OneEventStream.new(time, {"key1" => "value1", "key2" => 0}),
@@ -272,7 +272,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.configure(config_inject_section("time_key" => "timedata"))
       @d.start
 
-      injected = {"timedata" => time_micro_second }
+      injected = {"timedata" => time_float }
       expected_es = Fluent::MultiEventStream.new
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
