@@ -36,8 +36,8 @@ class InjectHelperTest < Test::Unit::TestCase
 
     time = event_time()
     record = {"key1" => "value1", "key2" => 2}
-    assert_equal record, @d.inject_record('tag', time, record)
-    assert_equal record.object_id, @d.inject_record('tag', time, record).object_id
+    assert_equal record, @d.inject_values_to_record('tag', time, record)
+    assert_equal record.object_id, @d.inject_values_to_record('tag', time, record).object_id
 
     es0 = Fluent::OneEventStream.new(time, {"key1" => "v", "key2" => 0})
 
@@ -50,8 +50,8 @@ class InjectHelperTest < Test::Unit::TestCase
     es3 = Fluent::MessagePackEventStream.new(es2.to_msgpack_stream)
 
     [es0, es1, es2, es3].each do |es|
-      assert_equal es, @d.inject_event_stream('tag', es), "failed for #{es.class}"
-      assert_equal es.object_id, @d.inject_event_stream('tag', es).object_id, "failed for #{es.class}"
+      assert_equal es, @d.inject_values_to_event_stream('tag', es), "failed for #{es.class}"
+      assert_equal es.object_id, @d.inject_values_to_event_stream('tag', es).object_id, "failed for #{es.class}"
     end
   end
 
@@ -84,7 +84,7 @@ class InjectHelperTest < Test::Unit::TestCase
 
       time = event_time()
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"host" => detected_hostname}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"host" => detected_hostname}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects hostname as specified value' do
@@ -93,7 +93,7 @@ class InjectHelperTest < Test::Unit::TestCase
 
       time = event_time()
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"host" => "myhost.yay.local"}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"host" => "myhost.yay.local"}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects tag into specified key' do
@@ -102,7 +102,7 @@ class InjectHelperTest < Test::Unit::TestCase
 
       time = event_time()
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"mytag" => "tag.test"}), @d.inject_record('tag.test', time, record)
+      assert_equal record.merge({"mytag" => "tag.test"}), @d.inject_values_to_record('tag.test', time, record)
     end
 
     test 'injects time as floating point value into specified key as default' do
@@ -115,7 +115,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.start
 
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"timedata" => float_time}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"timedata" => float_time}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects time as unix time into specified key' do
@@ -128,7 +128,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.start
 
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"timedata" => int_time}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"timedata" => int_time}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects time as formatted string in localtime if timezone not specified' do
@@ -141,7 +141,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.start
 
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"timedata" => "2016_06_21 08:10:11 #{local_timezone}"}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"timedata" => "2016_06_21 08:10:11 #{local_timezone}"}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects time as formatted string with nanosecond in localtime if timezone not specified' do
@@ -154,7 +154,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.start
 
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"timedata" => "2016_06_21 08:10:11.320101224 #{local_timezone}"}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"timedata" => "2016_06_21 08:10:11.320101224 #{local_timezone}"}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects time as formatted string with millisecond in localtime if timezone not specified' do
@@ -167,7 +167,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.start
 
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"timedata" => "2016_06_21 08:10:11.320 #{local_timezone}"}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"timedata" => "2016_06_21 08:10:11.320 #{local_timezone}"}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects time as formatted string in specified timezone' do
@@ -179,7 +179,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.start
 
       record = {"key1" => "value1", "key2" => 2}
-      assert_equal record.merge({"timedata" => "2016_06_21 00:10:11 -0800"}), @d.inject_record('tag', time, record)
+      assert_equal record.merge({"timedata" => "2016_06_21 00:10:11 -0800"}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects hostname, tag and time' do
@@ -200,7 +200,7 @@ class InjectHelperTest < Test::Unit::TestCase
 
       record = {"key1" => "value1", "key2" => 2}
       injected = {"hostnamedata" => "myname.local", "tagdata" => "tag", "timedata" => "2016_06_20 23:10:11.320101224 +0000"}
-      assert_equal record.merge(injected), @d.inject_record('tag', time, record)
+      assert_equal record.merge(injected), @d.inject_values_to_record('tag', time, record)
     end
   end
   sub_test_case 'using inject_event_stream' do
@@ -227,7 +227,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -243,7 +243,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -259,7 +259,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -275,7 +275,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -291,7 +291,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -307,7 +307,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -323,7 +323,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -339,7 +339,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -355,7 +355,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
 
     data(
@@ -379,7 +379,7 @@ class InjectHelperTest < Test::Unit::TestCase
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
       end
-      assert_equal expected_es, @d.inject_event_stream('tag', data)
+      assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
     end
   end
 end

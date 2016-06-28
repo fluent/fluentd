@@ -20,7 +20,7 @@ require 'time'
 module Fluent
   module PluginHelper
     module Inject
-      def inject_record(tag, time, record)
+      def inject_values_to_record(tag, time, record)
         return record unless @_inject_enabled
 
         r = record.dup
@@ -37,7 +37,7 @@ module Fluent
         r
       end
 
-      def inject_event_stream(tag, es)
+      def inject_values_to_event_stream(tag, es)
         return es unless @_inject_enabled
 
         new_es = Fluent::MultiEventStream.new
