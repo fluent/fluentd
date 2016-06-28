@@ -207,6 +207,9 @@ class InjectHelperTest < Test::Unit::TestCase
     local_timezone = Time.now.strftime('%z')
     time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
     time_subsecond = 320_101_224
+    time_in_rational = Rational(time_in_unix * 1_000_000_000 + time_subsecond, 1_000_000_000)
+    time_in_localtime = Time.at(time_in_rational).localtime
+    time_in_utc = Time.at(time_in_rational).utc
     time = Fluent::EventTime.new(time_in_unix, time_subsecond)
     int_time = 1466464211
     float_time = 1466464211.320101
@@ -302,7 +305,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.configure(config_inject_section("time_key" => "timedata", "time_type" => "string", "time_format" => "%Y_%m_%d %H:%M:%S %z"))
       @d.start
 
-      injected = {"timedata" => "2016_06_21 08:10:11 #{local_timezone}"}
+      injected = {"timedata" => time_in_localtime.strftime("%Y_%m_%d %H:%M:%S %z")}
       expected_es = Fluent::MultiEventStream.new
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
@@ -318,7 +321,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.configure(config_inject_section("time_key" => "timedata", "time_type" => "string", "time_format" => "%Y_%m_%d %H:%M:%S.%N %z"))
       @d.start
 
-      injected = {"timedata" => "2016_06_21 08:10:11.320101224 #{local_timezone}"}
+      injected = {"timedata" => time_in_localtime.strftime("%Y_%m_%d %H:%M:%S.%N %z")}
       expected_es = Fluent::MultiEventStream.new
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
@@ -334,7 +337,7 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.configure(config_inject_section("time_key" => "timedata", "time_type" => "string", "time_format" => "%Y_%m_%d %H:%M:%S.%3N %z"))
       @d.start
 
-      injected = {"timedata" => "2016_06_21 08:10:11.320 #{local_timezone}"}
+      injected = {"timedata" => time_in_localtime.strftime("%Y_%m_%d %H:%M:%S.%3N %z")}
       expected_es = Fluent::MultiEventStream.new
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
@@ -374,7 +377,7 @@ class InjectHelperTest < Test::Unit::TestCase
       ))
       @d.start
 
-      injected = {"hostnamedata" => "myname.local", "tagdata" => "tag", "timedata" => "2016_06_20 23:10:11.320101224 +0000"}
+      injected = {"hostnamedata" => "myname.local", "tagdata" => "tag", "timedata" => time_in_utc.strftime("%Y_%m_%d %H:%M:%S.%N %z")}
       expected_es = Fluent::MultiEventStream.new
       data.each do |t, r|
         expected_es.add(t, r.merge(injected))
