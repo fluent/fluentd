@@ -25,15 +25,19 @@ require 'fluent/test/parser_test'
 require 'fluent/test/formatter_test'
 require 'serverengine'
 
-dl_opts = {}
-dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
-logdev = Fluent::Test::DummyLogDevice.new
-logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
-$log ||= Fluent::Log.new(logger)
 
 module Fluent
   module Test
+    def self.dummy_logger
+      dl_opts = {log_level: ServerEngine::DaemonLogger::INFO}
+      logdev = Fluent::Test::DummyLogDevice.new
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      Fluent::Log.new(logger)
+    end
+
     def self.setup
+      $log = dummy_logger
+
       Fluent.__send__(:remove_const, :Engine)
       engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
 
@@ -49,3 +53,4 @@ module Fluent
   end
 end
 
+$log ||= Fluent::Test.dummy_logger
