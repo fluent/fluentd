@@ -28,8 +28,8 @@ class InjectHelperTest < Test::Unit::TestCase
   test 'do nothing in default' do
     @d.configure(config_inject_section())
     @d.start
-    assert_nil @d.instance_eval{ @_inject_host_key }
-    assert_nil @d.instance_eval{ @_inject_host_name }
+    assert_nil @d.instance_eval{ @_inject_hostname_key }
+    assert_nil @d.instance_eval{ @_inject_hostname }
     assert_nil @d.instance_eval{ @_inject_tag_key }
     assert_nil @d.instance_eval{ @_inject_time_key }
     assert_nil @d.instance_eval{ @_inject_time_formatter }
@@ -79,7 +79,7 @@ class InjectHelperTest < Test::Unit::TestCase
       detected_hostname = `hostname`.chomp
       @d.configure(config_inject_section("hostname_key" => "host"))
       logs = @d.log.out.logs
-      assert{ logs.first.include?('[info]: using hostname for specified field host_key="host" host_name="SATOSHI-no-MacBook-Air.local"') }
+      assert{ logs.first && logs.first.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") }
       @d.start
 
       time = event_time()
@@ -219,7 +219,7 @@ class InjectHelperTest < Test::Unit::TestCase
       detected_hostname = `hostname`.chomp
       @d.configure(config_inject_section("hostname_key" => "host"))
       logs = @d.log.out.logs
-      assert{ logs.first.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") }
+      assert{ logs.first && logs.first.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") }
       @d.start
 
       injected = {"host" => detected_hostname}
