@@ -13,6 +13,7 @@ class InjectHelperTest < Test::Unit::TestCase
   end
 
   setup do
+    Fluent::Test.setup
     @d = Dummy.new
   end
 
@@ -79,7 +80,7 @@ class InjectHelperTest < Test::Unit::TestCase
       detected_hostname = `hostname`.chomp
       @d.configure(config_inject_section("hostname_key" => "host"))
       logs = @d.log.out.logs
-      assert{ logs.first && logs.first.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") }
+      assert{ logs.any?{|l| l.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") } }
       @d.start
 
       time = event_time()
@@ -221,7 +222,7 @@ class InjectHelperTest < Test::Unit::TestCase
       detected_hostname = `hostname`.chomp
       @d.configure(config_inject_section("hostname_key" => "host"))
       logs = @d.log.out.logs
-      assert{ logs.first && logs.first.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") }
+      assert{ logs.any?{|l| l.include?("[info]: using hostname for specified field host_key=\"host\" host_name=\"#{detected_hostname}\"") } }
       @d.start
 
       injected = {"host" => detected_hostname}
