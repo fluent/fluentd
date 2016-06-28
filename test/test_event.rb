@@ -50,8 +50,8 @@ module EventTest
     end
 
     test 'slice' do
-      assert_equal 0, @es.slice(1,1).size
-      assert_equal 0, @es.slice(0,0).size
+      assert_equal 0, @es.slice(1, 1).size
+      assert_equal 0, @es.slice(0, 0).size
 
       sliced = @es.slice(0, 1)
       assert_kind_of EventStream, sliced
