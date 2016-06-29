@@ -14,12 +14,11 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/output'
-require 'fluent/event'
-
 module Fluent::Plugin
-  class TestOutput < Output
-    Fluent::Plugin.register_output('test', self)
+  class Test2Output < Output
+    Fluent::Plugin.register_output('test2', self)
+
+    helpers :event_emitter
 
     config_param :name, :string
 
