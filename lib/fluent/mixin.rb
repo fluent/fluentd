@@ -18,11 +18,11 @@ require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/handle_tag_name_mixin'
 require 'fluent/compat/set_time_key_mixin'
 require 'fluent/compat/set_tag_key_mixin'
-require 'fluent/compat/time_formatter'
 require 'fluent/compat/type_converter'
 
+require 'fluent/time' # Fluent::TimeFormatter
+
 module Fluent
-  TimeFormatter = Fluent::Compat::TimeFormatter
   RecordFilterMixin = Fluent::Compat::RecordFilterMixin
   HandleTagNameMixin = Fluent::Compat::HandleTagNameMixin
   SetTimeKeyMixin = Fluent::Compat::SetTimeKeyMixin

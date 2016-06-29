@@ -16,54 +16,54 @@
 
 require 'fluent/config/error'
 require 'fluent/compat/record_filter_mixin'
-require 'fluent/compat/time_formatter'
+require 'fluent/time'
+require 'fluent/timezone'
 
 module Fluent
   module Compat
-     module SetTimeKeyMixin
-       require 'fluent/timezone'
-       include RecordFilterMixin
+    module SetTimeKeyMixin
+      include RecordFilterMixin
 
-       attr_accessor :include_time_key, :time_key, :localtime, :timezone
+      attr_accessor :include_time_key, :time_key, :localtime, :timezone
 
-       def configure(conf)
-         @include_time_key = false
-         @localtime = false
-         @timezone = nil
+      def configure(conf)
+        @include_time_key = false
+        @localtime = false
+        @timezone = nil
 
-         super
+        super
 
-         if s = conf['include_time_key']
-           include_time_key = Fluent::Config.bool_value(s)
-           raise Fluent::ConfigError, "Invalid boolean expression '#{s}' for include_time_key parameter" if include_time_key.nil?
+        if s = conf['include_time_key']
+          include_time_key = Fluent::Config.bool_value(s)
+          raise Fluent::ConfigError, "Invalid boolean expression '#{s}' for include_time_key parameter" if include_time_key.nil?
 
-           @include_time_key = include_time_key
-         end
+          @include_time_key = include_time_key
+        end
 
-         if @include_time_key
-           @time_key     = conf['time_key'] || 'time'
-           @time_format  = conf['time_format']
+        if @include_time_key
+          @time_key     = conf['time_key'] || 'time'
+          @time_format  = conf['time_format']
 
-           if    conf['localtime']
-             @localtime = true
-           elsif conf['utc']
-             @localtime = false
-           end
+          if    conf['localtime']
+            @localtime = true
+          elsif conf['utc']
+            @localtime = false
+          end
 
-           if conf['timezone']
-             @timezone = conf['timezone']
-             Fluent::Timezone.validate!(@timezone)
-           end
+          if conf['timezone']
+            @timezone = conf['timezone']
+            Fluent::Timezone.validate!(@timezone)
+          end
 
-           @timef = Fluent::Compat::TimeFormatter.new(@time_format, @localtime, @timezone)
-         end
-       end
+          @timef = Fluent::TimeFormatter.new(@time_format, @localtime, @timezone)
+        end
+      end
 
-       def filter_record(tag, time, record)
-         super
+      def filter_record(tag, time, record)
+        super
 
-         record[@time_key] = @timef.format(time) if @include_time_key
-       end
-     end
-   end
- end
+        record[@time_key] = @timef.format(time) if @include_time_key
+      end
+    end
+  end
+end
