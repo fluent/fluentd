@@ -97,7 +97,7 @@ module Fluent
           @_inject_time_key = @inject_config.time_key
           if @_inject_time_key
             @_inject_time_formatter = case @inject_config.time_type
-                                      when :float then ->(time){ time.to_r.to_f }
+                                      when :float then ->(time){ time.to_r.truncate(+6).to_f } # microsecond floating point value
                                       when :unixtime then ->(time){ time.to_i }
                                       else
                                         Fluent::TimeFormatter.new(@inject_config.time_format, false, @inject_config.timezone)

@@ -212,7 +212,7 @@ class InjectHelperTest < Test::Unit::TestCase
     time_in_localtime = Time.at(time_in_rational).localtime
     time_in_utc = Time.at(time_in_rational).utc
     time = Fluent::EventTime.new(time_in_unix, time_subsecond)
-    time_float = time.to_r.to_f
+    time_float = time.to_r.truncate(+6).to_f
 
     data(
       "OneEventStream" => Fluent::OneEventStream.new(time, {"key1" => "value1", "key2" => 0}),
