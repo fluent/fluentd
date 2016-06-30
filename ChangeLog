@@ -7,21 +7,21 @@
 * Add plugin helpers for parsers and formatters
   https://github.com/fluent/fluentd/pull/1023
 * Extract some mixins into compat modules
-	https://github.com/fluent/fluentd/pull/1044
-	https://github.com/fluent/fluentd/pull/1052
+  https://github.com/fluent/fluentd/pull/1044
+  https://github.com/fluent/fluentd/pull/1052
 * Add utility methods for tests and test drivers
   https://github.com/fluent/fluentd/pull/1047
 * Migrate some built-in plugins to v0.14 APIs
-	https://github.com/fluent/fluentd/pull/1049
-	https://github.com/fluent/fluentd/pull/1057
-	https://github.com/fluent/fluentd/pull/1060
-	https://github.com/fluent/fluentd/pull/1064
+  https://github.com/fluent/fluentd/pull/1049
+  https://github.com/fluent/fluentd/pull/1057
+  https://github.com/fluent/fluentd/pull/1060
+  https://github.com/fluent/fluentd/pull/1064
 * Add support of X-Forwarded-For header in in_http plugin
   https://github.com/fluent/fluentd/pull/1051
 * Warn not to create too many staged chunks at configure
   https://github.com/fluent/fluentd/pull/1054
 * Add a plugin helper to inject tag/time/hostname
-	https://github.com/fluent/fluentd/pull/1063
+  https://github.com/fluent/fluentd/pull/1063
 
 ### Bug fixes
 
