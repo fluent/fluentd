@@ -254,9 +254,7 @@ module Fluent
           end
         end
 
-        (class << self; self; end).module_eval do
-          prepend BufferedChunkMixin
-        end
+        self.extend BufferedChunkMixin
 
         if @overrides_emit
           self.singleton_class.module_eval do
@@ -439,9 +437,7 @@ module Fluent
           end
         end
 
-        (class << self; self; end).module_eval do
-          prepend BufferedChunkMixin
-        end
+        self.extend BufferedChunkMixin
       end
 
       def format_stream(tag, es) # for BufferedOutputTestDriver
@@ -589,9 +585,7 @@ module Fluent
           end
         end
 
-        (class << self; self; end).module_eval do
-          prepend TimeSliceChunkMixin
-        end
+        self.extend TimeSliceChunkMixin
       end
 
       # Original TimeSlicedOutput#emit doesn't call #format_stream
