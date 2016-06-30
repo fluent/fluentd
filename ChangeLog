@@ -1,5 +1,59 @@
 # v0.14
 
+## Release 0.14.1 - 2016/06/30
+
+### New features / Enhancement
+
+* Add plugin helpers for parsers and formatters
+  https://github.com/fluent/fluentd/pull/1023
+* Extract some mixins into compat modules
+	https://github.com/fluent/fluentd/pull/1044
+	https://github.com/fluent/fluentd/pull/1052
+* Add utility methods for tests and test drivers
+  https://github.com/fluent/fluentd/pull/1047
+* Migrate some built-in plugins to v0.14 APIs
+	https://github.com/fluent/fluentd/pull/1049
+	https://github.com/fluent/fluentd/pull/1057
+	https://github.com/fluent/fluentd/pull/1060
+	https://github.com/fluent/fluentd/pull/1064
+* Add support of X-Forwarded-For header in in_http plugin
+  https://github.com/fluent/fluentd/pull/1051
+* Warn not to create too many staged chunks at configure
+  https://github.com/fluent/fluentd/pull/1054
+* Add a plugin helper to inject tag/time/hostname
+	https://github.com/fluent/fluentd/pull/1063
+
+### Bug fixes
+
+* Fix in_monitor_agent for v0.14 plugins
+  https://github.com/fluent/fluentd/pull/1003
+* Fix to call #format_stream of plugins themselves when RecordFilter mixin included
+  https://github.com/fluent/fluentd/pull/1005
+* Fix shutdown sequence to wait force flush
+  https://github.com/fluent/fluentd/pull/1009
+* Fix a deadlock bug in shutdown
+  https://github.com/fluent/fluentd/pull/1010
+* Fix to require DetachProcessMixin in default for compat plugins
+  https://github.com/fluent/fluentd/pull/1014
+* Fix to overwrite configure_proxy name only for root sections for debugging
+  https://github.com/fluent/fluentd/pull/1015
+* Rename file for in_unix plugin
+  https://github.com/fluent/fluentd/pull/1017
+* Fix a bug not to create pid file when daemonized
+  https://github.com/fluent/fluentd/pull/1021
+* Fix wrong DEFAULT_PLUGIN_PATH
+  https://github.com/fluent/fluentd/pull/1028
+* Fix a bug not to use primary plugin type for secondary in default
+  https://github.com/fluent/fluentd/pull/1032
+* Add --run-worker option to distinguish to run as worker without supervisor
+  https://github.com/fluent/fluentd/pull/1033
+* Fix regression of fluent-debug command
+  https://github.com/fluent/fluentd/pull/1046
+* Update windows-pr dependency to 1.2.5
+  https://github.com/fluent/fluentd/pull/1065
+* Fix supervisor to pass RUBYOPT to worker processes
+  https://github.com/fluent/fluentd/pull/1066
+
 ## Release 0.14.0 - 2016/05/25
 
 ### New features / Enhancement
@@ -81,7 +135,7 @@ This list includes changes of 0.14.0.pre.1 and release candidates.
 
 * Fix dependencies between files
   https://github.com/fluent/fluentd/pull/799
-  https://github.com/fluent/fluentd/pull/808  
+  https://github.com/fluent/fluentd/pull/808
   https://github.com/fluent/fluentd/pull/823
   https://github.com/fluent/fluentd/pull/824
   https://github.com/fluent/fluentd/pull/825
