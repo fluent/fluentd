@@ -70,9 +70,7 @@ module Fluent
                 TestEventRouter.new(driver)
               end
             end
-            @instance.singleton_class.module_eval do
-              prepend mojule
-            end
+            @instance.singleton_class.prepend mojule
           end
 
           @instance.configure(@config)

@@ -110,12 +110,12 @@ module Fluent
 
       def run(num_waits = 10, &block)
         m = method(:emit_stream)
-        (class << Engine; self; end).module_eval do
-          prepend EmitStreamWrapper
+        unless Engine.singleton_class.ancestors.include?(EmitStreamWrapper)
+          Engine.singleton_class.prepend EmitStreamWrapper
         end
         Engine.emit_stream_callee = m
-        (class << instance.router; self; end).module_eval do
-          prepend EmitStreamWrapper
+        unless instance.router.singleton_class.ancestors.include?(EmitStreamWrapper)
+          instance.router.singleton_class.prepend EmitStreamWrapper
         end
         instance.router.emit_stream_callee = m
 

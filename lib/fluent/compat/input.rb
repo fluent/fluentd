@@ -27,9 +27,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
 

@@ -154,9 +154,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
     end
@@ -271,9 +269,7 @@ module Fluent
               output_plugin.last_emit_via_buffer = [key, data]
             end
           end
-          @buffer.singleton_class.module_eval do
-            prepend m
-          end
+          @buffer.singleton_class.prepend m
         end
       end
 
@@ -354,9 +350,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
     end
@@ -465,9 +459,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
     end
@@ -533,9 +525,7 @@ module Fluent
         @localtime = true
 
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
 
