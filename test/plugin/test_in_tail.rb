@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_tail'
 require 'fluent/plugin/buffer'
 require 'fluent/system_config'
