@@ -145,17 +145,19 @@ module Fluent
             assert_equal(@expected_buffer, buffer)
           end
 
-          chunks = @instance.instance_eval {
-            @buffer.instance_eval {
-              chunks = []
-              @map.keys.each {|key|
-                chunks.push(@map.delete(key))
-              }
-              chunks
-            }
-          }
+          chunks = []
+          @instance.instance_eval do
+            @buffer.instance_eval{ @map.keys }.each do |key|
+              @buffer.push(key)
+              chunks << @buffer.instance_eval{ @queue.pop }
+            end
+          end
           chunks.each { |chunk|
-            result.push(@instance.write(chunk))
+            begin
+              result.push(@instance.write(chunk))
+            ensure
+              chunk.purge
+            end
           }
         }
         result
