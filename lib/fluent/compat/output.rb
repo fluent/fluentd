@@ -267,7 +267,7 @@ module Fluent
               output_plugin.last_emit_via_buffer = [key, data]
             end
           end
-          @buffer.singleton_class.prepend m
+          @buffer.extend m
         end
       end
 
