@@ -26,7 +26,7 @@ module Fluent::Plugin
   class ExecInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('exec', self)
 
-    helpers :thread
+    helpers :timer
 
     def initialize
       super
@@ -108,18 +108,15 @@ module Fluent::Plugin
       super
 
       if @run_interval
-        @finished = false
-        thread_create(:exec_input, &method(:run_periodic))
+        timer_execute(:exec_input, @run_interval, &method(:run_periodic))
       else
         @io = IO.popen(@command, "r")
         @pid = @io.pid
-        thread_create(:exec_input, &method(:run))
+        timer_execute(:exec_input, @run_interval, repeat: false, &method(:run))
       end
     end
 
     def shutdown
-      close
-      terminate
       super
     end
 
@@ -128,17 +125,13 @@ module Fluent::Plugin
     end
 
     def run_periodic
-      sleep @run_interval
-      until @finished
-        begin
-          io = IO.popen(@command, "r")
-          @parser.call(io)
-          Process.waitpid(io.pid)
-          sleep @run_interval
-        rescue
-          log.error "exec failed to run or shutdown child process", error: $!
-          log.warn_backtrace $!.backtrace
-        end
+      begin
+        io = IO.popen(@command, "r")
+        @parser.call(io)
+        Process.waitpid(io.pid)
+      rescue
+        log.error "exec failed to run or shutdown child process", error: $!
+        log.warn_backtrace $!.backtrace
       end
     end
 
