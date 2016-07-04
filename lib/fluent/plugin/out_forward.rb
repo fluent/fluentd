@@ -433,6 +433,8 @@ module Fluent
           loop do
             break if @sender.connection_hard_timeout && Time.now > @mtime + @sender.connection_hard_timeout
             begin
+              # TODO: On Ruby 2.2 or earlier, read_nonblock doesn't work expectedly.
+              # We need rewrite around here using new socket/server plugin helper.
               while buf = sock.read_nonblock(@sender.read_length)
                 if buf.empty?
                   sleep @sender.read_interval
