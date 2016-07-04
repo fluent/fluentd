@@ -23,7 +23,7 @@ module Fluent::Plugin
   class ObjectSpaceInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('object_space', self)
 
-    helpers :event_loop
+    helpers :timer
 
     def initialize
       super
@@ -33,22 +33,6 @@ module Fluent::Plugin
     config_param :tag, :string
     config_param :top, :integer, default: 15
 
-    class TimerWatcher < ::Coolio::TimerWatcher
-      def initialize(interval, repeat, log, &callback)
-        @callback = callback
-        @log = log
-        super(interval, repeat)
-      end
-
-      def on_timer
-        @callback.call
-      rescue
-        # TODO log?
-        @log.error $!.to_s
-        @log.error_backtrace
-      end
-    end
-
     def configure(conf)
       super
     end
@@ -56,8 +40,7 @@ module Fluent::Plugin
     def start
       super
 
-      @timer = TimerWatcher.new(@emit_interval, true, log, &method(:on_timer))
-      event_loop_attach(@timer)
+      timer_execute(:object_space_input, @emit_interval, &method(:on_timer))
     end
 
     def shutdown
