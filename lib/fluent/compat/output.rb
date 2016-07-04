@@ -314,7 +314,7 @@ module Fluent
           # on-the-fly key assignment can be done, and it's not configurable if Plugin#emit does it dynamically
           meta = @buffer.metadata(variables: (key && !key.empty? ? {key: key} : nil))
           write_guard do
-            @buffer.write({meta => [data, size]}, bulk: true, enqueue: enqueue)
+            @buffer.write({meta => data}, format: ->(data){ data }, size: ->(){ size }, enqueue: enqueue)
           end
           @counters_monitor.synchronize{ @emit_records += size }
           return [meta]
@@ -325,17 +325,16 @@ module Fluent
           size = es.size
           bulk = format_stream(tag, es)
           write_guard do
-            @buffer.write({meta => [bulk, size]}, bulk: true, enqueue: enqueue)
+            @buffer.write({meta => bulk}, format: ->(data){ data }, size: ->(){ size }, enqueue: enqueue)
           end
           @counters_monitor.synchronize{ @emit_records += size }
           return [meta]
         end
 
         meta = metadata(nil, nil, nil)
-        es_size = 0
-        es_bulk = es.map{|time,record| es_size += 1; format(tag, time, record) }.join
+        data = es.map{|time,record| format(tag, time, record) }
         write_guard do
-          @buffer.write({meta => [es_bulk, es_size]}, bulk: true, enqueue: enqueue)
+          @buffer.write({meta => data}, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += es_size }
         [meta]

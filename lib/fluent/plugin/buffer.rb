@@ -174,7 +174,7 @@ module Fluent
       # metadata MUST have consistent object_id for each variation
       # data MUST be Array of serialized events, or EventStream
       # metadata_and_data MUST be a hash of { metadata => data }
-      def write(metadata_and_data, format: nil, enqueue: false)
+      def write(metadata_and_data, format: nil, size: nil, enqueue: false)
         return if metadata_and_data.size < 1
         raise BufferOverflowError, "buffer space has too many data" unless storable?
 
@@ -185,7 +185,7 @@ module Fluent
 
         begin
           metadata_and_data.each do |metadata, data|
-            write_once(metadata, data, format: format) do |chunk, adding_bytesize|
+            write_once(metadata, data, format: format, size: size) do |chunk, adding_bytesize|
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
               if chunk.unstaged?
@@ -416,7 +416,7 @@ module Fluent
       # 3. enqueue existing chunk & retry whole method if chunk was not empty
       # 4. go to step_by_step writing
 
-      def write_once(metadata, data, format: nil, &block)
+      def write_once(metadata, data, format: nil, size: nil, &block)
         return if data.empty?
 
         stored = false
@@ -434,7 +434,7 @@ module Fluent
           begin
             if format
               serialized = format.call(data)
-              chunk.concat(serialized, data.size)
+              chunk.concat(serialized, size ? size.call : data.size)
             else
               chunk.append(data)
             end
