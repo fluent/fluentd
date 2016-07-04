@@ -17,11 +17,13 @@
 require 'cool.io'
 require 'yajl'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 
-module Fluent
-  class ObjectSpaceInput < Input
-    Plugin.register_input('object_space', self)
+module Fluent::Plugin
+  class ObjectSpaceInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('object_space', self)
+
+    helpers :event_loop
 
     def initialize
       super
@@ -31,7 +33,7 @@ module Fluent
     config_param :tag, :string
     config_param :top, :integer, default: 15
 
-    class TimerWatcher < Coolio::TimerWatcher
+    class TimerWatcher < ::Coolio::TimerWatcher
       def initialize(interval, repeat, log, &callback)
         @callback = callback
         @log = log
@@ -54,25 +56,12 @@ module Fluent
     def start
       super
 
-      @loop = Coolio::Loop.new
       @timer = TimerWatcher.new(@emit_interval, true, log, &method(:on_timer))
-      @loop.attach(@timer)
-      @thread = Thread.new(&method(:run))
+      event_loop_attach(@timer)
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @thread.join
-
       super
-    end
-
-    def run
-      @loop.run
-    rescue
-      log.error "unexpected error", error: $!.to_s
-      log.error_backtrace
     end
 
     class Counter
@@ -93,7 +82,7 @@ module Fluent
     end
 
     def on_timer
-      now = Engine.now
+      now = Fluent::EventTime.now
 
       array = []
       map = {}
