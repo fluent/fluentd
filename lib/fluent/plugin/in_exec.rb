@@ -17,14 +17,16 @@
 require 'strptime'
 require 'yajl'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/time'
 require 'fluent/timezone'
 require 'fluent/config/error'
 
-module Fluent
-  class ExecInput < Input
-    Plugin.register_input('exec', self)
+module Fluent::Plugin
+  class ExecInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('exec', self)
+
+    helpers :thread
 
     def initialize
       super
@@ -65,7 +67,7 @@ module Fluent
       end
 
       if !@tag && !@tag_key
-        raise ConfigError, "'tag' or 'tag_key' option is required on exec input"
+        raise Fleunt::ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
 
       if @time_key
@@ -73,7 +75,7 @@ module Fluent
           f = @time_format
           @time_parse_proc =
             begin
-              strptime = Strptime.new(f)
+              strptime = ::Strptime.new(f)
               Proc.new { |str| Fluent::EventTime.from_time(strptime.exec(str)) }
             rescue
               Proc.new {|str| Fluent::EventTime.from_time(Time.strptime(str, f)) }
@@ -90,7 +92,7 @@ module Fluent
       case @format
       when 'tsv'
         if @keys.empty?
-          raise ConfigError, "keys option is required on exec input for tsv format"
+          raise Fluent::ConfigError, "keys option is required on exec input for tsv format"
         end
         ExecUtil::TSVParser.new(@keys, method(:on_message))
       when 'json'
@@ -107,36 +109,17 @@ module Fluent
 
       if @run_interval
         @finished = false
-        @thread = Thread.new(&method(:run_periodic))
+        thread_create(:exec_input, &method(:run_periodic))
       else
         @io = IO.popen(@command, "r")
         @pid = @io.pid
-        @thread = Thread.new(&method(:run))
+        thread_create(:exec_input, &method(:run))
       end
     end
 
     def shutdown
-      if @run_interval
-        @finished = true
-        # call Thread#run which interupts sleep in order to stop run_periodic thread immediately.
-        @thread.run
-        @thread.join
-      else
-        begin
-          Process.kill(:TERM, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        if @thread.join(60)  # TODO wait time
-          return
-        end
-
-        begin
-          Process.kill(:KILL, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        @thread.join
-      end
-
+      close
+      terminate
       super
     end
 
@@ -174,7 +157,7 @@ module Fluent
         if val = record.delete(@time_key)
           time = @time_parse_proc.call(val)
         else
-          time = Engine.now
+          time = Fluent::EventTime.now
         end
       end
 
