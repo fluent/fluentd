@@ -140,7 +140,7 @@ module Fluent
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair { |k, v|
-          out << dump_value(k, v, indent, nindent)
+          out << dump_value(k, v, nindent)
         }
         @elements.each { |e|
           out << e.to_s(nest + 1)
@@ -186,7 +186,7 @@ module Fluent
         opts[:type]
       end
 
-      def dump_value(k, v, indent, nindent)
+      def dump_value(k, v, nindent)
         if secret_param?(k)
           "#{nindent}#{k} xxxxxx\n"
         else
