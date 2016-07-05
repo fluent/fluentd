@@ -75,7 +75,7 @@ module Fluent::Plugin
           f = @time_format
           @time_parse_proc =
             begin
-              strptime = ::Strptime.new(f)
+              strptime = Strptime.new(f)
               Proc.new { |str| Fluent::EventTime.from_time(strptime.exec(str)) }
             rescue
               Proc.new {|str| Fluent::EventTime.from_time(Time.strptime(str, f)) }
