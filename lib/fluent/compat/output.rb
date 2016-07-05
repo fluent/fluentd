@@ -154,9 +154,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
     end
@@ -256,9 +254,7 @@ module Fluent
           end
         end
 
-        (class << self; self; end).module_eval do
-          prepend BufferedChunkMixin
-        end
+        self.extend BufferedChunkMixin
 
         if @overrides_emit
           self.singleton_class.module_eval do
@@ -271,9 +267,7 @@ module Fluent
               output_plugin.last_emit_via_buffer = [key, data]
             end
           end
-          @buffer.singleton_class.module_eval do
-            prepend m
-          end
+          @buffer.extend m
         end
       end
 
@@ -354,9 +348,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
     end
@@ -445,9 +437,7 @@ module Fluent
           end
         end
 
-        (class << self; self; end).module_eval do
-          prepend BufferedChunkMixin
-        end
+        self.extend BufferedChunkMixin
       end
 
       def format_stream(tag, es) # for BufferedOutputTestDriver
@@ -465,9 +455,7 @@ module Fluent
       def initialize
         super
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
     end
@@ -533,9 +521,7 @@ module Fluent
         @localtime = true
 
         unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.module_eval do
-            prepend Fluent::Compat::CallSuperMixin
-          end
+          self.class.prepend Fluent::Compat::CallSuperMixin
         end
       end
 
@@ -599,9 +585,7 @@ module Fluent
           end
         end
 
-        (class << self; self; end).module_eval do
-          prepend TimeSliceChunkMixin
-        end
+        self.extend TimeSliceChunkMixin
       end
 
       # Original TimeSlicedOutput#emit doesn't call #format_stream

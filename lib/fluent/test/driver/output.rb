@@ -67,9 +67,7 @@ module Fluent
                 result
               end
             end
-            @instance.singleton_class.module_eval do
-              prepend m
-            end
+            @instance.singleton_class.prepend m
           end
         end
       end
