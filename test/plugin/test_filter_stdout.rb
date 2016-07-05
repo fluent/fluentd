@@ -107,17 +107,5 @@ class StdoutFilterTest < Test::Unit::TestCase
     out = capture_log(d) { filter(d, event_time, {'test' => 'test'}) }
     assert_equal "{\"test\":\"test\"}\n", out
   end
-
-  private
-
-  # Capture the log output of the block given
-  def capture_log(d, &block)
-    tmp = d.instance.log.out
-    d.instance.log.out = StringIO.new
-    yield
-    return d.instance.log.out.string
-  ensure
-    d.instance.log.out = tmp
-  end
 end
 
