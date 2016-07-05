@@ -6,7 +6,7 @@ require 'net/http'
 class ExecInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @test_time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    @test_time = event_time("2011-01-02 13:14:15")
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
