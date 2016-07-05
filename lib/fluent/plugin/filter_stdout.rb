@@ -35,10 +35,7 @@ module Fluent::Plugin
                    else
                      # For v0.12 flat style parameter
                      format = @config["format"] || "stdout"
-                     conf = {}
-                     conf[:output_type] = @config["output_type"] || "json"
-                     conf[:include_time_key] = @config["include_time_key"]
-                     formatter_create(type: format, conf: conf)
+                     formatter_create(type: format, conf: @config)
                    end
       super
     end
