@@ -116,10 +116,6 @@ module Fluent::Plugin
       end
     end
 
-    def shutdown
-      super
-    end
-
     def run
       @parser.call(@io)
     end
