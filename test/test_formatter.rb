@@ -5,22 +5,6 @@ require 'fluent/formatter'
 module FormatterTest
   include Fluent
 
-  def time2str(time, localtime = false, format = nil)
-    if format
-      if localtime
-        Time.at(time).strftime(format)
-      else
-        Time.at(time).utc.strftime(format)
-      end
-    else
-      if localtime
-        Time.at(time).iso8601
-      else
-        Time.at(time).utc.iso8601
-      end
-    end
-  end
-
   def tag
     'tag'
   end
@@ -154,7 +138,7 @@ module FormatterTest
       formatted = @formatter.format(tag, @time, record.dup)
 
       r = record
-      r['time'] = time2str(@time, true)
+      r['time'] = time2str(@time, localtime: true)
       assert_equal("#{Yajl.dump(r)}\n", formatted)
     end
 
@@ -198,7 +182,7 @@ module FormatterTest
       formatted = @formatter.format(tag, @time, record.dup)
 
       r = record
-      r['time'] = time2str(@time, true)
+      r['time'] = time2str(@time, localtime: true)
       assert_equal(r.to_msgpack, formatted)
     end
 

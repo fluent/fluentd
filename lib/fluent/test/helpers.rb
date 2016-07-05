@@ -37,6 +37,22 @@ module Fluent
         end
       end
 
+      def time2str(time, localtime: false, format: nil)
+        if format
+          if localtime
+            Time.at(time).strftime(format)
+          else
+            Time.at(time).utc.strftime(format)
+          end
+        else
+          if localtime
+            Time.at(time).iso8601
+          else
+            Time.at(time).utc.iso8601
+          end
+        end
+      end
+
       def msgpack(type)
         case type
         when :factory
