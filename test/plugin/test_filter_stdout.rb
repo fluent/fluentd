@@ -44,6 +44,7 @@ class StdoutFilterTest < Test::Unit::TestCase
   sub_test_case "configure" do
     def test_configure_default
       d = create_driver
+      d.run {}
       assert_equal 'json', d.instance.formatter.output_type
     end
 
@@ -52,12 +53,14 @@ class StdoutFilterTest < Test::Unit::TestCase
          ltsv: "ltsv")
     def test_output_type(data)
       d = create_driver(CONFIG + "\noutput_type #{data}")
+      d.run {}
       assert_equal data, d.instance.formatter.output_type
     end
 
     def test_invalid_output_type
       assert_raise(Fluent::ConfigError) do
-        create_driver(CONFIG + "\noutput_type foo")
+        d = create_driver(CONFIG + "\noutput_type foo")
+        d.run {}
       end
     end
   end

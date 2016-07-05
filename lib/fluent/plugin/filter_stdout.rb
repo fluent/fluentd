@@ -20,18 +20,27 @@ module Fluent::Plugin
   class StdoutFilter < Filter
     Fluent::Plugin.register_filter('stdout', self)
 
+    helpers :formatter
+
     # for tests
     attr_reader :formatter
 
-    desc 'The format of the output.'
-    config_param :format, :string, default: 'stdout'
-    # config_param :output_type, :string, :default => 'json' (StdoutFormatter defines this)
-
     def configure(conf)
       super
+    end
 
-      @formatter = Fluent::Plugin.new_formatter(@format)
-      @formatter.configure(conf)
+    def start
+      @formatter = if !@formatter_configs.empty?
+                     formatter_create(conf: @formatter_configs)
+                   else
+                     # For v0.12 flat style parameter
+                     format = @config["format"] || "stdout"
+                     conf = {}
+                     conf[:output_type] = @config["output_type"] || "json"
+                     conf[:include_time_key] = @config["include_time_key"]
+                     formatter_create(type: format, conf: conf)
+                   end
+      super
     end
 
     def filter_stream(tag, es)
