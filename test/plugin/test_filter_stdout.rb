@@ -99,7 +99,7 @@ class StdoutFilterTest < Test::Unit::TestCase
       time = Time.at(etime.sec)
       message_time = event_time("2011-01-02 13:14:15 UTC")
       out = capture_log(d) { filter(d, message_time, {'test' => 'test'}) }
-      assert_equal "#{time.localtime} filter.test: {\"test\":\"test\",\"time\":\"2011-01-02T13:14:15+00:00\"}\n", out
+      assert_equal "#{time.localtime} filter.test: {\"test\":\"test\",\"time\":\"2011-01-02T13:14:15Z\"}\n", out
     end
 
     # out_stdout formatter itself can also be replaced
@@ -107,6 +107,113 @@ class StdoutFilterTest < Test::Unit::TestCase
       d = create_driver(CONFIG + "\nformat json")
       out = capture_log(d) { filter(d, event_time, {'test' => 'test'}) }
       assert_equal "{\"test\":\"test\"}\n", out
+    end
+  end
+
+  sub_test_case "with <format> sub section" do
+    sub_test_case "configure" do
+      def test_default
+        conf = format_config(%[
+                               @type stdout
+                             ])
+        d = create_driver(conf)
+        d.run {}
+        assert_equal("json", d.instance.formatter.output_type)
+      end
+
+      data(json: "json",
+           hash: "hash",
+           ltsv: "ltsv")
+      def test_output_type(data)
+        conf = format_config(%[
+                               @type stdout
+                               output_type #{data}
+                             ])
+        d = create_driver(conf)
+        d.run {}
+        assert_equal(data, d.instance.formatter.output_type)
+      end
+
+      def test_invalid_output_type
+        assert_raise(Fluent::ConfigError) do
+          conf = format_config(%[
+                                 @type stdout
+                                 output_type foo
+                               ])
+          d = create_driver(conf)
+          d.run {}
+        end
+      end
+    end
+
+    sub_test_case "output_type" do
+      def test_json
+        d = create_driver(format_config(%[
+                                          @type stdout
+                                          output_type json
+                                        ]))
+        etime = event_time
+        time = Time.at(etime.sec)
+        out = capture_log(d) { filter(d, etime, {'test' => 'test'}) }
+        assert_equal "#{time.localtime} filter.test: {\"test\":\"test\"}\n", out
+      end
+
+      def test_json_nan
+        # NOTE: Float::NAN is not jsonable
+        d = create_driver(format_config(%[
+                                          @type stdout
+                                          output_type json
+                                        ]))
+        etime = event_time
+        flexmock(d.instance.router).should_receive(:emit_error_event)
+        filter(d, etime, {'test' => Float::NAN})
+      end
+
+      def test_hash
+        d = create_driver(format_config(%[
+                                          @type stdout
+                                          output_type hash
+                                        ]))
+        etime = event_time
+        time = Time.at(etime.sec)
+        out = capture_log(d) { filter(d, etime, {'test' => 'test'}) }
+        assert_equal "#{time.localtime} filter.test: {\"test\"=>\"test\"}\n", out
+      end
+
+      def test_hash_nan
+        # NOTE: Float::NAN is not jsonable, but hash string can output it.
+        d = create_driver(format_config(%[
+                                          @type stdout
+                                          output_type hash
+                                        ]))
+        etime = event_time
+        time = Time.at(etime.sec)
+        out = capture_log(d) { filter(d, etime, {'test' => Float::NAN}) }
+        assert_equal "#{time.localtime} filter.test: {\"test\"=>NaN}\n", out
+      end
+
+      # Use include_time_key to output the message's time
+      def test_include_time_key
+        d = create_driver(format_config(%[
+                                          @type stdout
+                                          output_type json
+                                          include_time_key true
+                                          utc
+                                        ]))
+        etime = event_time
+        time = Time.at(etime.sec)
+        message_time = event_time("2011-01-02 13:14:15 UTC")
+        out = capture_log(d) { filter(d, message_time, {'test' => 'test'}) }
+        assert_equal "#{time.localtime} filter.test: {\"test\":\"test\",\"time\":\"2011-01-02T13:14:15Z\"}\n", out
+      end
+    end
+
+    def format_config(config)
+      %[
+        <format>
+          #{config}
+        </format>
+      ]
     end
   end
 end
