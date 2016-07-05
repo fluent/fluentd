@@ -26,22 +26,6 @@ require 'win32/event'
 # include Windows::Library
 # include Windows::Debug
 
-def read_fluentdopt
-  Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc") do |reg|
-    reg.read("fluentdopt")[1]
-  end
-end
-
-def service_main_start
-  ruby_path = 0.chr * 260
-  # win32/api
-  Win32::GetModuleFileName.call(0, ruby_path, 260)
-  ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
-  rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
-  opt = read_fluentdopt
-  Process.spawn(rubybin_dir + "/ruby.exe " + rubybin_dir + "/fluentd " + opt + " -x " + INTEVENTOBJ_NAME)
-end
-
 class FluentdService < Win32::Daemon
   INTEVENTOBJ_NAME = "fluentdwinsvc"
 
@@ -51,8 +35,7 @@ class FluentdService < Win32::Daemon
   end
 
   def service_main
-    opt = read_fluentdopt
-    @pid = service_main_start
+    @pid = fluentd_process_launch
     while running?
       sleep 5
     end
@@ -72,6 +55,22 @@ class FluentdService < Win32::Daemon
     ev = Win32::Event.open(INTEVENTOBJ_NAME)
     ev.set
     ev.close
+  end
+
+  def fluentd_cmdline_option
+    Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc") do |reg|
+      reg.read("fluentdopt")[1]
+    end
+  end
+
+  def fluentd_process_launch
+    ruby_path = 0.chr * 260
+    # win32/api
+    Win32::API.new('GetModuleFileName', 'LPL', 'L').call(0, ruby_path, 260)
+    ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+    rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
+    opt = fluentd_cmdline_option
+    Process.spawn(rubybin_dir + "/ruby.exe " + rubybin_dir + "/fluentd " + opt + " -x " + INTEVENTOBJ_NAME)
   end
 end
 
