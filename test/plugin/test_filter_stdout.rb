@@ -41,6 +41,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     assert_equal([{'test' => 'test'}], filtered)
   end
 
+  sub_test_case "flat style parameters" do
   sub_test_case "configure" do
     def test_configure_default
       d = create_driver
@@ -106,6 +107,7 @@ class StdoutFilterTest < Test::Unit::TestCase
     d = create_driver(CONFIG + "\nformat json")
     out = capture_log(d) { filter(d, event_time, {'test' => 'test'}) }
     assert_equal "{\"test\":\"test\"}\n", out
+  end
   end
 end
 
