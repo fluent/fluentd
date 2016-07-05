@@ -14,59 +14,65 @@
 #    limitations under the License.
 #
 
-INTEVENTOBJ_NAME = "fluentdwinsvc"
+require 'win32/registry'
 
-begin
+# require 'windows/debug' # windows-pr
+# require 'windows/library' # windows-pr
+require 'win32/api'
+require 'win32/daemon' # win32-service
+require 'win32/event'
 
-  require 'windows/debug'
-  require 'Windows/Library'
-  require 'win32/daemon'
-  require 'win32/event'
+# include Win32
+# include Windows::Library
+# include Windows::Debug
 
-  include Win32
-  include Windows::Library
-  include Windows::Debug
-
-  def read_fluentdopt
-    require 'win32/Registry'
-    Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc") do |reg|
-      reg.read("fluentdopt")[1]
-    end
+def read_fluentdopt
+  Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc") do |reg|
+    reg.read("fluentdopt")[1]
   end
-
-  def service_main_start
-    ruby_path = 0.chr * 260
-    GetModuleFileName.call(0, ruby_path,260)
-    ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
-    rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
-    opt = read_fluentdopt
-    Process.spawn(rubybin_dir + "/ruby.exe " + rubybin_dir + "/fluentd " + opt + " -x " + INTEVENTOBJ_NAME)
-  end
-
-  class FluentdService < Daemon
-    @pid = 0
-
-    def service_main
-      opt = read_fluentdopt
-      @pid = service_main_start
-      while running?
-        sleep 10
-      end
-    end
-
-    def service_stop
-      ev = Win32::Event.open(INTEVENTOBJ_NAME)
-      ev.set
-      ev.close
-      if @pid > 0
-        Porcess.waitpid(@pid)
-      end
-    end
-  end
-
-  FluentdService.mainloop
-
-rescue Exception => err
-  raise
 end
 
+def service_main_start
+  ruby_path = 0.chr * 260
+  # win32/api
+  Win32::GetModuleFileName.call(0, ruby_path, 260)
+  ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
+  rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
+  opt = read_fluentdopt
+  Process.spawn(rubybin_dir + "/ruby.exe " + rubybin_dir + "/fluentd " + opt + " -x " + INTEVENTOBJ_NAME)
+end
+
+class FluentdService < Win32::Daemon
+  INTEVENTOBJ_NAME = "fluentdwinsvc"
+
+  def initialize
+    super
+    @pid = 0
+  end
+
+  def service_main
+    opt = read_fluentdopt
+    @pid = service_main_start
+    while running?
+      sleep 5
+    end
+    begin
+      Process.kill(:TERM, @pid)
+    rescue Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+      # specified process is already dead
+    end
+  end
+
+  def service_stop
+    begin
+      Porcess.waitpid(@pid)
+    rescue Errno::ECHILD, Errno::ESRCH, Errno::EPERM
+      # specified process is already dead
+    end
+    ev = Win32::Event.open(INTEVENTOBJ_NAME)
+    ev.set
+    ev.close
+  end
+end
+
+FluentdService.mainloop
