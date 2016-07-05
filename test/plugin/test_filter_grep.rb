@@ -1,4 +1,5 @@
 require_relative '../helper'
+require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_grep'
 
 class GrepFilterTest < Test::Unit::TestCase
@@ -7,10 +8,11 @@ class GrepFilterTest < Test::Unit::TestCase
   setup do
     Fluent::Test.setup
     @time = Fluent::Engine.now
+    @tag = 'test'
   end
 
   def create_driver(conf = '')
-    Test::FilterTestDriver.new(GrepFilter).configure(conf, true)
+    Fluent::Test::Driver::Filter.new(Fluent::Plugin::GrepFilter).configure(conf)
   end
 
   sub_test_case 'configure' do
@@ -45,19 +47,20 @@ class GrepFilterTest < Test::Unit::TestCase
       d = create_driver(config)
       d.run {
         msgs.each { |msg|
-          d.emit({'foo' => 'bar', 'message' => msg}, @time)
+          d.feed(@tag, @time, {'foo' => 'bar', 'message' => msg})
         }
-      }.filtered
+      }
+      d.filtered
     end
 
     test 'empty config' do
       es = emit('', messages)
-      assert_equal(4, es.instance_variable_get(:@record_array).size)
+      assert_equal(4, es.size)
     end
 
     test 'regexpN' do
       es = emit('regexp1 message WARN', messages)
-      assert_equal(3, es.instance_variable_get(:@record_array).size)
+      assert_equal(3, es.size)
       assert_block('only WARN logs') do
         es.all? { |t, r|
           !r['message'].include?('INFO')
@@ -67,7 +70,7 @@ class GrepFilterTest < Test::Unit::TestCase
 
     test 'excludeN' do
       es = emit('exclude1 message favicon', messages)
-      assert_equal(3, es.instance_variable_get(:@record_array).size)
+      assert_equal(3, es.size)
       assert_block('remove favicon logs') do
         es.all? { |t, r|
           !r['message'].include?('favicon')
@@ -93,8 +96,10 @@ class GrepFilterTest < Test::Unit::TestCase
   sub_test_case 'grep non-string jsonable values' do
     def emit(msg, config = 'regexp1 message 0')
       d = create_driver(config)
-      d.emit({'foo' => 'bar', 'message' => msg}, @time)
-      d.run.filtered
+      d.run do
+        d.feed(@tag, @time, {'foo' => 'bar', 'message' => msg})
+      end
+      d.filtered
     end
 
     data(
@@ -104,12 +109,12 @@ class GrepFilterTest < Test::Unit::TestCase
       'float' => 0.1)
     test "value" do |data|
       es = emit(data)
-      assert_equal(1, es.instance_variable_get(:@record_array).size)
+      assert_equal(1, es.size)
     end
 
     test "value boolean" do
       es = emit(true, %[regexp1 message true])
-      assert_equal(1, es.instance_variable_get(:@record_array).size)
+      assert_equal(1, es.size)
     end
   end
 end
