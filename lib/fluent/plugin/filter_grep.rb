@@ -17,8 +17,8 @@
 require 'fluent/filter'
 require 'fluent/config/error'
 
-module Fluent
-  class GrepFilter < Filter
+module Fluent::Plugin
+  class GrepFilter < Fluent::Plugin::Filter
     Fluent::Plugin.register_filter('grep', self)
 
     def initialize
