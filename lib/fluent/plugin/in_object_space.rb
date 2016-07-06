@@ -33,18 +33,10 @@ module Fluent::Plugin
     config_param :tag, :string
     config_param :top, :integer, default: 15
 
-    def configure(conf)
-      super
-    end
-
     def start
       super
 
       timer_execute(:object_space_input, @emit_interval, &method(:on_timer))
-    end
-
-    def shutdown
-      super
     end
 
     class Counter
