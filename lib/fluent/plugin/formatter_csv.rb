@@ -36,9 +36,8 @@ module Fluent
 
       def format(tag, time, record)
         filter_record(tag, time, record)
-        row = @fields.inject([]) do |memo, key|
-            memo << record[key]
-            memo
+        row = @fields.map do |key|
+          record[key]
         end
         CSV.generate_line(row, col_sep: @delimiter,
                           force_quotes: @force_quotes)
