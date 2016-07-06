@@ -26,7 +26,7 @@ module Fluent::Plugin
   class ExecInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('exec', self)
 
-    helpers :timer
+    helpers :child_process
 
     def initialize
       super
@@ -108,27 +108,18 @@ module Fluent::Plugin
       super
 
       if @run_interval
-        timer_execute(:exec_input, @run_interval, &method(:run_periodic))
+        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read]) do |io|
+          run(io)
+        end
       else
-        @io = IO.popen(@command, "r")
-        @pid = @io.pid
-        timer_execute(:exec_input, @run_interval, repeat: false, &method(:run))
+        child_process_execute(:exec_input, @command, immediate: true, mode: [:read]) do |io|
+          run(io)
+        end
       end
     end
 
-    def run
-      @parser.call(@io)
-    end
-
-    def run_periodic
-      begin
-        io = IO.popen(@command, "r")
-        @parser.call(io)
-        Process.waitpid(io.pid)
-      rescue
-        log.error "exec failed to run or shutdown child process", error: $!
-        log.warn_backtrace $!.backtrace
-      end
+    def run(io)
+      @parser.call(io)
     end
 
     private
