@@ -14,6 +14,19 @@
 #    limitations under the License.
 #
 
+DEBUG_LOG = "C:\\fluentd-service.log"
+
+require 'time'
+
+$logger = ->(message, backtrace=nil){
+  File.open(DEBUG_LOG, "a+") do |f|
+    f.puts "#{Time.now.iso8601} #{message}"
+    backtrace.each{|line| f.puts line } if backtrace
+  end
+}
+
+begin
+
 require 'win32/registry'
 
 # require 'windows/debug' # windows-pr
@@ -36,10 +49,14 @@ class FluentdService < Win32::Daemon
 
   def service_main
     @pid = fluentd_process_launch
+    $logger.call("service launched, pid:#{@pid}")
     while running?
+      $logger.call("service still running")
       sleep 5
     end
+    $logger.call("service is now stopping")
     begin
+      $logger.call("killing #{@pid} by TERM")
       Process.kill(:TERM, @pid)
     rescue Errno::ECHILD, Errno::ESRCH, Errno::EPERM
       # specified process is already dead
@@ -48,13 +65,20 @@ class FluentdService < Win32::Daemon
 
   def service_stop
     begin
+      $logger.call("waiting process stopped")
       Porcess.waitpid(@pid)
+      $logger.call("child process successfully stopped")
     rescue Errno::ECHILD, Errno::ESRCH, Errno::EPERM
       # specified process is already dead
+      $logger.call("child process already dead")
+    rescue => e
+      $logger.call("unexpected error while waiting child process #{e.class}:#{e.message}")
+      raise
     end
     ev = Win32::Event.open(INTEVENTOBJ_NAME)
     ev.set
     ev.close
+    $logger.call("service #{INTEVENTOBJ_NAME} successfully stopped")
   end
 
   def fluentd_cmdline_option
@@ -75,3 +99,8 @@ class FluentdService < Win32::Daemon
 end
 
 FluentdService.mainloop
+
+rescue Exception => e
+$logger.call("Fluentd service crashed #{e.class}:#{e.message}", e.backtrace)
+raise
+end
