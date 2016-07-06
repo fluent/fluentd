@@ -66,7 +66,7 @@ class FluentdService < Win32::Daemon
   def service_stop
     begin
       $logger.call("waiting process stopped")
-      Porcess.waitpid(@pid)
+      Process.waitpid(@pid)
       $logger.call("child process successfully stopped")
     rescue Errno::ECHILD, Errno::ESRCH, Errno::EPERM
       # specified process is already dead
