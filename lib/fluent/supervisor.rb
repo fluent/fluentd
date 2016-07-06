@@ -487,6 +487,13 @@ module Fluent
       # worker process SHOULD NOT do anything with SIGINT, SHOULD just ignore.
       trap :INT do
         $log.debug "fluentd main process get SIGINT"
+
+        # When Fluentd is launched without supervisor, worker should handle ctrl-c by itself
+        if @standalone_worker
+          @finished = true
+          $log.debug "getting start to shutdown main process"
+          Fluent::Engine.stop
+        end
       end
 
       trap :TERM do
