@@ -94,13 +94,13 @@ module Fluent::Plugin
         if @keys.empty?
           raise Fluent::ConfigError, "keys option is required on exec input for tsv format"
         end
-        ExecUtil::TSVParser.new(@keys, method(:on_message))
+        Fluent::ExecUtil::TSVParser.new(@keys, method(:on_message))
       when 'json'
-        ExecUtil::JSONParser.new(method(:on_message))
+        Fluent::ExecUtil::JSONParser.new(method(:on_message))
       when 'msgpack'
-        ExecUtil::MessagePackParser.new(method(:on_message))
+        Fluent::ExecUtil::MessagePackParser.new(method(:on_message))
       else
-        ExecUtil::TextParserWrapperParser.new(conf, method(:on_message))
+        Fluent::ExecUtil::TextParserWrapperParser.new(conf, method(:on_message))
       end
     end
 
