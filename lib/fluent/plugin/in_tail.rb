@@ -199,7 +199,7 @@ module Fluent::Plugin
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, &method(:receive_lines))
       tw.attach do |watcher|
-        event_loop_attach(watcher.timer_trigger) if watcher.enable_watch_timer
+        watcher.timer_trigger = timer_execute(:timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
         event_loop_attach(watcher.stat_trigger)
       end
       tw
@@ -388,8 +388,6 @@ module Fluent::Plugin
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @timer_trigger = TimerWatcher.new(1, true, log, &method(:on_notify)) if @enable_watch_timer
-
         @stat_trigger = StatWatcher.new(path, log, &method(:on_notify))
 
         @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
@@ -400,7 +398,8 @@ module Fluent::Plugin
       end
 
       attr_reader :path
-      attr_reader :timer_trigger, :stat_trigger, :enable_watch_timer
+      attr_reader :stat_trigger, :enable_watch_timer
+      attr_accessor :timer_trigger
       attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
@@ -509,22 +508,6 @@ module Fluent::Plugin
         @io_handler.pe = mpe # Don't re-create IOHandler because IOHandler has an internal buffer.
 
         pe # This pe will be updated in on_rotate after TailWatcher is initialized
-      end
-
-      class TimerWatcher < Coolio::TimerWatcher
-        def initialize(interval, repeat, log, &callback)
-          @callback = callback
-          @log = log
-          super(interval, repeat)
-        end
-
-        def on_timer
-          @callback.call
-        rescue
-          # TODO log?
-          @log.error $!.to_s
-          @log.error_backtrace
-        end
       end
 
       class StatWatcher < Coolio::StatWatcher
@@ -657,7 +640,6 @@ module Fluent::Plugin
           @log.error_backtrace
         end
       end
-
 
       class LineBufferTimerFlusher
         def initialize(log, flush_interval, &flush_method)
