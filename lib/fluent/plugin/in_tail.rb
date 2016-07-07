@@ -31,7 +31,7 @@ module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('tail', self)
 
-    helpers :timer
+    helpers :timer, :event_loop
 
     FILE_PERMISSION = 0644
 
@@ -198,7 +198,10 @@ module Fluent::Plugin
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, &method(:receive_lines))
-      tw.attach(@_event_loop)
+      tw.attach do |watcher|
+        event_loop_attach(watcher.timer_trigger) if watcher.enable_watch_timer
+        event_loop_attach(watcher.stat_trigger)
+      end
       tw
     end
 
@@ -397,6 +400,7 @@ module Fluent::Plugin
       end
 
       attr_reader :path
+      attr_reader :timer_trigger, :stat_trigger, :enable_watch_timer
       attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
@@ -408,9 +412,8 @@ module Fluent::Plugin
         @receive_lines.call(lines, self)
       end
 
-      def attach(loop)
-        @timer_trigger.attach(loop) if @enable_watch_timer
-        @stat_trigger.attach(loop)
+      def attach
+        yield self
         on_notify
       end
 
