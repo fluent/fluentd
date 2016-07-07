@@ -19,7 +19,6 @@ require 'cool.io'
 require 'fluent/plugin/input'
 require 'fluent/config/error'
 require 'fluent/event'
-require 'fluent/system_config'
 require 'fluent/plugin/buffer'
 
 if Fluent.windows?
@@ -30,8 +29,6 @@ end
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
-    include Fluent::SystemConfig::Mixin
-
     Fluent::Plugin.register_input('tail', self)
 
     helpers :timer
