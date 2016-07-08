@@ -56,7 +56,7 @@ module Fluent
         end
 
         def concat(bulk, bulk_size)
-          raise "BUG: appending to unwritable chunk, now '#{self.state}'" unless self.writable?
+          raise "BUG: concatenating to unwritable chunk, now '#{self.state}'" unless self.writable?
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk.write bulk
