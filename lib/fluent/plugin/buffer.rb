@@ -188,12 +188,12 @@ module Fluent
             write_once(metadata, data, format: format, size: size) do |chunk, adding_bytesize|
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
-              if chunk.unstaged?
+              if chunk.staged?
+                staged_bytesize += adding_bytesize
+              elsif chunk.unstaged?
                 unstaged_chunks[metadata] ||= []
                 unstaged_chunks[metadata] << chunk
               end
-              # this value includes bytes of unstaged chunks, but it will be removed by enqueue_unstaged_chunk
-              staged_bytesize += adding_bytesize
             end
           end
 
@@ -248,6 +248,7 @@ module Fluent
                   u = unstaged_chunks[m].pop
                   if u.unstaged? && !chunk_size_full?(u)
                     @stage[m] = u.staged!
+                    @stage_size += u.bytesize
                   end
                 end
               elsif c.unstaged?
