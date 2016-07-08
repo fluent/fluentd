@@ -739,6 +739,7 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "receive_lines" do
   DummyWatcher = Struct.new("DummyWatcher", :tag)
 
   def test_receive_lines
@@ -795,6 +796,7 @@ class TailInputTest < Test::Unit::TestCase
     plugin = d.instance
     mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
     plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+  end
   end
 
   # Ensure that no fatal exception is raised when a file is missing and that
