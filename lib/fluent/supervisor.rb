@@ -114,10 +114,19 @@ module Fluent
     end
 
     def install_supervisor_signal_handlers
+      trap :HUP do
+        $log.debug "fluentd supervisor process get SIGHUP"
+        supervisor_sighup_handler
+      end unless Fluent.windows?
+
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
       end unless Fluent.windows?
+    end
+
+    def supervisor_sighup_handler
+      kill_worker
     end
 
     def supervisor_sigusr1_handler
@@ -136,7 +145,7 @@ module Fluent
         if Fluent.windows?
           Process.kill :KILL, pid
         else
-          Process.kill :INT, pid
+          Process.kill :TERM, pid
         end
       end
     end
