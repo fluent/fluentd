@@ -44,11 +44,6 @@ module Fluent
       false
     end
 
-    # for test
-    def ==(other)
-      self.to_msgpack_stream == other.to_msgpack_stream
-    end
-
     def slice(index, num)
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
