@@ -740,63 +740,63 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "receive_lines" do
-  DummyWatcher = Struct.new("DummyWatcher", :tag)
+    DummyWatcher = Struct.new("DummyWatcher", :tag)
 
-  def test_receive_lines
-    d = create_driver(EX_CONFIG, false)
-    d.run {}
-    plugin = d.instance
-    mock(plugin.router).emit_stream('tail', anything).once
-    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    def test_receive_lines
+      d = create_driver(EX_CONFIG, false)
+      d.run {}
+      plugin = d.instance
+      mock(plugin.router).emit_stream('tail', anything).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
-    config = %[
-      tag pre.*
-      path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-      format none
-      read_from_head true
-    ]
-    d = create_driver(config, false)
-    d.run {}
-    plugin = d.instance
-    mock(plugin.router).emit_stream('pre.foo.bar.log', anything).once
-    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+      config = %[
+        tag pre.*
+               path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
+        format none
+        read_from_head true
+      ]
+      d = create_driver(config, false)
+      d.run {}
+      plugin = d.instance
+      mock(plugin.router).emit_stream('pre.foo.bar.log', anything).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
-    config = %[
-      tag *.post
-      path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-      format none
-      read_from_head true
-    ]
-    d = create_driver(config, false)
-    d.run {}
-    plugin = d.instance
-    mock(plugin.router).emit_stream('foo.bar.log.post', anything).once
-    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+      config = %[
+        tag *.post
+        path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
+        format none
+        read_from_head true
+      ]
+      d = create_driver(config, false)
+      d.run {}
+      plugin = d.instance
+      mock(plugin.router).emit_stream('foo.bar.log.post', anything).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
-    config = %[
-      tag pre.*.post
-      path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-      format none
-      read_from_head true
-    ]
-    d = create_driver(config, false)
-    d.run {}
-    plugin = d.instance
-    mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
-    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+      config = %[
+        tag pre.*.post
+        path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
+        format none
+        read_from_head true
+      ]
+      d = create_driver(config, false)
+      d.run {}
+      plugin = d.instance
+      mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
-    config = %[
-      tag pre.*.post*ignore
-      path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-      format none
-      read_from_head true
-    ]
-    d = create_driver(config, false)
-    d.run {}
-    plugin = d.instance
-    mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
-    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
-  end
+      config = %[
+        tag pre.*.post*ignore
+        path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
+        format none
+        read_from_head true
+      ]
+      d = create_driver(config, false)
+      d.run {}
+      plugin = d.instance
+      mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
   end
 
   # Ensure that no fatal exception is raised when a file is missing and that
