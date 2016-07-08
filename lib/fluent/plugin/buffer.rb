@@ -181,7 +181,7 @@ module Fluent
         staged_bytesize = 0
         operated_chunks = []
         unstaged_chunks = {} # metadata => [chunk, chunk, ...]
-        enqueued_chunks = []
+        chunks_to_enqueue = []
 
         begin
           metadata_and_data.each do |metadata, data|
@@ -210,7 +210,7 @@ module Fluent
           begin
             first_chunk.commit
             if enqueue || first_chunk.unstaged? || chunk_size_full?(first_chunk)
-              enqueued_chunks << first_chunk
+              chunks_to_enqueue << first_chunk
             end
             first_chunk.mon_exit
           rescue
@@ -224,7 +224,7 @@ module Fluent
             begin
               chunk.commit
               if enqueue || chunk.unstaged? || chunk_size_full?(chunk)
-                enqueued_chunks << chunk
+                chunks_to_enqueue << chunk
               end
               chunk.mon_exit
             rescue => e
@@ -240,7 +240,7 @@ module Fluent
             # At here, staged chunks may be enqueued by other threads.
             @stage_size += staged_bytesize
 
-            enqueued_chunks.each do |c|
+            chunks_to_enqueue.each do |c|
               if c.staged? && (enqueue || chunk_size_full?(c))
                 m = c.metadata
                 enqueue_chunk(m)
