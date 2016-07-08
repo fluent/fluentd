@@ -742,11 +742,11 @@ class TailInputTest < Test::Unit::TestCase
   DummyWatcher = Struct.new("DummyWatcher", :tag)
 
   def test_receive_lines
-    plugin = create_driver(EX_CONFIG, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('tail', any).once
-      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
-    end
+    d = create_driver(EX_CONFIG, false)
+    d.run {}
+    plugin = d.instance
+    mock(plugin.router).emit_stream('tail', anything).once
+    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
     config = %[
       tag pre.*
@@ -754,11 +754,11 @@ class TailInputTest < Test::Unit::TestCase
       format none
       read_from_head true
     ]
-    plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('pre.foo.bar.log', any).once
-      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
-    end
+    d = create_driver(config, false)
+    d.run {}
+    plugin = d.instance
+    mock(plugin.router).emit_stream('pre.foo.bar.log', anything).once
+    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
     config = %[
       tag *.post
@@ -766,11 +766,11 @@ class TailInputTest < Test::Unit::TestCase
       format none
       read_from_head true
     ]
-    plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('foo.bar.log.post', any).once
-      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
-    end
+    d = create_driver(config, false)
+    d.run {}
+    plugin = d.instance
+    mock(plugin.router).emit_stream('foo.bar.log.post', anything).once
+    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
     config = %[
       tag pre.*.post
@@ -778,11 +778,11 @@ class TailInputTest < Test::Unit::TestCase
       format none
       read_from_head true
     ]
-    plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('pre.foo.bar.log.post', any).once
-      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
-    end
+    d = create_driver(config, false)
+    d.run {}
+    plugin = d.instance
+    mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
+    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
 
     config = %[
       tag pre.*.post*ignore
@@ -790,11 +790,11 @@ class TailInputTest < Test::Unit::TestCase
       format none
       read_from_head true
     ]
-    plugin = create_driver(config, false).instance
-    flexstub(plugin.router) do |engineclass|
-      engineclass.should_receive(:emit_stream).with('pre.foo.bar.log.post', any).once
-      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
-    end
+    d = create_driver(config, false)
+    d.run {}
+    plugin = d.instance
+    mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
+    plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
   end
 
   # Ensure that no fatal exception is raised when a file is missing and that

@@ -31,7 +31,7 @@ module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('tail', self)
 
-    helpers :timer, :event_loop
+    helpers :timer, :event_loop, :parser
 
     FILE_PERMISSION = 0644
 
@@ -88,7 +88,6 @@ module Fluent::Plugin
         $log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
 
-      configure_parser(conf)
       configure_tag
       configure_encoding
 
@@ -99,11 +98,6 @@ module Fluent::Plugin
                            method(:parse_singleline)
                          end
       @file_perm = system_config.file_permission || FILE_PERMISSION
-    end
-
-    def configure_parser(conf)
-      @parser = Fluent::Plugin.new_parser(conf['format'])
-      @parser.configure(conf)
     end
 
     def configure_tag
@@ -137,6 +131,13 @@ module Fluent::Plugin
 
     def start
       super
+
+      if @config['format']
+        @parser = parser_create(type: @config['format'], conf: @config)
+      else
+        raise Fluent::ConfigError, "parser section must be specified once" unless @parser_comfigs.size == 1
+        @parser = parser_create(conf: @parser_configs.first)
+      end
 
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
