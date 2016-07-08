@@ -742,13 +742,15 @@ class TailInputTest < Test::Unit::TestCase
   sub_test_case "receive_lines" do
     DummyWatcher = Struct.new("DummyWatcher", :tag)
 
-    def test_receive_lines
+    def test_tag
       d = create_driver(EX_CONFIG, false)
       d.run {}
       plugin = d.instance
       mock(plugin.router).emit_stream('tail', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
 
+    def test_tag_prefix
       config = %[
         tag pre.*
                path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
@@ -760,7 +762,9 @@ class TailInputTest < Test::Unit::TestCase
       plugin = d.instance
       mock(plugin.router).emit_stream('pre.foo.bar.log', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
 
+    def test_tag_suffix
       config = %[
         tag *.post
         path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
@@ -772,7 +776,9 @@ class TailInputTest < Test::Unit::TestCase
       plugin = d.instance
       mock(plugin.router).emit_stream('foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
 
+    def test_tag_prefix_and_suffix
       config = %[
         tag pre.*.post
         path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
@@ -784,7 +790,9 @@ class TailInputTest < Test::Unit::TestCase
       plugin = d.instance
       mock(plugin.router).emit_stream('pre.foo.bar.log.post', anything).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
 
+    def test_tag_prefix_and_suffix_ignore
       config = %[
         tag pre.*.post*ignore
         path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
