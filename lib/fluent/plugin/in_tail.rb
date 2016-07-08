@@ -135,7 +135,7 @@ module Fluent::Plugin
       if @config['format']
         @parser = parser_create(type: @config['format'], conf: @config)
       else
-        raise Fluent::ConfigError, "parser section must be specified once" unless @parser_comfigs.size == 1
+        raise Fluent::ConfigError, "parser section must be specified once" unless @parser_configs.size == 1
         @parser = parser_create(conf: @parser_configs.first)
       end
 
