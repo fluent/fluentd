@@ -139,4 +139,106 @@ class RegexpParserTest < ::Test::Unit::TestCase
       assert_equal 1362020400, record['time']
     end
   end
+
+  sub_test_case "Fluent::Plugin::RegexpParser" do
+    def create_driver(conf)
+      Fluent::Test::Driver::Parser.new(Fluent::Plugin::RegexpParser.new).configure(conf)
+    end
+
+    def test_parse_with_typed
+      conf = {
+        'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
+        'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+        'types' => 'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'
+      }
+      d = create_driver(conf)
+      internal_test_case(d.instance)
+    end
+
+    def test_parse_with_typed_and_name_separator
+      conf = {
+        'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
+        'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+        'types' => 'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer',
+        'types_label_delimiter' => '|'
+      }
+      d = create_driver(conf)
+      internal_test_case(d.instance)
+    end
+
+    def test_parse_with_time_key
+      conf = {
+        'expression' => %q!/(?<logtime>[^\]]*)/!,
+        'time_format' => "%Y-%m-%d %H:%M:%S %z",
+        'time_key' => 'logtime'
+      }
+      d = create_driver(conf)
+      text = '2013-02-28 12:00:00 +0900'
+      d.instance.parse(text) do |time, _record|
+        assert_equal Fluent::EventTime.parse(text), time
+      end
+    end
+
+    def test_parse_without_time
+      time_at_start = Time.now.to_i
+      text = "tagomori_satoshi tagomoris 34\n"
+
+      conf = {
+        'expression' => %q!/^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$/!,
+        'types' => 'name:string,user:string,age:integer'
+      }
+      d = create_driver(conf)
+
+      d.instance.parse(text) { |time, record|
+        assert time && time >= time_at_start, "parser puts current time without time input"
+        assert_equal "tagomori_satoshi", record["name"]
+        assert_equal "tagomoris", record["user"]
+        assert_equal 34, record["age"]
+      }
+    end
+
+    def test_parse_without_time_estimate_curent_event_false
+      text = "tagomori_satoshi tagomoris 34\n"
+      conf = {
+        'expression' => %q!/^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$/!,
+        'types' => 'name:string,user:string,age:integer'
+      }
+      d = create_driver(conf)
+      d.instance.estimate_current_event = false
+      d.instance.parse(text) { |time, record|
+        assert_equal "tagomori_satoshi", record["name"]
+        assert_equal "tagomoris", record["user"]
+        assert_equal 34, record["age"]
+
+        assert_nil time, "parser returns nil if configured so"
+      }
+    end
+
+    def test_parse_with_keep_time_key
+      conf = {
+        'expression' => %q!/(?<time>.*)/!,
+        'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key' => 'true',
+      }
+      d = create_driver(conf)
+      text = '28/Feb/2013:12:00:00 +0900'
+      d.instance.parse(text) do |_time, record|
+        assert_equal text, record['time']
+      end
+    end
+
+    def test_parse_with_keep_time_key_with_typecast
+      conf = {
+        'expression' => %q!/(?<time>.*)/!,
+        'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key' => 'true',
+        'types' => 'time:time:%d/%b/%Y:%H:%M:%S %z',
+      }
+      d = create_driver(conf)
+      text = '28/Feb/2013:12:00:00 +0900'
+      d.instance.parse(text) do |_time, record|
+        assert_equal 1362020400, record['time']
+      end
+    end
+  end
 end
