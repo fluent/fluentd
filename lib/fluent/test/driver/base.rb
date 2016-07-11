@@ -198,7 +198,7 @@ module Fluent
             @run_post_conditions << ->(){ @emit_streams.size >= expect_emits }
           end
           if expect_records
-            @run_post_conditions << ->(){ @emit_streams.reduce(0){|a, e| a + e.es.size } >= expected_records }
+            @run_post_conditions << ->(){ @emit_streams.reduce(0){|a, e| a + e.es.size } >= expect_records }
           end
           if timeout
             stop_at = Time.now + timeout
