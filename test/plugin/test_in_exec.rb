@@ -1,17 +1,17 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_exec'
 require 'net/http'
 
 class ExecInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @test_time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    @test_time = event_time("2011-01-02 13:14:15")
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
   def create_driver(conf = tsv_config)
-    Fluent::Test::InputTestDriver.new(Fluent::ExecInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ExecInput).configure(conf)
   end
 
   def tsv_config
@@ -90,7 +90,7 @@ class ExecInputTest < Test::Unit::TestCase
       sleep 2
     end
 
-    emits = d.emits
+    emits = d.events
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
     assert_equal_event_time(@test_time, emits[0][1])
@@ -103,7 +103,7 @@ class ExecInputTest < Test::Unit::TestCase
       sleep 2
     end
 
-    emits = d.emits
+    emits = d.events
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
     assert_equal_event_time(@test_time, emits[0][1])
@@ -116,7 +116,7 @@ class ExecInputTest < Test::Unit::TestCase
       sleep 2
     end
 
-    emits = d.emits
+    emits = d.events
     assert_equal true, emits.length > 0
     assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
     assert_equal_event_time(@test_time, emits[0][1])
@@ -129,7 +129,7 @@ class ExecInputTest < Test::Unit::TestCase
       sleep 2
     end
 
-    emits = d.emits
+    emits = d.events
     assert_equal true, emits.length > 0
     assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
     assert_equal_event_time(@test_time, emits[0][1])
