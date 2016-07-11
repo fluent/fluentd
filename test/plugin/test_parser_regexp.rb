@@ -7,14 +7,6 @@ class RegexpParserTest < ::Test::Unit::TestCase
     Fluent::Test.setup
   end
 
-  def create_driver(regexp, conf = {}, initialize_conf: false)
-    if initialize_conf
-      Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp, conf))
-    else
-      Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
-    end
-  end
-
   def internal_test_case(parser)
     text = '192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777'
     parser.parse(text) { |time, record|
@@ -29,6 +21,15 @@ class RegexpParserTest < ::Test::Unit::TestCase
                      'path' => ['/', '/user']
                    }, record)
     }
+  end
+
+  sub_test_case "Fluent::Compat::TextParser::RegexpParser" do
+  def create_driver(regexp, conf = {}, initialize_conf: false)
+    if initialize_conf
+      Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp, conf))
+    else
+      Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
+    end
   end
 
   def test_parse_with_typed
@@ -138,6 +139,7 @@ class RegexpParserTest < ::Test::Unit::TestCase
     d.instance.parse(text) do |_time, record|
       assert_equal 1362020400, record['time']
     end
+  end
   end
 
   sub_test_case "Fluent::Plugin::RegexpParser" do
