@@ -7,8 +7,12 @@ class RegexpParserTest < ::Test::Unit::TestCase
     Fluent::Test.setup
   end
 
-  def create_driver(regexp, conf = {})
-    Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
+  def create_driver(regexp, conf = {}, initialize_conf: false)
+    if initialize_conf
+      Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp, conf))
+    else
+      Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
+    end
   end
 
   def internal_test_case(parser)
@@ -34,7 +38,7 @@ class RegexpParserTest < ::Test::Unit::TestCase
       'time_format' => "%d/%b/%Y:%H:%M:%S %z",
       'types' => 'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'
     }
-    d = create_driver(regexp, conf)
+    d = create_driver(regexp, conf, initialize_conf: true)
     internal_test_case(d.instance)
   end
 
