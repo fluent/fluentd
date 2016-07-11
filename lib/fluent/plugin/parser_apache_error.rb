@@ -17,5 +17,5 @@
 require 'fluent/plugin/parser'
 
 Fluent::Plugin.register_parser('apache_error', Proc.new {
-  Fluent::Plugin::RegexpParser.new(/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/)
+  Fluent::Compat::TextParser::RegexpParser.new(/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/)
 })

@@ -30,11 +30,11 @@ module Fluent
 
         formats = parse_formats(conf).compact.map { |f| f[1..-2] }.join
         begin
-          @regex = Regexp.new(formats, Regexp::MULTILINE)
-          if @regex.named_captures.empty?
+          regex = Regexp.new(formats, Regexp::MULTILINE)
+          if regex.named_captures.empty?
             raise "No named captures"
           end
-          @parser = RegexpParser.new(@regex, conf)
+          @parser = Fluent::Compat::TextParser::RegexpParser.new(regex, conf)
         rescue => e
           raise ConfigError, "Invalid regexp '#{formats}': #{e}"
         end

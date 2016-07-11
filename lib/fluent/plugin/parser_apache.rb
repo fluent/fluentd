@@ -17,7 +17,7 @@
 require 'fluent/plugin/parser'
 
 Fluent::Plugin.register_parser('apache', Proc.new{
-  Fluent::Plugin::RegexpParser.new(
+  Fluent::Compat::TextParser::RegexpParser.new(
     /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,
     {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}
   )
