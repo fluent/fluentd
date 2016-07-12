@@ -25,11 +25,6 @@ module FluentPluginBufferTest
       @purged = false
       @failing = false
     end
-    def append(data)
-      @append_count += 1
-      raise DummyMemoryChunkError if @failing
-      super
-    end
     def concat(data, size)
       @append_count += 1
       raise DummyMemoryChunkError if @failing

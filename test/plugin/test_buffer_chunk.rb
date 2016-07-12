@@ -30,7 +30,7 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:open)
       assert chunk.respond_to?(:write_to)
       assert chunk.respond_to?(:msgpack_each)
-      assert_raise(NotImplementedError){ chunk.append(nil) }
+      assert_raise(NotImplementedError){ chunk.append([]) }
       assert_raise(NotImplementedError){ chunk.commit }
       assert_raise(NotImplementedError){ chunk.rollback }
       assert_raise(NotImplementedError){ chunk.bytesize }
