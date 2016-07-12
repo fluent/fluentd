@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_object_space'
 
 require 'timeout'
@@ -33,7 +33,7 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=TESTCONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::ObjectSpaceInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ObjectSpaceInput).configure(conf)
   end
 
   def test_configure
@@ -48,11 +48,11 @@ class ObjectSpaceInputTest < Test::Unit::TestCase
 
     d.run do
       waiting(10, d.instance) do
-        sleep 0.5 until d.emit_streams.size > 3
+        sleep 0.5 until d.events.size > 3
       end
     end
 
-    emits = d.emits
+    emits = d.events
     assert{ emits.length > 0 }
 
     emits.each { |tag, time, record|
