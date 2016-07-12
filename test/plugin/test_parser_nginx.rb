@@ -1,11 +1,12 @@
 require_relative '../helper'
 require 'fluent/test/driver/parser'
-require 'fluent/plugin/parser'
+require 'fluent/plugin/parser_nginx'
 
 class NginxParserTest < ::Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin.new_parser('nginx'))
+    @parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::NginxParser.new)
+    @parser.configure({})
     @expected = {
       'remote'  => '127.0.0.1',
       'host'    => '192.168.0.1',
