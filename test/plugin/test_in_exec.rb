@@ -93,10 +93,11 @@ class ExecInputTest < Test::Unit::TestCase
       sleep(0.1) until d.stop?
     end
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_json
@@ -108,10 +109,11 @@ class ExecInputTest < Test::Unit::TestCase
       sleep(0.1) until d.stop?
     end
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_msgpack
@@ -124,10 +126,11 @@ class ExecInputTest < Test::Unit::TestCase
       sleep(0.1) until d.stop?
     end
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_regexp
@@ -140,9 +143,10 @@ class ExecInputTest < Test::Unit::TestCase
       sleep(0.1) until d.stop?
     end
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 end
