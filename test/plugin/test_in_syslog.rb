@@ -59,15 +59,16 @@ class SyslogInputTest < Test::Unit::TestCase
         {'msg' => '<6>Dec 11 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec 11 00:00:00', '%b %d %H:%M:%S'))},
         {'msg' => '<6>Dec  1 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec  1 00:00:00', '%b  %d %H:%M:%S'))},
       ]
-
+      d.end_if do
+        d.emit_count >= 2
+      end
       d.run(expect_emits: 2) do
-        size = d.event_streams.size
         u = Fluent::SocketUtil.create_udp_socket(k)
         u.connect(k, PORT)
         tests.each {|test|
           u.send(test['msg'], 0)
         }
-        sleep(0.1) until d.emit_count >= size + 1
+        sleep(0.1) until d.stop?
       end
 
       events = d.events
@@ -81,14 +82,16 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver
     tests = create_test_case
 
+    d.end_if do
+      d.emit_count >= 2
+    end
     d.run(expect_emits: 2) do
-      size = d.event_streams.size
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
       tests.each {|test|
         u.send(test['msg'], 0)
       }
-      sleep(0.1) until d.emit_count >= size + 1
+      sleep(0.1) until d.stop?
     end
 
     compare_test_result(d.events, tests)
@@ -98,14 +101,16 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
     tests = create_test_case
 
+    d.end_if do
+      d.emit_count >= 2
+    end
     d.run(expect_emits: 2) do
-      size = d.event_streams.size
       tests.each {|test|
         TCPSocket.open('127.0.0.1', PORT) do |s|
           s.send(test['msg'], 0)
         end
       }
-      sleep(0.1) until d.emit_count >= size + 1
+      sleep(0.1) until d.stop?
     end
 
     compare_test_result(d.events, tests)
@@ -115,14 +120,16 @@ class SyslogInputTest < Test::Unit::TestCase
     d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
     tests = create_test_case
 
+    d.end_if do
+      d.emit_count >= 2
+    end
     d.run(expect_emits: 2) do
-      size = d.event_streams.size
       TCPSocket.open('127.0.0.1', PORT) do |s|
         tests.each {|test|
           s.send(test['msg'], 0)
         }
       end
-      sleep(0.1) until d.emit_count >= size + 1
+      sleep(0.1) until d.stop?
     end
 
     compare_test_result(d.events, tests)
@@ -136,14 +143,16 @@ class SyslogInputTest < Test::Unit::TestCase
       {'msg' => '<6>' + event.to_json + "\n", 'expected' => msg}
     }
 
+    d.end_if do
+      d.emit_count >= 2
+    end
     d.run(expect_emits: 2) do
-      size = d.event_streams.size
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
       tests.each {|test|
         u.send(test['msg'], 0)
       }
-      sleep(0.1) until d.emit_count >= size + 1
+      sleep(0.1) until d.stop?
     end
 
     compare_test_result(d.events, tests)
@@ -154,15 +163,17 @@ class SyslogInputTest < Test::Unit::TestCase
     tests = create_test_case
 
     host = nil
+    d.end_if do
+      d.emit_count >= 2
+    end
     d.run(expect_emits: 2) do
-      size = d.event_streams.size
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
       host = u.peeraddr[2]
       tests.each {|test|
         u.send(test['msg'], 0)
       }
-      sleep(0.1) until d.emit_count >= size + 1
+      sleep(0.1) until d.stop?
     end
 
     compare_test_result(d.events, tests, host)
