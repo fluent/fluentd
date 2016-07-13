@@ -86,8 +86,11 @@ class ExecInputTest < Test::Unit::TestCase
   def test_emit
     d = create_driver
 
+    d.end_if do
+       d.emit_count >= 2
+    end
     d.run do
-      sleep 2
+      sleep(0.1) until d.stop?
     end
 
     emits = d.events
@@ -98,9 +101,11 @@ class ExecInputTest < Test::Unit::TestCase
 
   def test_emit_json
     d = create_driver json_config
-
+    d.end_if do
+       d.emit_count >= 2
+    end
     d.run do
-      sleep 2
+      sleep(0.1) until d.stop?
     end
 
     emits = d.events
@@ -112,8 +117,11 @@ class ExecInputTest < Test::Unit::TestCase
   def test_emit_msgpack
     d = create_driver msgpack_config
 
+    d.end_if do
+       d.emit_count >= 2
+    end
     d.run do
-      sleep 2
+      sleep(0.1) until d.stop?
     end
 
     emits = d.events
@@ -125,8 +133,11 @@ class ExecInputTest < Test::Unit::TestCase
   def test_emit_regexp
     d = create_driver regexp_config
 
+    d.end_if do
+       d.emit_count >= 2
+    end
     d.run do
-      sleep 2
+      sleep(0.1) until d.stop?
     end
 
     emits = d.events
