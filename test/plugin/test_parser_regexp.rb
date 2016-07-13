@@ -147,6 +147,37 @@ class RegexpParserTest < ::Test::Unit::TestCase
       Fluent::Test::Driver::Parser.new(Fluent::Plugin::RegexpParser.new).configure(conf)
     end
 
+    sub_test_case "configure" do
+      def test_default_options
+        conf = {
+          'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
+          'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+          'types' => 'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'
+        }
+        d = create_driver(conf)
+        regexp = d.instance.instance_variable_get(:@regexp)
+        assert_equal(0, regexp.options)
+      end
+
+      data(
+        ignorecase: [{ "ignorecase" => true }, Regexp::IGNORECASE],
+        multiline: [{ "multiline" => true }, Regexp::MULTILINE],
+        ignorecase_multiline: [{ "ignorecase" => true, "multiline" => true }, Regexp::IGNORECASE | Regexp::MULTILINE],
+      )
+      def test_options(data)
+        regexp_option, expected = data
+        conf = {
+          'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
+          'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+          'types' => 'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'
+        }
+        conf = conf.merge(regexp_option)
+        d = create_driver(conf)
+        regexp = d.instance.instance_variable_get(:@regexp)
+        assert_equal(expected, regexp.options)
+      end
+    end
+
     def test_parse_with_typed
       conf = {
         'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,

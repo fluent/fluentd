@@ -6,6 +6,8 @@ module Fluent
       Plugin.register_parser("regexp", self)
 
       config_param :expression, :string, default: ""
+      config_param :ignorecase, :bool, default: false
+      config_param :multiline, :bool, default: false
       config_param :time_key, :string, default: 'time'
       config_param :time_format, :string, default: nil
 
@@ -19,7 +21,10 @@ module Fluent
         @time_parser = TimeParser.new(@time_format)
         unless @expression.empty?
           if @expression[0] == "/" && @expression[-1] == "/"
-            @regexp = Regexp.new(@expression[1..-2])
+            regexp_option = 0
+            regexp_option |= Regexp::IGNORECASE if @ignorecase
+            regexp_option |= Regexp::MULTILINE if @multiline
+            @regexp = Regexp.new(@expression[1..-2], regexp_option)
           else
             raise Fluent::ConfigError, "expression must start with `/` and end with `/`: #{@expression}"
           end
