@@ -78,7 +78,7 @@ module Fluent
                      0, creationdisposition, FILE_ATTRIBUTE_NORMAL, 0)
       if @file_handle == INVALID_HANDLE_VALUE
         err = GetLastError.call
-        if err == ERROR_FILE_NOT_FOUND || err == ERROR_ACCESS_DENIED
+        if err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == ERROR_ACCESS_DENIED
           raise SystemCallError.new(2)
         end
         raise SystemCallError.new(err)
