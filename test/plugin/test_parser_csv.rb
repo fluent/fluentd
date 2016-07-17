@@ -61,34 +61,46 @@ class CSVParserTest < ::Test::Unit::TestCase
   end
 
   data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
-  def test_parse_with_null_value_pattern
+  def test_parse_with_null_value_pattern(param)
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure(
                      'keys'=>param,
-                     'time_key'=>'time',
-                     'null_value_pattern'=>'^(-|null|NULL)$'
+                     'null_value_pattern'=>'^(-|null|NULL)$',
                      )
     parser.instance.parse("-,null,NULL,,--,nuLL") do |time, record|
       assert_nil record['a']
       assert_nil record['b']
       assert_nil record['c']
-      assert_equal record['d'], ''
+      assert_nil record['d']
       assert_equal record['e'], '--'
       assert_equal record['f'], 'nuLL'
     end
   end
 
   data('array param' => '["a","b"]', 'string param' => 'a,b')
-  def test_parse_with_null_empty_string
+  def test_parse_with_null_empty_string(param)
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
     parser.configure(
                      'keys'=>param,
-                     'time_key'=>'time',
                      'null_empty_string'=>true
                      )
     parser.instance.parse(", ") do |time, record|
       assert_nil record['a']
       assert_equal record['b'], ' '
+    end
+  end
+
+  data('array param' => '["a","b","c"]', 'string param' => 'a,b,c')
+  def test_parse_with_option_delimiter(param)
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
+    parser.configure(
+                     'keys'=>param,
+                     'delimiter'=>' ',
+                     )
+    parser.instance.parse("123 456 789") do |time, record|
+      assert_equal record['a'], '123'
+      assert_equal record['b'], '456'
+      assert_equal record['c'], '789'
     end
   end
 end
