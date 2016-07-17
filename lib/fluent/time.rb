@@ -16,6 +16,7 @@
 
 require 'time'
 require 'msgpack'
+require 'fluent/timezone'
 
 module Fluent
   class EventTime
@@ -99,6 +100,76 @@ module Fluent
     ## TODO: For performance, implement +, -, and so on
     def method_missing(name, *args, &block)
       @sec.send(name, *args, &block)
+    end
+  end
+
+  class TimeFormatter
+    def initialize(format, localtime, timezone = nil)
+      @tc1 = 0
+      @tc1_str = nil
+      @tc2 = 0
+      @tc2_str = nil
+
+      if format && format =~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
+        define_singleton_method(:format, method(:format_with_subsec))
+        define_singleton_method(:call, method(:format_with_subsec))
+      else
+        define_singleton_method(:format, method(:format_without_subsec))
+        define_singleton_method(:call, method(:format_with_subsec))
+      end
+
+      formatter = Fluent::Timezone.formatter(timezone, format)
+      @format_nocache = case
+                        when formatter           then formatter
+                        when format && localtime then ->(time){ Time.at(time).strftime(format) }
+                        when format              then ->(time){ Time.at(time).utc.strftime(format) }
+                        when localtime           then ->(time){ Time.at(time).iso8601 }
+                        else                          ->(time){ Time.at(time).utc.iso8601 }
+                        end
+    end
+
+    def format_without_subsec(time)
+      if @tc1 == time
+        return @tc1_str
+      elsif @tc2 == time
+        return @tc2_str
+      else
+        str = format_nocache(time)
+        if @tc1 < @tc2
+          @tc1 = time
+          @tc1_str = str
+        else
+          @tc2 = time
+          @tc2_str = str
+        end
+        return str
+      end
+    end
+
+    def format_with_subsec(time)
+      if Fluent::EventTime.eq?(@tc1, time)
+        return @tc1_str
+      elsif Fluent::EventTime.eq?(@tc2, time)
+        return @tc2_str
+      else
+        str = format_nocache(time)
+        if @tc1 < @tc2
+          @tc1 = time
+          @tc1_str = str
+        else
+          @tc2 = time
+          @tc2_str = str
+        end
+        return str
+      end
+    end
+
+    ## Dynamically defined in #initialize
+    # def format(time)
+    # end
+
+    def format_nocache(time)
+      @format_nocache.call(time)
     end
   end
 end

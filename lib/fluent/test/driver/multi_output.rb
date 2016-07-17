@@ -17,21 +17,18 @@
 require 'fluent/test/driver/base'
 require 'fluent/test/driver/event_feeder'
 
-require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
 
 module Fluent
   module Test
     module Driver
-      class Output < Base
+      class MultiOutput < Base
         include EventFeeder
 
         def initialize(klass, opts: {}, &block)
           super
-          raise ArgumentError, "plugin is not an instance of Fluent::Plugin::Output" unless @instance.is_a? Fluent::Plugin::Output
-          @instance.in_tests = true
+          raise ArgumentError, "plugin is not an instance of Fluent::Plugin::MultiOutput" unless @instance.is_a? Fluent::Plugin::MultiOutput
           @flush_buffer_at_cleanup = nil
-          @format_hook = nil
-          @format_results = []
         end
 
         def run(flush: true, **kwargs, &block)
@@ -42,33 +39,12 @@ module Fluent
         def run_actual(**kwargs, &block)
           super(**kwargs, &block)
           if @flush_buffer_at_cleanup
-            @instance.force_flush
+            @instance.outputs.each{|o| o.force_flush }
           end
-        end
-
-        def formatted
-          @format_results
         end
 
         def flush
-          @instance.force_flush
-        end
-
-        def instance_hook_after_started
-          super
-
-          # it's decided after #start whether output plugin instances use @custom_format or not.
-          if @instance.instance_eval{ @custom_format }
-            @format_hook = format_hook = ->(result){ @format_results << result }
-            m = Module.new do
-              define_method(:format) do |tag, time, record|
-                result = super(tag, time, record)
-                format_hook.call(result)
-                result
-              end
-            end
-            @instance.singleton_class.prepend m
-          end
+          @instance.outputs.each{|o| o.force_flush }
         end
       end
     end

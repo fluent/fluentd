@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_gc_stat'
 
 class GCStatInputTest < Test::Unit::TestCase
@@ -13,7 +13,7 @@ class GCStatInputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::GCStatInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::GCStatInput).configure(conf)
   end
 
   def test_configure
@@ -31,9 +31,9 @@ class GCStatInputTest < Test::Unit::TestCase
       sleep 2
     end
 
-    emits = d.emits
-    assert(emits.length > 0)
-    assert_equal(stat, emits[0][2])
-    assert(emits[0][1].is_a?(Fluent::EventTime))
+    events = d.events
+    assert(events.length > 0)
+    assert_equal(stat, events[0][2])
+    assert(events[0][1].is_a?(Fluent::EventTime))
   end
 end

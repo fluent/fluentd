@@ -17,13 +17,15 @@
 require 'cool.io'
 require 'yajl'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/config/error'
-require 'fluent/parser'
+require 'fluent/plugin/parser'
 
-module Fluent
+module Fluent::Plugin
   class SyslogInput < Input
-    Plugin.register_input('syslog', self)
+    Fluent::Plugin.register_input('syslog', self)
+
+    helpers :parser, :event_loop
 
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
@@ -99,14 +101,13 @@ module Fluent
       @use_default = false
 
       if conf.has_key?('format')
-        @parser = Plugin.new_parser(conf['format'])
-        @parser.configure(conf)
+        @parser = parser_create(usage: 'syslog_input', type: conf['format'], conf: conf)
       else
         conf['with_priority'] = true
-        @parser = TextParser::SyslogParser.new
-        @parser.configure(conf)
+        @parser = parser_create(usage: 'syslog_input', type: 'syslog', conf: conf)
         @use_default = true
       end
+      @_event_loop_run_timeout = @blocking_timeout
     end
 
     def start
@@ -118,27 +119,14 @@ module Fluent
                    method(:receive_data_parser)
                  end
 
-      @loop = Coolio::Loop.new
       @handler = listen(callback)
-      @loop.attach(@handler)
-
-      @thread = Thread.new(&method(:run))
+      event_loop_attach(@handler)
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
       @handler.close
-      @thread.join
 
       super
-    end
-
-    def run
-      @loop.run(@blocking_timeout)
-    rescue
-      log.error "unexpected error", error: $!.to_s
-      log.error_backtrace
     end
 
     private

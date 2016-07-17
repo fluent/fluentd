@@ -14,35 +14,36 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin'
-require 'fluent/plugin/input'
-require 'fluent/compat/call_super_mixin'
-require 'fluent/process' # to load Fluent::DetachProcessMixin
+require 'fluent/config/error'
+require 'fluent/config/types'
+require 'fluent/compat/record_filter_mixin'
 
 module Fluent
   module Compat
-    class Input < Fluent::Plugin::Input
-      # TODO: warn when deprecated
+    module SetTagKeyMixin
+      include RecordFilterMixin
 
-      def initialize
+      attr_accessor :include_tag_key, :tag_key
+
+      def configure(conf)
+        @include_tag_key = false
+
         super
-        unless self.class.ancestors.include?(Fluent::Compat::CallSuperMixin)
-          self.class.prepend Fluent::Compat::CallSuperMixin
+
+        if s = conf['include_tag_key']
+          include_tag_key = Fluent::Config.bool_value(s)
+          raise Fluent::ConfigError, "Invalid boolean expression '#{s}' for include_tag_key parameter" if include_tag_key.nil?
+
+          @include_tag_key = include_tag_key
         end
+
+        @tag_key = conf['tag_key'] || 'tag' if @include_tag_key
       end
 
-      # These definitions are to get instance methods of superclass of 3rd party plugins
-      # to make it sure to call super
-      def start
+      def filter_record(tag, time, record)
         super
-      end
 
-      def before_shutdown
-        super
-      end
-
-      def shutdown
-        super
+        record[@tag_key] = tag if @include_tag_key
       end
     end
   end

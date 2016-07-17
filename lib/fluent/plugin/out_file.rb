@@ -103,9 +103,7 @@ module Fluent
       @formatter.configure(conf)
 
       if @symlink_path && @buffer.respond_to?(:path)
-        (class << @buffer; self; end).module_eval do
-          prepend SymlinkBufferMixin
-        end
+        @buffer.extend SymlinkBufferMixin
         @buffer.symlink_path = @symlink_path
       end
 

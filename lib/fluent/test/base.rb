@@ -14,27 +14,14 @@
 #    limitations under the License.
 #
 
+require 'fluent/config'
 require 'fluent/engine'
 require 'fluent/system_config'
-require 'fluent/config'
+require 'fluent/test/log'
 require 'serverengine'
 
 module Fluent
   module Test
-    def self.setup
-      Fluent.__send__(:remove_const, :Engine)
-      engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
-
-      engine.define_singleton_method(:now=) {|n|
-        @now = n
-      }
-      engine.define_singleton_method(:now) {
-        @now ||= super()
-      }
-
-      nil
-    end
-
     class TestDriver
       include ::Test::Unit::Assertions
 
@@ -82,57 +69,6 @@ module Fluent
         ensure
           @instance.shutdown
         end
-      end
-    end
-
-    class DummyLogDevice
-      attr_reader :logs
-
-      def initialize
-        @logs = []
-      end
-
-      def reset
-        @logs = []
-      end
-
-      def tty?
-        false
-      end
-
-      def puts(*args)
-        args.each{ |arg| write(arg + "\n") }
-      end
-
-      def write(message)
-        @logs.push message
-      end
-
-      def flush
-        true
-      end
-
-      def close
-        true
-      end
-    end
-
-    class TestLogger < Fluent::PluginLogger
-      def initialize
-        @logdev = DummyLogDevice.new
-        dl_opts = {}
-        dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
-        logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
-        log = Fluent::Log.new(logger)
-        super(log)
-      end
-
-      def reset
-        @logdev.reset
-      end
-
-      def logs
-        @logdev.logs
       end
     end
   end

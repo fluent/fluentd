@@ -14,17 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/filter'
+require 'fluent/plugin/filter'
 require 'fluent/config/error'
+require 'fluent/plugin/string_util'
 
-module Fluent
+module Fluent::Plugin
   class GrepFilter < Filter
     Fluent::Plugin.register_filter('grep', self)
-
-    def initialize
-      super
-      require 'fluent/plugin/string_util'
-    end
 
     REGEXP_MAX_NUM = 20
 

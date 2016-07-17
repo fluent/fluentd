@@ -70,9 +70,7 @@ module Fluent
                 TestEventRouter.new(driver)
               end
             end
-            @instance.singleton_class.module_eval do
-              prepend mojule
-            end
+            @instance.singleton_class.prepend mojule
           end
 
           @instance.configure(@config)
@@ -106,6 +104,7 @@ module Fluent
         end
 
         def events(tag: nil)
+          return [] if @event_streams.nil?
           selected = @event_streams.select{|e| tag.nil? ? true : e.tag == tag }
           if block_given?
             selected.each do |e|
@@ -199,7 +198,7 @@ module Fluent
             @run_post_conditions << ->(){ @emit_streams.size >= expect_emits }
           end
           if expect_records
-            @run_post_conditions << ->(){ @emit_streams.reduce(0){|a, e| a + e.es.size } >= expected_records }
+            @run_post_conditions << ->(){ @emit_streams.reduce(0){|a, e| a + e.es.size } >= expect_records }
           end
           if timeout
             stop_at = Time.now + timeout

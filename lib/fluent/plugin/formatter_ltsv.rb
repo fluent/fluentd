@@ -30,10 +30,11 @@ module Fluent
       # TODO: escaping for \t in values
       def format(tag, time, record)
         filter_record(tag, time, record)
-        formatted = record.inject('') { |result, pair|
-          result << @delimiter if result.length.nonzero?
-          result << "#{pair.first}#{@label_delimiter}#{pair.last}"
-        }
+        formatted = ""
+        record.each do |label, value|
+          formatted << @delimiter if formatted.length.nonzero?
+          formatted << "#{label}#{@label_delimiter}#{value}"
+        end
         formatted << "\n"
         formatted
       end
