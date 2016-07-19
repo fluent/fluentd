@@ -88,4 +88,17 @@ class CSVParserTest < ::Test::Unit::TestCase
       assert_equal record['b'], ' '
     end
   end
+
+  data('array param' => '["a","b","c"]', 'string param' => 'a,b,c')
+  def test_parse_with_option_delimiter(param)
+    d = create_driver(
+                     'keys'=>param,
+                     'delimiter'=>' ',
+                     )
+    d.instance.parse("123 456 789") do |time, record|
+      assert_equal record['a'], '123'
+      assert_equal record['b'], '456'
+      assert_equal record['c'], '789'
+    end
+  end
 end

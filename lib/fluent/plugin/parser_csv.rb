@@ -23,8 +23,10 @@ module Fluent
     class CSVParser < ValuesParser
       Plugin.register_parser('csv', self)
 
+      config_param :delimiter, :string, default: ','
+
       def parse(text)
-        yield values_map(CSV.parse_line(text))
+        yield values_map(CSV.parse_line(text, col_sep: @delimiter))
       end
     end
   end
