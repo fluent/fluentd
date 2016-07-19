@@ -72,13 +72,27 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_configure_from_encoding
-    # valid from_encoding
+    # If only specified from_encoding set to nil
     d = create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
+    assert_equal nil, d.instance.from_encoding
+
+    # valid setting
+    d = create_driver %[
+      format /(?<message>.*)/
+      read_from_head true
+      from_encoding utf-8
+      encoding utf-8
+    ]
     assert_equal Encoding::UTF_8, d.instance.from_encoding
 
     # invalid from_encoding
     assert_raise(Fluent::ConfigError) do
-      create_driver(SINGLE_LINE_CONFIG + 'from_encoding no-such-encoding')
+      d = create_driver %[
+        format /(?<message>.*)/
+        read_from_head true
+        from_encoding no-such-encoding
+        encoding utf-8
+      ]
     end
   end
 
