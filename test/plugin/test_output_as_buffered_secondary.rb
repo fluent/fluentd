@@ -208,6 +208,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:write){|chunk| chunk.read.split("\n").each{|line| written << JSON.parse(line) } }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -269,6 +271,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:prefer_delayed_commit){ false }
       @i.secondary.register(:write){|chunk| chunk.read.split("\n").each{|line| written << JSON.parse(line) } }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -332,6 +336,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:prefer_delayed_commit){ true }
       @i.secondary.register(:try_write){|chunk| chunks << chunk; chunk.read.split("\n").each{|line| written << JSON.parse(line) } }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -407,6 +413,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:try_write){|chunk| chunks << chunk; chunk.read.split("\n").each{|line| written << JSON.parse(line) } }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -481,6 +489,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:try_write){|chunk| chunks << chunk; chunk.read.split("\n").each{|line| written << JSON.parse(line) } }
       @i.secondary.register(:write){|chunk| raise "don't use this" }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -564,6 +574,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:write){|chunk| raise "your secondary is also useless." }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -632,6 +644,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:write){|chunk| chunk.read.split("\n").each{|line| written << JSON.parse(line) } }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -699,6 +713,8 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.secondary.register(:prefer_delayed_commit){ false }
       @i.secondary.register(:write){|chunk| raise "your secondary is also useless." }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
