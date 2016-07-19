@@ -26,7 +26,7 @@ module Fluent
       config_param :delimiter, :string, default: ','
 
       def parse(text)
-        yield values_map(CSV.parse_line(text,{col_sep: @delimiter}))
+        yield values_map(CSV.parse_line(text, col_sep: @delimiter))
       end
     end
   end
