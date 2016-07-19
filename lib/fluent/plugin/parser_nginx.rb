@@ -16,9 +16,13 @@
 
 require 'fluent/plugin/parser'
 
-Fluent::Plugin.register_parser('nginx', Proc.new {
-  Fluent::Plugin::RegexpParser.new(
-    /^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/,
-    {'time_format'=>"%d/%b/%Y:%H:%M:%S %z"}
-  )
-})
+module Fluent
+  module Plugin
+    class NginxParser < RegexpParser
+      Plugin.register_parser("nginx", self)
+
+      config_set_default :expression, %q{/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/}
+      config_set_default :time_format, "%d/%b/%Y:%H:%M:%S %z"
+    end
+  end
+end

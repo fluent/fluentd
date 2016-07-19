@@ -18,6 +18,7 @@ require 'fluent/plugin'
 require 'fluent/plugin/parser'
 require 'fluent/mixin'
 
+require 'fluent/plugin/parser_regexp'
 require 'fluent/plugin/parser_json'
 require 'fluent/plugin/parser_tsv'
 require 'fluent/plugin/parser_ltsv'
@@ -121,6 +122,22 @@ module Fluent
 
       class RegexpParser < Fluent::Plugin::RegexpParser
         # TODO: warn when deprecated
+        def initialize(regexp, conf = {})
+          super()
+
+          unless conf.empty?
+            unless conf.is_a?(Config::Element)
+              conf = Config::Element.new('default_regexp_conf', '', conf, [])
+            end
+            configure(conf)
+          end
+
+          @regexp = regexp
+        end
+
+        def patterns
+          {'format' => @regexp, 'time_format' => @time_format}
+        end
       end
 
       class ValuesParser < Fluent::Plugin::ValuesParser
