@@ -28,16 +28,6 @@ module Fluent
           @adding_size = 0
         end
 
-        def append(data)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
-
-          adding = data.join.force_encoding(Encoding::ASCII_8BIT)
-          @chunk << adding
-          @adding_bytes += adding.bytesize
-          @adding_size += data.size
-          true
-        end
-
         def concat(bulk, bulk_size)
           raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
 

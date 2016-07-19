@@ -63,7 +63,11 @@ module Fluent
 
         # data is array of formatted record string
         def append(data)
-          raise NotImplementedError, "Implement this method in child class"
+          adding = ''.b
+          data.each do |d|
+            adding << d.b
+          end
+          concat(adding, data.size)
         end
 
         # for event streams which is packed or zipped (and we want not to unpack/uncompress)
