@@ -88,8 +88,7 @@ module Fluent
 
       configure_parser(conf)
       configure_tag
-      @encoding = parse_encoding_param(conf['encoding'])
-      @from_encoding = parse_encoding_param(conf['from_encoding'])
+      configure_encoding
 
       @multiline_mode = conf['format'] =~ /multiline/
       @receive_handler = if @multiline_mode
@@ -112,6 +111,22 @@ module Fluent
       else
         @tag_prefix = nil
         @tag_suffix = nil
+      end
+    end
+
+    def configure_encoding
+      if @encoding
+        @encoding = parse_encoding_param(@encoding)
+        if @from_encoding
+          @from_encoding = parse_encoding_param(@from_encoding)
+        end
+      else
+        if @from_encoding
+          $log.warn "'from_encoding' parameter must be specified in conjunction with 'encoding' paramter."
+          $log.warn "these parameter set to nil."
+          @encoding = nil
+          @from_encoding = nil
+        end
       end
     end
 
