@@ -470,6 +470,11 @@ module Fluent
 
         unless stored
           # try step-by-step appending if data can't be stored into existing a chunk in non-bulk mode
+          #
+          # 1/10 size of original event stream (splits_count == 10) seems enough small
+          # to try emitting events into existing chunk.
+          # it does not matter to split event stream into very small splits, because chunks have less
+          # overhead to write data many times (even about file buffer chunks).
           write_step_by_step(metadata, data, format, 10, &block)
         end
       rescue ShouldRetry
