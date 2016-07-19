@@ -65,9 +65,9 @@ module Fluent
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
     desc 'The encoding after conversion of the input.'
-    config_param :encoding, default: nil
+    config_param :encoding, :string, default: nil
     desc 'The encoding of the input.'
-    config_param :from_encoding, default: nil
+    config_param :from_encoding, :string, default: nil
     desc 'Add the log path being tailed to records. Specify the field name to be used.'
     config_param :path_key, :string, default: nil
 
