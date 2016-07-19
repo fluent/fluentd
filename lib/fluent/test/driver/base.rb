@@ -51,7 +51,7 @@ module Fluent
           @error_events = nil
         end
 
-        attr_reader :instance, :logs
+        attr_reader :instance, :logs, :event_streams
 
         def configure(conf, syntax: :v1)
           if conf.is_a?(Fluent::Config::Element)
