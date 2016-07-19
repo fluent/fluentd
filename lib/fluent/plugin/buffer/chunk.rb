@@ -63,9 +63,9 @@ module Fluent
 
         # data is array of formatted record string
         def append(data)
-          adding = ''.force_encoding(Encoding::ASCII_8BIT)
+          adding = ''.b
           data.each do |d|
-            adding << d.force_encoding(Encoding::ASCII_8BIT)
+            adding << d.b
           end
           concat(adding, data.size)
         end
