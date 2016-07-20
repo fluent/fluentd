@@ -20,6 +20,7 @@ require 'fluent/plugin'
 require 'fluent/plugin/storage'
 require 'fluent/plugin_helper/timer'
 require 'fluent/config/element'
+require 'fluent/configurable'
 
 module Fluent
   module PluginHelper
@@ -63,14 +64,17 @@ module Fluent
         s.storage
       end
 
-      def self.included(mod)
-        mod.instance_eval do
-          # minimum section definition to instantiate storage plugin instances
-          config_section :storage, required: false, multi: true, param_name: :storage_configs do
-            config_argument :usage, :string, default: ''
-            config_param    :@type, :string, default: Fluent::Plugin::Storage::DEFAULT_TYPE
-          end
+      module StorageParams
+        include Fluent::Configurable
+        # minimum section definition to instantiate storage plugin instances
+        config_section :storage, required: false, multi: true, param_name: :storage_configs do
+          config_argument :usage, :string, default: ''
+          config_param    :@type, :string, default: Fluent::Plugin::Storage::DEFAULT_TYPE
         end
+      end
+
+      def self.included(mod)
+        mod.include StorageParams
       end
 
       attr_reader :_storages # for tests

@@ -17,6 +17,7 @@
 require 'fluent/plugin'
 require 'fluent/plugin/formatter'
 require 'fluent/config/element'
+require 'fluent/configurable'
 
 module Fluent
   module PluginHelper
@@ -52,14 +53,17 @@ module Fluent
         formatter
       end
 
-      def self.included(mod)
-        mod.instance_eval do
-          # minimum section definition to instantiate formatter plugin instances
-          config_section :format, required: false, multi: true, param_name: :formatter_configs do
-            config_argument :usage, :string, default: ''
-            config_param    :@type, :string
-          end
+      module FormatterParams
+        include Fluent::Configurable
+        # minimum section definition to instantiate formatter plugin instances
+        config_section :format, required: false, multi: true, param_name: :formatter_configs do
+          config_argument :usage, :string, default: ''
+          config_param    :@type, :string
         end
+      end
+
+      def self.included(mod)
+        mod.include FormatterParams
       end
 
       attr_reader :_formatters # for tests
