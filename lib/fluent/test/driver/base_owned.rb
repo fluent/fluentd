@@ -14,28 +14,29 @@
 #    limitations under the License.
 #
 
-require 'fluent/config'
-require 'fluent/config/element'
+require 'fluent/test/driver/base'
+
+require 'fluent/plugin/base'
+require 'fluent/plugin_id'
 require 'fluent/log'
-require 'fluent/test/driver/owner'
+require 'fluent/plugin_helper'
 
 module Fluent
   module Test
     module Driver
-      class BaseOwned
+      class OwnerDummy < Fluent::Plugin::Base
+        include PluginId
+        include PluginLoggerMixin
+        include PluginHelper::Mixin
+      end
+
+      class BaseOwned < Base
+        attr_accessor :section_name
+
         def initialize(klass, opts: {}, &block)
-          if klass.is_a?(Class)
-            if block
-              # Create new class for test w/ overwritten methods
-              #   klass.dup is worse because its ancestors does NOT include original class name
-              klass = Class.new(klass)
-              klass.module_eval(&block)
-            end
-            @instance = klass.new
-          else
-            @instance = klass
-          end
-          owner = Fluent::Test::Driver::Owner.new
+          super
+
+          owner = OwnerDummy.new
           if opts
             owner.system_config_override(opts)
           end
@@ -52,8 +53,6 @@ module Fluent
           @section_name = ''
         end
 
-        attr_reader :instance, :logs
-
         def configure(conf, syntax: :v1)
           if conf.is_a?(Fluent::Config::Element)
             @config = conf
@@ -64,41 +63,6 @@ module Fluent
           end
           @instance.configure(@config)
           self
-        end
-
-        def run(start: true, shutdown: true, &block)
-          instance_start if start
-
-          begin
-            yield
-          ensure
-            instance_shutdown if shutdown
-          end
-        end
-
-        def instance_start
-          unless @instance.started?
-            @instance.start
-            instance_hook_after_started
-          end
-        end
-
-        def instance_hook_after_started
-          # insert hooks for tests available after instance.start
-        end
-
-        def instance_shutdown
-          @instance.stop            unless @instance.stopped?
-          @instance.before_shutdown unless @instance.before_shutdown?
-          @instance.shutdown        unless @instance.shutdown?
-
-          if @instance.respond_to?(:event_loop_wait_until_stop)
-            @instance.event_loop_wait_until_stop
-          end
-
-          @instance.after_shutdown  unless @instance.after_shutdown?
-          @instance.close     unless @instance.closed?
-          @instance.terminate unless @instance.terminated?
         end
       end
     end

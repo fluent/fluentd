@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/base'
+require 'fluent/test/driver/base_owner'
 require 'fluent/test/driver/event_feeder'
 
 require 'fluent/plugin/filter'
@@ -22,7 +22,7 @@ require 'fluent/plugin/filter'
 module Fluent
   module Test
     module Driver
-      class Filter < Base
+      class Filter < BaseOwner
         include EventFeeder
 
         attr_reader :filtered
