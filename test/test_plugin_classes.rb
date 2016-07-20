@@ -56,7 +56,34 @@ module FluentTest
     end
   end
 
-  class FluentTestFilter < ::Fluent::Filter
+  class FluentCompatTestFilter < ::Fluent::Filter
+    ::Fluent::Plugin.register_filter('test_compat_filter', self)
+
+    def initialize(field = '__test__')
+      super()
+      @num = 0
+      @field = field
+    end
+
+    attr_reader :num
+    attr_reader :started
+
+    def start
+      @started = true
+    end
+
+    def shutdown
+      @started = false
+    end
+
+    def filter(tag, time, record)
+      record[@field] = @num
+      @num += 1
+      record
+    end
+  end
+
+  class FluentTestFilter < ::Fluent::Plugin::Filter
     ::Fluent::Plugin.register_filter('test_filter', self)
 
     def initialize(field = '__test__')

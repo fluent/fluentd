@@ -9,6 +9,7 @@ class EventRouterTest < ::Test::Unit::TestCase
   teardown do
     @output = nil
     @filter = nil
+    @compat_filter = nil
     @error_output = nil
     @emit_handler = nil
     @default_collector = nil
@@ -20,6 +21,10 @@ class EventRouterTest < ::Test::Unit::TestCase
 
   def filter
     @filter ||= FluentTestFilter.new
+  end
+
+  def compat_filter
+    @compat_filter ||= FluentCompatTestFilter.new
   end
 
   def error_output
@@ -107,16 +112,20 @@ class EventRouterTest < ::Test::Unit::TestCase
         @pipeline.set_output(output)
       end
 
-      test 'set one filer' do
-        @pipeline.add_filter(filter)
+      data('Filter plugin' => 'filter',
+           'Compat::Filter plugin' => 'compat_filter')
+      test 'set one filer' do |filter_type|
+        @pipeline.add_filter(filter_type == 'filter' ? filter : compat_filter)
         @pipeline.emit_events('test', @es)
         assert_equal 1, output.events.size
         assert_equal 'value', output.events['test'].first['key']
         assert_equal 0, output.events['test'].first['__test__']
       end
 
-      test 'set one filer with multi events' do
-        @pipeline.add_filter(filter)
+      data('Filter plugin' => 'filter',
+           'Compat::Filter plugin' => 'compat_filter')
+      test 'set one filer with multi events' do |filter_type|
+        @pipeline.add_filter(filter_type == 'filter' ? filter : compat_filter)
         @pipeline.emit_events('test', events)
         assert_equal 1, output.events.size
         assert_equal 5, output.events['test'].size

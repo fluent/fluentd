@@ -159,7 +159,7 @@ module Fluent
       pipeline = nil
       @match_rules.each_with_index { |rule, i|
         if rule.match?(tag)
-          if rule.collector.is_a?(Filter)
+          if rule.collector.is_a?(Plugin::Filter)
             pipeline ||= Pipeline.new
             pipeline.add_filter(rule.collector)
           else
