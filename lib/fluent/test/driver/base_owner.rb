@@ -14,45 +14,25 @@
 #    limitations under the License.
 #
 
-require 'fluent/config'
-require 'fluent/config/element'
-require 'fluent/log'
+require 'fluent/test/driver/base'
 require 'fluent/test/driver/test_event_router'
-
-require 'timeout'
 
 module Fluent
   module Test
     module Driver
-      class BaseOwner
+      class BaseOwner < Base
         def initialize(klass, opts: {}, &block)
-          if klass.is_a?(Class)
-            if block
-              # Create new class for test w/ overwritten methods
-              #   klass.dup is worse because its ancestors does NOT include original class name
-              klass = Class.new(klass)
-              klass.module_eval(&block)
-            end
-            @instance = klass.new
-          else
-            @instance = klass
-          end
+          super
+
           if opts
             @instance.system_config_override(opts)
           end
           @instance.log = TestLogger.new
           @logs = @instance.log.out.logs
 
-          @run_post_conditions = []
-          @run_breaking_conditions = []
-
-          @broken = false
-
           @event_streams = nil
           @error_events = nil
         end
-
-        attr_reader :instance, :logs
 
         def configure(conf, syntax: :v1)
           if conf.is_a?(Fluent::Config::Element)
@@ -76,20 +56,6 @@ module Fluent
 
           @instance.configure(@config)
           self
-        end
-
-        def end_if(&block)
-          raise ArgumentError, "block is not given" unless block_given?
-          @run_post_conditions << block
-        end
-
-        def break_if(&block)
-          raise ArgumentError, "block is not given" unless block_given?
-          @run_breaking_conditions << block
-        end
-
-        def broken?
-          @broken
         end
 
         Emit = Struct.new(:tag, :es)
@@ -144,114 +110,14 @@ module Fluent
         end
 
         def run(expect_emits: nil, expect_records: nil, timeout: nil, start: true, shutdown: true, &block)
-          instance_start if start
-
-          if @instance.respond_to?(:thread_wait_until_start)
-            @instance.thread_wait_until_start
-          end
-          if @instance.respond_to?(:event_loop_wait_until_start)
-            @instance.event_loop_wait_until_start
-          end
-
-          begin
-            run_actual(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout, &block)
-          ensure
-            instance_shutdown if shutdown
-          end
-        end
-
-        def instance_start
-          unless @instance.started?
-            @instance.start
-            instance_hook_after_started
-          end
-        end
-
-        def instance_hook_after_started
-          # insert hooks for tests available after instance.start
-        end
-
-        def instance_shutdown
-          @instance.stop            unless @instance.stopped?
-          @instance.before_shutdown unless @instance.before_shutdown?
-          @instance.shutdown        unless @instance.shutdown?
-
-          if @instance.respond_to?(:event_loop_wait_until_stop)
-            @instance.event_loop_wait_until_stop
-          end
-
-          @instance.after_shutdown  unless @instance.after_shutdown?
-          @instance.close     unless @instance.closed?
-
-          if @instance.respond_to?(:thread_wait_until_stop)
-            @instance.thread_wait_until_stop
-          end
-
-          @instance.terminate unless @instance.terminated?
-        end
-
-        def run_actual(expect_emits: nil, expect_records: nil, timeout: nil, &block)
-          if @instance.respond_to?(:_threads)
-            until @instance._threads.values.all?(&:alive?)
-              sleep 0.01
-            end
-          end
-
-          if @instance.respond_to?(:event_loop_running?)
-            until @instance.event_loop_running?
-              sleep 0.01
-            end
-          end
-
           if expect_emits
             @run_post_conditions << ->(){ emit_count >= expect_emits }
           end
           if expect_records
             @run_post_conditions << ->(){ record_count >= expect_records }
           end
-          if timeout
-            stop_at = Time.now + timeout
-            @run_breaking_conditions << ->(){ Time.now >= stop_at }
-          end
 
-          if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
-            raise ArgumentError, "no stop conditions nor block specified"
-          end
-
-          proc = if block_given?
-                   ->(){ block.call; sleep(0.1) until stop? }
-                 else
-                   ->(){ sleep(0.1) until stop? }
-                 end
-
-          if timeout
-            begin
-              Timeout.timeout(timeout * 1.1) do |sec|
-                proc.call
-              end
-            rescue Timeout::Error
-              @broken = true
-            end
-          else
-            proc.call
-          end
-        end
-
-        def stop?
-          # Should stop running if post conditions are not registered.
-          return true unless @run_post_conditions
-
-          # Should stop running if all of the post conditions are true.
-          return true if @run_post_conditions.all? {|proc| proc.call }
-
-          # Should stop running if some of the breaking conditions is true.
-          # In this case, some post conditions may be not true.
-          if @run_breaking_conditions.any? {|proc| proc.call }
-            @broken = true
-            return true
-          end
-
-          false
+          super(timeout: timeout, start: start, shutdown: shutdown, &block)
         end
       end
     end
