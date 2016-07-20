@@ -217,20 +217,22 @@ module Fluent
             raise ArgumentError, "no stop conditions nor block specified"
           end
 
-          if !block_given?
-            block = ->(){ sleep(0.1) until stop? }
-          end
+          proc = if block_given?
+                   ->(){ block.call; sleep(0.1) until stop? }
+                 else
+                   ->(){ sleep(0.1) until stop? }
+                 end
 
           if timeout
             begin
               Timeout.timeout(timeout * 1.1) do |sec|
-                block.call
+                proc.call
               end
             rescue Timeout::Error
               @broken = true
             end
           else
-            block.call
+            proc.call
           end
         end
 
