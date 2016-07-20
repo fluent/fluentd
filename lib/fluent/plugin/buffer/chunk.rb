@@ -51,8 +51,8 @@ module Fluent
           @unique_id = generate_unique_id
           @metadata = metadata
 
-          # state: staged/queued/closed
-          @state = :staged
+          # state: unstaged/staged/queued/closed
+          @state = :unstaged
 
           @size = 0
           @created_at = Time.now
@@ -96,6 +96,14 @@ module Fluent
           size == 0
         end
 
+        def writable?
+          @state == :staged || @state == :unstaged
+        end
+
+        def unstaged?
+          @state == :unstaged
+        end
+
         def staged?
           @state == :staged
         end
@@ -108,16 +116,29 @@ module Fluent
           @state == :closed
         end
 
+        def staged!
+          @state = :staged
+          self
+        end
+
+        def unstaged!
+          @state = :unstaged
+          self
+        end
+
         def enqueued!
           @state = :queued
+          self
         end
 
         def close
           @state = :closed
+          self
         end
 
         def purge
           @state = :closed
+          self
         end
 
         def read

@@ -90,7 +90,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -104,7 +104,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream(time_int: true), es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -120,7 +120,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -134,7 +134,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream(time_int: true), es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -164,10 +164,10 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).once.with({
-          m1 => [es1.to_msgpack_stream, 3],
-          m2 => [es2.to_msgpack_stream, 2],
-          m3 => [es3.to_msgpack_stream, 1],
-        }, bulk: true, enqueue: false)
+          m1 => es1,
+          m2 => es2,
+          m3 => es3,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false)
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -196,10 +196,10 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).with({
-          m1 => [es1.to_msgpack_stream(time_int: true), 3],
-          m2 => [es2.to_msgpack_stream(time_int: true), 2],
-          m3 => [es3.to_msgpack_stream(time_int: true), 1],
-        }, bulk: true, enqueue: false)
+          m1 => es1,
+          m2 => es2,
+          m3 => es3,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false)
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -226,9 +226,9 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).with({
-          m1 => [es1.to_msgpack_stream, 5],
-          m2 => [es2.to_msgpack_stream, 1],
-        }, bulk: true, enqueue: false).once
+          m1 => es1,
+          m2 => es2,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -253,9 +253,9 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).with({
-          m1 => [es1.to_msgpack_stream(time_int: true), 5],
-          m2 => [es2.to_msgpack_stream(time_int: true), 1],
-        }, bulk: true, enqueue: false).once
+          m1 => es1,
+          m2 => es2,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -273,7 +273,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.map{|t,r| [t,r].to_json }.join, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es.map{|t,r| [t,r].to_json }}, format: nil, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -290,7 +290,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.map{|t,r| [t,r].to_json }.join, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es.map{|t,r| [t,r].to_json}}, format: nil, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -323,7 +323,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
           m1 => es1.map{|t,r| [t,r].to_json },
           m2 => es2.map{|t,r| [t,r].to_json },
           m3 => es3.map{|t,r| [t,r].to_json },
-        }, bulk: false, enqueue: false).once
+        }, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -353,7 +353,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       buffer_mock.should_receive(:write).with({
           m1 => es1.map{|t,r| [t,r].to_json },
           m2 => es2.map{|t,r| [t,r].to_json },
-        }, bulk: false, enqueue: false).once
+        }, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)

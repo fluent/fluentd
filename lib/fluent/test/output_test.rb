@@ -84,9 +84,9 @@ module Fluent
           end
 
           chunk = if @instance.instance_eval{ @chunk_key_tag }
-                    @instance.buffer.generate_chunk(@instance.metadata(@tag, nil, nil))
+                    @instance.buffer.generate_chunk(@instance.metadata(@tag, nil, nil)).staged!
                   else
-                    @instance.buffer.generate_chunk(@instance.metadata(nil, nil, nil))
+                    @instance.buffer.generate_chunk(@instance.metadata(nil, nil, nil)).staged!
                   end
           chunk.concat(buffer, es.size)
 
@@ -140,7 +140,7 @@ module Fluent
           end
 
           lines.keys.each do |meta|
-            chunk = @instance.buffer.generate_chunk(meta)
+            chunk = @instance.buffer.generate_chunk(meta).staged!
             chunk.append(lines[meta])
             begin
               result.push(@instance.write(chunk))

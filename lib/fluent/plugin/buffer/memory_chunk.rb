@@ -29,7 +29,7 @@ module Fluent
         end
 
         def concat(bulk, bulk_size)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
+          raise "BUG: concatenating to unwritable chunk, now '#{self.state}'" unless self.writable?
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk << bulk
