@@ -74,6 +74,7 @@ module Fluent
 
       def initialize
         super
+        @_inject_enabled = false
         @_inject_hostname_key = nil
         @_inject_hostname = nil
         @_inject_tag_key = nil
