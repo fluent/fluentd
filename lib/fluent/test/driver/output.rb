@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/base'
+require 'fluent/test/driver/base_owner'
 require 'fluent/test/driver/event_feeder'
 
 require 'fluent/plugin/output'
@@ -22,7 +22,7 @@ require 'fluent/plugin/output'
 module Fluent
   module Test
     module Driver
-      class Output < Base
+      class Output < BaseOwner
         include EventFeeder
 
         def initialize(klass, opts: {}, &block)

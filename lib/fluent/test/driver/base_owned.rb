@@ -17,6 +17,7 @@
 require 'fluent/config'
 require 'fluent/config/element'
 require 'fluent/log'
+
 require 'fluent/test/driver/owner'
 
 module Fluent

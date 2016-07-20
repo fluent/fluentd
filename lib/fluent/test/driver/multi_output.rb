@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/base'
+require 'fluent/test/driver/base_owner'
 require 'fluent/test/driver/event_feeder'
 
 require 'fluent/plugin/multi_output'
@@ -22,7 +22,7 @@ require 'fluent/plugin/multi_output'
 module Fluent
   module Test
     module Driver
-      class MultiOutput < Base
+      class MultiOutput < BaseOwner
         include EventFeeder
 
         def initialize(klass, opts: {}, &block)

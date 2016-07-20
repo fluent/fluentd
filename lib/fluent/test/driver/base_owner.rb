@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/config'
 require 'fluent/config/element'
 require 'fluent/log'
 require 'fluent/test/driver/test_event_router'
@@ -23,7 +24,7 @@ require 'timeout'
 module Fluent
   module Test
     module Driver
-      class Base
+      class BaseOwner
         def initialize(klass, opts: {}, &block)
           if klass.is_a?(Class)
             if block
