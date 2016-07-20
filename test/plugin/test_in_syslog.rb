@@ -68,6 +68,7 @@ class SyslogInputTest < Test::Unit::TestCase
       end
 
       events = d.events
+      assert(events.size > 0)
       events.each_index {|i|
         assert_equal_event_time(tests[i]['expected'], events[i][1])
       }
@@ -86,6 +87,7 @@ class SyslogInputTest < Test::Unit::TestCase
       }
     end
 
+    assert(d.events.size > 0)
     compare_test_result(d.events, tests)
   end
 
@@ -101,6 +103,7 @@ class SyslogInputTest < Test::Unit::TestCase
       }
     end
 
+    assert(d.events.size > 0)
     compare_test_result(d.events, tests)
   end
 
@@ -116,6 +119,7 @@ class SyslogInputTest < Test::Unit::TestCase
       end
     end
 
+    assert(d.events.size > 0)
     compare_test_result(d.events, tests)
   end
 
@@ -135,6 +139,7 @@ class SyslogInputTest < Test::Unit::TestCase
       }
     end
 
+    assert(d.events.size > 0)
     compare_test_result(d.events, tests)
   end
 
@@ -152,6 +157,7 @@ class SyslogInputTest < Test::Unit::TestCase
       }
     end
 
+    assert(d.events.size > 0)
     compare_test_result(d.events, tests, host)
   end
 
