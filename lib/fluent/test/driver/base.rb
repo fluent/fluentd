@@ -123,6 +123,14 @@ module Fluent
           end
         end
 
+        def emit_count
+          @event_streams.size
+        end
+
+        def record_count
+          @event_streams.reduce(0) {|a, e| a + e.es.size }
+        end
+
         def error_events(tag: nil)
           selected = @error_events.select{|e| tag.nil? ? true : e.tag == tag }
           if block_given?
@@ -195,10 +203,10 @@ module Fluent
           end
 
           if expect_emits
-            @run_post_conditions << ->(){ @event_streams.size >= expect_emits }
+            @run_post_conditions << ->(){ emit_count >= expect_emits }
           end
           if expect_records
-            @run_post_conditions << ->(){ @event_streams.reduce(0){|a, e| a + e.es.size } >= expect_records }
+            @run_post_conditions << ->(){ record_count >= expect_records }
           end
           if timeout
             stop_at = Time.now + timeout
