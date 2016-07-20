@@ -161,6 +161,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:write){|chunk| raise "yay, your #write must fail" }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -199,6 +201,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| raise "yay, your #write must fail" }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -251,6 +255,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -339,6 +345,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -417,6 +425,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:write){|chunk| raise "yay, your #write must fail" }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -459,6 +469,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -551,6 +563,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
@@ -647,6 +661,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -715,6 +731,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
 
+      @i.interrupt_flushes
+
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
 
@@ -779,6 +797,8 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:try_write){|chunk| raise "yay, your #write must fail" }
       @i.start
+
+      @i.interrupt_flushes
 
       now = Time.parse('2016-04-13 18:33:30 -0700')
       Timecop.freeze( now )
