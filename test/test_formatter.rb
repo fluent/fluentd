@@ -316,48 +316,4 @@ module FormatterTest
       $LOAD_PATH.shift
     end
   end
-
-  class TimeConfigTest < ::Test::Unit::TestCase
-    include FormatterTest
-
-    def setup
-      @formatter = TextFormatter::LabeledTSVFormatter.new
-      @time      = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
-    end
-
-    def format(conf)
-      @formatter.configure({'include_time_key' => true}.merge(conf))
-      formatted = @formatter.format("tag", @time, {})
-      # Drop the leading "time:" and the trailing "\n".
-      formatted[5..-2]
-    end
-
-    def test_none
-      with_timezone("UTC-01") do
-        # 'localtime' is true by default.
-        assert_equal("2014-09-27T01:00:00+01:00", format({}))
-      end
-    end
-
-    def test_utc
-      with_timezone("UTC-01") do
-        # 'utc' takes precedence over 'localtime'.
-        assert_equal("2014-09-27T00:00:00Z", format("utc" => true))
-      end
-    end
-
-    def test_timezone
-      with_timezone("UTC-01") do
-        # 'timezone' takes precedence over 'localtime'.
-        assert_equal("2014-09-27T02:00:00+02:00", format("timezone" => "+02"))
-      end
-    end
-
-    def test_utc_timezone
-      with_timezone("UTC-01") do
-        # 'timezone' takes precedence over 'utc'.
-        assert_equal("2014-09-27T09:00:00+09:00", format("utc" => true, "timezone" => "Asia/Tokyo"))
-      end
-    end
-  end
 end
