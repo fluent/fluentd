@@ -46,28 +46,6 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     assert_equal("\"awesome\",\"awesome2\"\n", formatted)
   end
 
-  def test_format_with_tag
-    d = create_driver("fields" => "tag,message,message2",
-                      "include_tag_key" => true)
-    formatted = d.instance.format(tag, @time, {
-                                    'message' => 'awesome',
-                                    'message2' => 'awesome2'
-                                  })
-    assert_equal("\"tag\",\"awesome\",\"awesome2\"\n", formatted)
-  end
-
-  def test_format_with_time
-    d = create_driver("fields" => "time,message,message2",
-                      "include_time_key" => true,
-                      "time_format" => "%Y")
-    formatted = d.instance.format(tag, @time, {
-                                    'message' => 'awesome',
-                                    'message2' => 'awesome2'
-                                  })
-    assert_equal("\"#{Time.now.year}\",\"awesome\",\"awesome2\"\n",
-                 formatted)
-  end
-
   def test_format_with_customized_delimiters
     d = create_driver("fields" => "message,message2",
                       "delimiter" => "\t")

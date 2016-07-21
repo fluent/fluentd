@@ -16,7 +16,7 @@ class LabeledTSVFormatterTest < ::Test::Unit::TestCase
   end
 
   def record
-    {'message' => 'awesome'}
+    {'message' => 'awesome', 'greeting' => 'hello'}
   end
 
   def test_config_params
@@ -37,32 +37,17 @@ class LabeledTSVFormatterTest < ::Test::Unit::TestCase
     d = create_driver({})
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("message:awesome\n", formatted)
-  end
-
-  def test_format_with_tag
-    d = create_driver('include_tag_key' => 'true')
-    formatted = d.instance.format(tag, @time, record)
-
-    assert_equal("message:awesome\ttag:tag\n", formatted)
-  end
-
-  def test_format_with_time
-    d = create_driver('include_time_key' => 'true', 'time_format' => '%Y')
-    formatted = d.instance.format(tag, @time, record)
-
-    assert_equal("message:awesome\ttime:#{Time.now.year}\n", formatted)
+    assert_equal("message:awesome\tgreeting:hello\n", formatted)
   end
 
   def test_format_with_customized_delimiters
     d = create_driver(
-      'include_tag_key' => 'true',
       'delimiter'       => ',',
       'label_delimiter' => '=',
     )
     formatted = d.instance.format(tag, @time, record)
 
-    assert_equal("message=awesome,tag=tag\n", formatted)
+    assert_equal("message=awesome,greeting=hello\n", formatted)
   end
 
   sub_test_case "time config" do

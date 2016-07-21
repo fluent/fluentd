@@ -10,7 +10,7 @@ module FormatterTest
   end
 
   def record
-    {'message' => 'awesome'}
+    {'message' => 'awesome', 'greeting' => 'hello'}
   end
 
   def with_timezone(tz)
@@ -121,36 +121,6 @@ module FormatterTest
 
       assert_equal("#{Yajl.dump(record)}\n", formatted)
     end
-
-    data('oj' => 'oj', 'yajl' => 'yajl')
-    def test_format_with_include_tag(data)
-      @formatter.configure('include_tag_key' => 'true', 'tag_key' => 'foo', 'json_parser' => data)
-      formatted = @formatter.format(tag, @time, record.dup)
-
-      r = record
-      r['foo'] = tag
-      assert_equal("#{Yajl.dump(r)}\n", formatted)
-    end
-
-    data('oj' => 'oj', 'yajl' => 'yajl')
-    def test_format_with_include_time(data)
-      @formatter.configure('include_time_key' => 'true', 'localtime' => '', 'json_parser' => data)
-      formatted = @formatter.format(tag, @time, record.dup)
-
-      r = record
-      r['time'] = time2str(@time, localtime: true)
-      assert_equal("#{Yajl.dump(r)}\n", formatted)
-    end
-
-    data('oj' => 'oj', 'yajl' => 'yajl')
-    def test_format_with_include_time_as_number(data)
-      @formatter.configure('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch', 'json_parser' => data)
-      formatted = @formatter.format(tag, @time, record.dup)
-
-      r = record
-      r['epoch'] = @time
-      assert_equal("#{Yajl.dump(r)}\n", formatted)
-    end
   end
 
   class MessagePackFormatterTest < ::Test::Unit::TestCase
@@ -166,33 +136,6 @@ module FormatterTest
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal(record.to_msgpack, formatted)
-    end
-
-    def test_format_with_include_tag
-      @formatter.configure('include_tag_key' => 'true', 'tag_key' => 'foo')
-      formatted = @formatter.format(tag, @time, record.dup)
-
-      r = record
-      r['foo'] = tag
-      assert_equal(r.to_msgpack, formatted)
-    end
-
-    def test_format_with_include_time
-      @formatter.configure('include_time_key' => 'true', 'localtime' => '')
-      formatted = @formatter.format(tag, @time, record.dup)
-
-      r = record
-      r['time'] = time2str(@time, localtime: true)
-      assert_equal(r.to_msgpack, formatted)
-    end
-
-    def test_format_with_include_time_as_number
-      @formatter.configure('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch')
-      formatted = @formatter.format(tag, @time, record.dup)
-
-      r = record
-      r['epoch'] = @time
-      assert_equal(r.to_msgpack, formatted)
     end
   end
 
@@ -221,32 +164,17 @@ module FormatterTest
       @formatter.configure({})
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("message:awesome\n", formatted)
-    end
-
-    def test_format_with_tag
-      @formatter.configure('include_tag_key' => 'true')
-      formatted = @formatter.format(tag, @time, record)
-
-      assert_equal("message:awesome\ttag:tag\n", formatted)
-    end
-
-    def test_format_with_time
-      @formatter.configure('include_time_key' => 'true', 'time_format' => '%Y')
-      formatted = @formatter.format(tag, @time, record)
-
-      assert_equal("message:awesome\ttime:#{Time.now.year}\n", formatted)
+      assert_equal("message:awesome\tgreeting:hello\n", formatted)
     end
 
     def test_format_with_customized_delimiters
       @formatter.configure(
-        'include_tag_key' => 'true',
         'delimiter'       => ',',
         'label_delimiter' => '=',
       )
       formatted = @formatter.format(tag, @time, record)
 
-      assert_equal("message=awesome,tag=tag\n", formatted)
+      assert_equal("message=awesome,greeting=hello\n", formatted)
     end
   end
 
@@ -257,11 +185,11 @@ module FormatterTest
       @formatter = TextFormatter::CsvFormatter.new
       @time = Engine.now
     end
-    
+
     def test_config_params
       assert_equal ',', @formatter.delimiter
       assert_equal true, @formatter.force_quotes
-      assert_equal [], @formatter.fields
+      assert_nil @formatter.fields
     end
 
     data(
@@ -282,32 +210,6 @@ module FormatterTest
         'message2' => 'awesome2'
       })
       assert_equal("\"awesome\",\"awesome2\"\n", formatted)
-    end
-
-    def test_format_with_tag
-      @formatter.configure(
-        'fields' => 'tag,message,message2',
-        'include_tag_key' => 'true'
-      )
-      formatted = @formatter.format(tag, @time, {
-        'message' => 'awesome',
-        'message2' => 'awesome2'
-      })
-      assert_equal("\"tag\",\"awesome\",\"awesome2\"\n", formatted)
-    end
-
-    def test_format_with_time
-      @formatter.configure(
-        'fields' => 'time,message,message2',
-        'include_time_key' => 'true',
-        'time_format' => '%Y'
-      )
-      formatted = @formatter.format(tag, @time, {
-        'message' => 'awesome',
-        'message2' => 'awesome2'
-      })
-      assert_equal("\"#{Time.now.year}\",\"awesome\",\"awesome2\"\n",
-                   formatted)
     end
 
     def test_format_with_customized_delimiters
