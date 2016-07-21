@@ -93,7 +93,7 @@ class InjectHelperTest < Test::Unit::TestCase
     assert_not_nil @d.instance_eval{ @_inject_time_formatter }
   end
 
-  sub_test_case 'using inject_record' do
+  sub_test_case 'using inject_values_to_record' do
     test 'injects hostname automatically detected' do
       detected_hostname = `hostname`.chomp
       @d.configure(config_inject_section("hostname_key" => "host"))
@@ -222,7 +222,7 @@ class InjectHelperTest < Test::Unit::TestCase
       assert_equal record.merge(injected), @d.inject_values_to_record('tag', time, record)
     end
   end
-  sub_test_case 'using inject_event_stream' do
+  sub_test_case 'using inject_values_to_event_stream' do
     local_timezone = Time.now.strftime('%z')
     time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
     time_subsecond = 320_101_224
