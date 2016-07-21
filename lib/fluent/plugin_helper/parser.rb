@@ -22,15 +22,20 @@ require 'fluent/configurable'
 module Fluent
   module PluginHelper
     module Parser
-      def parser_create(usage: '', type: nil, conf: nil)
+      def parser_create(usage: '', type: nil, conf: nil, default_type: nil)
         parser = @_parsers[usage]
         return parser if parser
 
-        if !type
-          raise ArgumentError, "BUG: both type and conf are not specified" unless conf
-          raise Fluent::ConfigError, "@type is required in <parse>" unless conf['@type']
-          type = conf['@type']
-        end
+        type = if type
+                 type
+               elsif conf && conf.respond_to?(:[])
+                 raise Fluent::ConfigError, "@type is required in <parse>" unless conf['@type']
+                 conf['@type']
+               elsif default_type
+                 default_type
+               else
+                 raise ArgumentError, "BUG: both type and conf are not specified"
+               end
         parser = Fluent::Plugin.new_parser(type, parent: self)
         config = case conf
                  when Fluent::Config::Element

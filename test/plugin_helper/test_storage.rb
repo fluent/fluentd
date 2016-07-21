@@ -114,6 +114,26 @@ class StorageHelperTest < Test::Unit::TestCase
     assert_equal '/tmp/yay', d.storage_configs.first.dummy_path
   end
 
+  test 'creates instance of type specified by conf, or default_type if @type is missing in conf' do
+    d = Dummy2.new
+    d.configure(config_element())
+    i = d.storage_create(conf: config_element('format', '', {'@type' => 'example'}), default_type: 'ex2')
+    assert{ i.is_a?(Fluent::PluginHelper::Storage::SynchronizeWrapper) && i.instance_eval{ @storage }.is_a?(ExampleStorage) }
+
+    d = Dummy2.new
+    d.configure(config_element())
+    i = d.storage_create(conf: nil, default_type: 'ex2')
+    assert{ i.is_a?(Fluent::PluginHelper::Storage::SynchronizeWrapper) && i.instance_eval{ @storage }.is_a?(Example2Storage) }
+  end
+
+  test 'raises config error if config section is specified, but @type is not specified' do
+    d = Dummy2.new
+    d.configure(config_element())
+    assert_raise Fluent::ConfigError.new("@type is required in <storage>") do
+      d.storage_create(conf: config_element('storage', '', {}), default_type: 'ex2')
+    end
+  end
+
   test 'can be configured without storage sections' do
     d = Dummy.new
     assert_nothing_raised do
