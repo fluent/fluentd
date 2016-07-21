@@ -38,12 +38,27 @@ module Fluent
       config_param :timezone, :string, default: nil
 
       def configure(conf)
+        # TODO: make a utility method in TimeFormatter to handle these conversion
+        #       copies of this code: plugin_helper/compat_parameters, compat/formatter_utils and here
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
-          conf['localtime'] = 'false'
-          conf['timezone'] = "+0000"
+          conf['time_type'] = 'unixtime'
+        end
+        if conf.has_key?('localtime') || conf.has_key?('utc')
+          if conf.has_key?('localtime') && Fluent::Config.bool_value(conf['localtime'])
+            conf['localtime'] = true
+          elsif conf.has_key?('utc') && Fluent::Config.bool_value(conf['utc'])
+            conf['localtime'] = false
+            # Specifying "localtime false" means using UTC in TimeFormatter
+            # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
+            # There are difference between "Z" and "+0000" in timezone formatting.
+            # TODO: add kwargs to TimeFormatter to specify "using localtime", "using UTC" or "using specified timezone" in more explicit way
+          else
+            log.warn "both of localtime and utc are specified as false"
+          end
         end
 
         super
+
         @timef = case @time_type
                  when :float then ->(time){ time.to_r.to_f }
                  when :unixtime then ->(time){ time.to_i }
