@@ -270,8 +270,9 @@ module FormatterTest
       'pipe' => ['|', '|'])
     def test_config_params_with_customized_delimiters(data)
       expected, target = data
-      @formatter.configure('delimiter' => target)
+      @formatter.configure('delimiter' => target, 'fields' => 'a,b,c')
       assert_equal expected, @formatter.delimiter
+      assert_equal ['a', 'b', 'c'], @formatter.fields
     end
 
     def test_format
