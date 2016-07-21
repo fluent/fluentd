@@ -27,13 +27,13 @@ class GCStatInputTest < Test::Unit::TestCase
     stub(GC).stat { stat }
 
     d = create_driver
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
     events = d.events
     assert(events.length > 0)
-    assert_equal(stat, events[0][2])
-    assert(events[0][1].is_a?(Fluent::EventTime))
+    events.each_index {|i|
+      assert_equal(stat, events[i][2])
+      assert(events[i][1].is_a?(Fluent::EventTime))
+    }
   end
 end
