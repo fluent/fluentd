@@ -69,6 +69,7 @@ module Fluent
           config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
           config_param :time_format, :string, default: nil
           config_param :localtime, :bool, default: true # if localtime is false and timezone is nil, then utc
+          config_param :utc, :bool, default: false # placeholder to turn localtime to false
           config_param :timezone, :string, default: nil
         end
       end
@@ -88,6 +89,12 @@ module Fluent
       end
 
       def configure(conf)
+        conf.elements('inject').each do |e|
+          if e.has_key?('utc') && Fluent::Config.bool_value(e['utc'])
+            e['localtime'] = 'false'
+          end
+        end
+
         super
 
         if @inject_config
