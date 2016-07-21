@@ -16,19 +16,30 @@ class StdoutOutputTest < Test::Unit::TestCase
 
   def test_configure
     d = create_driver
-    assert_equal 'json', d.instance.output_type
+    assert_equal [], d.instance.formatter_configs
   end
 
   def test_configure_output_type
     d = create_driver(CONFIG + "\noutput_type json")
-    assert_equal 'json', d.instance.output_type
+    assert_equal 'json', d.instance.formatter_configs.first[:@type]
 
     d = create_driver(CONFIG + "\noutput_type hash")
-    assert_equal 'hash', d.instance.output_type
+    assert_equal 'hash', d.instance.formatter_configs.first[:@type]
 
     assert_raise(Fluent::ConfigError) do
       d = create_driver(CONFIG + "\noutput_type foo")
     end
+  end
+
+  def test_emit_in_default
+    d = create_driver
+    time = event_time()
+    out = capture_log do
+      d.run(default_tag: 'test') do
+        d.feed(time, {'test' => 'test1'})
+      end
+    end
+    assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')

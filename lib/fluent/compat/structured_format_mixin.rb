@@ -14,30 +14,12 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/formatter'
-
 module Fluent
-  module Plugin
-    class JSONFormatter < Formatter
-      Plugin.register_formatter('json', self)
-
-      config_param :json_parser, :string, default: 'oj'
-
-      def configure(conf)
-        super
-
-        begin
-          raise LoadError unless @json_parser == 'oj'
-          require 'oj'
-          Oj.default_options = {mode: :compat}
-          @dump_proc = Oj.method(:dump)
-        rescue LoadError
-          @dump_proc = Yajl.method(:dump)
-        end
-      end
-
+  module Compat
+    module StructuredFormatMixin
       def format(tag, time, record)
-        "#{@dump_proc.call(record)}\n"
+        filter_record(tag, time, record)
+        format_record(record)
       end
     end
   end

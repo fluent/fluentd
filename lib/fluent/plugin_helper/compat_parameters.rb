@@ -59,10 +59,14 @@ module Fluent
       }
 
       INJECT_PARAMS = {
+        "include_time_key" => nil,
         "time_key"      => "time_key",
         "time_format"   => "time_format",
         "timezone"      => "timezone",
+        "include_tag_key" => nil,
         "tag_key" => "tag_key",
+        "localtime" => nil,
+        "utc" => nil,
       }
 
       FORMATTER_PARAMS = {
@@ -85,11 +89,11 @@ module Fluent
           when :buffer
             compat_parameters_buffer(conf, **kwargs)
           when :inject
-            compat_parameters_inject(conf, **kwargs)
+            compat_parameters_inject(conf)
           when :parser
-            compat_parameters_parser(conf, **kwargs)
+            compat_parameters_parser(conf)
           when :formatter
-            compat_parameters_formatter(conf, **kwargs)
+            compat_parameters_formatter(conf)
           else
             raise "BUG: unknown compat_parameters type: #{type}"
           end
@@ -148,6 +152,7 @@ module Fluent
 
         if conf.has_key?('include_time_key') && Fluent::Config.bool_value(conf['include_time_key'])
           attr['time_key'] ||= 'time'
+          attr['time_type'] ||= 'string'
         end
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
           attr['time_type'] = 'unixtime'

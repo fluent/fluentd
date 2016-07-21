@@ -20,12 +20,18 @@ module Fluent::Plugin
   class BufferedStdoutOutput < Output
     Fluent::Plugin.register_output('buffered_stdout', self)
 
-    desc 'Output format.(json,hash)'
-    config_param :output_type, default: 'json'
+    helpers :formatter, :inject, :compat_parameters
+
     config_section :buffer do
       config_set_default :chunk_keys, ['tag']
       config_set_default :flush_at_shutdown, true
       config_set_default :chunk_limit_size, 10 * 1024
+    end
+
+    DEFAULT_FORMAT_TYPE = 'json'
+
+    config_section :format do
+      config_set_default :@type, DEFAULT_FORMAT_TYPE
     end
 
     attr_accessor :delayed
@@ -40,9 +46,12 @@ module Fluent::Plugin
     end
 
     def configure(conf)
+      if conf['output_type'] && !conf['format']
+        conf['format'] = conf['output_type']
+      end
+      compat_parameters_convert(conf, :inject, :formatter)
       super
-      @formatter = Fluent::Plugin.new_formatter(@output_type, parent: self)
-      @formatter.configure(conf)
+      @formatter = formatter_create(conf: conf.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
     end
 
     def write(chunk)
@@ -54,6 +63,7 @@ module Fluent::Plugin
     end
 
     def format(tag, time, record)
+      record = inject_values_to_record(tag, time, record)
       "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
     end
   end

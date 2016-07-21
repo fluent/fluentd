@@ -2,6 +2,8 @@ require_relative '../helper'
 require 'fluent/plugin_helper/compat_parameters'
 require 'fluent/plugin/base'
 
+require 'time'
+
 class CompatParameterTest < Test::Unit::TestCase
   setup do
     Fluent::Test.setup
@@ -52,10 +54,15 @@ class CompatParameterTest < Test::Unit::TestCase
     def write(chunk); end # dummy
   end
   class DummyO4 < Fluent::Plugin::Output
-    helpers :compat_parameters
+    helpers :compat_parameters, :inject, :formatter
+    attr_reader :f
     def configure(conf)
       compat_parameters_convert(conf, :buffer, :inject, :formatter, default_chunk_key: 'tag')
       super
+    end
+    def start
+      super
+      @f = formatter_create()
     end
     def write(chunk); end # dummy
   end
@@ -160,6 +167,74 @@ class CompatParameterTest < Test::Unit::TestCase
       assert !@i.chunk_key_time
       assert @i.chunk_key_tag
       assert_equal [], @i.chunk_keys
+    end
+  end
+
+  sub_test_case 'output plugins which has default chunk key: tag, and enables inject and formatter' do
+    test 'plugin helper converts parameters into plugin configuration parameters for all of buffer, inject and formatter' do
+      hash = {
+        'buffer_type' => 'file',
+        'buffer_path' => File.expand_path('../../tmp/compat_parameters/mybuffer.*.log', __FILE__),
+        'num_threads' => '10',
+        'format' => 'ltsv',
+        'delimiter' => ',',
+        'label_delimiter' => '%',
+        'include_time_key' => 'true', # default time_key 'time' and default time format (iso8601: 2016-06-24T15:57:38) at localtime
+        'include_tag_key' => 'yes', # default tag_key 'tag'
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyO4.new
+      @i.configure(conf)
+      @i.start
+
+      assert_equal 'file', @i.buffer_config[:@type]
+      assert_equal 10, @i.buffer_config.flush_thread_count
+      formatter = @i.f
+      assert{ formatter.is_a? Fluent::Plugin::LabeledTSVFormatter }
+      assert_equal ',', @i.f.delimiter
+      assert_equal '%', @i.f.label_delimiter
+
+      assert !@i.chunk_key_time
+      assert @i.chunk_key_tag
+      assert_equal [], @i.chunk_keys
+
+      t = event_time('2016-06-24 16:05:01') # localtime
+      iso8601str = Time.at(t.to_i).iso8601
+      formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
+      assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
+    end
+
+    test 'plugin helper setups time injecting as unix time (integer from epoch)' do
+      hash = {
+        'buffer_type' => 'file',
+        'buffer_path' => File.expand_path('../../tmp/compat_parameters/mybuffer.*.log', __FILE__),
+        'num_threads' => '10',
+        'format' => 'ltsv',
+        'delimiter' => ',',
+        'label_delimiter' => '%',
+        'include_time_key' => 'true', # default time_key 'time' and default time format (iso8601: 2016-06-24T15:57:38) at localtime
+        'include_tag_key' => 'yes', # default tag_key 'tag'
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyO4.new
+      @i.configure(conf)
+      @i.start
+
+      assert_equal 'file', @i.buffer_config[:@type]
+      assert_equal 10, @i.buffer_config.flush_thread_count
+      formatter = @i.f
+      assert{ formatter.is_a? Fluent::Plugin::LabeledTSVFormatter }
+      assert_equal ',', @i.f.delimiter
+      assert_equal '%', @i.f.label_delimiter
+
+      assert !@i.chunk_key_time
+      assert @i.chunk_key_tag
+      assert_equal [], @i.chunk_keys
+
+      t = event_time('2016-06-24 16:05:01') # localtime
+      iso8601str = Time.at(t.to_i).iso8601
+      formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
+      assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
     end
   end
 end

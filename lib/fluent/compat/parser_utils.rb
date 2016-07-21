@@ -14,30 +14,26 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/formatter'
+require 'fluent/plugin_helper/compat_parameters'
 
 module Fluent
-  module Plugin
-    class JSONFormatter < Formatter
-      Plugin.register_formatter('json', self)
+  module Compat
+    module ParserUtils
+      PARSER_PARAMS = Fluent::PluginHelper::CompatParameters::PARSER_PARAMS
 
-      config_param :json_parser, :string, default: 'oj'
+      def self.convert_parser_conf(conf)
+        return if conf.elements(name: 'parse').first
 
-      def configure(conf)
-        super
-
-        begin
-          raise LoadError unless @json_parser == 'oj'
-          require 'oj'
-          Oj.default_options = {mode: :compat}
-          @dump_proc = Oj.method(:dump)
-        rescue LoadError
-          @dump_proc = Yajl.method(:dump)
+        parser_params = {}
+        PARSER_PARAMS.each do |older, newer|
+          next unless newer
+          if conf.has_key?(older)
+            parser_params[newer] = conf[older]
+          end
         end
-      end
-
-      def format(tag, time, record)
-        "#{@dump_proc.call(record)}\n"
+        unless parser_params.empty?
+          conf.elements << Fluent::Config::Element.new('parse', '', parser_params, [])
+        end
       end
     end
   end

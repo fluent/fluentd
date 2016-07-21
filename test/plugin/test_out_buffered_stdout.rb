@@ -16,7 +16,7 @@ class BufferedStdoutOutputTest < Test::Unit::TestCase
 
   test 'default configure' do
     d = create_driver
-    assert_equal 'json', d.instance.output_type
+    assert_equal [], d.instance.formatter_configs
     assert_equal 10 * 1024, d.instance.buffer_config.chunk_limit_size
     assert d.instance.buffer_config.flush_at_shutdown
     assert_equal ['tag'], d.instance.buffer_config.chunk_keys
@@ -27,13 +27,27 @@ class BufferedStdoutOutputTest < Test::Unit::TestCase
 
   test 'configure with output_type' do
     d = create_driver(CONFIG + "\noutput_type json")
-    assert_equal 'json', d.instance.output_type
+    assert_equal 'json', d.instance.formatter_configs.first[:@type]
 
     d = create_driver(CONFIG + "\noutput_type hash")
-    assert_equal 'hash', d.instance.output_type
+    assert_equal 'hash', d.instance.formatter_configs.first[:@type]
 
     assert_raise(Fluent::ConfigError) do
       d = create_driver(CONFIG + "\noutput_type foo")
+    end
+  end
+
+  sub_test_case "emit with default config" do
+    test '#write(synchronous)' do
+      d = create_driver
+      time = event_time()
+
+      out = capture_log do
+        d.run(default_tag: 'test', flush: true) do
+          d.feed(time, {'test' => 'test'})
+        end
+      end
+      assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
     end
   end
 

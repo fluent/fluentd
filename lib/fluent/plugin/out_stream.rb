@@ -25,7 +25,10 @@ module Fluent
   class StreamOutput < BufferedOutput
     config_param :send_timeout, :time, default: 60
 
+    helpers :compat_parameters
+
     def configure(conf)
+      compat_parameters_convert(conf, :buffer)
       super
     end
 
