@@ -8,6 +8,13 @@ class InjectHelperTest < Test::Unit::TestCase
     helpers :inject
   end
 
+  class Dummy2 < Fluent::Plugin::TestBase
+    helpers :inject
+    config_section :inject do
+      config_set_default :hostname_key, 'host'
+    end
+  end
+
   def config_inject_section(hash = {})
     config_element('ROOT', '', {}, [config_element('inject', '', hash)])
   end
@@ -24,6 +31,17 @@ class InjectHelperTest < Test::Unit::TestCase
       @d.close unless @d.closed?
       @d.terminate unless @d.terminated?
     end
+  end
+
+  test 'can override default parameters, but not overwrite whole definition' do
+    d = Dummy.new
+    d.configure(config_element())
+    assert_nil d.inject_config
+
+    d = Dummy2.new
+    d.configure(config_element('ROOT', '', {}, [config_element('inject')]))
+    assert d.inject_config
+    assert_equal 'host', d.inject_config.hostname_key
   end
 
   test 'do nothing in default' do

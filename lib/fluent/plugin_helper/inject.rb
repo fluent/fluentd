@@ -16,6 +16,7 @@
 
 require 'fluent/event'
 require 'time'
+require 'fluent/configurable'
 
 module Fluent
   module PluginHelper
@@ -58,22 +59,26 @@ module Fluent
         new_es
       end
 
-      def self.included(mod)
-        mod.instance_eval do
-          config_section :inject, required: false, multi: false, param_name: :inject_config do
-            config_param :hostname_key, :string, default: nil
-            config_param :hostname, :string, default: nil
-            config_param :tag_key, :string, default: nil
-            config_param :time_key, :string, default: nil
-            config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
-            config_param :time_format, :string, default: nil
-            config_param :timezone, :string, default: "#{Time.now.strftime('%z')}" # localtime
-          end
+      module InjectParams
+        include Fluent::Configurable
+        config_section :inject, required: false, multi: false, param_name: :inject_config do
+          config_param :hostname_key, :string, default: nil
+          config_param :hostname, :string, default: nil
+          config_param :tag_key, :string, default: nil
+          config_param :time_key, :string, default: nil
+          config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
+          config_param :time_format, :string, default: nil
+          config_param :timezone, :string, default: "#{Time.now.strftime('%z')}" # localtime
         end
+      end
+
+      def self.included(mod)
+        mod.include InjectParams
       end
 
       def initialize
         super
+        @_inject_enabled = false
         @_inject_hostname_key = nil
         @_inject_hostname = nil
         @_inject_tag_key = nil

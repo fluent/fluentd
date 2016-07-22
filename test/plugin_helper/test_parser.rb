@@ -30,6 +30,13 @@ class ParserHelperTest < Test::Unit::TestCase
     helpers :parser
   end
 
+  class Dummy2 < Fluent::Plugin::TestBase
+    helpers :parser
+    config_section :parse do
+      config_set_default :@type, 'example2'
+    end
+  end
+
   setup do
     @d = nil
   end
@@ -46,6 +53,19 @@ class ParserHelperTest < Test::Unit::TestCase
   test 'can be initialized without any parsers at first' do
     d = Dummy.new
     assert_equal 0, d._parsers.size
+  end
+
+  test 'can override default configuration parameters, but not overwrite whole definition' do
+    d = Dummy.new
+    assert_equal [], d.parser_configs
+
+    d = Dummy2.new
+    d.configure(config_element('ROOT', '', {}, [config_element('parse', '', {}, [])]))
+    assert_raise NoMethodError do
+      d.parse
+    end
+    assert_equal 1, d.parser_configs.size
+    assert_equal 'example2', d.parser_configs.first[:@type]
   end
 
   test 'can be configured without parse sections' do
