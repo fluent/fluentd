@@ -104,11 +104,13 @@ module Fluent
           @queued_num[chunk.metadata] += 1
           @queue_size += chunk.bytesize
         end
+        log.debug "buffer started", instance: self.object_id, stage_size: @stage_size, queue_size: @queue_size
       end
 
       def close
         super
         synchronize do
+          log.debug "closing buffer", instance: self.object_id
           @dequeued.each_pair do |chunk_id, chunk|
             chunk.close
           end
@@ -156,6 +158,7 @@ module Fluent
       end
 
       def add_metadata(metadata)
+        log.trace "adding metadata", instance: self.object_id, metadata: metadata
         synchronize do
           if i = @metadata_list.index(metadata)
             @metadata_list[i]
@@ -177,6 +180,8 @@ module Fluent
       def write(metadata_and_data, format: nil, size: nil, enqueue: false)
         return if metadata_and_data.size < 1
         raise BufferOverflowError, "buffer space has too many data" unless storable?
+
+        log.trace "writing events into buffer", instance: self.object_id, metadata_size: metadata_and_data.size
 
         staged_bytesize = 0
         operated_chunks = []
@@ -293,6 +298,7 @@ module Fluent
       end
 
       def enqueue_chunk(metadata)
+        log.debug "enqueueing chunk", instance: self.object_id, metadata: metadata
         synchronize do
           chunk = @stage.delete(metadata)
           return nil unless chunk
@@ -314,6 +320,7 @@ module Fluent
       end
 
       def enqueue_unstaged_chunk(chunk)
+        log.debug "enqueueing unstaged chunk", instance: self.object_id, metadata: chunk.metadata
         synchronize do
           chunk.synchronize do
             metadata = chunk.metadata
@@ -326,6 +333,7 @@ module Fluent
       end
 
       def enqueue_all
+        log.debug "enqueueing all chunks in buffer", instance: self.object_id
         synchronize do
           if block_given?
             @stage.keys.each do |metadata|
@@ -343,6 +351,7 @@ module Fluent
 
       def dequeue_chunk
         return nil if @queue.empty?
+        log.debug "dequeueing a chunk", instance: self.object_id
         synchronize do
           chunk = @queue.shift
 
@@ -351,15 +360,18 @@ module Fluent
 
           @dequeued[chunk.unique_id] = chunk
           @queued_num[chunk.metadata] -= 1 # BUG if nil, 0 or subzero
+          log.debug "chunk dequeued", instance: self.object_id, metadata: chunk.metadata
           chunk
         end
       end
 
       def takeback_chunk(chunk_id)
+        log.debug "taking back a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id)
         synchronize do
           chunk = @dequeued.delete(chunk_id)
           return false unless chunk # already purged by other thread
           @queue.unshift(chunk)
+          log.debug "chunk taken back", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: chunk.metadata
           @queued_num[chunk.metadata] += 1 # BUG if nil
         end
         true
@@ -371,22 +383,26 @@ module Fluent
           return nil unless chunk # purged by other threads
 
           metadata = chunk.metadata
+          log.debug "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
           begin
             bytesize = chunk.bytesize
             chunk.purge
             @queue_size -= bytesize
           rescue => e
             log.error "failed to purge buffer chunk", chunk_id: dump_unique_id_hex(chunk_id), error_class: e.class, error: e
+            log.error_backtrace
           end
 
           if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1)
             @metadata_list.delete(metadata)
           end
+          log.debug "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
         end
         nil
       end
 
       def clear_queue!
+        log.debug "clearing queue", instance: self.object_id
         synchronize do
           until @queue.empty?
             begin
@@ -395,6 +411,7 @@ module Fluent
               q.purge
             rescue => e
               log.error "unexpected error while clearing buffer queue", error_class: e.class, error: e
+              log.error_backtrace
             end
           end
           @queue_size = 0
