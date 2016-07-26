@@ -49,8 +49,9 @@ class BufferFileChunkTest < Test::Unit::TestCase
     data(
       correct_staged: ['/mydir/mypath/myfile.b00ff.log', :staged],
       correct_queued: ['/mydir/mypath/myfile.q00ff.log', :queued],
-      incorrect_staged: ['/mydir/mypath/myfile.b00ff.log/unknown', :queued],
-      incorrect_queued: ['/mydir/mypath/myfile.q00ff.log/unknown', :queued],
+      incorrect_staged: ['/mydir/mypath/myfile.b00ff.log/unknown', :unknown],
+      incorrect_queued: ['/mydir/mypath/myfile.q00ff.log/unknown', :unknown],
+      output_file: ['/mydir/mypath/myfile.20160716.log', :unknown],
     )
     test 'can .assume_chunk_state' do |data|
       path, expected = data
