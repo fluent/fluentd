@@ -42,9 +42,14 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
   )
   def test_configured_with_utc_or_localtime(data)
     key, value, time, expected = data
-    d = create_driver(config_element('ROOT', '', {key => value}))
-    tag = 'test'
-    assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}\n", d.instance.format(tag, time, record)
+    begin
+      oldtz, ENV['TZ'] = ENV['TZ'], "UTC-07"
+      d = create_driver(config_element('ROOT', '', {key => value}))
+      tag = 'test'
+      assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}\n", d.instance.format(tag, time, record)
+    ensure
+      ENV['TZ'] = oldtz
+    end
   end
 
   def test_format
