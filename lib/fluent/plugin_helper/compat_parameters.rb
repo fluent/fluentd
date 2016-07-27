@@ -146,9 +146,7 @@ module Fluent
         return if INJECT_PARAMS.keys.all?{|k| !conf.has_key?(k) }
 
         # TODO: warn obsolete parameters if these are deprecated
-        attr = compat_parameters_copy_to_subsection_attributes(conf, INJECT_PARAMS) do |compat_key, value|
-          value
-        end
+        attr = compat_parameters_copy_to_subsection_attributes(conf, INJECT_PARAMS)
 
         if conf.has_key?('include_time_key') && Fluent::Config.bool_value(conf['include_time_key'])
           attr['time_key'] ||= 'time'
