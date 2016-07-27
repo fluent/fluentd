@@ -10,6 +10,8 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
   def create_driver(conf = {})
     d = Fluent::Test::Driver::Formatter.new(Fluent::Plugin::OutFileFormatter)
     case conf
+    when Fluent::Config::Element
+      d.configure(conf)
     when Hash
       d.configure({'utc' => true}.merge(conf))
     else
@@ -23,6 +25,26 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
 
   def record
     {'message' => 'awesome'}
+  end
+
+  data('both true' => 'true', 'both false' => 'false')
+  def test_configured_with_both_of_utc_and_localtime(value)
+    assert_raise(Fluent::ConfigError.new("both of utc and localtime are specified, use only one of them")) do
+      create_driver({'utc' => value, 'localtime' => value})
+    end
+  end
+
+  data(
+    'configured for localtime by localtime' => ['localtime', 'true',  Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-26T21:08:30-07:00"],
+    'configured for localtime by utc'       => ['utc',       'false', Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-26T21:08:30-07:00"],
+    'configured for utc by localtime'       => ['localtime', 'false', Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-27T04:08:30Z"],
+    'configured for utc by utc'             => ['utc',       'true',  Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-27T04:08:30Z"],
+  )
+  def test_configured_with_utc_or_localtime(data)
+    key, value, time, expected = data
+    d = create_driver(config_element('ROOT', '', {key => value}))
+    tag = 'test'
+    assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}\n", d.instance.format(tag, time, record)
   end
 
   def test_format
