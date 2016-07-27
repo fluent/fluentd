@@ -34,16 +34,18 @@ class OutFileFormatterTest < ::Test::Unit::TestCase
     end
   end
 
+  time_i = Time.parse("2016-07-26 21:08:30 -0700").to_i
   data(
-    'configured for localtime by localtime' => ['localtime', 'true',  Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-26T21:08:30-07:00"],
-    'configured for localtime by utc'       => ['utc',       'false', Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-26T21:08:30-07:00"],
-    'configured for utc by localtime'       => ['localtime', 'false', Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-27T04:08:30Z"],
-    'configured for utc by utc'             => ['utc',       'true',  Time.parse("2016-07-26 21:08:30 -0700"), "2016-07-27T04:08:30Z"],
+    'configured for localtime by localtime' => ['localtime', 'true',  time_i, "2016-07-26T21:08:30-07:00"],
+    'configured for localtime by utc'       => ['utc',       'false', time_i, "2016-07-26T21:08:30-07:00"],
+    'configured for utc by localtime'       => ['localtime', 'false', time_i, "2016-07-27T04:08:30Z"],
+    'configured for utc by utc'             => ['utc',       'true',  time_i, "2016-07-27T04:08:30Z"],
   )
   def test_configured_with_utc_or_localtime(data)
-    key, value, time, expected = data
+    key, value, time_i, expected = data
+    time = Time.at(time_i)
     begin
-      oldtz, ENV['TZ'] = ENV['TZ'], "UTC-07"
+      oldtz, ENV['TZ'] = ENV['TZ'], "UTC+07"
       d = create_driver(config_element('ROOT', '', {key => value}))
       tag = 'test'
       assert_equal "#{expected}\t#{tag}\t#{Yajl.dump(record)}\n", d.instance.format(tag, time, record)
