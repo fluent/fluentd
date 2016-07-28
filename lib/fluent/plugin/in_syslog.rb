@@ -182,11 +182,11 @@ module Fluent::Plugin
       client = ServerEngine::SocketManager::Client.new(socket_manager_path)
       if @protocol_type == :udp
         @usock = client.listen_udp(@bind, @port)
-        SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback)
+        Fluent::SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback)
       else
         # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
         lsock = client.listen_tcp(@bind, @port)
-        Coolio::TCPServer.new(lsock, nil, SocketUtil::TcpHandler, log, "\n", callback)
+        Coolio::TCPServer.new(lsock, nil, Fluent::SocketUtil::TcpHandler, log, "\n", callback)
       end
     end
 
