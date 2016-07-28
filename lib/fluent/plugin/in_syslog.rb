@@ -94,7 +94,7 @@ module Fluent::Plugin
     desc 'Specify key of source host when include_source_host is true.'
     config_param :source_host_key, :string, default: 'source_host'.freeze
     config_param :blocking_timeout, :time, default: 0.5
-    config_param :message_length_limit, :integer, default: 2048
+    config_param :message_length_limit, :size, default: 2048
 
     def configure(conf)
       super

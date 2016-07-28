@@ -93,7 +93,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
   def test_msg_size_udp_for_large_msg
     d = create_driver(CONFIG + %[
-      message_length_limit 5120
+      message_length_limit 5k
     ])
     tests = create_test_case(large_message: true)
 
