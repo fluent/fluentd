@@ -86,52 +86,48 @@ class ExecInputTest < Test::Unit::TestCase
   def test_emit
     d = create_driver
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_json
     d = create_driver json_config
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_msgpack
     d = create_driver msgpack_config
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_regexp
     d = create_driver regexp_config
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.events
-    assert_equal true, emits.length > 0
-    assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 end
