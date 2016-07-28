@@ -26,13 +26,48 @@ module Fluent
       def configure(conf)
         super
 
-        @sub_formatter = Plugin.new_formatter(@output_type)
+        @sub_formatter = Plugin.new_formatter(@output_type, parent: self.owner)
         @sub_formatter.configure(conf)
+      end
+
+      def start
+        super
+        @sub_formatter.start
       end
 
       def format(tag, time, record)
         header = "#{Time.now.localtime} #{tag}: "
         "#{header}#{@sub_formatter.format(tag, time, record)}"
+      end
+
+      def stop
+        @sub_formatter.stop
+        super
+      end
+
+      def before_shutdown
+        @sub_formatter.before_shutdown
+        super
+      end
+
+      def shutdown
+        @sub_formatter.shutdown
+        super
+      end
+
+      def after_shutdown
+        @sub_formatter.after_shutdown
+        super
+      end
+
+      def close
+        @sub_formatter.close
+        super
+      end
+
+      def terminate
+        @sub_formatter.terminate
+        super
       end
     end
   end

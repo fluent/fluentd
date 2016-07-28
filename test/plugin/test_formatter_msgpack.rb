@@ -25,31 +25,4 @@ class MessagePackFormatterTest < ::Test::Unit::TestCase
 
     assert_equal(record.to_msgpack, formatted)
   end
-
-  def test_format_with_include_tag
-    d = create_driver('include_tag_key' => 'true', 'tag_key' => 'foo')
-    formatted = d.instance.format(tag, @time, record.dup)
-
-    r = record
-    r['foo'] = tag
-    assert_equal(r.to_msgpack, formatted)
-  end
-
-  def test_format_with_include_time
-    d = create_driver('include_time_key' => 'true', 'localtime' => '')
-    formatted = d.instance.format(tag, @time, record.dup)
-
-    r = record
-    r['time'] = time2str(@time, localtime: true)
-    assert_equal(r.to_msgpack, formatted)
-  end
-
-  def test_format_with_include_time_as_number
-    d = create_driver('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch')
-    formatted = d.instance.format(tag, @time, record.dup)
-
-    r = record
-    r['epoch'] = @time
-    assert_equal(r.to_msgpack, formatted)
-  end
 end

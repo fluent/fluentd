@@ -16,6 +16,8 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/formatter'
+require 'fluent/compat/handle_tag_and_time_mixin'
+require 'fluent/compat/structured_format_mixin'
 
 require 'fluent/plugin/formatter_out_file'
 require 'fluent/plugin/formatter_stdout'
@@ -66,8 +68,8 @@ module Fluent
         formatter
       end
 
-      HandleTagAndTimeMixin = Fluent::Plugin::Formatter::HandleTagAndTimeMixin
-      StructuredFormatMixin = Fluent::Plugin::Formatter::StructuredFormatMixin
+      HandleTagAndTimeMixin = Fluent::Compat::HandleTagAndTimeMixin
+      StructuredFormatMixin = Fluent::Compat::StructuredFormatMixin
 
       class ProcWrappedFormatter < Fluent::Plugin::ProcWrappedFormatter
         # TODO: warn when deprecated

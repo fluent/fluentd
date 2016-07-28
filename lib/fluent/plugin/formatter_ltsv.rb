@@ -22,14 +22,12 @@ module Fluent
       Plugin.register_formatter('ltsv', self)
 
       # http://ltsv.org/
-      include HandleTagAndTimeMixin
 
       config_param :delimiter, :string, default: "\t"
       config_param :label_delimiter, :string, default: ":"
 
       # TODO: escaping for \t in values
       def format(tag, time, record)
-        filter_record(tag, time, record)
         formatted = ""
         record.each do |label, value|
           formatted << @delimiter if formatted.length.nonzero?

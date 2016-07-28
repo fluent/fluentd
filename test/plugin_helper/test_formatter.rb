@@ -57,6 +57,26 @@ class FormatterHelperTest < Test::Unit::TestCase
     assert_equal 'example2', d.formatter_configs.first[:@type]
   end
 
+  test 'creates instance of type specified by conf, or default_type if @type is missing in conf' do
+    d = Dummy2.new
+    d.configure(config_element())
+    i = d.formatter_create(conf: config_element('format', '', {'@type' => 'example'}), default_type: 'example2')
+    assert{ i.is_a?(ExampleFormatter) }
+
+    d = Dummy2.new
+    d.configure(config_element())
+    i = d.formatter_create(conf: nil, default_type: 'example2')
+    assert{ i.is_a?(Example2Formatter) }
+  end
+
+  test 'raises config error if config section is specified, but @type is not specified' do
+    d = Dummy2.new
+    d.configure(config_element())
+    assert_raise Fluent::ConfigError.new("@type is required in <format>") do
+      d.formatter_create(conf: config_element('format', '', {}), default_type: 'example2')
+    end
+  end
+
   test 'can be configured without format sections' do
     d = Dummy.new
     assert_nothing_raised do

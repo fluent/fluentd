@@ -27,34 +27,4 @@ class JsonFormatterTest < ::Test::Unit::TestCase
 
     assert_equal("#{Yajl.dump(record)}\n", formatted)
   end
-
-  data('oj' => 'oj', 'yajl' => 'yajl')
-  def test_format_with_include_tag(data)
-    d = create_driver('include_tag_key' => 'true', 'tag_key' => 'foo', 'json_parser' => data)
-    formatted = d.instance.format(tag, @time, record.dup)
-
-    r = record
-    r['foo'] = tag
-    assert_equal("#{Yajl.dump(r)}\n", formatted)
-  end
-
-  data('oj' => 'oj', 'yajl' => 'yajl')
-  def test_format_with_include_time(data)
-    d = create_driver('include_time_key' => 'true', 'localtime' => '', 'json_parser' => data)
-    formatted = d.instance.format(tag, @time, record.dup)
-
-    r = record
-    r['time'] = time2str(@time, localtime: true)
-    assert_equal("#{Yajl.dump(r)}\n", formatted)
-  end
-
-  data('oj' => 'oj', 'yajl' => 'yajl')
-  def test_format_with_include_time_as_number(data)
-    d = create_driver('include_time_key' => 'true', 'time_as_epoch' => 'true', 'time_key' => 'epoch', 'json_parser' => data)
-    formatted = d.instance.format(tag, @time, record.dup)
-
-    r = record
-    r['epoch'] = @time
-    assert_equal("#{Yajl.dump(r)}\n", formatted)
-  end
 end

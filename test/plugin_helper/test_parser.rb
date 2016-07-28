@@ -68,6 +68,26 @@ class ParserHelperTest < Test::Unit::TestCase
     assert_equal 'example2', d.parser_configs.first[:@type]
   end
 
+  test 'creates instance of type specified by conf, or default_type if @type is missing in conf' do
+    d = Dummy2.new
+    d.configure(config_element())
+    i = d.parser_create(conf: config_element('parse', '', {'@type' => 'example'}), default_type: 'example2')
+    assert{ i.is_a?(ExampleParser) }
+
+    d = Dummy2.new
+    d.configure(config_element())
+    i = d.parser_create(conf: nil, default_type: 'example2')
+    assert{ i.is_a?(Example2Parser) }
+  end
+
+  test 'raises config error if config section is specified, but @type is not specified' do
+    d = Dummy2.new
+    d.configure(config_element())
+    assert_raise Fluent::ConfigError.new("@type is required in <parse>") do
+      d.parser_create(conf: config_element('parse', '', {}), default_type: 'example2')
+    end
+  end
+
   test 'can be configured without parse sections' do
     d = Dummy.new
     assert_nothing_raised do

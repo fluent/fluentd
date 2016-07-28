@@ -20,18 +20,27 @@ module Fluent::Plugin
   class StdoutOutput < Output
     Fluent::Plugin.register_output('stdout', self)
 
-    desc 'Output format.(json,hash)'
-    config_param :output_type, default: 'json'
+    helpers :inject, :formatter, :compat_parameters
+
+    DEFAULT_FORMAT_TYPE = 'json'
+
+    config_section :format do
+      config_set_default :@type, DEFAULT_FORMAT_TYPE
+    end
 
     def configure(conf)
+      if conf['output_type'] && !conf['format']
+        conf['format'] = conf['output_type']
+      end
+      compat_parameters_convert(conf, :inject, :formatter)
       super
-      @formatter = Fluent::Plugin.new_formatter(@output_type, parent: self)
-      @formatter.configure(conf)
+      @formatter = formatter_create(conf: conf.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
     end
 
     def process(tag, es)
       es.each {|time,record|
-        $log.write "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
+        r = inject_values_to_record(tag, time, record)
+        $log.write "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, r).chomp}\n"
       }
       $log.flush
     end

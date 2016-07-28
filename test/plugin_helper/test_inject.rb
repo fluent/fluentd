@@ -93,7 +93,7 @@ class InjectHelperTest < Test::Unit::TestCase
     assert_not_nil @d.instance_eval{ @_inject_time_formatter }
   end
 
-  sub_test_case 'using inject_record' do
+  sub_test_case 'using inject_values_to_record' do
     test 'injects hostname automatically detected' do
       detected_hostname = `hostname`.chomp
       @d.configure(config_inject_section("hostname_key" => "host"))
@@ -222,7 +222,8 @@ class InjectHelperTest < Test::Unit::TestCase
       assert_equal record.merge(injected), @d.inject_values_to_record('tag', time, record)
     end
   end
-  sub_test_case 'using inject_event_stream' do
+
+  sub_test_case 'using inject_values_to_event_stream' do
     local_timezone = Time.now.strftime('%z')
     time_in_unix = Time.parse("2016-06-21 08:10:11 #{local_timezone}").to_i
     time_subsecond = 320_101_224
@@ -401,6 +402,86 @@ class InjectHelperTest < Test::Unit::TestCase
         expected_es.add(t, r.merge(injected))
       end
       assert_equal expected_es, @d.inject_values_to_event_stream('tag', data)
+    end
+  end
+
+  sub_test_case 'time formatting with modified timezone' do
+    setup do
+      @time = event_time("2014-09-27 00:00:00 +00:00").to_i
+    end
+
+    def with_timezone(tz)
+      oldtz, ENV['TZ'] = ENV['TZ'], tz
+      yield
+    ensure
+      ENV['TZ'] = oldtz
+    end
+
+    def format(conf)
+      @d.configure(config_inject_section(
+          "hostname_key" => "hostnamedata",
+          "hostname" => "myname.local",
+          "tag_key" => "tagdata",
+          "time_key" => "timedata",
+          "time_type" => "string",
+          "time_format" => "%Y_%m_%d %H:%M:%S.%N %z",
+          "timezone" => "+0000",
+      ))
+      @d.start
+
+      record = {"key1" => "value1", "key2" => 2}
+      injected = {"hostnamedata" => "myname.local", "tagdata" => "tag", "timedata" => "2016_06_20 23:10:11.320101224 +0000"}
+      assert_equal record.merge(injected), @d.inject_values_to_record('tag', time, record)
+
+
+      d = create_driver({'include_time_key' => true}.merge(conf))
+      formatted = d.instance.format("tag", @time, {})
+      # Drop the leading "time:" and the trailing "\n".
+      formatted[5..-2]
+    end
+
+    def test_nothing_specified_about_time_formatting
+      with_timezone("UTC-01") do
+        # 'localtime' is true by default.
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string"))
+        @d.start
+        record = @d.inject_values_to_record('tag', @time, {"message" => "yay"})
+
+        assert_equal("2014-09-27T01:00:00+01:00", record['t'])
+      end
+    end
+
+    def test_utc
+      with_timezone("UTC-01") do
+        # 'utc' takes precedence over 'localtime'.
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string", "utc" => "true"))
+        @d.start
+        record = @d.inject_values_to_record('tag', @time, {"message" => "yay"})
+
+        assert_equal("2014-09-27T00:00:00Z", record['t'])
+      end
+    end
+
+    def test_timezone
+      with_timezone("UTC-01") do
+        # 'timezone' takes precedence over 'localtime'.
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string", "timezone" => "+02"))
+        @d.start
+        record = @d.inject_values_to_record('tag', @time, {"message" => "yay"})
+
+        assert_equal("2014-09-27T02:00:00+02:00", record['t'])
+      end
+    end
+
+    def test_utc_timezone
+      with_timezone("UTC-01") do
+        # 'timezone' takes precedence over 'utc'.
+        @d.configure(config_inject_section("time_key" => "t", "time_type" => "string", "timezone" => "Asia/Tokyo", "utc" => "true"))
+        @d.start
+        record = @d.inject_values_to_record('tag', @time, {"message" => "yay"})
+
+        assert_equal("2014-09-27T09:00:00+09:00", record['t'])
+      end
     end
   end
 end

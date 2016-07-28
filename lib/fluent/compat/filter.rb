@@ -17,11 +17,15 @@
 require 'fluent/plugin'
 require 'fluent/plugin/filter'
 require 'fluent/compat/call_super_mixin'
+require 'fluent/compat/formatter_utils'
+require 'fluent/compat/parser_utils'
 
 module Fluent
   module Compat
     class Filter < Fluent::Plugin::Filter
       # TODO: warn when deprecated
+
+      helpers :inject
 
       def initialize
         super
@@ -30,10 +34,26 @@ module Fluent
         end
       end
 
+      def configure(conf)
+        ParserUtils.convert_parser_conf(conf)
+        FormatterUtils.convert_formatter_conf(conf)
+
+        super
+      end
+
       # These definitions are to get instance methods of superclass of 3rd party plugins
       # to make it sure to call super
       def start
         super
+
+        if instance_variable_defined?(:@formatter) && @inject_config
+          unless @formatter.class.ancestors.include?(Fluent::Compat::HandleTagAndTimeMixin)
+            if @formatter.respond_to?(:owner) && !@formatter.owner
+              @formatter.owner = self
+              @formatter.singleton_class.prepend FormatterUtils::InjectMixin
+            end
+          end
+        end
       end
 
       def before_shutdown

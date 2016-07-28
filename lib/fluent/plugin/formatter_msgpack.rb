@@ -21,10 +21,7 @@ module Fluent
     class MessagePackFormatter < Formatter
       Plugin.register_formatter('msgpack', self)
 
-      include HandleTagAndTimeMixin
-      include StructuredFormatMixin
-
-      def format_record(record)
+      def format(tag, time, record)
         record.to_msgpack
       end
     end

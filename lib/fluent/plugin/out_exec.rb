@@ -53,6 +53,8 @@ module Fluent::Plugin
     end
 
     def configure(conf)
+      compat_parameters_convert(conf, :buffer, default_chunk_key: 'time')
+
       super
 
       @formatter = case @format

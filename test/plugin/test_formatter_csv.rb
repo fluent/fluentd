@@ -8,7 +8,11 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     @time = event_time
   end
 
-  def create_driver(conf = "")
+  CONF = %[
+    fields a,b,c
+  ]
+
+  def create_driver(conf = CONF)
     Fluent::Test::Driver::Formatter.new(Fluent::Plugin::CsvFormatter).configure(conf)
   end
 
@@ -20,7 +24,7 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     d = create_driver
     assert_equal(',', d.instance.delimiter)
     assert_equal(true, d.instance.force_quotes)
-    assert_equal([], d.instance.fields)
+    assert_equal(['a', 'b', 'c'], d.instance.fields)
   end
 
   data(
@@ -29,7 +33,7 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     'pipe' => ['|', '|'])
   def test_config_params_with_customized_delimiters(data)
     expected, target = data
-    d = create_driver("delimiter" => target)
+    d = create_driver("delimiter" => target, 'fields' => 'a,b,c')
     assert_equal expected, d.instance.delimiter
   end
 
@@ -40,28 +44,6 @@ class CsvFormatterTest < ::Test::Unit::TestCase
                                     'message2' => 'awesome2'
                                   })
     assert_equal("\"awesome\",\"awesome2\"\n", formatted)
-  end
-
-  def test_format_with_tag
-    d = create_driver("fields" => "tag,message,message2",
-                      "include_tag_key" => true)
-    formatted = d.instance.format(tag, @time, {
-                                    'message' => 'awesome',
-                                    'message2' => 'awesome2'
-                                  })
-    assert_equal("\"tag\",\"awesome\",\"awesome2\"\n", formatted)
-  end
-
-  def test_format_with_time
-    d = create_driver("fields" => "time,message,message2",
-                      "include_time_key" => true,
-                      "time_format" => "%Y")
-    formatted = d.instance.format(tag, @time, {
-                                    'message' => 'awesome',
-                                    'message2' => 'awesome2'
-                                  })
-    assert_equal("\"#{Time.now.year}\",\"awesome\",\"awesome2\"\n",
-                 formatted)
   end
 
   def test_format_with_customized_delimiters

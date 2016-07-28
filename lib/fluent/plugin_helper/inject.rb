@@ -68,7 +68,9 @@ module Fluent
           config_param :time_key, :string, default: nil
           config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
           config_param :time_format, :string, default: nil
-          config_param :timezone, :string, default: "#{Time.now.strftime('%z')}" # localtime
+          config_param :localtime, :bool, default: true # if localtime is false and timezone is nil, then utc
+          config_param :utc, :bool, default: false # placeholder to turn localtime to false
+          config_param :timezone, :string, default: nil
         end
       end
 
@@ -87,6 +89,12 @@ module Fluent
       end
 
       def configure(conf)
+        conf.elements('inject').each do |e|
+          if e.has_key?('utc') && Fluent::Config.bool_value(e['utc'])
+            e['localtime'] = 'false'
+          end
+        end
+
         super
 
         if @inject_config
@@ -105,7 +113,7 @@ module Fluent
                                       when :float then ->(time){ time.to_r.truncate(+6).to_f } # microsecond floating point value
                                       when :unixtime then ->(time){ time.to_i }
                                       else
-                                        Fluent::TimeFormatter.new(@inject_config.time_format, false, @inject_config.timezone)
+                                        Fluent::TimeFormatter.new(@inject_config.time_format, @inject_config.localtime, @inject_config.timezone)
                                       end
           end
 
