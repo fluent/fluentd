@@ -92,6 +92,7 @@ module Fluent
     desc 'Specify key of source host when include_source_host is true.'
     config_param :source_host_key, :string, default: 'source_host'.freeze
     config_param :blocking_timeout, :time, default: 0.5
+    config_param :message_length_limit, :size, default: 2048
 
     def configure(conf)
       super
@@ -183,7 +184,7 @@ module Fluent
       if @protocol_type == :udp
         @usock = SocketUtil.create_udp_socket(@bind)
         @usock.bind(@bind, @port)
-        SocketUtil::UdpHandler.new(@usock, log, 2048, callback)
+        SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback)
       else
         # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
         Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback)
