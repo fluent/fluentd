@@ -268,7 +268,8 @@ module Fluent
 
       def init
         if @path && @path != "-"
-          @io = File.open(@path, "a")
+          Dir.mkdir(File.dirname(@path)) unless File.exists?(@path)
+	  @io = File.open(@path, "a")
           if @chuser || @chgroup
             chuid = @chuser ? ServerEngine::Daemon.get_etc_passwd(@chuser).uid : nil
             chgid = @chgroup ? ServerEngine::Daemon.get_etc_group(@chgroup).gid : nil
