@@ -149,7 +149,9 @@ module Fluent
           if /\.(b|q)([0-9a-f]+)\.[^\/]*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern
             $1 == 'b' ? :staged : :queued
           else
-            :queued
+            # files which matches to glob of buffer file pattern
+            # it includes files which are created by out_file
+            :unknown
           end
         end
 

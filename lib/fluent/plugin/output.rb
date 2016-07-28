@@ -695,6 +695,7 @@ module Fluent
       end
 
       def commit_write(chunk_id, delayed: @delayed_commit, secondary: false)
+        log.trace "committing write operation to a chunk", chunk: dump_unique_id_hex(chunk_id), delayed: delayed
         if delayed
           @dequeued_chunks_mutex.synchronize do
             @dequeued_chunks.delete_if{ |info| info.chunk_id == chunk_id }
@@ -770,6 +771,8 @@ module Fluent
         chunk = @buffer.dequeue_chunk
         return unless chunk
 
+        log.debug "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
+
         output = self
         using_secondary = false
         if @retry_mutex.synchronize{ @retry && @retry.secondary? }
@@ -783,6 +786,7 @@ module Fluent
 
         begin
           if output.delayed_commit
+            log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
             @counters_monitor.synchronize{ @write_count += 1 }
             output.try_write(chunk)
             @dequeued_chunks_mutex.synchronize do
@@ -791,9 +795,14 @@ module Fluent
             end
           else # output plugin without delayed purge
             chunk_id = chunk.unique_id
+            dump_chunk_id = dump_unique_id_hex(chunk_id)
+            log.trace "adding write count", instance: self.object_id
             @counters_monitor.synchronize{ @write_count += 1 }
+            log.trace "executing sync write", chunk: dump_chunk_id
             output.write(chunk)
+            log.trace "write operation done, committing", chunk: dump_chunk_id
             commit_write(chunk_id, secondary: using_secondary)
+            log.trace "done to commit a chunk", chunk: dump_chunk_id
           end
         rescue => e
           log.debug "taking back chunk for errors.", plugin_id: plugin_id, chunk: dump_unique_id_hex(chunk.unique_id)
