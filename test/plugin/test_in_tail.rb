@@ -340,7 +340,6 @@ class TailInputTest < Test::Unit::TestCase
       end
       if block_given?
         yield file
-        sleep(0.1) until d.stop?
       else
         File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
         sleep 1
@@ -349,7 +348,6 @@ class TailInputTest < Test::Unit::TestCase
           f.puts "test5"
           f.puts "test6"
         }
-        sleep(0.1) until d.emit_count >= size + 1
       end
     end
 
