@@ -94,7 +94,7 @@ class StdoutFilterTest < Test::Unit::TestCase
 
     # Use include_time_key to output the message's time
     def test_include_time_key
-      d = create_driver(CONFIG + "\noutput_type json\ninclude_time_key true\nutc")
+      d = create_driver(CONFIG + "\noutput_type json\ninclude_time_key true\nutc true")
       etime = event_time
       time = Time.at(etime.sec)
       message_time = event_time("2011-01-02 13:14:15 UTC")
@@ -197,9 +197,12 @@ class StdoutFilterTest < Test::Unit::TestCase
         d = create_driver(format_config(%[
                                           @type stdout
                                           output_type json
-                                          include_time_key true
-                                          utc
-                                        ]))
+                                        ]) +
+                          inject_config(%[
+                                          time_key time
+                                          time_type string
+                                          localtime false
+                                       ]))
         etime = event_time
         time = Time.at(etime.sec)
         message_time = event_time("2011-01-02 13:14:15 UTC")
@@ -215,6 +218,13 @@ class StdoutFilterTest < Test::Unit::TestCase
         </format>
       ]
     end
+
+    def inject_config(config)
+      %[
+        <inject>
+          #{config}
+        </inject>
+      ]
+    end
   end
 end
-

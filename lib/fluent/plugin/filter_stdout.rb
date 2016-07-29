@@ -20,30 +20,33 @@ module Fluent::Plugin
   class StdoutFilter < Filter
     Fluent::Plugin.register_filter('stdout', self)
 
-    helpers :formatter
+    helpers :formatter, :compat_parameters, :inject
+
+    DEFAULT_FORMAT_TYPE = 'stdout'
+
+    config_section :format do
+      config_set_default :@type, DEFAULT_FORMAT_TYPE
+    end
 
     # for tests
     attr_reader :formatter
 
     def configure(conf)
+      conf['format'] ||= DEFAULT_FORMAT_TYPE
+      compat_parameters_convert(conf, :inject, :formatter)
       super
     end
 
     def start
-      @formatter = if !@formatter_configs.empty?
-                     formatter_create(conf: @formatter_configs)
-                   else
-                     # For v0.12 flat style parameter
-                     format = @config["format"] || "stdout"
-                     formatter_create(type: format, conf: @config)
-                   end
+      @formatter = formatter_create(conf: @config.elements('format').first)
       super
     end
 
     def filter_stream(tag, es)
       es.each { |time, record|
         begin
-          log.write @formatter.format(tag, time, record)
+          r = inject_values_to_record(tag, time, record)
+          log.write @formatter.format(tag, time, r)
         rescue => e
           router.emit_error_event(tag, time, record, e)
         end
