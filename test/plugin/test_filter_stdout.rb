@@ -94,7 +94,7 @@ class StdoutFilterTest < Test::Unit::TestCase
 
     # Use include_time_key to output the message's time
     def test_include_time_key
-      d = create_driver(CONFIG + "\noutput_type json\ninclude_time_key true\nutc true")
+      d = create_driver(CONFIG + "\noutput_type json\ninclude_time_key true\nlocaltime false")
       etime = event_time
       time = Time.at(etime.sec)
       message_time = event_time("2011-01-02 13:14:15 UTC")
