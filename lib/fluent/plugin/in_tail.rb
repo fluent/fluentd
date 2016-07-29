@@ -31,7 +31,7 @@ module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('tail', self)
 
-    helpers :timer, :event_loop, :parser
+    helpers :timer, :event_loop, :parser, :compat_parameters
 
     FILE_PERMISSION = 0644
 
@@ -76,6 +76,11 @@ module Fluent::Plugin
     attr_reader :paths
 
     def configure(conf)
+      compat_parameters_convert(conf, :parser)
+      parser_config = conf.elements('parse').first
+      (1..Fluent::Plugin::MultilineParser::FORMAT_MAX_NUM).each do |n|
+        parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
+      end
       super
 
       @paths = @path.split(',').map {|path| path.strip }
@@ -91,7 +96,8 @@ module Fluent::Plugin
       configure_tag
       configure_encoding
 
-      @multiline_mode = conf['format'] =~ /multiline/
+      parser_config = conf.elements('parse').first
+      @multiline_mode = parser_config[:@type] =~ /multiline/
       @receive_handler = if @multiline_mode
                            method(:parse_multilines)
                          else
@@ -132,12 +138,7 @@ module Fluent::Plugin
     def start
       super
 
-      if @config['format']
-        @parser = parser_create(type: @config['format'], conf: @config)
-      else
-        raise Fluent::ConfigError, "parser section must be specified once" unless @parser_configs.size == 1
-        @parser = parser_create(conf: @parser_configs.first)
-      end
+      @parser = parser_create(conf: @config.elements('parse').first)
 
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
