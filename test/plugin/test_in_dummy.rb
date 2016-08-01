@@ -42,6 +42,10 @@ class DummyTest < Test::Unit::TestCase
       assert_equal 10, d.instance.rate
     end
 
+    def json_error_messages_regexp
+      /JSON::ParserError|got incomplete JSON|0th element of dummy, foo, is not a hash/
+    end
+
     test 'dummy' do
       # hash is okay
       d = create_driver(config + %[dummy {"foo":"bar"}])
@@ -51,7 +55,7 @@ class DummyTest < Test::Unit::TestCase
       d = create_driver(config + %[dummy [{"foo":"bar"}]])
       assert_equal [{"foo"=>"bar"}], d.instance.dummy
 
-      assert_raise_message(/JSON::ParserError|got incomplete JSON/) do
+      assert_raise_message(json_error_messages_regexp) do
         create_driver(config + %[dummy "foo"])
       end
 

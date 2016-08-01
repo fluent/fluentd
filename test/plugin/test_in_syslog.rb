@@ -79,6 +79,24 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests)
   end
 
+  def test_msg_size_udp_for_large_msg
+    d = create_driver(CONFIG + %[
+      message_length_limit 5k
+    ])
+    tests = create_test_case(true)
+
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    compare_test_result(d.emits, tests)
+  end
+
   def test_msg_size_with_tcp
     d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
     tests = create_test_case
@@ -149,12 +167,20 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests, host)
   end
 
-  def create_test_case
+  def create_test_case(large_message = false)
     # actual syslog message has "\n"
-    [
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
-      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024},
-    ]
+    if large_message
+      [
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024},
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 4096 + "\n", 'expected' => 'x' * 4096},
+      ]
+    else
+      [
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024},
+      ]
+    end
   end
 
   def compare_test_result(emits, tests, host = nil)
