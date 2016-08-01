@@ -65,6 +65,15 @@ module Fluent
           raise ArgumentError, "unknown msgpack object type '#{type}'"
         end
       end
+
+      def capture_log(driver)
+        tmp = driver.instance.log.out
+        driver.instance.log.out = StringIO.new
+        yield
+        return driver.instance.log.out.string
+      ensure
+        driver.instance.log.out = tmp
+      end
     end
   end
 end
