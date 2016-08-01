@@ -75,6 +75,16 @@ module Fluent
         Process.kill :TERM, $$
         nil
       }
+      @rpc_server.mount_proc('/api/processes.flushBuffersAndKillWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/processes.flushBuffersAndKillWorkers request"
+        if Fluent.windows?
+          $log.warn "operation 'flushBuffersAndKillWorkers' is not supported on Windows now."
+        else
+          Process.kill :USR1, $$
+          Process.kill :TERM, $$
+        end
+        nil
+      }
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
         $log.debug "fluentd RPC got /api/plugins.flushBuffers request"
         unless Fluent.windows?
