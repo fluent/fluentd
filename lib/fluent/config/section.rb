@@ -151,6 +151,10 @@ module Fluent
         elems = conf.respond_to?(:elements) ? conf.elements : []
         elems.each { |e|
           next if plugin_class.nil? && Fluent::Config::V1Parser::ELEM_SYMBOLS.include?(e.name) # skip pre-defined non-plugin elements because it doens't have proxy section
+          # In v0.12, buffer and output parameters are defined in same place.
+          # It causes same configuration is used in different buffer / output
+          # and buffer plugin's sections are always empty. It should be skipped.
+          next if proxy.sections.empty?
 
           unless proxy.sections.any? { |name, subproxy| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
             parent_name = if conf.arg.empty?
