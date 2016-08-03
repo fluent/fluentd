@@ -276,16 +276,10 @@ module Fluent
       @weight_array = weight_array
     end
 
-    # MessagePack FixArray length = 3 (if @extend_internal_protocol)
-    #                             = 2 (else)
-    FORWARD_HEADER = [0x92].pack('C').freeze
-    FORWARD_HEADER_EXT = [0x93].pack('C').freeze
+    # MessagePack FixArray length is 3
+    FORWARD_HEADER = [0x93].pack('C').freeze
     def forward_header
-      if @extend_internal_protocol
-        FORWARD_HEADER_EXT
-      else
-        FORWARD_HEADER
-      end
+      FORWARD_HEADER
     end
 
     #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
@@ -336,8 +330,9 @@ module Fluent
         # writeRawBody(packed_es)
         chunk.write_to(sock)
 
+        option = { 'size' => chunk.size_of_events }
+
         if @extend_internal_protocol
-          option = {}
           option['chunk'] = Base64.encode64(chunk.unique_id) if @require_ack_response
           sock.write option.to_msgpack
 
@@ -374,6 +369,8 @@ module Fluent
               raise ForwardOutputACKTimeoutError, "node #{node.host}:#{node.port} does not return ACK"
             end
           end
+        else
+          sock.write option.to_msgpack
         end
 
         node.heartbeat(false)
