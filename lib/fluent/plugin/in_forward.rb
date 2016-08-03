@@ -169,10 +169,11 @@ module Fluent
 
       if entries.class == String
         # PackedForward
-        es = MessagePackEventStream.new(entries)
+        option = msg[2]
+        size = (option && option['size']) || 0
+        es = MessagePackEventStream.new(entries, nil, size.to_i)
         es = check_and_skip_invalid_event(tag, es, source) if @skip_invalid_event
         router.emit_stream(tag, es)
-        option = msg[2]
 
       elsif entries.class == Array
         # Forward
@@ -265,7 +266,7 @@ module Fluent
           @y = Yajl::Parser.new
           @y.on_parse_complete = lambda { |obj|
             option = @on_message.call(obj, @chunk_counter, @source)
-            respond option if option
+            respond option
             @chunk_counter = 0
           }
         else

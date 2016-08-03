@@ -242,6 +242,30 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_set_size_to_option
+    d = create_driver
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag1", time, {"a"=>2}]
+    ]
+
+    entries = ''
+    events.each {|_tag, _time, record|
+      [_time, record].to_msgpack(entries)
+    }
+
+    chunk = ["tag1", entries, { 'size' => events.length }].to_msgpack
+
+    d.run do
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        option = d.instance.send(:on_message, obj, chunk.size, "host: 127.0.0.1, addr: 127.0.0.1, port: 0000")
+        assert_equal option['size'], events.length
+      end
+    end
+  end
+
   def test_send_large_chunk_warning
     d = create_driver(CONFIG + %[
       chunk_size_warn_limit 16M
