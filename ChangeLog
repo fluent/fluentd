@@ -1,5 +1,29 @@
 # v0.12
 
+## Release 0.12.27 - 2016/08/03
+
+### New features / Enhancement
+
+* config: Add simplified syntax for hash and array
+  https://github.com/fluent/fluentd/pull/939
+* config: Add include support for Ruby DSL
+  https://github.com/fluent/fluentd/pull/950
+* in_http: Add support of X-Forwarded-For header
+  https://github.com/fluent/fluentd/pull/1051
+* in_syslog: Add message_length_limit option to receive longer udp syslog messages
+  https://github.com/fluent/fluentd/pull/1128
+
+### Bug fixes
+
+* test: Fix test for TimeSlicedOutput
+  https://github.com/fluent/fluentd/pull/941
+* example: Use `@type` in example confs
+  https://github.com/fluent/fluentd/pull/1043
+* Fix regression of fluent-debug command
+  https://github.com/fluent/fluentd/pull/1046
+* config: Fix wrong message for unsupported parameter
+  https://github.com/fluent/fluentd/pull/1132
+
 ## Release 0.12.26 - 2016/05/30
 
 ### Bug fixes
