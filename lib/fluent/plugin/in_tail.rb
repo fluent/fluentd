@@ -56,6 +56,9 @@ module Fluent
     config_param :pos_file, :string, default: nil
     desc 'Start to read the logs from the head of file, not bottom.'
     config_param :read_from_head, :bool, default: false
+    # When the program deletes log file and re-creates log file with same filename after passed refresh_interval,
+    # in_tail may raise a pos_file related error. This is a known issue but there is no such program on production.
+    # If we find such program / application, we will fix the problem.
     desc 'The interval of refreshing the list of watch file.'
     config_param :refresh_interval, :time, default: 60
     desc 'The number of reading lines at each IO.'
