@@ -117,11 +117,7 @@ module Fluent
     def configure_encoding
       unless @encoding
         if @from_encoding
-          log.warn "'from_encoding' parameter must be specified with 'encoding' parameter."
-          log.warn "'from_encoding' is ignored"
-          @encoding = nil
-          @from_encoding = nil
-          return
+          raise ConfigError, "tail: 'from_encoding' parameter must be specified with 'encoding' parameter."
         end
       end
 
