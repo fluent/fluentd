@@ -530,6 +530,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal node.available, true
   end
 
+  # To suppress calling `ForwardInput#start` in `DummyEngineDriver`,
+  # `DummyEnigneDriver` should avoid calling CallSuperMixin.prepend at `Fluent::Compat::Input#initialize`.
   module SuppressCallSuperMixin
     def start
       _start
