@@ -107,7 +107,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_wait_response_timeout_config
     d = create_driver(CONFIG)
-    assert_equal false, d.instance.extend_internal_protocol
     assert_equal false, d.instance.require_ack_response
     assert_equal 190, d.instance.ack_response_timeout
 
@@ -115,7 +114,6 @@ class ForwardOutputTest < Test::Unit::TestCase
       require_ack_response true
       ack_response_timeout 2s
     ])
-    assert d.instance.extend_internal_protocol
     assert d.instance.require_ack_response
     assert_equal 2, d.instance.ack_response_timeout
   end

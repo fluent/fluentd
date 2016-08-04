@@ -78,8 +78,6 @@ module Fluent
     desc 'Use the "Phi accrual failure detector" to detect server failure.'
     config_param :phi_failure_detector, :bool, default: true
 
-    # if any options added that requires extended forward api, fix @extend_internal_protocol
-
     desc 'Change the protocol to at-least-once.'
     config_param :require_ack_response, :bool, default: false  # require in_forward to respond with ack
     desc 'This option is used when require_ack_response is true.'
@@ -95,8 +93,6 @@ module Fluent
     config_param :port, :integer, default: LISTEN_PORT
     config_param :host, :string, default: nil
 
-    attr_accessor :extend_internal_protocol
-
     def configure(conf)
       super
 
@@ -111,13 +107,6 @@ module Fluent
       end
 
       recover_sample_size = @recover_wait / @heartbeat_interval
-
-      # add options here if any options addes which uses extended protocol
-      @extend_internal_protocol = if @require_ack_response
-                                    true
-                                  else
-                                    false
-                                  end
 
       if @dns_round_robin
         if @heartbeat_type == :udp
@@ -308,7 +297,7 @@ module Fluent
         opt = [@send_timeout.to_i, 0].pack('L!L!')  # struct timeval
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
-        # beginArray(2)
+        # beginArray(3)
         sock.write forward_header
 
         # writeRaw(tag)
@@ -331,50 +320,45 @@ module Fluent
         chunk.write_to(sock)
 
         option = { 'size' => chunk.size_of_events }
+        option['chunk'] = Base64.encode64(chunk.unique_id) if @require_ack_response
+        sock.write option.to_msgpack
 
-        if @extend_internal_protocol
-          option['chunk'] = Base64.encode64(chunk.unique_id) if @require_ack_response
-          sock.write option.to_msgpack
+        if @require_ack_response && @ack_response_timeout > 0
+          # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
+          # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
+          # and process them asynchronously.
+          if IO.select([sock], nil, nil, @ack_response_timeout)
+            raw_data = sock.recv(1024)
 
-          if @require_ack_response && @ack_response_timeout > 0
-            # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
-            # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
-            # and process them asynchronously.
-            if IO.select([sock], nil, nil, @ack_response_timeout)
-              raw_data = sock.recv(1024)
-
-              # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
-              # If this happens we assume the data wasn't delivered and retry it.
-              if raw_data.empty?
-                @log.warn "node #{node.host}:#{node.port} closed the connection. regard it as unavailable."
-                node.disable!
-                raise ForwardOutputConnectionClosedError, "node #{node.host}:#{node.port} closed connection"
-              else
-                # Serialization type of the response is same as sent data.
-                res = MessagePack.unpack(raw_data)
-
-                if res['ack'] != option['chunk']
-                  # Some errors may have occured when ack and chunk id is different, so send the chunk again.
-                  raise ForwardOutputResponseError, "ack in response and chunk id in sent data are different"
-                end
-              end
-
-            else
-              # IO.select returns nil on timeout.
-              # There are 2 types of cases when no response has been received:
-              # (1) the node does not support sending responses
-              # (2) the node does support sending response but responses have not arrived for some reasons.
-              @log.warn "no response from #{node.host}:#{node.port}. regard it as unavailable."
+            # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+            # If this happens we assume the data wasn't delivered and retry it.
+            if raw_data.empty?
+              @log.warn "node #{node.host}:#{node.port} closed the connection. regard it as unavailable."
               node.disable!
-              raise ForwardOutputACKTimeoutError, "node #{node.host}:#{node.port} does not return ACK"
+              raise ForwardOutputConnectionClosedError, "node #{node.host}:#{node.port} closed connection"
+            else
+              # Serialization type of the response is same as sent data.
+              res = MessagePack.unpack(raw_data)
+
+              if res['ack'] != option['chunk']
+                # Some errors may have occured when ack and chunk id is different, so send the chunk again.
+                raise ForwardOutputResponseError, "ack in response and chunk id in sent data are different"
+              end
             end
+
+          else
+            # IO.select returns nil on timeout.
+            # There are 2 types of cases when no response has been received:
+            # (1) the node does not support sending responses
+            # (2) the node does support sending response but responses have not arrived for some reasons.
+            @log.warn "no response from #{node.host}:#{node.port}. regard it as unavailable."
+            node.disable!
+            raise ForwardOutputACKTimeoutError, "node #{node.host}:#{node.port} does not return ACK"
           end
-        else
-          sock.write option.to_msgpack
         end
 
         node.heartbeat(false)
-        return res  # for test
+        res  # for test
       ensure
         sock.close_write
         sock.close
