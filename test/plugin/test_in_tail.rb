@@ -72,9 +72,10 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_configure_from_encoding
-    # If only specified from_encoding set to nil
-    d = create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
-    assert_equal nil, d.instance.from_encoding
+    # If only specified from_encoding raise ConfigError
+    assert_raise(Fluent::ConfigError) do
+      d = create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
+    end
 
     # valid setting
     d = create_driver %[
