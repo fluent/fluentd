@@ -28,23 +28,15 @@ class TailInputTest < Test::Unit::TestCase
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
 
-  CONFIG = %[
-    path #{TMP_DIR}/tail.txt
-    tag t1
-    rotate_wait 2s
-  ]
-  COMMON_CONFIG = CONFIG + %[
-    pos_file #{TMP_DIR}/tail.pos
-  ]
-  CONFIG_READ_FROM_HEAD = %[
-    read_from_head true
-  ]
-  CONFIG_ENABLE_WATCH_TIMER = %[
-    enable_watch_timer false
-  ]
-  SINGLE_LINE_CONFIG = %[
-    format /(?<message>.*)/
-  ]
+  CONFIG = config_element("ROOT", "", {
+                            "path" => "#{TMP_DIR}/tail.txt",
+                            "tag" => "t1",
+                            "rotate_wait" => "2s"
+                          })
+  COMMON_CONFIG = CONFIG + config_element("", "", { "pos_file" => "#{TMP_DIR}/tail.pos" })
+  CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
+  CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
+  SINGLE_LINE_CONFIG = config_element("", "", { "format" => "/(?<message>.*)/" })
 
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
     config = use_common_conf ? COMMON_CONFIG + conf : conf
@@ -62,12 +54,12 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_configure_encoding
     # valid encoding
-    d = create_driver(SINGLE_LINE_CONFIG + 'encoding utf-8')
+    d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }))
     assert_equal Encoding::UTF_8, d.instance.encoding
 
     # invalid encoding
     assert_raise(Fluent::ConfigError) do
-      create_driver(SINGLE_LINE_CONFIG + 'encoding no-such-encoding')
+      create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "no-such-encoding" }))
     end
   end
 
@@ -189,7 +181,8 @@ class TailInputTest < Test::Unit::TestCase
   data('1' => [1, 2], '10' => [10, 1])
   def test_emit_with_read_lines_limit(data)
     limit, num_events = data
-    d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + "read_lines_limit #{limit}")
+    config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit })
+    d = create_driver(config)
     msg = 'test' * 500 # in_tail reads 2048 bytes at once.
 
     d.run do
@@ -408,8 +401,8 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   data(
-    'default encoding' => ['', Encoding::ASCII_8BIT],
-    'explicit encoding config' => ['encoding utf-8', Encoding::UTF_8])
+    'default encoding' => [config_element, Encoding::ASCII_8BIT],
+    'explicit encoding config' => [config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
   def test_encoding(data)
     encoding_config, encoding = data
 
@@ -455,11 +448,12 @@ class TailInputTest < Test::Unit::TestCase
   def test_multiline
     File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-    d = create_driver %[
-      format multiline
-      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
-      format_firstline /^[s]/
-    ]
+    config = config_element("", "", {
+                              "format" => "multiline",
+                              "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                              "format_firstline" => "/^[s]/"
+                            })
+    d = create_driver(config)
     d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "f test1"
@@ -485,12 +479,13 @@ class TailInputTest < Test::Unit::TestCase
   def test_multiline_with_flush_interval
     File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-    d = create_driver %[
-      format multiline
-      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
-      format_firstline /^[s]/
-      multiline_flush_interval 2s
-    ]
+    config = config_element("", "", {
+                              "format" => "multiline",
+                              "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                              "format_firstline" => "/^[s]/",
+                              "multiline_flush_interval" => "2s"
+                            })
+    d = create_driver(config)
 
     assert_equal 2, d.instance.multiline_flush_interval
 
@@ -517,19 +512,19 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   data(
-    'default encoding' => ['', Encoding::ASCII_8BIT],
-    'explicit encoding config' => ['encoding utf-8', Encoding::UTF_8])
+    'default encoding' => [config_element, Encoding::ASCII_8BIT],
+    'explicit encoding config' => [config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
   def test_multiline_encoding_of_flushed_record(data)
     encoding_config, encoding = data
 
-    d = create_driver %[
-      format multiline
-      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
-      format_firstline /^[s]/
-      multiline_flush_interval 2s
-      read_from_head true
-      #{encoding_config}
-    ]
+    config = config_element("", "", {
+                              "format" => "multiline",
+                              "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                              "format_firstline" => "/^[s]/",
+                              "multiline_flush_interval" => "2s",
+                              "read_from_head" => "true",
+                            })
+    d = create_driver(config + encoding_config)
 
     d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f|
@@ -571,13 +566,14 @@ class TailInputTest < Test::Unit::TestCase
   def test_multiline_with_multiple_formats
     File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-    d = create_driver %[
-      format multiline
-      format1 /^s (?<message1>[^\\n]+)\\n?/
-      format2 /(f (?<message2>[^\\n]+)\\n?)?/
-      format3 /(f (?<message3>.*))?/
-      format_firstline /^[s]/
-    ]
+    config = config_element("", "", {
+                              "format" => "multiline",
+                              "format1" => "/^s (?<message1>[^\\n]+)\\n?/",
+                              "format2" => "/(f (?<message2>[^\\n]+)\\n?)?/",
+                              "format3" => "/(f (?<message3>.*))?/",
+                              "format_firstline" => "/^[s]/"
+                            })
+    d = create_driver(config)
     d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "f test1"
@@ -604,13 +600,14 @@ class TailInputTest < Test::Unit::TestCase
     files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
     files.each { |file| File.open(file, "wb") { |f| } }
 
-    d = create_driver(%[
-      path #{files[0]},#{files[1]}
-      tag t1
-      format multiline
-      format1 /^[s|f] (?<message>.*)/
-      format_firstline /^[s]/
-    ], false)
+    config = config_element("", "", {
+                              "path" => "#{files[0]},#{files[1]}",
+                              "tag" => "t1",
+                              "format" => "multiline",
+                              "format1" => "/^[s|f] (?<message>.*)/",
+                              "format_firstline" => "/^[s]/"
+                            })
+    d = create_driver(config, false)
     d.run(expect_emits: 2) do
       files.each do |file|
         File.open(file, 'ab') { |f|
@@ -635,12 +632,13 @@ class TailInputTest < Test::Unit::TestCase
   def test_multiline_without_firstline
     File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-    d = create_driver %[
-      format multiline
-      format1 /(?<var1>foo \\d)\\n/
-      format2 /(?<var2>bar \\d)\\n/
-      format3 /(?<var3>baz \\d)/
-    ]
+    config = config_element("", "", {
+                              "format" => "multiline",
+                              "format1" => "/(?<var1>foo \\d)\\n/",
+                              "format2" => "/(?<var2>bar \\d)\\n/",
+                              "format3" => "/(?<var3>baz \\d)/"
+                            })
+    d = create_driver(config)
     d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
         f.puts "foo 1"
@@ -663,15 +661,15 @@ class TailInputTest < Test::Unit::TestCase
   # TODO: Clean up tests
   EX_RORATE_WAIT = 0
 
-  EX_CONFIG = %[
-    tag tail
-    path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-    format none
-    pos_file #{TMP_DIR}/tail.pos
-    read_from_head true
-    refresh_interval 30
-    rotate_wait #{EX_RORATE_WAIT}s
-  ]
+  EX_CONFIG = config_element("", "", {
+                               "tag" => "tail",
+                               "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                               "format" => "none",
+                               "pos_file" => "#{TMP_DIR}/tail.pos",
+                               "read_from_head" => true,
+                               "refresh_interval" => 30,
+                               "rotate_wait" => "#{EX_RORATE_WAIT}s",
+                             })
   EX_PATHS = [
     'test/plugin/data/2010/01/20100102-030405.log',
     'test/plugin/data/log/foo/bar.log',
@@ -686,7 +684,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     # Test exclusion
-    exclude_config = EX_CONFIG + "  exclude_path [\"#{EX_PATHS.last}\"]"
+    exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{EX_PATHS.last}"]) })
     plugin = create_driver(exclude_config, false).instance
     assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
   end
@@ -749,12 +747,12 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tag_prefix
-      config = %[
-        tag pre.*
-               path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-        format none
-        read_from_head true
-      ]
+      config = config_element("", "", {
+                                "tag" => "pre.*",
+                                "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                                "format" => "none",
+                                "read_from_head" => true
+                              })
       d = create_driver(config, false)
       d.run {}
       plugin = d.instance
@@ -763,12 +761,12 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tag_suffix
-      config = %[
-        tag *.post
-        path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-        format none
-        read_from_head true
-      ]
+      config = config_element("", "", {
+                                "tag" => "*.post",
+                                "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                                "format" => "none",
+                                "read_from_head" => true
+                              })
       d = create_driver(config, false)
       d.run {}
       plugin = d.instance
@@ -777,12 +775,12 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tag_prefix_and_suffix
-      config = %[
-        tag pre.*.post
-        path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-        format none
-        read_from_head true
-      ]
+      config = config_element("", "", {
+                                "tag" => "pre.*.post",
+                                "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                                "format" => "none",
+                                "read_from_head" => true
+                              })
       d = create_driver(config, false)
       d.run {}
       plugin = d.instance
@@ -791,12 +789,12 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_tag_prefix_and_suffix_ignore
-      config = %[
-        tag pre.*.post*ignore
-        path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
-        format none
-        read_from_head true
-      ]
+      config = config_element("", "", {
+                                "tag" => "pre.*.post*ignore",
+                                "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                                "format" => "none",
+                                "read_from_head" => true
+                              })
       d = create_driver(config, false)
       d.run {}
       plugin = d.instance
@@ -815,14 +813,14 @@ class TailInputTest < Test::Unit::TestCase
 
     # Try two different configs - one with read_from_head and one without,
     # since their interactions with the filesystem differ.
-    config1 = %[
-      tag t1
-      path #{TMP_DIR}/non_existent_file.txt,#{TMP_DIR}/tail.txt
-      format none
-      rotate_wait 2s
-      pos_file #{TMP_DIR}/tail.pos
-    ]
-    config2 = config1 + '  read_from_head true'
+    config1 = config_element("", "", {
+                               "tag" => "t1",
+                               "path" => "#{TMP_DIR}/non_existent_file.txt,#{TMP_DIR}/tail.txt",
+                               "format" => "none",
+                               "rotate_wait" => "2s",
+                               "pos_file" => "#{TMP_DIR}/tail.pos"
+                             })
+    config2 = config1 + config_element("", "", { "read_from_head" => true })
     [config1, config2].each do |config|
       d = create_driver(config, false)
       d.run(expect_emits: 1) do
@@ -847,7 +845,7 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test2"
       }
 
-      d = create_driver(%[path_key path] + SINGLE_LINE_CONFIG)
+      d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "path_key" => "path" }))
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
@@ -867,12 +865,13 @@ class TailInputTest < Test::Unit::TestCase
     def test_tail_path_with_multiline_with_firstline
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-      d = create_driver %[
-        path_key path
-        format multiline
-        format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
-        format_firstline /^[s]/
-      ]
+      config = config_element("", "", {
+                                "path_key" => "path",
+                                "format" => "multiline",
+                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                                "format_firstline" => "/^[s]/"
+                              })
+      d = create_driver(config)
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
           f.puts "f test1"
@@ -897,13 +896,14 @@ class TailInputTest < Test::Unit::TestCase
     def test_tail_path_with_multiline_without_firstline
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-      d = create_driver %[
-        path_key path
-        format multiline
-        format1 /(?<var1>foo \\d)\\n/
-        format2 /(?<var2>bar \\d)\\n/
-        format3 /(?<var3>baz \\d)/
-      ]
+      config = config_element("", "", {
+                                "path_key" => "path",
+                                "format" => "multiline",
+                                "format1" => "/(?<var1>foo \\d)\\n/",
+                                "format2" => "/(?<var2>bar \\d)\\n/",
+                                "format3" => "/(?<var3>baz \\d)/",
+                              })
+      d = create_driver(config)
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
           f.puts "foo 1"
@@ -924,14 +924,15 @@ class TailInputTest < Test::Unit::TestCase
       files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
       files.each { |file| File.open(file, "wb") { |f| } }
 
-      d = create_driver(%[
-        path #{files[0]},#{files[1]}
-        path_key path
-        tag t1
-        format multiline
-        format1 /^[s|f] (?<message>.*)/
-        format_firstline /^[s]/
-      ], false)
+      config = config_element("", "", {
+                                "path" => "#{files[0]},#{files[1]}",
+                                "path_key" => "path",
+                                "tag" => "t1",
+                                "format" => "multiline",
+                                "format1" => "/^[s|f] (?<message>.*)/",
+                                "format_firstline" => "/^[s]/"
+                              })
+      d = create_driver(config, false)
       d.run(expect_emits: 2) do
         files.each do |file|
           File.open(file, 'ab') { |f|
