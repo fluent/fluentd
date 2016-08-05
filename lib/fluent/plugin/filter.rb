@@ -45,27 +45,29 @@ module Fluent
 
       def filter_stream(tag, es)
         new_es = MultiEventStream.new
-        es.each do |time, record|
-          begin
-            filtered_record = do_filter(tag, time, record)
-            new_es.add(*filtered_record) if filtered_record
-          rescue => e
-            router.emit_error_event(tag, time, record, e)
+        if @has_filter_with_time
+          es.each do |time, record|
+            begin
+              filtered_time, filtered_record = filter_with_time(tag, time, record)
+              new_es.add(filtered_time, filtered_record) if filtered_time && filtered_record
+            rescue => e
+              router.emit_error_event(tag, time, record, e)
+            end
+          end
+        else
+          es.each do |time, record|
+            begin
+              filtered_record = filter(tag, time, record)
+              new_es.add(time, filtered_record) if filtered_record
+            rescue => e
+              router.emit_error_event(tag, time, record, e)
+            end
           end
         end
         new_es
       end
 
       private
-
-      def do_filter(tag, time, record)
-        if @has_filter_with_time
-          filter_with_time(tag, time, record)
-        else
-          record = filter(tag, time, record)
-          [time, record] if record
-        end
-      end
 
       def has_filter_with_time?
         implmented_methods = self.class.instance_methods(false)
