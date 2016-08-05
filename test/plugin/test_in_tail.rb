@@ -89,6 +89,7 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "singleline" do
   def test_emit
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
@@ -111,63 +112,6 @@ class TailInputTest < Test::Unit::TestCase
     assert(events[0][1].is_a?(Fluent::EventTime))
     assert(events[1][1].is_a?(Fluent::EventTime))
     assert_equal(1, d.emit_count)
-  end
-
-  class TestWithSystem < self
-    include Fluent::SystemConfig::Mixin
-
-    OVERRIDE_FILE_PERMISSION = 0620
-    CONFIG_SYSTEM = %[
-      <system>
-        file_permission #{OVERRIDE_FILE_PERMISSION}
-      </system>
-    ]
-
-    def setup
-      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-      # Store default permission
-      @default_permission = system_config.instance_variable_get(:@file_permission)
-    end
-
-    def teardown
-      # Restore default permission
-      system_config.instance_variable_set(:@file_permission, @default_permission)
-    end
-
-    def parse_system(text)
-      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
-      Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
-    end
-
-    def test_emit_with_system
-      system_conf = parse_system(CONFIG_SYSTEM)
-      sc = Fluent::SystemConfig.new(system_conf)
-      Fluent::Engine.init(sc)
-      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-        f.puts "test1"
-        f.puts "test2"
-      }
-
-      d = create_driver
-
-      d.run(expect_emits: 1) do
-        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-          f.puts "test3"
-          f.puts "test4"
-        }
-      end
-
-      events = d.events
-      assert_equal(true, events.length > 0)
-      assert_equal({"message" => "test3"}, events[0][2])
-      assert_equal({"message" => "test4"}, events[1][2])
-      assert(events[0][1].is_a?(Fluent::EventTime))
-      assert(events[1][1].is_a?(Fluent::EventTime))
-      assert_equal(1, d.emit_count)
-      pos = d.instance.instance_variable_get(:@pf_file)
-      mode = "%o" % File.stat(pos).mode
-      assert_equal OVERRIDE_FILE_PERMISSION, mode[-3, 3].to_i
-    end
   end
 
   data('1' => [1, 2], '10' => [10, 1])
@@ -236,7 +180,66 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "test3"}, events[0][2])
     assert_equal({"message" => "test4"}, events[1][2])
   end
+  end
 
+  class TestWithSystem < self
+    include Fluent::SystemConfig::Mixin
+
+    OVERRIDE_FILE_PERMISSION = 0620
+    CONFIG_SYSTEM = %[
+      <system>
+        file_permission #{OVERRIDE_FILE_PERMISSION}
+      </system>
+    ]
+
+    def setup
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+      # Store default permission
+      @default_permission = system_config.instance_variable_get(:@file_permission)
+    end
+
+    def teardown
+      # Restore default permission
+      system_config.instance_variable_set(:@file_permission, @default_permission)
+    end
+
+    def parse_system(text)
+      basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
+      Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
+    end
+
+    def test_emit_with_system
+      system_conf = parse_system(CONFIG_SYSTEM)
+      sc = Fluent::SystemConfig.new(system_conf)
+      Fluent::Engine.init(sc)
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d = create_driver
+
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+      end
+
+      events = d.events
+      assert_equal(true, events.length > 0)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+      assert(events[0][1].is_a?(Fluent::EventTime))
+      assert(events[1][1].is_a?(Fluent::EventTime))
+      assert_equal(1, d.emit_count)
+      pos = d.instance.instance_variable_get(:@pf_file)
+      mode = "%o" % File.stat(pos).mode
+      assert_equal OVERRIDE_FILE_PERMISSION, mode[-3, 3].to_i
+    end
+  end
+
+  sub_test_case "rotate file" do
   def test_rotate_file
     events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 1)
     assert_equal(4, events.length)
@@ -331,6 +334,7 @@ class TailInputTest < Test::Unit::TestCase
   ensure
     file.close if file && !file.closed?
   end
+  end
 
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
@@ -420,8 +424,7 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
 
-  # multiline mode test
-
+  sub_test_case "multiline" do
   def test_multiline
     File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
@@ -627,7 +630,9 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, events[0][2])
     assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, events[1][2])
   end
+  end
 
+  sub_test_case "path" do
   # * path test
   # TODO: Clean up tests
   EX_RORATE_WAIT = 0
@@ -658,6 +663,7 @@ class TailInputTest < Test::Unit::TestCase
     exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{EX_PATHS.last}"]) })
     plugin = create_driver(exclude_config, false).instance
     assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
+  end
   end
 
   def test_z_refresh_watchers
