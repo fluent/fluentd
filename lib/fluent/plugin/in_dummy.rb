@@ -26,6 +26,7 @@ module Fluent::Plugin
     helpers :thread, :storage
 
     BIN_NUM = 10
+    DEFAULT_STORAGE_TYPE = 'local'
 
     desc "The value is the tag assigned to the generated events."
     config_param :tag, :string
@@ -61,7 +62,7 @@ module Fluent::Plugin
       super
       @dummy_index = 0
       config = conf.elements.select{|e| e.name == 'storage' }.first
-      @storage = storage_create(usage: 'suspend', conf: config, type: :local)
+      @storage = storage_create(usage: 'suspend', conf: config, default_type: DEFAULT_STORAGE_TYPE)
     end
 
     def start
