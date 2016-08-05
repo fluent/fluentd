@@ -37,6 +37,21 @@ class TailInputTest < Test::Unit::TestCase
   CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
   CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
   SINGLE_LINE_CONFIG = config_element("", "", { "format" => "/(?<message>.*)/" })
+  PARSE_SINGLE_LINE_CONFIG = config_element("", "", {}, [config_element("parse", "", { "@type" => "/(?<message>.*)/" })])
+  MULTILINE_CONFIG = config_element(
+    "", "", {
+      "format" => "multiline",
+      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+      "format_firstline" => "/^[s]/"
+    })
+  PARSE_MULTILINE_CONFIG = config_element(
+    "", "", {},
+    [config_element("parse", "", {
+                      "@type" => "multiline",
+                      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                      "format_firstline" => "/^[s]/"
+                    })
+    ])
 
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
     config = use_common_conf ? COMMON_CONFIG + conf : conf
@@ -90,13 +105,16 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "singleline" do
-    def test_emit
+    data(flat: SINGLE_LINE_CONFIG,
+         parse: PARSE_SINGLE_LINE_CONFIG)
+    def test_emit(data)
+      config = data
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
-      d = create_driver
+      d = create_driver(config)
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
@@ -114,10 +132,18 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(1, d.emit_count)
     end
 
-    data('1' => [1, 2], '10' => [10, 1])
+    data('flat 1' => [:flat, 1, 2],
+         'flat 10' => [:flat, 10, 1],
+         'parse 1' => [:parse, 1, 2],
+         'parse 10' => [:parse, 10, 1])
     def test_emit_with_read_lines_limit(data)
-      limit, num_events = data
-      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit })
+      config_style, limit, num_events = data
+      case config_style
+      when :flat
+        config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit })
+      when :parse
+        config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit }) + PARSE_SINGLE_LINE_CONFIG
+      end
       d = create_driver(config)
       msg = 'test' * 500 # in_tail reads 2048 bytes at once.
 
@@ -135,13 +161,16 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(num_events, d.emit_count)
     end
 
-    def test_emit_with_read_from_head
+    data(flat: CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
+         parse: CONFIG_READ_FROM_HEAD + PARSE_SINGLE_LINE_CONFIG)
+    def test_emit_with_read_from_head(data)
+      config = data
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
-      d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
+      d = create_driver(config)
 
       d.run(expect_emits: 2) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
@@ -158,13 +187,16 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test4"}, events[3][2])
     end
 
-    def test_emit_with_enable_watch_timer
+    data(flat: CONFIG_ENABLE_WATCH_TIMER + SINGLE_LINE_CONFIG,
+         parse: CONFIG_ENABLE_WATCH_TIMER + PARSE_SINGLE_LINE_CONFIG)
+    def test_emit_with_enable_watch_timer(data)
+      config = data
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test1"
         f.puts "test2"
       }
 
-      d = create_driver(CONFIG_ENABLE_WATCH_TIMER + SINGLE_LINE_CONFIG)
+      d = create_driver(config)
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
@@ -240,8 +272,11 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "rotate file" do
-    def test_rotate_file
-      events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 1)
+    data(flat: SINGLE_LINE_CONFIG,
+         parse: PARSE_SINGLE_LINE_CONFIG)
+    def test_rotate_file(data)
+      config = data
+      events = sub_test_rotate_file(config, expect_emits: 1)
       assert_equal(4, events.length)
       assert_equal({"message" => "test3"}, events[0][2])
       assert_equal({"message" => "test4"}, events[1][2])
@@ -249,8 +284,11 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test6"}, events[3][2])
     end
 
-    def test_rotate_file_with_read_from_head
-      events = sub_test_rotate_file(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG, expect_emits: 1)
+    data(flat: CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
+         parse: CONFIG_READ_FROM_HEAD + PARSE_SINGLE_LINE_CONFIG)
+    def test_rotate_file_with_read_from_head(data)
+      config = data
+      events = sub_test_rotate_file(config, expect_emits: 1)
       assert_equal(6, events.length)
       assert_equal({"message" => "test1"}, events[0][2])
       assert_equal({"message" => "test2"}, events[1][2])
@@ -260,8 +298,11 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test6"}, events[5][2])
     end
 
-    def test_rotate_file_with_write_old
-      events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 3) { |rotated_file|
+    data(flat: SINGLE_LINE_CONFIG,
+         parse: PARSE_SINGLE_LINE_CONFIG)
+    def test_rotate_file_with_write_old(data)
+      config = data
+      events = sub_test_rotate_file(config, expect_emits: 3) { |rotated_file|
         File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
         rotated_file.puts "test7"
         rotated_file.puts "test8"
@@ -282,8 +323,11 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test6"}, events[5][2])
     end
 
-    def test_rotate_file_with_write_old_and_no_new_file
-      events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 2) { |rotated_file|
+    data(flat: SINGLE_LINE_CONFIG,
+         parse: PARSE_SINGLE_LINE_CONFIG)
+    def test_rotate_file_with_write_old_and_no_new_file(data)
+      config = data
+      events = sub_test_rotate_file(config, expect_emits: 2) { |rotated_file|
         rotated_file.puts "test7"
         rotated_file.puts "test8"
         rotated_file.flush
@@ -385,12 +429,14 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   data(
-    'default encoding' => [config_element, Encoding::ASCII_8BIT],
-    'explicit encoding config' => [config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
+    'flat default encoding' => [SINGLE_LINE_CONFIG, Encoding::ASCII_8BIT],
+    'flat explicit encoding config' => [SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8],
+    'parse default encoding' => [PARSE_SINGLE_LINE_CONFIG, Encoding::ASCII_8BIT],
+    'parse explicit encoding config' => [PARSE_SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
   def test_encoding(data)
     encoding_config, encoding = data
 
-    d = create_driver(SINGLE_LINE_CONFIG + CONFIG_READ_FROM_HEAD + encoding_config)
+    d = create_driver(CONFIG_READ_FROM_HEAD + encoding_config)
 
     d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
@@ -425,14 +471,12 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "multiline" do
-    def test_multiline
+    data(flat: MULTILINE_CONFIG,
+         parse: PARSE_MULTILINE_CONFIG)
+    def test_multiline(data)
+      config = data
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-      config = config_element("", "", {
-                                "format" => "multiline",
-                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
-                                "format_firstline" => "/^[s]/"
-                              })
       d = create_driver(config)
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
@@ -455,15 +499,12 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message1" => "test8"}, events[3][2])
     end
 
-    def test_multiline_with_flush_interval
+    data(flat: MULTILINE_CONFIG,
+         parse: PARSE_MULTILINE_CONFIG)
+    def test_multiline_with_flush_interval(data)
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-      config = config_element("", "", {
-                                "format" => "multiline",
-                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
-                                "format_firstline" => "/^[s]/",
-                                "multiline_flush_interval" => "2s"
-                              })
+      config = data + config_element("", "", { "multiline_flush_interval" => "2s" })
       d = create_driver(config)
 
       assert_equal 2, d.instance.multiline_flush_interval
@@ -490,15 +531,14 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     data(
-      'default encoding' => [config_element, Encoding::ASCII_8BIT],
-      'explicit encoding config' => [config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
+      'flat default encoding' => [MULTILINE_CONFIG, Encoding::ASCII_8BIT],
+      'flat explicit encoding config' => [MULTILINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8],
+      'parse default encoding' => [PARSE_MULTILINE_CONFIG, Encoding::ASCII_8BIT],
+      'parse explicit encoding config' => [PARSE_MULTILINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
     def test_multiline_encoding_of_flushed_record(data)
       encoding_config, encoding = data
 
       config = config_element("", "", {
-                                "format" => "multiline",
-                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
-                                "format_firstline" => "/^[s]/",
                                 "multiline_flush_interval" => "2s",
                                 "read_from_head" => "true",
                               })
@@ -539,16 +579,29 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
-    def test_multiline_with_multiple_formats
+    data(flat: config_element(
+           "", "", {
+             "format" => "multiline",
+             "format1" => "/^s (?<message1>[^\\n]+)\\n?/",
+             "format2" => "/(f (?<message2>[^\\n]+)\\n?)?/",
+             "format3" => "/(f (?<message3>.*))?/",
+             "format_firstline" => "/^[s]/"
+           }),
+         parse: config_element(
+           "", "", {},
+           [config_element("parse", "", {
+                             "@type" => "multiline",
+                             "format1" => "/^s (?<message1>[^\\n]+)\\n?/",
+                             "format2" => "/(f (?<message2>[^\\n]+)\\n?)?/",
+                             "format3" => "/(f (?<message3>.*))?/",
+                             "format_firstline" => "/^[s]/"
+                           })
+           ])
+        )
+    def test_multiline_with_multiple_formats(data)
+      config = data
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-      config = config_element("", "", {
-                                "format" => "multiline",
-                                "format1" => "/^s (?<message1>[^\\n]+)\\n?/",
-                                "format2" => "/(f (?<message2>[^\\n]+)\\n?)?/",
-                                "format3" => "/(f (?<message3>.*))?/",
-                                "format_firstline" => "/^[s]/"
-                              })
       d = create_driver(config)
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
@@ -571,17 +624,29 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message1" => "test8"}, events[3][2])
     end
 
-    def test_multilinelog_with_multiple_paths
+    data(flat: config_element(
+           "", "", {
+             "format" => "multiline",
+             "format1" => "/^[s|f] (?<message>.*)/",
+             "format_firstline" => "/^[s]/"
+           }),
+         parse: config_element(
+           "", "", {},
+           [config_element("parse", "", {
+                             "@type" => "multiline",
+                             "format1" => "/^[s|f] (?<message>.*)/",
+                             "format_firstline" => "/^[s]/"
+                           })
+           ])
+        )
+    def test_multilinelog_with_multiple_paths(data)
       files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
       files.each { |file| File.open(file, "wb") { |f| } }
 
-      config = config_element("", "", {
-                                "path" => "#{files[0]},#{files[1]}",
-                                "tag" => "t1",
-                                "format" => "multiline",
-                                "format1" => "/^[s|f] (?<message>.*)/",
-                                "format_firstline" => "/^[s]/"
-                              })
+      config = data + config_element("", "", {
+                                       "path" => "#{files[0]},#{files[1]}",
+                                       "tag" => "t1",
+                                     })
       d = create_driver(config, false)
       d.run(expect_emits: 2) do
         files.each do |file|
@@ -603,15 +668,26 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test4"}, events[3][2])
     end
 
-    def test_multiline_without_firstline
-      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
-
-      config = config_element("", "", {
+    data(flat: config_element("", "", {
                                 "format" => "multiline",
                                 "format1" => "/(?<var1>foo \\d)\\n/",
                                 "format2" => "/(?<var2>bar \\d)\\n/",
                                 "format3" => "/(?<var3>baz \\d)/"
-                              })
+                              }),
+         parse: config_element(
+           "", "", {},
+           [config_element("parse", "", {
+                             "@type" => "multiline",
+                             "format1" => "/(?<var1>foo \\d)\\n/",
+                             "format2" => "/(?<var2>bar \\d)\\n/",
+                             "format3" => "/(?<var3>baz \\d)/"
+                           })
+           ])
+        )
+    def test_multiline_without_firstline(data)
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+      config = data
       d = create_driver(config)
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
