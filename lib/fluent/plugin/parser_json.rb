@@ -39,7 +39,7 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
-          Oj.default_options = {bigdecimal_load: :float}
+          Oj.default_options = {bigdecimal_load: :float, mode: :strict}
           @load_proc = Oj.method(:load)
           @error_class = Oj::ParseError
         rescue LoadError
