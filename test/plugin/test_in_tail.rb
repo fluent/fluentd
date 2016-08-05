@@ -90,96 +90,96 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "singleline" do
-  def test_emit
-    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-      f.puts "test1"
-      f.puts "test2"
-    }
-
-    d = create_driver
-
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.puts "test3"
-        f.puts "test4"
+    def test_emit
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
       }
+
+      d = create_driver
+
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+      end
+
+      events = d.events
+      assert_equal(true, events.length > 0)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+      assert(events[0][1].is_a?(Fluent::EventTime))
+      assert(events[1][1].is_a?(Fluent::EventTime))
+      assert_equal(1, d.emit_count)
     end
 
-    events = d.events
-    assert_equal(true, events.length > 0)
-    assert_equal({"message" => "test3"}, events[0][2])
-    assert_equal({"message" => "test4"}, events[1][2])
-    assert(events[0][1].is_a?(Fluent::EventTime))
-    assert(events[1][1].is_a?(Fluent::EventTime))
-    assert_equal(1, d.emit_count)
-  end
+    data('1' => [1, 2], '10' => [10, 1])
+    def test_emit_with_read_lines_limit(data)
+      limit, num_events = data
+      config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit })
+      d = create_driver(config)
+      msg = 'test' * 500 # in_tail reads 2048 bytes at once.
 
-  data('1' => [1, 2], '10' => [10, 1])
-  def test_emit_with_read_lines_limit(data)
-    limit, num_events = data
-    config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit })
-    d = create_driver(config)
-    msg = 'test' * 500 # in_tail reads 2048 bytes at once.
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts msg
+          f.puts msg
+        }
+      end
 
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.puts msg
-        f.puts msg
-      }
+      events = d.events
+      assert_equal(true, events.length > 0)
+      assert_equal({"message" => msg}, events[0][2])
+      assert_equal({"message" => msg}, events[1][2])
+      assert_equal(num_events, d.emit_count)
     end
 
-    events = d.events
-    assert_equal(true, events.length > 0)
-    assert_equal({"message" => msg}, events[0][2])
-    assert_equal({"message" => msg}, events[1][2])
-    assert_equal(num_events, d.emit_count)
-  end
-
-  def test_emit_with_read_from_head
-    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-      f.puts "test1"
-      f.puts "test2"
-    }
-
-    d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
-
-    d.run(expect_emits: 2) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.puts "test3"
-        f.puts "test4"
+    def test_emit_with_read_from_head
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
       }
+
+      d = create_driver(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG)
+
+      d.run(expect_emits: 2) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+      end
+
+      events = d.events
+      assert(events.length > 0)
+      assert_equal({"message" => "test1"}, events[0][2])
+      assert_equal({"message" => "test2"}, events[1][2])
+      assert_equal({"message" => "test3"}, events[2][2])
+      assert_equal({"message" => "test4"}, events[3][2])
     end
 
-    events = d.events
-    assert(events.length > 0)
-    assert_equal({"message" => "test1"}, events[0][2])
-    assert_equal({"message" => "test2"}, events[1][2])
-    assert_equal({"message" => "test3"}, events[2][2])
-    assert_equal({"message" => "test4"}, events[3][2])
-  end
-
-  def test_emit_with_enable_watch_timer
-    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-      f.puts "test1"
-      f.puts "test2"
-    }
-
-    d = create_driver(CONFIG_ENABLE_WATCH_TIMER + SINGLE_LINE_CONFIG)
-
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.puts "test3"
-        f.puts "test4"
+    def test_emit_with_enable_watch_timer
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
       }
-      # according to cool.io's stat_watcher.c, systems without inotify will use
-      # an "automatic" value, typically around 5 seconds
-    end
 
-    events = d.events
-    assert(events.length > 0)
-    assert_equal({"message" => "test3"}, events[0][2])
-    assert_equal({"message" => "test4"}, events[1][2])
-  end
+      d = create_driver(CONFIG_ENABLE_WATCH_TIMER + SINGLE_LINE_CONFIG)
+
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test3"
+          f.puts "test4"
+        }
+        # according to cool.io's stat_watcher.c, systems without inotify will use
+        # an "automatic" value, typically around 5 seconds
+      end
+
+      events = d.events
+      assert(events.length > 0)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+    end
   end
 
   class TestWithSystem < self
@@ -240,100 +240,100 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "rotate file" do
-  def test_rotate_file
-    events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 1)
-    assert_equal(4, events.length)
-    assert_equal({"message" => "test3"}, events[0][2])
-    assert_equal({"message" => "test4"}, events[1][2])
-    assert_equal({"message" => "test5"}, events[2][2])
-    assert_equal({"message" => "test6"}, events[3][2])
-  end
+    def test_rotate_file
+      events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 1)
+      assert_equal(4, events.length)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+      assert_equal({"message" => "test5"}, events[2][2])
+      assert_equal({"message" => "test6"}, events[3][2])
+    end
 
-  def test_rotate_file_with_read_from_head
-    events = sub_test_rotate_file(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG, expect_emits: 1)
-    assert_equal(6, events.length)
-    assert_equal({"message" => "test1"}, events[0][2])
-    assert_equal({"message" => "test2"}, events[1][2])
-    assert_equal({"message" => "test3"}, events[2][2])
-    assert_equal({"message" => "test4"}, events[3][2])
-    assert_equal({"message" => "test5"}, events[4][2])
-    assert_equal({"message" => "test6"}, events[5][2])
-  end
+    def test_rotate_file_with_read_from_head
+      events = sub_test_rotate_file(CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG, expect_emits: 1)
+      assert_equal(6, events.length)
+      assert_equal({"message" => "test1"}, events[0][2])
+      assert_equal({"message" => "test2"}, events[1][2])
+      assert_equal({"message" => "test3"}, events[2][2])
+      assert_equal({"message" => "test4"}, events[3][2])
+      assert_equal({"message" => "test5"}, events[4][2])
+      assert_equal({"message" => "test6"}, events[5][2])
+    end
 
-  def test_rotate_file_with_write_old
-    events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 3) { |rotated_file|
-      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
-      rotated_file.puts "test7"
-      rotated_file.puts "test8"
-      rotated_file.flush
-
-      sleep 1
-      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
-        f.puts "test5"
-        f.puts "test6"
-      }
-    }
-    assert_equal(6, events.length)
-    assert_equal({"message" => "test3"}, events[0][2])
-    assert_equal({"message" => "test4"}, events[1][2])
-    assert_equal({"message" => "test7"}, events[2][2])
-    assert_equal({"message" => "test8"}, events[3][2])
-    assert_equal({"message" => "test5"}, events[4][2])
-    assert_equal({"message" => "test6"}, events[5][2])
-  end
-
-  def test_rotate_file_with_write_old_and_no_new_file
-    events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 2) { |rotated_file|
-      rotated_file.puts "test7"
-      rotated_file.puts "test8"
-      rotated_file.flush
-    }
-    assert_equal(4, events.length)
-    assert_equal({"message" => "test3"}, events[0][2])
-    assert_equal({"message" => "test4"}, events[1][2])
-    assert_equal({"message" => "test7"}, events[2][2])
-    assert_equal({"message" => "test8"}, events[3][2])
-  end
-
-  def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: nil)
-    file = Fluent::FileWrapper.open("#{TMP_DIR}/tail.txt", "wb")
-    file.puts "test1"
-    file.puts "test2"
-    file.flush
-
-    d = create_driver(config)
-    d.run(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout) do
-      size = d.emit_count
-      file.puts "test3"
-      file.puts "test4"
-      file.flush
-      sleep(0.1) until d.emit_count >= size + 1
-      size = d.emit_count
-
-      if Fluent.windows?
-        file.close
-        FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt", force: true)
-        file = File.open("#{TMP_DIR}/tail.txt", "ab")
-      else
-        FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
-      end
-      if block_given?
-        yield file
-      else
+    def test_rotate_file_with_write_old
+      events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 3) { |rotated_file|
         File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
-        sleep 1
+        rotated_file.puts "test7"
+        rotated_file.puts "test8"
+        rotated_file.flush
 
+        sleep 1
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
           f.puts "test5"
           f.puts "test6"
         }
-      end
+      }
+      assert_equal(6, events.length)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+      assert_equal({"message" => "test7"}, events[2][2])
+      assert_equal({"message" => "test8"}, events[3][2])
+      assert_equal({"message" => "test5"}, events[4][2])
+      assert_equal({"message" => "test6"}, events[5][2])
     end
 
-    d.events
-  ensure
-    file.close if file && !file.closed?
-  end
+    def test_rotate_file_with_write_old_and_no_new_file
+      events = sub_test_rotate_file(SINGLE_LINE_CONFIG, expect_emits: 2) { |rotated_file|
+        rotated_file.puts "test7"
+        rotated_file.puts "test8"
+        rotated_file.flush
+      }
+      assert_equal(4, events.length)
+      assert_equal({"message" => "test3"}, events[0][2])
+      assert_equal({"message" => "test4"}, events[1][2])
+      assert_equal({"message" => "test7"}, events[2][2])
+      assert_equal({"message" => "test8"}, events[3][2])
+    end
+
+    def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: nil)
+      file = Fluent::FileWrapper.open("#{TMP_DIR}/tail.txt", "wb")
+      file.puts "test1"
+      file.puts "test2"
+      file.flush
+
+      d = create_driver(config)
+      d.run(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout) do
+        size = d.emit_count
+        file.puts "test3"
+        file.puts "test4"
+        file.flush
+        sleep(0.1) until d.emit_count >= size + 1
+        size = d.emit_count
+
+        if Fluent.windows?
+          file.close
+          FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt", force: true)
+          file = File.open("#{TMP_DIR}/tail.txt", "ab")
+        else
+          FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
+        end
+        if block_given?
+          yield file
+        else
+          File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+          sleep 1
+
+          File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+            f.puts "test5"
+            f.puts "test6"
+          }
+        end
+      end
+
+      d.events
+    ensure
+      file.close if file && !file.closed?
+    end
   end
 
   def test_lf
@@ -425,245 +425,244 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "multiline" do
-  def test_multiline
-    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+    def test_multiline
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-    config = config_element("", "", {
-                              "format" => "multiline",
-                              "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
-                              "format_firstline" => "/^[s]/"
-                            })
-    d = create_driver(config)
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
-        f.puts "f test1"
-        f.puts "s test2"
-        f.puts "f test3"
-        f.puts "f test4"
-        f.puts "s test5"
-        f.puts "s test6"
-        f.puts "f test7"
-        f.puts "s test8"
-      }
+      config = config_element("", "", {
+                                "format" => "multiline",
+                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                                "format_firstline" => "/^[s]/"
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+          f.puts "f test1"
+          f.puts "s test2"
+          f.puts "f test3"
+          f.puts "f test4"
+          f.puts "s test5"
+          f.puts "s test6"
+          f.puts "f test7"
+          f.puts "s test8"
+        }
+      end
+
+      events = d.events
+      assert_equal(4, events.length)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
+      assert_equal({"message1" => "test5"}, events[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
+      assert_equal({"message1" => "test8"}, events[3][2])
     end
 
-    events = d.events
-    assert_equal(4, events.length)
-    assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
-    assert_equal({"message1" => "test5"}, events[1][2])
-    assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
-    assert_equal({"message1" => "test8"}, events[3][2])
-  end
+    def test_multiline_with_flush_interval
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-  def test_multiline_with_flush_interval
-    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+      config = config_element("", "", {
+                                "format" => "multiline",
+                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                                "format_firstline" => "/^[s]/",
+                                "multiline_flush_interval" => "2s"
+                              })
+      d = create_driver(config)
 
-    config = config_element("", "", {
-                              "format" => "multiline",
-                              "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
-                              "format_firstline" => "/^[s]/",
-                              "multiline_flush_interval" => "2s"
-                            })
-    d = create_driver(config)
+      assert_equal 2, d.instance.multiline_flush_interval
 
-    assert_equal 2, d.instance.multiline_flush_interval
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+          f.puts "f test1"
+          f.puts "s test2"
+          f.puts "f test3"
+          f.puts "f test4"
+          f.puts "s test5"
+          f.puts "s test6"
+          f.puts "f test7"
+          f.puts "s test8"
+        }
+      end
 
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
-        f.puts "f test1"
-        f.puts "s test2"
-        f.puts "f test3"
-        f.puts "f test4"
-        f.puts "s test5"
-        f.puts "s test6"
-        f.puts "f test7"
-        f.puts "s test8"
-      }
+      events = d.events
+      assert_equal(4, events.length)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
+      assert_equal({"message1" => "test5"}, events[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
+      assert_equal({"message1" => "test8"}, events[3][2])
     end
 
-    events = d.events
-    assert_equal(4, events.length)
-    assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
-    assert_equal({"message1" => "test5"}, events[1][2])
-    assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
-    assert_equal({"message1" => "test8"}, events[3][2])
-  end
+    data(
+      'default encoding' => [config_element, Encoding::ASCII_8BIT],
+      'explicit encoding config' => [config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
+    def test_multiline_encoding_of_flushed_record(data)
+      encoding_config, encoding = data
 
-  data(
-    'default encoding' => [config_element, Encoding::ASCII_8BIT],
-    'explicit encoding config' => [config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
-  def test_multiline_encoding_of_flushed_record(data)
-    encoding_config, encoding = data
+      config = config_element("", "", {
+                                "format" => "multiline",
+                                "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                                "format_firstline" => "/^[s]/",
+                                "multiline_flush_interval" => "2s",
+                                "read_from_head" => "true",
+                              })
+      d = create_driver(config + encoding_config)
 
-    config = config_element("", "", {
-                              "format" => "multiline",
-                              "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
-                              "format_firstline" => "/^[s]/",
-                              "multiline_flush_interval" => "2s",
-                              "read_from_head" => "true",
-                            })
-    d = create_driver(config + encoding_config)
-
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "wb") { |f|
-        f.puts "s test"
-      }
-    end
-
-    events = d.events
-    assert_equal(1, events.length)
-    assert_equal(encoding, events[0][2]['message1'].encoding)
-  end
-
-  def test_multiline_from_encoding_of_flushed_record
-    d = create_driver %[
-      format multiline
-      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
-      format_firstline /^[s]/
-      multiline_flush_interval 2s
-      read_from_head true
-      from_encoding cp932
-      encoding utf-8
-    ]
-
-    d.run do
-      sleep 1
-      File.open("#{TMP_DIR}/tail.txt", "w:cp932") { |f|
-        f.puts "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
-      }
-
-      sleep 4
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "wb") { |f|
+          f.puts "s test"
+        }
+      end
       events = d.events
       assert_equal(1, events.length)
-      assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), events[0][2]['message1'])
-      assert_equal(Encoding::UTF_8, events[0][2]['message1'].encoding)
-    end
-  end
-
-  def test_multiline_with_multiple_formats
-    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
-
-    config = config_element("", "", {
-                              "format" => "multiline",
-                              "format1" => "/^s (?<message1>[^\\n]+)\\n?/",
-                              "format2" => "/(f (?<message2>[^\\n]+)\\n?)?/",
-                              "format3" => "/(f (?<message3>.*))?/",
-                              "format_firstline" => "/^[s]/"
-                            })
-    d = create_driver(config)
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
-        f.puts "f test1"
-        f.puts "s test2"
-        f.puts "f test3"
-        f.puts "f test4"
-        f.puts "s test5"
-        f.puts "s test6"
-        f.puts "f test7"
-        f.puts "s test8"
-      }
+      assert_equal(encoding, events[0][2]['message1'].encoding)
     end
 
-    events = d.events
-    assert(events.length > 0)
-    assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
-    assert_equal({"message1" => "test5"}, events[1][2])
-    assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
-    assert_equal({"message1" => "test8"}, events[3][2])
-  end
+    def test_multiline_from_encoding_of_flushed_record
+      d = create_driver %[
+        format multiline
+        format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+        format_firstline /^[s]/
+        multiline_flush_interval 2s
+        read_from_head true
+        from_encoding cp932
+        encoding utf-8
+      ]
 
-  def test_multilinelog_with_multiple_paths
-    files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
-    files.each { |file| File.open(file, "wb") { |f| } }
-
-    config = config_element("", "", {
-                              "path" => "#{files[0]},#{files[1]}",
-                              "tag" => "t1",
-                              "format" => "multiline",
-                              "format1" => "/^[s|f] (?<message>.*)/",
-                              "format_firstline" => "/^[s]/"
-                            })
-    d = create_driver(config, false)
-    d.run(expect_emits: 2) do
-      files.each do |file|
-        File.open(file, 'ab') { |f|
-          f.puts "f #{file} line should be ignored"
-          f.puts "s test1"
-          f.puts "f test2"
-          f.puts "f test3"
-          f.puts "s test4"
+      d.run do
+        sleep 1
+        File.open("#{TMP_DIR}/tail.txt", "w:cp932") { |f|
+          f.puts "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
         }
+
+        sleep 4
+        events = d.events
+        assert_equal(1, events.length)
+        assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), events[0][2]['message1'])
+        assert_equal(Encoding::UTF_8, events[0][2]['message1'].encoding)
       end
     end
 
-    events = d.events
-    assert_equal({"message" => "test1\nf test2\nf test3"}, events[0][2])
-    assert_equal({"message" => "test1\nf test2\nf test3"}, events[1][2])
-    # "test4" events are here because these events are flushed at shutdown phase
-    assert_equal({"message" => "test4"}, events[2][2])
-    assert_equal({"message" => "test4"}, events[3][2])
-  end
+    def test_multiline_with_multiple_formats
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
 
-  def test_multiline_without_firstline
-    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+      config = config_element("", "", {
+                                "format" => "multiline",
+                                "format1" => "/^s (?<message1>[^\\n]+)\\n?/",
+                                "format2" => "/(f (?<message2>[^\\n]+)\\n?)?/",
+                                "format3" => "/(f (?<message3>.*))?/",
+                                "format_firstline" => "/^[s]/"
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+          f.puts "f test1"
+          f.puts "s test2"
+          f.puts "f test3"
+          f.puts "f test4"
+          f.puts "s test5"
+          f.puts "s test6"
+          f.puts "f test7"
+          f.puts "s test8"
+        }
+      end
 
-    config = config_element("", "", {
-                              "format" => "multiline",
-                              "format1" => "/(?<var1>foo \\d)\\n/",
-                              "format2" => "/(?<var2>bar \\d)\\n/",
-                              "format3" => "/(?<var3>baz \\d)/"
-                            })
-    d = create_driver(config)
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
-        f.puts "foo 1"
-        f.puts "bar 1"
-        f.puts "baz 1"
-        f.puts "foo 2"
-        f.puts "bar 2"
-        f.puts "baz 2"
-      }
+      events = d.events
+      assert(events.length > 0)
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[0][2])
+      assert_equal({"message1" => "test5"}, events[1][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
+      assert_equal({"message1" => "test8"}, events[3][2])
     end
 
-    events = d.events
-    assert_equal(2, events.length)
-    assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, events[0][2])
-    assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, events[1][2])
-  end
+    def test_multilinelog_with_multiple_paths
+      files = ["#{TMP_DIR}/tail1.txt", "#{TMP_DIR}/tail2.txt"]
+      files.each { |file| File.open(file, "wb") { |f| } }
+
+      config = config_element("", "", {
+                                "path" => "#{files[0]},#{files[1]}",
+                                "tag" => "t1",
+                                "format" => "multiline",
+                                "format1" => "/^[s|f] (?<message>.*)/",
+                                "format_firstline" => "/^[s]/"
+                              })
+      d = create_driver(config, false)
+      d.run(expect_emits: 2) do
+        files.each do |file|
+          File.open(file, 'ab') { |f|
+            f.puts "f #{file} line should be ignored"
+            f.puts "s test1"
+            f.puts "f test2"
+            f.puts "f test3"
+            f.puts "s test4"
+          }
+        end
+      end
+
+      events = d.events
+      assert_equal({"message" => "test1\nf test2\nf test3"}, events[0][2])
+      assert_equal({"message" => "test1\nf test2\nf test3"}, events[1][2])
+      # "test4" events are here because these events are flushed at shutdown phase
+      assert_equal({"message" => "test4"}, events[2][2])
+      assert_equal({"message" => "test4"}, events[3][2])
+    end
+
+    def test_multiline_without_firstline
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+      config = config_element("", "", {
+                                "format" => "multiline",
+                                "format1" => "/(?<var1>foo \\d)\\n/",
+                                "format2" => "/(?<var2>bar \\d)\\n/",
+                                "format3" => "/(?<var3>baz \\d)/"
+                              })
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+          f.puts "foo 1"
+          f.puts "bar 1"
+          f.puts "baz 1"
+          f.puts "foo 2"
+          f.puts "bar 2"
+          f.puts "baz 2"
+        }
+      end
+
+      events = d.events
+      assert_equal(2, events.length)
+      assert_equal({"var1" => "foo 1", "var2" => "bar 1", "var3" => "baz 1"}, events[0][2])
+      assert_equal({"var1" => "foo 2", "var2" => "bar 2", "var3" => "baz 2"}, events[1][2])
+    end
   end
 
   sub_test_case "path" do
-  # * path test
-  # TODO: Clean up tests
-  EX_RORATE_WAIT = 0
+    # * path test
+    # TODO: Clean up tests
+    EX_RORATE_WAIT = 0
 
-  EX_CONFIG = config_element("", "", {
-                               "tag" => "tail",
-                               "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
-                               "format" => "none",
-                               "pos_file" => "#{TMP_DIR}/tail.pos",
-                               "read_from_head" => true,
-                               "refresh_interval" => 30,
-                               "rotate_wait" => "#{EX_RORATE_WAIT}s",
-                             })
-  EX_PATHS = [
-    'test/plugin/data/2010/01/20100102-030405.log',
-    'test/plugin/data/log/foo/bar.log',
-    'test/plugin/data/log/test.log'
-  ]
+    EX_CONFIG = config_element("", "", {
+                                 "tag" => "tail",
+                                 "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                                 "format" => "none",
+                                 "pos_file" => "#{TMP_DIR}/tail.pos",
+                                 "read_from_head" => true,
+                                 "refresh_interval" => 30,
+                                 "rotate_wait" => "#{EX_RORATE_WAIT}s",
+                               })
+    EX_PATHS = [
+      'test/plugin/data/2010/01/20100102-030405.log',
+      'test/plugin/data/log/foo/bar.log',
+      'test/plugin/data/log/test.log'
+    ]
 
-  def test_expand_paths
-    plugin = create_driver(EX_CONFIG, false).instance
-    flexstub(Time) do |timeclass|
-      timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
-      assert_equal EX_PATHS, plugin.expand_paths.sort
+    def test_expand_paths
+      plugin = create_driver(EX_CONFIG, false).instance
+      flexstub(Time) do |timeclass|
+        timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
+        assert_equal EX_PATHS, plugin.expand_paths.sort
+      end
+
+      # Test exclusion
+      exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{EX_PATHS.last}"]) })
+      plugin = create_driver(exclude_config, false).instance
+      assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
     end
-
-    # Test exclusion
-    exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{EX_PATHS.last}"]) })
-    plugin = create_driver(exclude_config, false).instance
-    assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
-  end
   end
 
   def test_z_refresh_watchers
