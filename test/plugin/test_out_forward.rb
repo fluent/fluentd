@@ -107,7 +107,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_wait_response_timeout_config
     d = create_driver(CONFIG)
-    assert_equal false, d.instance.extend_internal_protocol
     assert_equal false, d.instance.require_ack_response
     assert_equal 190, d.instance.ack_response_timeout
 
@@ -115,9 +114,72 @@ class ForwardOutputTest < Test::Unit::TestCase
       require_ack_response true
       ack_response_timeout 2s
     ])
-    assert d.instance.extend_internal_protocol
     assert d.instance.require_ack_response
     assert_equal 2, d.instance.ack_response_timeout
+  end
+
+  def test_sending_contains_with_ack
+    target_input_driver = create_target_input_driver(true)
+
+    d = create_driver(CONFIG + %[
+      ack_response_timeout 1s
+    ])
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+
+    assert_equal target_input_driver.instance.received_options[0]['size'], 2
+  end
+
+  def test_sending_contains_without_ack
+    target_input_driver = create_target_input_driver(true)
+
+    d = create_driver(CONFIG + %[
+      ack_response_timeout 1s
+    ])
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+
+    assert_equal target_input_driver.instance.received_options[0]['size'], 2
   end
 
   def test_send_with_time_as_integer
@@ -379,12 +441,18 @@ class ForwardOutputTest < Test::Unit::TestCase
     DummyEngineDriver.new(Fluent::ForwardInput) {
       handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
         attr_reader :chunk_counter # for checking if received data is successfully deserialized
+        attr_reader :received_options
 
         def initialize(sock, log, on_message)
           @sock = sock
           @log = log
           @chunk_counter = 0
-          @on_message = on_message
+          @received_options = []
+          @on_message = ->(msg, chunk_size, source) {
+            option = on_message.call(msg, chunk_size, source)
+            @received_options << option
+            option
+          }
           @source = nil
         end
 
@@ -409,7 +477,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         end
       }
 
-      define_method(:start) do
+      define_method(:_start) do
         @thread = Thread.new do
           Socket.tcp_server_loop(@bind, @port) do |sock, client_addrinfo|
             begin
@@ -431,12 +499,15 @@ class ForwardOutputTest < Test::Unit::TestCase
                 sock.close_write
                 sock.close
               end
+              @received_options = handler.received_options
             end
           end
         end
       end
 
-      def shutdown
+      attr_reader :received_options
+
+      def _shutdown
         @thread.kill
         @thread.join
       end
@@ -457,9 +528,26 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal node.available, true
   end
 
+  # To suppress calling `ForwardInput#start` in `DummyEngineDriver`,
+  # `DummyEnigneDriver` should avoid calling CallSuperMixin.prepend at `Fluent::Compat::Input#initialize`.
+  module SuppressCallSuperMixin
+    def start
+      _start
+    end
+
+    def before_shutdown
+      # nothing
+    end
+
+    def shutdown
+      _shutdown
+    end
+  end
+
   class DummyEngineDriver < Fluent::Test::TestDriver
     def initialize(klass, &block)
       super(klass, &block)
+      @instance.class.prepend(SuppressCallSuperMixin)
       @engine = DummyEngineClass.new
     end
 

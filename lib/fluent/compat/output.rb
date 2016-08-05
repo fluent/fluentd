@@ -111,6 +111,10 @@ module Fluent
       def size
         self.bytesize
       end
+
+      def size_of_events
+        @size + @adding_size
+      end
     end
 
     module BufferedChunkMixin
