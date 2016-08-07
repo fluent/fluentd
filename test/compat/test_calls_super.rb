@@ -32,12 +32,14 @@ class CompatCallsSuperTest < Test::Unit::TestCase
   end
   class DummyGoodFilter < Fluent::Filter
     def configure(conf); super; end
+    def filter(tag, time, record); end
     def start; super; end
     def before_shutdown; super; end
     def shutdown; super; end
   end
   class DummyBadFilter < Fluent::Filter
     def configure(conf); super; end
+    def filter(tag, time, record); end
     def start; end
     def before_shutdown; end
     def shutdown; end
