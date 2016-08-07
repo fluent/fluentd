@@ -30,6 +30,8 @@ module Fluent
 
       helpers :event_emitter
 
+      attr_reader :has_filter_with_time
+
       def initialize
         super
         @has_filter_with_time = has_filter_with_time?

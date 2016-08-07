@@ -184,10 +184,28 @@ class EventRouterTest < ::Test::Unit::TestCase
     end
 
     sub_test_case 'filter' do
-      test 'filter should be called when tag matched' do
+      test 'filter should be called when tag matched and with optimized' do
+        event_router.add_rule('test', filter)
+
+        now = Engine.now
+        record = {'k' => 'v'}
+        assert_rr do
+          mock(filter).filter('test', now, record) { events }
+          event_router.emit('test', now, record)
+        end
+      end
+
+      test 'filter should be called when tag matched and without optimized' do
+        filter = Class.new(FluentTestFilter) { |x|
+          def filter_stream(_tag, es)
+            es
+          end
+        }.new
+
         event_router.add_rule('test', filter)
 
         assert_rr do
+          mock($log).info("Filtering works with worse performance, because #{[filter].map(&:class)} uses `#filter_stream` method.")
           mock(filter).filter_stream('test', is_a(OneEventStream)) { events }
           event_router.emit('test', Engine.now, 'k' => 'v')
         end
