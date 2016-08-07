@@ -30,6 +30,8 @@ module Fluent::Plugin
 
     desc "The value is the tag assigned to the generated events."
     config_param :tag, :string
+    desc "The number of events in event stream of each emits."
+    config_param :size, :integer, default: 1
     desc "It configures how many events to generate per second."
     config_param :rate, :integer, default: 1
     desc "If specified, each generated event has an auto-incremented key field."
@@ -97,7 +99,13 @@ module Fluent::Plugin
 
     def emit(num)
       begin
-        num.times { router.emit(@tag, Fluent::Engine.now, generate()) }
+        if @size > 1
+          num.times do
+            router.emit_array(@tag, Array.new(@size) { [Fluent::Engine.now, generate] })
+          end
+        else
+          num.times { router.emit(@tag, Fluent::Engine.now, generate) }
+        end
       rescue => _
         # ignore all errors not to stop emits by emit errors
       end
