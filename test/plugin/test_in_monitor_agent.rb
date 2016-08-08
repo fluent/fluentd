@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_monitor_agent'
 
 class MonitorAgentInputTest < Test::Unit::TestCase
@@ -8,7 +8,7 @@ class MonitorAgentInputTest < Test::Unit::TestCase
   end
 
   def create_driver(conf = '')
-    Fluent::Test::InputTestDriver.new(Fluent::MonitorAgentInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::MonitorAgentInput).configure(conf)
   end
 
   def test_configure
