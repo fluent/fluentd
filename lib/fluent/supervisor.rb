@@ -240,6 +240,7 @@ module Fluent
           logger_initializer: logger_initializer,
           chuser: chuser,
           chgroup: chgroup,
+          chumask: 0,
           suppress_repeated_stacktrace: suppress_repeated_stacktrace,
           daemonize: daemonize,
           rpc_endpoint: rpc_endpoint,
