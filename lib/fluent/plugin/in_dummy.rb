@@ -26,6 +26,7 @@ module Fluent::Plugin
     helpers :thread, :storage
 
     BIN_NUM = 10
+    DEFAULT_STORAGE_TYPE = 'local'
 
     desc "The value is the tag assigned to the generated events."
     config_param :tag, :string
@@ -33,6 +34,8 @@ module Fluent::Plugin
     config_param :rate, :integer, default: 1
     desc "If specified, each generated event has an auto-incremented key field."
     config_param :auto_increment_key, :string, default: nil
+    desc "The boolean to suspend-and-resume incremental value after restart"
+    config_param :suspend, :bool, default: false
     desc "The dummy data to be generated. An array of JSON hashes or a single JSON hash."
     config_param :dummy, default: [{"message"=>"dummy"}] do |val|
       begin
@@ -58,12 +61,16 @@ module Fluent::Plugin
     def configure(conf)
       super
       @dummy_index = 0
+      config = conf.elements.select{|e| e.name == 'storage' }.first
+      @storage = storage_create(usage: 'suspend', conf: config, default_type: DEFAULT_STORAGE_TYPE)
     end
 
     def start
       super
 
-      @storage = storage_create(type: 'local')
+      @storage.put(:increment_value, 0) unless @storage.get(:increment_value)
+      @storage.put(:dummy_index, 0) unless @storage.get(:dummy_index)
+
       if @auto_increment_key && !@storage.get(:auto_increment_value)
         @storage.put(:auto_increment_value, -1)
       end
@@ -100,7 +107,7 @@ module Fluent::Plugin
       d = @dummy[@dummy_index]
       unless d
         @dummy_index = 0
-        d = @dummy[0]
+        d = @dummy[@dummy_index]
       end
       @dummy_index += 1
       if @auto_increment_key

@@ -58,7 +58,7 @@ module Fluent
               raise Fluent::ConfigError, "Unexpected error: failed to read data from plugin storage file: '#{@path}'"
             end
           else
-            raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{@path}'" unless File.writable?(@path)
+            raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{dir}'" unless File.writable?(dir)
           end
         end
       end
