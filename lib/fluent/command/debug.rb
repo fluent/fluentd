@@ -63,6 +63,7 @@ end
 require 'fluent/log'
 require 'fluent/engine'
 require 'fluent/system_config'
+require 'serverengine'
 
 include Fluent::SystemConfig::Mixin
 
