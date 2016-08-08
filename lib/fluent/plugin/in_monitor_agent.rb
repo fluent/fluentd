@@ -20,13 +20,13 @@ require 'cgi'
 
 require 'cool.io'
 
-require 'fluent/input'
-require 'fluent/output'
-require 'fluent/filter'
+require 'fluent/plugin/input'
+require 'fluent/plugin/output'
+require 'fluent/plugin/filter'
 
-module Fluent
+module Fluent::Plugin
   class MonitorAgentInput < Input
-    Plugin.register_input('monitor_agent', self)
+    Fluent::Plugin.register_input('monitor_agent', self)
 
     config_param :bind, :string, default: '0.0.0.0'
     config_param :port, :integer, default: 24220
@@ -257,8 +257,8 @@ module Fluent
         @loop = Coolio::Loop.new
         opts = {with_config: false}
         timer = TimerWatcher.new(@emit_interval, log) {
-          es = MultiEventStream.new
-          now = Engine.now
+          es = Fluent::MultiEventStream.new
+          now = Fluent::Engine.now
           plugins_info_all(opts).each { |record|
             es.add(now, record)
           }
@@ -307,17 +307,17 @@ module Fluent
       array = []
 
       # get all input plugins
-      array.concat Engine.root_agent.inputs
+      array.concat Fluent::Engine.root_agent.inputs
 
       # get all output plugins
-      Engine.root_agent.outputs.each { |o|
+      Fluent::Engine.root_agent.outputs.each { |o|
         MonitorAgentInput.collect_children(o, array)
       }
       # get all filter plugins
-      Engine.root_agent.filters.each { |f|
+      Fluent::Engine.root_agent.filters.each { |f|
         MonitorAgentInput.collect_children(f, array)
       }
-      Engine.root_agent.labels.each { |name, l|
+      Fluent::Engine.root_agent.labels.each { |name, l|
         # TODO: Add label name to outputs / filters for identifing plugins
         l.outputs.each { |o| MonitorAgentInput.collect_children(o, array) }
         l.filters.each { |f| MonitorAgentInput.collect_children(f, array) }
@@ -330,7 +330,7 @@ module Fluent
     # from the plugin `pe` recursively
     def self.collect_children(pe, array=[])
       array << pe
-      if pe.is_a?(MultiOutput) && pe.respond_to?(:outputs)
+      if pe.is_a?(Fluent::MultiOutput) && pe.respond_to?(:outputs)
         pe.outputs.each {|nop|
           collect_children(nop, array)
         }
@@ -341,10 +341,10 @@ module Fluent
     # try to match the tag and get the info from the matched output plugin
     # TODO: Support output in label
     def plugin_info_by_tag(tag, opts={})
-      matches = Engine.root_agent.event_router.instance_variable_get(:@match_rules)
+      matches = Fluent::Engine.root_agent.event_router.instance_variable_get(:@match_rules)
       matches.each { |rule|
         if rule.match?(tag)
-          if rule.collector.is_a?(Output)
+          if rule.collector.is_a?(Fluent::Output)
             return get_monitor_info(rule.collector, opts)
           end
         end
