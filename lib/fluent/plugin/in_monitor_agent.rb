@@ -28,6 +28,8 @@ module Fluent::Plugin
   class MonitorAgentInput < Input
     Fluent::Plugin.register_input('monitor_agent', self)
 
+    helpers :timer, :thread
+
     config_param :bind, :string, default: '0.0.0.0'
     config_param :port, :integer, default: 24220
     config_param :tag, :string, default: nil
@@ -204,36 +206,6 @@ module Fluent::Plugin
       end
     end
 
-    class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, log, &callback)
-        @callback = callback
-        @log = log
-
-        # Avoid long shutdown time
-        @num_call = 0
-        if interval >= 10
-          min_interval = 10
-          @call_interval = interval / 10
-        else
-          min_interval = interval
-          @call_interval = 0
-        end
-
-        super(min_interval, true)
-      end
-
-      def on_timer
-        @num_call += 1
-        if @num_call >= @call_interval
-          @num_call = 0
-          @callback.call
-        end
-      rescue => e
-        @log.error e.to_s
-        @log.error_backtrace
-      end
-    end
-
     def start
       super
 
@@ -248,15 +220,14 @@ module Fluent::Plugin
       @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
       @srv.mount('/api/config', LTSVConfigMonitorServlet, self)
       @srv.mount('/api/config.json', JSONConfigMonitorServlet, self)
-      @thread = Thread.new {
+      thread_create :servlet do
         @srv.start
-      }
+      end
       if @tag
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
-        @loop = Coolio::Loop.new
         opts = {with_config: false}
-        timer = TimerWatcher.new(@emit_interval, log) {
+        timer_execute(:monitor_emit, @emit_interval, repeat: true) {
           es = Fluent::MultiEventStream.new
           now = Fluent::Engine.now
           plugins_info_all(opts).each { |record|
@@ -264,33 +235,13 @@ module Fluent::Plugin
           }
           router.emit_stream(@tag, es)
         }
-        @loop.attach(timer)
-        @thread_for_emit = Thread.new(&method(:run))
       end
-    end
-
-    def run
-      @loop.run
-    rescue => e
-      log.error "unexpected error", error: e.to_s
-      log.error_backtrace
     end
 
     def shutdown
       if @srv
         @srv.shutdown
         @srv = nil
-      end
-      if @thread
-        @thread.join
-        @thread = nil
-      end
-      if @tag
-        @loop.watchers.each { |w| w.detach }
-        @loop.stop
-        @loop = nil
-        @thread_for_emit.join
-        @thread_for_emit = nil
       end
 
       super
