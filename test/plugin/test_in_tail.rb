@@ -288,7 +288,7 @@ class TailInputTest < Test::Unit::TestCase
          parse: CONFIG_READ_FROM_HEAD + PARSE_SINGLE_LINE_CONFIG)
     def test_rotate_file_with_read_from_head(data)
       config = data
-      events = sub_test_rotate_file(config, expect_emits: 2)
+      events = sub_test_rotate_file(config, expect_records: 6)
       assert_equal(6, events.length)
       assert_equal({"message" => "test1"}, events[0][2])
       assert_equal({"message" => "test2"}, events[1][2])
