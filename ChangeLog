@@ -4,6 +4,61 @@
 
 ### New features / Enhancement
 
+* Fix to split large event stream into some/many chunks in buffers
+  https://github.com/fluent/fluentd/pull/1062
+* Add parser and filter support in compat_parameters plugin helper
+  https://github.com/fluent/fluentd/pull/1079
+* Add a RPC call to flush buffers and stop workers
+  https://github.com/fluent/fluentd/pull/1134
+* Update forward protocol to pass the number of events in a payload
+  https://github.com/fluent/fluentd/pull/1137
+* Improve performance of some built-in formatter plugins
+  https://github.com/fluent/fluentd/pull/1082
+  https://github.com/fluent/fluentd/pull/1086
+* Migrate some built-in plugins and plugin util modules into v0.14 API
+  https://github.com/fluent/fluentd/pull/1058
+  https://github.com/fluent/fluentd/pull/1061
+  https://github.com/fluent/fluentd/pull/1076
+  https://github.com/fluent/fluentd/pull/1078
+  https://github.com/fluent/fluentd/pull/1081
+  https://github.com/fluent/fluentd/pull/1083
+  https://github.com/fluent/fluentd/pull/1091
+* Register RegExpParser as a parser plugin explicitly
+  https://github.com/fluent/fluentd/pull/1094
+* Add delimiter option to CSV parser
+  https://github.com/fluent/fluentd/pull/1108
+* Add an option to receive longer udp syslog messages
+  https://github.com/fluent/fluentd/pull/1127
+* Add a option to suspend internal status in dummy plugin
+  https://github.com/fluent/fluentd/pull/900
+* Add a feature to capture filtered records in test driver for Filter plugins
+  https://github.com/fluent/fluentd/pull/1077
+* Add some utility methods to plugin test drivers
+  https://github.com/fluent/fluentd/pull/1114
+
+### Bug fixes
+
+* Fix bug to read non buffer-chunk files as buffer chunks when Fluentd resumed
+  https://github.com/fluent/fluentd/pull/1124
+* Fix bug not to load Filter plugins which are specified in configurations
+  https://github.com/fluent/fluentd/pull/1118
+* Fix bug to ignore `-p` option to specify directories of plugins
+  https://github.com/fluent/fluentd/pull/1133
+* Fix bug to overwrite base class configuration section definitions by subclasses
+  https://github.com/fluent/fluentd/pull/1119
+* Fix to stop Fluentd worker process by Ctrl-C when --no-supervisor specified
+  https://github.com/fluent/fluentd/pull/1089
+* Fix regression about RPC call to reload configuration
+  https://github.com/fluent/fluentd/pull/1093
+* Specify to ensure Oj JSON parser to use strict mode
+  https://github.com/fluent/fluentd/pull/1147
+* Fix unexisting path handling in Windows environment
+  https://github.com/fluent/fluentd/pull/1104
+
+## Release 0.14.1 - 2016/06/30
+
+### New features / Enhancement
+
 * Add plugin helpers for parsers and formatters
   https://github.com/fluent/fluentd/pull/1023
 * Extract some mixins into compat modules
