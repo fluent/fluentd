@@ -77,7 +77,10 @@ module Fluent
         "json_parser" => "json_parser", # JSONFormatter
         "label_delimiter" => "label_delimiter", # LabeledTSVFormatter
         "output_time" => "output_time", # OutFileFormatter
-        "output_tag"  => "output_tag", # OutFileFormatter
+        "output_tag"  => "output_tag",  # OutFileFormatter
+        "localtime"   => "localtime",   # OutFileFormatter
+        "utc"         => "utc",         # OutFileFormatter
+        "timezone"    => "timezone",    # OutFileFormatter
         "message_key" => "message_key", # SingleValueFormatter
         "add_newline" => "add_newline", # SingleValueFormatter
         "output_type" => "output_type", # StdoutFormatter

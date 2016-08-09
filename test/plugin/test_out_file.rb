@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/plugin/out_file'
 require 'fileutils'
 require 'time'
@@ -21,7 +21,7 @@ class FileOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf = CONFIG)
-    Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::FileOutput).configure(conf)
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::FileOutput).configure(conf)
   end
 
   def test_configure
@@ -53,26 +53,30 @@ class FileOutputTest < Test::Unit::TestCase
 
   def test_default_localtime
     d = create_driver(%[path #{TMP_DIR}/out_file_test])
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     with_timezone(Fluent.windows? ? 'NST-8' : 'Asia/Taipei') do
-      d.emit({"a"=>1}, time)
-      d.expect_format %[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]
-      d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+      end
+      assert_equal([%[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]], d.formatted)
     end
   end
 
   def test_format
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
+    time = event_time("2011-01-02 13:14:15 UTC")
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+      d.feed(time, {"a"=>2})
+    end
 
-    d.expect_format %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n]
-    d.expect_format %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
-
-    d.run
+    expected = [
+      %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n],
+      %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
+    ]
+    assert_equal(expected, d.formatted)
   end
 
   def test_timezone_1
@@ -81,11 +85,12 @@ class FileOutputTest < Test::Unit::TestCase
       timezone Asia/Taipei
     ]
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
-    d.emit({"a"=>1}, time)
-    d.expect_format %[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]
-    d.run
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+    end
+    assert_equal([%[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]], d.formatted)
   end
 
   def test_timezone_2
@@ -94,11 +99,12 @@ class FileOutputTest < Test::Unit::TestCase
       timezone -03:30
     ]
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
-    d.emit({"a"=>1}, time)
-    d.expect_format %[2011-01-02T09:44:15-03:30\ttest\t{"a":1}\n]
-    d.run
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+    end
+    assert_equal([%[2011-01-02T09:44:15-03:30\ttest\t{"a":1}\n]], d.formatted)
   end
 
   def test_timezone_invalid
@@ -129,14 +135,17 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write
+    time = event_time("2011-01-02 13:14:15 UTC")
+    mock(Time).now.at_least(2) { Time.at(time.to_r) }
+
     d = create_driver
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+      d.feed(time, {"a"=>2})
+    end
 
-    # FileOutput#write returns path
-    paths = d.run
+    paths = d.instance._paths
     expect_paths = ["#{TMP_DIR}/out_file_test.20110102_0.log.gz"]
     assert_equal expect_paths, paths
 
@@ -169,17 +178,20 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     def test_write_with_system
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
       system_conf = parse_system(CONFIG_WITH_SYSTEM)
       sc = Fluent::SystemConfig.new(system_conf)
       Fluent::Engine.init(sc)
+
       d = create_driver CONFIG_WITH_SYSTEM
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-      d.emit({"a"=>1}, time)
-      d.emit({"a"=>2}, time)
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
 
-      # FileOutput#write returns path
-      paths = d.run
+      paths = d.instance._paths
       expect_paths = ["#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz"]
       assert_equal expect_paths, paths
 
@@ -192,50 +204,59 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_format_json
-    d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch'].join("\n")
+    time = event_time("2011-01-02 13:14:15 UTC")
+    mock(Time).now.at_least(2) { Time.at(time.to_r) }
+    d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch true'].join("\n")
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+      d.feed(time, {"a"=>2})
+    end
 
-    # FileOutput#write returns path
-    paths = d.run
+    paths = d.instance._paths
     check_gzipped_result(paths[0], %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
   end
 
   def test_write_with_format_ltsv
+    time = event_time("2011-01-02 13:14:15 UTC")
+    mock(Time).now.at_least(2) { Time.at(time.to_r) }
     d = create_driver [CONFIG, 'format ltsv', 'include_time_key true'].join("\n")
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+      d.feed(time, {"a"=>2})
+    end
 
-    # FileOutput#write returns path
-    paths = d.run
+    paths = d.instance._paths
     check_gzipped_result(paths[0], %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
   end
 
   def test_write_with_format_single_value
+    time = event_time("2011-01-02 13:14:15 UTC")
+    mock(Time).now.at_least(2) { Time.at(time.to_r) }
     d = create_driver [CONFIG, 'format single_value', 'message_key a'].join("\n")
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    d.emit({"a"=>1}, time)
-    d.emit({"a"=>2}, time)
+    d.run(default_tag: "test") do
+      d.feed(time, {"a"=>1})
+      d.feed(time, {"a"=>2})
+    end
 
-    # FileOutput#write returns path
-    paths = d.run
+    paths = d.instance._paths
     check_gzipped_result(paths[0], %[1\n] + %[2\n])
   end
 
   def test_write_path_increment
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
+    mock(Time).now.at_least(2) { Time.at(time.to_r) }
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
     write_once = ->(){
       d = create_driver
-      d.emit({"a"=>1}, time)
-      d.emit({"a"=>2}, time)
-      d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
+      d.instance._paths
     }
 
     assert !File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.gz")
@@ -258,7 +279,8 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_append
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
+    mock(Time).now.at_least(2) { Time.at(time.to_r) }
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
     write_once = ->(){
@@ -268,9 +290,11 @@ class FileOutputTest < Test::Unit::TestCase
         utc
         append true
       ]
-      d.emit({"a"=>1}, time)
-      d.emit({"a"=>2}, time)
-      d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
+      d.instance._paths
     }
 
     # FileOutput#write returns path
@@ -290,84 +314,88 @@ class FileOutputTest < Test::Unit::TestCase
     conf = CONFIG + %[
       symlink_path #{SYMLINK_PATH}
     ]
-    symlink_path = "#{SYMLINK_PATH}"
+    symlink_path = SYMLINK_PATH
 
-    d = Fluent::Test::TestDriver.new(Fluent::FileOutput).configure(conf)
+    d = create_driver(conf)
 
-    begin
-      d.instance.start
-      10.times { sleep 0.05 }
-
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-      es = Fluent::OneEventStream.new(time, {"a"=>1})
-      d.instance.emit_events('tag', es)
-
-      assert File.exist?(symlink_path)
-      assert File.symlink?(symlink_path)
+    d.run(default_tag: "tag") do
+      es = Fluent::OneEventStream.new(event_time("2011-01-02 13:14:15 UTC"), {"a"=>1})
+      d.feed(es)
+      sleep(0.1) until File.exist?(symlink_path)
+      assert(File.symlink?(symlink_path))
 
       es = Fluent::OneEventStream.new(event_time("2011-01-03 14:15:16 UTC"), {"a"=>2})
-      d.instance.emit_events('tag', es)
+      d.feed(es)
+      sleep(0.1) until File.exist?(symlink_path)
+      assert(File.symlink?(symlink_path))
 
-      assert File.exist?(symlink_path)
-      assert File.symlink?(symlink_path)
-
-      meta = d.instance.metadata('tag', event_time("2011-01-03 14:15:16 UTC"), {})
-      assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
-    ensure
-      d.instance.shutdown
-      FileUtils.rm_rf(symlink_path)
+      meta = d.instance.metadata("tag", event_time("2011-01-03 14:15:16 UTC"), {})
+      assert_equal(d.instance.buffer.instance_eval { @stage[meta].path }, File.readlink(symlink_path))
     end
+  ensure
+    FileUtils.rm_rf(symlink_path)
   end
 
   sub_test_case 'path' do
     test 'normal' do
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test
         time_slice_format %Y-%m-%d-%H
         utc true
       ])
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-      d.emit({"a"=>1}, time)
-      # FileOutput#write returns path
-      paths = d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+      end
+      paths = d.instance._paths
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.log"], paths
     end
 
     test 'normal with append' do
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test
         time_slice_format %Y-%m-%d-%H
         utc true
         append true
       ])
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-      d.emit({"a"=>1}, time)
-      paths = d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+      end
+      paths = d.instance._paths
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.log"], paths
     end
 
     test '*' do
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test.*.txt
         time_slice_format %Y-%m-%d-%H
         utc true
       ])
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-      d.emit({"a"=>1}, time)
-      paths = d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+      end
+      paths = d.instance._paths
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.txt"], paths
     end
 
     test '* with append' do
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test.*.txt
         time_slice_format %Y-%m-%d-%H
         utc true
         append true
       ])
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-      d.emit({"a"=>1}, time)
-      paths = d.run
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+      end
+      paths = d.instance._paths
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.txt"], paths
     end
   end
