@@ -39,8 +39,8 @@ class MonitorAgentInputTest < Test::Unit::TestCase
   @id test_in
 </source>
 <filter>
-  type test_filter
-  id test_filter
+  @type test_filter
+  @id test_filter
 </filter>
 <match **>
   @type relabel
@@ -49,8 +49,8 @@ class MonitorAgentInputTest < Test::Unit::TestCase
 </match>
 <label @test>
   <match **>
-    type test_out
-    id test_out
+    @type test_out
+    @id test_out
   </match>
 </label>
 <label @ERROR>
@@ -92,8 +92,8 @@ EOC
       }
       filter_info = {
         "config" => {
-          "id"   => "test_filter",
-          "type" => "test_filter"
+          "@id"   => "test_filter",
+          "@type" => "test_filter"
         },
         "output_plugin"   => false,
         "plugin_category" => "filter",
@@ -103,8 +103,8 @@ EOC
       }
       output_info = {
         "config" => {
-          "id"   => "test_out",
-          "type" => "test_out"
+          "@id"   => "test_out",
+          "@type" => "test_out"
         },
         "output_plugin"   => true,
         "plugin_category" => "output",
