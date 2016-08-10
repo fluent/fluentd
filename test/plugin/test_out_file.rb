@@ -194,6 +194,7 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "format" do
   def test_write_with_format_json
     time = event_time("2011-01-02 13:14:15 UTC")
     mock(Time).now.at_least(2) { Time.at(time.to_r) }
@@ -234,6 +235,7 @@ class FileOutputTest < Test::Unit::TestCase
 
     paths = d.instance._paths
     check_gzipped_result(paths[0], %[1\n] + %[2\n])
+  end
   end
 
   def test_write_path_increment
