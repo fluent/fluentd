@@ -146,7 +146,7 @@ module Fluent::Plugin
       end
 
       refresh_watchers
-      timer_execute(:refresh_watchers, @refresh_interval, &method(:refresh_watchers))
+      timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
     end
 
     def shutdown
@@ -200,7 +200,7 @@ module Fluent::Plugin
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, &method(:receive_lines))
       tw.attach do |watcher|
-        watcher.timer_trigger = timer_execute(:timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
+        watcher.timer_trigger = timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
         event_loop_attach(watcher.stat_trigger)
       end
       tw
@@ -258,7 +258,7 @@ module Fluent::Plugin
     end
 
     def close_watcher_after_rotate_wait(tw)
-      timer_execute(:close_watcher, @rotate_wait, repeat: false) do
+      timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
         close_watcher(tw)
       end
     end
