@@ -67,6 +67,15 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal 1000, d.instance.read_lines_limit
   end
 
+  data("empty" => config_element,
+       "w/o @type" => config_element("", "", {}, [config_element("parse", "", {})]))
+  def test_configure_without_parse_section(data)
+    conf = data
+    assert_raise(Fluent::ConfigError) do
+      create_driver(conf)
+    end
+  end
+
   def test_configure_encoding
     # valid encoding
     d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }))
