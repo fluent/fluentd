@@ -191,7 +191,9 @@ module Fluent
         @as_secondary = true
         @primary_instance = primary
         (class << self; self; end).module_eval do
-          define_method(:extract_placeholders){ |str, metadata| @primary_instance.extract_placeholders(str, metadata) }
+          if require_override
+            define_method(:extract_placeholders){ |str, metadata| @primary_instance.extract_placeholders(str, metadata) }
+          end
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
           define_method(:rollback_write){ |chunk_id| @primary_instance.rollback_write(chunk_id) }
         end
