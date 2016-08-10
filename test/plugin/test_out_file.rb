@@ -80,35 +80,24 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case "timezone" do
-    def test_timezone_1
-      d = create_driver %[
-        path #{TMP_DIR}/out_file_test
-        timezone Asia/Taipei
-      ]
+    data("Asia/Taipei" => ["Asia/Taipei", "2011-01-02T21:14:15+08:00"],
+         "-03:30" => ["-03:30", "2011-01-02T09:44:15-03:30"])
+    def test_flat(data)
+      timezone, expected_time = data
+      conf = config_element(
+        "ROOT", "",
+        { "path" => "#{TMP_DIR}/out_file_test", "timezone" => timezone })
+      d = create_driver(conf)
 
       time = event_time("2011-01-02 13:14:15 UTC")
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
       end
-      assert_equal([%[2011-01-02T21:14:15+08:00\ttest\t{"a":1}\n]], d.formatted)
+      assert_equal([%[#{expected_time}\ttest\t{"a":1}\n]], d.formatted)
     end
 
-    def test_timezone_2
-      d = create_driver %[
-        path #{TMP_DIR}/out_file_test
-        timezone -03:30
-      ]
-
-      time = event_time("2011-01-02 13:14:15 UTC")
-
-      d.run(default_tag: "test") do
-        d.feed(time, {"a"=>1})
-      end
-      assert_equal([%[2011-01-02T09:44:15-03:30\ttest\t{"a":1}\n]], d.formatted)
-    end
-
-    def test_timezone_invalid
+    def test_invalid
       assert_raise(Fluent::ConfigError) do
         create_driver %[
           path #{TMP_DIR}/out_file_test
