@@ -63,6 +63,7 @@ end
 require 'fluent/log'
 require 'fluent/engine'
 require 'fluent/system_config'
+require 'serverengine'
 
 include Fluent::SystemConfig::Mixin
 
@@ -90,13 +91,12 @@ include Fluent
 
 puts "Connected to #{uri}."
 puts "Usage:"
-puts "    Engine.match('some.tag').output  : get an output plugin instance"
-puts "    Engine.sources[i]                : get input plugin instances"
-puts "    Plugin.load_plugin(type,name)    : load plugin class (use this if you get DRb::DRbUnknown)"
+puts "    Fluent::Engine.match('some.tag').output  : get an output plugin instance"
+puts "    Fluent::Engine.sources[i]                : get input plugin instances"
+puts "    Fluent::Plugin.load_plugin(type,name)    : load plugin class (use this if you get DRb::DRbUnknown)"
 puts ""
 
 Encoding.default_internal = nil if Encoding.respond_to?(:default_internal)
 
 require 'irb'
 IRB.start
-
