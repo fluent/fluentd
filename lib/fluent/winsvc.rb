@@ -47,7 +47,6 @@ begin
     @pid = 0
 
     def service_main
-      opt = read_fluentdopt
       @pid = service_main_start
       while running?
         sleep 10
