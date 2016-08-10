@@ -22,6 +22,7 @@ require 'cool.io'
 
 require 'fluent/plugin/input'
 require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
 require 'fluent/plugin/filter'
 
 module Fluent::Plugin
@@ -281,7 +282,7 @@ module Fluent::Plugin
     # from the plugin `pe` recursively
     def self.collect_children(pe, array=[])
       array << pe
-      if pe.is_a?(Fluent::MultiOutput) && pe.respond_to?(:outputs)
+      if pe.is_a?(Fluent::Plugin::MultiOutput) && pe.respond_to?(:outputs)
         pe.outputs.each {|nop|
           collect_children(nop, array)
         }
@@ -295,7 +296,7 @@ module Fluent::Plugin
       matches = Fluent::Engine.root_agent.event_router.instance_variable_get(:@match_rules)
       matches.each { |rule|
         if rule.match?(tag)
-          if rule.collector.is_a?(Fluent::Output)
+          if rule.collector.is_a?(Fluent::Plugin::Output)
             return get_monitor_info(rule.collector, opts)
           end
         end
