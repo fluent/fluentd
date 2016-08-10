@@ -200,7 +200,7 @@ module Fluent::Plugin
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, &method(:receive_lines))
       tw.attach do |watcher|
-        watcher.timer_trigger = timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
+        timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
         event_loop_attach(watcher.stat_trigger)
       end
       tw
@@ -418,7 +418,6 @@ module Fluent::Plugin
       end
 
       def detach
-        @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
         @stat_trigger.detach if @stat_trigger.attached?
       end
 
