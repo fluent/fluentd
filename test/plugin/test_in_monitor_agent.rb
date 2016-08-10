@@ -56,6 +56,7 @@ class MonitorAgentInputTest < Test::Unit::TestCase
 <label @ERROR>
   <match>
     @type null
+    @id null
   </match>
 </label>
 EOC
@@ -111,9 +112,21 @@ EOC
         "retry_count"     => 0,
         "type"            => "test_out"
       }
+      error_label_info = {
+        "config" => {
+          "@id"=>"null",
+          "@type" => "null"
+        },
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "null",
+        "retry_count"     => 0,
+        "type"            => "null"
+      }
       assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first))
       assert_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first))
       assert_equal(output_info, d.instance.get_monitor_info(test_label.outputs.first))
+      assert_equal(error_label_info, d.instance.get_monitor_info(error_label.outputs.first))
     end
 
     test "fluentd opts" do
