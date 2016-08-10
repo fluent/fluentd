@@ -79,6 +79,7 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal(expected, d.formatted)
   end
 
+  sub_test_case "timezone" do
   def test_timezone_1
     d = create_driver %[
       path #{TMP_DIR}/out_file_test
@@ -114,6 +115,7 @@ class FileOutputTest < Test::Unit::TestCase
         timezone Invalid/Invalid
       ]
     end
+  end
   end
 
   def check_gzipped_result(path, expect)
