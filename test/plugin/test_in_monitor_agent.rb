@@ -5,6 +5,8 @@ require 'fluent/engine'
 require 'fluent/config'
 require 'fluent/event_router'
 require 'fluent/supervisor'
+require 'net/http'
+require 'json'
 require_relative '../test_plugin_classes'
 
 class MonitorAgentInputTest < Test::Unit::TestCase
@@ -151,6 +153,182 @@ EOC
                     FluentTest::FluentTestFilter,
                     FluentTest::FluentTestOutput,
                     Fluent::Plugin::NullOutput], plugins)
+    end
+  end
+
+  def get(uri, header = {})
+    url = URI.parse(uri)
+    req = Net::HTTP::Get.new(url.path, header)
+    unless header.has_key?('Content-Type')
+      header['Content-Type'] = 'application/octet-stream'
+    end
+    res = Net::HTTP.start(url.host, url.port) {|http|
+      http.request(req)
+    }
+    res.body
+  end
+
+  sub_test_case "servlets" do
+    setup do
+      @port = unused_port
+      # check @type and type in one configuration
+      conf = <<-EOC
+<source>
+  @type test_in
+  @id test_in
+</source>
+<source>
+  @type monitor_agent
+  bind "127.0.0.1"
+  port 24220
+  tag monitor
+  @id monitor_agent
+</source>
+<filter>
+  @type test_filter
+  @id test_filter
+</filter>
+<match **>
+  @type relabel
+  @id test_relabel
+  @label @test
+</match>
+<label @test>
+  <match **>
+    @type test_out
+    @id test_out
+  </match>
+</label>
+<label @ERROR>
+  <match>
+    @type null
+    @id null
+  </match>
+</label>
+EOC
+      @ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { @ra }
+      @ra = configure_ra(@ra, conf)
+    end
+
+    test "/api/plugins" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      expected_response = "\
+plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:
+plugin_id:monitor_agent\tplugin_category:input\ttype:monitor_agent\toutput_plugin:false\tretry_count:
+plugin_id:test_relabel\tplugin_category:output\ttype:relabel\toutput_plugin:true\tretry_count:0
+plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:
+plugin_id:test_out\tplugin_category:output\ttype:test_out\toutput_plugin:true\tretry_count:0
+plugin_id:null\tplugin_category:output\ttype:null\toutput_plugin:true\tretry_count:0
+"
+
+      assert_equal(expected_response, get("http://127.0.0.1:#{@port}/api/plugins"))
+    end
+
+    test "/api/plugins.json" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      expected_response = {"plugins"=>
+        [{"config" => {
+             "@id"=>"test_in",
+             "@type"=>"test_in"
+           },
+           "output_plugin"=>false,
+           "plugin_category"=>"input",
+           "plugin_id"=>"test_in",
+           "retry_count"=>nil,
+           "type"=>"test_in"},
+         {"config"=>{
+             "@id"=>"monitor_agent",
+             "@type"=>"monitor_agent",
+             "bind"=>"127.0.0.1",
+             "port"=>"24220",
+             "tag"=>"monitor"
+           },
+           "output_plugin"=>false,
+           "plugin_category"=>"input",
+           "plugin_id"=>"monitor_agent",
+           "retry_count"=>nil,
+           "type"=>"monitor_agent"},
+         {"config" => {
+             "@id"=>"test_relabel",
+             "@label"=>"@test",
+             "@type"=>"relabel"
+           },
+           "output_plugin"=>true,
+           "plugin_category"=>"output",
+           "plugin_id"=>"test_relabel",
+           "retry_count"=>0,
+           "type"=>"relabel"},
+         {"config" => {
+             "@id"=>"test_filter",
+             "@type"=>"test_filter"
+           },
+           "output_plugin"=>false,
+           "plugin_category"=>"filter",
+           "plugin_id"=>"test_filter",
+           "retry_count"=>nil,
+           "type"=>"test_filter"},
+         {"config" => {
+             "@id"=>"test_out",
+             "@type"=>"test_out"
+           },
+           "output_plugin"=>true,
+           "plugin_category"=>"output",
+           "plugin_id"=>"test_out",
+           "retry_count"=>0,
+           "type"=>"test_out"},
+         {"config" => {
+             "@id"=>"null",
+             "@type"=>"null"
+           },
+           "output_plugin"=>true,
+           "plugin_category"=>"output",
+           "plugin_id"=>"null",
+           "retry_count"=>0,
+           "type"=>"null"}]}
+      assert_equal(expected_response,
+                   JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json")))
+    end
+
+    test "/api/config" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      expected_response_regex = /pid:\d+\tppid:\d+\tconfig_path:\/etc\/fluent\/fluent.conf\tpid_file:\tplugin_dirs:\[\"\/etc\/fluent\/plugin\"\]\tlog_path:/
+
+      assert_match(expected_response_regex,
+                   get("http://127.0.0.1:#{@port}/api/config"))
+    end
+
+    test "/api/config.json" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      res = JSON.parse(get("http://127.0.0.1:#{@port}/api/config.json"))
+      assert_equal("/etc/fluent/fluent.conf", res["config_path"])
+      assert_nil(res["pid_file"])
+      assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
+      assert_nil(res["log_path"])
     end
   end
 end
