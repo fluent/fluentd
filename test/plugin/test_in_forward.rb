@@ -584,7 +584,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   # TODO: Use sub_test_case. Currently Errno::EADDRINUSE happens inside sub_test_case
-  test 'message protocol with source_host_key' do
+  test 'message protocol with source_hostname_key' do
     execute_test { |events|
       events.each { |tag, time, record|
         send_data [tag, time, record].to_msgpack
@@ -592,7 +592,7 @@ class ForwardInputTest < Test::Unit::TestCase
     }
   end
 
-  test 'forward protocol with source_host_key' do
+  test 'forward protocol with source_hostname_key' do
     execute_test { |events|
       entries = []
       events.each {|tag,time,record|
@@ -602,7 +602,7 @@ class ForwardInputTest < Test::Unit::TestCase
     }
   end
 
-  test 'packed forward protocol with source_host_key' do
+  test 'packed forward protocol with source_hostname_key' do
     execute_test { |events|
       entries = ''
       events.each { |tag, time, record|
@@ -613,7 +613,7 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   def execute_test(&block)
-    d = create_driver(CONFIG + 'source_host_key source')
+    d = create_driver(CONFIG + 'source_hostname_key source')
 
     time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
     events = [

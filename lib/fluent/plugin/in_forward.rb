@@ -50,7 +50,7 @@ module Fluent
     desc 'Skip an event if incoming event is invalid.'
     config_param :skip_invalid_event, :bool, default: false
     desc "The field name of the client's hostname."
-    config_param :source_host_key, :string, default: nil
+    config_param :source_hostname_key, :string, default: nil
 
     def configure(conf)
       super
@@ -175,7 +175,7 @@ module Fluent
         size = (option && option['size']) || 0
         es = MessagePackEventStream.new(entries, nil, size.to_i)
         es = check_and_skip_invalid_event(tag, es, peeraddr) if @skip_invalid_event
-        es = add_source_host(es, peeraddr[2]) if @source_host_key
+        es = add_source_host(es, peeraddr[2]) if @source_hostname_key
         router.emit_stream(tag, es)
 
       elsif entries.class == Array
@@ -193,7 +193,7 @@ module Fluent
                }
                es
              end
-        es = add_source_host(es, peeraddr[2]) if @source_host_key
+        es = add_source_host(es, peeraddr[2]) if @source_hostname_key
         router.emit_stream(tag, es)
         option = msg[2]
 
@@ -207,7 +207,7 @@ module Fluent
         end
         return if record.nil?
         time = Engine.now if time.to_i == 0
-        record[@source_host_key] = peeraddr[2] if @source_host_key
+        record[@source_hostname_key] = peeraddr[2] if @source_hostname_key
         router.emit(tag, time, record)
         option = msg[3]
       end
@@ -235,7 +235,7 @@ module Fluent
     def add_source_host(es, host)
       new_es = MultiEventStream.new
       es.each { |time, record|
-        record[@source_host_key] = host
+        record[@source_hostname_key] = host
         new_es.add(time, record)
       }
       new_es
