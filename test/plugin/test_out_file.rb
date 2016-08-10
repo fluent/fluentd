@@ -261,7 +261,6 @@ class FileOutputTest < Test::Unit::TestCase
 
     assert !File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.gz")
 
-    # FileOutput#write returns path
     paths = write_once.call
     assert_equal ["#{TMP_DIR}/out_file_test.20110102_0.log.gz"], paths
     check_gzipped_result(paths[0], formatted_lines)
@@ -297,7 +296,6 @@ class FileOutputTest < Test::Unit::TestCase
       d.instance._paths
     }
 
-    # FileOutput#write returns path
     paths = write_once.call
     assert_equal ["#{TMP_DIR}/out_file_test.20110102.log.gz"], paths
     check_gzipped_result(paths[0], formatted_lines)
