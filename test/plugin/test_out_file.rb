@@ -195,47 +195,47 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case "format" do
-  def test_write_with_format_json
-    time = event_time("2011-01-02 13:14:15 UTC")
-    mock(Time).now.at_least(2) { Time.at(time.to_r) }
-    d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch true'].join("\n")
+    def test_write_with_format_json
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
+      d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch true'].join("\n")
 
-    d.run(default_tag: "test") do
-      d.feed(time, {"a"=>1})
-      d.feed(time, {"a"=>2})
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
+
+      paths = d.instance._paths
+      check_gzipped_result(paths[0], %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
     end
 
-    paths = d.instance._paths
-    check_gzipped_result(paths[0], %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
-  end
+    def test_write_with_format_ltsv
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
+      d = create_driver [CONFIG, 'format ltsv', 'include_time_key true'].join("\n")
 
-  def test_write_with_format_ltsv
-    time = event_time("2011-01-02 13:14:15 UTC")
-    mock(Time).now.at_least(2) { Time.at(time.to_r) }
-    d = create_driver [CONFIG, 'format ltsv', 'include_time_key true'].join("\n")
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
 
-    d.run(default_tag: "test") do
-      d.feed(time, {"a"=>1})
-      d.feed(time, {"a"=>2})
+      paths = d.instance._paths
+      check_gzipped_result(paths[0], %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
     end
 
-    paths = d.instance._paths
-    check_gzipped_result(paths[0], %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
-  end
+    def test_write_with_format_single_value
+      time = event_time("2011-01-02 13:14:15 UTC")
+      mock(Time).now.at_least(2) { Time.at(time.to_r) }
+      d = create_driver [CONFIG, 'format single_value', 'message_key a'].join("\n")
 
-  def test_write_with_format_single_value
-    time = event_time("2011-01-02 13:14:15 UTC")
-    mock(Time).now.at_least(2) { Time.at(time.to_r) }
-    d = create_driver [CONFIG, 'format single_value', 'message_key a'].join("\n")
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      end
 
-    d.run(default_tag: "test") do
-      d.feed(time, {"a"=>1})
-      d.feed(time, {"a"=>2})
+      paths = d.instance._paths
+      check_gzipped_result(paths[0], %[1\n] + %[2\n])
     end
-
-    paths = d.instance._paths
-    check_gzipped_result(paths[0], %[1\n] + %[2\n])
-  end
   end
 
   def test_write_path_increment
