@@ -23,17 +23,57 @@ class FilterTest < Test::Unit::TestCase
   end
 
   sub_test_case 'configure' do
-    test 'check default' do
-      assert_nothing_raised { create_driver }
+    test 'check to implement `filter` method' do
+      klass = Class.new(Fluent::Filter) do |c|
+        def filter(tag, time, record); end
+      end
+
+      assert_nothing_raised do
+        klass.new
+      end
+    end
+
+    test 'check to implement `filter_with_time` method' do
+      klass = Class.new(Fluent::Filter) do |c|
+        def filter_with_time(tag, time, record); end
+      end
+
+      assert_nothing_raised do
+        klass.new
+      end
+    end
+
+    test 'DO NOT check when implement `filter_stream`' do
+      klass = Class.new(Fluent::Filter) do |c|
+        def filter_stream(tag, es); end
+      end
+
+      assert_nothing_raised do
+        klass.new
+      end
+    end
+
+    test 'NotImplementedError' do
+      klass = Class.new(Fluent::Filter)
+
+      assert_raise NotImplementedError do
+        klass.new
+      end
+    end
+
+    test 'duplicated method implementation' do
+      klass = Class.new(Fluent::Filter) do |c|
+        def filter(tag, time, record); end
+        def filter_with_time(tag, time, record); end
+      end
+
+      assert_raise do
+        klass.new
+      end
     end
   end
 
   sub_test_case 'filter' do
-    test 'NotImplementedError' do
-      not_implemented_filter = Class.new(Fluent::Filter)
-      assert_raise(NotImplementedError) { emit(not_implemented_filter, ['foo']) }
-    end
-
     test 'null filter' do
       null_filter = Class.new(Fluent::Filter) do |c|
         def filter(tag, time, record)
@@ -61,6 +101,7 @@ class FilterTest < Test::Unit::TestCase
         def filter_stream(tag, es)
           MultiEventStream.new
         end
+        def filter(tag, time, record); record; end
       end
       es = emit(null_filter, ['foo'])
       assert_equal(0, es.instance_variable_get(:@record_array).size)
@@ -71,6 +112,7 @@ class FilterTest < Test::Unit::TestCase
         def filter_stream(tag, es)
           es
         end
+        def filter(tag, time, record); record; end
       end
       es = emit(pass_filter, ['foo'])
       assert_equal(1, es.instance_variable_get(:@record_array).size)
