@@ -29,8 +29,10 @@ require 'shellwords'
 
 if Fluent.windows?
   require 'windows/library'
+  require 'windows/synchronize'
   require 'windows/system_info'
   include Windows::Library
+  include Windows::Synchronize
   include Windows::SystemInfo
   require 'win32/ipc'
   require 'win32/event'
@@ -47,6 +49,11 @@ module Fluent
         run_rpc_server
       end
       install_supervisor_signal_handlers
+
+      if config[:signame]
+        @signame = config[:signame]
+        install_windows_event_handler
+      end
 
       socket_manager_path = ServerEngine::SocketManager::Server.generate_path
       ServerEngine::SocketManager::Server.open(socket_manager_path)
@@ -133,6 +140,21 @@ module Fluent
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
       end unless Fluent.windows?
+    end
+
+    def install_windows_event_handler
+      Thread.new do
+        ev = Win32::Event.new(@signame)
+        begin
+          ev.reset
+          until WaitForSingleObject(ev.handle, 1000) == WAIT_OBJECT_0
+          end
+          kill_worker
+          stop(true)
+        ensure
+          ev.close
+        end
+      end
     end
 
     def supervisor_sighup_handler
@@ -224,6 +246,7 @@ module Fluent
       pid_path = params['daemonize']
       daemonize = !!params['daemonize']
       main_cmd = params['main_cmd']
+      signame = params['signame']
 
       se_config = {
           worker_type: 'spawn',
@@ -253,6 +276,7 @@ module Fluent
                                    JSON.dump(params)],
           fluentd_conf: fluentd_conf,
           main_cmd: main_cmd,
+          signame: signame,
       }
       if daemonize
         se_config[:pid_path] = pid_path
@@ -490,6 +514,7 @@ module Fluent
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
       params['suppress_repeated_stacktrace'] = @suppress_repeated_stacktrace
+      params['signame'] = @signame
 
       se = ServerEngine.create(ServerModule, WorkerModule){
         Fluent::Supervisor.load_config(@config_path, params)
