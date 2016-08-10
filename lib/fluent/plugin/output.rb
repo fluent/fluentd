@@ -472,7 +472,7 @@ module Fluent
 
       # TODO: optimize this code
       def extract_placeholders(str, metadata)
-        if metadata.timekey.nil? && metadata.tag.nil? && metadata.variables.nil?
+        if metadata.nil?
           str
         else
           rvalue = str
