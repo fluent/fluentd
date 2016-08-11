@@ -46,7 +46,7 @@ class FileOutputTest < Test::Unit::TestCase
 
   def test_recieved_path
     assert_raise(Fluent::ConfigError) do
-      d = create_driver %[
+      create_driver %[
         compress gz
       ]
     end

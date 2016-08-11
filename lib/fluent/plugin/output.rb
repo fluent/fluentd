@@ -190,6 +190,8 @@ module Fluent
       def acts_as_secondary(primary)
         @as_secondary = true
         @primary_instance = primary
+
+        require_override = !self.class.instance_methods(false).include?(:extract_placeholders)
         (class << self; self; end).module_eval do
           if require_override
             define_method(:extract_placeholders){ |str, metadata| @primary_instance.extract_placeholders(str, metadata) }
