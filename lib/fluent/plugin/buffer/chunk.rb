@@ -49,6 +49,7 @@ module Fluent
         def initialize(metadata)
           super()
           @unique_id = generate_unique_id
+          @chunk_id = Fluent::UniqueId.hex(@unique_id)
           @metadata = metadata
 
           # state: unstaged/staged/queued/closed
@@ -59,7 +60,7 @@ module Fluent
           @modified_at = Time.now
         end
 
-        attr_reader :unique_id, :metadata, :created_at, :modified_at, :state
+        attr_reader :unique_id, :chunk_id, :metadata, :created_at, :modified_at, :state
 
         # data is array of formatted record string
         def append(data)

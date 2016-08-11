@@ -15,20 +15,17 @@
 #
 
 require "fileutils"
-require 'fluent/plugin/output'
+require "fluent/plugin/file_util"
+require "fluent/plugin/output"
 require "fluent/config/error"
-require "fluent/system_config"
-
 
 module Fluent::Plugin
   class SecondaryFileOutput < Output
-    include Fluent::SystemConfig::Mixin
-
     Fluent::Plugin.register_output("secondary_file", self)
 
     SUPPORTED_COMPRESS = {
-      'gz' => :gz,
-      'gzip' => :gz,
+      "gz" => :gz,
+      "gzip" => :gz,
     }
 
     FILE_PERMISSION = 0644
@@ -45,8 +42,6 @@ module Fluent::Plugin
     end
 
     def initialize
-      require "time"
-      require "fluent/plugin/file_util"
       super
     end
 
@@ -63,11 +58,11 @@ module Fluent::Plugin
         @path_prefix = @path[0,pos]
         @path_suffix = @path[pos+1..-1]
       else
-        @path_prefix = @path+"."
+        @path_prefix = @path + "."
         @path_suffix = ".log"
       end
 
-      test_path = generate_path(Time.now.strftime('%Y%m%d'))
+      test_path = generate_path(Time.now.strftime("%Y%m%d"))
       unless Fluent::FileUtil.writable_p?(test_path)
         raise Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
       end
@@ -82,8 +77,6 @@ module Fluent::Plugin
     def write(chunk)
       id = extract_placeholders('', chunk)
       path = generate_path(id)
-
-      log.info path
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
@@ -106,7 +99,7 @@ module Fluent::Plugin
 
     def extract_placeholders(str, chunk)
       if chunk.metadata.nil?
-        chunk.unique_id
+        chunk.chunk_id
       else
         super(str, chunk.metadata)
       end
@@ -115,7 +108,7 @@ module Fluent::Plugin
     private
 
     def genereate_tempalte
-      rvalue = ''
+      rvalue = ""
       if @chunk_key_tag
         rvalue += "{tag}_"
       end
@@ -138,7 +131,7 @@ module Fluent::Plugin
     def suffix
       case @compress
       when nil
-        ''
+        ""
       when :gz
         ".gz"
       end
