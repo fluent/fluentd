@@ -33,6 +33,7 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal :gz, d.instance.compress
   end
 
+  sub_test_case "path writable" do
   def test_path_writable
     assert_nothing_raised do
       create_driver %[path #{TMP_DIR}/test_path]
@@ -49,6 +50,7 @@ class FileOutputTest < Test::Unit::TestCase
       File.chmod(0555, "#{TMP_DIR}/test_dir")
       create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
     end
+  end
   end
 
   def test_default_localtime
