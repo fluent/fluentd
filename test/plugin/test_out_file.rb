@@ -38,13 +38,17 @@ class FileOutputTest < Test::Unit::TestCase
       assert_nothing_raised do
         create_driver %[path #{TMP_DIR}/test_path]
       end
+    end
 
+    def test_world_writable
       assert_nothing_raised do
         FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
         File.chmod(0777, "#{TMP_DIR}/test_dir")
         create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
       end
+    end
 
+    def test_not_writable
       assert_raise(Fluent::ConfigError) do
         FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
         File.chmod(0555, "#{TMP_DIR}/test_dir")
