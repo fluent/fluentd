@@ -34,23 +34,23 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case "path writable" do
-  def test_path_writable
-    assert_nothing_raised do
-      create_driver %[path #{TMP_DIR}/test_path]
-    end
+    def test_path_writable
+      assert_nothing_raised do
+        create_driver %[path #{TMP_DIR}/test_path]
+      end
 
-    assert_nothing_raised do
-      FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
-      File.chmod(0777, "#{TMP_DIR}/test_dir")
-      create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
-    end
+      assert_nothing_raised do
+        FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+        File.chmod(0777, "#{TMP_DIR}/test_dir")
+        create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+      end
 
-    assert_raise(Fluent::ConfigError) do
-      FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
-      File.chmod(0555, "#{TMP_DIR}/test_dir")
-      create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+      assert_raise(Fluent::ConfigError) do
+        FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+        File.chmod(0555, "#{TMP_DIR}/test_dir")
+        create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+      end
     end
-  end
   end
 
   def test_default_localtime
