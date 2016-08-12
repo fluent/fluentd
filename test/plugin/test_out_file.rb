@@ -20,6 +20,23 @@ class FileOutputTest < Test::Unit::TestCase
       "compress" => "gz",
       "utc" => ""
     })
+  SECTION_CONFIG = config_element(
+    "ROOT", "", {
+      "path" => "#{TMP_DIR}/out_file_test",
+      "compress" => "gz",
+    }, [
+      config_element(
+        "format", "", {
+          "@type" => "out_file",
+          "localtime" => false
+        }),
+      config_element(
+        "buffer", "", {
+          "path" => "#{TMP_DIR}/out_file_test",
+          "timekey" => 86400
+        })
+    ]
+  )
 
   def create_driver(conf = CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::FileOutput).configure(conf)
@@ -76,8 +93,11 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
-  def test_format
-    d = create_driver(CONFIG + config_element)
+  data(flat: CONFIG + config_element,
+       section: SECTION_CONFIG)
+  def test_format(data)
+    conf = data
+    d = create_driver(conf)
 
     time = event_time("2011-01-02 13:14:15 UTC")
     d.run(default_tag: "test") do
@@ -140,11 +160,14 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal expect, result
   end
 
-  def test_write
+  data(flat: CONFIG + config_element,
+       section: SECTION_CONFIG)
+  def test_write(data)
+    conf = data
     time = event_time("2011-01-02 13:14:15 UTC")
     mock(Time).now.at_least(2) { Time.at(time.to_r) }
 
-    d = create_driver(CONFIG + config_element)
+    d = create_driver(conf)
 
     d.run(default_tag: "test") do
       d.feed(time, {"a"=>1})
@@ -210,17 +233,40 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case "format" do
-    def test_write_with_format_json
-      p CONFIG
+    data(flat: CONFIG + config_element(
+           "ROOT", "", {
+             "format" => "json",
+             "include_time_key" => "true",
+             "time_as_epoch" => "true"
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "compress" => "gz",
+           }, [
+             config_element(
+               "format", "", {
+                 "@type" => "json",
+                 "localtime" => false
+               }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 86400
+               }),
+             config_element(
+               "inject", "", {
+                 "time_key" => "time",
+                 "time_type" => "unixtime",
+                 "localtime" => false
+               })
+           ])
+        )
+    def test_write_with_format_json(data)
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "", "", {
-          "format" => "json",
-          "include_time_key" => "true",
-          "time_as_epoch" => "true"
-        })
-      d = create_driver(CONFIG + conf)
+      conf = data
+      d = create_driver(conf)
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -231,15 +277,40 @@ class FileOutputTest < Test::Unit::TestCase
       check_gzipped_result(paths[0], %[#{Yajl.dump({"a" => 1, 'time' => time})}\n] + %[#{Yajl.dump({"a" => 2, 'time' => time})}\n])
     end
 
-    def test_write_with_format_ltsv
+    data(flat: CONFIG +
+         config_element(
+           "", "", {
+             "format" => "ltsv",
+             "include_time_key" => "true"
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "compress" => "gz",
+           }, [
+             config_element(
+               "format", "", {
+                 "@type" => "ltsv",
+                 "localtime" => false
+               }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 86400
+               }),
+             config_element(
+               "inject", "", {
+                 "time_key" => "time",
+                 "time_type" => "string",
+                 "localtime" => false
+               })
+           ])
+        )
+    def test_write_with_format_ltsv(data)
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "", "", {
-          "format" => "ltsv",
-          "include_time_key" => "true"
-        })
-      d = create_driver(CONFIG + conf)
+      conf = data
+      d = create_driver(conf)
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -250,15 +321,38 @@ class FileOutputTest < Test::Unit::TestCase
       check_gzipped_result(paths[0], %[a:1\ttime:2011-01-02T13:14:15Z\n] + %[a:2\ttime:2011-01-02T13:14:15Z\n])
     end
 
-    def test_write_with_format_single_value
+    data(flat: CONFIG +
+         config_element(
+           "", "", {
+             "format" => "single_value",
+             "message_key" => "a"
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "compress" => "gz",
+           }, [
+             config_element(
+               "format", "", {
+                 "@type" => "single_value",
+                 "message_key" => "a",
+                 "localtime" => false
+               }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 86400
+               }),
+             config_element(
+               "inject", "", {
+                 "localtime" => false
+               })
+           ]))
+    def test_write_with_format_single_value(data)
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "", "", {
-          "format" => "single_value",
-          "message_key" => "a"
-        })
-      d = create_driver(CONFIG + conf)
+      conf = data
+      d = create_driver(conf)
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -270,13 +364,16 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
-  def test_write_path_increment
+  data(flat: CONFIG + config_element,
+       section: SECTION_CONFIG)
+  def test_write_path_increment(data)
     time = event_time("2011-01-02 13:14:15 UTC")
     mock(Time).now.at_least(2) { Time.at(time.to_r) }
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
+    conf = data
 
     write_once = ->(){
-      d = create_driver(CONFIG + config_element)
+      d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
         d.feed(time, {"a"=>2})
@@ -302,19 +399,15 @@ class FileOutputTest < Test::Unit::TestCase
     assert_equal 3, Dir.glob("#{TMP_DIR}/out_file_test.*").size
   end
 
-  def test_write_with_append
+  data(flat: CONFIG + config_element("", "", { "append" => "true" }),
+       section: SECTION_CONFIG + config_element("", "", { "append" => "true" }))
+  def test_write_with_append(data)
     time = event_time("2011-01-02 13:14:15 UTC")
     mock(Time).now.at_least(2) { Time.at(time.to_r) }
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
+    conf = data
 
     write_once = ->(){
-      conf = config_element(
-        "ROOT", "", {
-          "path" => "#{TMP_DIR}/out_file_test",
-          "compress" => "gz",
-          "utc" => "",
-          "append" => "true"
-        })
       d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -334,15 +427,14 @@ class FileOutputTest < Test::Unit::TestCase
     check_gzipped_result(paths[0], formatted_lines * 3)
   end
 
-  def test_write_with_symlink
-    omit "Windows doesn't support symlink" if Fluent.windows?
-    conf = config_element(
-      "", "", {
-        "symlink_path" => SYMLINK_PATH
-      })
+  data(flat: CONFIG + config_element("", "", { "symlink_path" => SYMLINK_PATH }),
+       section: SECTION_CONFIG + config_element("", "", { "symlink_path" => SYMLINK_PATH }))
+  def test_write_with_symlink(data)
     symlink_path = SYMLINK_PATH
+    omit "Windows doesn't support symlink" if Fluent.windows?
+    conf = data
 
-    d = create_driver(CONFIG + conf)
+    d = create_driver(conf)
 
     d.run(default_tag: "tag") do
       es = Fluent::OneEventStream.new(event_time("2011-01-02 13:14:15 UTC"), {"a"=>1})
@@ -363,15 +455,29 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'path' do
-    test 'normal' do
+    data(flat: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "time_slice_format" => "%Y-%m-%d-%H",
+             "utc" => ""
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "time_slice_format" => "%Y-%m-%d-%H",
+           }, [
+             config_element("format", "", { "localtime" => false }),
+             config_element("inject", "", { "localtime" => false }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 3600,
+               })
+           ])
+        )
+    test 'normal' do |conf|
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "ROOT", "", {
-          "path" => "#{TMP_DIR}/out_file_test",
-          "time_slice_format" => "%Y-%m-%d-%H",
-          "utc" => ""
-        })
       d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -380,16 +486,31 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.log"], paths
     end
 
-    test 'normal with append' do
+    data(flat: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "time_slice_format" => "%Y-%m-%d-%H",
+             "utc" => "",
+             "append" => "true"
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test",
+             "time_slice_format" => "%Y-%m-%d-%H",
+             "append" => true
+           }, [
+             config_element("format", "", { "localtime" => false }),
+             config_element("inject", "", { "localtime" => false }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 3600,
+               })
+           ])
+        )
+    test 'normal with append' do |conf|
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "ROOT", "", {
-          "path" => "#{TMP_DIR}/out_file_test",
-          "time_slice_format" => "%Y-%m-%d-%H",
-          "utc" => "",
-          "append" => "true"
-        })
       d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -398,15 +519,29 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.log"], paths
     end
 
-    test '*' do
+    data(flat: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test.*.txt",
+             "time_slice_format" => "%Y-%m-%d-%H",
+             "utc" => ""
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test.*.txt",
+             "time_slice_format" => "%Y-%m-%d-%H",
+           }, [
+             config_element("format", "", { "localtime" => false }),
+             config_element("inject", "", { "localtime" => false }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 3600,
+               })
+           ])
+        )
+    test '*' do |conf|
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "ROOT", "", {
-          "path" => "#{TMP_DIR}/out_file_test.*.txt",
-          "time_slice_format" => "%Y-%m-%d-%H",
-          "utc" => ""
-        })
       d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -415,16 +550,31 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.txt"], paths
     end
 
-    test '* with append' do
+    data(flat: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test.*.txt",
+             "time_slice_format" => "%Y-%m-%d-%H",
+             "utc" => "",
+             "append" => "true"
+           }),
+         section: config_element(
+           "ROOT", "", {
+             "path" => "#{TMP_DIR}/out_file_test.*.txt",
+             "time_slice_format" => "%Y-%m-%d-%H",
+             "append" => "true"
+           }, [
+             config_element("format", "", { "localtime" => false }),
+             config_element("inject", "", { "localtime" => false }),
+             config_element(
+               "buffer", "time", {
+                 "path" => "#{TMP_DIR}/out_file_test",
+                 "timekey" => 3600,
+               })
+           ])
+        )
+    test '* with append' do |conf|
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      conf = config_element(
-        "ROOT", "", {
-          "path" => "#{TMP_DIR}/out_file_test.*.txt",
-          "time_slice_format" => "%Y-%m-%d-%H",
-          "utc" => "",
-          "append" => "true"
-        })
       d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
