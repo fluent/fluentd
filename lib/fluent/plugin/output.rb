@@ -191,6 +191,14 @@ module Fluent
         @as_secondary = true
         @primary_instance = primary
 
+        @chunk_keys = @primary_instance.chunk_keys if @primary_instance.chunk_keys
+        @chunk_key_tag = @primary_instance.chunk_key_tag if @primary_instance.chunk_key_tag
+        if @primary_instance.chunk_key_time
+          @chunk_key_time = @primary_instance.chunk_key_time
+          @timekey_zone = Time.now.strftime('%z') # TO fix
+          @output_time_formatter_cache = {}
+        end
+
         require_override = !self.class.instance_methods(false).include?(:extract_placeholders)
         (class << self; self; end).module_eval do
           if require_override

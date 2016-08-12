@@ -54,13 +54,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "'path' parameter is required on secondary file output"
       end
 
-      if pos = @path.index('*')
-        @path_prefix = @path[0,pos]
-        @path_suffix = @path[pos+1..-1]
-      else
-        @path_prefix = @path + "."
-        @path_suffix = ".log"
-      end
+      configure_path!
 
       test_path = generate_path(Time.now.strftime("%Y%m%d"))
       unless Fluent::FileUtil.writable_p?(test_path)
@@ -70,12 +64,11 @@ module Fluent::Plugin
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
 
-      # @tempalte = genereate_tempalte fix
       super
     end
 
     def write(chunk)
-      id = extract_placeholders('', chunk)
+      id = extract_placeholders(@path, chunk)
       path = generate_path(id)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
@@ -107,25 +100,38 @@ module Fluent::Plugin
 
     private
 
-    def genereate_tempalte
-      rvalue = ""
-      if @chunk_key_tag
-        rvalue += "{tag}_"
+    def configure_path!
+      matched = @path.scan(/\${([\w\d.@-]+)}/).flat_map(&:itself)
+      p matched
+      if matched.empty?
+        if pos = @path.index('*')
+          @path_prefix = @path[0,pos]
+          @path_suffix = @path[pos+1..-1]
+        else
+          @path_prefix = @path + "."
+          @path_suffix = ".log"
+        end
+      else
+        validate_path_is_comptible_with_primary_buffer?(matched)
+        @path_prefix = ""
+        @path_suffix = ".log"
       end
+    end
 
-      if @chunk_key_time
-        rvalue += "%Y%m%d_"
+    def validate_path_is_comptible_with_primary_buffer?(matched)
+      raise "TimeFormat is not imcompatible with primary buffer's params" if !@chunk_key_time && @path != Time.now.strftime(@path)
+      matched.each do |e|
+        case
+        when @chunk_key_tag && e =~ /tag\w*/
+          # nothing
+        when !@chunk_key_tag && e =~ /tag\w*/
+          raise "#{e} is not imcompatible with primary buffer's params"
+        when @chunk_keys.include?(e)
+          # nothing
+        else
+          raise "#{e} is not imcompatible with primary buffer's params"
+        end
       end
-
-      @chunk_keys.each do |v|
-        rvalue += "${#{v}}_"
-      end
-
-      if rvalue.end_with?("_")
-        rvalue = rvalue[0..-2]
-      end
-
-      rvalue
     end
 
     def suffix
