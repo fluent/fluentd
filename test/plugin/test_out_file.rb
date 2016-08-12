@@ -130,6 +130,32 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal([%[#{expected_time}\ttest\t{"a":1}\n]], d.formatted)
     end
 
+    data("Asia/Taipei" => ["Asia/Taipei", "2011-01-02T21:14:15+08:00"],
+         "-03:30" => ["-03:30", "2011-01-02T09:44:15-03:30"])
+    def test_section(data)
+      timezone, expected_time = data
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test",
+        }, [
+          config_element("format", "", { "timezone" => timezone }),
+          config_element("inject", "", { "timezone" => timezone }),
+          config_element(
+            "buffer", "time", {
+              "path" => "#{TMP_DIR}/out_file_test",
+              "timekey" => 86400
+            })
+        ])
+      d = create_driver(conf)
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+
+      d.run(default_tag: "test") do
+        d.feed(time, {"a"=>1})
+      end
+      assert_equal([%[#{expected_time}\ttest\t{"a":1}\n]], d.formatted)
+    end
+
     def test_invalid
       conf = config_element(
         "ROOT", "", {
