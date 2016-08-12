@@ -101,11 +101,10 @@ module Fluent::Plugin
     private
 
     def configure_path!
-      matched = @path.scan(/\${([\w\d.@-]+)}/).flat_map(&:itself)
-      p matched
-      if matched.empty?
+      matched = @path.scan(/\${([\w.@-]+)}/).flat_map { |e| e } # for suporting 2.1 or less
+      if matched.empty? && !path_has_time_format?
         if pos = @path.index('*')
-          @path_prefix = @path[0,pos]
+          @path_prefix = @path[0, pos]
           @path_suffix = @path[pos+1..-1]
         else
           @path_prefix = @path + "."
@@ -119,19 +118,23 @@ module Fluent::Plugin
     end
 
     def validate_path_is_comptible_with_primary_buffer?(matched)
-      raise "TimeFormat is not imcompatible with primary buffer's params" if !@chunk_key_time && @path != Time.now.strftime(@path)
+      raise "TimeFormat is not imcompatible with primary buffer's params" if !@chunk_key_time && path_has_time_format?
       matched.each do |e|
         case
         when @chunk_key_tag && e =~ /tag\w*/
-          # nothing
+          # ok
         when !@chunk_key_tag && e =~ /tag\w*/
           raise "#{e} is not imcompatible with primary buffer's params"
-        when @chunk_keys.include?(e)
-          # nothing
+        when @chunk_keys.include?(e.to_sym)
+          # ok
         else
           raise "#{e} is not imcompatible with primary buffer's params"
         end
       end
+    end
+
+    def path_has_time_format?
+      @path != Time.now.strftime(@path)
     end
 
     def suffix

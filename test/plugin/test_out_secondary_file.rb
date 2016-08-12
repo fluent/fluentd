@@ -21,8 +21,19 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     compress gz
   ]
 
-  def create_driver(conf = CONFIG)
-    primary = Class.new
+  class DummyOutput < Fluent::Plugin::Output
+    def register(name, &block)
+      instance_variable_set("@#{name}", block)
+    end
+
+    def register_value(name, value)
+      instance_variable_set("@#{name}", value)
+    end
+
+    def write(chunk); end
+  end
+
+  def create_driver(conf = CONFIG, primary = DummyOutput.new)
     c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
     c.instance.acts_as_secondary(primary)
     c.configure(conf)
@@ -105,7 +116,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
   sub_test_case 'write' do
     setup do
-      @record = { "key" => "vlaue"}
+      @record = { key: "vlaue" }
       @time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       @es = Fluent::OneEventStream.new(@time, @record)
     end
@@ -160,62 +171,126 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         check_gzipped_result(path, packed_value * i)
       end
     end
+
+    # mtched data's test
   end
 
-  sub_test_case 'path tempalte' do
-    # test that uses generate_temaplte
+  sub_test_case 'path' do
+    setup do
+      @record = { key: "vlaue" }
+      @time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      @es = Fluent::OneEventStream.new(@time, @record)
+      @c = create_es_chunk(create_metadata, @es)
+    end
+
+    test 'normal path' do
+      d = create_driver %[
+        path #{TMP_DIR}/out_file_test
+        compress gz
+      ]
+      path = d.instance.write(@c)
+      assert_equal "#{TMP_DIR}/out_file_test.#{@c.chunk_id}_0.log.gz", path
+    end
+
+    test 'path includes *' do
+      d = create_driver %[
+        path #{TMP_DIR}/out_file_test/*.log
+        compress gz
+      ]
+
+      path = d.instance.write(@c)
+      assert_equal "#{TMP_DIR}/out_file_test/#{@c.chunk_id}_0.log.gz", path
+    end
+
+    data(
+      invalid_tag: "#{TMP_DIR}/${tag}",
+      invalid_tag0: "#{TMP_DIR}/${tag0}",
+      invalid_variable: "#{TMP_DIR}/${dummy}",
+      invalid_timeformat: "#{TMP_DIR}/%Y%m%d",
+    )
+    test 'path includes impcompatible placeholder' do |invalid_path|
+      c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
+      c.instance.acts_as_secondary(DummyOutput.new)
+
+      assert_raise do
+        # mock
+        c.configure(%[
+          path #{invalid_path}
+          compress gz
+        ])
+      end
+    end
+
+    test 'path includes tag' do
+      primary = DummyOutput.new.tap do |e|
+        e.register_value('chunk_key_tag', true)
+        e.register_value('chunk_keys', [])
+      end
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_${tag}
+        compress gz
+      ], primary)
+
+      c = create_es_chunk(create_metadata(nil, "test.dummy"), @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_test.dummy_0.log.gz", path
+    end
+    # 複数タグ
+
+    test 'path includes time format' do
+      primary = DummyOutput.new.tap do |e|
+        e.register_value('chunk_key_time', true)
+        e.register_value('chunk_keys', [])
+      end
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_%Y%m%d
+        compress gz
+      ], primary)
+
+      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 UTC")), @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_20110102_0.log.gz", path
+    end
+
+    test 'path includes variable' do
+      pairs = { "test1".to_sym => "dummy" }
+      primary = DummyOutput.new.tap do |e|
+        e.register_value('chunk_keys', pairs.keys)
+      end
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_${test1}
+        compress gz
+      ], primary)
+
+      c = create_es_chunk(create_metadata(nil, nil, pairs), @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_dummy_0.log.gz", path
+    end
+
+    test 'path include tag, time format, variables' do
+      pairs = { "test1".to_sym => "dummy" }
+      primary = DummyOutput.new.tap do |e|
+        e.register_value('chunk_keys', pairs.keys)
+        e.register_value('chunk_key_time', true)
+        e.register_value('chunk_key_tag', true)
+      end
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_%Y%m%d_${tag}_${test1}
+        compress gz
+      ], primary)
+
+      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 UTC"), 'test.tag', pairs)
+      c = create_es_chunk(metadata, @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_20110102_test.tag_dummy_0.log.gz", path
+    end
   end
-
-  # sub_test_case 'path' do
-  #   test 'normal' do
-  #     d = create_driver(%[
-  #       path #{TMP_DIR}/out_file_test
-  #       time_slice_format %Y-%m-%d-%H
-  #       utc true
-  #     ])
-  #     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-  #     d.emit({"a"=>1}, time)
-  #     # FileOutput#write returns path
-  #     paths = d.run
-  #     assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.log"], paths
-  #   end
-
-  #   test 'normal with append' do
-  #     d = create_driver(%[
-  #       path #{TMP_DIR}/out_file_test
-  #       time_slice_format %Y-%m-%d-%H
-  #       utc true
-  #       append true
-  #     ])
-  #     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-  #     d.emit({"a"=>1}, time)
-  #     paths = d.run
-  #     assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.log"], paths
-  #   end
-
-  #   test '*' do
-  #     d = create_driver(%[
-  #       path #{TMP_DIR}/out_file_test.*.txt
-  #       time_slice_format %Y-%m-%d-%H
-  #       utc true
-  #     ])
-  #     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-  #     d.emit({"a"=>1}, time)
-  #     paths = d.run
-  #     assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13_0.txt"], paths
-  #   end
-
-  #   test '* with append' do
-  #     d = create_driver(%[
-  #       path #{TMP_DIR}/out_file_test.*.txt
-  #       time_slice_format %Y-%m-%d-%H
-  #       utc true
-  #       append true
-  #     ])
-  #     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-  #     d.emit({"a"=>1}, time)
-  #     paths = d.run
-  #     assert_equal ["#{TMP_DIR}/out_file_test.2011-01-02-13.txt"], paths
-  #   end
-  # end
 end
