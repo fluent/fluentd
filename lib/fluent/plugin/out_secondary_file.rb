@@ -101,7 +101,7 @@ module Fluent::Plugin
     private
 
     def configure_path!
-      matched = @path.scan(/\${([\w.@-]+)}/).flat_map { |e| e } # for suporting 2.1 or less
+      matched = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
       if matched.empty? && !path_has_time_format?
         if pos = @path.index('*')
           @path_prefix = @path[0, pos]
@@ -121,9 +121,9 @@ module Fluent::Plugin
       raise "TimeFormat is not imcompatible with primary buffer's params" if !@chunk_key_time && path_has_time_format?
       matched.each do |e|
         case
-        when @chunk_key_tag && e =~ /tag\w*/
+        when @chunk_key_tag && e =~ /tag(\[\d+\])?/
           # ok
-        when !@chunk_key_tag && e =~ /tag\w*/
+        when !@chunk_key_tag && e =~ /tag(\[\d+\])?/
           raise "#{e} is not imcompatible with primary buffer's params"
         when @chunk_keys.include?(e.to_sym)
           # ok

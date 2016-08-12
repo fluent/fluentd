@@ -204,7 +204,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
     data(
       invalid_tag: "#{TMP_DIR}/${tag}",
-      invalid_tag0: "#{TMP_DIR}/${tag0}",
+      invalid_tag0: "#{TMP_DIR}/${tag[0]}",
       invalid_variable: "#{TMP_DIR}/${dummy}",
       invalid_timeformat: "#{TMP_DIR}/%Y%m%d",
     )
@@ -237,7 +237,24 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/out_file_test/cool_test.dummy_0.log.gz", path
     end
-    # 複数タグ
+
+    test 'path includes /tag[\d+]/' do
+      primary = DummyOutput.new.tap do |e|
+        e.register_value('chunk_key_tag', true)
+        e.register_value('chunk_keys', [])
+      end
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_${tag[0]}_${tag[1]}
+        compress gz
+      ], primary)
+
+      c = create_es_chunk(create_metadata(nil, "test.dummy"), @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_test_dummy_0.log.gz", path
+    end
+
 
     test 'path includes time format' do
       primary = DummyOutput.new.tap do |e|
