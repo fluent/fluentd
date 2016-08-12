@@ -14,51 +14,58 @@ class FileOutputTest < Test::Unit::TestCase
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/out_file#{ENV['TEST_ENV_NUMBER']}")
   SYMLINK_PATH = File.expand_path("#{TMP_DIR}/current")
 
-  CONFIG = %[
-    path #{TMP_DIR}/out_file_test
-    compress gz
-    utc
-  ]
+  CONFIG = config_element(
+    "ROOT", "", {
+      "path" => "#{TMP_DIR}/out_file_test",
+      "compress" => "gz",
+      "utc" => ""
+    })
 
   def create_driver(conf = CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::FileOutput).configure(conf)
   end
 
   def test_configure
-    d = create_driver %[
-      path test_path
-      compress gz
-    ]
+    conf = config_element(
+      "ROOT", "", {
+        "path" => "test_path",
+        "compress" => "gz"
+      })
+    d = create_driver(conf)
     assert_equal 'test_path', d.instance.path
     assert_equal :gz, d.instance.compress
   end
 
   sub_test_case "path writable" do
     def test_path_writable
+      conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/test_path" })
       assert_nothing_raised do
-        create_driver %[path #{TMP_DIR}/test_path]
+        create_driver(conf)
       end
     end
 
     def test_world_writable
+      FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+      File.chmod(0777, "#{TMP_DIR}/test_dir")
+      conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/test_dir/foo/bar/baz" })
       assert_nothing_raised do
-        FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
-        File.chmod(0777, "#{TMP_DIR}/test_dir")
-        create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+        create_driver(conf)
       end
     end
 
     def test_not_writable
+      FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+      File.chmod(0555, "#{TMP_DIR}/test_dir")
+      conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/test_dir/foo/bar/baz" })
       assert_raise(Fluent::ConfigError) do
-        FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
-        File.chmod(0555, "#{TMP_DIR}/test_dir")
-        create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+        create_driver(conf)
       end
     end
   end
 
   def test_default_localtime
-    d = create_driver(%[path #{TMP_DIR}/out_file_test])
+    conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/out_file_test" })
+    d = create_driver(conf)
     time = event_time("2011-01-02 13:14:15 UTC")
 
     with_timezone(Fluent.windows? ? 'NST-8' : 'Asia/Taipei') do
@@ -70,7 +77,7 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_format
-    d = create_driver
+    d = create_driver(CONFIG + config_element)
 
     time = event_time("2011-01-02 13:14:15 UTC")
     d.run(default_tag: "test") do
@@ -104,11 +111,13 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     def test_invalid
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test",
+          "timezone" => "Invalid/Invalid"
+        })
       assert_raise(Fluent::ConfigError) do
-        create_driver %[
-          path #{TMP_DIR}/out_file_test
-          timezone Invalid/Invalid
-        ]
+        create_driver(conf)
       end
     end
   end
@@ -135,7 +144,7 @@ class FileOutputTest < Test::Unit::TestCase
     time = event_time("2011-01-02 13:14:15 UTC")
     mock(Time).now.at_least(2) { Time.at(time.to_r) }
 
-    d = create_driver
+    d = create_driver(CONFIG + config_element)
 
     d.run(default_tag: "test") do
       d.feed(time, {"a"=>1})
@@ -202,9 +211,16 @@ class FileOutputTest < Test::Unit::TestCase
 
   sub_test_case "format" do
     def test_write_with_format_json
+      p CONFIG
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver [CONFIG, 'format json', 'include_time_key true', 'time_as_epoch true'].join("\n")
+      conf = config_element(
+        "", "", {
+          "format" => "json",
+          "include_time_key" => "true",
+          "time_as_epoch" => "true"
+        })
+      d = create_driver(CONFIG + conf)
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -218,7 +234,12 @@ class FileOutputTest < Test::Unit::TestCase
     def test_write_with_format_ltsv
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver [CONFIG, 'format ltsv', 'include_time_key true'].join("\n")
+      conf = config_element(
+        "", "", {
+          "format" => "ltsv",
+          "include_time_key" => "true"
+        })
+      d = create_driver(CONFIG + conf)
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -232,7 +253,12 @@ class FileOutputTest < Test::Unit::TestCase
     def test_write_with_format_single_value
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver [CONFIG, 'format single_value', 'message_key a'].join("\n")
+      conf = config_element(
+        "", "", {
+          "format" => "single_value",
+          "message_key" => "a"
+        })
+      d = create_driver(CONFIG + conf)
 
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
@@ -250,7 +276,7 @@ class FileOutputTest < Test::Unit::TestCase
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
     write_once = ->(){
-      d = create_driver
+      d = create_driver(CONFIG + config_element)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
         d.feed(time, {"a"=>2})
@@ -282,12 +308,14 @@ class FileOutputTest < Test::Unit::TestCase
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
     write_once = ->(){
-      d = create_driver %[
-        path #{TMP_DIR}/out_file_test
-        compress gz
-        utc
-        append true
-      ]
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test",
+          "compress" => "gz",
+          "utc" => "",
+          "append" => "true"
+        })
+      d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
         d.feed(time, {"a"=>2})
@@ -308,12 +336,13 @@ class FileOutputTest < Test::Unit::TestCase
 
   def test_write_with_symlink
     omit "Windows doesn't support symlink" if Fluent.windows?
-    conf = CONFIG + %[
-      symlink_path #{SYMLINK_PATH}
-    ]
+    conf = config_element(
+      "", "", {
+        "symlink_path" => SYMLINK_PATH
+      })
     symlink_path = SYMLINK_PATH
 
-    d = create_driver(conf)
+    d = create_driver(CONFIG + conf)
 
     d.run(default_tag: "tag") do
       es = Fluent::OneEventStream.new(event_time("2011-01-02 13:14:15 UTC"), {"a"=>1})
@@ -337,11 +366,13 @@ class FileOutputTest < Test::Unit::TestCase
     test 'normal' do
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver(%[
-        path #{TMP_DIR}/out_file_test
-        time_slice_format %Y-%m-%d-%H
-        utc true
-      ])
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test",
+          "time_slice_format" => "%Y-%m-%d-%H",
+          "utc" => ""
+        })
+      d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
       end
@@ -352,12 +383,14 @@ class FileOutputTest < Test::Unit::TestCase
     test 'normal with append' do
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver(%[
-        path #{TMP_DIR}/out_file_test
-        time_slice_format %Y-%m-%d-%H
-        utc true
-        append true
-      ])
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test",
+          "time_slice_format" => "%Y-%m-%d-%H",
+          "utc" => "",
+          "append" => "true"
+        })
+      d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
       end
@@ -368,11 +401,13 @@ class FileOutputTest < Test::Unit::TestCase
     test '*' do
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver(%[
-        path #{TMP_DIR}/out_file_test.*.txt
-        time_slice_format %Y-%m-%d-%H
-        utc true
-      ])
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test.*.txt",
+          "time_slice_format" => "%Y-%m-%d-%H",
+          "utc" => ""
+        })
+      d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
       end
@@ -383,12 +418,14 @@ class FileOutputTest < Test::Unit::TestCase
     test '* with append' do
       time = event_time("2011-01-02 13:14:15 UTC")
       mock(Time).now.at_least(2) { Time.at(time.to_r) }
-      d = create_driver(%[
-        path #{TMP_DIR}/out_file_test.*.txt
-        time_slice_format %Y-%m-%d-%H
-        utc true
-        append true
-      ])
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/out_file_test.*.txt",
+          "time_slice_format" => "%Y-%m-%d-%H",
+          "utc" => "",
+          "append" => "true"
+        })
+      d = create_driver(conf)
       d.run(default_tag: "test") do
         d.feed(time, {"a"=>1})
       end
