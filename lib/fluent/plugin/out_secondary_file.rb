@@ -118,17 +118,17 @@ module Fluent::Plugin
     end
 
     def validate_path_is_comptible_with_primary_buffer?(matched)
-      raise "TimeFormat is not imcompatible with primary buffer's params" if !@chunk_key_time && path_has_time_format?
+      raise "BUG: file path has imcompatible placeholder: Time" if !@chunk_key_time && path_has_time_format?
       matched.each do |e|
         case
         when @chunk_key_tag && e =~ /tag(\[\d+\])?/
           # ok
         when !@chunk_key_tag && e =~ /tag(\[\d+\])?/
-          raise "#{e} is not imcompatible with primary buffer's params"
-        when @chunk_keys.include?(e.to_sym)
+          raise "BUG: file path has imcompatible placeholder: #{e}"
+        when @chunk_keys && @chunk_keys.include?(e.to_sym)
           # ok
         else
-          raise "#{e} is not imcompatible with primary buffer's params"
+          raise "BUG: file path has imcompatible placeholder: #{e}"
         end
       end
     end

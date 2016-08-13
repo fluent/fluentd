@@ -145,7 +145,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       d = create_driver %[
         path #{TMP_DIR}/out_file_test
         compress gz
-      # ]
+       ]
       c = create_es_chunk(create_metadata, @es)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
@@ -161,7 +161,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         path #{TMP_DIR}/out_file_test
         compress gz
         append true
-      # ]
+       ]
       c = create_es_chunk(create_metadata, @es)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
@@ -171,8 +171,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         check_gzipped_result(path, packed_value * i)
       end
     end
-
-    # mtched data's test
   end
 
   sub_test_case 'path' do
@@ -203,17 +201,16 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     data(
-      invalid_tag: "#{TMP_DIR}/${tag}",
-      invalid_tag0: "#{TMP_DIR}/${tag[0]}",
-      invalid_variable: "#{TMP_DIR}/${dummy}",
-      invalid_timeformat: "#{TMP_DIR}/%Y%m%d",
+      invalid_tag: ["tag", "#{TMP_DIR}/${tag}"],
+      invalid_tag0: ["tag[0]", "#{TMP_DIR}/${tag[0]}"],
+      invalid_variable: ["dummy", "#{TMP_DIR}/${dummy}"],
+      invalid_timeformat: ["Time", "#{TMP_DIR}/%Y%m%d"],
     )
-    test 'path includes impcompatible placeholder' do |invalid_path|
+    test 'path includes impcompatible placeholder' do |(expected_message, invalid_path)|
       c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
       c.instance.acts_as_secondary(DummyOutput.new)
 
-      assert_raise do
-        # mock
+      assert_raise_message("BUG: file path has imcompatible placeholder: #{expected_message}") do
         c.configure(%[
           path #{invalid_path}
           compress gz
