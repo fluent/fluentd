@@ -243,22 +243,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path includes time format' do
-      primary = create_primary(config_element('buffer', 'time', { 'timekey' => 1 }))
-
-      d = create_driver(%[
-        path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H
-        compress gz
-      ], primary)
-
-      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 JST")), @es)
-
-      path = d.instance.write(c)
-      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010213_0.log.gz", path
-    end
-
-    test 'path includes time format and with `timekey_use_utc`' do
       primary = create_primary(
-        config_element('buffer', 'time', { 'timekey' => 1, 'timekey_use_utc' => true })
+        config_element('buffer', 'time', { 'timekey_zone' => '+0900', 'timekey' => 1 })
       )
 
       d = create_driver(%[
@@ -266,10 +252,26 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gz
       ], primary)
 
-      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 JST")), @es)
+      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 UTC")), @es)
 
       path = d.instance.write(c)
-      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010204_0.log.gz", path
+      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010222_0.log.gz", path
+    end
+
+    test 'path includes time format and with `timekey_use_utc`' do
+      primary = create_primary(
+        config_element('buffer', 'time', { 'timekey_zone' => '+0900', 'timekey' => 1, 'timekey_use_utc' => true })
+      )
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H
+        compress gz
+      ], primary)
+
+      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 UTC")), @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010213_0.log.gz", path
     end
 
     test 'path includes variable' do
@@ -287,14 +289,16 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path include tag, time format, variables' do
-      primary = create_primary(config_element('buffer', 'time,tag,test1', { 'timekey' => 1 }))
+      primary = create_primary(
+        config_element('buffer', 'time,tag,test1', { 'timekey_zone' => '+0000', 'timekey' => 1 })
+      )
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H_${tag}_${test1}
         compress gz
       ], primary)
 
-      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 JST"), 'test.tag', { "test1".to_sym => "dummy" })
+      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 UTC"), 'test.tag', { "test1".to_sym => "dummy" })
       c = create_es_chunk(metadata, @es)
 
       path = d.instance.write(c)
