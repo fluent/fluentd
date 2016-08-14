@@ -252,7 +252,6 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/out_file_test/cool_test_dummy_0.log.gz", path
     end
 
-
     test 'path includes time format' do
       primary = DummyOutput.new.tap do |e|
         e.register_value('chunk_key_time', true)
@@ -260,14 +259,31 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       end
 
       d = create_driver(%[
-        path #{TMP_DIR}/out_file_test/cool_%Y%m%d
+        path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H
         compress gz
       ], primary)
 
-      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 UTC")), @es)
+      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 JST")), @es)
 
       path = d.instance.write(c)
-      assert_equal "#{TMP_DIR}/out_file_test/cool_20110102_0.log.gz", path
+      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010213_0.log.gz", path
+    end
+
+    test 'path includes time format and with `timekey_use_utc`' do
+      primary = DummyOutput.new.tap do |e|
+        e.register_value('chunk_key_time', true)
+        e.register_value('chunk_keys', [])
+      end
+
+      d = create_driver(%[
+        path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H
+        compress gz
+      ], primary)
+
+      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 JST")), @es)
+
+      path = d.instance.write(c)
+      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010204_0.log.gz", path
     end
 
     test 'path includes variable' do
@@ -296,15 +312,15 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       end
 
       d = create_driver(%[
-        path #{TMP_DIR}/out_file_test/cool_%Y%m%d_${tag}_${test1}
+        path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H_${tag}_${test1}
         compress gz
       ], primary)
 
-      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 UTC"), 'test.tag', pairs)
+      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 JST"), 'test.tag', pairs)
       c = create_es_chunk(metadata, @es)
 
       path = d.instance.write(c)
-      assert_equal "#{TMP_DIR}/out_file_test/cool_20110102_test.tag_dummy_0.log.gz", path
+      assert_equal "#{TMP_DIR}/out_file_test/cool_2011010213_test.tag_dummy_0.log.gz", path
     end
   end
 end
