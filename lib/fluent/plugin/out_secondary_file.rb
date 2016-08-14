@@ -125,7 +125,7 @@ module Fluent::Plugin
           # ok
         when !@chunk_key_tag && e =~ /tag(\[\d+\])?/
           raise "BUG: file path has imcompatible placeholder: #{e}"
-        when @chunk_keys && @chunk_keys.include?(e.to_sym)
+        when @chunk_keys && @chunk_keys.include?(e)
           # ok
         else
           raise "BUG: file path has imcompatible placeholder: #{e}"

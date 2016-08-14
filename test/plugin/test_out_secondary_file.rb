@@ -22,18 +22,14 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
   ]
 
   class DummyOutput < Fluent::Plugin::Output
-    def register(name, &block)
-      instance_variable_set("@#{name}", block)
-    end
-
-    def register_value(name, value)
-      instance_variable_set("@#{name}", value)
-    end
-
     def write(chunk); end
   end
 
-  def create_driver(conf = CONFIG, primary = DummyOutput.new)
+  def create_primary(buffer_cofig = config_element('buffer'))
+    DummyOutput.new.configure(config_element('ROOT','',{}, [buffer_cofig]))
+  end
+
+  def create_driver(conf = CONFIG, primary = create_primary)
     c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
     c.instance.acts_as_secondary(primary)
     c.configure(conf)
@@ -219,10 +215,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path includes tag' do
-      primary = DummyOutput.new.tap do |e|
-        e.register_value('chunk_key_tag', true)
-        e.register_value('chunk_keys', [])
-      end
+      primary = create_primary(config_element('buffer', 'tag'))
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_${tag}
@@ -236,10 +229,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path includes /tag[\d+]/' do
-      primary = DummyOutput.new.tap do |e|
-        e.register_value('chunk_key_tag', true)
-        e.register_value('chunk_keys', [])
-      end
+      primary = create_primary(config_element('buffer', 'tag'))
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_${tag[0]}_${tag[1]}
@@ -253,10 +243,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path includes time format' do
-      primary = DummyOutput.new.tap do |e|
-        e.register_value('chunk_key_time', true)
-        e.register_value('chunk_keys', [])
-      end
+      primary = create_primary(config_element('buffer', 'time', { 'timekey' => 1 }))
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H
@@ -270,10 +257,9 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path includes time format and with `timekey_use_utc`' do
-      primary = DummyOutput.new.tap do |e|
-        e.register_value('chunk_key_time', true)
-        e.register_value('chunk_keys', [])
-      end
+      primary = create_primary(
+        config_element('buffer', 'time', { 'timekey' => 1, 'timekey_use_utc' => true })
+      )
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H
@@ -287,36 +273,28 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'path includes variable' do
-      pairs = { "test1".to_sym => "dummy" }
-      primary = DummyOutput.new.tap do |e|
-        e.register_value('chunk_keys', pairs.keys)
-      end
+      primary = create_primary(config_element('buffer', 'test1'))
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_${test1}
         compress gz
       ], primary)
 
-      c = create_es_chunk(create_metadata(nil, nil, pairs), @es)
+      c = create_es_chunk(create_metadata(nil, nil, { "test1".to_sym => "dummy" }), @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/out_file_test/cool_dummy_0.log.gz", path
     end
 
     test 'path include tag, time format, variables' do
-      pairs = { "test1".to_sym => "dummy" }
-      primary = DummyOutput.new.tap do |e|
-        e.register_value('chunk_keys', pairs.keys)
-        e.register_value('chunk_key_time', true)
-        e.register_value('chunk_key_tag', true)
-      end
+      primary = create_primary(config_element('buffer', 'time,tag,test1', { 'timekey' => 1 }))
 
       d = create_driver(%[
         path #{TMP_DIR}/out_file_test/cool_%Y%m%d%H_${tag}_${test1}
         compress gz
       ], primary)
 
-      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 JST"), 'test.tag', pairs)
+      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 JST"), 'test.tag', { "test1".to_sym => "dummy" })
       c = create_es_chunk(metadata, @es)
 
       path = d.instance.write(c)
