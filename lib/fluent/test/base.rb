@@ -30,7 +30,9 @@ module Fluent
           if block
             # Create new class for test w/ overwritten methods
             #   klass.dup is worse because its ancestors does NOT include original class name
+            klass_name = klass.name
             klass = Class.new(klass)
+            klass.define_singleton_method("name") { klass_name }
             klass.module_eval(&block)
           end
           @instance = klass.new
