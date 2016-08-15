@@ -30,7 +30,7 @@ begin
   def read_fluentdopt
     require 'win32/Registry'
     Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc") do |reg|
-      reg.read("fluentdopt")[1]
+      reg.read("fluentdopt")[1] rescue ""
     end
   end
 
@@ -47,7 +47,6 @@ begin
     @pid = 0
 
     def service_main
-      opt = read_fluentdopt
       @pid = service_main_start
       while running?
         sleep 10
