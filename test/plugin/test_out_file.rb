@@ -464,21 +464,24 @@ class FileOutputTest < Test::Unit::TestCase
     symlink_path = SYMLINK_PATH
     omit "Windows doesn't support symlink" if Fluent.windows?
     conf = data
+    time1 = event_time("2011-01-02 13:14:15 UTC")
+    time2 = event_time("2011-01-02 13:14:16 UTC")
+    mock(Time).now.at_least(2) { Time.at(time1.to_r) }
 
     d = create_driver(conf)
 
     d.run(default_tag: "tag") do
-      es = Fluent::OneEventStream.new(event_time("2011-01-02 13:14:15 UTC"), {"a"=>1})
+      es = Fluent::OneEventStream.new(time1, {"a"=>1})
       d.feed(es)
       sleep(0.1) until File.exist?(symlink_path)
       assert(File.symlink?(symlink_path))
 
-      es = Fluent::OneEventStream.new(event_time("2011-01-03 14:15:16 UTC"), {"a"=>2})
+      es = Fluent::OneEventStream.new(time2, {"a"=>2})
       d.feed(es)
       sleep(0.1) until File.exist?(symlink_path)
       assert(File.symlink?(symlink_path))
 
-      meta = d.instance.metadata("tag", event_time("2011-01-03 14:15:16 UTC"), {})
+      meta = d.instance.metadata("tag", time2, {})
       assert_equal(d.instance.buffer.instance_eval { @stage[meta].path }, File.readlink(symlink_path))
     end
   ensure
