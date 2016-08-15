@@ -31,10 +31,15 @@ class FileOutputTest < Test::Unit::TestCase
           "localtime" => false
         }),
       config_element(
-        "buffer", "", {
+        "buffer", "time", {
           "path" => "#{TMP_DIR}/out_file_test",
           "timekey" => 86400
-        })
+        }),
+      config_element(
+        "inject", "", {
+          "localtime" => false
+        }
+      )
     ]
   )
 

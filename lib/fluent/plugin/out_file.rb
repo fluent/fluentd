@@ -115,28 +115,7 @@ module Fluent::Plugin
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
 
-      localtime = @inject_config && @inject_config["localtime"]
-      timezone = @inject_config && @inject_config["timezone"]
-      if conf["time_slice_format"]
-        # For backward compatibility
-        time_format = conf["time_slice_format"]
-      else
-        case @buffer_config && @buffer_config.timekey
-        when 1
-          time_format = "%Y%m%d%H%M%S"
-        when 60
-          time_format = "%Y%m%d%H%M"
-        when 3600
-          time_format = "%Y%m%d%H"
-        when 86400
-          time_format = "%Y%m%d"
-        else
-          time_format = "%Y%m%d"
-        end
-      end
-      @time_formatter = Fluent::TimeFormatter.new(time_format, localtime, timezone)
-
-      test_path = generate_path(@time_formatter.format(Time.now))
+      test_path = generate_path(metadata("test.path", Fluent::EventTime.now, {}))
       unless ::Fluent::FileUtil.writable_p?(test_path)
         raise ::Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
       end
@@ -153,7 +132,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      path = generate_path(@time_formatter.format(chunk.created_at))
+      path = generate_path(chunk.metadata)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
@@ -187,7 +166,8 @@ module Fluent::Plugin
       end
     end
 
-    def generate_path(time_string)
+    def generate_path(metadata)
+      time_string = extract_placeholders(extract_time_format, metadata)
       if @append
         "#{@path_prefix}#{time_string}#{@path_suffix}#{suffix}"
       else
@@ -198,6 +178,26 @@ module Fluent::Plugin
           i += 1
         end while File.exist?(path)
         path
+      end
+    end
+
+    def extract_time_format
+      if @config["time_slice_format"]
+        # For backward compatibility
+        @config["time_slice_format"]
+      else
+        case @buffer_config && @buffer_config.timekey
+        when 1
+          "%Y%m%d%H%M%S"
+        when 60
+          "%Y%m%d%H%M"
+        when 3600
+          "%Y%m%d%H"
+        when 86400
+          "%Y%m%d"
+        else
+          "%Y%m%d"
+        end
       end
     end
   end
