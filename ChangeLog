@@ -1,5 +1,17 @@
 # v0.12
 
+## Release 0.12.28 - 2016/08/14
+
+### New features / Enhancement
+
+* in_forward: Add source_hostname_key parameter
+  https://github.com/fluent/fluentd/pull/807
+
+### Bug fixes
+
+* parser: Ensure strict mode is used for Oj parser
+  https://github.com/fluent/fluentd/pull/1147
+
 ## Release 0.12.27 - 2016/08/03
 
 ### New features / Enhancement
