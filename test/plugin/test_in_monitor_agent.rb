@@ -271,24 +271,24 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       d.instance.start
       expected_test_in_response =
         {"config" => {
-          "@id"=>"test_in",
-          "@type"=>"test_in"
+          "@id"   => "test_in",
+          "@type" => "test_in"
         },
-        "output_plugin"=>false,
-        "plugin_category"=>"input",
-        "plugin_id"=>"test_in",
-        "retry_count"=>nil,
-        "type"=>"test_in"}
+        "output_plugin"   => false,
+        "plugin_category" => "input",
+        "plugin_id"       => "test_in",
+        "retry_count"     => nil,
+        "type"            => "test_in"}
       expected_null_response =
         {"config" => {
-          "@id"=>"null",
-          "@type"=>"null"
+          "@id"   => "null",
+          "@type" => "null"
         },
-        "output_plugin"=>true,
-        "plugin_category"=>"output",
-        "plugin_id"=>"null",
-        "retry_count"=>0,
-        "type"=>"null"}
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "null",
+        "retry_count"     => 0,
+        "type"            => "null"}
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
