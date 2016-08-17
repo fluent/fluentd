@@ -36,6 +36,8 @@ class FluentUnpacker
   end
 
   def call
+    Fluent::Plugin.add_plugin_dir(@options[:plugins])
+
     subcommand_class = SubCommand.const_get(@subcommand.split('_').map(&:capitalize).join('')) # todo handle underscore
     subcommand_class.new(@sub_options, @format).call
   end
@@ -72,6 +74,10 @@ class FluentUnpacker
       opt.on('-f TYPE', '--format', "configure output format: ") do |v|
         @options[:format] = v.to_sym
       end
+
+      opt.on('-p DIR', '--plugins', "pdir: ") do |v|
+        @options[:plugins] = v
+      end
     end
   end
 end
@@ -107,6 +113,7 @@ module SubCommand
 
     def lookup_formatter(conf)
       formatter = Fluent::Plugin.new_formatter(@format)
+
       if formatter.respond_to?(:configure)
         formatter.configure(conf)
       end
@@ -140,7 +147,7 @@ module SubCommand
       conf = Fluent::Config::Element.new('ROOT', '', @v, [])
       @formatter = lookup_formatter(conf)
 
-      io =  File.open(@path, 'r')
+      io = File.open(@path, 'r')
       i = 0
       unpacker(io).each do |(time, record)|
         break if i == @options[:number]
@@ -166,6 +173,27 @@ module SubCommand
 
   class Formats < Base
     def call
+      pf = Fluent::Plugin::FORMATTER_REGISTRY.paths.last
+
+      if prefix = Fluent::Plugin::FORMATTER_REGISTRY.dir_search_prefix
+        Dir.glob("#{pf}/#{prefix}*").each do |e|
+          require File.absolute_path(e)
+        end
+
+        $LOAD_PATH.map do |lp|
+          Dir.glob("#{lp}/#{prefix}*").each do |e|
+            require e
+          end
+        end
+
+        specs = Gem::Specification.flat_map { |spec| spec.lib_files }.select do |e|
+          e.include?(prefix)
+        end
+        specs.each do |e|
+          require File.absolute_path(e)
+        end
+      end
+
       puts Fluent::Plugin::FORMATTER_REGISTRY.map.keys
     end
   end

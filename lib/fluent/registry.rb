@@ -28,7 +28,7 @@ module Fluent
       @paths = [DEFAULT_PLUGIN_PATH]
     end
 
-    attr_reader :kind, :paths
+    attr_reader :kind, :paths, :map, :dir_search_prefix
 
     def register(type, value)
       type = type.to_sym
