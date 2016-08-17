@@ -219,16 +219,16 @@ EOC
   tag monitor
 ")
       d.instance.start
-      expected_response = "\
-plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:
-plugin_id:monitor_agent\tplugin_category:input\ttype:monitor_agent\toutput_plugin:false\tretry_count:
-plugin_id:test_relabel\tplugin_category:output\ttype:relabel\toutput_plugin:true\tretry_count:0
-plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:
-plugin_id:test_out\tplugin_category:output\ttype:test_out\toutput_plugin:true\tretry_count:0
-plugin_id:null\tplugin_category:output\ttype:null\toutput_plugin:true\tretry_count:0
-"
+      expected_test_in_response = "\
+plugin_id:test_in\tplugin_category:input\ttype:test_in\toutput_plugin:false\tretry_count:"
+      expected_test_filter_response = "\
+plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:false\tretry_count:"
 
-      assert_equal(expected_response, get("http://127.0.0.1:#{@port}/api/plugins"))
+      response = get("http://127.0.0.1:#{@port}/api/plugins")
+      test_in = response.split("\n")[0]
+      test_filter = response.split("\n")[3]
+      assert_equal(expected_test_in_response, test_in)
+      assert_equal(expected_test_filter_response, test_filter)
     end
 
     test "/api/plugins.json" do
@@ -239,67 +239,31 @@ plugin_id:null\tplugin_category:output\ttype:null\toutput_plugin:true\tretry_cou
   tag monitor
 ")
       d.instance.start
-      expected_response = {"plugins"=>
-        [{"config" => {
-             "@id"=>"test_in",
-             "@type"=>"test_in"
-           },
-           "output_plugin"=>false,
-           "plugin_category"=>"input",
-           "plugin_id"=>"test_in",
-           "retry_count"=>nil,
-           "type"=>"test_in"},
-         {"config"=>{
-             "@id"=>"monitor_agent",
-             "@type"=>"monitor_agent",
-             "bind"=>"127.0.0.1",
-             "port"=>"24220",
-             "tag"=>"monitor"
-           },
-           "output_plugin"=>false,
-           "plugin_category"=>"input",
-           "plugin_id"=>"monitor_agent",
-           "retry_count"=>nil,
-           "type"=>"monitor_agent"},
-         {"config" => {
-             "@id"=>"test_relabel",
-             "@label"=>"@test",
-             "@type"=>"relabel"
-           },
-           "output_plugin"=>true,
-           "plugin_category"=>"output",
-           "plugin_id"=>"test_relabel",
-           "retry_count"=>0,
-           "type"=>"relabel"},
-         {"config" => {
-             "@id"=>"test_filter",
-             "@type"=>"test_filter"
-           },
-           "output_plugin"=>false,
-           "plugin_category"=>"filter",
-           "plugin_id"=>"test_filter",
-           "retry_count"=>nil,
-           "type"=>"test_filter"},
-         {"config" => {
-             "@id"=>"test_out",
-             "@type"=>"test_out"
-           },
-           "output_plugin"=>true,
-           "plugin_category"=>"output",
-           "plugin_id"=>"test_out",
-           "retry_count"=>0,
-           "type"=>"test_out"},
-         {"config" => {
-             "@id"=>"null",
-             "@type"=>"null"
-           },
-           "output_plugin"=>true,
-           "plugin_category"=>"output",
-           "plugin_id"=>"null",
-           "retry_count"=>0,
-           "type"=>"null"}]}
-      assert_equal(expected_response,
-                   JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json")))
+      expected_test_in_response =
+        {"config" => {
+          "@id"=>"test_in",
+          "@type"=>"test_in"
+        },
+        "output_plugin"=>false,
+        "plugin_category"=>"input",
+        "plugin_id"=>"test_in",
+        "retry_count"=>nil,
+        "type"=>"test_in"}
+      expected_null_response =
+        {"config" => {
+          "@id"=>"null",
+          "@type"=>"null"
+        },
+        "output_plugin"=>true,
+        "plugin_category"=>"output",
+        "plugin_id"=>"null",
+        "retry_count"=>0,
+        "type"=>"null"}
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
+      test_in_response = response["plugins"][0]
+      null_response = response["plugins"][5]
+      assert_equal(expected_test_in_response, test_in_response)
+      assert_equal(expected_null_response, null_response)
     end
 
     test "/api/config" do
