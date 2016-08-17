@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'optparse'
+
 require 'fluent/msgpack_factory'
 require 'fluent/formatter'
 require 'fluent/plugin'
@@ -21,42 +23,26 @@ require 'msgpack'
 require 'fluent/config/element'
 
 class FluentUnpacker
-
-  SUBCOMMAND = %(cat tail head formats)
-  DEFAULT_OPTIONS = { format: :json }
+  SUBCOMMAND = %w(cat head formats)
 
   def initialize(argv = ARGV)
     @argv = argv
-    @options = DEFAULT_OPTIONS
-    @path = nil
-    @subcommand = nil
-    @sub_options = nil
-
-    parse!
   end
 
   def call
-    Fluent::Plugin.add_plugin_dir(@options[:plugins])
-
-    subcommand_class = SubCommand.const_get(@subcommand.split('_').map(&:capitalize).join('')) # todo handle underscore
-    subcommand_class.new(@sub_options, @format).call
+    command_class = Command.const_get(command)
+    command_class.new(@argv).call
   end
 
   private
 
-  def parse!
-    ret = option_parser.order(ARGV)
-    subcommand, *sub_options = ret    # multiple file?
-    case
-    when !subcommand
-      usage "Required subcommand ${SUBCOMMAND}"
-    else
-      @subcommand = subcommand
-      @sub_options = sub_options
-      @format = @options.delete(:format)
+  def command
+    command = @argv.shift
+    if !command || !SUBCOMMAND.include?(command)
+      usage "Required subcommand : #{SUBCOMMAND.join(' | ')}"
     end
-  rescue
-    usage $!.to_s
+
+    command.split('_').map(&:capitalize).join('')
   end
 
   def usage(msg = nil)
@@ -67,52 +53,72 @@ class FluentUnpacker
 
   def option_parser
     @option_parser ||= OptionParser.new do |opt|
-      opt.banner = 'Usage: fluent-unpacker subcoomand [options]'
-      opt.separator 'Options:'
+      opt.banner = 'Usage: fluent-unpacker <command> [<args>]'
+      opt.separator ''
 
-      # TOFIX
-      opt.on('-f TYPE', '--format', "configure output format: ") do |v|
-        @options[:format] = v.to_sym
-      end
+      opt.separator <<HELP
+commands of fluent-unpacker:
+   cat     :     cat file
+   haed    :     head file
+   foramts :     display usable plugins
 
-      opt.on('-p DIR', '--plugins', "pdir: ") do |v|
-        @options[:plugins] = v
-      end
+See 'fluent-unpacker <command> --help' for more information on a specific command.
+HELP
     end
   end
 end
 
-module SubCommand
+module Command
   class Base
-    def initialize(argv = ARGV, format)
-      @argv = argv
-      @format = format
-    end
+    DEFAULT_OPTIONS = {
+      format: :out_file
+    }
 
-    def configure
-      raise NotImplementedError, "Must Implement this method"
+    def initialize(argv = ARGV)
+      @argv = argv
+      @params = {}
+      if i = @argv.index('--')
+        @params = @argv[i+1..-1].reduce({}) do |acc, e|
+          k, v = e[1..-1].split('=')
+          acc.merge(k => v)
+        end
+        @argv = @argv[0...i]
+      end
+
+      @options = DEFAULT_OPTIONS
+      @opt_parser = OptionParser.new do |opt|
+        opt.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file [-- <params>]"
+
+        opt.separator 'Options:'
+
+        opt.on('-f TYPE', '--format', 'configure output format: ') do |v|
+          @options[:format] = v.to_sym
+        end
+
+        opt.on('-p DIR', '--plugins', 'add library path') do |v|
+          @options[:plugins] = v
+        end
+      end
     end
 
     def call
       raise NotImplementedError, "Must Implement this method"
     end
 
+    private
+
     def unpacker(io)
       MessagePack::Unpacker.new(io)
     end
 
     def usage(msg = nil)
-      puts option_parser.to_s
+      puts @opt_parser.to_s
       puts "Error: #{msg}" if msg
       exit 1
     end
 
-    def option_parser
-      raise NotImplementedError, "Must Implement this method"
-    end
-
-    def lookup_formatter(conf)
-      formatter = Fluent::Plugin.new_formatter(@format)
+    def lookup_formatter(format, conf)
+      formatter = Fluent::Plugin.new_formatter(format)
 
       if formatter.respond_to?(:configure)
         formatter.configure(conf)
@@ -122,30 +128,19 @@ module SubCommand
   end
 
   class Head < Base
-    DEFAULT_OPTIONS = { number: 5 }
+    DEFAULT_HEAD_OPTIONS = {
+      number: 5
+    }
 
-    def initialize(argv, format)
-      if i = argv.index("--")
-        @v = argv[i+1..-1]
-        argv = argv[0...i]
-      end
-
+    def initialize(argv = ARGV)
       super
-      @options = DEFAULT_OPTIONS
-      ret = option_parser.parse(@argv)
-      @path = ret.first
-
-      @v = (@v || []).reduce({}) { |acc, e|
-        k, v = e[1..-1].split("=")
-        acc.merge(k => v)
-      }
-
-      # validate
+      @options.merge(DEFAULT_HEAD_OPTIONS)
+      @path = configure_option_parser
     end
 
     def call
-      conf = Fluent::Config::Element.new('ROOT', '', @v, [])
-      @formatter = lookup_formatter(conf)
+      conf = Fluent::Config::Element.new('ROOT', '', @params, [])
+      @formatter = lookup_formatter(@options[:format], conf)
 
       File.open(@path, 'r') do |io|
         i = 0
@@ -157,54 +152,42 @@ module SubCommand
       end
     end
 
-    def option_parser
-      @option_parser ||= OptionParser.new do |opt|
-        opt.banner = 'Usage: fluent-unpacker head [options] files'
-        opt.separator 'Options:'
+    private
 
-        opt.on('-n COUNT', "tail liek -n") do |v|
-          @options[:number] = v.to_i
-        end
+    def configure_option_parser
+      @opt_parser.on('-n COUNT', 'head like -n') do |v|
+        @options[:number] = v.to_i
       end
+
+      path = @opt_parser.parse(@argv)
+      usage 'Path is required' if path.empty?
+      usage "#{path.first} is not found" unless File.exist?(path.first)
+      path.first
     end
   end
 
   class Cat < Base
-    def initialize(argv, format)
-      if i = argv.index("--")
-        @v = argv[i+1..-1]
-        argv = argv[0...i]
-      end
-
+    def initialize(argv = ARGV)
       super
-      @options = {}
-      ret = option_parser.parse(@argv)
-      @path = ret.first
-
-      @v = (@v || []).reduce({}) { |acc, e|
-        k, v = e[1..-1].split("=")
-        acc.merge(k => v)
-      }
-
-      # validate
+      @path = configure_option_parser
     end
 
     def call
-      conf = Fluent::Config::Element.new('ROOT', '', @v, [])
-      @formatter = lookup_formatter(conf)
+      conf = Fluent::Config::Element.new('ROOT', '', @params, [])
+      @formatter = lookup_formatter(@options[:format], conf)
 
       File.open(@path, 'r') do |io|
         unpacker(io).each do |(time, record)|
-          puts @formatter.format(@path, time, record) # tag is use for tag
+          puts @formatter.format(@path, time, record) # @path is use for tag
         end
       end
     end
 
-    def option_parser
-      @option_parser ||= OptionParser.new do |opt|
-        opt.banner = 'Usage: fluent-unpacker head [options] files'
-        opt.separator 'Options:'
-      end
+    def configure_option_parser
+      path = @opt_parser.parse(@argv)
+      usage 'Path is required' if path.empty?
+      usage "#{path.first} is not found" unless File.exist?(path.first)
+      path.first
     end
   end
 
