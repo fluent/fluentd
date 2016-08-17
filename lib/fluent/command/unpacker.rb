@@ -105,10 +105,8 @@ module SubCommand
       raise NotImplementedError, "Must Implement this method"
     end
 
-    def lookup_formatter
+    def lookup_formatter(conf)
       formatter = Fluent::Plugin.new_formatter(@format)
-      conf = Fluent::Config::Element.new('ROOT', '', {}, [])
-
       if formatter.respond_to?(:configure)
         formatter.configure(conf)
       end
@@ -120,24 +118,35 @@ module SubCommand
     DEFAULT_OPTIONS = { number: 5 }
 
     def initialize(argv, format)
+      if i = argv.index("--")
+        @v = argv[i+1..-1]
+        argv = argv[0...i]
+      end
+
       super
       @options = DEFAULT_OPTIONS
-      @path = option_parser.parse(@argv).first
+      ret = option_parser.parse(@argv)
+      @path = ret.first
+
+      @v = @v.reduce({}) { |acc, e|
+        k, v = e[1..-1].split("=")
+        acc.merge(k => v)
+      }
+
       # validate
     end
 
     def call
-      @formatter = lookup_formatter
+      conf = Fluent::Config::Element.new('ROOT', '', @v, [])
+      @formatter = lookup_formatter(conf)
 
       io =  File.open(@path, 'r')
       i = 0
-      ret = []
       unpacker(io).each do |(time, record)|
         break if i == @options[:number]
         i += 1
         puts @formatter.format(@path, time, record) # tag is use for tag
       end
-      puts ret
     end
 
     def option_parser
