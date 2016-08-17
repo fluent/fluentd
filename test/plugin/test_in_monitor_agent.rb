@@ -154,6 +154,36 @@ EOC
                     FluentTest::FluentTestOutput,
                     Fluent::Plugin::NullOutput], plugins)
     end
+
+    test "emit" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+  emit_interval 1
+")
+      d.instance.start
+      d.end_if do
+        d.events.size >= 5
+      end
+      d.run
+      expect_relabel_record = {
+        "plugin_id"       => "test_relabel",
+        "plugin_category" => "output",
+        "type"            => "relabel",
+        "output_plugin"   => true,
+        "retry_count"     => 0}
+      expect_test_out_record = {
+        "plugin_id"       => "test_out",
+        "plugin_category" => "output",
+        "type"            => "test_out",
+        "output_plugin"   => true,
+        "retry_count"     => 0
+      }
+      assert_equal(expect_relabel_record, d.events[1][2])
+      assert_equal(expect_test_out_record, d.events[3][2])
+    end
   end
 
   def get(uri, header = {})
