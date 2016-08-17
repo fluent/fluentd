@@ -267,10 +267,12 @@ module Fluent
     def flush_buffer(tw)
       if lb = tw.line_buffer
         lb.chomp!
-        if @encoding && @from_encoding
-          lb.encode!(@encoding, @from_encoding)
-        elsif @encoding
-          lb.force_encoding(@encoding)
+        if @encoding
+          if @from_encoding
+            lb.encode!(@encoding, @from_encoding)
+          else
+            lb.force_encoding(@encoding)
+          end
         end
         @parser.parse(lb) { |time, record|
           if time && record
@@ -320,10 +322,12 @@ module Fluent
     def convert_line_to_event(line, es, tail_watcher)
       begin
         line.chomp!  # remove \n
-        if @encoding && @from_encoding
-          line.encode!(@encoding, @from_encoding)
-        elsif @encoding
-          line.force_encoding(@encoding)
+        if @encoding
+          if @from_encoding
+            line.encode!(@encoding, @from_encoding)
+          else
+            line.force_encoding(@encoding)
+          end
         end
         @parser.parse(line) { |time, record|
           if time && record
