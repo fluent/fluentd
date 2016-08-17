@@ -135,7 +135,7 @@ module SubCommand
       ret = option_parser.parse(@argv)
       @path = ret.first
 
-      @v = @v.reduce({}) { |acc, e|
+      @v = (@v || []).reduce({}) { |acc, e|
         k, v = e[1..-1].split("=")
         acc.merge(k => v)
       }
@@ -147,12 +147,13 @@ module SubCommand
       conf = Fluent::Config::Element.new('ROOT', '', @v, [])
       @formatter = lookup_formatter(conf)
 
-      io = File.open(@path, 'r')
-      i = 0
-      unpacker(io).each do |(time, record)|
-        break if i == @options[:number]
-        i += 1
-        puts @formatter.format(@path, time, record) # tag is use for tag
+      File.open(@path, 'r') do |io|
+        i = 0
+        unpacker(io).each do |(time, record)|
+          break if i == @options[:number]
+          i += 1
+          puts @formatter.format(@path, time, record) # tag is use for tag
+        end
       end
     end
 
@@ -168,7 +169,43 @@ module SubCommand
     end
   end
 
-  class Tail < Base
+  class Cat < Base
+    def initialize(argv, format)
+      if i = argv.index("--")
+        @v = argv[i+1..-1]
+        argv = argv[0...i]
+      end
+
+      super
+      @options = {}
+      ret = option_parser.parse(@argv)
+      @path = ret.first
+
+      @v = (@v || []).reduce({}) { |acc, e|
+        k, v = e[1..-1].split("=")
+        acc.merge(k => v)
+      }
+
+      # validate
+    end
+
+    def call
+      conf = Fluent::Config::Element.new('ROOT', '', @v, [])
+      @formatter = lookup_formatter(conf)
+
+      File.open(@path, 'r') do |io|
+        unpacker(io).each do |(time, record)|
+          puts @formatter.format(@path, time, record) # tag is use for tag
+        end
+      end
+    end
+
+    def option_parser
+      @option_parser ||= OptionParser.new do |opt|
+        opt.banner = 'Usage: fluent-unpacker head [options] files'
+        opt.separator 'Options:'
+      end
+    end
   end
 
   class Formats < Base
