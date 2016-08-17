@@ -78,21 +78,18 @@ module Fluent::Plugin
     def configure(conf)
       compat_parameters_convert(conf, :parser)
       parser_config = conf.elements('parse').first
-      if parser_config
-        (1..Fluent::Plugin::MultilineParser::FORMAT_MAX_NUM).each do |n|
-          parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
-        end
-      end
-
-      super
-
       unless parser_config
         raise Fluent::ConfigError, "<parse> section is required."
       end
-
       unless parser_config["@type"]
         raise Fluent::ConfigError, "parse/@type is required."
       end
+
+      (1..Fluent::Plugin::MultilineParser::FORMAT_MAX_NUM).each do |n|
+        parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
+      end
+
+      super
 
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
