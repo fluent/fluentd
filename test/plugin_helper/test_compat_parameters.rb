@@ -57,7 +57,7 @@ class CompatParameterTest < Test::Unit::TestCase
     helpers :compat_parameters, :inject, :formatter
     attr_reader :f
     def configure(conf)
-      compat_parameters_convert(conf, :buffer, :inject, :formatter, default_chunk_key: 'tag')
+      compat_parameters_convert(conf, :buffer, :inject, :formatter, :time_formatter, default_chunk_key: 'tag')
       super
     end
     def start

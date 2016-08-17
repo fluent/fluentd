@@ -61,12 +61,8 @@ module Fluent
       INJECT_PARAMS = {
         "include_time_key" => nil,
         "time_key"      => "time_key",
-        "time_format"   => "time_format",
-        "timezone"      => "timezone",
         "include_tag_key" => nil,
         "tag_key" => "tag_key",
-        "localtime" => nil,
-        "utc" => nil,
       }
 
       FORMATTER_PARAMS = {
@@ -83,6 +79,14 @@ module Fluent
         "output_type" => "output_type", # StdoutFormatter
       }
 
+      TIME_FORMATTER_PARAMS = {
+        "include_time_key" => nil,
+        "time_format" => "format",
+        "timezone"    => "timezone",
+        "localtime"   => nil,
+        "utc"         => nil,
+      }
+
       def compat_parameters_convert(conf, *types, **kwargs)
         types.each do |type|
           case type
@@ -94,6 +98,8 @@ module Fluent
             compat_parameters_parser(conf)
           when :formatter
             compat_parameters_formatter(conf)
+          when :time_formatter
+            compat_parameters_time_formatter(conf)
           else
             raise "BUG: unknown compat_parameters type: #{type}"
           end
@@ -150,23 +156,6 @@ module Fluent
 
         if conf.has_key?('include_time_key') && Fluent::Config.bool_value(conf['include_time_key'])
           attr['time_key'] ||= 'time'
-          attr['time_type'] ||= 'string'
-        end
-        if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
-          attr['time_type'] = 'unixtime'
-        end
-        if conf.has_key?('localtime') || conf.has_key?('utc')
-          if conf.has_key?('localtime') && conf.has_key?('utc')
-            raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
-          elsif conf.has_key?('localtime')
-            attr['localtime'] = Fluent::Config.bool_value(conf['localtime'])
-          elsif conf.has_key?('utc')
-            attr['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
-            # Specifying "localtime false" means using UTC in TimeFormatter
-            # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
-            # There are difference between "Z" and "+0000" in timezone formatting.
-            # TODO: add kwargs to TimeFormatter to specify "using localtime", "using UTC" or "using specified timezone" in more explicit way
-          end
         end
 
         if conf.has_key?('include_tag_key') && Fluent::Config.bool_value(conf['include_tag_key'])
@@ -200,6 +189,39 @@ module Fluent
         attr = compat_parameters_copy_to_subsection_attributes(conf, FORMATTER_PARAMS)
 
         e = Fluent::Config::Element.new('format', '', attr, [])
+        conf.elements << e
+
+        conf
+      end
+
+      def compat_parameters_time_formatter(conf)
+        return unless conf.elements('time_format').empty?
+        return if TIME_FORMATTER_PARAMS.keys.all? {|k| !conf.has_key?(k) }
+
+        # TODO: warn obsolete parameters if these are deprecated
+        attr = compat_parameters_copy_to_subsection_attributes(conf, TIME_FORMATTER_PARAMS)
+
+        if conf.has_key?('include_time_key') && Fluent::Config.bool_value(conf['include_time_key'])
+          attr['type'] ||= 'string'
+        end
+        if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
+          attr['type'] = 'unixtime'
+        end
+        if conf.has_key?('localtime') || conf.has_key?('utc')
+          if conf.has_key?('localtime') && conf.has_key?('utc')
+            raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
+          elsif conf.has_key?('localtime')
+            attr['localtime'] = Fluent::Config.bool_value(conf['localtime'])
+          elsif conf.has_key?('utc')
+            attr['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
+            # Specifying "localtime false" means using UTC in TimeFormatter
+            # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
+            # There are difference between "Z" and "+0000" in timezone formatting.
+            # TODO: add kwargs to TimeFormatter to specify "using localtime", "using UTC" or "using specified timezone" in more explicit way
+          end
+        end
+
+        e = Fluent::Config::Element.new('time_format', '', attr, [])
         conf.elements << e
 
         conf
