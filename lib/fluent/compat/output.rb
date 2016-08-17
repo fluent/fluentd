@@ -361,11 +361,12 @@ module Fluent
         end
 
         meta = metadata(nil, nil, nil)
+        size = es.size
         data = es.map{|time,record| format(tag, time, record) }
         write_guard do
           @buffer.write({meta => data}, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += es_size }
+        @counters_monitor.synchronize{ @emit_records += size }
         [meta]
       end
 
