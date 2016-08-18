@@ -485,7 +485,7 @@ module Fluent
 
       # TODO: optimize this code
       def extract_placeholders(str, metadata)
-        if metadata.nil?
+        if metadata.empty?
           str
         else
           rvalue = str

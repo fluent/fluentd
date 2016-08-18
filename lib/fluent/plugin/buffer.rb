@@ -56,7 +56,7 @@ module Fluent
       config_param :chunk_full_threshold, :float, default: DEFAULT_CHUNK_FULL_THRESHOLD
 
       Metadata = Struct.new(:timekey, :tag, :variables) do
-        def nil?
+        def empty?
           timekey.nil? && tag.nil? && variables.nil?
         end
       end
