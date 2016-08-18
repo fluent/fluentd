@@ -15,15 +15,25 @@
 #
 
 require 'optparse'
+require 'msgpack'
 
 require 'fluent/msgpack_factory'
 require 'fluent/formatter'
 require 'fluent/plugin'
-require 'msgpack'
 require 'fluent/config/element'
 
 class FluentUnpacker
   SUBCOMMAND = %w(cat head formats)
+  HELP_TEXT = <<HELP
+Usage: fluent-unpacker <command> [<args>]
+
+Commands of fluent-unpacker:
+   cat     :     Read files sequentially, writing them to standard output.
+   haed    :     Display the beginning of a text file.
+   foramts :     Display plugins that you can use.
+
+See 'fluent-unpacker <command> --help' for more information on a specific command.
+HELP
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -46,25 +56,9 @@ class FluentUnpacker
   end
 
   def usage(msg = nil)
-    puts option_parser.to_s
+    puts HELP_TEXT
     puts "Error: #{msg}" if msg
     exit 1
-  end
-
-  def option_parser
-    @option_parser ||= OptionParser.new do |opt|
-      opt.banner = 'Usage: fluent-unpacker <command> [<args>]'
-      opt.separator ''
-
-      opt.separator <<HELP
-commands of fluent-unpacker:
-   cat     :     cat file
-   haed    :     head file
-   foramts :     display usable plugins
-
-See 'fluent-unpacker <command> --help' for more information on a specific command.
-HELP
-    end
   end
 end
 
