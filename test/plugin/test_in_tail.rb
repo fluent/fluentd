@@ -71,6 +71,32 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_configure_from_encoding
+    # If only specified from_encoding raise ConfigError
+    assert_raise(Fluent::ConfigError) do
+      d = create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
+    end
+
+    # valid setting
+    d = create_driver %[
+      format /(?<message>.*)/
+      read_from_head true
+      from_encoding utf-8
+      encoding utf-8
+    ]
+    assert_equal Encoding::UTF_8, d.instance.from_encoding
+
+    # invalid from_encoding
+    assert_raise(Fluent::ConfigError) do
+      d = create_driver %[
+        format /(?<message>.*)/
+        read_from_head true
+        from_encoding no-such-encoding
+        encoding utf-8
+      ]
+    end
+  end
+
   # TODO: Should using more better approach instead of sleep wait
 
   def test_emit
@@ -403,6 +429,28 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(encoding, emits[0][2]['message'].encoding)
   end
 
+  def test_from_encoding
+    d = create_driver %[
+      format /(?<message>.*)/
+      read_from_head true
+      from_encoding cp932
+      encoding utf-8
+    ]
+
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "w:cp932") {|f|
+        f.puts "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+      }
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), emits[0][2]['message'])
+    assert_equal(Encoding::UTF_8, emits[0][2]['message'].encoding)
+  end
+
   # multiline mode test
 
   def test_multiline
@@ -504,6 +552,31 @@ class TailInputTest < Test::Unit::TestCase
       emits = d.emits
       assert_equal(1, emits.length)
       assert_equal(encoding, emits[0][2]['message1'].encoding)
+    end
+  end
+
+  def test_multiline_from_encoding_of_flushed_record
+    d = create_driver %[
+      format multiline
+      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+      format_firstline /^[s]/
+      multiline_flush_interval 2s
+      read_from_head true
+      from_encoding cp932
+      encoding utf-8
+    ]
+
+    d.run do
+      sleep 1
+      File.open("#{TMP_DIR}/tail.txt", "w:cp932") { |f|
+        f.puts "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+      }
+
+      sleep 4
+      emits = d.emits
+      assert_equal(1, emits.length)
+      assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), emits[0][2]['message1'])
+      assert_equal(Encoding::UTF_8, emits[0][2]['message1'].encoding)
     end
   end
 
