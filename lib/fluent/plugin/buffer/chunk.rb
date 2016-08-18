@@ -49,7 +49,7 @@ module Fluent
         def initialize(metadata)
           super()
           @unique_id = generate_unique_id
-          @chunk_id = Fluent::UniqueId.hex(@unique_id)
+          @chunk_id = dump_unique_id_hex(@unique_id)
           @metadata = metadata
 
           # state: unstaged/staged/queued/closed
