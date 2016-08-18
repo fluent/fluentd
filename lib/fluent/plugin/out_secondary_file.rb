@@ -23,11 +23,6 @@ module Fluent::Plugin
   class SecondaryFileOutput < Output
     Fluent::Plugin.register_output("secondary_file", self)
 
-    SUPPORTED_COMPRESS = {
-      "gz" => :gz,
-      "gzip" => :gz,
-    }
-
     FILE_PERMISSION = 0644
     DIR_PERMISSION = 0755
 
@@ -35,50 +30,38 @@ module Fluent::Plugin
     config_param :path, :string
     desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, default: false
-    config_param :compress, default: nil do |val|
-      SUPPORTED_COMPRESS[val].tap do |e|
-        raise ConfigError, "Unsupported compression algorithm '#{val}'" unless e
-      end
-    end
-
-    def initialize
-      super
-    end
+    config_param :compress, :enum, list: [:normal, :gz, :gzip], default: :normal
 
     def configure(conf)
+      super
+
       unless @as_secondary
         raise Fluent::ConfigError, "This plugin can only be used in the <secondary> section"
-      end
-
-      unless @path = conf["path"]
-        raise Fluent::ConfigError, "'path' parameter is required on secondary file output"
       end
 
       configure_path!
 
       test_path = generate_path(Time.now.strftime("%Y%m%d"))
       unless Fluent::FileUtil.writable_p?(test_path)
-        raise Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
+        raise Fluent::ConfigError, "out_secondary_file: `#{test_path}` is not writable"
       end
 
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
-
-      super
     end
 
     def write(chunk)
-      id = extract_placeholders(@path, chunk)
+      id = generate_id(chunk)
       path = generate_path(id)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
-      when nil
+      when :normal
         File.open(path, "ab", @file_perm) {|f|
           f.flock(File::LOCK_EX)
           chunk.write_to(f)
         }
-      when :gz
+      when :gz, :gzip
         File.open(path, "ab", @file_perm) {|f|
           f.flock(File::LOCK_EX)
           gz = Zlib::GzipWriter.new(f)
@@ -90,19 +73,25 @@ module Fluent::Plugin
       path
     end
 
-    def extract_placeholders(str, chunk)
-      if chunk.metadata.nil?
+    private
+
+    def generate_id(chunk)
+      if chunk.metadata.empty?
         chunk.chunk_id
       else
-        super(str, chunk.metadata)
+        extract_placeholders(@path, chunk.metadata)
       end
     end
 
-    private
-
     def configure_path!
+      # Check @path includes ${tag} etc.
       matched = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
-      if matched.empty? && !path_has_time_format?
+
+      if path_has_tags(matched) || path_has_time_format?
+        validate_path_is_comptible_with_primary_buffer!(matched)
+        @path_prefix = ""
+        @path_suffix = ".log"
+      else
         if pos = @path.index('*')
           @path_prefix = @path[0, pos]
           @path_suffix = @path[pos+1..-1]
@@ -110,27 +99,27 @@ module Fluent::Plugin
           @path_prefix = @path + "."
           @path_suffix = ".log"
         end
-      else
-        validate_path_is_comptible_with_primary_buffer?(matched)
-        @path_prefix = ""
-        @path_suffix = ".log"
       end
     end
 
-    def validate_path_is_comptible_with_primary_buffer?(matched)
+    def validate_path_is_comptible_with_primary_buffer!(matched)
       raise "BUG: file path has imcompatible placeholder: Time" if !@chunk_key_time && path_has_time_format?
       matched.each do |e|
         case
         when @chunk_key_tag && e =~ /tag(\[\d+\])?/
-          # ok
+        # ok
         when !@chunk_key_tag && e =~ /tag(\[\d+\])?/
           raise "BUG: file path has imcompatible placeholder: #{e}"
         when @chunk_keys && @chunk_keys.include?(e)
-          # ok
+        # ok
         else
           raise "BUG: file path has imcompatible placeholder: #{e}"
         end
       end
+    end
+
+    def path_has_tags(matched)
+      !matched.empty?
     end
 
     def path_has_time_format?
@@ -139,9 +128,9 @@ module Fluent::Plugin
 
     def suffix
       case @compress
-      when nil
+      when :normal
         ""
-      when :gz
+      when :gz, :gzip
         ".gz"
       end
     end
