@@ -191,9 +191,8 @@ module Fluent
       def acts_as_secondary(primary)
         @as_secondary = true
         @primary_instance = primary
-
-        @chunk_keys = @primary_instance.chunk_keys if @primary_instance.chunk_keys
-        @chunk_key_tag = @primary_instance.chunk_key_tag if @primary_instance.chunk_key_tag
+        @chunk_keys = @primary_instance.chunk_keys || []
+        @chunk_key_tag = @primary_instance.chunk_key_tag || false
         if @primary_instance.chunk_key_time
           @chunk_key_time = @primary_instance.chunk_key_time
           @timekey_zone = @primary_instance.timekey_zone
