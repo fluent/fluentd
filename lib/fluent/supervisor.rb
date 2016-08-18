@@ -147,7 +147,8 @@ module Fluent
         ev = Win32::Event.new(@signame)
         begin
           ev.reset
-          until WaitForSingleObject(ev.handle, 1000) == WAIT_OBJECT_0
+          until WaitForSingleObject(ev.handle, 0) == WAIT_OBJECT_0
+            sleep 1
           end
           kill_worker
           stop(true)
