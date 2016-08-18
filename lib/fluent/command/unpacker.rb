@@ -29,8 +29,8 @@ Usage: fluent-unpacker <command> [<args>]
 
 Commands of fluent-unpacker:
    cat     :     Read files sequentially, writing them to standard output.
-   haed    :     Display the beginning of a text file.
-   foramts :     Display plugins that you can use.
+   head    :     Display the beginning of a text file.
+   format  :     Display plugins that you can use.
 
 See 'fluent-unpacker <command> --help' for more information on a specific command.
 HELP
@@ -64,30 +64,12 @@ end
 
 module Command
   class Base
-    DEFAULT_OPTIONS = {
-      format: :out_file
-    }
-
     def initialize(argv = ARGV)
       @argv = argv
-      @params = {}
-      if i = @argv.index('--')
-        @params = @argv[i+1..-1].reduce({}) do |acc, e|
-          k, v = e[1..-1].split('=')
-          acc.merge(k => v)
-        end
-        @argv = @argv[0...i]
-      end
 
-      @options = DEFAULT_OPTIONS.dup
+      @options = {}
       @opt_parser = OptionParser.new do |opt|
-        opt.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file [-- <params>]"
-
         opt.separator 'Options:'
-
-        opt.on('-f TYPE', '--format', 'configure output format') do |v|
-          @options[:format] = v.to_sym
-        end
 
         opt.on('-p DIR', '--plugins', 'add library path') do |v|
           @options[:plugins] = v
@@ -101,14 +83,54 @@ module Command
 
     private
 
-    def unpacker(io)
-      MessagePack::Unpacker.new(io)
-    end
-
     def usage(msg = nil)
       puts @opt_parser.to_s
       puts "Error: #{msg}" if msg
       exit 1
+    end
+
+    def parse_options!
+      ret = @opt_parser.parse(@argv)
+
+      if @options[:plugins] && !Dir.exist?(@options[:plugins])
+        usage "Directory #{@options[:plugins]} doesn't exist"
+      elsif @options[:plugins]
+        Fluent::Plugin.add_plugin_dir(@options[:plugins])
+      end
+
+      ret
+    end
+  end
+
+  module Formattable
+    DEFAULT_OPTIONS = {
+      format: :out_file
+    }
+
+    def initialize(argv = ARGV)
+      super
+
+      @options.merge!(DEFAULT_OPTIONS)
+      @params = {}
+      if i = @argv.index('--')
+        @params = @argv[i+1..-1].reduce({}) do |acc, e|
+          k, v = e[1..-1].split('=')
+          acc.merge(k => v)
+        end
+        @argv = @argv[0...i]
+      end
+
+      configure_option_parser
+    end
+
+    private
+
+    def configure_option_parser
+      @opt_parser.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file [-- <params>]"
+
+      @opt_parser.on('-f TYPE', '--format', 'configure output format') do |v|
+        @options[:format] = v.to_sym
+      end
     end
 
     def lookup_formatter(format, params)
@@ -125,6 +147,8 @@ module Command
   end
 
   class Head < Base
+    include Formattable
+
     DEFAULT_HEAD_OPTIONS = {
       count: 5
     }
@@ -132,7 +156,7 @@ module Command
     def initialize(argv = ARGV)
       super
       @options.merge!(DEFAULT_HEAD_OPTIONS)
-      @path = configure_option_parser
+      @path = parse_options!
     end
 
     def call
@@ -140,7 +164,7 @@ module Command
 
       File.open(@path, 'r') do |io|
         i = 0
-        unpacker(io).each do |(time, record)|
+        MessagePack::Unpacker.new(io).each do |(time, record)|
           break if i == @options[:count]
           i += 1
           puts @formatter.format(@path, time, record) # tag is use for tag
@@ -150,12 +174,12 @@ module Command
 
     private
 
-    def configure_option_parser
+    def parse_options!
       @opt_parser.on('-n COUNT', 'Set the number of lines to display') do |v|
         @options[:count] = v.to_i
       end
 
-      path = @opt_parser.parse(@argv)
+      path = super
 
       case
       when path.empty?
@@ -171,23 +195,25 @@ module Command
   end
 
   class Cat < Base
+    include Formattable
+
     def initialize(argv = ARGV)
       super
-      @path = configure_option_parser
+      @path = parse_options!
     end
 
     def call
       @formatter = lookup_formatter(@options[:format], @params)
 
       File.open(@path, 'r') do |io|
-        unpacker(io).each do |(time, record)|
-          puts @formatter.format(@path, time, record) # @path is use for tag
+        MessagePack::Unpacker.new(io).each do |(time, record)|
+          puts @formatter.format(@path, time, record) # @path is used for tag
         end
       end
     end
 
-    def configure_option_parser
-      path = @opt_parser.parse(@argv)
+    def parse_options!
+      path = super
       usage 'Path is required' if path.empty?
       usage "#{path.first} is not found" unless File.exist?(path.first)
       path.first
@@ -195,26 +221,30 @@ module Command
   end
 
   class Formats < Base
+    def initialize(argv = ARGV)
+      super
+      parse_options!
+    end
+
     def call
-      pf = Fluent::Plugin::FORMATTER_REGISTRY.paths.last
+      prefix = Fluent::Plugin::FORMATTER_REGISTRY.dir_search_prefix || 'formatter_'
 
-      if prefix = Fluent::Plugin::FORMATTER_REGISTRY.dir_search_prefix
-        Dir.glob("#{pf}/#{prefix}*").each do |e|
-          require File.absolute_path(e)
-        end
+      new_path = Fluent::Plugin::FORMATTER_REGISTRY.paths.last
+      Dir.glob("#{new_path}/#{prefix}*").each do |e|
+        require File.absolute_path(e)
+      end
 
-        $LOAD_PATH.map do |lp|
-          Dir.glob("#{lp}/#{prefix}*").each do |e|
-            require e
-          end
+      $LOAD_PATH.map do |lp|
+        Dir.glob("#{lp}/#{prefix}*").each do |e|
+          require e
         end
+      end
 
-        specs = Gem::Specification.flat_map { |spec| spec.lib_files }.select do |e|
-          e.include?(prefix)
-        end
-        specs.each do |e|
-          require File.absolute_path(e)
-        end
+      specs = Gem::Specification.flat_map { |spec| spec.lib_files }.select do |e|
+        e.include?(prefix)
+      end
+      specs.each do |e|
+        require File.absolute_path(e)
       end
 
       puts Fluent::Plugin::FORMATTER_REGISTRY.map.keys

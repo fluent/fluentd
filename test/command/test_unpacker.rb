@@ -7,18 +7,18 @@ require 'fluent/command/unpacker'
 require 'fluent/event'
 
 class TestFluentUnpacker < ::Test::Unit::TestCase
+  module ::Command
+    class Dummy < Base
+      def call; end
+    end
+  end
+
   def suppress_stdout
     out = StringIO.new
     $stdout = out
     yield
   ensure
     $stdout = STDOUT
-  end
-
-  module ::Command
-    class Dummy < Base
-      def call; end
-    end
   end
 
   sub_test_case 'call' do
@@ -39,7 +39,7 @@ class TestFluentUnpacker < ::Test::Unit::TestCase
       head: %w(head packed.log),
       formats: %w(formats packed.log)
     )
-    test 'should success when valid command' do |argv|
+    test 'should succeed when valid command' do |argv|
       fu = FluentUnpacker.new(argv)
 
       flexstub(::Command) do |command|
@@ -99,7 +99,7 @@ class TestHead < TestBaseCommand
       end
     end
 
-    test 'should success if file is valid' do
+    test 'should succeed if a file is valid' do
       file_name = 'packed.log'
       argv = ["#{TMP_DIR}/#{file_name}"]
       create_message_packed_file(file_name)
@@ -117,7 +117,7 @@ class TestHead < TestBaseCommand
       @record = { 'message' => 'dummy' }
     end
 
-    test 'should output the beginning of file with default format (out_file)' do
+    test 'should output the beginning of the file with default format (out_file)' do
       argv = ["#{TMP_DIR}/#{@file_name}"]
 
       timezone do
@@ -128,7 +128,7 @@ class TestHead < TestBaseCommand
       end
     end
 
-    test 'should set the number of line to display' do
+    test 'should set the number of lines to display' do
       argv = ["#{TMP_DIR}/#{@file_name}", '-n', '1']
 
       timezone do
@@ -148,7 +148,7 @@ class TestHead < TestBaseCommand
       end
     end
 
-    test 'should output content of file with json format' do
+    test 'should output content of a file with json format' do
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=json']
 
       timezone do
@@ -159,7 +159,7 @@ class TestHead < TestBaseCommand
       end
     end
 
-    test 'should fails with invalid format' do
+    test 'should fail with an invalid format' do
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=invalid']
 
       timezone do
@@ -180,13 +180,13 @@ class TestCat < TestBaseCommand
       'file is not passed' => [],
       'file is not found' => %w(invalid_path.log)
     )
-    test 'should fail if file is invalid' do |argv|
+    test 'should fail if a file is invalid' do |argv|
       assert_raise(SystemExit) do
         capture_stdout { Command::Head.new(argv) }
       end
     end
 
-    test 'should success if file is valid' do
+    test 'should succeed if a file is valid' do
       file_name = 'packed.log'
       argv = ["#{TMP_DIR}/#{file_name}"]
       create_message_packed_file(file_name)
@@ -204,7 +204,7 @@ class TestCat < TestBaseCommand
       @record = { 'message' => 'dummy' }
     end
 
-    test 'should output the beginning of file with default format (out_file)' do
+    test 'should output the beginning of the file with default format (out_file)' do
       argv = ["#{TMP_DIR}/#{@file_name}"]
 
       timezone do
@@ -215,7 +215,7 @@ class TestCat < TestBaseCommand
       end
     end
 
-    test 'should output content of file with json format' do
+    test 'should output content of a file with json format' do
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=json']
 
       timezone do
@@ -226,7 +226,7 @@ class TestCat < TestBaseCommand
       end
     end
 
-    test 'should fails with invalid format' do
+    test 'should fail with an invalid format' do
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=invalid']
 
       timezone do
@@ -237,6 +237,35 @@ class TestCat < TestBaseCommand
           capture_stdout { head.call }
         end
       end
+    end
+  end
+end
+
+class TestFormats < TestBaseCommand
+  test 'parse_option!' do
+    assert_raise(SystemExit) do
+      capture_stdout do
+        Command::Formats.new(['--plugins=invalid_dir_path'])
+      end
+    end
+  end
+
+  sub_test_case 'call' do
+    test 'display available plugins' do
+      f = Command::Formats.new
+      out = capture_stdout { f.call }
+      assert out.include?('json')
+      assert out.include?('csv')
+    end
+
+    test 'add new plugins using --plugins option' do
+      dir_path = File.expand_path(File.dirname(__FILE__) + '/../scripts/fluent/plugin')
+
+      f = Command::Formats.new(["--plugins=#{dir_path}"])
+      out = capture_stdout { f.call }
+      assert out.include?('json')
+      assert out.include?('csv')
+      assert out.include?('known')
     end
   end
 end
