@@ -19,8 +19,10 @@ require 'fluent/plugin/output'
 require 'fluent/plugin/bare_output'
 require 'fluent/compat/call_super_mixin'
 require 'fluent/compat/formatter_utils'
+require 'fluent/compat/handle_tag_and_time_mixin'
 require 'fluent/compat/parser_utils'
 require 'fluent/compat/propagate_default'
+require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 require 'fluent/mixin'
@@ -265,7 +267,7 @@ module Fluent
           conf.elements << Fluent::Config::Element.new('buffer', '', buf_params, [])
         end
 
-        @includes_record_filter = self.class.ancestors.include?(Fluent::RecordFilterMixin) # TODO rename Compat::RecordFilterMixin
+        @includes_record_filter = self.class.ancestors.include?(Fluent::Compat::RecordFilterMixin)
 
         methods_of_plugin = self.class.instance_methods(false)
         @overrides_emit = methods_of_plugin.include?(:emit)
