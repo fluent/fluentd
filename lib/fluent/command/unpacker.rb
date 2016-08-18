@@ -79,13 +79,13 @@ module Command
         @argv = @argv[0...i]
       end
 
-      @options = DEFAULT_OPTIONS
+      @options = DEFAULT_OPTIONS.dup
       @opt_parser = OptionParser.new do |opt|
         opt.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file [-- <params>]"
 
         opt.separator 'Options:'
 
-        opt.on('-f TYPE', '--format', 'configure output format: ') do |v|
+        opt.on('-f TYPE', '--format', 'configure output format') do |v|
           @options[:format] = v.to_sym
         end
 
@@ -96,7 +96,7 @@ module Command
     end
 
     def call
-      raise NotImplementedError, "Must Implement this method"
+      raise NotImplementedError, 'BUG: command  MUST implement this method'
     end
 
     private
@@ -111,35 +111,37 @@ module Command
       exit 1
     end
 
-    def lookup_formatter(format, conf)
+    def lookup_formatter(format, params)
+      conf = Fluent::Config::Element.new('ROOT', '', params, [])
       formatter = Fluent::Plugin.new_formatter(format)
 
       if formatter.respond_to?(:configure)
         formatter.configure(conf)
       end
       formatter
+    rescue => e
+      usage e
     end
   end
 
   class Head < Base
     DEFAULT_HEAD_OPTIONS = {
-      number: 5
+      count: 5
     }
 
     def initialize(argv = ARGV)
       super
-      @options.merge(DEFAULT_HEAD_OPTIONS)
+      @options.merge!(DEFAULT_HEAD_OPTIONS)
       @path = configure_option_parser
     end
 
     def call
-      conf = Fluent::Config::Element.new('ROOT', '', @params, [])
-      @formatter = lookup_formatter(@options[:format], conf)
+      @formatter = lookup_formatter(@options[:format], @params)
 
       File.open(@path, 'r') do |io|
         i = 0
         unpacker(io).each do |(time, record)|
-          break if i == @options[:number]
+          break if i == @options[:count]
           i += 1
           puts @formatter.format(@path, time, record) # tag is use for tag
         end
@@ -149,14 +151,22 @@ module Command
     private
 
     def configure_option_parser
-      @opt_parser.on('-n COUNT', 'head like -n') do |v|
-        @options[:number] = v.to_i
+      @opt_parser.on('-n COUNT', 'Set the number of lines to display') do |v|
+        @options[:count] = v.to_i
       end
 
       path = @opt_parser.parse(@argv)
-      usage 'Path is required' if path.empty?
-      usage "#{path.first} is not found" unless File.exist?(path.first)
-      path.first
+
+      case
+      when path.empty?
+        usage 'Path is required'
+      when !File.exist?(path.first)
+        usage "#{path.first} is not found"
+      when @options[:count] < 1
+        usage "illegal line count -- #{@options[:count]}"
+      else
+        path.first
+      end
     end
   end
 
@@ -167,8 +177,7 @@ module Command
     end
 
     def call
-      conf = Fluent::Config::Element.new('ROOT', '', @params, [])
-      @formatter = lookup_formatter(@options[:format], conf)
+      @formatter = lookup_formatter(@options[:format], @params)
 
       File.open(@path, 'r') do |io|
         unpacker(io).each do |(time, record)|
