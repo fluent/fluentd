@@ -36,7 +36,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
   end
 
   sub_test_case 'configture' do
-    test 'should b econfigurable' do
+    test 'should be configurable' do
       d = create_driver %[
       path test_path
       compress gz
@@ -60,7 +60,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       end
     end
 
-    test 'should be writable direcotry' do
+    test 'should be the writable directory' do
       assert_nothing_raised do
         create_driver %[path #{TMP_DIR}/test_path]
       end
@@ -117,7 +117,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       @es = Fluent::OneEventStream.new(@time, @record)
     end
 
-    test 'should be output with standarad format' do
+    test 'should output with the standard format' do
       d = create_driver
       c = create_es_chunk(create_metadata, @es)
       path = d.instance.write(c)
@@ -137,7 +137,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       assert_equal File.read(path), @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
     end
 
-    test 'path should be increment without append' do
+    test 'path should be incremental without `append`' do
       d = create_driver %[
         path #{TMP_DIR}/out_file_test
         compress gz
@@ -152,7 +152,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       end
     end
 
-    test 'path should be same with append' do
+    test 'path should be the same as `append`' do
       d = create_driver %[
         path #{TMP_DIR}/out_file_test
         compress gz
