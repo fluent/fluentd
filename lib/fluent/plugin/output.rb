@@ -301,7 +301,7 @@ module Fluent
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
           @secondary.router = router if @secondary.has_router?
-          if self.class != @secondary.class
+          if (self.class != @secondary.class) && (@custom_format || @secondary.implement?(:custom_format))
             log.warn "secondary type should be same with primary one", primary: self.class.to_s, secondary: @secondary.class.to_s
           end
         else

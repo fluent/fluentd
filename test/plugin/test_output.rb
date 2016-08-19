@@ -98,6 +98,17 @@ module FluentPluginOutputTest
 end
 
 class OutputTest < Test::Unit::TestCase
+    class << self
+      def startup
+        $LOAD_PATH.unshift File.expand_path(File.join(File.dirname(__FILE__), '../scripts'))
+        require 'fluent/plugin/out_test'
+      end
+
+      def shutdown
+        $LOAD_PATH.shift
+      end
+    end
+
   def create_output(type=:full)
     case type
     when :bare     then FluentPluginOutputTest::DummyBareOutput.new
@@ -476,6 +487,36 @@ class OutputTest < Test::Unit::TestCase
       assert try_write_called
 
       i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
+    end
+
+    test "Warn if primary type is different from secondary type and either primary or secondary has custom_format" do
+      o = create_output(:buffered)
+      mock(o.log).warn("secondary type should be same with primary one",
+                                { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" })
+
+      o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
+      assert_not_nil o.instance_variable_get(:@secondary)
+    end
+
+    test "don't warn if primary type is the same as secondary type" do
+      o = Fluent::Plugin::TestOutput.new
+      mock(o.log).warn("secondary type should be same with primary one",
+                                { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
+
+      o.configure(config_element('ROOT','',{'name' => "cool2"},
+                                 [config_element('secondary','',{'@type'=>'test', 'name' => "cool"}),
+                                  config_element('buffer','',{'@type'=>'memory'})]
+                                ))
+      assert_not_nil o.instance_variable_get(:@secondary)
+    end
+
+    test "don't warn if primary type is different from secondary type and both don't have custom_format" do
+      o = create_output(:standard)
+      mock(o.log).warn("secondary type should be same with primary one",
+                                { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
+
+      o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
+      assert_not_nil o.instance_variable_get(:@secondary)
     end
   end
 

@@ -95,12 +95,37 @@ module FluentOutputTest
     end
 
     def test_secondary
-      d = create_driver(CONFIG + %[
+      d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::BufferedOutput) do
+        def write(chunk)
+          chunk.read
+        end
+      end
+
+      mock(d.instance.log).warn("secondary type should be same with primary one",
+                                { primary: d.instance.class.to_s, secondary: "Fluent::Plugin::Test2Output" })
+      d.configure(CONFIG + %[
         <secondary>
           type test2
           name c0
         </secondary>
       ])
+
+      assert_not_nil d.instance.instance_variable_get(:@secondary).router
+    end
+
+    def test_secondary_with_no_warn_log
+      # ObjectBufferedOutput doesn't implemnt `custom_filter`
+      d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::ObjectBufferedOutput)
+
+      mock(d.instance.log).warn("secondary type should be same with primary one",
+                                { primary: d.instance.class.to_s, secondary: "Fluent::Plugin::Test2Output" }).never
+      d.configure(CONFIG + %[
+        <secondary>
+          type test2
+          name c0
+        </secondary>
+      ])
+
       assert_not_nil d.instance.instance_variable_get(:@secondary).router
     end
   end
