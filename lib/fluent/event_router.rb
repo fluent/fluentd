@@ -136,10 +136,12 @@ module Fluent
       def initialize
         @filters = []
         @output = nil
+        @optimizer = FilterOptimizer.new
       end
 
       def add_filter(filter)
         @filters << filter
+        @optimizer.filters = @filters
       end
 
       def set_output(output)
@@ -147,11 +149,81 @@ module Fluent
       end
 
       def emit_events(tag, es)
-        processed = es
-        @filters.each { |filter|
-          processed = filter.filter_stream(tag, processed)
-        }
+        processed = @optimizer.filter_stream(tag, es)
         @output.emit_events(tag, processed)
+      end
+
+      class FilterOptimizer
+        def initialize(filters = [])
+          @filters = filters
+        end
+
+        def filters=(filters)
+          @filters = filters
+          reset_optimization
+        end
+
+        def filter_stream(tag, es)
+          if optimizable?
+            optimized_filter_stream(tag, es)
+          else
+            @filters.reduce(es) { |acc, filter| filter.filter_stream(tag, acc) }
+          end
+        end
+
+        private
+
+        def optimized_filter_stream(tag, es)
+          new_es = MultiEventStream.new
+          es.each do |time, record|
+            filtered_record = record
+            filtered_time = time
+
+            catch :break_loop do
+              @filters.each do |filter|
+                if filter.has_filter_with_time
+                  begin
+                    filtered_time, filtered_record = filter.filter_with_time(tag, filtered_time, filtered_record)
+                    throw :break_loop unless filtered_record && filtered_time
+                  rescue => e
+                    filter.router.emit_error_event(tag, filtered_time, filtered_record, e)
+                  end
+                else
+                  begin
+                    filtered_record = filter.filter(tag, filtered_time, filtered_record)
+                    throw :break_loop unless filtered_record
+                  rescue => e
+                    filter.router.emit_error_event(tag, filtered_time, filtered_record, e)
+                  end
+                end
+              end
+
+              new_es.add(filtered_time, filtered_record)
+            end
+          end
+          new_es
+        end
+
+        def optimizable?
+          return @optimizable unless @optimizable.nil?
+          @optimizable = if filters_having_filter_stream.empty?
+                           true
+                         else
+                           $log.info "Filtering works with worse performance, because #{filters_having_filter_stream.map(&:class)} uses `#filter_stream` method."
+                           false
+                         end
+        end
+
+        def filters_having_filter_stream
+          @filters_having_filter_stream ||= @filters.select do |filter|
+            filter.class.instance_methods(false).include?(:filter_stream)
+          end
+        end
+
+        def reset_optimization
+          @optimizable = nil
+          @filters_having_filter_stream = nil
+        end
       end
     end
 
