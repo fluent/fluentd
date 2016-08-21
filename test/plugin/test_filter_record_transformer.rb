@@ -174,12 +174,11 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       d = create_driver(config)
       yield d if block_given?
       d.run {
-        msgs.each do |msg|
-          record = {
-            'eventType0' => 'bar',
-            'message'    => msg,
-          }
-          record = record.merge(msg) if msg.is_a?(Hash)
+        records = msgs.map do |msg|
+          next msg if msg.is_a?(Hash)
+          { 'eventType0' => 'bar', 'message' => msg }
+        end
+        records.each do |record|
           d.feed(@tag, @time, record)
         end
       }
@@ -270,6 +269,23 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           assert_not_include(r, 'eventType0')
           assert_equal("bar", r['eventtype'])
           assert_equal("bar #{msgs[i]}", r['message'])
+        end
+      end
+
+      test "Prevent overwriting reserved keys such as tag with enable_ruby #{enable_ruby}" do
+        config = %[
+          enable_ruby #{enable_ruby}
+          <record>
+            new_tag ${tag}
+            new_record_tag ${record["tag"]}
+          </record>
+        ]
+        records = [{'tag' => 'tag', 'time' => 'time'}]
+        filtered = filter(config, records)
+        filtered.each_with_index do |(_t, r), i|
+          assert_not_equal('tag', r['new_tag'])
+          assert_equal(@tag, r['new_tag'])
+          assert_equal('tag', r['new_record_tag'])
         end
       end
 

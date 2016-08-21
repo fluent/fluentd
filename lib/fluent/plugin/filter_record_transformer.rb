@@ -204,7 +204,9 @@ module Fluent::Plugin
             end
           elsif value.kind_of?(Hash) # record, etc
             value.each do |k, v|
-              placeholders.store("${#{k}}", v) # foo
+              unless placeholder_values.has_key?(k) # prevent overwriting reserved keys such as tag
+                placeholders.store("${#{k}}", v) # foo
+              end
               placeholders.store(%Q[${#{key}["#{k}"]}], v) # record["foo"]
             end
           else # string, interger, float, and others?
