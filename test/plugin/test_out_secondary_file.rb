@@ -56,7 +56,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'should receive a file path' do
-      assert_raise(Fluent::ConfigError) do
+      assert_raise Fluent::ConfigError do
         create_driver %[
         compress gz
       ]
@@ -74,7 +74,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
       end
 
-      assert_raise(Fluent::ConfigError) do
+      assert_raise Fluent::ConfigError do
         FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
         File.chmod(0555, "#{TMP_DIR}/test_dir")
         create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
@@ -205,16 +205,16 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     data(
-      invalid_tag: ["tag", "#{TMP_DIR}/${tag}"],
-      invalid_tag0: ["tag[0]", "#{TMP_DIR}/${tag[0]}"],
-      invalid_variable: ["dummy", "#{TMP_DIR}/${dummy}"],
-      invalid_timeformat: ["Time", "#{TMP_DIR}/%Y%m%d"],
+      invalid_tag: [/tag/, "#{TMP_DIR}/${tag}"],
+      invalid_tag0: [/tag\[0\]/, "#{TMP_DIR}/${tag[0]}"],
+      invalid_variable: [/dummy/, "#{TMP_DIR}/${dummy}"],
+      invalid_timeformat: [/time/, "#{TMP_DIR}/%Y%m%d"],
     )
     test 'path includes impcompatible placeholder' do |(expected_message, invalid_path)|
       c = Fluent::Test::Driver::Output.new(Fluent::Plugin::SecondaryFileOutput)
       c.instance.acts_as_secondary(DummyOutput.new)
 
-      assert_raise_message("BUG: file path has imcompatible placeholder: #{expected_message}") do
+      assert_raise_message(expected_message) do
         c.configure(%[
           path #{invalid_path}
           compress gz

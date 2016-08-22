@@ -39,7 +39,22 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "This plugin can only be used in the <secondary> section"
       end
 
-      configure_path!
+      @placeholders = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
+
+      validate_path_is_comptible_with_primary_buffer!
+
+      if !@placeholders.empty? || path_has_time_format?
+        @path_prefix = ""
+        @path_suffix = ".log"
+      else
+        if pos = @path.index('*')
+          @path_prefix = @path[0, pos]
+          @path_suffix = @path[pos+1..-1]
+        else
+          @path_prefix = @path + "."
+          @path_suffix = ".log"
+        end
+      end
 
       test_path = generate_path(Time.now.strftime("%Y%m%d"))
       unless Fluent::FileUtil.writable_p?(test_path)
@@ -83,44 +98,24 @@ module Fluent::Plugin
       end
     end
 
-    def configure_path!
-      # Check @path includes ${tag} etc.
-      matched = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
+    def validate_path_is_comptible_with_primary_buffer!
+      if !@chunk_key_time && path_has_time_format?
+        raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder, add time formats, like `%Y%m%d`, to `path`"
+      end
 
-      if path_has_tags(matched) || path_has_time_format?
-        validate_path_is_comptible_with_primary_buffer!(matched)
-        @path_prefix = ""
-        @path_suffix = ".log"
-      else
-        if pos = @path.index('*')
-          @path_prefix = @path[0, pos]
-          @path_suffix = @path[pos+1..-1]
-        else
-          @path_prefix = @path + "."
-          @path_suffix = ".log"
+      if !@chunk_key_tag && (ph = @placeholders.find { |p| p.match(/tag(\[\d+\])?/) })
+        raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder #{ph}, add tag placeholder, like `${tag}`, to `path`"
+      end
+
+      if @chunk_keys.empty?
+        vars = @placeholders.reject { |p| p.match(/tag(\[\d+\])?/) }
+
+        if ph = vars.find { |v| !@chunk_keys.include?(v) }
+          raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder #{ph}, add variable placeholder, like `${varname}`, to `path`"
         end
       end
     end
 
-    def validate_path_is_comptible_with_primary_buffer!(matched)
-      raise "BUG: file path has imcompatible placeholder: Time" if !@chunk_key_time && path_has_time_format?
-      matched.each do |e|
-        case
-        when @chunk_key_tag && e =~ /tag(\[\d+\])?/
-        # ok
-        when !@chunk_key_tag && e =~ /tag(\[\d+\])?/
-          raise "BUG: file path has imcompatible placeholder: #{e}"
-        when @chunk_keys && @chunk_keys.include?(e)
-        # ok
-        else
-          raise "BUG: file path has imcompatible placeholder: #{e}"
-        end
-      end
-    end
-
-    def path_has_tags(matched)
-      !matched.empty?
-    end
 
     def path_has_time_format?
       @path != Time.now.strftime(@path)
