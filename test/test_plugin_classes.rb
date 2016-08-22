@@ -10,11 +10,13 @@ module FluentTest
     attr_reader :started
 
     def start
+      super
       @started = true
     end
 
     def shutdown
       @started = false
+      super
     end
   end
 
@@ -30,11 +32,13 @@ module FluentTest
     attr_reader :started
 
     def start
+      super
       @started = true
     end
 
     def shutdown
       @started = false
+      super
     end
 
     def emit(tag, es, chain)
@@ -69,11 +73,13 @@ module FluentTest
     attr_reader :started
 
     def start
+      super
       @started = true
     end
 
     def shutdown
       @started = false
+      super
     end
 
     def filter(tag, time, record)
@@ -96,11 +102,13 @@ module FluentTest
     attr_reader :started
 
     def start
+      super
       @started = true
     end
 
     def shutdown
       @started = false
+      super
     end
 
     def filter(tag, time, record)
