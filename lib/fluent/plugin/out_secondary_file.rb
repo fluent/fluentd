@@ -30,7 +30,7 @@ module Fluent::Plugin
     config_param :path, :string
     desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, default: false
-    config_param :compress, :enum, list: [:normal, :gz, :gzip], default: :normal
+    config_param :compress, :enum, list: [:text, :gz, :gzip], default: :text
 
     def configure(conf)
       super
@@ -56,7 +56,7 @@ module Fluent::Plugin
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
-      when :normal
+      when :text
         File.open(path, "ab", @file_perm) {|f|
           f.flock(File::LOCK_EX)
           chunk.write_to(f)
@@ -128,7 +128,7 @@ module Fluent::Plugin
 
     def suffix
       case @compress
-      when :normal
+      when :text
         ""
       when :gz, :gzip
         ".gz"
