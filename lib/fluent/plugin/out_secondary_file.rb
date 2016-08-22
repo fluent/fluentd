@@ -40,6 +40,7 @@ module Fluent::Plugin
       end
 
       @placeholders = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
+      @unique_id = dump_unique_id_hex(generate_unique_id)
 
       validate_path_is_comptible_with_primary_buffer!
 
@@ -92,7 +93,7 @@ module Fluent::Plugin
 
     def generate_id(chunk)
       if chunk.metadata.empty?
-        dump_unique_id_hex(chunk.unique_id)
+        @append ? @unique_id : dump_unique_id_hex(chunk.unique_id)
       else
         extract_placeholders(@path, chunk.metadata)
       end
@@ -115,7 +116,6 @@ module Fluent::Plugin
         end
       end
     end
-
 
     def path_has_time_format?
       @path != Time.now.strftime(@path)

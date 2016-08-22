@@ -165,7 +165,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         append true
        ]
       c = create_es_chunk(create_metadata, @es)
-      chunk_id = dump_unique_id_hex(c.unique_id)
+      chunk_id = d.instance.instance_variable_get(:@unique_id)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       [*1..5].each do |i|
