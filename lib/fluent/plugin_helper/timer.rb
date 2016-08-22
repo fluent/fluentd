@@ -76,8 +76,12 @@ module Fluent
         rescue => e
           @log.error "Unexpected error raised. Stopping the timer.", title: @title, error: e
           @log.error_backtrace
-          self.detach
+          detach
           @log.error "Timer detached.", title: @title
+        ensure
+          if attached?
+            detach unless @repeating
+          end
         end
       end
     end
