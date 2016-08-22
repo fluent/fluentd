@@ -3,11 +3,14 @@ require 'time'
 require 'fileutils'
 require 'fluent/test'
 require 'fluent/event'
+require 'fluent/unique_id'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/out_secondary_file'
 require 'fluent/plugin/buffer/memory_chunk'
 
 class FileOutputSecondaryTest < Test::Unit::TestCase
+  include Fluent::UniqueId::Mixin
+
   def setup
     Fluent::Test.setup
     FileUtils.rm_rf(TMP_DIR)
@@ -120,9 +123,10 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     test 'should output with the standard format' do
       d = create_driver
       c = create_es_chunk(create_metadata, @es)
+      chunk_id = dump_unique_id_hex(c.unique_id)
       path = d.instance.write(c)
 
-      assert_equal "#{TMP_DIR}/out_file_test.#{c.chunk_id}_0.log.gz", path
+      assert_equal "#{TMP_DIR}/out_file_test.#{chunk_id}_0.log.gz", path
       check_gzipped_result(path, @es.to_msgpack_stream.force_encoding('ASCII-8BIT'))
     end
 
@@ -131,9 +135,10 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         path #{TMP_DIR}/out_file_test
       ]
       c = create_es_chunk(create_metadata, @es)
+      chunk_id = dump_unique_id_hex(c.unique_id)
       path = d.instance.write(c)
 
-      assert_equal "#{TMP_DIR}/out_file_test.#{c.chunk_id}_0.log", path
+      assert_equal "#{TMP_DIR}/out_file_test.#{chunk_id}_0.log", path
       assert_equal File.read(path), @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
     end
 
@@ -143,11 +148,12 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gz
        ]
       c = create_es_chunk(create_metadata, @es)
+      chunk_id = dump_unique_id_hex(c.unique_id)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       5.times do |i|
         path = d.instance.write(c)
-        assert_equal "#{TMP_DIR}/out_file_test.#{c.chunk_id}_#{i}.log.gz", path
+        assert_equal "#{TMP_DIR}/out_file_test.#{chunk_id}_#{i}.log.gz", path
         check_gzipped_result(path, packed_value )
       end
     end
@@ -159,11 +165,12 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         append true
        ]
       c = create_es_chunk(create_metadata, @es)
+      chunk_id = dump_unique_id_hex(c.unique_id)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       [*1..5].each do |i|
         path = d.instance.write(c)
-        assert_equal "#{TMP_DIR}/out_file_test.#{c.chunk_id}.log.gz", path
+        assert_equal "#{TMP_DIR}/out_file_test.#{chunk_id}.log.gz", path
         check_gzipped_result(path, packed_value * i)
       end
     end
@@ -175,6 +182,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       @time = Time.parse("2011-01-02 13:14:15 UTC").to_i
       @es = Fluent::OneEventStream.new(@time, @record)
       @c = create_es_chunk(create_metadata, @es)
+      @chunk_id = dump_unique_id_hex(@c.unique_id)
     end
 
     test 'normal path' do
@@ -183,7 +191,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gz
       ]
       path = d.instance.write(@c)
-      assert_equal "#{TMP_DIR}/out_file_test.#{@c.chunk_id}_0.log.gz", path
+      assert_equal "#{TMP_DIR}/out_file_test.#{@chunk_id}_0.log.gz", path
     end
 
     test 'path includes *' do
@@ -193,7 +201,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       ]
 
       path = d.instance.write(@c)
-      assert_equal "#{TMP_DIR}/out_file_test/#{@c.chunk_id}_0.log.gz", path
+      assert_equal "#{TMP_DIR}/out_file_test/#{@chunk_id}_0.log.gz", path
     end
 
     data(

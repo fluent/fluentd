@@ -77,7 +77,7 @@ module Fluent::Plugin
 
     def generate_id(chunk)
       if chunk.metadata.empty?
-        chunk.chunk_id
+        dump_unique_id_hex(chunk.unique_id)
       else
         extract_placeholders(@path, chunk.metadata)
       end
