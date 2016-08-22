@@ -37,7 +37,7 @@ module Fluent
         else
           @instance = klass
         end
-        @instance.router = Engine.root_agent.event_router if @instance.respond_to?(:router=)
+        @instance.router = Engine.root_agent.event_router
         @instance.log = TestLogger.new
         Engine.root_agent.instance_variable_set(:@log, @instance.log)
 

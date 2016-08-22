@@ -1,12 +1,12 @@
 require_relative '../helper'
 require 'time'
 require 'fileutils'
-require 'fluent/test'
 require 'fluent/event'
 require 'fluent/unique_id'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/out_secondary_file'
 require 'fluent/plugin/buffer/memory_chunk'
+require 'fluent/test/driver/output'
 
 class FileOutputSecondaryTest < Test::Unit::TestCase
   include Fluent::UniqueId::Mixin
@@ -33,7 +33,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
   end
 
   def create_driver(conf = CONFIG, primary = create_primary)
-    c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
+    c = Fluent::Test::Driver::Output.new(Fluent::Plugin::SecondaryFileOutput)
     c.instance.acts_as_secondary(primary)
     c.configure(conf)
   end
@@ -49,7 +49,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     end
 
     test 'should only use in secondary' do
-      c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
+      c = Fluent::Test::Driver::Output.new(Fluent::Plugin::SecondaryFileOutput)
       assert_raise do
         c.configure(conf)
       end
@@ -211,7 +211,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       invalid_timeformat: ["Time", "#{TMP_DIR}/%Y%m%d"],
     )
     test 'path includes impcompatible placeholder' do |(expected_message, invalid_path)|
-      c = Fluent::Test::OutputTestDriver.new(Fluent::Plugin::SecondaryFileOutput)
+      c = Fluent::Test::Driver::Output.new(Fluent::Plugin::SecondaryFileOutput)
       c.instance.acts_as_secondary(DummyOutput.new)
 
       assert_raise_message("BUG: file path has imcompatible placeholder: #{expected_message}") do
