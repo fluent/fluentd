@@ -66,6 +66,7 @@ module Fluent
         def initialize(title, interval, repeat, log, checker, &callback)
           @title = title
           @callback = callback
+          @repeat = repeat
           @log = log
           @checker = checker
           super(interval, repeat)
@@ -80,7 +81,7 @@ module Fluent
           @log.error "Timer detached.", title: @title
         ensure
           if attached?
-            detach unless @repeating
+            detach unless @repeat
           end
         end
       end
