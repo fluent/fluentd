@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'fluent/time' # TimeFormatter
+
 module Fluent
   module Compat
     module HandleTagAndTimeMixin

@@ -65,6 +65,20 @@ module FluentOutputTest
       # assert_equal Float, d.instance.retry_wait.class
     end
 
+    class FormatterInjectTestOutput < Fluent::Output
+      def initialize
+        super
+        @formatter = nil
+      end
+    end
+    def test_start
+      i = FormatterInjectTestOutput.new
+      i.configure(config_element('ROOT', '', {}, [config_element('inject', '', {'hostname_key' => "host"})]))
+      assert_nothing_raised do
+        i.start
+      end
+    end
+
     def create_mock_driver(conf=CONFIG)
       Fluent::Test::BufferedOutputTestDriver.new(Fluent::BufferedOutput) do
         attr_accessor :submit_flush_threads
