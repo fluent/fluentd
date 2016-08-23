@@ -1,14 +1,17 @@
 require_relative '../helper'
 require 'fluent/test'
+require 'fluent/test/startup_shutdown'
 require 'fluent/plugin/out_forward'
 
 class ForwardOutputTest < Test::Unit::TestCase
+  extend Fluent::Test::StartupShutdown
+
   def setup
     Fluent::Test.setup
   end
 
   TARGET_HOST = '127.0.0.1'
-  TARGET_PORT = 13999
+  TARGET_PORT = unused_port
   CONFIG = %[
     send_timeout 51
     heartbeat_type udp
@@ -25,7 +28,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::ForwardOutput) {
+    d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::ForwardOutput) {
       attr_reader :responses, :exceptions
 
       def initialize
@@ -34,18 +37,32 @@ class ForwardOutputTest < Test::Unit::TestCase
         @exceptions = []
       end
 
-      def send_data(node, tag, chunk)
-        # Original #send_data returns nil when it does not wait for responses or when on response timeout.
-        @responses << super(node, tag, chunk)
-      rescue => e
-        @exceptions << e
-        raise e
+      def configure(conf)
+        super
+        m = Module.new do
+          def send_data(tag, chunk)
+            @sender.responses << super
+          rescue => e
+            @sender.exceptions << e
+            raise e
+          end
+        end
+        @nodes.each do |node|
+          node.singleton_class.prepend(m)
+        end
       end
     }.configure(conf)
+    router = Object.new
+    def router.method_missing(name, *args, **kw_args, &block)
+      Engine.root_agent.event_router.__send__(name, *args, **kw_args, &block)
+    end
+    d.instance.router = router
+    d
   end
 
   def test_configure
     d = create_driver(%[
+      self_hostname localhost
       <server>
         name test
         host #{TARGET_HOST}
@@ -59,7 +76,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     node = nodes.first
     assert_equal "test", node.name
     assert_equal '127.0.0.1', node.host
-    assert_equal 13999, node.port
+    assert_equal TARGET_PORT, node.port
   end
 
   def test_configure_udp_heartbeat
@@ -79,11 +96,9 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + "\nheartbeat_type tcp\ndns_round_robin true")
     assert_equal true, d.instance.dns_round_robin
-    assert_equal true, d.instance.nodes.first.conf.dns_round_robin
 
     d = create_driver(CONFIG + "\nheartbeat_type none\ndns_round_robin true")
     assert_equal true, d.instance.dns_round_robin
-    assert_equal true, d.instance.nodes.first.conf.dns_round_robin
   end
 
   def test_configure_no_server
@@ -116,70 +131,6 @@ class ForwardOutputTest < Test::Unit::TestCase
     ])
     assert d.instance.require_ack_response
     assert_equal 2, d.instance.ack_response_timeout
-  end
-
-  def test_sending_contains_with_ack
-    target_input_driver = create_target_input_driver(true)
-
-    d = create_driver(CONFIG + %[
-      ack_response_timeout 1s
-    ])
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-
-    records = [
-      {"a" => 1},
-      {"a" => 2}
-    ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
-    target_input_driver.run do
-      d.run do
-        records.each do |record|
-          d.emit record, time
-        end
-      end
-    end
-
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
-
-    assert_equal target_input_driver.instance.received_options[0]['size'], 2
-  end
-
-  def test_sending_contains_without_ack
-    target_input_driver = create_target_input_driver(true)
-
-    d = create_driver(CONFIG + %[
-      ack_response_timeout 1s
-    ])
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-
-    records = [
-      {"a" => 1},
-      {"a" => 2}
-    ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
-    target_input_driver.run do
-      d.run do
-        records.each do |record|
-          d.emit record, time
-        end
-      end
-    end
-
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
-
-    assert_equal target_input_driver.instance.received_options[0]['size'], 2
   end
 
   def test_send_with_time_as_integer
@@ -252,7 +203,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_to_a_node_supporting_responses
-    target_input_driver = create_target_input_driver(true)
+    target_input_driver = create_target_input_driver(response_stub: true)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -314,7 +265,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_supporting_responses_to_respond_with_ack
-    target_input_driver = create_target_input_driver(true)
+    target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -350,8 +301,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_require_a_node_not_supporting_responses_to_respond_with_ack
-    # in_forward, that doesn't support ack feature, and keep connection alive
-    target_input_driver = create_target_input_driver
+    target_input_driver = create_target_input_driver(response_stub: ->(_option) { nil }, disconnect: true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -370,7 +320,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     d.run_timeout = 2
 
-    assert_raise Fluent::ForwardOutputACKTimeoutError do
+    assert_raise Fluent::ForwardOutputConnectionClosedError do
       target_input_driver.run do
         d.run do
           records.each do |record|
@@ -394,7 +344,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   # bdf1f4f104c00a791aa94dc20087fe2011e1fd83
   def test_require_a_node_not_supporting_responses_2_to_respond_with_ack
     # in_forward, that doesn't support ack feature, and disconnect immediately
-    target_input_driver = create_target_input_driver(false, true)
+    target_input_driver = create_target_input_driver(response_stub: ->(_option) { nil }, disconnect: true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -434,85 +384,136 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
   end
 
-  def create_target_input_driver(do_respond=false, disconnect=false, conf=TARGET_CONFIG)
+  def test_authentication_with_shared_key
+    input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                     <client>
+                       host 127.0.0.1
+                     </client>
+                   </security>
+                 ]
+    target_input_driver = create_target_input_driver(conf: input_conf)
+
+    output_conf = %[
+      send_timeout 51
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+        shared_key fluentd-sharedkey
+      </server>
+    ]
+    d = create_driver(output_conf)
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+
+    target_input_driver.run do
+      sleep 0.1 until target_input_driver.instance.instance_eval{ @thread } && target_input_driver.instance.instance_eval{ @thread }.status
+
+      d.run do
+        records.each do |record|
+          d.emit(record, time)
+        end
+
+        # run_post_condition of Fluent::Test::*Driver are buggy:
+        t = Time.now
+        while Time.now < t + 15 && target_input_driver.emits.size < 2
+          sleep 0.1
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert{ emits != [] }
+    assert_equal(['test', time, records[0]], emits[0])
+    assert_equal(['test', time, records[1]], emits[1])
+  end
+
+  def test_authentication_with_user_auth
+    input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                     user_auth true
+                     <user>
+                       username fluentd
+                       password fluentd
+                     </user>
+                     <client>
+                       host 127.0.0.1
+                     </client>
+                   </security>
+                 ]
+    target_input_driver = create_target_input_driver(conf: input_conf)
+
+    output_conf = %[
+      send_timeout 51
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+        shared_key fluentd-sharedkey
+        username fluentd
+        password fluentd
+      </server>
+    ]
+    d = create_driver(output_conf)
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+
+    target_input_driver.run do
+      sleep 0.1 until target_input_driver.instance.instance_eval{ @thread } && target_input_driver.instance.instance_eval{ @thread }.status
+
+      d.run do
+        records.each do |record|
+          d.emit(record, time)
+        end
+
+        # run_post_condition of Fluent::Test::*Driver are buggy:
+        t = Time.now
+        while Time.now < t + 15 && target_input_driver.emits.size < 2
+          sleep 0.1
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert{ emits != [] }
+    assert_equal(['test', time, records[0]], emits[0])
+    assert_equal(['test', time, records[1]], emits[1])
+  end
+
+  def create_target_input_driver(response_stub: nil, disconnect: false, conf: TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
     # TODO: Support actual TCP heartbeat test
-    DummyEngineDriver.new(Fluent::ForwardInput) {
-      handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
-        attr_reader :chunk_counter # for checking if received data is successfully deserialized
-        attr_reader :received_options
-
-        def initialize(sock, log, on_message)
-          @sock = sock
-          @log = log
-          @chunk_counter = 0
-          @received_options = []
-          @on_message = ->(msg, chunk_size, source) {
-            option = on_message.call(msg, chunk_size, source)
-            @received_options << option
-            option
-          }
-          @source = nil
-          @peeraddr = nil
-        end
-
-        if do_respond
-          def write(data)
-            @sock.write data
-          rescue
-            @sock.close_write
-            @sock.close
-          end
-        else
-          def write(data)
-            # do nothing
-          end
-        end
-
-        def close
-          unless @sock.closed?
-            @sock.close_write
-            @sock.close
-          end
-        end
-      }
-
-      define_method(:_start) do
-        @thread = Thread.new do
-          Socket.tcp_server_loop(@bind, @port) do |sock, client_addrinfo|
-            begin
-              handler = handler_class.new(sock, @log, method(:on_message))
-              loop do
-                raw_data = sock.recv(1024)
-                handler.on_read(raw_data)
-                # chunk_counter is reset to zero only after all the data have been received and successfully deserialized.
-                break if handler.chunk_counter == 0
-                break if sock.closed?
-              end
-              if disconnect
-                handler.close
-                sock = nil
-              end
-              sleep  # wait for connection to be closed by client
-            ensure
-              if sock && !sock.closed?
-                sock.close_write
-                sock.close
-              end
-              @received_options = handler.received_options
-            end
-          end
+    Fluent::Test::InputTestDriver.new(Fluent::ForwardInput) {
+      if response_stub.nil?
+        # do nothing because in_forward responds for ack option in default
+      else
+        define_method(:response) do |options|
+          return response_stub.(options)
         end
       end
-
-      attr_reader :received_options
-
-      def _shutdown
-        @thread.kill
-        @thread.join
-      end
-    }.configure(conf).inject_router()
+    }.configure(conf)
   end
 
   def test_heartbeat_type_none
@@ -527,64 +528,5 @@ class ForwardOutputTest < Test::Unit::TestCase
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
     assert_equal node.available, true
-  end
-
-  # To suppress calling `ForwardInput#start` in `DummyEngineDriver`,
-  # `DummyEnigneDriver` should avoid calling CallSuperMixin.prepend at `Fluent::Compat::Input#initialize`.
-  module SuppressCallSuperMixin
-    def start
-      _start
-    end
-
-    def before_shutdown
-      # nothing
-    end
-
-    def shutdown
-      _shutdown
-    end
-  end
-
-  class DummyEngineDriver < Fluent::Test::TestDriver
-    def initialize(klass, &block)
-      super(klass, &block)
-      @instance.class.prepend(SuppressCallSuperMixin)
-      @engine = DummyEngineClass.new
-    end
-
-    def inject_router
-      @instance.router = @engine
-      self
-    end
-
-    def run(&block)
-      super(&block)
-    end
-
-    def emits
-      all = []
-      @engine.emit_streams.each {|tag,events|
-        events.each {|time,record|
-          all << [tag, time, record]
-        }
-      }
-      all
-    end
-
-    class DummyEngineClass
-      attr_reader :emit_streams
-
-      def initialize
-        @emit_streams ||= []
-      end
-
-      def clear!
-        @emit_streams = []
-      end
-
-      def emit_stream(tag, es)
-        @emit_streams << [tag, es.to_a]
-      end
-    end
   end
 end
