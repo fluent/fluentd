@@ -42,7 +42,7 @@ module Fluent::Plugin
       @placeholders = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
       @unique_id = dump_unique_id_hex(generate_unique_id)
 
-      validate_path_is_comptible_with_primary_buffer!
+      validate_path_is_compatible_with_primary_buffer!
 
       if !@placeholders.empty? || path_has_time_format?
         @path_prefix = ""
@@ -67,8 +67,8 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      id = generate_id(chunk)
-      path = generate_path(id)
+      base = generate_basename(chunk)
+      path = generate_path(base)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
@@ -91,7 +91,7 @@ module Fluent::Plugin
 
     private
 
-    def generate_id(chunk)
+    def generate_basename(chunk)
       if chunk.metadata.empty?
         @append ? @unique_id : dump_unique_id_hex(chunk.unique_id)
       else
@@ -99,7 +99,7 @@ module Fluent::Plugin
       end
     end
 
-    def validate_path_is_comptible_with_primary_buffer!
+    def validate_path_is_compatible_with_primary_buffer!
       if !@chunk_key_time && path_has_time_format?
         raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder, add time formats, like `%Y%m%d`, to `path`"
       end
@@ -130,13 +130,13 @@ module Fluent::Plugin
       end
     end
 
-    def generate_path(id)
+    def generate_path(base)
       if @append
-        "#{@path_prefix}#{id}#{@path_suffix}#{suffix}"
+        "#{@path_prefix}#{base}#{@path_suffix}#{suffix}"
       else
         i = 0
         loop do
-          path = "#{@path_prefix}#{id}_#{i}#{@path_suffix}#{suffix}"
+          path = "#{@path_prefix}#{base}_#{i}#{@path_suffix}#{suffix}"
           return path unless File.exist?(path)
           i += 1;
         end
