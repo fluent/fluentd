@@ -25,12 +25,15 @@ module Fluent::Plugin
 
     FILE_PERMISSION = 0644
     DIR_PERMISSION = 0755
+    PLACEHOLDER_REGEX = /\${(tag(\[\d+\])?|[\w.@-]+)}/
 
-    desc "The Path of the file."
-    config_param :path, :string
+    desc "The directory path of the output file."
+    config_param :directory, :string
+    desc "The baseanme of the output file."
+    config_param :basename, :string, default: "dump.bin"
     desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, default: false
-    config_param :compress, :enum, list: [:text, :gz, :gzip], default: :text
+    config_param :compress, :enum, list: [:text, :gzip], default: :text
 
     def configure(conf)
       super
@@ -39,27 +42,19 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "This plugin can only be used in the <secondary> section"
       end
 
-      @placeholders = @path.scan(/\${([\w.@-]+(\[\d+\])?)}/).flat_map(&:first) # to trim suffix [\d+]
-      @unique_id = dump_unique_id_hex(generate_unique_id)
+      @path_without_suffix = File.join(@directory, @basename)
+      validate_compatible_with_primary_buffer!(@path_without_suffix)
 
-      validate_path_is_compatible_with_primary_buffer!
+      @suffix = case @compress
+                when :text
+                  ""
+                when :gzip
+                  ".gz"
+                end
 
-      if !@placeholders.empty? || path_has_time_format?
-        @path_prefix = ""
-        @path_suffix = ".log"
-      else
-        if pos = @path.index('*')
-          @path_prefix = @path[0, pos]
-          @path_suffix = @path[pos+1..-1]
-        else
-          @path_prefix = @path + "."
-          @path_suffix = ".log"
-        end
-      end
-
-      test_path = generate_path(Time.now.strftime("%Y%m%d"))
+      test_path = generate_path(File.join(@directory, Time.now.strftime("%Y%m%d")))
       unless Fluent::FileUtil.writable_p?(test_path)
-        raise Fluent::ConfigError, "out_secondary_file: `#{test_path}` is not writable"
+        raise Fluent::ConfigError, "out_secondary_file: `#{@directory}` should be writable"
       end
 
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
@@ -67,8 +62,8 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      base = generate_basename(chunk)
-      path = generate_path(base)
+      path_without_suffix = extract_placeholders(@path_without_suffix, chunk.metadata)
+      path = generate_path(path_without_suffix)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
@@ -77,7 +72,7 @@ module Fluent::Plugin
           f.flock(File::LOCK_EX)
           chunk.write_to(f)
         }
-      when :gz, :gzip
+      when :gzip
         File.open(path, "ab", @file_perm) {|f|
           f.flock(File::LOCK_EX)
           gz = Zlib::GzipWriter.new(f)
@@ -91,54 +86,37 @@ module Fluent::Plugin
 
     private
 
-    def generate_basename(chunk)
-      if chunk.metadata.empty?
-        @append ? @unique_id : dump_unique_id_hex(chunk.unique_id)
-      else
-        extract_placeholders(@path, chunk.metadata)
+    def validate_compatible_with_primary_buffer!(path_without_suffix)
+      placeholders = path_without_suffix.scan(PLACEHOLDER_REGEX).flat_map(&:first) # to trim suffix [\d+]
+
+      if !@chunk_key_time && has_time_format?(path_without_suffix)
+        raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder, remove time formats, like `%Y%m%d`, from basename or directory"
+      end
+
+      if !@chunk_key_tag && (ph = placeholders.find { |placeholder| placeholder.match(/tag(\[\d+\])?/) })
+        raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder #{ph}, remove tag placeholder, like `${tag}`, from basename or directory"
+      end
+
+      vars = placeholders.reject { |placeholder| placeholder.match(/tag(\[\d+\])?/) }
+
+      if ph = vars.find { |v| !@chunk_keys.include?(v) }
+        raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder #{ph}, remove variable placeholder, like `${varname}`, from basename or directory"
       end
     end
 
-    def validate_path_is_compatible_with_primary_buffer!
-      if !@chunk_key_time && path_has_time_format?
-        raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder, add time formats, like `%Y%m%d`, to `path`"
-      end
-
-      if !@chunk_key_tag && (ph = @placeholders.find { |p| p.match(/tag(\[\d+\])?/) })
-        raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder #{ph}, add tag placeholder, like `${tag}`, to `path`"
-      end
-
-      if @chunk_keys.empty?
-        vars = @placeholders.reject { |p| p.match(/tag(\[\d+\])?/) }
-
-        if ph = vars.find { |v| !@chunk_keys.include?(v) }
-          raise Fluent::ConfigError, "out_secondary_file: File path has an incompatible placeholder #{ph}, add variable placeholder, like `${varname}`, to `path`"
-        end
-      end
+    def has_time_format?(str)
+      str != Time.now.strftime(str)
     end
 
-    def path_has_time_format?
-      @path != Time.now.strftime(@path)
-    end
-
-    def suffix
-      case @compress
-      when :text
-        ""
-      when :gz, :gzip
-        ".gz"
-      end
-    end
-
-    def generate_path(base)
+    def generate_path(path_without_suffix)
       if @append
-        "#{@path_prefix}#{base}#{@path_suffix}#{suffix}"
+        "#{path_without_suffix}#{@suffix}"
       else
         i = 0
         loop do
-          path = "#{@path_prefix}#{base}_#{i}#{@path_suffix}#{suffix}"
+          path = "#{path_without_suffix}.#{i}#{@suffix}"
           return path unless File.exist?(path)
-          i += 1;
+          i += 1
         end
       end
     end
