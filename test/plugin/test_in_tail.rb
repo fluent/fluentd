@@ -58,6 +58,7 @@ class TailInputTest < Test::Unit::TestCase
     Fluent::Test::Driver::Input.new(Fluent::Plugin::TailInput).configure(config)
   end
 
+  sub_test_case "configure" do
   def test_configure
     d = create_driver
     assert_equal ["#{TMP_DIR}/tail.txt"], d.instance.paths
@@ -111,6 +112,7 @@ class TailInputTest < Test::Unit::TestCase
         encoding utf-8
       ]
     end
+  end
   end
 
   sub_test_case "singleline" do
