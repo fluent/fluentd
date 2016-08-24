@@ -126,7 +126,7 @@ module Fluent::Plugin
     def configure_encoding
       unless @encoding
         if @from_encoding
-          raise ConfigError, "tail: 'from_encoding' parameter must be specified with 'encoding' parameter."
+          raise Fluent::ConfigError, "tail: 'from_encoding' parameter must be specified with 'encoding' parameter."
         end
       end
 
@@ -138,7 +138,7 @@ module Fluent::Plugin
       begin
         Encoding.find(encoding_name) if encoding_name
       rescue ArgumentError => e
-        raise ConfigError, e.message
+        raise Fluent::ConfigError, e.message
       end
     end
 

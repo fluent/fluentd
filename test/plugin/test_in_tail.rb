@@ -59,7 +59,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "configure" do
-    def test_configure
+    test "plain single line" do
       d = create_driver
       assert_equal ["#{TMP_DIR}/tail.txt"], d.instance.paths
       assert_equal "t1", d.instance.tag
@@ -70,47 +70,52 @@ class TailInputTest < Test::Unit::TestCase
 
     data("empty" => config_element,
          "w/o @type" => config_element("", "", {}, [config_element("parse", "", {})]))
-    def test_configure_without_parse_section(data)
-      conf = data
+    test "w/o parse section" do |conf|
       assert_raise(Fluent::ConfigError) do
         create_driver(conf)
       end
     end
 
-    def test_configure_encoding
-      # valid encoding
-      d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }))
-      assert_equal Encoding::UTF_8, d.instance.encoding
+    sub_test_case "encoding" do
+      test "valid" do
+        conf = SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" })
+        d = create_driver(conf)
+        assert_equal Encoding::UTF_8, d.instance.encoding
+      end
 
-      # invalid encoding
-      assert_raise(Fluent::ConfigError) do
-        create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "no-such-encoding" }))
+      test "invalid" do
+        conf = SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "no-such-encoding" })
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
       end
     end
 
-    def test_configure_from_encoding
-      # If only specified from_encoding raise ConfigError
-      assert_raise(Fluent::ConfigError) do
-        d = create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
+    sub_test_case "from_encoding" do
+      test "only specified from_encoding raise ConfigError" do
+        conf = SINGLE_LINE_CONFIG + config_element("", "", { "from_encoding" => "utf-8" })
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
       end
 
-      # valid setting
-      d = create_driver %[
-        format /(?<message>.*)/
-        read_from_head true
-        from_encoding utf-8
-        encoding utf-8
-      ]
-      assert_equal Encoding::UTF_8, d.instance.from_encoding
+      test "valid" do
+        conf = SINGLE_LINE_CONFIG + config_element("", "", {
+                                                     "from_encoding" => "utf-8",
+                                                     "encoding" => "utf-8"
+                                                   })
+        d = create_driver(conf)
+        assert_equal(Encoding::UTF_8, d.instance.from_encoding)
+      end
 
-      # invalid from_encoding
-      assert_raise(Fluent::ConfigError) do
-        d = create_driver %[
-          format /(?<message>.*)/
-          read_from_head true
-          from_encoding no-such-encoding
-          encoding utf-8
-        ]
+      test "invalid" do
+        conf = SINGLE_LINE_CONFIG + config_element("", "", {
+                                                     "from_encoding" => "no-such-encoding",
+                                                     "encoding" => "utf-8"
+                                                   })
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
       end
     end
   end
@@ -460,24 +465,25 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_from_encoding
-    d = create_driver %[
-      format /(?<message>.*)/
-      read_from_head true
-      from_encoding cp932
-      encoding utf-8
-    ]
+    conf = config_element(
+      "", "", {
+        "format" => "/(?<message>.*)/",
+        "read_from_head" => "true",
+        "from_encoding" => "cp932",
+        "encoding" => "utf-8"
+      })
+    d = create_driver(conf)
+    cp932_message = "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+    utf8_message = cp932_message.encode(Encoding::UTF_8)
 
-    d.run do
-      sleep 1
-
+    d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "w:cp932") {|f|
-        f.puts "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+        f.puts cp932_message
       }
-      sleep 1
     end
 
     events = d.events
-    assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), events[0][2]['message'])
+    assert_equal(utf8_message, events[0][2]['message'])
     assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
 
@@ -566,28 +572,28 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     def test_multiline_from_encoding_of_flushed_record
-      d = create_driver %[
-        format multiline
-        format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
-        format_firstline /^[s]/
-        multiline_flush_interval 2s
-        read_from_head true
-        from_encoding cp932
-        encoding utf-8
-      ]
+      conf = MULTILINE_CONFIG + config_element(
+               "", "",
+               {
+                 "multiline_flush_interval" => "1s",
+                 "read_from_head" => "true",
+                 "from_encoding" => "cp932",
+                 "encoding" => "utf-8"
+               })
+      d = create_driver(conf)
 
-      d.run do
-        sleep 1
+      cp932_message = "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+      utf8_message = "\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".encode(Encoding::UTF_8, Encoding::CP932)
+      d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "w:cp932") { |f|
-          f.puts "s \x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932)
+          f.puts cp932_message
         }
-
-        sleep 4
-        events = d.events
-        assert_equal(1, events.length)
-        assert_equal("\x82\xCD\x82\xEB\x81\x5B\x82\xED\x81\x5B\x82\xE9\x82\xC7".force_encoding(Encoding::CP932).encode(Encoding::UTF_8), events[0][2]['message1'])
-        assert_equal(Encoding::UTF_8, events[0][2]['message1'].encoding)
       end
+
+      events = d.events
+      assert_equal(1, events.length)
+      assert_equal(utf8_message, events[0][2]['message1'])
+      assert_equal(Encoding::UTF_8, events[0][2]['message1'].encoding)
     end
 
     data(flat: config_element(
