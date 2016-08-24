@@ -66,6 +66,7 @@ module Fluent
         def initialize(title, interval, repeat, log, checker, &callback)
           @title = title
           @callback = callback
+          @repeat = repeat
           @log = log
           @checker = checker
           super(interval, repeat)
@@ -76,8 +77,12 @@ module Fluent
         rescue => e
           @log.error "Unexpected error raised. Stopping the timer.", title: @title, error: e
           @log.error_backtrace
-          self.detach
+          detach
           @log.error "Timer detached.", title: @title
+        ensure
+          if attached?
+            detach unless @repeat
+          end
         end
       end
     end

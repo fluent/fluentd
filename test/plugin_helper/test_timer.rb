@@ -97,4 +97,35 @@ class TimerTest < Test::Unit::TestCase
 
     d1.shutdown; d1.close; d1.terminate
   end
+
+  test 'can run at once' do
+    d1 = Dummy.new
+    d1.configure(config_element())
+    assert !d1.timer_running?
+    d1.start
+    assert d1.timer_running?
+
+    waiting_assertion = true
+    waiting_timer = true
+    counter = 0
+    d1.timer_execute(:test, 1, repeat: false) do
+      sleep(0.1) while waiting_assertion
+      counter += 1
+      waiting_timer = false
+    end
+
+    watchers = d1._event_loop.watchers.reject {|w| w.is_a?(Fluent::PluginHelper::EventLoop::DefaultWatcher) }
+    assert_equal(1, watchers.size)
+    assert(watchers.first.attached?)
+
+    waiting_assertion = false
+    sleep(0.1) while waiting_timer
+
+    assert_equal(1, counter)
+    assert_false(watchers.first.attached?)
+    watchers = d1._event_loop.watchers.reject {|w| w.is_a?(Fluent::PluginHelper::EventLoop::DefaultWatcher) }
+    assert_equal(0, watchers.size)
+
+    d1.shutdown; d1.close; d1.terminate
+  end
 end
