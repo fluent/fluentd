@@ -42,6 +42,8 @@ module Fluent
     config_param :linger_timeout, :integer, default: 0
     # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
     config_param :blocking_timeout, :time, default: 0.5
+    desc 'Connections will be disconnected right after receiving first message if this value is true.'
+    config_param :deny_keepalive, :bool, default: false
 
     desc 'Log warning if received chunk size is larger than this value.'
     config_param :chunk_size_warn_limit, :size, default: nil
@@ -230,11 +232,15 @@ module Fluent
           if options && r = response(options)
             send_data.call(serializer, r)
             log.trace "sent response to fluent socket", address: conn.remote_addr, response: r
-            conn.on_write_complete do
-              conn.close
+            if @deny_keepalive
+              conn.on_write_complete do
+                conn.close
+              end
             end
           else
-            conn.close
+            if @deny_keepalive
+              conn.close
+            end
           end
         else
           raise "BUG: unknown session state: #{state}"
@@ -420,7 +426,7 @@ module Fluent
     def generate_helo(nonce, user_auth_salt)
       log.debug "generating helo"
       # ['HELO', options(hash)]
-      ['HELO', {'nonce' => nonce, 'auth' => (@security ? user_auth_salt : '')}]
+      ['HELO', {'nonce' => nonce, 'auth' => (@security ? user_auth_salt : ''), 'keepalive' => !@deny_keepalive}]
     end
 
     ##### Authentication Handshake
