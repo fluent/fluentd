@@ -825,7 +825,7 @@ class ForwardInputTest < Test::Unit::TestCase
       end
 
       assert_equal events, d.emits
-      assert_equal [""], @responses
+      assert_equal [nil], @responses
 
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
@@ -866,7 +866,7 @@ class ForwardInputTest < Test::Unit::TestCase
       end
 
       assert_equal events, d.emits
-      assert_equal [""], @responses
+      assert_equal [nil], @responses
 
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
@@ -906,7 +906,7 @@ class ForwardInputTest < Test::Unit::TestCase
       end
 
       assert_equal events, d.emits
-      assert_equal ["", ""], @responses
+      assert_equal [nil, nil], @responses
 
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end

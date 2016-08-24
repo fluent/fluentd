@@ -320,7 +320,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     d.run_timeout = 2
 
-    assert_raise Fluent::ForwardOutputConnectionClosedError do
+    assert_raise Fluent::ForwardOutputACKTimeoutError do
       target_input_driver.run do
         d.run do
           records.each do |record|
@@ -363,7 +363,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     d.run_timeout = 2
 
-    assert_raise Fluent::ForwardOutputConnectionClosedError do
+    assert_raise Fluent::ForwardOutputACKTimeoutError do
       target_input_driver.run do
         d.run do
           records.each do |record|
