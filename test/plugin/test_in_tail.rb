@@ -59,60 +59,60 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   sub_test_case "configure" do
-  def test_configure
-    d = create_driver
-    assert_equal ["#{TMP_DIR}/tail.txt"], d.instance.paths
-    assert_equal "t1", d.instance.tag
-    assert_equal 2, d.instance.rotate_wait
-    assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
-    assert_equal 1000, d.instance.read_lines_limit
-  end
-
-  data("empty" => config_element,
-       "w/o @type" => config_element("", "", {}, [config_element("parse", "", {})]))
-  def test_configure_without_parse_section(data)
-    conf = data
-    assert_raise(Fluent::ConfigError) do
-      create_driver(conf)
-    end
-  end
-
-  def test_configure_encoding
-    # valid encoding
-    d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }))
-    assert_equal Encoding::UTF_8, d.instance.encoding
-
-    # invalid encoding
-    assert_raise(Fluent::ConfigError) do
-      create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "no-such-encoding" }))
-    end
-  end
-
-  def test_configure_from_encoding
-    # If only specified from_encoding raise ConfigError
-    assert_raise(Fluent::ConfigError) do
-      create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
+    def test_configure
+      d = create_driver
+      assert_equal ["#{TMP_DIR}/tail.txt"], d.instance.paths
+      assert_equal "t1", d.instance.tag
+      assert_equal 2, d.instance.rotate_wait
+      assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
+      assert_equal 1000, d.instance.read_lines_limit
     end
 
-    # valid setting
-    d = create_driver %[
-      format /(?<message>.*)/
-      read_from_head true
-      from_encoding utf-8
-      encoding utf-8
-    ]
-    assert_equal Encoding::UTF_8, d.instance.from_encoding
+    data("empty" => config_element,
+         "w/o @type" => config_element("", "", {}, [config_element("parse", "", {})]))
+    def test_configure_without_parse_section(data)
+      conf = data
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
 
-    # invalid from_encoding
-    assert_raise(Fluent::ConfigError) do
+    def test_configure_encoding
+      # valid encoding
+      d = create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }))
+      assert_equal Encoding::UTF_8, d.instance.encoding
+
+      # invalid encoding
+      assert_raise(Fluent::ConfigError) do
+        create_driver(SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "no-such-encoding" }))
+      end
+    end
+
+    def test_configure_from_encoding
+      # If only specified from_encoding raise ConfigError
+      assert_raise(Fluent::ConfigError) do
+        d = create_driver(SINGLE_LINE_CONFIG + 'from_encoding utf-8')
+      end
+
+      # valid setting
       d = create_driver %[
         format /(?<message>.*)/
         read_from_head true
-        from_encoding no-such-encoding
+        from_encoding utf-8
         encoding utf-8
       ]
+      assert_equal Encoding::UTF_8, d.instance.from_encoding
+
+      # invalid from_encoding
+      assert_raise(Fluent::ConfigError) do
+        d = create_driver %[
+          format /(?<message>.*)/
+          read_from_head true
+          from_encoding no-such-encoding
+          encoding utf-8
+        ]
+      end
     end
-  end
   end
 
   sub_test_case "singleline" do
