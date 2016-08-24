@@ -221,14 +221,14 @@ module Fluent::Plugin
       @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
       @srv.mount('/api/config', LTSVConfigMonitorServlet, self)
       @srv.mount('/api/config.json', JSONConfigMonitorServlet, self)
-      thread_create :servlet do
+      thread_create :in_monitor_agent_servlet do
         @srv.start
       end
       if @tag
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
         opts = {with_config: false}
-        timer_execute(:monitor_emit, @emit_interval, repeat: true) {
+        timer_execute(:in_monitor_agent_emit, @emit_interval, repeat: true) {
           es = Fluent::MultiEventStream.new
           now = Fluent::Engine.now
           plugins_info_all(opts).each { |record|
