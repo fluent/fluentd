@@ -282,7 +282,7 @@ module Fluent::Plugin
     # from the plugin `pe` recursively
     def self.collect_children(pe, array=[])
       array << pe
-      if pe.is_a?(Fluent::Plugin::MultiOutput) && pe.respond_to?(:outputs)
+      if pe.is_a?(Fluent::Plugin::MultiOutput) || pe.is_a?(Fluent::MultiOutput) && pe.respond_to?(:outputs)
         pe.outputs.each {|nop|
           collect_children(nop, array)
         }
