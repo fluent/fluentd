@@ -296,7 +296,7 @@ module Fluent::Plugin
       matches = Fluent::Engine.root_agent.event_router.instance_variable_get(:@match_rules)
       matches.each { |rule|
         if rule.match?(tag)
-          if rule.collector.is_a?(Fluent::Plugin::Output)
+          if rule.collector.is_a?(Fluent::Plugin::Output) || rule.collector.is_a?(Fluent::Output)
             return get_monitor_info(rule.collector, opts)
           end
         end
