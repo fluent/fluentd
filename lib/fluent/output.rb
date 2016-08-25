@@ -291,7 +291,8 @@ module Fluent
     #end
 
     def enqueue_buffer(force = false)
-      @buffer.keys.each {|key|
+      buf_keys = @buffer.synchronize { @buffer.keys }
+      buf_keys.each { |key|
         @buffer.push(key)
       }
     end
@@ -587,7 +588,8 @@ module Fluent
 
     def enqueue_buffer(force = false)
       if force
-        @buffer.keys.each {|key|
+        buf_keys = @buffer.synchronize { @buffer.keys }
+        buf_keys.each { |key|
           @buffer.push(key)
         }
       else
