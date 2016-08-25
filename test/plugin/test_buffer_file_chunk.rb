@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/plugin/buffer/file_chunk'
+require 'fluent/plugin/compressable'
 require 'fluent/unique_id'
 
 require 'fileutils'
@@ -8,6 +9,8 @@ require 'time'
 require 'timecop'
 
 class BufferFileChunkTest < Test::Unit::TestCase
+  include Fluent::Plugin::Compressable
+
   setup do
     @klass = Fluent::Plugin::Buffer::FileChunk
     @chunkdir = File.expand_path('../../tmp/buffer_file_chunk', __FILE__)
@@ -767,5 +770,33 @@ class BufferFileChunkTest < Test::Unit::TestCase
         @c.instance_eval{ @chunk }.write "chunk io is opened as read only"
       end
     end
+  end
+
+  test '#write_to writes decompressed data when compress is gzip' do
+    c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+    str = 'sample text'
+    compressed_str = compress(str)
+    c.concat(compressed_str, str.size)
+    c.commit
+
+    assert_equal compressed_str, c.read
+
+    io = StringIO.new
+    c.write_to(io)
+    assert_equal str, io.string
+  end
+
+  test '#write_to with compress option writes compressed data when compress is gzip' do
+    c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+    str = 'sample text'
+    compressed_str = compress(str)
+    c.concat(compressed_str, str.size)
+    c.commit
+
+    assert_equal compressed_str, c.read
+
+    io = StringIO.new
+    c.write_to(io, compress: :gzip)
+    assert_equal compressed_str, io.string
   end
 end

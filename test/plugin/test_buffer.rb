@@ -1,6 +1,8 @@
 require_relative '../helper'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/buffer/memory_chunk'
+require 'fluent/plugin/compressable'
+require 'fluent/plugin/buffer/chunk'
 require 'fluent/event'
 require 'flexmock/test_unit'
 
@@ -18,7 +20,7 @@ module FluentPluginBufferTest
   class DummyMemoryChunk < Fluent::Plugin::Buffer::MemoryChunk
     attr_reader :append_count, :rollbacked, :closed, :purged
     attr_accessor :failing
-    def initialize(metadata)
+    def initialize(metadata, compress: :text)
       super
       @append_count = 0
       @rollbacked = false
@@ -77,7 +79,7 @@ module FluentPluginBufferTest
       return staged, queued
     end
     def generate_chunk(metadata)
-      DummyMemoryChunk.new(metadata)
+      DummyMemoryChunk.new(metadata, compress: @compress)
     end
   end
 end
@@ -865,6 +867,10 @@ class BufferTest < Test::Unit::TestCase
       assert{ @p.stage[@dm1].size == 2 }
       assert @p.stage[@dm1].rollbacked
     end
+
+    test '#compress returns :text' do
+      assert_equal :text, @p.compress
+    end
   end
 
   sub_test_case 'standard format with configuration for test with lower chunk limit size' do
@@ -1197,4 +1203,18 @@ class BufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'when compress is gzip' do
+    setup do
+      @p = create_buffer({'compress' => 'gzip'})
+    end
+
+    test '#compress returns :gzip' do
+      assert_equal :gzip, @p.compress
+    end
+
+    test 'create decompressable chunk' do
+      chunk = @p.generate_chunk(create_metadata)
+      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
+    end
+  end
 end

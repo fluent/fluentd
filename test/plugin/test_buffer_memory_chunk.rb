@@ -1,9 +1,12 @@
 require_relative '../helper'
 require 'fluent/plugin/buffer/memory_chunk'
+require 'fluent/plugin/compressable'
 
 require 'json'
 
 class BufferMemoryChunkTest < Test::Unit::TestCase
+  include Fluent::Plugin::Compressable
+
   setup do
     @c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new)
   end
@@ -261,5 +264,33 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     assert_equal d2.to_json + "\n", lines[1]
     assert_equal d3.to_json + "\n", lines[2]
     assert_equal d4.to_json + "\n", lines[3]
+  end
+
+  test '#write_to writes decompressed data when compress is gzip' do
+    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+    str = 'sample text'
+    compressed_str = compress(str)
+    c.concat(compressed_str, str.size)
+    c.commit
+
+    assert_equal compressed_str, c.read
+
+    io = StringIO.new
+    c.write_to(io)
+    assert_equal str, io.string
+  end
+
+  test '#write_to with compress option writes compressed data when compress is gzip' do
+    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+    str = 'sample text'
+    compressed_str = compress(str)
+    c.concat(compressed_str, str.size)
+    c.commit
+
+    assert_equal compressed_str, c.read
+
+    io = StringIO.new
+    c.write_to(io, compress: :gzip)
+    assert_equal compressed_str, io.string
   end
 end

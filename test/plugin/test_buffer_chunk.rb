@@ -165,4 +165,12 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_equal ['your data', 2], ary[1]
     end
   end
+
+  sub_test_case 'when compress is gzip' do
+    test 'create decompressable chunk' do
+      meta = Object.new
+      chunk = Fluent::Plugin::Buffer::Chunk.new(meta, compress: :gzip)
+      assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
+    end
+  end
 end
