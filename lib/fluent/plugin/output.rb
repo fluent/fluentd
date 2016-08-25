@@ -641,7 +641,17 @@ module Fluent
       end
 
       FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream }
+      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream }
       FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true) }
+
+      def generate_format_proc
+        if @buffer && @buffer.compress == :gzip
+          @time_as_integer ? FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT : FORMAT_COMPRESSED_MSGPACK_STREAM
+        else
+          @time_as_integer ? FORMAT_MSGPACK_STREAM_TIME_INT : FORMAT_MSGPACK_STREAM
+        end
+      end
 
       # metadata_and_data is a Hash of:
       #  (standard format) metadata => event stream
@@ -669,7 +679,7 @@ module Fluent
       end
 
       def handle_stream_with_standard_format(tag, es, enqueue: false)
-        format_proc = @time_as_integer ? FORMAT_MSGPACK_STREAM_TIME_INT : FORMAT_MSGPACK_STREAM
+        format_proc = generate_format_proc
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -697,7 +707,7 @@ module Fluent
             records += 1
           end
         else
-          format_proc = @time_as_integer ? FORMAT_MSGPACK_STREAM_TIME_INT : FORMAT_MSGPACK_STREAM
+          format_proc = generate_format_proc
           data = es
         end
         write_guard do
