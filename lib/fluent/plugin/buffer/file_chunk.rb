@@ -40,8 +40,8 @@ module Fluent
 
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION)
-          super(metadata)
+        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
+          super(metadata, compress: compress)
           @permission = perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil

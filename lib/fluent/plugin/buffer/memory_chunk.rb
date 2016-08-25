@@ -20,7 +20,7 @@ module Fluent
   module Plugin
     class Buffer
       class MemoryChunk < Chunk
-        def initialize(metadata)
+        def initialize(metadata, compress: :text)
           super
           @chunk = ''.force_encoding(Encoding::ASCII_8BIT)
           @chunk_bytes = 0
@@ -80,7 +80,7 @@ module Fluent
           StringIO.open(@chunk, &block)
         end
 
-        def write_to(io)
+        def write_to(io, options = {})
           # re-implementation to optimize not to create StringIO
           io.write @chunk
         end

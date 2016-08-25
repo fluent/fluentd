@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/buffer'
+require 'fluent/plugin/compressable'
 require 'fluent/unique_id'
 require 'fluent/event'
 
@@ -46,7 +47,7 @@ module Fluent
 
         # TODO: CompressedPackedMessage of forward protocol?
 
-        def initialize(metadata)
+        def initialize(metadata, compress: :text)
           super()
           @unique_id = generate_unique_id
           @metadata = metadata
@@ -57,6 +58,8 @@ module Fluent
           @size = 0
           @created_at = Time.now
           @modified_at = Time.now
+
+          extend Decompressable if compress == :gzip
         end
 
         attr_reader :unique_id, :metadata, :created_at, :modified_at, :state
@@ -149,9 +152,29 @@ module Fluent
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def write_to(io)
+        def write_to(io, options = {})
           open do |i|
             IO.copy_stream(i, io)
+          end
+        end
+
+        module Decompressable
+          include Fluent::Plugin::Compressable
+
+          def write_to(io, options = {})
+            unless options[:compress] == :gzip
+              c = decompress(read)
+              if @chunk.is_a?(String)
+                @chunk = c
+              else
+                # reset io(@chunk) to overwrite new chunk
+                @chunk.seek(0, IO::SEEK_SET)
+                @chunk.truncate(0)
+                @chunk.write c
+              end
+            end
+
+            super
           end
         end
       end
