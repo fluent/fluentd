@@ -61,10 +61,6 @@ module Fluent
     end
 
     def after_run
-      if Time.now - @start_time < 1
-        $log.warn "process died within 1 second. exit."
-      end
-
       stop_rpc_server if @rpc_endpoint
     end
 
