@@ -187,6 +187,27 @@ class ForwardInputTest < Test::Unit::TestCase
 
       assert_equal(records, d.emits.sort_by {|a| a[1] })
     end
+
+    def test_json_with_newline
+      d = create_driver
+
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag2", time, {"a"=>2}],
+      ]
+
+      d.expected_emits_length = records.length
+      d.run_timeout = 2
+      d.run do
+        records.each {|tag, _time, record|
+          send_data [tag, _time, record].to_json + "\n"
+        }
+      end
+
+      assert_equal(records, d.emits.sort_by {|a| a[1] })
+    end
   end
 
   class Forward < self

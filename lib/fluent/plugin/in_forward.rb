@@ -551,24 +551,8 @@ module Fluent
       end
 
       # API to register callback for data arrival
-      def on_data(delimiter: nil, &callback)
-        if delimiter.nil?
-          @on_read_callback = callback
-          return
-        end
-
-        # buffering and splitting
-        @buffer = "".force_encoding("ASCII-8BIT")
-        @on_read_callback = ->(data) {
-          @buffer << data
-          pos = 0
-          while i = @buffer.index(delimiter, pos)
-            msg = @buffer[pos...i]
-            callback.call(msg)
-            pos = i + delimiter.length
-          end
-          @buffer.slice!(0, pos) if pos > 0
-        }
+      def on_data(&callback)
+        @on_read_callback = callback
       end
 
       def on_read(data)
