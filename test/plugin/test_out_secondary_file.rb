@@ -45,19 +45,26 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       assert_equal 'dump.bin', d.instance.basename
       assert_equal TMP_DIR, d.instance.directory
       assert_equal :text, d.instance.compress
+      assert_equal false, d.instance.append
     end
 
     test 'should be configurable' do
-      d = create_driver
+      d = create_driver %[
+         directory #{TMP_DIR}
+         basename out_file_test
+         compress gzip
+         append true
+      ]
       assert_equal 'out_file_test', d.instance.basename
       assert_equal TMP_DIR, d.instance.directory
       assert_equal :gzip, d.instance.compress
+      assert_equal true, d.instance.append
     end
 
     test 'should only use in secondary' do
       c = Fluent::Test::Driver::Output.new(Fluent::Plugin::SecondaryFileOutput)
-      assert_raise do
-        c.configure(conf)
+      assert_raise Fluent::ConfigError.new("This plugin can only be used in the <secondary> section") do
+        c.configure(CONFIG)
       end
     end
 
@@ -72,7 +79,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         create_driver %[directory #{TMP_DIR}/test_dir/foo/bar/]
       end
 
-      assert_raise Fluent::ConfigError do
+      assert_raise Fluent::ConfigError.new("out_secondary_file: `#{TMP_DIR}/test_dir/foo/bar/` should be writable") do
         FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
         File.chmod(0555, "#{TMP_DIR}/test_dir")
         create_driver %[directory #{TMP_DIR}/test_dir/foo/bar/]
@@ -108,14 +115,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     assert_equal expect, result
   end
 
-  class DummyMemoryChunk < Fluent::Plugin::Buffer::MemoryChunk; end
-
-  def create_metadata(timekey=nil, tag=nil, variables=nil)
-    Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
-  end
-
-  def create_es_chunk(metadata, es)
-    DummyMemoryChunk.new(metadata).tap do |c|
+  def create_chunk(primary, metadata, es)
+    primary.buffer.generate_chunk(metadata).tap do |c|
       c.concat(es.to_msgpack_stream, es.size) # to_msgpack_stream is standard_format
       c.commit
     end
@@ -123,58 +124,58 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
   sub_test_case 'write' do
     setup do
-      @record = { key: "vlaue" }
-      @time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      @record = { 'key' => 'value' }
+      @time = event_time
       @es = Fluent::OneEventStream.new(@time, @record)
+      @primary = create_primary
+      metadata = @primary.buffer.new_metadata
+      @chunk = create_chunk(@primary, metadata, @es)
     end
 
-    test 'should output compressed file with gzip option' do
-      d = create_driver
-      c = create_es_chunk(create_metadata, @es)
-      path = d.instance.write(c)
+    test 'should output compressed file when compress option is gzip' do
+      d = create_driver(CONFIG, @primary)
+      path = d.instance.write(@chunk)
 
       assert_equal "#{TMP_DIR}/out_file_test.0.gz", path
       check_gzipped_result(path, @es.to_msgpack_stream.force_encoding('ASCII-8BIT'))
     end
 
-    test 'should be output plain text without gzip option' do
-      d = create_driver %[
+    test 'should output plain text when compress option is default(text)' do
+      d = create_driver(%[
         directory #{TMP_DIR}/
         basename out_file_test
-      ]
-      c = create_es_chunk(create_metadata, @es)
-      path = d.instance.write(c)
+      ], @primary)
+
+      path = d.instance.write(@chunk)
 
       assert_equal "#{TMP_DIR}/out_file_test.0", path
       assert_equal File.read(path), @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
     end
 
-    test 'path should be incremental without append option' do
-      d = create_driver
-      c = create_es_chunk(create_metadata, @es)
+    test 'path should be incremental when append option is false' do
+      d = create_driver(CONFIG, @primary)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       5.times do |i|
-        path = d.instance.write(c)
+        path = d.instance.write(@chunk)
         assert_equal "#{TMP_DIR}/out_file_test.#{i}.gz", path
         check_gzipped_result(path, packed_value)
       end
     end
 
-    test 'path should be the same with append option' do
-      d = create_driver CONFIG + %[append true]
-      c = create_es_chunk(create_metadata, @es)
+    test 'path should be unchanged when append option is true' do
+      d = create_driver(CONFIG + %[append true], @primary)
       packed_value = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
       [*1..5].each do |i|
-        path = d.instance.write(c)
+        path = d.instance.write(@chunk)
         assert_equal "#{TMP_DIR}/out_file_test.gz", path
         check_gzipped_result(path, packed_value * i)
       end
     end
   end
 
-  sub_test_case 'placeholder regex' do
+  sub_test_case 'Syntax of placeholders' do
     data(
       tag: '${tag}',
       tag_index: '${tag[0]}',
@@ -185,7 +186,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       variable4: '${key.value}',
       variable5: '${key-value}',
       variable6: '${KEYVALUE}',
-      variable7: '${tags}'
+      variable7: '${tags}',
+      variable8: '${tag${key}', # matched ${key}
     )
     test 'matches with a valid placeholder' do |path|
       assert Fluent::Plugin::SecondaryFileOutput::PLACEHOLDER_REGEX.match(path)
@@ -195,7 +197,10 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       invalid_tag: 'tag',
       invalid_tag2: '{tag}',
       invalid_tag3: '${tag',
+      invalid_tag4: '${tag0]}',
+      invalid_tag5: '${tag[]]}',
       invalid_variable: '${key[0]}',
+      invalid_variable2: '${key{key2}}',
     )
     test "doesn't match with an invalid placeholder" do |path|
       assert !Fluent::Plugin::SecondaryFileOutput::PLACEHOLDER_REGEX.match(path)
@@ -204,25 +209,36 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
   sub_test_case 'path' do
     setup do
-      @record = { key: 'value' }
-      @time = Time.parse('2011-01-02 13:14:15 UTC').to_i
+      @record = { 'key' => 'value' }
+      @time = event_time
       @es = Fluent::OneEventStream.new(@time, @record)
-      @c = create_es_chunk(create_metadata, @es)
+      primary = create_primary
+      m = primary.buffer.new_metadata
+      @c = create_chunk(primary, m, @es)
     end
 
-    test 'normal path with gzip option' do
+    test 'normal path when compress option is gzip' do
       d = create_driver
       path = d.instance.write(@c)
       assert_equal "#{TMP_DIR}/out_file_test.0.gz", path
     end
 
-    test 'normal path without gzip option' do
+    test 'normal path when compress option is default' do
       d = create_driver %[
         directory #{TMP_DIR}
         basename out_file_test
       ]
       path = d.instance.write(@c)
       assert_equal "#{TMP_DIR}/out_file_test.0", path
+    end
+
+    test 'normal path when append option is true' do
+      d = create_driver %[
+        directory #{TMP_DIR}
+        append true
+      ]
+      path = d.instance.write(@c)
+      assert_equal "#{TMP_DIR}/dump.bin", path
     end
 
     data(
@@ -271,7 +287,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      c = create_es_chunk(create_metadata(nil, 'test.dummy'), @es)
+      m = primary.buffer.new_metadata(tag: 'test.dummy')
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/cool_test.dummy.0.gz", path
@@ -286,7 +303,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      c = create_es_chunk(create_metadata(nil, 'test.dummy'), @es)
+      m = primary.buffer.new_metadata(tag: 'test.dummy')
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/cool_test_dummy.0.gz", path
@@ -303,7 +321,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 UTC")), @es)
+      m = primary.buffer.new_metadata(timekey: event_time("2011-01-02 13:14:15 UTC"))
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/cool_2011010222.0.gz", path
@@ -320,7 +339,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      c = create_es_chunk(create_metadata(Time.parse("2011-01-02 13:14:15 UTC")), @es)
+      m = primary.buffer.new_metadata(timekey: event_time("2011-01-02 13:14:15 UTC"))
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/cool_2011010213.0.gz", path
@@ -335,7 +355,8 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      c = create_es_chunk(create_metadata(nil, nil, { "test1".to_sym => "dummy" }), @es)
+      m = primary.buffer.new_metadata(variables: { "test1".to_sym => "dummy" })
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/cool_dummy.0.gz", path
@@ -355,7 +376,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       end
     end
 
-    test 'basename include tag, time format, and variables' do
+    test 'basename includes tag, time format, and variables' do
       primary = create_primary(
         config_element('buffer', 'time,tag,test1', { 'timekey_zone' => '+0000', 'timekey' => 1 })
       )
@@ -366,8 +387,13 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 UTC"), 'test.tag', { "test1".to_sym => "dummy" })
-      c = create_es_chunk(metadata, @es)
+      m = primary.buffer.new_metadata(
+        timekey: event_time("2011-01-02 13:14:15 UTC"),
+        tag: 'test.tag',
+        variables: { "test1".to_sym => "dummy" }
+      )
+
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/cool_2011010213_test.tag_dummy.0.gz", path
@@ -383,8 +409,12 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         compress gzip
       ], primary)
 
-      metadata = create_metadata(Time.parse("2011-01-02 13:14:15 UTC"), 'test.tag', { "test1".to_sym => "dummy" })
-      c = create_es_chunk(metadata, @es)
+      m = primary.buffer.new_metadata(
+        timekey: event_time("2011-01-02 13:14:15 UTC"),
+        tag: 'test.tag',
+        variables: { "test1".to_sym => "dummy" }
+      )
+      c = create_chunk(primary, m, @es)
 
       path = d.instance.write(c)
       assert_equal "#{TMP_DIR}/2011010213/test.tag/dummy/dump.bin.0.gz", path
