@@ -107,6 +107,28 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
   end
 
+  def test_configure_text_compress
+    d = create_driver
+    assert_equal :text, d.instance.compress
+  end
+
+  def test_configure_gzip_compress
+    d = create_driver(CONFIG + %[compress gzip])
+    assert_equal :gzip, d.instance.compress
+    assert_equal :gzip, d.instance.buffer.compress
+  end
+
+  def test_configure_gzip_compress_in_buffer
+    d = create_driver(CONFIG + %[
+      <buffer>
+        type memory
+        compress gzip
+      </buffer>
+    ])
+    assert_equal :gzip, d.instance.compress
+    assert_equal :gzip, d.instance.buffer.compress
+  end
+
   def test_phi_failure_detector
     d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
     node = d.instance.nodes.first
