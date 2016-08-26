@@ -235,6 +235,10 @@ module Fluent
           config_set_desc(name, opts[:desc])
         end
 
+        if opts[:deprecated] && opts[:obsoleted]
+          raise ArgumentError, "#{name}: both of deprecated and obsoleted cannot be specified at once"
+        end
+
         [name, block, opts]
       end
 
