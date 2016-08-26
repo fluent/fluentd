@@ -257,6 +257,8 @@ module Fluent
           log_stderr: false,
           enable_heartbeat: true,
           auto_heartbeat: false,
+          unrecoverable_exit_codes: [2],
+          stop_immediately_at_unrecoverable_exit: true,
           logger: logger,
           log: logger.out,
           log_path: log_path,
@@ -576,6 +578,8 @@ module Fluent
     def main_process(&block)
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
+      configuration_error = false
+
       begin
         block.call
       rescue Fluent::ConfigError
@@ -589,7 +593,7 @@ module Fluent
           console.error "config error", file: @config_path, error: $!.to_s
           console.debug_backtrace
         end
-
+        configuration_error = true
       rescue
         $log.error "unexpected error", error: $!.to_s
         $log.error_backtrace
@@ -603,7 +607,7 @@ module Fluent
         end
       end
 
-      exit! 1
+      exit!(configuration_error ? 2 : 1)
     end
 
     def read_config
