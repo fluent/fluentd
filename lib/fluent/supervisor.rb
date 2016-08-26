@@ -625,7 +625,7 @@ module Fluent
     end
 
     def change_privilege
-      ServerEngine::Daemon.change_privilege(@chuser, @chgroup)
+      ServerEngine::Privilege.change(@chuser, @chgroup)
     end
 
     def init_engine
