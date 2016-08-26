@@ -37,10 +37,6 @@ module Fluent::Plugin
       @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
     end
 
-    def start
-      super
-    end
-
     def filter_stream(tag, es)
       es.each { |time, record|
         begin
