@@ -20,13 +20,16 @@ require 'cgi'
 
 require 'cool.io'
 
-require 'fluent/input'
-require 'fluent/output'
-require 'fluent/filter'
+require 'fluent/plugin/input'
+require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
+require 'fluent/plugin/filter'
 
-module Fluent
+module Fluent::Plugin
   class MonitorAgentInput < Input
-    Plugin.register_input('monitor_agent', self)
+    Fluent::Plugin.register_input('monitor_agent', self)
+
+    helpers :timer, :thread
 
     config_param :bind, :string, default: '0.0.0.0'
     config_param :port, :integer, default: 24220
@@ -204,36 +207,6 @@ module Fluent
       end
     end
 
-    class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, log, &callback)
-        @callback = callback
-        @log = log
-
-        # Avoid long shutdown time
-        @num_call = 0
-        if interval >= 10
-          min_interval = 10
-          @call_interval = interval / 10
-        else
-          min_interval = interval
-          @call_interval = 0
-        end
-
-        super(min_interval, true)
-      end
-
-      def on_timer
-        @num_call += 1
-        if @num_call >= @call_interval
-          @num_call = 0
-          @callback.call
-        end
-      rescue => e
-        @log.error e.to_s
-        @log.error_backtrace
-      end
-    end
-
     def start
       super
 
@@ -248,49 +221,28 @@ module Fluent
       @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
       @srv.mount('/api/config', LTSVConfigMonitorServlet, self)
       @srv.mount('/api/config.json', JSONConfigMonitorServlet, self)
-      @thread = Thread.new {
+      thread_create :in_monitor_agent_servlet do
         @srv.start
-      }
+      end
       if @tag
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
-        @loop = Coolio::Loop.new
         opts = {with_config: false}
-        timer = TimerWatcher.new(@emit_interval, log) {
-          es = MultiEventStream.new
-          now = Engine.now
+        timer_execute(:in_monitor_agent_emit, @emit_interval, repeat: true) {
+          es = Fluent::MultiEventStream.new
+          now = Fluent::Engine.now
           plugins_info_all(opts).each { |record|
             es.add(now, record)
           }
           router.emit_stream(@tag, es)
         }
-        @loop.attach(timer)
-        @thread_for_emit = Thread.new(&method(:run))
       end
-    end
-
-    def run
-      @loop.run
-    rescue => e
-      log.error "unexpected error", error: e.to_s
-      log.error_backtrace
     end
 
     def shutdown
       if @srv
         @srv.shutdown
         @srv = nil
-      end
-      if @thread
-        @thread.join
-        @thread = nil
-      end
-      if @tag
-        @loop.watchers.each { |w| w.detach }
-        @loop.stop
-        @loop = nil
-        @thread_for_emit.join
-        @thread_for_emit = nil
       end
 
       super
@@ -307,17 +259,17 @@ module Fluent
       array = []
 
       # get all input plugins
-      array.concat Engine.root_agent.inputs
+      array.concat Fluent::Engine.root_agent.inputs
 
       # get all output plugins
-      Engine.root_agent.outputs.each { |o|
+      Fluent::Engine.root_agent.outputs.each { |o|
         MonitorAgentInput.collect_children(o, array)
       }
       # get all filter plugins
-      Engine.root_agent.filters.each { |f|
+      Fluent::Engine.root_agent.filters.each { |f|
         MonitorAgentInput.collect_children(f, array)
       }
-      Engine.root_agent.labels.each { |name, l|
+      Fluent::Engine.root_agent.labels.each { |name, l|
         # TODO: Add label name to outputs / filters for identifing plugins
         l.outputs.each { |o| MonitorAgentInput.collect_children(o, array) }
         l.filters.each { |f| MonitorAgentInput.collect_children(f, array) }
@@ -330,7 +282,7 @@ module Fluent
     # from the plugin `pe` recursively
     def self.collect_children(pe, array=[])
       array << pe
-      if pe.is_a?(MultiOutput) && pe.respond_to?(:outputs)
+      if pe.is_a?(Fluent::Plugin::MultiOutput) || pe.is_a?(Fluent::MultiOutput) && pe.respond_to?(:outputs)
         pe.outputs.each {|nop|
           collect_children(nop, array)
         }
@@ -341,10 +293,10 @@ module Fluent
     # try to match the tag and get the info from the matched output plugin
     # TODO: Support output in label
     def plugin_info_by_tag(tag, opts={})
-      matches = Engine.root_agent.event_router.instance_variable_get(:@match_rules)
+      matches = Fluent::Engine.root_agent.event_router.instance_variable_get(:@match_rules)
       matches.each { |rule|
         if rule.match?(tag)
-          if rule.collector.is_a?(Output)
+          if rule.collector.is_a?(Fluent::Plugin::Output) || rule.collector.is_a?(Fluent::Output)
             return get_monitor_info(rule.collector, opts)
           end
         end
