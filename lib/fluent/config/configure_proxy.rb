@@ -216,7 +216,7 @@ module Fluent
         opts.merge!(kwargs)
 
         if block && type
-          raise ArgumentError, "#{self.name}: both of block and type cannot be specified"
+          raise ArgumentError, "#{name}: both of block and type cannot be specified"
         end
 
         begin
@@ -224,7 +224,7 @@ module Fluent
           block ||= @type_lookup.call(type)
         rescue ConfigError
           # override error message
-          raise ArgumentError, "#{self.name}: unknown config_argument type `#{type}'"
+          raise ArgumentError, "#{name}: unknown config_argument type `#{type}'"
         end
 
         if opts.has_key?(:default)
@@ -296,7 +296,7 @@ module Fluent
 
       def config_section(name, **kwargs, &block)
         unless block_given?
-          raise ArgumentError, "#{self.name}: config_section requires block parameter"
+          raise ArgumentError, "#{name}: config_section requires block parameter"
         end
         name = name.to_sym
 
@@ -305,10 +305,10 @@ module Fluent
 
         if sub_proxy.init?
           if sub_proxy.argument && !sub_proxy.defaults.has_key?(sub_proxy.argument.first)
-            raise ArgumentError, "#{self.name}: init is specified, but default value of argument is missing"
+            raise ArgumentError, "#{name}: init is specified, but default value of argument is missing"
           end
           if sub_proxy.params.keys.any?{|param_name| !sub_proxy.defaults.has_key?(param_name)}
-            raise ArgumentError, "#{self.name}: init is specified, but there're parameters without default values"
+            raise ArgumentError, "#{name}: init is specified, but there're parameters without default values"
           end
         end
 
