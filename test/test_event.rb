@@ -402,4 +402,98 @@ module EventTest
       }
     end
   end
+
+  class CompressedMessagePackEventStreamTest < ::Test::Unit::TestCase
+    include Fluent
+    include DeepCopyAssertion
+    include Fluent::Plugin::Compressable
+
+    def setup
+      time = Engine.now
+      @times = [Fluent::EventTime.new(time.sec), Fluent::EventTime.new(time.sec + 1)]
+      @records = [{ 'k' => 'v1', 'n' => 1 }, { 'k' => 'v2', 'n' => 2 }]
+      @entries = ''
+      @times.zip(@records).each do |_time, record|
+        v = ''
+        [_time, record].to_msgpack(v)
+        @entries += compress(v)
+      end
+      @es = CompressedMessagePackEventStream.new(@entries)
+    end
+
+    test 'dup' do
+      dupped = @es.dup
+      assert_kind_of CompressedMessagePackEventStream, dupped
+      assert_not_equal @es.object_id, dupped.object_id
+      assert_duplicated_records @es, dupped
+
+      # After iteration of events (done in assert_duplicated_records),
+      # duplicated event stream still has unpacked objects and correct size
+      dupped = @es.dup
+      assert_equal 2, dupped.instance_eval{ @size }
+    end
+
+    test 'repeatable?' do
+      assert_true @es.repeatable?
+    end
+
+    test 'size' do
+      assert_equal 2, @es.size
+      assert_equal 0, CompressedMessagePackEventStream.new('').size
+    end
+
+    test 'each' do
+      i = 0
+      @es.each do |time, record|
+        assert_equal @times[i], time
+        assert_equal @records[i], record
+        i += 1
+      end
+    end
+
+    test 'slice' do
+      sliced = @es.slice(1,1)
+      assert_kind_of EventStream, sliced
+      assert_equal 1, sliced.size
+
+      sliced.each do |time, record|
+        assert_equal @times[1], time
+        assert_equal 'v2', record['k']
+        assert_equal 2, record['n']
+      end
+
+      sliced = @es.slice(0,2)
+      assert_kind_of EventStream, sliced
+      assert_equal 2, sliced.size
+
+      counter = 0
+      sliced.each do |time, record|
+        assert_equal @times[counter], time
+        assert_equal @records[counter]['k'], record['k']
+        assert_equal @records[counter]['n'], record['n']
+        counter += 1
+      end
+    end
+
+    test 'to_msgpack_stream' do
+      i = 0
+      stream = @es.to_msgpack_stream
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i], time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
+
+    test 'to_compressed_msgpack_stream' do
+      i = 0
+      compressed_stream = @es.to_compressed_msgpack_stream
+      stream = decompress(compressed_stream)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i], time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
+  end
 end

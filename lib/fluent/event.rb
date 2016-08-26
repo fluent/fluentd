@@ -274,6 +274,53 @@ module Fluent
     end
   end
 
+  class CompressedMessagePackEventStream < MessagePackEventStream
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil)
+      super
+      @decompressed_data = nil
+      @compressed_data = data
+    end
+
+    def dup
+      if @unpacked_times
+        self.class.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
+      else
+        self.class.new(@data.dup, nil, @size)
+      end
+    end
+
+    def empty?
+      @data = decompressed
+      super
+    end
+
+    def ensure_unpacked!
+      @data = decompressed
+      super
+    end
+
+    def each(&block)
+      @data = decompressed unless @unpacked_times
+      super
+    end
+
+    def to_msgpack_stream(time_int: false)
+      @data = decompressed
+      super
+    end
+
+    def to_compressed_msgpack_stream(time_int: false)
+      # time_int is always ignored because @data is always packed binary in this class
+      @compressed_data
+    end
+
+    private
+
+    def decompressed
+      @decompressed_data ||= decompress(@data)
+    end
+  end
+
   module ChunkMessagePackEventStreamer
     include MessagePackFactory::Mixin
     # chunk.extend(ChunkEventStreamer)
