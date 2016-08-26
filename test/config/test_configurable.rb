@@ -342,6 +342,12 @@ module ConfigurableSpec
       config_param :size_of_something, :size, default: 128
     end
   end
+  class UnRecommended
+    include Fluent::Configurable
+    attr_accessor :log
+    config_param :key1, :string, default: 'deprecated', deprecated: true
+    config_param :key2, :string, default: 'obsoleted', obsoleted: true
+  end
 end
 
 module Fluent::Config
@@ -1099,6 +1105,40 @@ module Fluent::Config
           assert_equal 'normal', value
         when 'secret_param', 'secret_param2'
           assert_equal 'xxxxxx', value
+        end
+      end
+    end
+    # class UnRecommended
+    #   include Fluent::Configurable
+    #   config_param :key1, :string, default: 'deprecated', deprecated: true
+    #   config_param :key2, :string, default: 'obsoleted', obsoleted: true
+    # end
+    sub_test_case 'deprecated/obsoleted parameters' do
+      test 'both cannot be specified at once' do
+        assert_raise ArgumentError.new("param1: both of deprecated and obsoleted cannot be specified at once") do
+          class Buggy1
+            include Fluent::Configurable
+            config_param :param1, :string, default: '', deprecated: true, obsoleted: true
+          end
+        end
+      end
+
+      test 'warned if deprecated parameter is configured' do
+        obj = ConfigurableSpec::UnRecommended.new
+        obj.log = Fluent::Test::TestLogger.new
+        obj.configure(config_element('ROOT', '', {'key1' => 'yay'}, []))
+
+        assert_equal 'yay', obj.key1
+        first_log = obj.log.logs.first
+        assert{ first_log && first_log.include?("[warn]") && first_log.include?("'key1' paramenter isn't recommended to use now.") }
+      end
+
+      test 'error raised if obsoleted parameter is configured' do
+        obj = ConfigurableSpec::UnRecommended.new
+        obj.log = Fluent::Test::TestLogger.new
+
+        assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed. Don't use it.") do
+          obj.configure(config_element('ROOT', '', {'key2' => 'yay'}, []))
         end
       end
     end
