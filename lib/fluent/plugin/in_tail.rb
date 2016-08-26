@@ -111,6 +111,7 @@ module Fluent::Plugin
                            method(:parse_singleline)
                          end
       @file_perm = system_config.file_permission || FILE_PERMISSION
+      @parser = parser_create(conf: parser_config)
     end
 
     def configure_tag
@@ -144,8 +145,6 @@ module Fluent::Plugin
 
     def start
       super
-
-      @parser = parser_create(conf: @config.elements('parse').first)
 
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
