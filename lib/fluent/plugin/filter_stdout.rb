@@ -34,11 +34,7 @@ module Fluent::Plugin
     def configure(conf)
       compat_parameters_convert(conf, :inject, :formatter)
       super
-    end
-
-    def start
       @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
-      super
     end
 
     def filter_stream(tag, es)
