@@ -384,6 +384,11 @@ module Fluent
         @secondary.start if @secondary
       end
 
+      def after_start
+        super
+        @secondary.after_start if @secondary
+      end
+
       def stop
         @secondary.stop if @secondary
         @buffer.stop if @buffering && @buffer
@@ -922,6 +927,11 @@ module Fluent
           interval = @buffer_config.flush_thread_interval
         end
 
+        while !self.after_started? && !self.stopped?
+          sleep interval
+        end
+        log.debug "enqueue_thread actually running"
+
         begin
           while @output_flush_threads_running
             now_int = Time.now.to_i
@@ -968,6 +978,11 @@ module Fluent
         # If the given clock_id is not supported, Errno::EINVAL is raised.
         clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
         state.next_time = Process.clock_gettime(clock_id) + flush_thread_interval
+
+        while !self.after_started? && !self.stopped?
+          sleep flush_thread_interval
+        end
+        log.debug "flush_thread actually running"
 
         begin
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase

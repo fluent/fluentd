@@ -24,11 +24,11 @@ module Fluent
       include Configurable
       include SystemConfig::Mixin
 
-      State = Struct.new(:configure, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
+      State = Struct.new(:configure, :start, :after_start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
 
       def initialize
         super
-        @_state = State.new(false, false, false, false, false, false, false, false)
+        @_state = State.new(false, false, false, false, false, false, false, false, false)
       end
 
       def has_router?
@@ -37,13 +37,18 @@ module Fluent
 
       def configure(conf)
         super
-        @_state ||= State.new(false, false, false, false, false, false, false, false)
+        @_state ||= State.new(false, false, false, false, false, false, false, false, false)
         @_state.configure = true
         self
       end
 
       def start
         @_state.start = true
+        self
+      end
+
+      def after_start
+        @_state.after_start = true
         self
       end
 
@@ -83,6 +88,10 @@ module Fluent
 
       def started?
         @_state.start
+      end
+
+      def after_started?
+        @_state.after_start
       end
 
       def stopped?

@@ -137,6 +137,9 @@ module Fluent
       lifecycle(desc: true) do |i| # instance
         i.start unless i.started?
       end
+      lifecycle(desc: true) do |i|
+        i.after_start unless i.after_started?
+      end
     end
 
     def flush!
