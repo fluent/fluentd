@@ -89,8 +89,8 @@ module Fluent
 
     attr_reader :nodes
 
-    config_param :port, :integer, default: LISTEN_PORT, obsoleted: true
-    config_param :host, :string, default: nil, obsoleted: true
+    config_param :port, :integer, default: LISTEN_PORT, obsoleted: "User <server> section instead."
+    config_param :host, :string, default: nil, obsoleted: "Use <server> section instead."
 
     def configure(conf)
       super
