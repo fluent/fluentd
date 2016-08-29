@@ -86,9 +86,8 @@ module Fluent
 
     attr_reader :nodes
 
-    # backward compatibility
-    config_param :port, :integer, default: DEFAULT_LISTEN_PORT
-    config_param :host, :string, default: nil
+    config_param :port, :integer, default: LISTEN_PORT, deprecated: "User <server> host xxx </server> instead."
+    config_param :host, :string, default: nil, deprecated: "Use <server> port xxx </server> instead."
 
     attr_accessor :extend_internal_protocol
 

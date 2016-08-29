@@ -158,6 +158,195 @@ module ConfigurableSpec
       config_param :secret_param2, :string, secret: true
     end
   end
+
+  class Example6
+    include Fluent::Configurable
+    config_param :obj1, :hash, default: {}
+    config_param :obj2, :array, default: []
+  end
+
+  module Overwrite
+    class Base
+      include Fluent::Configurable
+
+      config_param :name, :string, alias: :fullname
+      config_param :bool, :bool, alias: :flag
+      config_section :detail, required: false, multi: false, alias: "information" do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class Required < Base
+      config_section :detail, required: true do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class Multi < Base
+      config_section :detail, multi: true do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class Alias < Base
+      config_section :detail, alias: "information2" do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class DefaultOptions < Base
+      config_section :detail do
+        config_param :address, :string, default: "x"
+      end
+    end
+
+    class DetailAddressDefault < Base
+      config_section :detail do
+        config_param :address, :string, default: "y"
+      end
+    end
+
+    class AddParam < Base
+      config_section :detail do
+        config_param :phone_no, :string
+      end
+    end
+
+    class AddParamOverwriteAddress < Base
+      config_section :detail do
+        config_param :address, :string, default: "y"
+        config_param :phone_no, :string
+      end
+    end
+  end
+
+  module Final
+    # Show what is allowed in finalized sections
+    # InheritsFinalized < Finalized < Base
+    class Base
+      include Fluent::Configurable
+      config_section :appendix, multi: false, final: false do
+        config_param :code, :string
+        config_param :name, :string
+        config_param :address, :string, default: ""
+      end
+    end
+
+    class Finalized < Base
+      # to non-finalized section
+      # subclass can change type (code)
+      #          add default value (name)
+      #          change default value (address)
+      #          add field (age)
+      config_section :appendix, final: true do
+        config_param :code, :integer
+        config_set_default :name, "y"
+        config_set_default :address, "-"
+        config_param :age, :integer, default: 10
+      end
+    end
+
+    class InheritsFinalized < Finalized
+      # to finalized section
+      # subclass can add default value (code)
+      #              change default value (age)
+      #              add field (phone_no)
+      config_section :appendix do
+        config_set_default :code, 2
+        config_set_default :age, 0
+        config_param :phone_no, :string
+      end
+    end
+
+    # Show what is allowed/prohibited for finalized sections
+    class FinalizedBase
+      include Fluent::Configurable
+      config_section :appendix, param_name: :apd, init: false, required: true, multi: false, alias: "options", final: true do
+        config_param :name, :string
+      end
+    end
+
+    class FinalizedBase2
+      include Fluent::Configurable
+      config_section :appendix, param_name: :apd, init: false, required: false, multi: false, alias: "options", final: true do
+        config_param :name, :string
+      end
+    end
+
+    # subclass can change init with adding default values
+    class OverwriteInit < FinalizedBase2
+      config_section :appendix, init: true do
+        config_set_default :name, "moris"
+        config_param :code, :integer, default: 0
+      end
+    end
+
+    # subclass cannot change type (name)
+    class Subclass < FinalizedBase
+      config_section :appendix do
+        config_param :name, :integer
+      end
+    end
+
+    # subclass cannot change param_name
+    class OverwriteParamName < FinalizedBase
+      config_section :appendix, param_name: :adx do
+      end
+    end
+
+    # subclass cannot change final (section)
+    class OverwriteFinal < FinalizedBase
+      config_section :appendix, final: false do
+        config_param :name, :integer
+      end
+    end
+
+    # subclass cannot change required
+    class OverwriteRequired < FinalizedBase
+      config_section :appendix, required: false do
+      end
+    end
+
+    # subclass cannot change multi
+    class OverwriteMulti < FinalizedBase
+      config_section :appendix, multi: true do
+      end
+    end
+
+    # subclass cannot change alias
+    class OverwriteAlias < FinalizedBase
+      config_section :appendix, alias: "options2" do
+      end
+    end
+  end
+
+  module OverwriteDefaults
+    class Owner
+      include Fluent::Configurable
+      config_set_default :key1, "V1"
+      config_section :buffer do
+        config_set_default :size_of_something, 1024
+      end
+    end
+
+    class SubOwner < Owner
+      config_section :buffer do
+        config_set_default :size_of_something, 2048
+      end
+    end
+
+    class FlatChild
+      include Fluent::Configurable
+      attr_accessor :owner
+      config_param :key1, :string, default: "v1"
+    end
+  end
+  class UnRecommended
+    include Fluent::Configurable
+    attr_accessor :log
+    config_param :key1, :string, default: 'deprecated', deprecated: "key1 will be removed."
+    config_param :key2, :string, default: 'obsoleted', obsoleted: "key2 has been removed."
+  end
 end
 
 module Fluent::Config
@@ -737,6 +926,88 @@ module Fluent::Config
           assert_equal 'normal', value
         when 'secret_param', 'secret_param2'
           assert_equal 'xxxxxx', value
+        end
+      end
+    end
+    sub_test_case 'non-required options for config_param' do
+      test 'desc must be a string if specified' do
+        assert_raise ArgumentError.new("key: desc must be a String, but Symbol") do
+          class InvalidDescClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', desc: :invalid_description
+          end
+        end
+      end
+      test 'alias must be a symbol if specified' do
+        assert_raise ArgumentError.new("key: alias must be a Symbol, but String") do
+          class InvalidAliasClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', alias: 'yay'
+          end
+        end
+      end
+      test 'deprecated must be a string if specified' do
+        assert_raise ArgumentError.new("key: deprecated must be a String, but TrueClass") do
+          class InvalidDeprecatedClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', deprecated: true
+          end
+        end
+      end
+      test 'obsoleted must be a string if specified' do
+        assert_raise ArgumentError.new("key: obsoleted must be a String, but TrueClass") do
+          class InvalidObsoletedClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', obsoleted: true
+          end
+        end
+      end
+      test 'value_type for hash must be a symbol' do
+        assert_raise ArgumentError.new("key: value_type must be a Symbol, but String") do
+          class InvalidValueTypeOfHashClass
+            include Fluent::Configurable
+            config_param :key, :hash, value_type: 'yay'
+          end
+        end
+      end
+      test 'value_type for array must be a symbol' do
+        assert_raise ArgumentError.new("key: value_type must be a Symbol, but String") do
+          class InvalidValueTypeOfArrayClass
+            include Fluent::Configurable
+            config_param :key, :array, value_type: 'yay'
+          end
+        end
+      end
+    end
+    sub_test_case 'enum parameters' do
+      test 'list must be specified as an array of symbols'
+    end
+    sub_test_case 'deprecated/obsoleted parameters' do
+      test 'both cannot be specified at once' do
+        assert_raise ArgumentError.new("param1: both of deprecated and obsoleted cannot be specified at once") do
+          class Buggy1
+            include Fluent::Configurable
+            config_param :param1, :string, default: '', deprecated: 'yay', obsoleted: 'foo!'
+          end
+        end
+      end
+
+      test 'warned if deprecated parameter is configured' do
+        obj = ConfigurableSpec::UnRecommended.new
+        obj.log = Fluent::Test::TestLogger.new
+        obj.configure(Fluent::Config::Element.new('ROOT', '', {'key1' => 'yay'}, []))
+
+        assert_equal 'yay', obj.key1
+        first_log = obj.log.logs.first
+        assert{ first_log && first_log.include?("[warn]") && first_log.include?("'key1' parameter is deprecated: key1 will be removed.") }
+      end
+
+      test 'error raised if obsoleted parameter is configured' do
+        obj = ConfigurableSpec::UnRecommended.new
+        obj.log = Fluent::Test::TestLogger.new
+
+        assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed: key2 has been removed.") do
+          obj.configure(Fluent::Config::Element.new('ROOT', '', {'key2' => 'yay'}, []))
         end
       end
     end
