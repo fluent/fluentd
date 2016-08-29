@@ -144,7 +144,7 @@ module Fluent
           self
         end
 
-        def read
+        def read(**kwargs)
           raise NotImplementedError, "Implement this method in child class"
         end
 
@@ -172,7 +172,18 @@ module Fluent
                 @chunk.truncate(0)
                 @chunk.write c
               end
+          def read(**kwargs)
+            return super if kwargs[:compress] == :gzip
+
+            # avoid creating duplicated IO
+            if @chunk.is_a?(IO)
+              # reset io(@chunk) to read
+              @chunk.seek(0, IO::SEEK_SET)
+              decompress('', io: @chunk) # not to call IO#read
+            else
+              decompress(super)
             end
+          end
 
             super
           end

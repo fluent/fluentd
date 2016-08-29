@@ -28,9 +28,9 @@ module Fluent
       end
 
       # compressed_data is String like `compress(data1) + compress(data2) + ... + compress(dataN)`
-      def decompress(compressed_data)
-        return compressed_data if compressed_data.empty?
-        io = StringIO.new(compressed_data)
+      # https://www.ruby-forum.com/topic/971591#979503
+      def decompress(compressed_data, **kargs)
+        io = kargs[:io] || StringIO.new(compressed_data)
         ret = ''
 
         loop do

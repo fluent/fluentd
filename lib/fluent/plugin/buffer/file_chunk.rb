@@ -133,7 +133,7 @@ module Fluent
           File.unlink(@path, @meta_path)
         end
 
-        def read
+        def read(**kwargs)
           @chunk.seek(0, IO::SEEK_SET)
           @chunk.read
         end

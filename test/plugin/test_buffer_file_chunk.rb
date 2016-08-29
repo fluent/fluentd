@@ -779,7 +779,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
     c.concat(compressed_str, str.size)
     c.commit
 
-    assert_equal compressed_str, c.read
+    assert_equal str, c.read
+    assert_equal compressed_str, c.read(compress: :gzip)
 
     io = StringIO.new
     c.write_to(io)
@@ -793,7 +794,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
     c.concat(compressed_str, str.size)
     c.commit
 
-    assert_equal compressed_str, c.read
+    assert_equal str, c.read
+    assert_equal compressed_str, c.read(compress: :gzip)
 
     io = StringIO.new
     c.write_to(io, compress: :gzip)

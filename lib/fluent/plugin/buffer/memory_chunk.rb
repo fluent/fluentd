@@ -72,7 +72,7 @@ module Fluent
           true
         end
 
-        def read
+        def read(**kwargs)
           @chunk
         end
 

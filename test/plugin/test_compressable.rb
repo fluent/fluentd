@@ -19,6 +19,12 @@ class CompressableTest < Test::Unit::TestCase
       assert_equal str, decompress(compressed_str)
     end
 
+    test 'decompress compressed data with io option' do
+      str = 'text data'
+      compressed_str = compress(str)
+      assert_equal str, decompress('', io: StringIO.new(compressed_str))
+    end
+
     test 'decompress multiple compressed data' do
       str1 = 'text data'
       str2 = 'text data2'
