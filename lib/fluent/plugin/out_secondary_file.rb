@@ -29,7 +29,7 @@ module Fluent::Plugin
 
     desc "The directory path of the output file."
     config_param :directory, :string
-    desc "The baseanme of the output file."
+    desc "The basename of the output file."
     config_param :basename, :string, default: "dump.bin"
     desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, default: false
@@ -42,6 +42,10 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "This plugin can only be used in the <secondary> section"
       end
 
+      if @basename.include?("/")
+        raise Fluent::ConfigError, "basename should not include `/`"
+      end
+
       @path_without_suffix = File.join(@directory, @basename)
       validate_compatible_with_primary_buffer!(@path_without_suffix)
 
@@ -52,7 +56,7 @@ module Fluent::Plugin
                   ".gz"
                 end
 
-      test_path = generate_path(File.join(@directory, Time.now.strftime("%Y%m%d")))
+      test_path = @path_without_suffix
       unless Fluent::FileUtil.writable_p?(test_path)
         raise Fluent::ConfigError, "out_secondary_file: `#{@directory}` should be writable"
       end

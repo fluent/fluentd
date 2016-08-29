@@ -68,6 +68,15 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       end
     end
 
+    test 'basename should not include `/`' do
+      assert_raise Fluent::ConfigError.new("basename should not include `/`") do
+        create_driver %[
+          directory #{TMP_DIR}
+          basename out/file
+        ]
+      end
+    end
+
     test 'directory should be writable' do
       assert_nothing_raised do
         create_driver %[directory #{TMP_DIR}/test_dir/foo/bar/]
