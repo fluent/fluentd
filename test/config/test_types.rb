@@ -72,9 +72,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal :val, Config::ENUM_TYPE.call('val', {list: [:val, :value, :v]})
       assert_equal :v, Config::ENUM_TYPE.call('v', {list: [:val, :value, :v]})
       assert_equal :value, Config::ENUM_TYPE.call('value', {list: [:val, :value, :v]})
-      assert_raises(Fluent::ConfigError){ Config::ENUM_TYPE.call('x', {list: [:val, :value, :v]}) }
-      assert_raises(RuntimeError){ Config::ENUM_TYPE.call('val', {}) }
-      assert_raises(RuntimeError){ Config::ENUM_TYPE.call('val', {list: ["val", "value", "v"]}) }
+      assert_raises(Fluent::ConfigError.new("valid options are val,value,v but got x")){ Config::ENUM_TYPE.call('x', {list: [:val, :value, :v]}) }
+      assert_raises(RuntimeError.new("Plugin BUG: config type 'enum' requires :list of symbols")){ Config::ENUM_TYPE.call('val', {}) }
+      assert_raises(RuntimeError.new("Plugin BUG: config type 'enum' requires :list of symbols")){ Config::ENUM_TYPE.call('val', {list: ["val", "value", "v"]}) }
     end
 
     test 'integer' do
@@ -138,6 +138,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
       assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('{"x":"1s","y":"1m","z":"1h"}', {value_type: :time}))
       assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('x:1s,y:1m,z:1h',               {value_type: :time}))
+
+      assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::HASH_TYPE.call("x:1,y:2", {value_type: :foo}) }
     end
 
     test 'array' do
@@ -162,6 +164,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
       }
       assert_equal(["1","2"], Config::ARRAY_TYPE.call('["1","2"]', array_options))
       assert_equal(["3"], Config::ARRAY_TYPE.call('["3"]', array_options))
+
+      assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::ARRAY_TYPE.call("1,2", {value_type: :foo}) }
     end
   end
 end

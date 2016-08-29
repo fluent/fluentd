@@ -345,8 +345,8 @@ module ConfigurableSpec
   class UnRecommended
     include Fluent::Configurable
     attr_accessor :log
-    config_param :key1, :string, default: 'deprecated', deprecated: true
-    config_param :key2, :string, default: 'obsoleted', obsoleted: true
+    config_param :key1, :string, default: 'deprecated', deprecated: "key1 will be removed."
+    config_param :key2, :string, default: 'obsoleted', obsoleted: "key2 has been removed."
   end
 end
 
@@ -1108,17 +1108,65 @@ module Fluent::Config
         end
       end
     end
-    # class UnRecommended
-    #   include Fluent::Configurable
-    #   config_param :key1, :string, default: 'deprecated', deprecated: true
-    #   config_param :key2, :string, default: 'obsoleted', obsoleted: true
-    # end
+    sub_test_case 'non-required options for config_param' do
+      test 'desc must be a string if specified' do
+        assert_raise ArgumentError.new("key: desc must be a String, but Symbol") do
+          class InvalidDescClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', desc: :invalid_description
+          end
+        end
+      end
+      test 'alias must be a symbol if specified' do
+        assert_raise ArgumentError.new("key: alias must be a Symbol, but String") do
+          class InvalidAliasClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', alias: 'yay'
+          end
+        end
+      end
+      test 'deprecated must be a string if specified' do
+        assert_raise ArgumentError.new("key: deprecated must be a String, but TrueClass") do
+          class InvalidDeprecatedClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', deprecated: true
+          end
+        end
+      end
+      test 'obsoleted must be a string if specified' do
+        assert_raise ArgumentError.new("key: obsoleted must be a String, but TrueClass") do
+          class InvalidObsoletedClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', obsoleted: true
+          end
+        end
+      end
+      test 'value_type for hash must be a symbol' do
+        assert_raise ArgumentError.new("key: value_type must be a Symbol, but String") do
+          class InvalidValueTypeOfHashClass
+            include Fluent::Configurable
+            config_param :key, :hash, value_type: 'yay'
+          end
+        end
+      end
+      test 'value_type for array must be a symbol' do
+        assert_raise ArgumentError.new("key: value_type must be a Symbol, but String") do
+          class InvalidValueTypeOfArrayClass
+            include Fluent::Configurable
+            config_param :key, :array, value_type: 'yay'
+          end
+        end
+      end
+    end
+    sub_test_case 'enum parameters' do
+      test 'list must be specified as an array of symbols'
+    end
     sub_test_case 'deprecated/obsoleted parameters' do
       test 'both cannot be specified at once' do
         assert_raise ArgumentError.new("param1: both of deprecated and obsoleted cannot be specified at once") do
           class Buggy1
             include Fluent::Configurable
-            config_param :param1, :string, default: '', deprecated: true, obsoleted: true
+            config_param :param1, :string, default: '', deprecated: 'yay', obsoleted: 'foo!'
           end
         end
       end
@@ -1130,14 +1178,14 @@ module Fluent::Config
 
         assert_equal 'yay', obj.key1
         first_log = obj.log.logs.first
-        assert{ first_log && first_log.include?("[warn]") && first_log.include?("'key1' paramenter isn't recommended to use now.") }
+        assert{ first_log && first_log.include?("[warn]") && first_log.include?("'key1' parameter is deprecated: key1 will be removed.") }
       end
 
       test 'error raised if obsoleted parameter is configured' do
         obj = ConfigurableSpec::UnRecommended.new
         obj.log = Fluent::Test::TestLogger.new
 
-        assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed. Don't use it.") do
+        assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed: key2 has been removed.") do
           obj.configure(config_element('ROOT', '', {'key2' => 'yay'}, []))
         end
       end

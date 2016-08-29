@@ -208,6 +208,12 @@ module Fluent
         end
       end
 
+      def option_value_type!(name, opts, key, klass)
+        if opts.has_key?(key) && !opts[key].is_a?(klass)
+          raise ArgumentError, "#{name}: #{key} must be a #{klass}, but #{opts[key].class}"
+        end
+      end
+
       def parameter_configuration(name, type = nil, **kwargs, &block)
         name = name.to_sym
 
@@ -226,6 +232,17 @@ module Fluent
           # override error message
           raise ArgumentError, "#{name}: unknown config_argument type `#{type}'"
         end
+
+        option_value_type!(name, opts, :desc, String)
+        option_value_type!(name, opts, :alias, Symbol)
+        option_value_type!(name, opts, :deprecated, String)
+        option_value_type!(name, opts, :obsoleted, String)
+        if type == :enum
+          if !opts.has_key?(:list) || !opts[:list].all?{|v| v.is_a?(Symbol) }
+            raise ArgumentError, "#{name}: enum parameter requires :list of Symbols"
+          end
+        end
+        option_value_type!(name, opts, :value_type, Symbol) # hash, array
 
         if opts.has_key?(:default)
           config_set_default(name, opts[:default])
