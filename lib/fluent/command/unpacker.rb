@@ -40,7 +40,7 @@ HELP
   end
 
   def call
-    command_class = Command.const_get(command)
+    command_class = UnpackerCommand.const_get(command)
     command_class.new(@argv).call
   end
 
@@ -62,17 +62,17 @@ HELP
   end
 end
 
-module Command
+module UnpackerCommand
   class Base
     def initialize(argv = ARGV)
       @argv = argv
 
-      @options = {}
+      @options = { plugin: [] }
       @opt_parser = OptionParser.new do |opt|
         opt.separator 'Options:'
 
-        opt.on('-p DIR', '--plugins', 'add library path') do |v|
-          @options[:plugins] = v
+        opt.on('-p DIR', '--plugin', 'add library path') do |v|
+          @options[:plugin] << v
         end
       end
     end
@@ -90,15 +90,15 @@ module Command
     end
 
     def parse_options!
-      ret = @opt_parser.parse(@argv)
+      @opt_parser.parse!(@argv)
 
-      if @options[:plugins] && !Dir.exist?(@options[:plugins])
-        usage "Directory #{@options[:plugins]} doesn't exist"
-      elsif @options[:plugins]
-        Fluent::Plugin.add_plugin_dir(@options[:plugins])
+      if !@options[:plugin].empty? && (dir = @options[:plugin].find { |d| !Dir.exist?(d) })
+        usage "Directory #{dir} doesn't exist"
+      elsif !@options[:plugin].empty?
+        @options[:plugin].each do |d|
+          Fluent::Plugin.add_plugin_dir(d)
+        end
       end
-
-      ret
     end
   end
 
@@ -114,7 +114,8 @@ module Command
       @params = {}
       if i = @argv.index('--')
         @params = @argv[i+1..-1].reduce({}) do |acc, e|
-          k, v = e[1..-1].split('=')
+          k, v = e.split('=')
+          usage "#{e} is invalid. valid format is like `key=value`" unless v
           acc.merge(k => v)
         end
         @argv = @argv[0...i]
@@ -156,18 +157,18 @@ module Command
     def initialize(argv = ARGV)
       super
       @options.merge!(DEFAULT_HEAD_OPTIONS)
-      @path = parse_options!
+      parse_options!
     end
 
     def call
       @formatter = lookup_formatter(@options[:format], @params)
 
       File.open(@path, 'r') do |io|
-        i = 0
-        MessagePack::Unpacker.new(io).each do |(time, record)|
+        i = 1
+        Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
+          print @formatter.format(@path, time, record) # tag is use for tag
           break if i == @options[:count]
           i += 1
-          puts @formatter.format(@path, time, record) # tag is use for tag
         end
       end
     end
@@ -179,18 +180,17 @@ module Command
         @options[:count] = v.to_i
       end
 
-      path = super
+      super
 
       case
-      when path.empty?
+      when @argv.empty?
         usage 'Path is required'
-      when !File.exist?(path.first)
-        usage "#{path.first} is not found"
       when @options[:count] < 1
         usage "illegal line count -- #{@options[:count]}"
-      else
-        path.first
       end
+
+      @path = @argv.first
+      usage "#{@path} is not found" unless File.exist?(@path)
     end
   end
 
@@ -199,24 +199,25 @@ module Command
 
     def initialize(argv = ARGV)
       super
-      @path = parse_options!
+      parse_options!
     end
 
     def call
       @formatter = lookup_formatter(@options[:format], @params)
 
       File.open(@path, 'r') do |io|
-        MessagePack::Unpacker.new(io).each do |(time, record)|
-          puts @formatter.format(@path, time, record) # @path is used for tag
+        Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
+          print @formatter.format(@path, time, record) # @path is used for tag
         end
       end
     end
 
     def parse_options!
-      path = super
-      usage 'Path is required' if path.empty?
-      usage "#{path.first} is not found" unless File.exist?(path.first)
-      path.first
+      super
+      usage 'Path is required' if @argv.empty?
+
+      @path = @argv.first
+      usage "#{@path} is not found" unless File.exist?(@path)
     end
   end
 
@@ -229,22 +230,19 @@ module Command
     def call
       prefix = Fluent::Plugin::FORMATTER_REGISTRY.dir_search_prefix || 'formatter_'
 
-      new_path = Fluent::Plugin::FORMATTER_REGISTRY.paths.last
-      Dir.glob("#{new_path}/#{prefix}*").each do |e|
-        require File.absolute_path(e)
-      end
-
-      $LOAD_PATH.map do |lp|
-        Dir.glob("#{lp}/#{prefix}*").each do |e|
-          require e
+      plugin_dirs = @options[:plugin]
+      unless plugin_dirs.empty?
+        plugin_dirs.each do |d|
+          Dir.glob("#{d}/#{prefix}*.rb").each do |path|
+            require File.absolute_path(path)
+          end
         end
       end
 
-      specs = Gem::Specification.flat_map { |spec| spec.lib_files }.select do |e|
-        e.include?(prefix)
-      end
-      specs.each do |e|
-        require File.absolute_path(e)
+      $LOAD_PATH.map do |lp|
+        Dir.glob("#{lp}/#{prefix}*.rb").each do |path|
+          require path
+        end
       end
 
       puts Fluent::Plugin::FORMATTER_REGISTRY.map.keys
