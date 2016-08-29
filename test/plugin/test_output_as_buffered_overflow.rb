@@ -70,6 +70,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       @i = create_output()
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#emit_events raises error when buffer is full' do
@@ -108,6 +109,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       @i = create_output()
       @i.configure(config_element('ROOT','',{'log_level' => 'debug'},[config_element('buffer','tag',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#emit_events blocks until any queues are flushed' do
@@ -169,6 +171,7 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       @i = create_output()
       @i.configure(config_element('ROOT','',{'log_level' => 'debug'},[config_element('buffer','tag',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#emit_events will success by dropping oldest chunk' do

@@ -169,6 +169,10 @@ EOC
       assert_equal [true], @ra.filters.map{|i| i.started? }
       assert_equal [true, true, true], @ra.outputs.map{|i| i.started? }
 
+      assert_equal [true], @ra.inputs.map{|i| i.after_started? }
+      assert_equal [true], @ra.filters.map{|i| i.after_started? }
+      assert_equal [true, true, true], @ra.outputs.map{|i| i.after_started? }
+
       @ra.shutdown
       assert_equal [true], @ra.inputs.map{|i| i.stopped? }
       assert_equal [true], @ra.filters.map{|i| i.stopped? }

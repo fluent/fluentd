@@ -127,6 +127,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
       @i.start
+      @i.after_start
 
       assert_equal :exponential_backoff, @i.buffer_config.retry_type
       assert_equal 1, @i.buffer_config.retry_wait
@@ -160,6 +161,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -201,6 +203,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -255,6 +258,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -344,6 +348,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -424,6 +429,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -469,6 +475,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -563,6 +570,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -660,6 +668,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -730,6 +739,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:write){|chunk| written_tags << chunk.metadata.tag; raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 
@@ -797,6 +807,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       @i.register(:format){|tag,time,record| [tag,time.to_i,record].to_json + "\n" }
       @i.register(:try_write){|chunk| raise "yay, your #write must fail" }
       @i.start
+      @i.after_start
 
       @i.interrupt_flushes
 

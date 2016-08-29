@@ -64,6 +64,7 @@ module Fluent
       # num_waits is for checking thread status. This will be removed after improved plugin API
       def run(num_waits = 10, &block)
         @instance.start
+        @instance.after_start
         begin
           # wait until thread starts
           num_waits.times { sleep 0.05 }
