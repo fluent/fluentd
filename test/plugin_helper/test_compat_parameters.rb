@@ -186,6 +186,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i = DummyO4.new
       @i.configure(conf)
       @i.start
+      @i.after_start
 
       assert_equal 'file', @i.buffer_config[:@type]
       assert_equal 10, @i.buffer_config.flush_thread_count
@@ -219,6 +220,7 @@ class CompatParameterTest < Test::Unit::TestCase
       @i = DummyO4.new
       @i.configure(conf)
       @i.start
+      @i.after_start
 
       assert_equal 'file', @i.buffer_config[:@type]
       assert_equal 10, @i.buffer_config.flush_thread_count

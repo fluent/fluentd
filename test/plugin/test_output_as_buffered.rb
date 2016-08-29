@@ -145,6 +145,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
       logs = @i.log.out.logs.dup
       @i.start
+      @i.after_start
       assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
     end
 
@@ -154,6 +155,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       logs = @i.log.out.logs.dup
 
       @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
+      @i.after_start
       assert_equal ['key1', 'key2', 'key3', 'key4'], @i.chunk_keys
 
       assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
@@ -164,6 +166,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
       logs = @i.log.out.logs.dup
       @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
+      @i.after_start
       assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
     end
 
@@ -172,6 +175,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
       logs = @i.log.out.logs.dup
       @i.start
+      @i.after_start
       assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
     end
   end
@@ -187,6 +191,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#start does not create enqueue thread, but creates flush threads' do
@@ -289,6 +294,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -398,6 +404,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#start does not create enqueue thread, but creates flush threads' do
@@ -491,6 +498,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#configure raises config error if timekey is not specified' do
@@ -706,6 +714,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test 'default flush_mode is set to :interval' do
@@ -922,6 +931,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test 'default flush_mode is set to :interval' do
@@ -1134,6 +1144,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
 
       assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
@@ -1150,6 +1161,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
 
       assert_equal :lazy, @i.instance_eval{ @flush_mode }
     end
@@ -1168,6 +1180,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:delayed)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#format is called for each event streams' do

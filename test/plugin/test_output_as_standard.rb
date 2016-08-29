@@ -85,6 +85,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element())
       @i.start
+      @i.after_start
 
       m = create_metadata()
       es = test_event_stream
@@ -99,6 +100,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer"=>"true"}))
       @i.start
+      @i.after_start
 
       m = create_metadata()
       es = test_event_stream
@@ -115,6 +117,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m = create_metadata(tag: "mytag.test")
       es = test_event_stream
@@ -129,6 +132,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer"=>"true"},[config_element('buffer','tag',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m = create_metadata(tag: "mytag.test")
       es = test_event_stream
@@ -145,6 +149,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey" => "60",'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
       m2 = create_metadata(timekey: Time.parse('2016-04-21 17:20:00 -0700').to_i)
@@ -177,6 +182,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','time',{"timekey" => "60",'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
       m2 = create_metadata(timekey: Time.parse('2016-04-21 17:20:00 -0700').to_i)
@@ -211,6 +217,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
       es1 = Fluent::MultiEventStream.new
@@ -238,6 +245,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','key,name',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
       es1 = Fluent::MultiEventStream.new
@@ -268,6 +276,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element())
       @i.start
+      @i.after_start
 
       m = create_metadata()
       es = test_event_stream
@@ -285,6 +294,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m = create_metadata(tag: "mytag.test")
       es = test_event_stream
@@ -301,6 +311,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey" => "60",'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
       m2 = create_metadata(timekey: Time.parse('2016-04-21 17:20:00 -0700').to_i)
@@ -336,6 +347,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
       es1 = Fluent::MultiEventStream.new

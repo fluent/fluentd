@@ -88,6 +88,9 @@ module Fluent
             @instance.start
             instance_hook_after_started
           end
+          unless @instance.after_started?
+            @instance.after_start
+          end
         end
 
         def instance_hook_after_started

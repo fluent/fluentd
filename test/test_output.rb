@@ -204,6 +204,7 @@ module FluentOutputTest
       test "emit with invalid event" do
         d = create_driver
         d.instance.start
+        d.instance.after_start
         assert_raise ArgumentError, "time must be a Fluent::EventTime (or Integer)" do
           d.instance.emit_events('test', OneEventStream.new('string', 10))
         end

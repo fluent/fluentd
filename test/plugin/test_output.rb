@@ -192,6 +192,9 @@ class OutputTest < Test::Unit::TestCase
       assert !@i.started?
       @i.start
       assert @i.started?
+      assert !@i.after_started?
+      @i.after_start
+      assert @i.after_started?
       assert !@i.stopped?
       @i.stop
       assert @i.stopped?
@@ -329,6 +332,7 @@ class OutputTest < Test::Unit::TestCase
       i.register(:process){|tag, es| process_called = true }
       i.configure(config_element())
       i.start
+      i.after_start
 
       t = event_time()
       i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
@@ -344,6 +348,7 @@ class OutputTest < Test::Unit::TestCase
       i.register(:format){|tag, time, record| format_called_times += 1; '' }
       i.configure(config_element())
       i.start
+      i.after_start
 
       t = event_time()
       i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
@@ -364,6 +369,7 @@ class OutputTest < Test::Unit::TestCase
       i.configure(config_element())
       i.register(:prefer_buffered_processing){ false } # delayed decision is possible to change after (output's) configure
       i.start
+      i.after_start
 
       assert !i.prefer_buffered_processing
 
@@ -389,6 +395,7 @@ class OutputTest < Test::Unit::TestCase
       i.configure(config_element())
       i.register(:prefer_buffered_processing){ true } # delayed decision is possible to change after (output's) configure
       i.start
+      i.after_start
 
       assert i.prefer_buffered_processing
 
@@ -408,6 +415,7 @@ class OutputTest < Test::Unit::TestCase
 
       i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {"flush_mode" => "immediate"})]))
       i.start
+      i.after_start
 
       t = event_time()
       i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
@@ -427,6 +435,7 @@ class OutputTest < Test::Unit::TestCase
 
       i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {"flush_mode" => "immediate"})]))
       i.start
+      i.after_start
 
       t = event_time()
       i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
@@ -449,6 +458,7 @@ class OutputTest < Test::Unit::TestCase
       i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {"flush_mode" => "immediate"})]))
       i.register(:prefer_delayed_commit){ false } # delayed decision is possible to change after (output's) configure
       i.start
+      i.after_start
 
       assert !i.prefer_delayed_commit
 
@@ -474,6 +484,7 @@ class OutputTest < Test::Unit::TestCase
       i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {"flush_mode" => "immediate"})]))
       i.register(:prefer_delayed_commit){ true } # delayed decision is possible to change after (output's) configure
       i.start
+      i.after_start
 
       assert i.prefer_delayed_commit
 
@@ -542,6 +553,7 @@ class OutputTest < Test::Unit::TestCase
       @i.register(:process){|tag, es| ary << [tag, es] }
       @i.configure(config_element())
       @i.start
+      @i.after_start
 
       t = event_time()
       es = Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ])
