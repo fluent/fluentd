@@ -80,7 +80,7 @@ module Fluent
           StringIO.open(@chunk, &block)
         end
 
-        def write_to(io, options = {})
+        def write_to(io, **kwargs)
           # re-implementation to optimize not to create StringIO
           io.write @chunk
         end

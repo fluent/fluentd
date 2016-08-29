@@ -152,7 +152,7 @@ module Fluent
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def write_to(io, options = {})
+        def write_to(io, **kwargs)
           open do |i|
             IO.copy_stream(i, io)
           end
@@ -161,17 +161,6 @@ module Fluent
         module Decompressable
           include Fluent::Plugin::Compressable
 
-          def write_to(io, options = {})
-            unless options[:compress] == :gzip
-              c = decompress(read)
-              if @chunk.is_a?(String)
-                @chunk = c
-              else
-                # reset io(@chunk) to overwrite new chunk
-                @chunk.seek(0, IO::SEEK_SET)
-                @chunk.truncate(0)
-                @chunk.write c
-              end
           def read(**kwargs)
             return super if kwargs[:compress] == :gzip
 
@@ -185,7 +174,8 @@ module Fluent
             end
           end
 
-            super
+          def write_to(io, **kwargs)
+            io.write(read(kwargs))
           end
         end
       end
