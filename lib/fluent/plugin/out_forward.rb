@@ -89,22 +89,11 @@ module Fluent
 
     attr_reader :nodes
 
-    # backward compatibility
-    config_param :port, :integer, default: LISTEN_PORT
-    config_param :host, :string, default: nil
+    config_param :port, :integer, default: LISTEN_PORT, obsoleted: "User <server> section instead."
+    config_param :host, :string, default: nil, obsoleted: "Use <server> section instead."
 
     def configure(conf)
       super
-
-      # backward compatibility
-      if host = conf['host']
-        log.warn "'host' option in forward output is obsoleted. Use '<server> host xxx </server>' instead."
-        port = conf['port']
-        port = port ? port.to_i : LISTEN_PORT
-        element = conf.add_element('server')
-        element['host'] = host
-        element['port'] = port.to_s
-      end
 
       recover_sample_size = @recover_wait / @heartbeat_interval
 
