@@ -125,7 +125,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         compress gzip
       </buffer>
     ])
-    assert_equal :gzip, d.instance.compress
+    assert_equal :text, d.instance.compress
     assert_equal :gzip, d.instance.buffer.compress
   end
 

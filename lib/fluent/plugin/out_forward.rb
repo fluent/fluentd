@@ -140,6 +140,12 @@ module Fluent
         end
       end
 
+      if @compress == :gzip && @buffer.compress == :text
+        @buffer.compress = :gzip
+      elsif @compress == :text && @buffer.compress == :gzip
+        log.info "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
+      end
+
       if @nodes.empty?
         raise ConfigError, "forward output plugin requires at least one <server> is required"
       end
