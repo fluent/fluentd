@@ -147,11 +147,11 @@ module Fluent
             #             because they are expected to be removed entirely sometime in the future.
             # Obsoleted: These obsolete features have been entirely removed from JavaScript and can no longer be used.
             if opts[:deprecated]
-              logger.warn "'#{name}' paramenter isn't recommended to use now."
+              logger.warn "'#{name}' parameter is deprecated: #{opts[:deprecated]}"
             end
             if opts[:obsoleted]
               logger.error "config error in:\n#{conf}" if logger
-              raise ObsoletedParameterError, "'#{name}' parameter is already removed. Don't use it." + section_stack
+              raise ObsoletedParameterError, "'#{name}' parameter is already removed: #{opts[:obsoleted]}" + section_stack
             end
           end
           unless section_params.has_key?(varname)
