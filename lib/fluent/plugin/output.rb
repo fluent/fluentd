@@ -928,7 +928,7 @@ module Fluent
         end
 
         while !self.after_started? && !self.stopped?
-          sleep interval
+          sleep 0.5
         end
         log.debug "enqueue_thread actually running"
 
@@ -980,7 +980,7 @@ module Fluent
         state.next_time = Process.clock_gettime(clock_id) + flush_thread_interval
 
         while !self.after_started? && !self.stopped?
-          sleep flush_thread_interval
+          sleep 0.5
         end
         log.debug "flush_thread actually running"
 
