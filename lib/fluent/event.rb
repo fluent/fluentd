@@ -213,9 +213,9 @@ module Fluent
 
     def dup
       if @unpacked_times
-        MessagePackEventStream.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
+        self.class.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
       else
-        MessagePackEventStream.new(@data.dup, nil, @size)
+        self.class.new(@data.dup, nil, @size)
       end
     end
 
@@ -281,31 +281,23 @@ module Fluent
       @compressed_data = data
     end
 
-    def dup
-      if @unpacked_times
-        self.class.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
-      else
-        self.class.new(@data.dup, nil, @size)
-      end
-    end
-
     def empty?
-      @data = decompressed
+      ensure_decompressed!
       super
     end
 
     def ensure_unpacked!
-      @data = decompressed
+      ensure_decompressed!
       super
     end
 
     def each(&block)
-      @data = decompressed unless @unpacked_times
+      ensure_decompressed!
       super
     end
 
     def to_msgpack_stream(time_int: false)
-      @data = decompressed
+      ensure_decompressed!
       super
     end
 
@@ -316,8 +308,9 @@ module Fluent
 
     private
 
-    def decompressed
-      @decompressed_data ||= decompress(@data)
+    def ensure_decompressed!
+      return if @decompressed_data
+      @data = @decompressed_data = decompress(@data)
     end
   end
 
