@@ -109,28 +109,25 @@ module UnpackerCommand
 
     def initialize(argv = ARGV)
       super
-
       @options.merge!(DEFAULT_OPTIONS)
-      @params = {}
-      if i = @argv.index('--')
-        @params = @argv[i+1..-1].reduce({}) do |acc, e|
-          k, v = e.split('=')
-          usage "#{e} is invalid. valid format is like `key=value`" unless v
-          acc.merge(k => v)
-        end
-        @argv = @argv[0...i]
-      end
-
       configure_option_parser
     end
 
     private
 
     def configure_option_parser
-      @opt_parser.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file [-- <params>]"
+      @options.merge!(config_params: {})
+
+      @opt_parser.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file"
 
       @opt_parser.on('-f TYPE', '--format', 'configure output format') do |v|
         @options[:format] = v.to_sym
+      end
+
+      @opt_parser.on('-e KEY=VALUE', 'configure formatter config params') do |v|
+        key, value = v.split('=')
+        usage "#{v} is invalid. valid format is like `key=value`" unless value
+        @options[:config_params].merge!(key => value)
       end
     end
 
@@ -161,7 +158,7 @@ module UnpackerCommand
     end
 
     def call
-      @formatter = lookup_formatter(@options[:format], @params)
+      @formatter = lookup_formatter(@options[:format], @options[:config_params])
 
       File.open(@path, 'r') do |io|
         i = 1
@@ -203,7 +200,7 @@ module UnpackerCommand
     end
 
     def call
-      @formatter = lookup_formatter(@options[:format], @params)
+      @formatter = lookup_formatter(@options[:format], @options[:config_params])
 
       File.open(@path, 'r') do |io|
         Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|

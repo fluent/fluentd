@@ -55,7 +55,7 @@ end
 class TestBaseCommand < ::Test::Unit::TestCase
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/command/unpacker#{ENV['TEST_ENV_NUMBER']}")
 
-  def create_message_packed_file(path, times = [Time.now.to_i], records = [{ 'message' => 'dummy' }])
+  def create_message_packed_file(path, times = [event_time], records = [{ 'message' => 'dummy' }])
     es = Fluent::MultiEventStream.new(times, records)
     v = es.to_msgpack_stream
     File.open("#{TMP_DIR}/#{path}", 'w') do |f|
@@ -109,7 +109,7 @@ class TestHead < TestBaseCommand
 
     test 'should fail when config_params format is invalid' do
       file_name = 'packed.log'
-      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '--', 'only_key']
+      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'only_key']
       create_message_packed_file(file_name)
 
       assert_raise(SystemExit) do
@@ -119,7 +119,7 @@ class TestHead < TestBaseCommand
 
     test 'should succeed if config_params format is valid' do
       file_name = 'packed.log'
-      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '--', 'delimiter=,']
+      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message']
       create_message_packed_file(file_name)
 
       assert_nothing_raised do
@@ -189,6 +189,15 @@ class TestHead < TestBaseCommand
         end
       end
     end
+
+    test 'should succeed if multiple config_params format' do
+      file_name = 'packed.log'
+      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message,fo', '-e', 'delimiter=|']
+      create_message_packed_file(file_name, [event_time], [{ 'message' => 'dummy', 'fo' => 'dummy2' }])
+
+      head = UnpackerCommand::Head.new(argv)
+      assert_equal "\"dummy\"|\"dummy2\"\n", capture_stdout { head.call }
+    end
   end
 end
 
@@ -216,7 +225,7 @@ class TestCat < TestBaseCommand
 
     test 'should fail when config_params format is invalid' do
       file_name = 'packed.log'
-      argv = ["#{TMP_DIR}/#{file_name}", '--format=json', '--', 'only_key']
+      argv = ["#{TMP_DIR}/#{file_name}", '--format=json', '-e', 'only_key']
       create_message_packed_file(file_name)
 
       assert_raise(SystemExit) do
@@ -226,7 +235,7 @@ class TestCat < TestBaseCommand
 
     test 'should succeed when config_params format is valid' do
       file_name = 'packed.log'
-      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '--', 'delimiter=,']
+      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message']
       create_message_packed_file(file_name)
 
       assert_nothing_raised do
@@ -275,6 +284,15 @@ class TestCat < TestBaseCommand
           capture_stdout { head.call }
         end
       end
+    end
+
+    test 'should succeed if multiple config_params format' do
+      file_name = 'packed.log'
+      argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message,fo', '-e', 'delimiter=|']
+      create_message_packed_file(file_name, [event_time], [{ 'message' => 'dummy', 'fo' => 'dummy2' }])
+
+      head = UnpackerCommand::Head.new(argv)
+      assert_equal "\"dummy\"|\"dummy2\"\n", capture_stdout { head.call }
     end
   end
 end
