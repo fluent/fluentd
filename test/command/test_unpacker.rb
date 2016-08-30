@@ -139,7 +139,7 @@ class TestHead < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}"]
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i] * 6, [@record] * 6)
+        create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = UnpackerCommand::Head.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n" * 5, out
@@ -150,7 +150,7 @@ class TestHead < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}", '-n', '1']
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i] * 6, [@record] * 6)
+        create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = UnpackerCommand::Head.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
@@ -170,7 +170,7 @@ class TestHead < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=json']
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i], [@record])
+        create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = UnpackerCommand::Head.new(argv)
         out = capture_stdout { head.call }
         assert_equal "#{Oj.dump(@record)}\n", out
@@ -181,7 +181,7 @@ class TestHead < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=invalid']
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i], [@record])
+        create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = UnpackerCommand::Head.new(argv)
 
         assert_raise(SystemExit) do
@@ -255,7 +255,7 @@ class TestCat < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}"]
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i], [@record])
+        create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = UnpackerCommand::Cat.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
@@ -266,7 +266,7 @@ class TestCat < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=json']
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i], [@record])
+        create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = UnpackerCommand::Cat.new(argv)
         out = capture_stdout { head.call }
         assert_equal "#{Oj.dump(@record)}\n", out
@@ -277,7 +277,7 @@ class TestCat < TestBaseCommand
       argv = ["#{TMP_DIR}/#{@file_name}", '--format=invalid']
 
       timezone do
-        create_message_packed_file(@file_name, [Time.parse(@t).to_i], [@record])
+        create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = UnpackerCommand::Cat.new(argv)
 
         assert_raise(SystemExit) do
