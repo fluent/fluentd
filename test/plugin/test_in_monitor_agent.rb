@@ -159,7 +159,7 @@ EOC
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
-  port #{@port}
+  port 24200
   tag monitor
   emit_interval 1
 ")
@@ -210,7 +210,7 @@ EOC
 <source>
   @type monitor_agent
   bind "127.0.0.1"
-  port 24220
+  port #{@port}
   tag monitor
   @id monitor_agent
 </source>
