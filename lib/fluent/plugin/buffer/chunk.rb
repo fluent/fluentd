@@ -166,8 +166,14 @@ module Fluent
               super
             else
               super(kwargs) do |chunk_io|
-                comressed_data = decompress(chunk_io.read)
-                yield StringIO.new(comressed_data)
+                output_io = if chunk_io.is_a?(StringIO)
+                              StringIO.new
+                            else
+                              Tempfile.new('decompressed-data')
+                            end
+                decompress(input_io: chunk_io, output_io: output_io)
+                output_io.seek(0, IO::SEEK_SET)
+                yield output_io
               end
             end
           end
@@ -185,9 +191,9 @@ module Fluent
               super
             else
               # To get IO that has compressed data
-              open(compressed: :gzip) do |io_chunk|
+              open(compressed: :gzip) do |chunk_io|
                 # Avoid to load large String object when file_chunk
-                decompress(io_chunk.read, output_io: io)
+                decompress(input_io: chunk_io, output_io: io)
               end
             end
           end

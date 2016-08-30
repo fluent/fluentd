@@ -42,5 +42,14 @@ class CompressableTest < Test::Unit::TestCase
 
       assert_equal str1 + str2, decompress(compressed_str)
     end
+
+    test 'decompress with input_io and output_io' do
+      str = 'text data'
+      input_io = StringIO.new(compress(str))
+      output_io = StringIO.new
+
+      decompress(input_io: input_io, output_io: output_io)
+      assert_equal str, output_io.string
+    end
   end
 end

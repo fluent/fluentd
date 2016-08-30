@@ -31,38 +31,58 @@ module Fluent
 
       # compressed_data is String like `compress(data1) + compress(data2) + ... + compress(dataN)`
       # https://www.ruby-forum.com/topic/971591#979503
-      def decompress(compressed_data, **kwargs)
-        return compressed_data if compressed_data.empty?
+      def decompress(compressed_data = '', **kwargs)
+        output_io = kwargs[:output_io]
+        input_io = kwargs[:input_io]
+
+        case
+        when input_io && output_io
+          io_decompress(input_io, output_io)
+        when compressed_data.empty?
+          compressed_data
+        when output_io
+          # exeducte after checking compressed_data is empty or not
+          io = StringIO.new(compressed_data)
+          io_decompress(io, output_io)
+        else
+          string_decompress(compressed_data)
+        end
+      end
+
+      private
+
+      def string_decompress(compressed_data)
         io = StringIO.new(compressed_data)
 
-        if kwargs[:output_io]
-          out = kwargs[:output_io]
-          loop do
-            gz = Zlib::GzipReader.new(io)
-            out.write(gz.read)
-            unused = gz.unused
-            gz.finish
+        out = ''
+        loop do
+          gz = Zlib::GzipReader.new(io)
+          out += gz.read
+          unused = gz.unused
+          gz.finish
 
-            break if unused.nil?
-            adjust = unused.length
-            io.pos -= adjust
-          end
-          out
-        else
-          out = ''
-          loop do
-            gz = Zlib::GzipReader.new(io)
-            out += gz.read
-            unused = gz.unused
-            gz.finish
-
-            break if unused.nil?
-            adjust = unused.length
-            io.pos -= adjust
-          end
-
-          out
+          break if unused.nil?
+          adjust = unused.length
+          io.pos -= adjust
         end
+
+        out
+      end
+
+      def io_decompress(input, output)
+        loop do
+          gz = Zlib::GzipReader.new(input)
+          v = gz.read
+          output.write(v)
+          unused = gz.unused
+          gz.finish
+
+          break if unused.nil?
+          adjust = unused.length
+          io.pos -= adjust
+        end
+
+        output
       end
     end
   end
