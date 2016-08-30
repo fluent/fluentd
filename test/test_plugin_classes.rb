@@ -1,10 +1,10 @@
 require_relative 'helper'
-require 'fluent/input'
-require 'fluent/output'
-require 'fluent/filter'
+require 'fluent/plugin/input'
+require 'fluent/plugin/output'
+require 'fluent/plugin/filter'
 
 module FluentTest
-  class FluentTestInput < ::Fluent::Input
+  class FluentTestInput < ::Fluent::Plugin::Input
     ::Fluent::Plugin.register_input('test_in', self)
 
     attr_reader :started
@@ -20,7 +20,7 @@ module FluentTest
     end
   end
 
-  class FluentTestOutput < ::Fluent::Output
+  class FluentTestOutput < ::Fluent::Plugin::Output
     ::Fluent::Plugin.register_output('test_out', self)
 
     def initialize
@@ -41,14 +41,14 @@ module FluentTest
       super
     end
 
-    def emit(tag, es, chain)
-      es.each { |time, record|
+    def process(tag, es)
+      es.each do |time, record|
         @events[tag] << record
-      }
+      end
     end
   end
 
-  class FluentTestErrorOutput < ::Fluent::BufferedOutput
+  class FluentTestErrorOutput < ::Fluent::Plugin::Output
     ::Fluent::Plugin.register_output('test_out_error', self)
 
     def format(tag, time, record)
