@@ -1,9 +1,30 @@
+#
+# Fluentd
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
+require 'fluent/time'
+require 'fluent/config/error'
 require 'fluent/plugin/filter'
-require 'fluent/plugin/parser'
+require 'fluent/plugin_helper/parser'
+require 'fluent/plugin_helper/compat_parameters'
 
 module Fluent::Plugin
   class ParserFilter < Filter
     Fluent::Plugin.register_filter('parser', self)
+
+    helpers :parser, :compat_parameters
 
     config_param :key_name, :string
     config_param :reserve_data, :bool, default: false
@@ -16,20 +37,22 @@ module Fluent::Plugin
 
     attr_reader :parser
 
-    def initialize
-      super
-      require 'time'
-    end
-
     def configure(conf)
+      compat_parameters_convert(conf, :parser)
+      parser_config = conf.elements('parse').first
+      unless parser_config
+        raise Fluent::ConfigError, "<parse> section is required"
+      end
+      unless parser_config["@type"]
+        raise Fluent::ConfigError, "parse/@type is required"
+      end
+
       super
 
-      @parser = Fluent::TextParser.new
-      @parser.estimate_current_event = false
-      @parser.configure(conf)
-      if !@time_parse && @parser.parser.respond_to?("time_key=".to_sym)
+      @parser = parser_create(usage: 'filter_parser', conf: parser_config)
+      if !@time_parse && @parser.respond_to?("time_key=".to_sym)
         # disable parse time
-        @parser.parser.time_key = nil
+        @parser.time_key = nil
       end
 
       self
