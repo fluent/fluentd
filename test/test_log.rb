@@ -1,17 +1,19 @@
 require_relative 'helper'
 require 'fluent/engine'
 require 'fluent/log'
+require 'timecop'
 
 class LogTest < Test::Unit::TestCase
   def setup
     @log_device = Fluent::Test::DummyLogDevice.new
     @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
-    stub(Time).now { @timestamp }
+    Timecop.freeze(@timestamp)
   end
 
   def teardown
     @log_device.reset
+    Timecop.return
     Thread.current[:last_repeated_stacktrace] = nil
   end
 
@@ -409,7 +411,7 @@ class PluginLoggerTest < Test::Unit::TestCase
     @log_device = Fluent::Test::DummyLogDevice.new
     @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
-    stub(Time).now { @timestamp }
+    Timecop.freeze(@timestamp)
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
     logdev = @log_device
@@ -419,6 +421,7 @@ class PluginLoggerTest < Test::Unit::TestCase
 
   def teardown
     @log_device.reset
+    Timecop.return
     Thread.current[:last_repeated_stacktrace] = nil
   end
 
