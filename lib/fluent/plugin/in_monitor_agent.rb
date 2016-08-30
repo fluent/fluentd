@@ -145,7 +145,7 @@ module Fluent::Plugin
 
     class LTSVMonitorServlet < MonitorServlet
       def process(req, res)
-        list, opts = build_object(req, res)
+        list, _opts = build_object(req, res)
         return unless list
 
         normalized = JSON.parse(list.to_json)
@@ -249,10 +249,10 @@ module Fluent::Plugin
     end
 
     MONITOR_INFO = {
-      'output_plugin' => 'is_a?(::Fluent::Plugin::Output)',
-      'buffer_queue_length' => '@buffer.queue.size',
-      'buffer_total_queued_size' => '@buffer.stage_size + @buffer.queue_size',
-      'retry_count' => '@num_errors',
+      'output_plugin' => ->(){ is_a?(::Fluent::Plugin::Output) },
+      'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer); @buffer.queue.size },
+      'buffer_total_queued_size' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer); @buffer.stage_size },
+      'retry_count' => ->(){ instance_variable_defined?(:@num_errors) ? @num_errors : nil },
     }
 
     def all_plugins
@@ -333,8 +333,7 @@ module Fluent::Plugin
       }
     end
 
-    # TODO: use %i() after drop ruby v1.9.3 support.
-    IGNORE_ATTRIBUTES = %W(@config_root_section @config @masked_config).map(&:to_sym)
+    IGNORE_ATTRIBUTES = %i(@config_root_section @config @masked_config)
 
     # get monitor info from the plugin `pe` and return a hash object
     def get_monitor_info(pe, opts={})
@@ -349,8 +348,11 @@ module Fluent::Plugin
       # run MONITOR_INFO in plugins' instance context and store the info to obj
       MONITOR_INFO.each_pair {|key,code|
         begin
-          obj[key] = pe.instance_eval(code)
-        rescue
+          catch(:skip) do
+            obj[key] = pe.instance_exec(&code)
+          end
+        rescue => e
+          log.warn "unexpected error in monitoring plugins", key: key, plugin: pe.class, error: e
         end
       }
 
