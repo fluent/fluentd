@@ -10,6 +10,14 @@ class CompressableTest < Test::Unit::TestCase
       compressed_str = compress(str)
       assert_not_equal compressed_str, str
     end
+
+    test 'write compressed data to IO with output_io option' do
+      str = 'text data'
+      compressed_str = compress(str)
+      io = StringIO.new
+      compress(str, output_io: io)
+      assert_equal compressed_str, io.string
+    end
   end
 
   sub_test_case '#decompress' do
@@ -19,10 +27,12 @@ class CompressableTest < Test::Unit::TestCase
       assert_equal str, decompress(compressed_str)
     end
 
-    test 'decompress compressed data with io option' do
+    test 'write decompressed data to IO with output_io option' do
       str = 'text data'
       compressed_str = compress(str)
-      assert_equal str, decompress('', io: StringIO.new(compressed_str))
+      io = StringIO.new
+      decompress(compressed_str, output_io: io)
+      assert_equal str, io.string
     end
 
     test 'decompress multiple compressed data' do

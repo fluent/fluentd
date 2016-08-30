@@ -19,32 +19,50 @@ require 'zlib'
 module Fluent
   module Plugin
     module Compressable
-      def compress(data)
-        io = StringIO.new
+      def compress(data, **kwargs)
+        output_io = kwargs[:output_io]
+        io = output_io || StringIO.new
         Zlib::GzipWriter.wrap(io) do |gz|
           gz.write data
         end
-        io.string
+
+        output_io || io.string
       end
 
       # compressed_data is String like `compress(data1) + compress(data2) + ... + compress(dataN)`
       # https://www.ruby-forum.com/topic/971591#979503
-      def decompress(compressed_data, **kargs)
-        io = kargs[:io] || StringIO.new(compressed_data)
-        ret = ''
+      def decompress(compressed_data, **kwargs)
+        return compressed_data if compressed_data.empty?
+        io = StringIO.new(compressed_data)
 
-        loop do
-          gz = Zlib::GzipReader.new(io)
-          ret += gz.read
-          unused = gz.unused
-          gz.finish
+        if kwargs[:output_io]
+          out = kwargs[:output_io]
+          loop do
+            gz = Zlib::GzipReader.new(io)
+            out.write(gz.read)
+            unused = gz.unused
+            gz.finish
 
-          break if unused.nil?
-          adjust = unused.length
-          io.pos -= adjust
+            break if unused.nil?
+            adjust = unused.length
+            io.pos -= adjust
+          end
+          out
+        else
+          out = ''
+          loop do
+            gz = Zlib::GzipReader.new(io)
+            out += gz.read
+            unused = gz.unused
+            gz.finish
+
+            break if unused.nil?
+            adjust = unused.length
+            io.pos -= adjust
+          end
+
+          out
         end
-
-        ret
       end
     end
   end
