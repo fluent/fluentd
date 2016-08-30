@@ -251,11 +251,22 @@ class TestCat < TestBaseCommand
       @record = { 'message' => 'dummy' }
     end
 
-    test 'should output the beginning of the file with default format(out_file)' do
+    test 'should output the file with default format(out_file)' do
       argv = ["#{TMP_DIR}/#{@file_name}"]
 
       timezone do
-        create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
+        create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
+        head = UnpackerCommand::Cat.new(argv)
+        out = capture_stdout { head.call }
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n" * 6, out
+      end
+    end
+
+    test 'should set the number of lines to display' do
+      argv = ["#{TMP_DIR}/#{@file_name}", '-n', '1']
+
+      timezone do
+        create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = UnpackerCommand::Cat.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
@@ -291,7 +302,7 @@ class TestCat < TestBaseCommand
       argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message,fo', '-e', 'delimiter=|']
       create_message_packed_file(file_name, [event_time], [{ 'message' => 'dummy', 'fo' => 'dummy2' }])
 
-      head = UnpackerCommand::Head.new(argv)
+      head = UnpackerCommand::Cat.new(argv)
       assert_equal "\"dummy\"|\"dummy2\"\n", capture_stdout { head.call }
     end
   end

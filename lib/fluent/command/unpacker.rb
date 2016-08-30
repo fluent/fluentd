@@ -153,7 +153,7 @@ module UnpackerCommand
 
     def initialize(argv = ARGV)
       super
-      @options.merge!(DEFAULT_HEAD_OPTIONS)
+      @options.merge!(default_options)
       parse_options!
     end
 
@@ -164,7 +164,7 @@ module UnpackerCommand
         i = 1
         Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
           print @formatter.format(@path, time, record) # tag is use for tag
-          break if i == @options[:count]
+          break if i == @options[:count] && @options[:count] != -1
           i += 1
         end
       end
@@ -172,49 +172,35 @@ module UnpackerCommand
 
     private
 
+    def default_options
+      DEFAULT_HEAD_OPTIONS
+    end
+
     def parse_options!
       @opt_parser.on('-n COUNT', 'Set the number of lines to display') do |v|
         @options[:count] = v.to_i
+        usage "illegal line count -- #{@options[:count]}" if @options[:count] < 1
       end
 
       super
 
-      case
-      when @argv.empty?
-        usage 'Path is required'
-      when @options[:count] < 1
-        usage "illegal line count -- #{@options[:count]}"
-      end
-
+      usage 'Path is required' if @argv.empty?
       @path = @argv.first
       usage "#{@path} is not found" unless File.exist?(@path)
     end
   end
 
-  class Cat < Base
-    include Formattable
+  class Cat < Head
+    DEFAULT_CAT_OPTIONS = {
+      count: -1
+    }
 
     def initialize(argv = ARGV)
       super
-      parse_options!
     end
 
-    def call
-      @formatter = lookup_formatter(@options[:format], @options[:config_params])
-
-      File.open(@path, 'r') do |io|
-        Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
-          print @formatter.format(@path, time, record) # @path is used for tag
-        end
-      end
-    end
-
-    def parse_options!
-      super
-      usage 'Path is required' if @argv.empty?
-
-      @path = @argv.first
-      usage "#{@path} is not found" unless File.exist?(@path)
+    def default_options
+      DEFAULT_CAT_OPTIONS
     end
   end
 
