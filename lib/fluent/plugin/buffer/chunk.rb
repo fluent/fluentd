@@ -148,18 +148,29 @@ module Fluent
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def open(&block)
+        def open(**kwargs, &block)
           raise NotImplementedError, "Implement this method in child class"
         end
 
         def write_to(io, **kwargs)
-          open do |i|
+          open(**kwargs) do |i|
             IO.copy_stream(i, io)
           end
         end
 
         module Decompressable
           include Fluent::Plugin::Compressable
+
+          def open(**kwargs, &block)
+            if kwargs[:compressed] == :gzip
+              super
+            else
+              super(kwargs) do |chunk_io|
+                comressed_data = decompress(chunk_io.read)
+                yield StringIO.new(comressed_data)
+              end
+            end
+          end
 
           def read(**kwargs)
             if kwargs[:compressed] == :gzip
@@ -173,7 +184,8 @@ module Fluent
             if kwargs[:compressed] == :gzip
               super
             else
-              open do |io_chunk|
+              # To get IO that has compressed data
+              open(compressed: :gzip) do |io_chunk|
                 # Avoid to load large String object when file_chunk
                 decompress(io_chunk.read, output_io: io)
               end

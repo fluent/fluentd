@@ -56,7 +56,7 @@ class BufferChunkTest < Test::Unit::TestCase
     def size
       @data.size
     end
-    def open
+    def open(**kwargs)
       require 'stringio'
       io = StringIO.new(@data)
       yield io

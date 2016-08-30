@@ -266,6 +266,36 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     assert_equal d4.to_json + "\n", lines[3]
   end
 
+  test '#open passes decompressed data to block when compress is gzip' do
+    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+    str = 'sample text'
+    compressed_str = compress(str)
+    c.concat(compressed_str, str.size)
+    c.commit
+
+    decomressed_data = c.open do |io|
+      v = io.read
+      assert_equal str, v
+      v
+    end
+    assert_equal str, decomressed_data
+  end
+
+  test '#open with compress option passes decompressed data to block when compress is gzip' do
+    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+    str = 'sample text'
+    compressed_str = compress(str)
+    c.concat(compressed_str, str.size)
+    c.commit
+
+    comressed_data = c.open(compressed: :gzip) do |io|
+      v = io.read
+      assert_equal compressed_str, v
+      v
+    end
+    assert_equal compressed_str, comressed_data
+  end
+
   test '#write_to writes decompressed data when compress is gzip' do
     c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
     str = 'sample text'
