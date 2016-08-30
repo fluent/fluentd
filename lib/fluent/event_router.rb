@@ -156,6 +156,7 @@ module Fluent
       class FilterOptimizer
         def initialize(filters = [])
           @filters = filters
+          @optimizable = nil
         end
 
         def filters=(filters)
