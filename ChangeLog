@@ -1,5 +1,62 @@
 # v0.14
 
+## Release v0.14.4 - 2016/08/31
+
+### New features / Enhancement
+
+* Add a method to Filter API to update time of events
+  https://github.com/fluent/fluentd/pull/1140
+* Improve performance of filter pipeline
+  https://github.com/fluent/fluentd/pull/1145
+* Fix to suppress not to warn about different plugins for primary and secondary without any problems
+  https://github.com/fluent/fluentd/pull/1153
+* Add deprecated/obsoleted options to config_param to show removed/warned parameters
+  https://github.com/fluent/fluentd/pull/1186
+* in_forward: Add a feature source_hostname_key to inject source hostname into records
+  https://github.com/fluent/fluentd/pull/807
+* in_tail: Add a feature from_encoding to specify both encoding from and to
+  https://github.com/fluent/fluentd/pull/1067
+* filter_record_transformer: Fix to prevent overwriting reserved placeholder keys
+  https://github.com/fluent/fluentd/pull/1176
+* Migrate some build-in plugins into v0.14 API
+  https://github.com/fluent/fluentd/pull/1149
+  https://github.com/fluent/fluentd/pull/1151
+* Update dependencies
+  https://github.com/fluent/fluentd/pull/1193
+
+### Bug fixes
+
+* Fix to start/stop/restart Fluentd processes correctly on Windows environment
+  https://github.com/fluent/fluentd/pull/1171
+  https://github.com/fluent/fluentd/pull/1192
+* Fix to handle Windows events correctly in winsvc.rb
+  https://github.com/fluent/fluentd/pull/1155
+  https://github.com/fluent/fluentd/pull/1170
+* Fix not to continue to restart workers for configuration errors
+  https://github.com/fluent/fluentd/pull/1183
+* Fix output threads to start enqueue/flush buffers until plugins' start method ends
+  https://github.com/fluent/fluentd/pull/1190
+* Fix a bug not to set umask 0
+  https://github.com/fluent/fluentd/pull/1152
+* Fix resource leak on one-shot timers
+  https://github.com/fluent/fluentd/pull/1178
+* Fix to call plugin helper methods in configure
+  https://github.com/fluent/fluentd/pull/1184
+* Fix a bug to count event size
+  https://github.com/fluent/fluentd/pull/1164/files
+* Fix to require missed compat modules
+  https://github.com/fluent/fluentd/pull/1168
+* Fix to start properly for plugins under MultiOutput
+  https://github.com/fluent/fluentd/pull/1167
+* Fix test drivers to set class name into plugin instances
+  https://github.com/fluent/fluentd/pull/1069
+* Fix tests not to use mocks for Time (improve test stabilization)
+  https://github.com/fluent/fluentd/pull/1194
+
+## Release 0.14.3 - 2016/08/30
+
+* Fix the dependency for ServerEngine 1.x
+
 ## Release 0.14.2 - 2016/08/09
 
 ### New features / Enhancement
