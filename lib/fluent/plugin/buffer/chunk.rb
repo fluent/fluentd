@@ -20,6 +20,7 @@ require 'fluent/unique_id'
 require 'fluent/event'
 
 require 'monitor'
+require 'tempfile'
 
 module Fluent
   module Plugin
