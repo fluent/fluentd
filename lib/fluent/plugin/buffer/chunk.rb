@@ -146,15 +146,18 @@ module Fluent
         end
 
         def read(**kwargs)
+          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
           raise NotImplementedError, "Implement this method in child class"
         end
 
         def open(**kwargs, &block)
+          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
           raise NotImplementedError, "Implement this method in child class"
         end
 
         def write_to(io, **kwargs)
-          open(**kwargs) do |i|
+          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
+          open do |i|
             IO.copy_stream(i, io)
           end
         end
@@ -188,12 +191,10 @@ module Fluent
           end
 
           def write_to(io, **kwargs)
-            if kwargs[:compressed] == :gzip
-              super
-            else
-              # To get IO that has compressed data
-              open(compressed: :gzip) do |chunk_io|
-                # Avoid to load large String object when file_chunk
+            open(compressed: :gzip) do |chunk_io|
+              if kwargs[:compressed] == :gzip
+                IO.copy_stream(chunk_io, io)
+              else
                 decompress(input_io: chunk_io, output_io: io)
               end
             end

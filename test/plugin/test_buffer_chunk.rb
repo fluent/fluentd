@@ -45,6 +45,15 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(NotImplementedError){ chunk.write_to(nil) }
       assert_raise(NotImplementedError){ chunk.msgpack_each(){|v| v} }
     end
+
+    test 'some methods raise ArgumentError with an option of `compressed: :gzip` and without extending Compressble`' do
+      meta = Object.new
+      chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
+
+      assert_raise(ArgumentError){ chunk.read(compressed: :gzip) }
+      assert_raise(ArgumentError){ chunk.open(compressed: :gzip){} }
+      assert_raise(ArgumentError){ chunk.write_to(nil, compressed: :gzip) }
+    end
   end
 
   class TestChunk < Fluent::Plugin::Buffer::Chunk
