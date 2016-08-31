@@ -31,17 +31,15 @@ module Fluent
 
       # compressed_data is String like `compress(data1) + compress(data2) + ... + compress(dataN)`
       # https://www.ruby-forum.com/topic/971591#979503
-      def decompress(compressed_data = '', **kwargs)
-        output_io = kwargs[:output_io]
-        input_io = kwargs[:input_io]
-
+      def decompress(compressed_data = nil, output_io: nil, input_io: nil)
         case
         when input_io && output_io
           io_decompress(input_io, output_io)
-        when compressed_data.empty?
+        when compressed_data.empty? || compressed_data.nil?
+          # check compressed_data(String) is 0 length
           compressed_data
         when output_io
-          # exeducte after checking compressed_data is empty or not
+          # exeucte after checking compressed_data is empty or not
           io = StringIO.new(compressed_data)
           io_decompress(io, output_io)
         else
@@ -79,7 +77,7 @@ module Fluent
 
           break if unused.nil?
           adjust = unused.length
-          io.pos -= adjust
+          input.pos -= adjust
         end
 
         output
