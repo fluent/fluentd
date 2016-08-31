@@ -266,63 +266,62 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
     assert_equal d4.to_json + "\n", lines[3]
   end
 
-  test '#open passes decompressed data to block when compress is gzip' do
-    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
-    str = 'sample text'
-    compressed_str = compress(str)
-    c.concat(compressed_str, str.size)
-    c.commit
-
-    decomressed_data = c.open do |io|
-      v = io.read
-      assert_equal str, v
-      v
+  sub_test_case 'compressed buffer' do
+    setup do
+      @src = 'text data'
+      @gzipped_src = compress(@src)
     end
-    assert_equal str, decomressed_data
-  end
 
-  test '#open with compress option passes decompressed data to block when compress is gzip' do
-    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
-    str = 'sample text'
-    compressed_str = compress(str)
-    c.concat(compressed_str, str.size)
-    c.commit
+    test '#open passes io object having decompressed data to a block when compress is gzip' do
+      c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
 
-    comressed_data = c.open(compressed: :gzip) do |io|
-      v = io.read
-      assert_equal compressed_str, v
-      v
+      decomressed_data = c.open do |io|
+        v = io.read
+        assert_equal @src, v
+        v
+      end
+      assert_equal @src, decomressed_data
     end
-    assert_equal compressed_str, comressed_data
-  end
 
-  test '#write_to writes decompressed data when compress is gzip' do
-    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
-    str = 'sample text'
-    compressed_str = compress(str)
-    c.concat(compressed_str, str.size)
-    c.commit
+    test '#open with compressed option passes io object having decompressed data to a block when compress is gzip' do
+      c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
 
-    assert_equal str, c.read
-    assert_equal compressed_str, c.read(compressed: :gzip)
+      comressed_data = c.open(compressed: :gzip) do |io|
+        v = io.read
+        assert_equal @gzipped_src, v
+        v
+      end
+      assert_equal @gzipped_src, comressed_data
+    end
 
-    io = StringIO.new
-    c.write_to(io)
-    assert_equal str, io.string
-  end
+    test '#write_to writes decompressed data when compress is gzip' do
+      c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
 
-  test '#write_to with compress option writes compressed data when compress is gzip' do
-    c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
-    str = 'sample text'
-    compressed_str = compress(str)
-    c.concat(compressed_str, str.size)
-    c.commit
+      assert_equal @src, c.read
+      assert_equal @gzipped_src, c.read(compressed: :gzip)
 
-    assert_equal str, c.read
-    assert_equal compressed_str, c.read(compressed: :gzip)
+      io = StringIO.new
+      c.write_to(io)
+      assert_equal @src, io.string
+    end
 
-    io = StringIO.new
-    c.write_to(io, compressed: :gzip)
-    assert_equal compressed_str, io.string
+    test '#write_to with compressed option writes compressed data when compress is gzip' do
+      c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      assert_equal @src, c.read
+      assert_equal @gzipped_src, c.read(compressed: :gzip)
+
+      io = StringIO.new
+      c.write_to(io, compressed: :gzip)
+      assert_equal @gzipped_src, io.string
+    end
   end
 end
