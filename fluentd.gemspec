@@ -27,13 +27,17 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
   gem.add_runtime_dependency("tzinfo", ["~> 1.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
-  if /mswin|mingw/ =~ RUBY_PLATFORM
+  gem.add_runtime_dependency("strptime", ["~> 0.1.7"])
+
+  # build gem for a certain platform. see also Rakefile
+  fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
+  gem.platform = fake_platform unless fake_platform.empty?
+  if /mswin|mingw/ =~ fake_platform || (/mswin|mingw/ =~ RUBY_PLATFORM && fake_platform.empty?)
     gem.add_runtime_dependency("win32-service", ["~> 0.8.3"])
     gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
     gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
     gem.add_runtime_dependency("windows-pr", ["~> 1.2.5"])
   end
-  gem.add_runtime_dependency("strptime", ["~> 0.1.7"])
 
   gem.add_development_dependency("rake", ["~> 11.0"])
   gem.add_development_dependency("flexmock", ["~> 2.0"])

@@ -7,6 +7,21 @@ require 'rake/clean'
 
 task test: [:base_test]
 
+# 1. update ChangeLog and lib/fluent/version.rb
+# 2. bundle && bundle exec rake build:all
+# 3. release 3 packages built on pkg/ directory
+namespace :build do
+  desc 'Build gems for all platforms'
+  task :all do
+    Bundler.with_clean_env do
+      %w[ruby x86-mingw32 x64-mingw32].each do |name|
+        ENV['GEM_BUILD_FAKE_PLATFORM'] = name
+        Rake::Task["build"].execute
+      end
+    end
+  end
+end
+
 desc 'Run test_unit based test'
 Rake::TestTask.new(:base_test) do |t|
   # To run test for only one file (or file path pattern)
