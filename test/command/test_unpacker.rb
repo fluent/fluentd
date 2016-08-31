@@ -72,6 +72,7 @@ class TestBaseCommand < ::Test::Unit::TestCase
     old = ENV['TZ']
     ENV['TZ'] = timezone
     yield
+  ensure
     ENV['TZ'] = old
   end
 

@@ -163,7 +163,7 @@ module UnpackerCommand
       File.open(@path, 'r') do |io|
         i = 1
         Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
-          print @formatter.format(@path, time, record) # tag is use for tag
+          print @formatter.format(@path, time, record) # path is used for tag
           break if i == @options[:count] && @options[:count] != -1
           i += 1
         end
@@ -194,10 +194,6 @@ module UnpackerCommand
     DEFAULT_CAT_OPTIONS = {
       count: -1
     }
-
-    def initialize(argv = ARGV)
-      super
-    end
 
     def default_options
       DEFAULT_CAT_OPTIONS
