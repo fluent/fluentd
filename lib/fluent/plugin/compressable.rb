@@ -35,7 +35,11 @@ module Fluent
         case
         when input_io && output_io
           io_decompress(input_io, output_io)
-        when compressed_data.empty? || compressed_data.nil?
+        when input_io
+          output_io = StringIO.new
+          io = io_decompress(input_io, output_io)
+          io.string
+        when compressed_data.nil? || compressed_data.empty?
           # check compressed_data(String) is 0 length
           compressed_data
         when output_io

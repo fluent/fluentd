@@ -11,9 +11,7 @@ class CompressableTest < Test::Unit::TestCase
     end
 
     test 'compress data' do
-      str = "this is a sample text" * 10
-      compressed_str = "\x1F\x8B\b\x00Y;\xC6W\x00\x03+\xC9\xC8,V\x00\xA2D\x85\xE2\xC4\xDC\x82\x9CT\x85\x92\xD4\x8A\x92\x92\xA1,\b\x00\xEF}\x9C\xF1\xD2\x00\x00\x00"
-      assert_not_equal compressed_str, compress(str)
+      assert compress(@src).size < @src.size
       assert_not_equal @gzipped_src, @src
     end
 
@@ -26,7 +24,7 @@ class CompressableTest < Test::Unit::TestCase
 
   sub_test_case '#decompress' do
     setup do
-      @src = 'text data'
+      @src = 'text data for compressing' * 5
       @gzipped_src = compress(@src)
     end
 
@@ -38,6 +36,11 @@ class CompressableTest < Test::Unit::TestCase
       io = StringIO.new
       decompress(@gzipped_src, output_io: io)
       assert_equal @src, io.string
+    end
+
+    test 'return decompressed string with output_io option' do
+      io = StringIO.new(@gzipped_src)
+      assert_equal @src, decompress(input_io: io)
     end
 
     test 'decompress multiple compressed data' do
@@ -66,6 +69,13 @@ class CompressableTest < Test::Unit::TestCase
 
       decompress(input_io: input_io, output_io: output_io)
       assert_equal src1 + src2, output_io.string
+    end
+
+    test 'return the received value as it is with empty string or nil' do
+      assert_equal nil, decompress
+      assert_equal nil, decompress(nil)
+      assert_equal '', decompress('')
+      assert_equal '', decompress('', output_io: StringIO.new)
     end
   end
 end

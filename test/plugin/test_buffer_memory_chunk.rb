@@ -268,7 +268,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
 
   sub_test_case 'compressed buffer' do
     setup do
-      @src = 'text data'
+      @src = 'text data for compressing' * 5
       @gzipped_src = compress(@src)
     end
 
