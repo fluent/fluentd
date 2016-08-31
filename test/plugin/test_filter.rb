@@ -60,6 +60,10 @@ class FilterPluginTest < Test::Unit::TestCase
     end
   end
 
+  setup do
+    @p = nil
+  end
+
   teardown do
     if @p
       @p.stop unless @p.stopped?

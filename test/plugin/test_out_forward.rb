@@ -454,6 +454,7 @@ class ForwardOutputTest < Test::Unit::TestCase
             option
           }
           @source = nil
+          @peeraddr = nil
         end
 
         if do_respond
