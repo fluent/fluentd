@@ -156,10 +156,11 @@ EOC
     end
 
     test "emit" do
+      port = unused_port
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
-  port 24200
+  port #{port}
   tag monitor
   emit_interval 1
 ")
