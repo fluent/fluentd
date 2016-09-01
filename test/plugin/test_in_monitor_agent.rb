@@ -119,6 +119,8 @@ EOC
           "@id"=>"null",
           "@type" => "null"
         },
+        "buffer_queue_length" => 0,
+        "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
@@ -285,6 +287,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
           "@id"   => "null",
           "@type" => "null"
         },
+        "buffer_queue_length" => 0,
+        "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
