@@ -16,10 +16,9 @@
 
 require 'cool.io'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/config/error'
 require 'fluent/event'
-require 'fluent/system_config'
 require 'fluent/plugin/buffer'
 
 if Fluent.windows?
@@ -28,11 +27,11 @@ else
   Fluent::FileWrapper = File
 end
 
-module Fluent
-  class TailInput < Input
-    include SystemConfig::Mixin
+module Fluent::Plugin
+  class TailInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('tail', self)
 
-    Plugin.register_input('tail', self)
+    helpers :timer, :event_loop, :parser, :compat_parameters
 
     FILE_PERMISSION = 0644
 
@@ -77,11 +76,24 @@ module Fluent
     attr_reader :paths
 
     def configure(conf)
+      compat_parameters_convert(conf, :parser)
+      parser_config = conf.elements('parse').first
+      unless parser_config
+        raise Fluent::ConfigError, "<parse> section is required."
+      end
+      unless parser_config["@type"]
+        raise Fluent::ConfigError, "parse/@type is required."
+      end
+
+      (1..Fluent::Plugin::MultilineParser::FORMAT_MAX_NUM).each do |n|
+        parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
+      end
+
       super
 
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
-        raise ConfigError, "tail: 'path' parameter is required on tail input"
+        raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
 
       unless @pos_file
@@ -89,22 +101,17 @@ module Fluent
         $log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
 
-      configure_parser(conf)
       configure_tag
       configure_encoding
 
-      @multiline_mode = conf['format'] =~ /multiline/
+      @multiline_mode = parser_config["@type"] =~ /multiline/
       @receive_handler = if @multiline_mode
                            method(:parse_multilines)
                          else
                            method(:parse_singleline)
                          end
       @file_perm = system_config.file_permission || FILE_PERMISSION
-    end
-
-    def configure_parser(conf)
-      @parser = Plugin.new_parser(conf['format'])
-      @parser.configure(conf)
+      @parser = parser_create(conf: parser_config)
     end
 
     def configure_tag
@@ -120,7 +127,7 @@ module Fluent
     def configure_encoding
       unless @encoding
         if @from_encoding
-          raise ConfigError, "tail: 'from_encoding' parameter must be specified with 'encoding' parameter."
+          raise Fluent::ConfigError, "tail: 'from_encoding' parameter must be specified with 'encoding' parameter."
         end
       end
 
@@ -132,7 +139,7 @@ module Fluent
       begin
         Encoding.find(encoding_name) if encoding_name
       rescue ArgumentError => e
-        raise ConfigError, e.message
+        raise Fluent::ConfigError, e.message
       end
     end
 
@@ -145,20 +152,12 @@ module Fluent
         @pf = PositionFile.parse(@pf_file)
       end
 
-      @loop = Coolio::Loop.new
       refresh_watchers
-
-      @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, log, &method(:refresh_watchers))
-      @refresh_trigger.attach(@loop)
-      @thread = Thread.new(&method(:run))
+      timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
     end
 
     def shutdown
-      @refresh_trigger.detach if @refresh_trigger && @refresh_trigger.attached?
-
       stop_watchers(@tails.keys, true)
-      @loop.stop rescue nil # when all watchers are detached, `stop` raises RuntimeError. We can ignore this exception.
-      @thread.join
       @pf_file.close if @pf_file
 
       super
@@ -206,8 +205,11 @@ module Fluent
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher,  &method(:receive_lines))
-      tw.attach(@loop)
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, &method(:receive_lines))
+      tw.attach do |watcher|
+        timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
+        event_loop_attach(watcher.stat_trigger)
+      end
       tw
     end
 
@@ -218,7 +220,7 @@ module Fluent
           pe = @pf[path]
           if @read_from_head && pe.read_inode.zero?
             begin
-              pe.update(FileWrapper.stat(path).ino, 0)
+              pe.update(Fluent::FileWrapper.stat(path).ino, 0)
             rescue Errno::ENOENT
               $log.warn "#{path} not found. Continuing without tailing it."
             end
@@ -263,8 +265,9 @@ module Fluent
     end
 
     def close_watcher_after_rotate_wait(tw)
-      closer = TailWatcher::Closer.new(@rotate_wait, tw, log, &method(:close_watcher))
-      closer.attach(@loop)
+      timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
+        close_watcher(tw)
+      end
     end
 
     def flush_buffer(tw)
@@ -291,13 +294,6 @@ module Fluent
           end
         }
       end
-    end
-
-    def run
-      @loop.run
-    rescue
-      log.error "unexpected error", error: $!.to_s
-      log.error_backtrace
     end
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
@@ -347,7 +343,7 @@ module Fluent
     end
 
     def parse_singleline(lines, tail_watcher)
-      es = MultiEventStream.new
+      es = Fluent::MultiEventStream.new
       lines.each { |line|
         convert_line_to_event(line, es, tail_watcher)
       }
@@ -356,7 +352,7 @@ module Fluent
 
     def parse_multilines(lines, tail_watcher)
       lb = tail_watcher.line_buffer
-      es = MultiEventStream.new
+      es = Fluent::MultiEventStream.new
       if @parser.has_firstline?
         tail_watcher.line_buffer_timer_flusher.reset_timer if tail_watcher.line_buffer_timer_flusher
         lines.each { |line|
@@ -400,8 +396,6 @@ module Fluent
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @timer_trigger = TimerWatcher.new(1, true, log, &method(:on_notify)) if @enable_watch_timer
-
         @stat_trigger = StatWatcher.new(path, log, &method(:on_notify))
 
         @rotate_handler = RotateHandler.new(path, log, &method(:on_rotate))
@@ -412,6 +406,8 @@ module Fluent
       end
 
       attr_reader :path
+      attr_reader :stat_trigger, :enable_watch_timer
+      attr_accessor :timer_trigger
       attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
 
@@ -423,14 +419,12 @@ module Fluent
         @receive_lines.call(lines, self)
       end
 
-      def attach(loop)
-        @timer_trigger.attach(loop) if @enable_watch_timer
-        @stat_trigger.attach(loop)
+      def attach
+        yield self
         on_notify
       end
 
       def detach
-        @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
         @stat_trigger.detach if @stat_trigger.attached?
       end
 
@@ -523,22 +517,6 @@ module Fluent
         pe # This pe will be updated in on_rotate after TailWatcher is initialized
       end
 
-      class TimerWatcher < Coolio::TimerWatcher
-        def initialize(interval, repeat, log, &callback)
-          @callback = callback
-          @log = log
-          super(interval, repeat)
-        end
-
-        def on_timer
-          @callback.call
-        rescue
-          # TODO log?
-          @log.error $!.to_s
-          @log.error_backtrace
-        end
-      end
-
       class StatWatcher < Coolio::StatWatcher
         def initialize(path, log, &callback)
           @callback = callback
@@ -552,24 +530,6 @@ module Fluent
           # TODO log?
           @log.error $!.to_s
           @log.error_backtrace
-        end
-      end
-
-      class Closer < Coolio::TimerWatcher
-        def initialize(interval, tw, log, &callback)
-          @callback = callback
-          @tw = tw
-          @log = log
-          super(interval, false)
-        end
-
-        def on_timer
-          @callback.call(@tw)
-        rescue => e
-          @log.error e.to_s
-          @log.error_backtrace(e.backtrace)
-        ensure
-          detach
         end
       end
 
@@ -660,7 +620,7 @@ module Fluent
 
         def on_notify
           begin
-            stat = FileWrapper.stat(@path)
+            stat = Fluent::FileWrapper.stat(@path)
             inode = stat.ino
             fsize = stat.size
           rescue Errno::ENOENT
@@ -673,7 +633,7 @@ module Fluent
             if @inode != inode || fsize < @fsize
               # rotated or truncated
               begin
-                io = FileWrapper.open(@path)
+                io = Fluent::FileWrapper.open(@path)
               rescue Errno::ENOENT
               end
               @on_rotate.call(io)
@@ -687,7 +647,6 @@ module Fluent
           @log.error_backtrace
         end
       end
-
 
       class LineBufferTimerFlusher
         def initialize(log, flush_interval, &flush_method)
@@ -712,7 +671,6 @@ module Fluent
         end
       end
     end
-
 
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
@@ -833,6 +791,4 @@ module Fluent
       end
     end
   end
-
-  NewTailInput = TailInput # for backward compatibility
 end
