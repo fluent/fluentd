@@ -486,18 +486,17 @@ class ForwardInputTest < Test::Unit::TestCase
         [_time, record].to_msgpack(v)
         entries += compress(v)
       end
-      chunk = ["tag1", entries, { 'compress' => 'gzip' }].to_msgpack
+      chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 
       d.run do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
           option = d.instance.send(:on_message, obj, chunk.size, PEERADDR)
-          assert_equal 'gzip', option['compress']
+          assert_equal 'gzip', option['compressed']
         end
       end
 
       assert_equal events, d.emits
     end
-
 
     def test_create_CompressedMessagePackEventStream_with_gzip_compress_option
       d = create_driver
@@ -515,7 +514,7 @@ class ForwardInputTest < Test::Unit::TestCase
         [_time, record].to_msgpack(v)
         entries += compress(v)
       end
-      chunk = ["tag1", entries, { 'compress' => 'gzip' }].to_msgpack
+      chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 
       # check CompressedMessagePackEventStream is created
       mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0)
@@ -523,7 +522,7 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
           option = d.instance.send(:on_message, obj, chunk.size, PEERADDR)
-          assert_equal 'gzip', option['compress']
+          assert_equal 'gzip', option['compressed']
         end
       end
       d.emits

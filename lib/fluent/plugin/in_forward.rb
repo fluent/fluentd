@@ -338,7 +338,7 @@ module Fluent
         # PackedForward
         option = msg[2]
         size = (option && option['size']) || 0
-        es_class = (option && option['compress'] == 'gzip') ? CompressedMessagePackEventStream : MessagePackEventStream
+        es_class = (option && option['compressed'] == 'gzip') ? CompressedMessagePackEventStream : MessagePackEventStream
         es = es_class.new(entries, nil, size.to_i)
         es = check_and_skip_invalid_event(tag, es, peeraddr) if @skip_invalid_event
         es = add_source_host(es, peeraddr[2]) if @source_hostname_key

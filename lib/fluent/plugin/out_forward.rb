@@ -441,7 +441,7 @@ module Fluent
             raise ForwardOutputConnectionClosedError, "failed to establish connection with node #{@name}"
           end
 
-          option = { 'size' => chunk.size_of_events, 'compress' => @compress }
+          option = { 'size' => chunk.size_of_events, 'compressed' => @compress }
           option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
 
           # out_forward always uses Raw32 type for content.
