@@ -138,7 +138,7 @@ module Fluent
         end
       end
 
-      attr_reader :as_secondary, :delayed_commit, :delayed_commit_timeout
+      attr_reader :as_secondary, :delayed_commit, :delayed_commit_timeout, :timekey_zone
       attr_reader :num_errors, :emit_count, :emit_records, :write_count, :rollback_count
 
       # for tests
@@ -185,13 +185,21 @@ module Fluent
         @simple_chunking = nil
         @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
         @flush_mode = nil
+        @timekey_zone = nil
       end
 
       def acts_as_secondary(primary)
         @as_secondary = true
         @primary_instance = primary
+        @chunk_keys = @primary_instance.chunk_keys || []
+        @chunk_key_tag = @primary_instance.chunk_key_tag || false
+        if @primary_instance.chunk_key_time
+          @chunk_key_time = @primary_instance.chunk_key_time
+          @timekey_zone = @primary_instance.timekey_zone
+          @output_time_formatter_cache = {}
+        end
+
         (class << self; self; end).module_eval do
-          define_method(:extract_placeholders){ |str, metadata| @primary_instance.extract_placeholders(str, metadata) }
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
           define_method(:rollback_write){ |chunk_id| @primary_instance.rollback_write(chunk_id) }
         end
@@ -251,7 +259,7 @@ module Fluent
           if @chunk_key_time
             raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey is not configured" unless @buffer_config.timekey
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
-            @buffer_config.timekey_zone = '+0000' if @buffer_config.timekey_use_utc
+            @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
             @output_time_formatter_cache = {}
           end
 
@@ -477,13 +485,13 @@ module Fluent
 
       # TODO: optimize this code
       def extract_placeholders(str, metadata)
-        if metadata.timekey.nil? && metadata.tag.nil? && metadata.variables.nil?
+        if metadata.empty?
           str
         else
           rvalue = str
           # strftime formatting
           if @chunk_key_time # this section MUST be earlier than rest to use raw 'str'
-            @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@buffer_config.timekey_zone, str)
+            @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@timekey_zone, str)
             rvalue = @output_time_formatter_cache[str].call(metadata.timekey)
           end
           # ${tag}, ${tag[0]}, ${tag[1]}, ...

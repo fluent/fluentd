@@ -55,7 +55,11 @@ module Fluent
       # if chunk size (or records) is 95% or more after #write, then that chunk will be enqueued
       config_param :chunk_full_threshold, :float, default: DEFAULT_CHUNK_FULL_THRESHOLD
 
-      Metadata = Struct.new(:timekey, :tag, :variables)
+      Metadata = Struct.new(:timekey, :tag, :variables) do
+        def empty?
+          timekey.nil? && tag.nil? && variables.nil?
+        end
+      end
 
       # for tests
       attr_accessor :stage_size, :queue_size
