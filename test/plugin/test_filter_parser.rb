@@ -11,6 +11,10 @@ class ParserFilterTest < Test::Unit::TestCase
     Timecop.freeze(@default_time)
   end
 
+  def teardown
+    Timecop.return
+  end
+
   CONFIG = %[
     key_name     message
     format       /^(?<x>.)(?<y>.) (?<time>.+)$/
