@@ -272,6 +272,17 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
       @gzipped_src = compress(@src)
     end
 
+    test '#append with compress option writes  compressed data to chunk when compress is gzip' do
+      c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
+      c.append([@src, @src], compress: :gzip)
+      c.commit
+
+      # check chunk is compressed
+      assert c.read(compressed: :gzip).size < [@src, @src].join("").size
+
+      assert_equal @src + @src, c.read
+    end
+
     test '#open passes io object having decompressed data to a block when compress is gzip' do
       c = Fluent::Plugin::Buffer::MemoryChunk.new(Object.new, compress: :gzip)
       c.concat(@gzipped_src, @src.size)

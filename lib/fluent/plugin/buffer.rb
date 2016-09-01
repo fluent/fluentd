@@ -461,7 +461,7 @@ module Fluent
               serialized = format.call(data)
               chunk.concat(serialized, size ? size.call : data.size)
             else
-              chunk.append(data)
+              chunk.append(data, compress: @compress)
             end
             adding_bytesize = chunk.bytesize - original_bytesize
 
@@ -561,7 +561,7 @@ module Fluent
                 if format
                   chunk.concat(format.call(split), split.size)
                 else
-                  chunk.append(split)
+                  chunk.append(split, compress: @compress)
                 end
 
                 if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?

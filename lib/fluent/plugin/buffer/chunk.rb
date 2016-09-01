@@ -21,6 +21,7 @@ require 'fluent/event'
 
 require 'monitor'
 require 'tempfile'
+require 'zlib'
 
 module Fluent
   module Plugin
@@ -66,7 +67,8 @@ module Fluent
         attr_reader :unique_id, :metadata, :created_at, :modified_at, :state
 
         # data is array of formatted record string
-        def append(data)
+        def append(data, **kwargs)
+          raise ArgumentError, '`compress: gzip` can be used for Compressable module' if kwargs[:compress] == :gzip
           adding = ''.b
           data.each do |d|
             adding << d.b
@@ -164,6 +166,20 @@ module Fluent
 
         module Decompressable
           include Fluent::Plugin::Compressable
+
+          def append(data, **kwargs)
+            if kwargs[:compress] == :gzip
+              io = StringIO.new
+              Zlib::GzipWriter.wrap(io) do |gz|
+                data.each do |d|
+                  gz.write d
+                end
+              end
+              concat(io.string, data.size)
+            else
+              super
+            end
+          end
 
           def open(**kwargs, &block)
             if kwargs[:compressed] == :gzip

@@ -53,6 +53,7 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(ArgumentError){ chunk.read(compressed: :gzip) }
       assert_raise(ArgumentError){ chunk.open(compressed: :gzip){} }
       assert_raise(ArgumentError){ chunk.write_to(nil, compressed: :gzip) }
+      assert_raise(ArgumentError){ chunk.append(nil, compress: :gzip) }
     end
   end
 
