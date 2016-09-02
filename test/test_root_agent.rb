@@ -50,6 +50,48 @@ class RootAgentTest < ::Test::Unit::TestCase
       assert_nil ra.error_collector
     end
 
+    test 'raises configuration error for missing type of source' do
+      conf = <<-EOC
+<source>
+</source>
+EOC
+      errmsg = "Missing '@type' parameter on <source> directive"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for missing type of match' do
+      conf = <<-EOC
+<source>
+  @type test_in
+</source>
+<match *.**>
+</match>
+EOC
+      errmsg = "Missing '@type' parameter on <match> directive"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for missing type of filter' do
+      conf = <<-EOC
+<source>
+  @type test_in
+</source>
+<filter *.**>
+</filter>
+<match *.**>
+  @type test_out
+</match>
+EOC
+      errmsg = "Missing '@type' parameter on <filter> directive"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        configure_ra(conf)
+      end
+    end
+
     test 'with plugins' do
       # check @type and type in one configuration
       conf = <<-EOC
