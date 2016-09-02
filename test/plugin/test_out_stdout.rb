@@ -14,70 +14,168 @@ class StdoutOutputTest < Test::Unit::TestCase
     Fluent::Test::Driver::Output.new(Fluent::Plugin::StdoutOutput).configure(conf)
   end
 
-  def test_configure
-    d = create_driver
-    assert_equal [], d.instance.formatter_configs
-  end
-
-  def test_configure_output_type
-    d = create_driver(CONFIG + "\noutput_type json")
-    assert_equal 'json', d.instance.formatter_configs.first[:@type]
-
-    d = create_driver(CONFIG + "\noutput_type hash")
-    assert_equal 'hash', d.instance.formatter_configs.first[:@type]
-
-    assert_raise(Fluent::ConfigError) do
-      d = create_driver(CONFIG + "\noutput_type foo")
+  sub_test_case 'non-buffered' do
+    test 'configure' do
+      d = create_driver
+      assert_equal [], d.instance.formatter_configs
     end
-  end
 
-  def test_emit_in_default
-    d = create_driver
-    time = event_time()
-    out = capture_log do
-      d.run(default_tag: 'test') do
-        d.feed(time, {'test' => 'test1'})
+    test 'configure output_type' do
+      d = create_driver(CONFIG + "\noutput_type json")
+      assert_equal 'json', d.instance.formatter_configs.first[:@type]
+
+      d = create_driver(CONFIG + "\noutput_type hash")
+      assert_equal 'hash', d.instance.formatter_configs.first[:@type]
+
+      assert_raise(Fluent::ConfigError) do
+        d = create_driver(CONFIG + "\noutput_type foo")
       end
     end
-    assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
-  end
 
-  data('oj' => 'oj', 'yajl' => 'yajl')
-  def test_emit_json(data)
-    d = create_driver(CONFIG + "\noutput_type json\njson_parser #{data}")
-    time = event_time()
-    out = capture_log do
-      d.run(default_tag: 'test') do
-        d.feed(time, {'test' => 'test1'})
+    test 'emit with default configuration' do
+      d = create_driver
+      time = event_time()
+      out = capture_log do
+        d.run(default_tag: 'test') do
+          d.feed(time, {'test' => 'test1'})
+        end
+      end
+      assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
+    end
+
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    test 'emit in json format' do |data|
+      d = create_driver(CONFIG + "\noutput_type json\njson_parser #{data}")
+      time = event_time()
+      out = capture_log do
+        d.run(default_tag: 'test') do
+          d.feed(time, {'test' => 'test1'})
+        end
+      end
+      assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
+
+      if data == 'yajl'
+        # NOTE: Float::NAN is not jsonable
+        assert_raise(Yajl::EncodeError) { d.feed('test', time, {'test' => Float::NAN}) }
+      else
+        out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
+        assert_equal "#{Time.at(time).localtime} test: {\"test\":NaN}\n", out
       end
     end
-    assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
 
-    if data == 'yajl'
-      # NOTE: Float::NAN is not jsonable
-      assert_raise(Yajl::EncodeError) { d.feed('test', time, {'test' => Float::NAN}) }
-    else
+    test 'emit in hash format' do
+      d = create_driver(CONFIG + "\noutput_type hash")
+      time = event_time()
+      out = capture_log do
+        d.run(default_tag: 'test') do
+          d.feed(time, {'test' => 'test2'})
+        end
+      end
+      assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test2\"}\n", out
+
+      # NOTE: Float::NAN is not jsonable, but hash string can output it.
       out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
-      assert_equal "#{Time.at(time).localtime} test: {\"test\":NaN}\n", out
+      assert_equal "#{Time.at(time).localtime} test: {\"test\"=>NaN}\n", out
     end
   end
 
-  def test_emit_hash
-    d = create_driver(CONFIG + "\noutput_type hash")
-    time = event_time()
-    out = capture_log do
-      d.run(default_tag: 'test') do
-        d.feed(time, {'test' => 'test2'})
+  sub_test_case 'buffered' do
+    test 'configure' do
+      d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
+      assert_equal [], d.instance.formatter_configs
+      assert_equal 10 * 1024, d.instance.buffer_config.chunk_limit_size
+      assert d.instance.buffer_config.flush_at_shutdown
+      assert_equal ['tag'], d.instance.buffer_config.chunk_keys
+      assert d.instance.chunk_key_tag
+      assert !d.instance.chunk_key_time
+      assert_equal [], d.instance.chunk_keys
+    end
+
+    test 'configure with output_type' do
+      d = create_driver(config_element("ROOT", "", {"output_type" => "json"}, [config_element("buffer")]))
+      assert_equal 'json', d.instance.formatter_configs.first[:@type]
+
+      d = create_driver(config_element("ROOT", "", {"output_type" => "hash"}, [config_element("buffer")]))
+      assert_equal 'hash', d.instance.formatter_configs.first[:@type]
+
+      assert_raise(Fluent::ConfigError) do
+        create_driver(config_element("ROOT", "", {"output_type" => "foo"}, [config_element("buffer")]))
       end
     end
-    assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test2\"}\n", out
 
-    # NOTE: Float::NAN is not jsonable, but hash string can output it.
-    out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
-    assert_equal "#{Time.at(time).localtime} test: {\"test\"=>NaN}\n", out
+    sub_test_case "emit with default config" do
+      test '#write(synchronous)' do
+        d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
+        time = event_time()
+
+        out = capture_log do
+          d.run(default_tag: 'test', flush: true) do
+            d.feed(time, {'test' => 'test'})
+          end
+        end
+        assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+      end
+    end
+
+    sub_test_case "emit json" do
+      data('oj' => 'oj', 'yajl' => 'yajl')
+      test '#write(synchronous)' do |data|
+        d = create_driver(config_element("ROOT", "", {"output_type" => "json", "json_parser" => data}, [config_element("buffer")]))
+        time = event_time()
+
+        out = capture_log do
+          d.run(default_tag: 'test', flush: true) do
+            d.feed(time, {'test' => 'test'})
+          end
+        end
+        assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+      end
+
+      data('oj' => 'oj', 'yajl' => 'yajl')
+      test '#try_write(asynchronous)' do |data|
+        d = create_driver(config_element("ROOT", "", {"output_type" => "json", "json_parser" => data}, [config_element("buffer")]))
+        time = event_time()
+        d.instance.delayed = true
+
+        out = capture_log do
+          d.run(default_tag: 'test', flush: true, shutdown: false) do
+            d.feed(time, {'test' => 'test'})
+          end
+        end
+
+        assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+      end
+    end
+
+    sub_test_case 'emit hash' do
+      test '#write(synchronous)' do
+        d = create_driver(config_element("ROOT", "", {"output_type" => "hash"}, [config_element("buffer")]))
+        time = event_time()
+
+        out = capture_log do
+          d.run(default_tag: 'test', flush: true) do
+            d.feed(time, {'test' => 'test'})
+          end
+        end
+
+        assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test\"}\n", out
+      end
+
+      test '#try_write(asynchronous)' do
+        d = create_driver(config_element("ROOT", "", {"output_type" => "hash"}, [config_element("buffer")]))
+        time = event_time()
+        d.instance.delayed = true
+
+        out = capture_log do
+          d.run(default_tag: 'test', flush: true, shutdown: false) do
+            d.feed(time, {'test' => 'test'})
+          end
+        end
+
+        assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test\"}\n", out
+      end
+    end
   end
-
-  private
 
   # Capture the log output of the block given
   def capture_log(&block)
