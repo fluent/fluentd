@@ -168,7 +168,7 @@ module BinlogReaderCommand
         i = 1
         Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
           print @formatter.format(@path, time, record) # path is used for tag
-          break if i == @options[:count] && @options[:count] != -1
+          break if @options[:count] && i == @options[:count]
           i += 1
         end
       end
@@ -196,7 +196,7 @@ module BinlogReaderCommand
 
   class Cat < Head
     DEFAULT_CAT_OPTIONS = {
-      count: -1
+      count: nil                # Overwrite DEFAULT_HEAD_OPTIONS[:count]
     }
 
     def default_options
