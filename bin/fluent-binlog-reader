@@ -2,6 +2,6 @@
 # -*- coding: utf-8 -*-
 here = File.dirname(__FILE__)
 $LOAD_PATH << File.expand_path(File.join(here, '..', 'lib'))
-require 'fluent/command/unpacker'
+require 'fluent/command/binlog_reader'
 
-FluentUnpacker.new.call
+FluentBinlogReader.new.call

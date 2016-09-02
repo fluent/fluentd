@@ -22,17 +22,17 @@ require 'fluent/formatter'
 require 'fluent/plugin'
 require 'fluent/config/element'
 
-class FluentUnpacker
+class FluentBinlogReader
   SUBCOMMAND = %w(cat head formats)
   HELP_TEXT = <<HELP
-Usage: fluent-unpacker <command> [<args>]
+Usage: fluent-binlog-reader <command> [<args>]
 
-Commands of fluent-unpacker:
+Commands of fluent-binlog-reader:
    cat     :     Read files sequentially, writing them to standard output.
    head    :     Display the beginning of a text file.
    format  :     Display plugins that you can use.
 
-See 'fluent-unpacker <command> --help' for more information on a specific command.
+See 'fluent-binlog-reader <command> --help' for more information on a specific command.
 HELP
 
   def initialize(argv = ARGV)
@@ -40,7 +40,7 @@ HELP
   end
 
   def call
-    command_class = UnpackerCommand.const_get(command)
+    command_class = BinlogReaderCommand.const_get(command)
     command_class.new(@argv).call
   end
 
@@ -62,7 +62,7 @@ HELP
   end
 end
 
-module UnpackerCommand
+module BinlogReaderCommand
   class Base
     def initialize(argv = ARGV)
       @argv = argv
@@ -99,6 +99,8 @@ module UnpackerCommand
           Fluent::Plugin.add_plugin_dir(d)
         end
       end
+    rescue => e
+      usage e
     end
   end
 
@@ -118,7 +120,7 @@ module UnpackerCommand
     def configure_option_parser
       @options.merge!(config_params: {})
 
-      @opt_parser.banner = "Usage: fluent-unpacker #{self.class.to_s.split('::').last.downcase} [options] file"
+      @opt_parser.banner = "Usage: fluent- #{self.class.to_s.split('::').last.downcase} [options] file"
 
       @opt_parser.on('-f TYPE', '--format', 'configure output format') do |v|
         @options[:format] = v.to_sym

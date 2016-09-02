@@ -3,11 +3,11 @@ require_relative '../helper'
 require 'oj'
 require 'flexmock/test_unit'
 
-require 'fluent/command/unpacker'
+require 'fluent/command/binlog_reader'
 require 'fluent/event'
 
-class TestFluentUnpacker < ::Test::Unit::TestCase
-  module ::UnpackerCommand
+class TestFluentBinlogReader < ::Test::Unit::TestCase
+  module ::BinlogReaderCommand
     class Dummy < Base
       def call; end
     end
@@ -27,7 +27,7 @@ class TestFluentUnpacker < ::Test::Unit::TestCase
       invalid: %w(invalid packed.log),
     )
     test 'should fail when invalid command' do |argv|
-      fu = FluentUnpacker.new(argv)
+      fu = FluentBinlogReader.new(argv)
 
       assert_raise(SystemExit) do
         suppress_stdout { fu.call }
@@ -40,10 +40,10 @@ class TestFluentUnpacker < ::Test::Unit::TestCase
       formats: %w(formats packed.log)
     )
     test 'should succeed when valid command' do |argv|
-      fu = FluentUnpacker.new(argv)
+      fu = FluentBinlogReader.new(argv)
 
-      flexstub(::UnpackerCommand) do |command|
-        command.should_receive(:const_get).once.and_return(::UnpackerCommand::Dummy)
+      flexstub(::BinlogReaderCommand) do |command|
+        command.should_receive(:const_get).once.and_return(::BinlogReaderCommand::Dummy)
         assert_nothing_raised do
           fu.call
         end
@@ -53,7 +53,7 @@ class TestFluentUnpacker < ::Test::Unit::TestCase
 end
 
 class TestBaseCommand < ::Test::Unit::TestCase
-  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/command/unpacker#{ENV['TEST_ENV_NUMBER']}")
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/command/binlog_reader#{ENV['TEST_ENV_NUMBER']}")
 
   def create_message_packed_file(path, times = [event_time], records = [{ 'message' => 'dummy' }])
     es = Fluent::MultiEventStream.new(times, records)
@@ -94,7 +94,7 @@ class TestHead < TestBaseCommand
     )
     test 'should fail if file is invalid' do |argv|
       assert_raise(SystemExit) do
-        capture_stdout { UnpackerCommand::Head.new(argv) }
+        capture_stdout { BinlogReaderCommand::Head.new(argv) }
       end
     end
 
@@ -104,7 +104,7 @@ class TestHead < TestBaseCommand
       create_message_packed_file(file_name)
 
       assert_nothing_raised do
-        UnpackerCommand::Head.new(argv)
+        BinlogReaderCommand::Head.new(argv)
       end
     end
 
@@ -114,7 +114,7 @@ class TestHead < TestBaseCommand
       create_message_packed_file(file_name)
 
       assert_raise(SystemExit) do
-        capture_stdout { UnpackerCommand::Head.new(argv) }
+        capture_stdout { BinlogReaderCommand::Head.new(argv) }
       end
     end
 
@@ -124,7 +124,7 @@ class TestHead < TestBaseCommand
       create_message_packed_file(file_name)
 
       assert_nothing_raised do
-        capture_stdout { UnpackerCommand::Head.new(argv) }
+        capture_stdout { BinlogReaderCommand::Head.new(argv) }
       end
     end
   end
@@ -141,7 +141,7 @@ class TestHead < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
-        head = UnpackerCommand::Head.new(argv)
+        head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n" * 5, out
       end
@@ -152,7 +152,7 @@ class TestHead < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
-        head = UnpackerCommand::Head.new(argv)
+        head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
       end
@@ -163,7 +163,7 @@ class TestHead < TestBaseCommand
 
       create_message_packed_file(@file_name)
       assert_raise(SystemExit) do
-        capture_stdout { UnpackerCommand::Head.new(argv) }
+        capture_stdout { BinlogReaderCommand::Head.new(argv) }
       end
     end
 
@@ -172,7 +172,7 @@ class TestHead < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
-        head = UnpackerCommand::Head.new(argv)
+        head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
         assert_equal "#{Oj.dump(@record)}\n", out
       end
@@ -183,7 +183,7 @@ class TestHead < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
-        head = UnpackerCommand::Head.new(argv)
+        head = BinlogReaderCommand::Head.new(argv)
 
         assert_raise(SystemExit) do
           capture_stdout { head.call }
@@ -196,7 +196,7 @@ class TestHead < TestBaseCommand
       argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message,fo', '-e', 'delimiter=|']
       create_message_packed_file(file_name, [event_time], [{ 'message' => 'dummy', 'fo' => 'dummy2' }])
 
-      head = UnpackerCommand::Head.new(argv)
+      head = BinlogReaderCommand::Head.new(argv)
       assert_equal "\"dummy\"|\"dummy2\"\n", capture_stdout { head.call }
     end
   end
@@ -210,7 +210,7 @@ class TestCat < TestBaseCommand
     )
     test 'should fail if a file is invalid' do |argv|
       assert_raise(SystemExit) do
-        capture_stdout { UnpackerCommand::Head.new(argv) }
+        capture_stdout { BinlogReaderCommand::Head.new(argv) }
       end
     end
 
@@ -220,7 +220,7 @@ class TestCat < TestBaseCommand
       create_message_packed_file(file_name)
 
       assert_nothing_raised do
-        UnpackerCommand::Cat.new(argv)
+        BinlogReaderCommand::Cat.new(argv)
       end
     end
 
@@ -230,7 +230,7 @@ class TestCat < TestBaseCommand
       create_message_packed_file(file_name)
 
       assert_raise(SystemExit) do
-        capture_stdout { UnpackerCommand::Cat.new(argv) }
+        capture_stdout { BinlogReaderCommand::Cat.new(argv) }
       end
     end
 
@@ -240,7 +240,7 @@ class TestCat < TestBaseCommand
       create_message_packed_file(file_name)
 
       assert_nothing_raised do
-        capture_stdout { UnpackerCommand::Cat.new(argv) }
+        capture_stdout { BinlogReaderCommand::Cat.new(argv) }
       end
     end
   end
@@ -257,7 +257,7 @@ class TestCat < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
-        head = UnpackerCommand::Cat.new(argv)
+        head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n" * 6, out
       end
@@ -268,7 +268,7 @@ class TestCat < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
-        head = UnpackerCommand::Cat.new(argv)
+        head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
         assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
       end
@@ -279,7 +279,7 @@ class TestCat < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
-        head = UnpackerCommand::Cat.new(argv)
+        head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
         assert_equal "#{Oj.dump(@record)}\n", out
       end
@@ -290,7 +290,7 @@ class TestCat < TestBaseCommand
 
       timezone do
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
-        head = UnpackerCommand::Cat.new(argv)
+        head = BinlogReaderCommand::Cat.new(argv)
 
         assert_raise(SystemExit) do
           capture_stdout { head.call }
@@ -303,7 +303,7 @@ class TestCat < TestBaseCommand
       argv = ["#{TMP_DIR}/#{file_name}", '--format=csv', '-e', 'fields=message,fo', '-e', 'delimiter=|']
       create_message_packed_file(file_name, [event_time], [{ 'message' => 'dummy', 'fo' => 'dummy2' }])
 
-      head = UnpackerCommand::Cat.new(argv)
+      head = BinlogReaderCommand::Cat.new(argv)
       assert_equal "\"dummy\"|\"dummy2\"\n", capture_stdout { head.call }
     end
   end
@@ -313,14 +313,14 @@ class TestFormats < TestBaseCommand
   test 'parse_option!' do
     assert_raise(SystemExit) do
       capture_stdout do
-        UnpackerCommand::Formats.new(['--plugin=invalid_dir_path'])
+        BinlogReaderCommand::Formats.new(['--plugin=invalid_dir_path'])
       end
     end
   end
 
   sub_test_case 'call' do
     test 'display available plugins' do
-      f = UnpackerCommand::Formats.new
+      f = BinlogReaderCommand::Formats.new
       out = capture_stdout { f.call }
       assert out.include?('json')
       assert out.include?('csv')
@@ -329,7 +329,7 @@ class TestFormats < TestBaseCommand
     test 'add new plugins using --plugin option' do
       dir_path = File.expand_path(File.dirname(__FILE__) + '/../scripts/fluent/plugin/formatter1')
 
-      f = UnpackerCommand::Formats.new(["--plugin=#{dir_path}"])
+      f = BinlogReaderCommand::Formats.new(["--plugin=#{dir_path}"])
       out = capture_stdout { f.call }
       assert out.include?('json')
       assert out.include?('csv')
@@ -340,7 +340,7 @@ class TestFormats < TestBaseCommand
       dir_path1 = File.expand_path(File.dirname(__FILE__) + '/../scripts/fluent/plugin/formatter1')
       dir_path2 = File.expand_path(File.dirname(__FILE__) + '/../scripts/fluent/plugin/formatter2')
 
-      f = UnpackerCommand::Formats.new(["--plugin=#{dir_path1}", '-p', dir_path2])
+      f = BinlogReaderCommand::Formats.new(["--plugin=#{dir_path1}", '-p', dir_path2])
       out = capture_stdout { f.call }
       assert out.include?('json')
       assert out.include?('csv')
