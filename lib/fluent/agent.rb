@@ -63,6 +63,7 @@ module Fluent
       conf.elements('filter', 'match').each { |e|
         pattern = e.arg.empty? ? '**' : e.arg
         type = e['@type']
+        raise ConfigError, "Missing 'type' parameter on <#{e.name}> directive" unless type
         if e.name == 'filter'
           add_filter(type, pattern, e)
         else
