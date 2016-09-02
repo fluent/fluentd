@@ -479,11 +479,13 @@ class ParserFilterTest < Test::Unit::TestCase
     invalid_utf8 = "\xff".force_encoding('UTF-8')
 
     d = create_driver(CONFIG_NOT_REPLACE)
-    assert_raise(ArgumentError) {
-      d.run do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
-      end
-    }
+    d.run(shutdown: false) do
+      d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
+    end
+    error_event = d.error_events.first
+    assert_equal "test", error_event[0]
+    assert_instance_of ArgumentError, error_event[3]
+    d.instance_shutdown      
 
     d = create_driver(CONFIG_INVALID_BYTE)
     assert_nothing_raised {
@@ -564,59 +566,23 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   # suppress_parse_error_log test
-  CONFIG_DISABELED_SUPPRESS_PARSE_ERROR_LOG = %[
-    tag hogelog
-    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-    key_name message
-    suppress_parse_error_log false
-  ]
-  CONFIG_ENABELED_SUPPRESS_PARSE_ERROR_LOG = %[
-    tag hogelog
-    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-    key_name message
-    suppress_parse_error_log true
-  ]
+  INVALID_MESSAGE = 'foo bar'
+  VALID_MESSAGE   = 'col1=foo col2=bar'
+
+  def test_parser_error_warning
+    d = create_driver(CONFIG_INVALID_TIME_VALUE)
+    d.run(shutdown: false) do
+      d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
+    end
+    assert_match(/\[warn\]: invalid time value:/, d.instance.log.logs.first)
+    d.instance_shutdown
+  end
+
   CONFIG_DEFAULT_SUPPRESS_PARSE_ERROR_LOG = %[
     tag hogelog
     format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
     key_name message
   ]
-
-  INVALID_MESSAGE = 'foo bar'
-  VALID_MESSAGE   = 'col1=foo col2=bar'
-
-  # if call warn() raise exception
-  class DummyLoggerWarnedException < StandardError; end
-  class DummyLogger
-    def reset
-    end
-    def warn(message)
-      raise DummyLoggerWarnedException
-    end
-  end
-
-  def swap_logger(instance)
-    raise "use with block" unless block_given?
-    dummy = DummyLogger.new
-    saved_logger = instance.log
-    instance.log = dummy
-    restore = lambda { instance.log = saved_logger }
-
-    yield
-
-    restore.call
-  end
-
-  def test_parser_error_warning
-    d = create_driver(CONFIG_INVALID_TIME_VALUE)
-    swap_logger(d.instance) do
-      assert_raise(DummyLoggerWarnedException) {
-        d.run do
-          d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
-        end
-      }
-    end
-  end
 
   class DefaultSuppressParseErrorLogTest < self
     setup do
@@ -625,25 +591,28 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_raise_exception
-      swap_logger(@d.instance) do
-        assert_raise(DummyLoggerWarnedException) {
-          @d.run do
-            @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-          end
-        }
+      @d.run(shutdown: false) do
+        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
       end
+      assert_match(/\[warn\]: pattern not match with data/, @d.instance.log.logs.first)
+      @d.instance_shutdown
     end
 
     def test_nothing_raised
-      swap_logger(@d.instance) do
-      assert_nothing_raised {
-        @d.run do
-          @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-        end
-      }
+      @d.run(shutdown: false) do
+        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
+      assert_empty @d.instance.log.logs
+      @d.instance_shutdown
     end
   end
+
+  CONFIG_DISABELED_SUPPRESS_PARSE_ERROR_LOG = %[
+    tag hogelog
+    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+    key_name message
+    suppress_parse_error_log false
+  ]
 
   class DisabledSuppressParseErrorLogTest < self
     setup do
@@ -652,25 +621,28 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_raise_exception
-      swap_logger(@d.instance) do
-        assert_raise(DummyLoggerWarnedException) {
-          @d.run do
-            @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-          end
-        }
+      @d.run(shutdown: false) do
+        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
       end
+      assert_match(/\[warn\]: pattern not match with data/, @d.instance.log.logs.first)
+      @d.instance_shutdown
     end
 
     def test_nothing_raised
-      swap_logger(@d.instance) do
-      assert_nothing_raised {
-        @d.run do
-          @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-        end
-      }
+      @d.run(shutdown: false) do
+        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
+      assert_empty @d.instance.log.logs
+      @d.instance_shutdown
     end
   end
+
+  CONFIG_ENABELED_SUPPRESS_PARSE_ERROR_LOG = %[
+    tag hogelog
+    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+    key_name message
+    suppress_parse_error_log true
+  ]
 
   class EnabledSuppressParseErrorLogTest < self
     setup do
@@ -679,14 +651,12 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_nothing_raised
-      swap_logger(@d.instance) do
-      assert_nothing_raised {
-        @d.run do
-          @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-          @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-        end
-      }
+      @d.run(shutdown: false) do
+        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
+        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
+      assert_empty @d.instance.log.logs
+      @d.instance_shutdown
     end
   end
 end
