@@ -105,6 +105,8 @@ module Fluent
   end
 
   class TimeParser
+    class TimeParseError < StandardError; end
+
     def initialize(format = nil, localtime = true, timezone = nil)
       if format.nil? && (timezone || !localtime)
         raise ArgumentError, "specifying timezone requires time format"
@@ -114,23 +116,32 @@ module Fluent
       @cache1_time = nil
       @cache2_key = nil
       @cache2_time = nil
-      @parser =
-        if time_format
-          begin
-            strptime = Strptime.new(time_format)
-            Proc.new { |value| Fluent::EventTime.from_time(strptime.exec(value)) }
-          rescue
-            Proc.new { |value| Fluent::EventTime.from_time(Time.strptime(value, time_format)) }
-          end
-        else
-          Proc.new { |value| Fluent::EventTime.parse(value) }
-        end
+
+      format_with_timezone = format && (format.include?("%z") || format.include?("%Z"))
+
+      # unixtime_in_expected_tz = unixtime_in_localtime - offset_diff
+      offset_diff = case
+                    when format_with_timezone then nil
+                    when timezone  then Time.zone_offset(timezone) - Time.zone_offset(Time.now.strftime("%z"))
+                    when localtime then 0
+                    else 0 - Time.zone_offset(Time.now.strftime("%z")) # utc
+                    end
+
+      strptime = format && (Strptime.new(time_format) rescue nil)
+
+      @parse = case
+               when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
+               when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
+               when strptime then ->(v){ t = strptime.exec(v);         Fluent::EventTime.new(t.to_i - offset_diff, t.nsec) }
+               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i - offset_diff, t.nsec) }
+               else ->(v){ Fluent::EventTime.parse(v) }
+               end
     end
 
     # TODO: new cache mechanism using format string
     def parse(value)
       unless value.is_a?(String)
-        raise ParserError, "value must be string: #{value}"
+        raise TimeParseError, "value must be string: #{value}"
       end
 
       if @cache1_key == value
@@ -139,9 +150,9 @@ module Fluent
         return @cache2_time
       else
         begin
-          time = @parser.call(value)
+          time = @parse.call(value)
         rescue => e
-          raise ParserError, "invalid time format: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
+          raise TimeParseError, "invalid time format: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
         end
         @cache1_key = @cache2_key
         @cache1_time = @cache2_time
