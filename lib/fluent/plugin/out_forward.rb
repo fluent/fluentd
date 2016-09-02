@@ -116,6 +116,7 @@ module Fluent
     def configure(conf)
       super
 
+      @read_interval = @read_interval_msec / 1000.0
       @recover_sample_size = @recover_wait / @heartbeat_interval
 
       if @dns_round_robin
