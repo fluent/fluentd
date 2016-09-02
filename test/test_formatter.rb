@@ -13,13 +13,6 @@ module FormatterTest
     {'message' => 'awesome', 'greeting' => 'hello'}
   end
 
-  def with_timezone(tz)
-    oldtz, ENV['TZ'] = ENV['TZ'], tz
-    yield
-  ensure
-    ENV['TZ'] = oldtz
-  end
-
   class BaseFormatterTest < ::Test::Unit::TestCase
     include FormatterTest
 

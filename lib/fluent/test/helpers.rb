@@ -37,6 +37,13 @@ module Fluent
         end
       end
 
+      def with_timezone(tz)
+        oldtz, ENV['TZ'] = ENV['TZ'], tz
+        yield
+      ensure
+        ENV['TZ'] = oldtz
+      end
+
       def time2str(time, localtime: false, format: nil)
         if format
           if localtime

@@ -3,13 +3,6 @@ require 'fluent/test'
 require 'fluent/time'
 
 class TimeFormatterTest < ::Test::Unit::TestCase
-  def with_timezone(tz)
-    oldtz, ENV['TZ'] = ENV['TZ'], tz
-    yield
-  ensure
-    ENV['TZ'] = oldtz
-  end
-
   def setup
     @time = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
     @fmt  = "%Y%m%d %H%M%z"  # YYYYMMDD HHMM[+-]HHMM
