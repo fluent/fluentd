@@ -21,8 +21,6 @@ require 'fluent/mixin' # for TypeConverter
 require 'fluent/time'
 require 'fluent/plugin/string_util'
 
-require 'strptime'
-
 module Fluent
   module Plugin
     class Parser < Base
@@ -52,49 +50,7 @@ module Fluent
         parse(*a, &b)
       end
 
-      class TimeParser
-        def initialize(time_format)
-          @cache1_key = nil
-          @cache1_time = nil
-          @cache2_key = nil
-          @cache2_time = nil
-          @parser =
-            if time_format
-              begin
-                strptime = Strptime.new(time_format)
-                Proc.new { |value| Fluent::EventTime.from_time(strptime.exec(value)) }
-              rescue
-                Proc.new { |value| Fluent::EventTime.from_time(Time.strptime(value, time_format)) }
-              end
-            else
-              Proc.new { |value| Fluent::EventTime.parse(value) }
-            end
-        end
-
-        # TODO: new cache mechanism using format string
-        def parse(value)
-          unless value.is_a?(String)
-            raise ParserError, "value must be string: #{value}"
-          end
-
-          if @cache1_key == value
-            return @cache1_time
-          elsif @cache2_key == value
-            return @cache2_time
-          else
-            begin
-              time = @parser.call(value)
-            rescue => e
-              raise ParserError, "invalid time format: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
-            end
-            @cache1_key = @cache2_key
-            @cache1_time = @cache2_time
-            @cache2_key = value
-            @cache2_time = time
-            return time
-          end
-        end
-      end
+      TimeParser = Fluent::TimeParser
     end
 
     class ValuesParser < Parser
