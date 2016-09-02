@@ -52,7 +52,7 @@ class RootAgentTest < ::Test::Unit::TestCase
 <source>
 </source>
 EOC
-      errmsg = "Missing 'type' parameter on <source> directive"
+      errmsg = "Missing '@type' parameter on <source> directive"
       assert_raise Fluent::ConfigError.new(errmsg) do
         configure_ra(conf)
       end
@@ -66,7 +66,7 @@ EOC
 <match *.**>
 </match>
 EOC
-      errmsg = "Missing 'type' parameter on <match> directive"
+      errmsg = "Missing '@type' parameter on <match> directive"
       assert_raise Fluent::ConfigError.new(errmsg) do
         configure_ra(conf)
       end
@@ -83,7 +83,7 @@ EOC
   @type test_out
 </match>
 EOC
-      errmsg = "Missing 'type' parameter on <filter> directive"
+      errmsg = "Missing '@type' parameter on <filter> directive"
       assert_raise Fluent::ConfigError.new(errmsg) do
         configure_ra(conf)
       end

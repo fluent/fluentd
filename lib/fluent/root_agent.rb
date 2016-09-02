@@ -91,7 +91,7 @@ module Fluent
       else
         conf.elements(name: 'source').each { |e|
           type = e['@type']
-          raise ConfigError, "Missing 'type' parameter on <source> directive" unless type
+          raise ConfigError, "Missing '@type' parameter on <source> directive" unless type
           add_source(type, e)
         }
       end
