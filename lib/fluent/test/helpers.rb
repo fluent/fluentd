@@ -22,10 +22,13 @@ module Fluent
   module Test
     module Helpers
       # See "Example Custom Assertion: http://test-unit.github.io/test-unit/en/Test/Unit/Assertions.html
-      def assert_equal_event_time(a, b, message = nil)
-        message = build_message(message, '<?> and <?> are not equal', a, b)
+      def assert_equal_event_time(expected, actual, message = nil)
+        message = build_message(message, <<EOT, expected, actual)
+<?> expected but was
+<?>.
+EOT
         assert_block(message) do
-          a.is_a?(Fluent::EventTime) && b.is_a?(Fluent::EventTime) && a.sec == b.sec && a.nsec == b.nsec
+          expected.is_a?(Fluent::EventTime) && actual.is_a?(Fluent::EventTime) && expected.sec == actual.sec && expected.nsec == actual.nsec
         end
       end
 
