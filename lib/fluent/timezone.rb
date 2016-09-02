@@ -88,7 +88,7 @@ module Fluent
     #
     # An Proc object is returned. If the given timezone is invalid,
     # nil is returned.
-    def self.formatter(timezone, format = nil)
+    def self.formatter(timezone = nil, format = nil)
       if timezone.nil?
         return nil
       end

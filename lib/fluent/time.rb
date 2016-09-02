@@ -105,7 +105,11 @@ module Fluent
   end
 
   class TimeParser
-    def initialize(time_format)
+    def initialize(format = nil, localtime = true, timezone = nil)
+      if format.nil? && (timezone || !localtime)
+        raise ArgumentError, "specifying timezone requires time format"
+      end
+
       @cache1_key = nil
       @cache1_time = nil
       @cache2_key = nil
@@ -149,7 +153,7 @@ module Fluent
   end
 
   class TimeFormatter
-    def initialize(format, localtime, timezone = nil)
+    def initialize(format = nil, localtime = true, timezone = nil)
       @tc1 = 0
       @tc1_str = nil
       @tc2 = 0
