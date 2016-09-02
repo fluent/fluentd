@@ -20,7 +20,6 @@ module Fluent::Plugin
   class NullOutput < Output
     # This plugin is for tests of non-buffered/buffered plugins
     Fluent::Plugin.register_output('null', self)
-    Fluent::Plugin.register_output('buffered_null', self)
 
     config_section :buffer do
       config_set_default :chunk_keys, ['tag']

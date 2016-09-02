@@ -19,7 +19,6 @@ require 'fluent/plugin/output'
 module Fluent::Plugin
   class StdoutOutput < Output
     Fluent::Plugin.register_output('stdout', self)
-    Fluent::Plugin.register_output('buffered_stdout', self)
 
     helpers :inject, :formatter, :compat_parameters
 
