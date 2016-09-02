@@ -71,7 +71,7 @@ module BinlogReaderCommand
       @opt_parser = OptionParser.new do |opt|
         opt.separator 'Options:'
 
-        opt.on('-p DIR', '--plugin', 'add library path') do |v|
+        opt.on('-p DIR', '--plugin', 'add library directory path') do |v|
           @options[:plugin] << v
         end
       end
@@ -92,11 +92,13 @@ module BinlogReaderCommand
     def parse_options!
       @opt_parser.parse!(@argv)
 
-      if !@options[:plugin].empty? && (dir = @options[:plugin].find { |d| !Dir.exist?(d) })
-        usage "Directory #{dir} doesn't exist"
-      elsif !@options[:plugin].empty?
-        @options[:plugin].each do |d|
-          Fluent::Plugin.add_plugin_dir(d)
+      unless @options[:plugin].empty?
+        if dir = @options[:plugin].find { |d| !Dir.exist?(d) }
+          usage "Directory #{dir} doesn't exist"
+        else
+          @options[:plugin].each do |d|
+            Fluent::Plugin.add_plugin_dir(d)
+          end
         end
       end
     rescue => e
@@ -120,7 +122,7 @@ module BinlogReaderCommand
     def configure_option_parser
       @options.merge!(config_params: {})
 
-      @opt_parser.banner = "Usage: fluent- #{self.class.to_s.split('::').last.downcase} [options] file"
+      @opt_parser.banner = "Usage: fluent-binlog-reader #{self.class.to_s.split('::').last.downcase} [options] file"
 
       @opt_parser.on('-f TYPE', '--format', 'configure output format') do |v|
         @options[:format] = v.to_sym

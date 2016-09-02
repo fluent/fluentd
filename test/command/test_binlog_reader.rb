@@ -1,6 +1,6 @@
 require_relative '../helper'
 
-require 'oj'
+require 'yajl'
 require 'flexmock/test_unit'
 
 require 'fluent/command/binlog_reader'
@@ -143,7 +143,7 @@ class TestHead < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n" * 5, out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n" * 5, out
       end
     end
 
@@ -154,7 +154,7 @@ class TestHead < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n", out
       end
     end
 
@@ -174,7 +174,7 @@ class TestHead < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = BinlogReaderCommand::Head.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "#{Oj.dump(@record)}\n", out
+        assert_equal "#{Yajl.dump(@record)}\n", out
       end
     end
 
@@ -259,7 +259,7 @@ class TestCat < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n" * 6, out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n" * 6, out
       end
     end
 
@@ -270,7 +270,7 @@ class TestCat < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i] * 6, [@record] * 6)
         head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Oj.dump(@record)}\n", out
+        assert_equal "2011-01-02T13:14:15+00:00\t#{TMP_DIR}/#{@file_name}\t#{Yajl.dump(@record)}\n", out
       end
     end
 
@@ -281,7 +281,7 @@ class TestCat < TestBaseCommand
         create_message_packed_file(@file_name, [event_time(@t).to_i], [@record])
         head = BinlogReaderCommand::Cat.new(argv)
         out = capture_stdout { head.call }
-        assert_equal "#{Oj.dump(@record)}\n", out
+        assert_equal "#{Yajl.dump(@record)}\n", out
       end
     end
 
