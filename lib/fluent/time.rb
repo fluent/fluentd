@@ -119,12 +119,12 @@ module Fluent
 
       format_with_timezone = format && (format.include?("%z") || format.include?("%Z"))
 
-      # unixtime_in_expected_tz = unixtime_in_localtime - offset_diff
+      # unixtime_in_expected_tz = unixtime_in_localtime + offset_diff
       offset_diff = case
                     when format_with_timezone then nil
-                    when timezone  then Time.zone_offset(timezone) - Time.zone_offset(Time.now.strftime("%z"))
+                    when timezone  then Time.now.localtime.utc_offset - Time.zone_offset(timezone)
                     when localtime then 0
-                    else 0 - Time.zone_offset(Time.now.strftime("%z")) # utc
+                    else Time.now.localtime.utc_offset # utc
                     end
 
       strptime = format && (Strptime.new(time_format) rescue nil)
@@ -132,8 +132,8 @@ module Fluent
       @parse = case
                when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
                when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
-               when strptime then ->(v){ t = strptime.exec(v);         Fluent::EventTime.new(t.to_i - offset_diff, t.nsec) }
-               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i - offset_diff, t.nsec) }
+               when strptime then ->(v){ t = strptime.exec(v);         Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
                else ->(v){ Fluent::EventTime.parse(v) }
                end
     end

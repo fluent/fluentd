@@ -43,4 +43,28 @@ class TimeParserTest < ::Test::Unit::TestCase
       end
     }
   end
+
+  def test_parse_time_in_localtime
+    time = with_timezone("UTC+02") do
+      parser = Fluent::TimeParser.new("%Y-%m-%d %H:%M:%S.%N", true)
+      parser.parse("2016-09-02 18:42:31.123456789")
+    end
+    assert_equal_event_time(time, event_time("2016-09-02 18:42:31.123456789 -02:00", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+  end
+
+  def test_parse_time_in_utc
+    time = with_timezone("UTC-09") do
+      parser = Fluent::TimeParser.new("%Y-%m-%d %H:%M:%S.%N", false)
+      parser.parse("2016-09-02 18:42:31.123456789")
+    end
+    assert_equal_event_time(time, event_time("2016-09-02 18:42:31.123456789 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+  end
+
+  def test_parse_string_with_expected_timezone
+    time = with_timezone("UTC-09") do
+      parser = Fluent::TimeParser.new("%Y-%m-%d %H:%M:%S.%N", nil, "-07:00")
+      parser.parse("2016-09-02 18:42:31.123456789")
+    end
+    assert_equal_event_time(time, event_time("2016-09-02 18:42:31.123456789 -07:00", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+  end
 end
