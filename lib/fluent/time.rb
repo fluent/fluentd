@@ -18,6 +18,8 @@ require 'time'
 require 'msgpack'
 require 'strptime'
 require 'fluent/timezone'
+require 'fluent/configurable'
+require 'fluent/config/error'
 
 module Fluent
   class EventTime
@@ -104,12 +106,48 @@ module Fluent
     end
   end
 
+  module TimeMixin
+    module TimeParameters
+      include Fluent::Configurable
+      config_param :time_format, :string, default: nil
+      config_param :localtime, :bool, default: true
+      config_param :utc, :bool, default: false
+      config_param :timezone, :string, default: nil
+    end
+
+    module Parser
+      def self.included(mod)
+        mod.include TimeParameters
+      end
+
+      def time_parser_create(format: @time_format, timezone: @timezone, force_localtime: false)
+        return TimeParser.new(format, true, nil) if force_localtime
+
+        localtime = @localtime && (timezone.nil? && !@utc)
+        TimeParser.new(format, localtime, timezone)
+      end
+    end
+
+    module Formatter
+      def self.included(mod)
+        mod.include TimeParameters
+      end
+
+      def time_formatter_create(format: @time_format, timezone: @timezone, force_localtime: false)
+        return TimeFormatter.new(format, true, nil) if force_localtime
+
+        localtime = @localtime && (timezone.nil? && !@utc)
+        TimeFormatter.new(format, localtime, timezone)
+      end
+    end
+  end
+
   class TimeParser
     class TimeParseError < StandardError; end
 
     def initialize(format = nil, localtime = true, timezone = nil)
       if format.nil? && (timezone || !localtime)
-        raise ArgumentError, "specifying timezone requires time format"
+        raise Fluent::ConfigError, "specifying timezone requires time format"
       end
 
       @cache1_key = nil
