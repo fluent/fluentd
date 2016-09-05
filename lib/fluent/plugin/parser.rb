@@ -25,6 +25,7 @@ module Fluent
   module Plugin
     class Parser < Base
       include OwnedByMixin
+      include TimeMixin::Parser
 
       class ParserError < StandardError; end
 
@@ -58,7 +59,6 @@ module Fluent
 
       config_param :keys, :array, default: []
       config_param :time_key, :string, default: nil
-      config_param :time_format, :string, default: nil
       config_param :null_value_pattern, :string, default: nil
       config_param :null_empty_string, :bool, default: false
 
@@ -73,7 +73,7 @@ module Fluent
           raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
         end
 
-        @time_parser = TimeParser.new(@time_format)
+        @time_parser = time_parser_create
 
         if @null_value_pattern
           @null_value_pattern = Regexp.new(@null_value_pattern)

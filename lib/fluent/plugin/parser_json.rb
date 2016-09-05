@@ -25,14 +25,13 @@ module Fluent
       Plugin.register_parser('json', self)
 
       config_param :time_key, :string, default: 'time'
-      config_param :time_format, :string, default: nil
       config_param :json_parser, :string, default: 'oj'
 
       def configure(conf)
         super
 
-        unless @time_format.nil?
-          @time_parser = TimeParser.new(@time_format)
+        if @time_format
+          @time_parser = time_parser_create
           @mutex = Mutex.new
         end
 

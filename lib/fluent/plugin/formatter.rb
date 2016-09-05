@@ -16,13 +16,13 @@
 
 require 'fluent/plugin/base'
 require 'fluent/plugin/owned_by_mixin'
-
-require 'fluent/mixin' # for TimeFormatter
+require 'fluent/time'
 
 module Fluent
   module Plugin
     class Formatter < Base
       include OwnedByMixin
+      include TimeMixin::Formatter
 
       configured_in :format
 
