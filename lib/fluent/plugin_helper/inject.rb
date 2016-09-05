@@ -17,10 +17,13 @@
 require 'fluent/event'
 require 'time'
 require 'fluent/configurable'
+require 'fluent/plugin_helper/time_formatter'
 
 module Fluent
   module PluginHelper
     module Inject
+      include Fluent::PluginHelper::TimeFormatter
+
       def inject_values_to_record(tag, time, record)
         return record unless @_inject_enabled
 
@@ -32,7 +35,7 @@ module Fluent
           r[@_inject_tag_key] = tag
         end
         if @_inject_time_key
-          r[@_inject_time_key] = @_inject_time_formatter.call(time)
+          r[@_inject_time_key] = format_time(time)
         end
 
         r
@@ -51,7 +54,7 @@ module Fluent
             r[@_inject_tag_key] = tag
           end
           if @_inject_time_key
-            r[@_inject_time_key] = @_inject_time_formatter.call(time)
+            r[@_inject_time_key] = format_time(time)
           end
           new_es.add(time, r)
         end
@@ -66,11 +69,6 @@ module Fluent
           config_param :hostname, :string, default: nil
           config_param :tag_key, :string, default: nil
           config_param :time_key, :string, default: nil
-          config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
-          config_param :time_format, :string, default: nil
-          config_param :localtime, :bool, default: true # if localtime is false and timezone is nil, then utc
-          config_param :utc, :bool, default: false # placeholder to turn localtime to false
-          config_param :timezone, :string, default: nil
         end
       end
 
@@ -85,7 +83,6 @@ module Fluent
         @_inject_hostname = nil
         @_inject_tag_key = nil
         @_inject_time_key = nil
-        @_inject_time_formatter = nil
       end
 
       def configure(conf)
@@ -108,14 +105,6 @@ module Fluent
           end
           @_inject_tag_key = @inject_config.tag_key
           @_inject_time_key = @inject_config.time_key
-          if @_inject_time_key
-            @_inject_time_formatter = case @inject_config.time_type
-                                      when :float then ->(time){ time.to_r.truncate(+6).to_f } # microsecond floating point value
-                                      when :unixtime then ->(time){ time.to_i }
-                                      else
-                                        Fluent::TimeFormatter.new(@inject_config.time_format, @inject_config.localtime, @inject_config.timezone)
-                                      end
-          end
 
           @_inject_enabled = @_inject_hostname_key || @_inject_tag_key || @_inject_time_key
         end
