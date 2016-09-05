@@ -129,6 +129,12 @@ module Fluent
         merged
       end
 
+      def option_value_type!(name, opts, key, klass)
+        if opts.has_key?(key) && !opts[key].is_a?(klass)
+          raise ArgumentError, "#{name}: #{key} must be a #{klass}, but #{opts[key].class}"
+        end
+      end
+
       def parameter_configuration(name, *args, &block)
         name = name.to_sym
 
@@ -145,7 +151,7 @@ module Fluent
 
         type = opts[:type]
         if block && type
-          raise ArgumentError, "#{self.name}: both of block and type cannot be specified"
+          raise ArgumentError, "#{name}: both of block and type cannot be specified"
         end
 
         begin
@@ -153,8 +159,19 @@ module Fluent
           block ||= Configurable.lookup_type(type)
         rescue ConfigError
           # override error message
-          raise ArgumentError, "#{self.name}: unknown config_argument type `#{type}'"
+          raise ArgumentError, "#{name}: unknown config_argument type `#{type}'"
         end
+
+        option_value_type!(name, opts, :desc, String)
+        option_value_type!(name, opts, :alias, Symbol)
+        option_value_type!(name, opts, :deprecated, String)
+        option_value_type!(name, opts, :obsoleted, String)
+        if type == :enum
+          if !opts.has_key?(:list) || !opts[:list].all?{|v| v.is_a?(Symbol) }
+            raise ArgumentError, "#{name}: enum parameter requires :list of Symbols"
+          end
+        end
+        option_value_type!(name, opts, :value_type, Symbol) # hash, array
 
         if opts.has_key?(:default)
           config_set_default(name, opts[:default])
@@ -162,6 +179,10 @@ module Fluent
 
         if opts.has_key?(:desc)
           config_set_desc(name, opts[:desc])
+        end
+
+        if opts[:deprecated] && opts[:obsoleted]
+          raise ArgumentError, "#{name}: both of deprecated and obsoleted cannot be specified at once"
         end
 
         [name, block, opts]
@@ -218,7 +239,7 @@ module Fluent
 
       def config_section(name, *args, &block)
         unless block_given?
-          raise ArgumentError, "#{self.name}: config_section requires block parameter"
+          raise ArgumentError, "#{name}: config_section requires block parameter"
         end
         name = name.to_sym
 
