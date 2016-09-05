@@ -275,7 +275,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           </record>
         ]
         records = [{'tag' => 'tag', 'time' => 'time'}]
-        filtered = filter(config, records)
+        filtered = emit(config, records)
         filtered.each_with_index do |(_t, r), i|
           assert_not_equal('tag', r['new_tag'])
           assert_equal(@tag, r['new_tag'])
