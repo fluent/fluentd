@@ -67,4 +67,129 @@ class TimeParserTest < ::Test::Unit::TestCase
     end
     assert_equal_event_time(time, event_time("2016-09-02 18:42:31.123456789 -07:00", format: '%Y-%m-%d %H:%M:%S.%N %z'))
   end
+
+  sub_test_case 'TimeMixin::Parser' do
+    class DummyForTimeParser
+      include Fluent::Configurable
+      include Fluent::TimeMixin::Parser
+    end
+
+    test 'provides configuration parameters for TimeParser with default values for localtime' do
+      time = with_timezone("UTC+07") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse'))
+
+        assert_nil   i.time_format
+        assert_true  i.localtime
+        assert_false i.utc
+        assert_nil   i.timezone
+
+        parser = i.time_parser_create
+        # time_format unspecified
+        # localtime
+        parser.parse("2016-09-02 18:42:31.012345678")
+      end
+      assert_equal_event_time(event_time("2016-09-02 18:42:31.012345678 -07:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+
+    test 'provides configuration parameters for TimeParser, configurable for any time format' do
+      time = with_timezone("UTC+07") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S %N'}))
+        parser = i.time_parser_create
+        # time_format specified
+        # localtime
+        parser.parse("09/02/2016 18-42-31 012345678")
+      end
+      assert_equal_event_time(event_time("2016-09-02 18:42:31.012345678 -07:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+
+    test 'provides configuration parameters for TimeParser, configurable for UTC by localtime=false' do
+      time = with_timezone("UTC+07") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S %N', 'localtime' => 'false'}))
+        parser = i.time_parser_create
+        # time_format specified
+        # utc
+        parser.parse("09/02/2016 18-42-31 012345678")
+      end
+      assert_equal_event_time(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+
+    test 'provides configuration parameters for TimeParser, configurable for UTC by utc=true' do
+      time = with_timezone("UTC+07") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S %N', 'utc' => 'true'}))
+        parser = i.time_parser_create
+        # time_format specified
+        # utc
+        parser.parse("09/02/2016 18-42-31 012345678")
+      end
+      assert_equal_event_time(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+
+    test 'provides configuration parameters for TimeParser, configurable for any timezone' do
+      time = with_timezone("UTC+07") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S %N', 'timezone' => '-01:00'}))
+        parser = i.time_parser_create
+        # time_format specified
+        # -01:00
+        parser.parse("09/02/2016 18-42-31 012345678")
+      end
+      assert_equal_event_time(event_time("2016-09-02 18:42:31.012345678 -01:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+
+    test 'specifying timezone without time format raises configuration error' do
+      assert_raise Fluent::ConfigError.new("specifying timezone requires time format") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'utc' => 'true'}))
+        i.time_parser_create
+      end
+      assert_raise Fluent::ConfigError.new("specifying timezone requires time format") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'localtime' => 'false'}))
+        i.time_parser_create
+      end
+      assert_raise Fluent::ConfigError.new("specifying timezone requires time format") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'timezone' => '-0700'}))
+        i.time_parser_create
+      end
+    end
+
+    test '#time_parser_create returns TimeParser with specified time format and timezone' do
+      time = with_timezone("UTC-09") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S %N'}))
+        assert_equal '%m/%d/%Y %H-%M-%S %N', i.time_format
+        assert_true i.localtime
+        parser = i.time_parser_create(format: '%Y-%m-%d %H:%M:%S.%N %z')
+        parser.parse("2016-09-05 17:59:38.987654321 -03:00")
+      end
+      assert_equal_event_time(event_time("2016-09-05 17:59:38.987654321 -03:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+
+    test '#time_parser_create returns TimeParser with localtime when specified it forcedly besides any configuration parameters' do
+      time = with_timezone("UTC-09") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S', 'utc' => 'true'}))
+        assert_equal '%m/%d/%Y %H-%M-%S', i.time_format
+        assert_true i.utc
+        parser = i.time_parser_create(format: '%Y-%m-%d %H:%M:%S.%N', force_localtime: true)
+        parser.parse("2016-09-05 17:59:38.987654321")
+      end
+      assert_equal_event_time(event_time("2016-09-05 17:59:38.987654321 +09:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+
+      time = with_timezone("UTC-09") do
+        i = DummyForTimeParser.new
+        i.configure(config_element('parse', '', {'time_format' => '%m/%d/%Y %H-%M-%S', 'timezone' => '+0000'}))
+        assert_equal '%m/%d/%Y %H-%M-%S', i.time_format
+        assert_equal '+0000', i.timezone
+        parser = i.time_parser_create(format: '%Y-%m-%d %H:%M:%S.%N', force_localtime: true)
+        parser.parse("2016-09-05 17:59:38.987654321")
+      end
+      assert_equal_event_time(event_time("2016-09-05 17:59:38.987654321 +09:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
+    end
+  end
 end
