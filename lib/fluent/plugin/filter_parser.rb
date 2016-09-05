@@ -1,3 +1,4 @@
+require 'time'
 require 'fluent/parser'
 
 class Fluent::ParserFilter < Fluent::Filter
@@ -14,16 +15,11 @@ class Fluent::ParserFilter < Fluent::Filter
 
   attr_reader :parser
 
-  def initialize
-    super
-    require 'time'
-  end
-
   def configure(conf)
     super
 
     @parser = Fluent::TextParser.new
-    #@parser.estimate_current_event = false
+    @parser.estimate_current_event = false
     @parser.configure(conf)
     if !@time_parse && @parser.parser.respond_to?("time_key=".to_sym)
       # disable parse time
