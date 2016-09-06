@@ -235,6 +235,7 @@ module Fluent
 
         option_value_type!(name, opts, :desc, String)
         option_value_type!(name, opts, :alias, Symbol)
+        option_value_type!(name, opts, :secret, Object) # TrueClass or FalseClass...
         option_value_type!(name, opts, :deprecated, String)
         option_value_type!(name, opts, :obsoleted, String)
         if type == :enum
