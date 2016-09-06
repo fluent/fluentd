@@ -15,8 +15,9 @@
 #
 
 require 'fluent/event'
-require 'time'
+require 'fluent/time'
 require 'fluent/configurable'
+require 'socket'
 
 module Fluent
   module PluginHelper
