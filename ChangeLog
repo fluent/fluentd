@@ -1,5 +1,23 @@
 # v0.12
 
+## Release 0.12.29 - 2016/09/05
+
+### New features / Enhancement
+
+* in_tail: Add from_encoding parameter
+  https://github.com/fluent/fluentd/pull/1067
+* filter: Port parser filter to v0.12
+  https://github.com/fluent/fluentd/pull/1203
+* config: New config_param options to specify deprecated/obsoleted parameters
+  https://github.com/fluent/fluentd/pull/1186
+
+### Bug fixes
+
+* config: fix to raise ConfigError for type missing, and its tests
+  https://github.com/fluent/fluentd/pull/1202
+* filter_record_transformer: Fix to prevent overwriting reserved placeholder keys such as tag
+  https://github.com/fluent/fluentd/pull/1176
+
 ## Release 0.12.28 - 2016/08/14
 
 ### New features / Enhancement
