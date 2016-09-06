@@ -53,6 +53,10 @@ module Fluent
         # @rollback_count = 0
       end
 
+      def multi_output?
+        true
+      end
+
       def configure(conf)
         super
 
