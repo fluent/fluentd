@@ -15,11 +15,13 @@
 #
 
 require 'fluent/msgpack_factory'
+require 'fluent/plugin/compressable'
 
 module Fluent
   class EventStream
     include Enumerable
     include MessagePackFactory::Mixin
+    include Fluent::Plugin::Compressable
 
     # dup does deep copy for event stream
     def dup
@@ -59,6 +61,11 @@ module Fluent
         out.write([time,record])
       }
       out.to_s
+    end
+
+    def to_compressed_msgpack_stream(time_int: false)
+      packed = to_msgpack_stream(time_int: time_int)
+      compress(packed)
     end
 
     def to_msgpack_stream_forced_integer

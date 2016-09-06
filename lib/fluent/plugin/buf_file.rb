@@ -144,9 +144,9 @@ module Fluent
       def generate_chunk(metadata)
         # FileChunk generates real path with unique_id
         if @file_permission
-          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, perm: @file_permission)
+          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, perm: @file_permission, compress: @compress)
         else
-          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create)
+          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, compress: @compress)
         end
       end
     end

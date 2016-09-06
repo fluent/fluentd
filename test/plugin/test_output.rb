@@ -565,4 +565,36 @@ class OutputTest < Test::Unit::TestCase
       @i.stop; @i.before_shutdown; @i.shutdown; @i.after_shutdown; @i.close; @i.terminate
     end
   end
+
+  sub_test_case '#generate_format_proc' do
+    test "when output doesn't have <buffer>" do
+      i = create_output(:sync)
+      i.configure(config_element('ROOT', '', {}, []))
+      assert_equal Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, i.generate_format_proc
+    end
+
+    test "when output doesn't have <buffer> and time_as_integer is true" do
+      i = create_output(:sync)
+      i.configure(config_element('ROOT', '', {'time_as_integer' => true}))
+      assert_equal Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, i.generate_format_proc
+    end
+
+    test 'when output has <buffer> and compress is gzip' do
+      i = create_output(:buffered)
+      i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {'compress' => 'gzip'})]))
+      assert_equal Fluent::Plugin::Output::FORMAT_COMPRESSED_MSGPACK_STREAM, i.generate_format_proc
+    end
+
+    test 'when output has <buffer> and compress is gzip and time_as_integer is true' do
+      i = create_output(:buffered)
+      i.configure(config_element('ROOT', '', {'time_as_integer' => true}, [config_element('buffer', '', {'compress' => 'gzip'})]))
+      assert_equal Fluent::Plugin::Output::FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT, i.generate_format_proc
+    end
+
+    test 'when output has <buffer> and compress is text' do
+      i = create_output(:buffered)
+      i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {'compress' => 'text'})]))
+      assert_equal Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, i.generate_format_proc
+    end
+  end
 end

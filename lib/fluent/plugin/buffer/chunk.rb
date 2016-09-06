@@ -15,10 +15,13 @@
 #
 
 require 'fluent/plugin/buffer'
+require 'fluent/plugin/compressable'
 require 'fluent/unique_id'
 require 'fluent/event'
 
 require 'monitor'
+require 'tempfile'
+require 'zlib'
 
 module Fluent
   module Plugin
@@ -46,7 +49,7 @@ module Fluent
 
         # TODO: CompressedPackedMessage of forward protocol?
 
-        def initialize(metadata)
+        def initialize(metadata, compress: :text)
           super()
           @unique_id = generate_unique_id
           @metadata = metadata
@@ -57,12 +60,15 @@ module Fluent
           @size = 0
           @created_at = Time.now
           @modified_at = Time.now
+
+          extend Decompressable if compress == :gzip
         end
 
         attr_reader :unique_id, :metadata, :created_at, :modified_at, :state
 
         # data is array of formatted record string
-        def append(data)
+        def append(data, **kwargs)
+          raise ArgumentError, '`compress: gzip` can be used for Compressable module' if kwargs[:compress] == :gzip
           adding = ''.b
           data.each do |d|
             adding << d.b
@@ -141,17 +147,73 @@ module Fluent
           self
         end
 
-        def read
+        def read(**kwargs)
+          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def open(&block)
+        def open(**kwargs, &block)
+          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
           raise NotImplementedError, "Implement this method in child class"
         end
 
-        def write_to(io)
+        def write_to(io, **kwargs)
+          raise ArgumentError, '`compressed: gzip` can be used for Compressable module' if kwargs[:compressed] == :gzip
           open do |i|
             IO.copy_stream(i, io)
+          end
+        end
+
+        module Decompressable
+          include Fluent::Plugin::Compressable
+
+          def append(data, **kwargs)
+            if kwargs[:compress] == :gzip
+              io = StringIO.new
+              Zlib::GzipWriter.wrap(io) do |gz|
+                data.each do |d|
+                  gz.write d
+                end
+              end
+              concat(io.string, data.size)
+            else
+              super
+            end
+          end
+
+          def open(**kwargs, &block)
+            if kwargs[:compressed] == :gzip
+              super
+            else
+              super(kwargs) do |chunk_io|
+                output_io = if chunk_io.is_a?(StringIO)
+                              StringIO.new
+                            else
+                              Tempfile.new('decompressed-data')
+                            end
+                decompress(input_io: chunk_io, output_io: output_io)
+                output_io.seek(0, IO::SEEK_SET)
+                yield output_io
+              end
+            end
+          end
+
+          def read(**kwargs)
+            if kwargs[:compressed] == :gzip
+              super
+            else
+              decompress(super)
+            end
+          end
+
+          def write_to(io, **kwargs)
+            open(compressed: :gzip) do |chunk_io|
+              if kwargs[:compressed] == :gzip
+                IO.copy_stream(chunk_io, io)
+              else
+                decompress(input_io: chunk_io, output_io: io)
+              end
+            end
           end
         end
       end

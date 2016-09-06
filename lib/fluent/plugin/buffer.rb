@@ -55,6 +55,9 @@ module Fluent
       # if chunk size (or records) is 95% or more after #write, then that chunk will be enqueued
       config_param :chunk_full_threshold, :float, default: DEFAULT_CHUNK_FULL_THRESHOLD
 
+      desc 'Compress buffered data.'
+      config_param :compress, :enum, list: [:text, :gzip], default: :text
+
       Metadata = Struct.new(:timekey, :tag, :variables) do
         def empty?
           timekey.nil? && tag.nil? && variables.nil?
@@ -458,7 +461,7 @@ module Fluent
               serialized = format.call(data)
               chunk.concat(serialized, size ? size.call : data.size)
             else
-              chunk.append(data)
+              chunk.append(data, compress: @compress)
             end
             adding_bytesize = chunk.bytesize - original_bytesize
 
@@ -558,7 +561,7 @@ module Fluent
                 if format
                   chunk.concat(format.call(split), split.size)
                 else
-                  chunk.append(split)
+                  chunk.append(split, compress: @compress)
                 end
 
                 if chunk_size_over?(chunk) # split size is larger than difference between size_full? and size_over?

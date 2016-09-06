@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/test'
 require 'fluent/event'
+require 'fluent/plugin/compressable'
 
 module EventTest
   module DeepCopyAssertion
@@ -23,6 +24,7 @@ module EventTest
   class OneEventStreamTest < ::Test::Unit::TestCase
     include Fluent
     include DeepCopyAssertion
+    include Fluent::Plugin::Compressable
 
     def setup
       @time = event_time()
@@ -85,11 +87,28 @@ module EventTest
         assert_equal @record, record
       }
     end
+
+    test 'to_compressed_msgpack_stream' do
+      stream = @es.to_compressed_msgpack_stream
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(decompress(stream)) { |time, record|
+        assert_equal @time, time
+        assert_equal @record, record
+      }
+    end
+
+    test 'to_compressed_msgpack_stream with time_int argument' do
+      stream = @es.to_compressed_msgpack_stream(time_int: true)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(decompress(stream)) { |time, record|
+        assert_equal @time.to_i, time
+        assert_equal @record, record
+      }
+    end
   end
 
   class ArrayEventStreamTest < ::Test::Unit::TestCase
     include Fluent
     include DeepCopyAssertion
+    include Fluent::Plugin::Compressable
 
     def setup
       time = Engine.now
@@ -161,11 +180,34 @@ module EventTest
         i += 1
       }
     end
+
+    test 'to_compressed_msgpack_stream' do
+      i = 0
+      compressed_stream = @es.to_compressed_msgpack_stream
+      stream = decompress(compressed_stream)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i], time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
+
+    test 'to_compressed_msgpack_stream with time_int argument' do
+      i = 0
+      compressed_stream = @es.to_compressed_msgpack_stream(time_int: true)
+      stream = decompress(compressed_stream)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i].to_i, time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
   end
 
   class MultiEventStreamTest < ::Test::Unit::TestCase
     include Fluent
     include DeepCopyAssertion
+    include Fluent::Plugin::Compressable
 
     def setup
       time = Engine.now
@@ -240,11 +282,34 @@ module EventTest
         i += 1
       }
     end
+
+    test 'to_compressed_msgpack_stream' do
+      i = 0
+      compressed_stream = @es.to_compressed_msgpack_stream
+      stream = decompress(compressed_stream)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i], time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
+
+    test 'to_compressed_msgpack_stream with time_int argument' do
+      i = 0
+      compressed_stream = @es.to_compressed_msgpack_stream(time_int: true)
+      stream = decompress(compressed_stream)
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i].to_i, time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
   end
 
   class MessagePackEventStreamTest < ::Test::Unit::TestCase
     include Fluent
     include DeepCopyAssertion
+    include Fluent::Plugin::Compressable
 
     def setup
       pk = Fluent::Engine.msgpack_factory.packer
@@ -319,6 +384,17 @@ module EventTest
     test 'to_msgpack_stream' do
       i = 0
       stream = @es.to_msgpack_stream
+      Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
+        assert_equal @times[i], time
+        assert_equal @records[i], record
+        i += 1
+      }
+    end
+
+    test 'to_compressed_msgpack_stream' do
+      i = 0
+      compressed_stream = @es.to_compressed_msgpack_stream
+      stream = decompress(compressed_stream)
       Fluent::Engine.msgpack_factory.unpacker.feed_each(stream) { |time, record|
         assert_equal @times[i], time
         assert_equal @records[i], record

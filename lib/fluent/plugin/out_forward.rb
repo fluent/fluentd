@@ -440,8 +440,10 @@ module Fluent
 
           sock.write @sender.forward_header        # beginArray(3)
           sock.write tag.to_msgpack                # 1. writeRaw(tag)
-          sock.write [0xdb, chunk.size].pack('CN') # 2. beginRaw(size) raw32
-          chunk.write_to(sock)                     #    writeRawBody(packed_es)
+          chunk.open(compressed: :text) do |chunk_io|
+            sock.write [0xdb, chunk_io.size].pack('CN') # 2. beginRaw(size) raw32
+            IO.copy_stream(chunk_io, sock)              # writeRawBody(packed_es)
+          end
           sock.write option.to_msgpack             # 3. writeOption(option)
 
           if @sender.require_ack_response

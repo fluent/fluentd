@@ -40,8 +40,8 @@ module Fluent
 
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION)
-          super(metadata)
+        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
+          super(metadata, compress: compress)
           @permission = perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil
@@ -133,12 +133,12 @@ module Fluent
           File.unlink(@path, @meta_path)
         end
 
-        def read
+        def read(**kwargs)
           @chunk.seek(0, IO::SEEK_SET)
           @chunk.read
         end
 
-        def open(&block)
+        def open(**kwargs, &block)
           @chunk.seek(0, IO::SEEK_SET)
           val = yield @chunk
           @chunk.seek(0, IO::SEEK_END) if self.staged?
