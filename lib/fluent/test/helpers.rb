@@ -21,6 +21,17 @@ require 'fluent/time'
 module Fluent
   module Test
     module Helpers
+      # See "Example Custom Assertion: http://test-unit.github.io/test-unit/en/Test/Unit/Assertions.html
+      def assert_equal_event_time(expected, actual, message = nil)
+        message = build_message(message, <<EOT, expected, actual)
+<?> expected but was
+<?>.
+EOT
+        assert_block(message) do
+          expected.is_a?(Fluent::EventTime) && actual.is_a?(Fluent::EventTime) && expected.sec == actual.sec && expected.nsec == actual.nsec
+        end
+      end
+
       def config_element(name = 'test', argument = '', params = {}, elements = [])
         Fluent::Config::Element.new(name, argument, params, elements)
       end
@@ -35,6 +46,13 @@ module Fluent
         else
           Fluent::EventTime.now
         end
+      end
+
+      def with_timezone(tz)
+        oldtz, ENV['TZ'] = ENV['TZ'], tz
+        yield
+      ensure
+        ENV['TZ'] = oldtz
       end
 
       def time2str(time, localtime: false, format: nil)

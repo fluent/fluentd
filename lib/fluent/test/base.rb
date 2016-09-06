@@ -76,10 +76,3 @@ module Fluent
     end
   end
 end
-
-Test::Unit::Assertions.module_eval do
-  def assert_equal_event_time(a, b)
-    assert_equal(a.sec, b.sec)
-    assert_equal(a.nsec, b.nsec)
-  end
-end

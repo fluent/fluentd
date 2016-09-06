@@ -9,7 +9,6 @@ module Fluent
       config_param :ignorecase, :bool, default: false
       config_param :multiline, :bool, default: false
       config_param :time_key, :string, default: 'time'
-      config_param :time_format, :string, default: nil
 
       def initialize
         super
@@ -18,7 +17,7 @@ module Fluent
 
       def configure(conf)
         super
-        @time_parser = TimeParser.new(@time_format)
+        @time_parser = time_parser_create
         unless @expression.empty?
           if @expression[0] == "/" && @expression[-1] == "/"
             regexp_option = 0

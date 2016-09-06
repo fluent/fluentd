@@ -24,14 +24,6 @@ class FileOutputTest < Test::Unit::TestCase
     Fluent::Test::TimeSlicedOutputTestDriver.new(Fluent::FileOutput).configure(conf)
   end
 
-  def with_timezone(timezone = 'UTC', &block)
-    old = ENV['TZ']
-    ENV['TZ'] = timezone
-    output = yield
-    ENV['TZ'] = old
-    output
-  end
-
   def test_configure
     d = create_driver %[
       path test_path

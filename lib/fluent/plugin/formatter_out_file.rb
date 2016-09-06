@@ -33,9 +33,6 @@ module Fluent
         end
       end
       config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :string
-      config_param :time_format, :string, default: nil
-      config_param :localtime, :bool, default: true # if localtime is false and timezone is nil, then utc
-      config_param :timezone, :string, default: nil
 
       def configure(conf)
         # TODO: make a utility method in TimeFormatter to handle these conversion
@@ -63,7 +60,7 @@ module Fluent
                  when :float then ->(time){ time.to_r.to_f }
                  when :unixtime then ->(time){ time.to_i }
                  else
-                   Fluent::TimeFormatter.new(@time_format, @localtime, @timezone)
+                   time_formatter_create
                  end
       end
 

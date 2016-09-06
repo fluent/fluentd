@@ -410,13 +410,6 @@ class InjectHelperTest < Test::Unit::TestCase
       @time = event_time("2014-09-27 00:00:00 +00:00").to_i
     end
 
-    def with_timezone(tz)
-      oldtz, ENV['TZ'] = ENV['TZ'], tz
-      yield
-    ensure
-      ENV['TZ'] = oldtz
-    end
-
     def format(conf)
       @d.configure(config_inject_section(
           "hostname_key" => "hostnamedata",

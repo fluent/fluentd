@@ -3,13 +3,6 @@ require 'fluent/test'
 require 'fluent/time'
 
 class TimeFormatterTest < ::Test::Unit::TestCase
-  def with_timezone(tz)
-    oldtz, ENV['TZ'] = ENV['TZ'], tz
-    yield
-  ensure
-    ENV['TZ'] = oldtz
-  end
-
   def setup
     @time = Time.new(2014, 9, 27, 0, 0, 0, 0).to_i
     @fmt  = "%Y%m%d %H%M%z"  # YYYYMMDD HHMM[+-]HHMM
@@ -182,5 +175,92 @@ class TimeFormatterTest < ::Test::Unit::TestCase
     time = Fluent::EventTime.new(@time)
     formatter = Fluent::TimeFormatter.new("%Y%m%d %H%M.%N", false, nil)
     assert_equal("20140927 0000.000000000", formatter.format(time))
+  end
+
+  sub_test_case 'TimeMixin::Formatter' do
+    class DummyForTimeFormatter
+      include Fluent::Configurable
+      include Fluent::TimeMixin::Formatter
+    end
+
+    test 'provides configuration parameters for TimeFormatter with default values for localtime' do
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format'))
+
+        assert_nil   i.time_format
+        assert_true  i.localtime
+        assert_false i.utc
+        assert_nil   i.timezone
+
+        fmt = i.time_formatter_create
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "2016-09-02T11:42:31-07:00", str
+    end
+
+    test 'provides configuration parameters for TimeFormatter, configurable for any time format' do
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format', '', {'time_format' => '%Y-%m-%d %H:%M:%S.%N %z'}))
+
+        fmt = i.time_formatter_create
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "2016-09-02 11:42:31.012345678 -0700", str
+    end
+
+    test 'provides configuration parameters for TimeFormatter, configurable for UTC' do
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format', '', {'time_format' => '%Y-%m-%d %H:%M:%S.%N %z', 'utc' => 'true'}))
+
+        fmt = i.time_formatter_create
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "2016-09-02 18:42:31.012345678 +0000", str
+    end
+
+    test 'provides configuration parameters for TimeFormatter, configurable for any timezone' do
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format', '', {'time_format' => '%Y-%m-%d %H:%M:%S.%N %z', 'timezone' => '+0900'}))
+
+        fmt = i.time_formatter_create
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "2016-09-03 03:42:31.012345678 +0900", str
+    end
+
+    test '#time_formatter_create returns TimeFormatter with specified time format and timezone' do
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format', '', {'time_format' => '%Y-%m-%d %H:%M:%S.%N %z', 'timezone' => '+0900'}))
+
+        fmt = i.time_formatter_create(format: '%m/%d/%Y %H-%M-%S %N', timezone: '+0000')
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "09/02/2016 18-42-31 012345678", str
+    end
+
+    test '#time_formatter_create returns TimeFormatter with localtime besides any configuration parameters' do
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format', '', {'time_format' => '%Y-%m-%d %H:%M:%S.%N %z', 'utc' => 'true'}))
+
+        fmt = i.time_formatter_create(format: '%m/%d/%Y %H-%M-%S %N', force_localtime: true)
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "09/02/2016 11-42-31 012345678", str
+
+      str = with_timezone("UTC+07") do
+        i = DummyForTimeFormatter.new
+        i.configure(config_element('format', '', {'time_format' => '%Y-%m-%d %H:%M:%S.%N %z', 'timezone' => '+0900'}))
+
+        fmt = i.time_formatter_create(format: '%m/%d/%Y %H-%M-%S %N', force_localtime: true)
+        fmt.format(event_time("2016-09-02 18:42:31.012345678 UTC", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+      end
+      assert_equal "09/02/2016 11-42-31 012345678", str
+    end
   end
 end
