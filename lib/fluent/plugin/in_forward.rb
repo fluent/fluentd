@@ -58,7 +58,7 @@ module Fluent
       desc 'The hostname'
       config_param :self_hostname, :string
       desc 'Shared key for authentication'
-      config_param :shared_key, :string
+      config_param :shared_key, :string, secret: true
       desc 'If true, use user based authentication'
       config_param :user_auth, :bool, default: false
       desc 'Allow anonymous source. <client> sections required if disabled.'
@@ -69,7 +69,7 @@ module Fluent
         desc 'The username for authentication'
         config_param :username, :string
         desc 'The password for authentication'
-        config_param :password, :string
+        config_param :password, :string, secret: true
       end
 
       ### Client ip/network authentication & per_host shared key
@@ -79,7 +79,7 @@ module Fluent
         desc 'Network address specification'
         config_param :network, :string, default: nil
         desc 'Shared key per client'
-        config_param :shared_key, :string, default: nil
+        config_param :shared_key, :string, default: nil, secret: true
         desc 'Array of username.'
         config_param :users, :array, default: []
       end
