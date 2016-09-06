@@ -107,12 +107,17 @@ module Fluent
   end
 
   module TimeMixin
+    TIME_PARAMETERS = [
+      [:time_format, :string, {default: nil}],
+      [:localtime, :bool, {default: true}],  # UTC if :localtime is false and :timezone is nil
+      [:utc,       :bool, {default: false}], # to turn :localtime false
+      [:timezone, :string, {default: nil}],
+    ]
     module TimeParameters
       include Fluent::Configurable
-      config_param :time_format, :string, default: nil
-      config_param :localtime, :bool, default: true
-      config_param :utc, :bool, default: false
-      config_param :timezone, :string, default: nil
+      TIME_PARAMETERS.each do |name, type, opts|
+        config_param name, type, opts
+      end
     end
 
     module Parser
