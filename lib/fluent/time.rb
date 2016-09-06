@@ -204,6 +204,7 @@ module Fluent
         return time
       end
     end
+    alias :call :parse
   end
 
   class TimeFormatter
