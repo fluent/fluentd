@@ -20,6 +20,7 @@ require 'fluent/plugin/input'
 require 'fluent/config/error'
 require 'fluent/event'
 require 'fluent/plugin/buffer'
+require 'fluent/plugin/parser_multiline'
 
 if Fluent.windows?
   require_relative 'file_wrapper'
