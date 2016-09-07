@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# -*- coding: utf-8 -*-
+here = File.dirname(__FILE__)
+$LOAD_PATH << File.expand_path(File.join(here, '..', 'lib'))
+require 'fluent/command/binlog_reader'
+
+FluentBinlogReader.new.call
