@@ -720,7 +720,8 @@ module Fluent::Config
           assert_nothing_raised { init0.configure(conf) }
           assert init0.sec1
           assert_equal "sec1", init0.sec1.name
-          assert_equal [], init0.sec2
+          assert_equal 1, init0.sec2.size
+          assert_equal "sec1", init0.sec2.first.name
         end
 
         test 'accepts configuration values as string representation' do

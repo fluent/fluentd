@@ -165,7 +165,7 @@ module Fluent
         proxy.sections.each do |name, subproxy|
           varname = subproxy.variable_name
           elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
-          if elements.empty? && subproxy.init? && !subproxy.multi?
+          if elements.empty? && subproxy.init?
             elements << Fluent::Config::Element.new(subproxy.name.to_s, '', {}, [])
           end
 
