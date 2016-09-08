@@ -470,10 +470,12 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   class CompressedPackedForward < self
+    extend Fluent::Test::StartupShutdown
+
     def test_set_compress_to_option
       d = create_driver
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time = event_time("2011-01-02 13:14:15 UTC").to_i
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
@@ -501,7 +503,7 @@ class ForwardInputTest < Test::Unit::TestCase
     def test_create_CompressedMessagePackEventStream_with_gzip_compress_option
       d = create_driver
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time = event_time("2011-01-02 13:14:15 UTC").to_i
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
