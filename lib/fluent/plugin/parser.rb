@@ -66,11 +66,11 @@ module Fluent
         super
 
         if @time_key && !@keys.include?(@time_key) && @estimate_current_event
-          raise ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
+          raise Fluent::ConfigError, "time_key (#{@time_key.inspect}) is not included in keys (#{@keys.inspect})"
         end
 
         if @time_format && !@time_key
-          raise ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
+          raise Fluent::ConfigError, "time_format parameter is ignored because time_key parameter is not set. at #{conf.inspect}"
         end
 
         @time_parser = time_parser_create

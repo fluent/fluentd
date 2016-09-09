@@ -86,7 +86,7 @@ module Fluent::Plugin
       when 'udp'
         :udp
       else
-        raise ConfigError, "syslog input protocol type should be 'tcp' or 'udp'"
+        raise Fluent::ConfigError, "syslog input protocol type should be 'tcp' or 'udp'"
       end
     end
     desc 'If true, add source host to event record.'

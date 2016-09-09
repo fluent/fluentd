@@ -38,7 +38,7 @@ module Fluent
           @parser = Fluent::Plugin::RegexpParser.new
           @parser.configure(conf + regexp_conf)
         rescue => e
-          raise ConfigError, "Invalid regexp '#{formats}': #{e}"
+          raise Fluent::ConfigError, "Invalid regexp '#{formats}': #{e}"
         end
 
         if @format_firstline
@@ -68,7 +68,7 @@ module Fluent
         (1..FORMAT_MAX_NUM).map { |i|
           format = conf["format#{i}"]
           if (i > 1) && prev_format.nil? && !format.nil?
-            raise ConfigError, "Jump of format index found. format#{i - 1} is missing."
+            raise Fluent::ConfigError, "Jump of format index found. format#{i - 1} is missing."
           end
           prev_format = format
           next if format.nil?
@@ -84,7 +84,7 @@ module Fluent
           m ? !((1..FORMAT_MAX_NUM).include?(m[1].to_i)) : false
         }
         unless invalid_formats.empty?
-          raise ConfigError, "Invalid formatN found. N should be 1 - #{FORMAT_MAX_NUM}: " + invalid_formats.join(",")
+          raise Fluent::ConfigError, "Invalid formatN found. N should be 1 - #{FORMAT_MAX_NUM}: " + invalid_formats.join(",")
         end
       end
 
@@ -93,10 +93,10 @@ module Fluent
           begin
             Regexp.new(format[1..-2], Regexp::MULTILINE)
           rescue => e
-            raise ConfigError, "Invalid regexp in #{key}: #{e}"
+            raise Fluent::ConfigError, "Invalid regexp in #{key}: #{e}"
           end
         else
-          raise ConfigError, "format should be Regexp, need //, in #{key}: '#{format}'"
+          raise Fluent::ConfigError, "format should be Regexp, need //, in #{key}: '#{format}'"
         end
       end
     end
