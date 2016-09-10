@@ -153,7 +153,7 @@ module Fluent
       # In test cases it occasionally appeared that when detaching a watcher, another watcher is also detached.
       # In the case in the iteration of watchers, a watcher that has been already detached is intended to be detached
       # and therfore RuntimeError occurs saying that it is not attached to a loop.
-      # It occures only when testing for sending responses to ForwardOutput.
+      # It occurs only when testing for sending responses to ForwardOutput.
       # Sending responses needs to write the socket that is previously used only to read
       # and a handler has 2 watchers that is used to read and to write.
       # This problem occurs possibly because those watchers are thought to be related to each other

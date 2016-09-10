@@ -132,7 +132,7 @@ module Fluent
         super
         @_threads_mutex.synchronize{ @_threads.keys }.each do |obj_id|
           thread = @_threads[obj_id]
-          log.warn "killing existing thead", thread: thread
+          log.warn "killing existing thread", thread: thread
           thread.kill if thread
         end
         @_threads_mutex.synchronize{ @_threads.keys }.each do |obj_id|

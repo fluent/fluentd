@@ -102,7 +102,7 @@ module Fluent
       end
 
       def has_key?(key)
-        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in chgeck_not_fetched.
+        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
         @unused.delete(key)
         super
       end

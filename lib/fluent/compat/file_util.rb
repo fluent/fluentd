@@ -32,7 +32,7 @@ module Fluent
       end
       module_function :writable?
 
-      # Check file is writable in conjunction wtih mkdir_p(dirname(path))
+      # Check file is writable in conjunction with mkdir_p(dirname(path))
       #
       # @param [String] path File path
       # @return [Boolean] file writable or not

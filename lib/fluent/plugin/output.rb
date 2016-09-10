@@ -74,12 +74,12 @@ module Fluent
         config_param :retry_max_times, :integer, default: nil, desc: 'The maximum number of times to retry to flush while failing.'
 
         config_param :retry_secondary_threshold, :float, default: 0.8, desc: 'ratio of retry_timeout to switch to use secondary while failing.'
-        # expornential backoff sequence will be initialized at the time of this threshold
+        # exponential backoff sequence will be initialized at the time of this threshold
 
         desc 'How to wait next retry to flush buffer.'
         config_param :retry_type, :enum, list: [:exponential_backoff, :periodic], default: :exponential_backoff
         ### Periodic -> fixed :retry_wait
-        ### Exponencial backoff: k is number of retry times
+        ### Exponential backoff: k is number of retry times
         # c: constant factor, @retry_wait
         # b: base factor, @retry_exponential_backoff_base
         # k: times
@@ -661,7 +661,7 @@ module Fluent
       #   `@buffer.write` will do this splitting.
       # For custom format, formatting will be done here. Custom formatting always requires
       #   iteration of event stream, and it should be done just once even if total event stream size
-      #   is biggar than chunk_limit_size because of performance.
+      #   is bigger than chunk_limit_size because of performance.
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
@@ -1013,7 +1013,7 @@ module Fluent
               # next_flush_interval uses flush_thread_interval or flush_thread_burst_interval (or retrying)
               interval = next_flush_time.to_f - Time.now.to_f
               # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected (because @retry still exists)
-              #   @retry should be cleard if delayed commit is enabled? Or any other solution?
+              #   @retry should be cleared if delayed commit is enabled? Or any other solution?
               state.next_time = Process.clock_gettime(clock_id) + interval
             end
 

@@ -44,7 +44,7 @@ class RegexpParserTest < ::Test::Unit::TestCase
     end
 
     def test_parse_with_configure
-      # Specify conf by configure method instaed of intializer
+      # Specify conf by configure method instead of initializer
       regexp = Regexp.new(%q!^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$!)
       conf = {
         'time_format' => "%d/%b/%Y:%H:%M:%S %z",

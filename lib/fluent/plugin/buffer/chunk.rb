@@ -25,7 +25,7 @@ require 'zlib'
 
 module Fluent
   module Plugin
-    class Buffer # fluent/plugin/buffer is alread loaded
+    class Buffer # fluent/plugin/buffer is already loaded
       class Chunk
         include MonitorMixin
         include UniqueId::Mixin
