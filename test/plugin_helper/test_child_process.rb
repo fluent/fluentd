@@ -213,7 +213,7 @@ class ChildProcessTest < Test::Unit::TestCase
       end
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       sleep TEST_WAIT_INTERVAL_FOR_LOOP * 10
-      @d.stop # nothing occures
+      @d.stop # nothing occurs
       @d.shutdown
 
       assert{ ary.size > 5 }
@@ -249,7 +249,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
         assert_equal [], @d.log.out.logs
 
-        @d.stop # nothing occures
+        @d.stop # nothing occurs
         sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
         lines1 = ary.size
         assert{ lines1 > 1 }

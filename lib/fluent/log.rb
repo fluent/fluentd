@@ -122,7 +122,7 @@ module Fluent
     end
 
     def reopen!
-      # do noting in @logger.reopen! because it's already reopened in Supervisor.load_config
+      # do nothing in @logger.reopen! because it's already reopened in Supervisor.load_config
       @logger.reopen! if @logger
       nil
     end

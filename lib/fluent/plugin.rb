@@ -30,7 +30,7 @@ module Fluent
     OUTPUT_REGISTRY    = Registry.new(:output,    'fluent/plugin/out_',        dir_search_prefix: 'out_')
     FILTER_REGISTRY    = Registry.new(:filter,    'fluent/plugin/filter_',     dir_search_prefix: 'filter_')
 
-    # feature plugin: second class plugins (instanciated by Plugins or Helpers)
+    # feature plugin: second class plugins (instantiated by Plugins or Helpers)
     BUFFER_REGISTRY    = Registry.new(:buffer,    'fluent/plugin/buf_',        dir_search_prefix: 'buf_')
     PARSER_REGISTRY    = Registry.new(:parser,    'fluent/plugin/parser_',     dir_search_prefix: 'parser_')
     FORMATTER_REGISTRY = Registry.new(:formatter, 'fluent/plugin/formatter_',  dir_search_prefix: 'formatter_')

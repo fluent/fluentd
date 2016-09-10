@@ -448,7 +448,7 @@ module Fluent
 
           if @sender.require_ack_response
             # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
-            # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
+            # To avoid a decrease of throughput, it is necessary to prepare a list of chunks that wait for responses
             # and process them asynchronously.
             if IO.select([sock], nil, nil, @sender.ack_response_timeout)
               raw_data = begin

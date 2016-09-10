@@ -135,7 +135,7 @@ module Fluent
               end
             end
 
-            # Set runnning timeout to avoid infinite loop caused by some errors.
+            # Set running timeout to avoid infinite loop caused by some errors.
             started_at = Time.now
             register_run_breaking_condition do
               Time.now >= started_at + @run_timeout
