@@ -210,7 +210,10 @@ module Fluent
           @optimizable = if filters_having_filter_stream.empty?
                            true
                          else
-                           $log.info "Filtering works with worse performance, because #{filters_having_filter_stream.map(&:class)} uses `#filter_stream` method."
+                           fs_filters = filters_having_filter_stream
+                           if fs_filters.size > 1
+                             $log.info "disable filter chain optimization because #{fs_filters.map(&:class)} uses `#filter_stream` method."
+                           end
                            false
                          end
         end
