@@ -56,7 +56,7 @@ module Fluent
         elsif @path
           # ok
         else # @_plugin_id_configured is true
-          raise NotImplementedError, "implement this feature later with system_config"
+          raise NotImplementedError, "implement this feature later with system_config. Add <storage> section for file store or remove @id for memory store temporary"
           ## TODO: get process-wide directory for plugin storage, and generate path for this plugin storage instance
           # path = 
         end
