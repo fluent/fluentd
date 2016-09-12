@@ -688,7 +688,7 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_packed_forward
+    def test_packed_forward(data)
       config = data[:config]
       options = data[:options]
       d = create_driver(config)
@@ -783,7 +783,7 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_message
+    def test_message(data)
       config = data[:config]
       options = data[:options]
       d = create_driver(config)
@@ -805,7 +805,7 @@ class ForwardInputTest < Test::Unit::TestCase
       end
 
       assert_equal events, d.emits
-      assert_equal ["", ""], @responses
+      assert_equal [nil, nil], @responses
 
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
