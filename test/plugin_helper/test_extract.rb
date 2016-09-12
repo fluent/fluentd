@@ -2,7 +2,7 @@ require_relative '../helper'
 require 'fluent/plugin_helper/extract'
 require 'fluent/time'
 
-class InjectHelperTest < Test::Unit::TestCase
+class ExtractHelperTest < Test::Unit::TestCase
   class Dummy < Fluent::Plugin::TestBase
     helpers :extract
   end
