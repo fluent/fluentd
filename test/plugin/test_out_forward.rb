@@ -2,6 +2,7 @@ require_relative '../helper'
 require 'fluent/test'
 require 'fluent/test/startup_shutdown'
 require 'fluent/plugin/out_forward'
+require 'flexmock/test_unit'
 
 class ForwardOutputTest < Test::Unit::TestCase
   extend Fluent::Test::StartupShutdown
@@ -107,24 +108,27 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
   end
 
-  def test_configure_text_compress
+  def test_compress_default_value
     d = create_driver
     assert_equal :text, d.instance.compress
   end
 
-  def test_configure_gzip_compress
+  def test_set_compress_is_gzip
     d = create_driver(CONFIG + %[compress gzip])
     assert_equal :gzip, d.instance.compress
     assert_equal :gzip, d.instance.buffer.compress
   end
 
-  def test_configure_gzip_compress_in_buffer
+  def test_set_compress_is_gzip_in_buffer_section
+    mock = flexmock($log)
+    mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
+
     d = create_driver(CONFIG + %[
-      <buffer>
-        type memory
-        compress gzip
-      </buffer>
-    ])
+       <buffer>
+         type memory
+         compress gzip
+       </buffer>
+     ])
     assert_equal :text, d.instance.compress
     assert_equal :gzip, d.instance.buffer.compress
   end
