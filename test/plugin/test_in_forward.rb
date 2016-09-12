@@ -484,9 +484,8 @@ class ForwardInputTest < Test::Unit::TestCase
       # create compressed entries
       entries = ''
       events.each do |_tag, _time, record|
-        v = ''
-        [_time, record].to_msgpack(v)
-        entries += compress(v)
+        v = [_time, record].to_msgpack
+        entries << compress(v)
       end
       chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 
@@ -512,9 +511,8 @@ class ForwardInputTest < Test::Unit::TestCase
       # create compressed entries
       entries = ''
       events.each do |_tag, _time, record|
-        v = ''
-        [_time, record].to_msgpack(v)
-        entries += compress(v)
+        v = [_time, record].to_msgpack
+        entries << compress(v)
       end
       chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 

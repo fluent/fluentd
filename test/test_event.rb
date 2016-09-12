@@ -414,8 +414,8 @@ module EventTest
       @records = [{ 'k' => 'v1', 'n' => 1 }, { 'k' => 'v2', 'n' => 2 }]
       @entries = ''
       @times.zip(@records).each do |_time, record|
-        v = ''
-        [_time, record].to_msgpack(v)
+        v = [_time, record].to_msgpack
+        @packed_record += v
         @entries += compress(v)
       end
       @es = CompressedMessagePackEventStream.new(@entries)
