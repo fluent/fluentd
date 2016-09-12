@@ -340,6 +340,7 @@ module Fluent
       def initialize(sender, server, failure:)
         @sender = sender
         @log = sender.log
+        @compress = sender.compress
 
         @name = server.name
         @host = server.host
