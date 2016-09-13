@@ -55,6 +55,19 @@ class MonitorAgentInputTest < Test::Unit::TestCase
     @id test_out
   </match>
 </label>
+<label @copy>
+  <match **>
+    @type copy
+    <store>
+      @type test_out
+      @id copy_out_1
+    </store>
+    <store>
+      @type test_out
+      @id copy_out_2
+    </store>
+  </match>
+</label>
 <label @ERROR>
   <match>
     @type null
@@ -153,7 +166,10 @@ EOC
       assert_equal([FluentTest::FluentTestInput,
                     Fluent::Plugin::RelabelOutput,
                     FluentTest::FluentTestFilter,
-                    FluentTest::FluentTestOutput,
+                    FluentTest::FluentTestOutput, # in label @test
+                    Fluent::Plugin::CopyOutput,
+                    FluentTest::FluentTestOutput, # in label @copy 1
+                    FluentTest::FluentTestOutput, # in label @copy 2
                     Fluent::Plugin::NullOutput], plugins)
     end
 
