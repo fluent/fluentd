@@ -488,7 +488,11 @@ module Fluent
       end
 
       def format_stream(tag, es) # for BufferedOutputTestDriver
-        es.to_msgpack_stream(time_int: @time_as_integer)
+        if @compress == :gzip
+          es.to_compressed_msgpack_stream(time_int: @time_as_integer)
+        else
+          es.to_msgpack_stream(time_int: @time_as_integer)
+        end
       end
 
       def write(chunk)

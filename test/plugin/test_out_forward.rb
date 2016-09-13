@@ -237,6 +237,40 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_empty d.instance.exceptions
   end
 
+  def test_send_comprssed_message_pack_stream_if_compress_is_gzip
+    target_input_driver = create_target_input_driver
+
+    d = create_driver(CONFIG + %[
+      flush_interval 1s
+      compress gzip
+    ])
+
+    time = event_time('2011-01-02 13:14:15 UTC')
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.register_run_post_condition do
+      d.instance.responses.length == 1
+    end
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    event_streams = target_input_driver.event_streams
+    assert_true event_streams[0].is_a?(Fluent::CompressedMessagePackEventStream)
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+  end
+
   def test_send_to_a_node_supporting_responses
     target_input_driver = create_target_input_driver(response_stub: true)
 
