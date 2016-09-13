@@ -27,6 +27,14 @@ module Fluent
 
     attr_accessor :root_agent
 
+    def configure(conf)
+      super
+
+      if conf.elements('match').size == 0
+        raise ConfigError, "Missing <match> sections in <label #{@context}> section"
+      end
+    end
+
     def emit_error_event(tag, time, record, e)
       @root_agent.emit_error_event(tag, time, record, e)
     end

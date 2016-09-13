@@ -242,6 +242,7 @@ module Fluent
 
     def add_label(name)
       label = Label.new(name, log: log)
+      raise ConfigError, "Section <label #{name}> appears twice" if @labels[name]
       label.root_agent = self
       @labels[name] = label
     end
