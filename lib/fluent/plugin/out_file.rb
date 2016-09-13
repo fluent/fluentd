@@ -59,7 +59,7 @@ module Fluent
 
       def generate_chunk(metadata)
         chunk = super
-        latest_chunk = metadata_list.sort_by(&:timekey).last
+        latest_chunk = metadata_list.select{|m| m.timekey }.sort_by(&:timekey).last
         if chunk.metadata == latest_chunk
           FileUtils.ln_sf(chunk.path, @_symlink_path)
         end
