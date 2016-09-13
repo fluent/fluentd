@@ -80,6 +80,9 @@ module Fluent
     desc 'Enable client-side DNS round robin.'
     config_param :dns_round_robin, :bool, default: false # heartbeat_type 'udp' is not available for this
 
+    desc 'Compress buffered data.'
+    config_param :compress, :enum, list: [:text, :gzip], default: :text
+
     config_section :security, required: false, multi: false do
       desc 'The hostname'
       config_param :self_hostname, :string
@@ -135,6 +138,12 @@ module Fluent
         else
           @nodes << Node.new(self, server, failure: failure)
         end
+      end
+
+      if @compress == :gzip && @buffer.compress == :text
+        @buffer.compress = :gzip
+      elsif @compress == :text && @buffer.compress == :gzip
+        log.info "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
       end
 
       if @nodes.empty?
@@ -331,6 +340,7 @@ module Fluent
       def initialize(sender, server, failure:)
         @sender = sender
         @log = sender.log
+        @compress = sender.compress
 
         @name = server.name
         @host = server.host
@@ -432,7 +442,7 @@ module Fluent
             raise ForwardOutputConnectionClosedError, "failed to establish connection with node #{@name}"
           end
 
-          option = { 'size' => chunk.size_of_events }
+          option = { 'size' => chunk.size_of_events, 'compressed' => @compress }
           option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
 
           # out_forward always uses Raw32 type for content.
@@ -440,7 +450,7 @@ module Fluent
 
           sock.write @sender.forward_header        # beginArray(3)
           sock.write tag.to_msgpack                # 1. writeRaw(tag)
-          chunk.open(compressed: :text) do |chunk_io|
+          chunk.open(compressed: @compress) do |chunk_io|
             sock.write [0xdb, chunk_io.size].pack('CN') # 2. beginRaw(size) raw32
             IO.copy_stream(chunk_io, sock)              # writeRawBody(packed_es)
           end

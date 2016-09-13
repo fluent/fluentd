@@ -5,9 +5,13 @@ require 'fluent/test/startup_shutdown'
 require 'base64'
 
 require 'fluent/env'
+require 'fluent/event'
 require 'fluent/plugin/in_forward'
+require 'fluent/plugin/compressable'
 
 class ForwardInputTest < Test::Unit::TestCase
+ include Fluent::Plugin::Compressable
+
   def setup
     Fluent::Test.setup
     @responses = []  # for testing responses after sending data
@@ -462,6 +466,66 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
 
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+    end
+  end
+
+  class CompressedPackedForward < self
+    extend Fluent::Test::StartupShutdown
+
+    def test_set_compress_to_option
+      d = create_driver
+
+      time = event_time("2011-01-02 13:14:15 UTC").to_i
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+
+      # create compressed entries
+      entries = ''
+      events.each do |_tag, _time, record|
+        v = [_time, record].to_msgpack
+        entries << compress(v)
+      end
+      chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
+
+      d.run do
+        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+          option = d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          assert_equal 'gzip', option['compressed']
+        end
+      end
+
+      assert_equal events, d.emits
+    end
+
+    def test_create_CompressedMessagePackEventStream_with_gzip_compress_option
+      d = create_driver
+
+      time = event_time("2011-01-02 13:14:15 UTC").to_i
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+
+      # create compressed entries
+      entries = ''
+      events.each do |_tag, _time, record|
+        v = [_time, record].to_msgpack
+        entries << compress(v)
+      end
+      chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
+
+      # check CompressedMessagePackEventStream is created
+      mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0)
+
+      d.run do
+        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+          option = d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          assert_equal 'gzip', option['compressed']
+        end
+      end
+      d.emits
     end
   end
 

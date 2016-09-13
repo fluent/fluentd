@@ -24,6 +24,7 @@ module Fluent
       def initialize(klass, &block)
         super(klass, &block)
         @emit_streams = []
+        @event_streams = []
         @expects = nil
         # for checking only the number of emitted records during run
         @expected_emits_length = nil
@@ -42,7 +43,7 @@ module Fluent
 
       attr_accessor :expected_emits_length
       attr_accessor :run_timeout
-      attr_reader :emit_streams
+      attr_reader :emit_streams, :event_streams
 
       def emits
         all = []
@@ -165,6 +166,7 @@ module Fluent
 
       private
       def emit_stream(tag, es)
+        @event_streams << es
         @emit_streams << [tag, es.to_a]
       end
     end

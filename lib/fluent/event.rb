@@ -213,9 +213,9 @@ module Fluent
 
     def dup
       if @unpacked_times
-        MessagePackEventStream.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
+        self.class.new(@data.dup, nil, @size, unpacked_times: @unpacked_times, unpacked_records: @unpacked_records.map(&:dup))
       else
-        MessagePackEventStream.new(@data.dup, nil, @size)
+        self.class.new(@data.dup, nil, @size)
       end
     end
 
@@ -271,6 +271,46 @@ module Fluent
     def to_msgpack_stream(time_int: false)
       # time_int is always ignored because @data is always packed binary in this class
       @data
+    end
+  end
+
+  class CompressedMessagePackEventStream < MessagePackEventStream
+    def initialize(data, cached_unpacker = nil, size = 0, unpacked_times: nil, unpacked_records: nil)
+      super
+      @decompressed_data = nil
+      @compressed_data = data
+    end
+
+    def empty?
+      ensure_decompressed!
+      super
+    end
+
+    def ensure_unpacked!
+      ensure_decompressed!
+      super
+    end
+
+    def each(&block)
+      ensure_decompressed!
+      super
+    end
+
+    def to_msgpack_stream(time_int: false)
+      ensure_decompressed!
+      super
+    end
+
+    def to_compressed_msgpack_stream(time_int: false)
+      # time_int is always ignored because @data is always packed binary in this class
+      @compressed_data
+    end
+
+    private
+
+    def ensure_decompressed!
+      return if @decompressed_data
+      @data = @decompressed_data = decompress(@data)
     end
   end
 
