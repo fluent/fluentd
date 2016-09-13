@@ -326,6 +326,7 @@ module Fluent
           @buffering = prefer_buffered_processing
           if !@buffering && @buffer
             @buffer.terminate # it's not started, so terminate will be enough
+            @buffer = nil
           end
         end
 
