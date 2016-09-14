@@ -107,6 +107,8 @@ module Fluent::Plugin
 
       super
 
+      @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
+
       if @symlink_path && @buffer.respond_to?(:path)
         @buffer.extend SymlinkBufferMixin
         @buffer.symlink_path = @symlink_path
@@ -119,11 +121,6 @@ module Fluent::Plugin
       unless ::Fluent::FileUtil.writable_p?(test_path)
         raise ::Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
       end
-    end
-
-    def start
-      @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
-      super
     end
 
     def format(tag, time, record)
