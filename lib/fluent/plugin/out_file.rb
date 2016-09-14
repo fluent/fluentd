@@ -107,6 +107,10 @@ module Fluent::Plugin
 
       super
 
+      unless @inject_config
+        raise Fluent::ConfigError, "<inject> section is required"
+      end
+
       @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
       @time_formatter = Fluent::TimeFormatter.new(extract_time_format, @inject_config.localtime, @inject_config.timezone)
 

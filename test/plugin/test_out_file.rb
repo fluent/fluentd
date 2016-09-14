@@ -51,7 +51,8 @@ class FileOutputTest < Test::Unit::TestCase
     conf = config_element(
       "ROOT", "", {
         "path" => "test_path",
-        "compress" => "gz"
+        "compress" => "gz",
+        "utc" => ""
       })
     d = create_driver(conf)
     assert_equal 'test_path', d.instance.path
@@ -60,7 +61,11 @@ class FileOutputTest < Test::Unit::TestCase
 
   sub_test_case "path writable" do
     def test_path_writable
-      conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/test_path" })
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/test_path",
+          "localtime" => "true"
+        })
       assert_nothing_raised do
         create_driver(conf)
       end
@@ -69,7 +74,11 @@ class FileOutputTest < Test::Unit::TestCase
     def test_world_writable
       FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
       File.chmod(0777, "#{TMP_DIR}/test_dir")
-      conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/test_dir/foo/bar/baz" })
+      conf = config_element(
+        "ROOT", "", {
+          "path" => "#{TMP_DIR}/test_dir/foo/bar/baz",
+          "localtime" => "true"
+        })
       assert_nothing_raised do
         create_driver(conf)
       end
@@ -86,7 +95,11 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   def test_default_localtime
-    conf = config_element("ROOT", "", { "path" => "#{TMP_DIR}/out_file_test" })
+    conf = config_element(
+      "ROOT", "", {
+        "path" => "#{TMP_DIR}/out_file_test",
+        "localtime" => "true"
+      })
     d = create_driver(conf)
     time = event_time("2011-01-02 13:14:15 UTC")
 
