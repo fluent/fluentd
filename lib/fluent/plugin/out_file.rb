@@ -108,6 +108,7 @@ module Fluent::Plugin
       super
 
       @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
+      @time_formatter = Fluent::TimeFormatter.new(extract_time_format, @inject_config.localtime, @inject_config.timezone)
 
       if @symlink_path && @buffer.respond_to?(:path)
         @buffer.extend SymlinkBufferMixin
@@ -117,7 +118,7 @@ module Fluent::Plugin
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
 
-      test_path = generate_path(metadata("test.path", Fluent::EventTime.now, {}))
+      test_path = generate_path(Fluent::EventTime.now)
       unless ::Fluent::FileUtil.writable_p?(test_path)
         raise ::Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
       end
@@ -129,7 +130,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      path = generate_path(chunk.metadata)
+      path = generate_path(chunk.metadata.timekey)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
@@ -163,8 +164,8 @@ module Fluent::Plugin
       end
     end
 
-    def generate_path(metadata)
-      time_string = extract_placeholders(extract_time_format, metadata)
+    def generate_path(time)
+      time_string = @time_formatter.format(time)
       if @append
         "#{@path_prefix}#{time_string}#{@path_suffix}#{suffix}"
       else
