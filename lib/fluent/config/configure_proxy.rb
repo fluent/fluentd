@@ -208,9 +208,21 @@ module Fluent
         end
       end
 
-      def option_value_type!(name, opts, key, klass)
-        if opts.has_key?(key) && !opts[key].is_a?(klass)
-          raise ArgumentError, "#{name}: #{key} must be a #{klass}, but #{opts[key].class}"
+      def option_value_type!(name, opts, key, klass=nil, type: nil)
+        if opts.has_key?(key)
+          if klass && !opts[key].is_a?(klass)
+            raise ArgumentError, "#{name}: #{key} must be a #{klass}, but #{opts[key].class}"
+          end
+          case type
+          when :boolean
+            unless opts[key].is_a?(TrueClass) || opts[key].is_a?(FalseClass)
+              raise ArgumentError, "#{name}: #{key} must be true or false, but #{opts[key].class}"
+            end
+          when nil
+            # ignore
+          else
+            raise "unknown type: #{type} for option #{key}"
+          end
         end
       end
 
@@ -233,9 +245,10 @@ module Fluent
           raise ArgumentError, "#{name}: unknown config_argument type `#{type}'"
         end
 
+        # options for config_param
         option_value_type!(name, opts, :desc, String)
         option_value_type!(name, opts, :alias, Symbol)
-        option_value_type!(name, opts, :secret, Object) # TrueClass or FalseClass...
+        option_value_type!(name, opts, :secret, type: :boolean)
         option_value_type!(name, opts, :deprecated, String)
         option_value_type!(name, opts, :obsoleted, String)
         if type == :enum
@@ -244,6 +257,7 @@ module Fluent
           end
         end
         option_value_type!(name, opts, :value_type, Symbol) # hash, array
+        option_value_type!(name, opts, :skip_accessor, type: :boolean)
 
         if opts.has_key?(:default)
           config_set_default(name, opts[:default])

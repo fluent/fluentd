@@ -159,6 +159,11 @@ module ConfigurableSpec
     config_param :obj2, :array, default: []
   end
 
+  class Example7
+    include Fluent::Configurable
+    config_param :name, :string, default: 'example7', skip_accessor: true
+  end
+
   module Overwrite
     class Base
       include Fluent::Configurable
@@ -1108,6 +1113,18 @@ module Fluent::Config
         end
       end
     end
+
+    sub_test_case ':skip_accessor option' do
+      test 'it does not create accessor methods for parameters' do
+        @example = ConfigurableSpec::Example7.new
+        @example.configure(config_element('ROOT'))
+        assert_equal 'example7', @example.instance_variable_get(:@name)
+        assert_raise NoMethodError.new("undefined method `name' for #{@example}") do
+          @example.name
+        end
+      end
+    end
+
     sub_test_case 'non-required options for config_param' do
       test 'desc must be a string if specified' do
         assert_raise ArgumentError.new("key: desc must be a String, but Symbol") do
@@ -1122,6 +1139,20 @@ module Fluent::Config
           class InvalidAliasClass
             include Fluent::Configurable
             config_param :key, :string, default: '', alias: 'yay'
+          end
+        end
+      end
+      test 'secret must be true or false if specified' do
+        assert_raise ArgumentError.new("key: secret must be true or false, but NilClass") do
+          class InvalidSecretClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', secret: nil
+          end
+        end
+        assert_raise ArgumentError.new("key: secret must be true or false, but String") do
+          class InvalidSecret2Class
+            include Fluent::Configurable
+            config_param :key, :string, default: '', secret: 'yes'
           end
         end
       end
@@ -1154,6 +1185,20 @@ module Fluent::Config
           class InvalidValueTypeOfArrayClass
             include Fluent::Configurable
             config_param :key, :array, value_type: 'yay'
+          end
+        end
+      end
+      test 'skip_accessor must be true or false if specified' do
+        assert_raise ArgumentError.new("key: skip_accessor must be true or false, but NilClass") do
+          class InvalidSkipAccessorClass
+            include Fluent::Configurable
+            config_param :key, :string, default: '', skip_accessor: nil
+          end
+        end
+        assert_raise ArgumentError.new("key: skip_accessor must be true or false, but String") do
+          class InvalidSkipAccessor2Class
+            include Fluent::Configurable
+            config_param :key, :string, default: '', skip_accessor: 'yes'
           end
         end
       end
