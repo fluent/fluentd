@@ -602,3 +602,41 @@ class PluginLoggerMixinTest < Test::Unit::TestCase
     plugin.terminate
   end
 end
+
+class LogDeviceIOTest < Test::Unit::TestCase
+  test 'flush' do
+    io = StringIO.new
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_equal io, logdev.flush
+
+    io.instance_eval { undef :flush }
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_raise NoMethodError do
+      logdev.flush
+    end
+  end
+
+  test 'tty?' do
+    io = StringIO.new
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_equal io.tty?, logdev.tty?
+
+    io.instance_eval { undef :tty? }
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_raise NoMethodError do
+      logdev.tty?
+    end
+  end
+
+  test 'sync=' do
+    io = StringIO.new
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_true logdev.sync = true
+
+    io.instance_eval { undef :sync= }
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_raise NoMethodError do
+      logdev.sync = true
+    end
+  end
+end
