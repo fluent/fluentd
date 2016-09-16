@@ -2,9 +2,14 @@ require_relative 'helper'
 require 'fluent/engine'
 require 'fluent/log'
 require 'timecop'
+require 'logger'
 
 class LogTest < Test::Unit::TestCase
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/log/#{ENV['TEST_ENV_NUMBER']}")
+
   def setup
+    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.mkdir_p(TMP_DIR)
     @log_device = Fluent::Test::DummyLogDevice.new
     @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
@@ -403,6 +408,33 @@ class LogTest < Test::Unit::TestCase
     assert_equal(ServerEngine::DaemonLogger::DEBUG, logger.level)
     # check fluentd log side level is also changed
     assert_equal(Fluent::Log::LEVEL_DEBUG, log.level)
+  end
+
+  DAY_SEC = 60 * 60 * 24
+  data(
+    rotate_daily_age: ['daily', 100000, DAY_SEC, '20160421'],
+    rotate_weekly_age: ['weekly', 100000, DAY_SEC * 7, '20160423'],
+    rotate_monthly_age: ['monthly', 100000, DAY_SEC * 31, '20160430'],
+    rotate_size: [1, 100, 0, '0'],
+  )
+  def test_log_with_logdevio(expected)
+    rotate_age, rotate_size, travel_term, suffix = expected
+    path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
+
+    logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
+    logger = ServerEngine::DaemonLogger.new(logdev)
+    log = Fluent::Log.new(logger)
+
+    msg = 'a' * 101
+    log.info msg
+    assert_match msg, File.read(path)
+
+    Timecop.travel(travel_term)
+
+    msg2 = 'b' * 101
+    log.info msg2
+    assert_match msg2, File.read(path)
+    assert_match msg, File.read("#{path}.#{suffix}")
   end
 end
 
