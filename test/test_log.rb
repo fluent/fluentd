@@ -412,13 +412,19 @@ class LogTest < Test::Unit::TestCase
 
   DAY_SEC = 60 * 60 * 24
   data(
-    rotate_daily_age: ['daily', 100000, DAY_SEC, '20160421'],
-    rotate_weekly_age: ['weekly', 100000, DAY_SEC * 7, '20160423'],
-    rotate_monthly_age: ['monthly', 100000, DAY_SEC * 31, '20160430'],
+    rotate_daily_age: ['daily', 100000, DAY_SEC + 1],
+    rotate_weekly_age: ['weekly', 100000, DAY_SEC * 7 + 1],
+    rotate_monthly_age: ['monthly', 100000, DAY_SEC * 31 + 1],
     rotate_size: [1, 100, 0, '0'],
   )
   def test_log_with_logdevio(expected)
-    rotate_age, rotate_size, travel_term, suffix = expected
+    old = ENV['TZ']
+    ENV['TZ'] = 'utc'
+    @timestamp = Time.parse("2016-04-21 00:00:00 +0000")
+    @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
+    Timecop.freeze(@timestamp)
+
+    rotate_age, rotate_size, travel_term = expected
     path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
 
     logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
@@ -429,12 +435,16 @@ class LogTest < Test::Unit::TestCase
     log.info msg
     assert_match msg, File.read(path)
 
-    Timecop.travel(travel_term)
+    Timecop.freeze(@timestamp + travel_term)
 
     msg2 = 'b' * 101
     log.info msg2
-    assert_match msg2, File.read(path)
-    assert_match msg, File.read("#{path}.#{suffix}")
+    c = File.read(path)
+
+    assert_match msg2, c
+    assert_not_equal msg, c
+  ensure
+    ENV['TZ'] = old
   end
 end
 

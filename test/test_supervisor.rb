@@ -14,10 +14,9 @@ class SupervisorTest < ::Test::Unit::TestCase
   include ServerModule
   include WorkerModule
 
-  TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/supervisor#{ENV['TEST_ENV_NUMBER']}")
 
   def setup
-    FileUtils.mkdir_p('test/tmp/supervisor')
     FileUtils.rm_rf(TMP_DIR)
     FileUtils.mkdir_p(TMP_DIR)
   end
