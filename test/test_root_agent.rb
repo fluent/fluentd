@@ -89,6 +89,41 @@ EOC
       end
     end
 
+    test 'raises configuration error if there are two same label section' do
+      conf = <<-EOC
+<source>
+  @type test_in
+  @label @test
+</source>
+<label @test>
+  @type test_out
+</label>
+<label @test>
+  @type test_out
+</label>
+EOC
+      errmsg = "Section <label @test> appears twice"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error if there are not match sections in label section' do
+      conf = <<-EOC
+<source>
+  @type test_in
+  @label @test
+</source>
+<label @test>
+  @type test_out
+</label>
+EOC
+      errmsg = "Missing <match> sections in <label @test> section"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        configure_ra(conf)
+      end
+    end
+
     test 'with plugins' do
       # check @type and type in one configuration
       conf = <<-EOC
