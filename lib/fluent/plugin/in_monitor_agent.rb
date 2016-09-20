@@ -262,31 +262,17 @@ module Fluent::Plugin
       array.concat Fluent::Engine.root_agent.inputs
 
       # get all output plugins
-      Fluent::Engine.root_agent.outputs.each { |o|
-        MonitorAgentInput.collect_children(o, array)
-      }
+      array.concat Fluent::Engine.root_agent.outputs
+
       # get all filter plugins
-      Fluent::Engine.root_agent.filters.each { |f|
-        MonitorAgentInput.collect_children(f, array)
-      }
+      array.concat Fluent::Engine.root_agent.filters
+
       Fluent::Engine.root_agent.labels.each { |name, l|
         # TODO: Add label name to outputs / filters for identifing plugins
-        l.outputs.each { |o| MonitorAgentInput.collect_children(o, array) }
-        l.filters.each { |f| MonitorAgentInput.collect_children(f, array) }
+        array.concat l.outputs
+        array.concat l.filters
       }
 
-      array
-    end
-
-    # get nexted plugins (such as <store> of the copy plugin)
-    # from the plugin `pe` recursively
-    def self.collect_children(pe, array=[])
-      array << pe
-      if pe.is_a?(Fluent::Plugin::MultiOutput) || pe.is_a?(Fluent::MultiOutput) && pe.respond_to?(:outputs)
-        pe.outputs.each {|nop|
-          collect_children(nop, array)
-        }
-      end
       array
     end
 
@@ -376,7 +362,7 @@ module Fluent::Plugin
       case pe
       when Fluent::Plugin::Input
         'input'.freeze
-      when Fluent::Plugin::Output, Fluent::Plugin::BareOutput
+      when Fluent::Plugin::Output, Fluent::Plugin::MultiOutput, Fluent::Plugin::BareOutput
         'output'.freeze
       when Fluent::Plugin::Filter
         'filter'.freeze

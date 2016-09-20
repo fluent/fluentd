@@ -326,6 +326,9 @@ module Fluent
           @buffering = prefer_buffered_processing
           if !@buffering && @buffer
             @buffer.terminate # it's not started, so terminate will be enough
+            # At here, this plugin works as non-buffered plugin.
+            # Un-assign @buffer not to show buffering metrics (e.g., in_monitor_agent)
+            @buffer = nil
           end
         end
 
