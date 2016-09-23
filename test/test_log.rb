@@ -418,33 +418,33 @@ class LogTest < Test::Unit::TestCase
     rotate_size: [1, 100, 0, '0'],
   )
   def test_log_with_logdevio(expected)
-    old = ENV['TZ']
-    ENV['TZ'] = 'utc'
-    @timestamp = Time.parse("2016-04-21 00:00:00 +0000")
-    @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
-    Timecop.freeze(@timestamp)
+    with_timezone('utc') do
+      @timestamp = Time.parse("2016-04-21 00:00:00 +0000")
+      @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
+      Timecop.freeze(@timestamp)
 
-    rotate_age, rotate_size, travel_term = expected
-    path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
+      rotate_age, rotate_size, travel_term = expected
+      path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
 
-    logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
-    logger = ServerEngine::DaemonLogger.new(logdev)
-    log = Fluent::Log.new(logger)
+      logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
 
-    msg = 'a' * 101
-    log.info msg
-    assert_match msg, File.read(path)
+      msg = 'a' * 101
+      log.info msg
+      assert_match msg, File.read(path)
 
-    Timecop.freeze(@timestamp + travel_term)
+      Timecop.freeze(@timestamp + travel_term)
 
-    msg2 = 'b' * 101
-    log.info msg2
-    c = File.read(path)
+      msg2 = 'b' * 101
+      log.info msg2
+      c = File.read(path)
 
-    assert_match msg2, c
-    assert_not_equal msg, c
-  ensure
-    ENV['TZ'] = old
+      assert_match msg2, c
+      assert_not_equal msg, c
+    end
+  end
+
   end
 end
 
