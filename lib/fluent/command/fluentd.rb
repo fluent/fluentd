@@ -81,14 +81,14 @@ op.on('-o', '--log PATH', "log file path") {|s|
   opts[:log_path] = s
 }
 
+ROTATE_AGE = %w(daily weekly monthly)
 op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
-  rotate_ages = %w(daily weekly monthly)
-  if rotate_ages.include?(age)
+  if ROTATE_AGE.include?(age)
     opts[:log_rotate_age] = age
   else
     begin
       opts[:log_rotate_age] = Integer(age)
-    rescue
+    rescue TypeError
       usage "log-rotate-age should be #{rotate_ages.join(', ')} or a number"
     end
   end
