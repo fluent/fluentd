@@ -94,7 +94,7 @@ op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
   end
 }
 
-op.on('--log-rotate-size SIZE', 'sets the size to rotate log files') {|s|
+op.on('--log-rotate-size BYTES', 'sets the byte size to rotate log files') {|s|
   opts[:log_rotate_size] = s.to_i
 }
 
