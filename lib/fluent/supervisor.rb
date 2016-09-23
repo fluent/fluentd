@@ -237,7 +237,9 @@ module Fluent
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
       logger_initializer = Supervisor::LoggerInitializer.new(
-        log_path, log_level, chuser, chgroup, log_rotate_age, log_rotate_size, log_opts
+        log_path, log_level, chuser, chgroup, log_opts,
+        log_rotate_age: log_rotate_age,
+        log_rotate_size: log_rotate_size
       )
       # this #init sets initialized logger to $log
       logger_initializer.init
@@ -299,14 +301,14 @@ module Fluent
     end
 
     class LoggerInitializer
-      def initialize(path, level, chuser, chgroup, log_rotate_age, log_rotate_size, opts)
+      def initialize(path, level, chuser, chgroup, opts, log_rotate_age: nil, log_rotate_size: nil)
         @path = path
         @level = level
         @chuser = chuser
         @chgroup = chgroup
+        @opts = opts
         @log_rotate_age = log_rotate_age
         @log_rotate_size = log_rotate_size
-        @opts = opts
       end
 
       def init
@@ -401,7 +403,9 @@ module Fluent
       @suppress_repeated_stacktrace = opt[:suppress_repeated_stacktrace]
       log_opts = {suppress_repeated_stacktrace: @suppress_repeated_stacktrace}
       @log = LoggerInitializer.new(
-        @log_path, @log_level, @chuser, @chgroup, @log_rotate_age, @log_rotate_size, log_opts
+        @log_path, @log_level, @chuser, @chgroup, log_opts,
+        log_rotate_age: @log_rotate_age,
+        log_rotate_size: @log_rotate_size
       )
       @finished = false
     end
