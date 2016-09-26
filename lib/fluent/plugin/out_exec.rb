@@ -42,7 +42,7 @@ module Fluent::Plugin
     desc "The format used to map the incoming events to the program input. (#{Fluent::ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
     config_param :format, default: :tsv, skip_accessor: true do |val|
       f = Fluent::ExecUtil::SUPPORTED_FORMAT[val]
-      raise ConfigError, "Unsupported format '#{val}'" unless f
+      raise Fluent::ConfigError, "Unsupported format '#{val}'" unless f
       f
     end
     config_param :localtime, :bool, default: false
