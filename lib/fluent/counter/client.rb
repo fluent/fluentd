@@ -83,21 +83,22 @@ module Fluent
         options[:async] ? res : res.get
       end
 
+      private
+
       def on_message(data)
         if response = @responses.delete(data['id'])
           response.set(data)
-        else response.nil?
-          # logging or raise error
+        else
+          @log.warn("Receiving missing id data: #{data}")
         end
       end
-
-      private
 
       def send_request(method, scope, params, opt = {})
         id = generate_id
         res = Future.new(@loop, @loop_mutex)
         @responses[id] = res                 # set a response value to this future object at `on_message`
         request = build_request(method, id, scope, params, opt)
+        @log.debug(request) if @log
         @lsock.send_data request
         res
       end

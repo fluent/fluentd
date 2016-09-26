@@ -25,6 +25,7 @@ module Fluent
 
       def self.request(data)
         errors = []
+        raise "Recieved data is not Hash: #{data}" unless data.is_a?(Hash)
 
         if !data['id']
           errors << Fluent::Counter::InvalidRequest.new('Request should include `id`')
