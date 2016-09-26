@@ -81,6 +81,23 @@ op.on('-o', '--log PATH', "log file path") {|s|
   opts[:log_path] = s
 }
 
+ROTATE_AGE = %w(daily weekly monthly)
+op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
+  if ROTATE_AGE.include?(age)
+    opts[:log_rotate_age] = age
+  else
+    begin
+      opts[:log_rotate_age] = Integer(age)
+    rescue TypeError
+      usage "log-rotate-age should be #{rotate_ages.join(', ')} or a number"
+    end
+  end
+}
+
+op.on('--log-rotate-size BYTES', 'sets the byte size to rotate log files') {|s|
+  opts[:log_rotate_size] = s.to_i
+}
+
 op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-the-fly") {|s|
   opts[:inline_config] = s
 }
@@ -270,4 +287,3 @@ if opts[:supervise]
 else
   Fluent::Supervisor.new(opts).run_worker
 end
-

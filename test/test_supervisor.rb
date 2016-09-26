@@ -14,10 +14,11 @@ class SupervisorTest < ::Test::Unit::TestCase
   include ServerModule
   include WorkerModule
 
-  TMP_DIR = File.dirname(__FILE__) + "/tmp/config#{ENV['TEST_ENV_NUMBER']}"
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/supervisor#{ENV['TEST_ENV_NUMBER']}")
 
   def setup
-    FileUtils.mkdir_p('test/tmp/supervisor')
+    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.mkdir_p(TMP_DIR)
   end
 
   def write_config(path, data)
@@ -319,6 +320,28 @@ class SupervisorTest < ::Test::Unit::TestCase
     # test that DamonLogger#level= overwrites Fluent.log#level
     logger.level = 'debug'
     assert_equal Fluent::Log::LEVEL_DEBUG, $log.level
+
+    assert_equal 5, logger.instance_variable_get(:@rotate_age)
+    assert_equal 1048576, logger.instance_variable_get(:@rotate_size)
+  end
+
+  data(
+    daily_age: 'daily',
+    weekly_age: 'weekly',
+    monthly_age: 'monthly',
+    integer_age: 2,
+  )
+  def test_logger_with_rotate_age_and_rotate_size(rotate_age)
+    opts = Fluent::Supervisor.default_options.merge(
+      log_path: "#{TMP_DIR}/test", log_rotate_age: rotate_age, log_rotate_size: 10
+    )
+    sv = Fluent::Supervisor.new(opts)
+    log = sv.instance_variable_get(:@log)
+    log.init
+
+    assert_equal Fluent::LogDeviceIO, $log.out.class
+    assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)
+    assert_equal 10, $log.out.instance_variable_get(:@shift_size)
   end
 
   def create_debug_dummy_logger

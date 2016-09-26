@@ -230,11 +230,17 @@ module Fluent
       log_path = params['log_path']
       chuser = params['chuser']
       chgroup = params['chgroup']
+      log_rotate_age = params['log_rotate_age']
+      log_rotate_size = params['log_rotate_size']
       rpc_endpoint = system_config.rpc_endpoint
       enable_get_dump = system_config.enable_get_dump
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
-      logger_initializer = Supervisor::LoggerInitializer.new(log_path, log_level, chuser, chgroup, log_opts)
+      logger_initializer = Supervisor::LoggerInitializer.new(
+        log_path, log_level, chuser, chgroup, log_opts,
+        log_rotate_age: log_rotate_age,
+        log_rotate_size: log_rotate_size
+      )
       # this #init sets initialized logger to $log
       logger_initializer.init
       logger = $log
@@ -295,42 +301,48 @@ module Fluent
     end
 
     class LoggerInitializer
-      def initialize(path, level, chuser, chgroup, opts)
+      def initialize(path, level, chuser, chgroup, opts, log_rotate_age: nil, log_rotate_size: nil)
         @path = path
         @level = level
         @chuser = chuser
         @chgroup = chgroup
         @opts = opts
+        @log_rotate_age = log_rotate_age
+        @log_rotate_size = log_rotate_size
       end
 
       def init
         if @path && @path != "-"
-          @io = File.open(@path, "a")
+          @logdev = if @log_rotate_age || @log_rotate_size
+                     Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
+                   else
+                     File.open(@path, "a")
+                   end
           if @chuser || @chgroup
             chuid = @chuser ? ServerEngine::Privilege.get_etc_passwd(@chuser).uid : nil
             chgid = @chgroup ? ServerEngine::Privilege.get_etc_group(@chgroup).gid : nil
             File.chown(chuid, chgid, @path)
           end
         else
-          @io = STDOUT
+          @logdev = STDOUT
         end
 
         dl_opts = {}
         # subtract 1 to match serverengine daemon logger side logging severity.
         dl_opts[:log_level] = @level - 1
-        logger = ServerEngine::DaemonLogger.new(@io, dl_opts)
+        logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
         $log = Fluent::Log.new(logger, @opts)
         $log.enable_color(false) if @path
         $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
       end
 
       def stdout?
-        @io == STDOUT
+        @logdev == STDOUT
       end
 
       def reopen!
         if @path && @path != "-"
-          @io.reopen(@path, "a")
+          @logdev.reopen(@path, "a")
         end
         self
       end
@@ -381,6 +393,8 @@ module Fluent
       @process_name = nil
 
       @log_level = opt[:log_level]
+      @log_rotate_age = opt[:log_rotate_age]
+      @log_rotate_size = opt[:log_rotate_size]
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
       @without_source = opt[:without_source]
@@ -388,7 +402,11 @@ module Fluent
 
       @suppress_repeated_stacktrace = opt[:suppress_repeated_stacktrace]
       log_opts = {suppress_repeated_stacktrace: @suppress_repeated_stacktrace}
-      @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
+      @log = LoggerInitializer.new(
+        @log_path, @log_level, @chuser, @chgroup, log_opts,
+        log_rotate_age: @log_rotate_age,
+        log_rotate_size: @log_rotate_size
+      )
       @finished = false
     end
 
@@ -512,6 +530,8 @@ module Fluent
       params['inline_config'] = @inline_config
       params['log_path'] = @log_path
       params['log_level'] = @log_level
+      params['log_rotate_age'] = @log_rotate_age
+      params['log_rotate_size'] = @log_rotate_size
       params['chuser'] = @chuser
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
