@@ -57,6 +57,14 @@ class JsonParserTest < ::Test::Unit::TestCase
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')
+  def test_parse_with_colon_string(data)
+    @parser.configure('json_parser' => data)
+    @parser.instance.parse('{"time":1362020400,"log":":message"}') { |time, record|
+      assert_equal(record['log'], ':message')
+    }
+  end
+
+  data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse_with_invalid_time(data)
     @parser.configure('json_parser' => data)
     assert_raise Fluent::ParserError do
