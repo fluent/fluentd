@@ -31,9 +31,10 @@ module Fluent
         @host = @opt[:host] || DEFAULT_HOST
         @port = @opt[:port] || DEFAULT_PORT
         @loop = @opt[:loop] || Coolio::Loop.new
+        @log =  @opt[:log] || $log
 
         @name = name
-        @counter = Fluent::Counter::Counter.new(name, opt)
+        @counter = Fluent::Counter::Counter.new(name, @log)
         @server = Coolio::TCPServer.new(@host, @port, Handler, @counter.method(:on_message))
         @thread = nil
         @run = false
@@ -58,10 +59,10 @@ module Fluent
     end
 
     class Counter
-      def initialize(name, opt = {})
+      def initialize(name, log)
         @name = name
         raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
-        @opt = opt
+        @log = log
         @store = Fluent::Counter::Store.new
         @mutex_hash = MutexHash.new(@store)
       end
@@ -76,6 +77,8 @@ module Fluent
           send(data['method'], data['params'], data['scope'], data['options'])
         end
         result.merge('id' => data['id'])
+      rescue => e
+        @log.error e.to_s
       end
 
       private
@@ -86,7 +89,9 @@ module Fluent
         res = Response.new(errors)
 
         if scope = valid_params.first
-          res.push_data "#{@name}\t#{scope}"
+          new_scope = "#{@name}\t#{scope}"
+          res.push_data new_scope
+          @log.debug("Establish new key: #{new_scope}") if @log
         end
 
         res.to_hash
@@ -102,6 +107,7 @@ module Fluent
           begin
             param = valid_params.find { |par| par['name'] == key }
             v = store.init(key, scope, param, ignore: options['ignore'])
+            @log.debug("Create new key: #{param['name']}") if @log
             res.push_data v
           rescue => e
             res.push_error e
@@ -125,6 +131,7 @@ module Fluent
         do_delete = lambda do |store, key|
           begin
             v = store.delete(key, scope)
+            @log.debug("delete a key: #{key}") if @log
             res.push_data v
           rescue => e
             res.push_error e
@@ -153,6 +160,7 @@ module Fluent
           begin
             param = valid_params.find { |par| par['name'] == key }
             v = store.inc(key, scope, param, force: options['force'])
+            @log.debug("Increment #{key} by #{param['value']}") if @log
             res.push_data v
           rescue => e
             res.push_error e
@@ -176,6 +184,7 @@ module Fluent
         do_reset = lambda do |store, key|
           begin
             v = store.reset(key, scope)
+            @log.debug("Reset #{key}'s' counter value") if @log
             res.push_data v
           rescue => e
             res.push_error e
@@ -199,6 +208,7 @@ module Fluent
         valid_params.each do |key|
           begin
             v = @store.get(key, scope, raise_error: true)
+            @log.debug("Get counter value: #{key}") if @log
             res.push_data v
           rescue => e
             res.push_error e
@@ -254,9 +264,7 @@ module Fluent
 
       def on_message(data)
         res = @on_message.call(data)
-        packed_write res
-      rescue => e
-        puts "server #{e}"
+        packed_write res if res
       end
     end
   end

@@ -13,7 +13,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
 
     @scope = "server\tworker\tplugin"
     @server_name = 'server1'
-    @counter = Fluent::Counter::Counter.new(@server_name)
+    @counter = Fluent::Counter::Counter.new(@server_name, $log)
   end
 
   teardown do
@@ -89,6 +89,12 @@ class CounterCounterTest < ::Test::Unit::TestCase
         ]
       }
       assert_equal expected, @counter.on_message(request)
+    end
+
+    test 'output an error log when passed data is not Hash' do
+      data = 'this is not a hash'
+      mock($log).error("Recieved data is not Hash: #{data}")
+      @counter.on_message(data)
     end
   end
 

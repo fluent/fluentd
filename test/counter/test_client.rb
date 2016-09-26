@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/counter/client'
 require 'fluent/counter/server'
+require 'flexmock/test_unit'
 require 'timecop'
 
 class CounterClientTest < ::Test::Unit::TestCase
@@ -16,6 +17,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     @options = {
       host: TEST_HOST,
       port: TEST_PORT,
+      log: $log,
     }
 
     @server_name = 'server1'
@@ -34,6 +36,25 @@ class CounterClientTest < ::Test::Unit::TestCase
   test 'Callable API' do
     [:establish, :init, :delete, :inc, :reset, :get].each do |m|
       assert_true @client.respond_to?(m)
+    end
+  end
+
+  sub_test_case 'on_message' do
+    setup do
+      @future = flexmock('future')
+      @client.instance_variable_set(:@responses, { 1 => @future })
+    end
+
+    test 'call a set method to a corresponding object' do
+      @future.should_receive(:set).once.with(Hash)
+
+      @client.send(:on_message, {'id' => 1})
+    end
+
+    test "output a warning log when passed id doesn't exist" do
+      data = { 'id' => 2 }
+      mock($log).warn("Receiving missing id data: #{data}")
+      @client.send(:on_message, data)
     end
   end
 
