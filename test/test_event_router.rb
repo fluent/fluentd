@@ -307,7 +307,7 @@ class EventRouterTest < ::Test::Unit::TestCase
 
         e = OneEventStream.new(@now, @record)
         assert_rr do
-          mock($log).info("Filtering works with worse performance, because #{[filter_stream].map(&:class)} uses `#filter_stream` method.")
+          mock($log).info("disable filter chain optimization because #{[filter_stream].map(&:class)} uses `#filter_stream` method.")
           mock(filter_stream).filter_stream('test', is_a(OneEventStream)) { e }
           mock(filter).filter_stream('test', is_a(OneEventStream)) { e }
           mock(filter_with_time).filter_stream('test', is_a(OneEventStream)) { e }
