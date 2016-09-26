@@ -351,5 +351,34 @@ EOC
       assert_equal [true], label_filters.map{|i| i.terminated? }
       assert_equal [true, true, true], label_outputs.map{|i| i.terminated? }
     end
+
+    test 'plugin #shutdown is not called twice' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 0, @ra.filters.size
+      assert_equal 0, @ra.outputs.size
+      assert_equal 1, @ra.labels.size
+      assert_equal '@testing', @ra.labels.keys.first
+      assert_equal 1, @ra.labels.values.first.filters.size
+      assert_equal 3, @ra.labels.values.first.outputs.size
+
+      @ra.start
+
+      old_level = @ra.log.level
+      begin
+        @ra.log.instance_variable_get(:@logger).level = Fluent::Log::LEVEL_INFO - 1
+        assert_equal Fluent::Log::LEVEL_INFO, @ra.log.level
+
+        @ra.log.out.flush_logs = false
+
+        @ra.shutdown
+
+        test_out1_shutdown_logs = @ra.log.out.logs.select{|line| line =~ /shutting down output plugin type=:test_out plugin_id="test_out1"/ }
+        assert_equal 1, test_out1_shutdown_logs.size
+      ensure
+        @ra.log.out.flush_logs = true
+        @ra.log.out.reset
+        @ra.log.level = old_level
+      end
+    end
   end
 end

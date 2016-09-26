@@ -92,12 +92,6 @@ module Fluent
         else
           lifecycle_control_list[:output] << o
         end
-
-        if o.respond_to?(:outputs)
-          o.outputs.each do |store|
-            recursive_output_traverse.call(store)
-          end
-        end
       }
       outputs.each do |o|
         recursive_output_traverse.call(o)
