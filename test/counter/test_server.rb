@@ -56,13 +56,13 @@ class CounterCounterTest < ::Test::Unit::TestCase
         { 'method' => 'init' },
         { 'code' => 'invalid_request', 'message' => 'Request should include `id`' }
       ],
-      missing_mehtod: [
+      missing_method: [
         { 'id' => 0 },
         { 'code' => 'invalid_request', 'message' => 'Request should include `method`' }
       ],
-      invalid_mehtod: [
-        { 'id' => 0, 'method' => 'invalid_method'},
-        { 'code' => 'method_not_found', 'message' => 'Unknown Method name passed: invalid_method'}
+      invalid_method: [
+        { 'id' => 0, 'method' => 'invalid_method' },
+        { 'code' => 'method_not_found', 'message' => 'Unknown method name passed: invalid_method' }
       ]
     )
     test 'invalid request' do |(request, error)|
@@ -93,7 +93,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
 
     test 'output an error log when passed data is not Hash' do
       data = 'this is not a hash'
-      mock($log).error("Recieved data is not Hash: #{data}")
+      mock($log).error("Received data is not Hash: #{data}")
       @counter.on_message(data)
     end
   end
@@ -401,8 +401,8 @@ class CounterCounterTest < ::Test::Unit::TestCase
       v = extract_value_from_counter(@counter, @scope, @name)
       assert_equal 0, v.current
       assert_equal 10, v.total
+      assert_equal (@now + @travel_sec), v.last_reset_at
       assert_equal (@now + @travel_sec), v.last_modified_at
-      assert_equal (@now + @travel_sec) , v.last_modified_at
     end
 
     test 'reset a value after `reset_interval` passed' do

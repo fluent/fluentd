@@ -32,9 +32,11 @@ module Fluent
         end
       end
 
-      def on_message
+      def on_message(data)
         raise NotImplementedError
       end
+
+      private
 
       def pack(data)
         msgpack_packer.pack(data)

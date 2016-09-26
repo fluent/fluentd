@@ -27,13 +27,13 @@ module Fluent
       DEFAULT_PORT = 4321
 
       def initialize(name, opt = {})
+        @name = name
         @opt = opt
         @host = @opt[:host] || DEFAULT_HOST
         @port = @opt[:port] || DEFAULT_PORT
         @loop = @opt[:loop] || Coolio::Loop.new
         @log =  @opt[:log] || $log
 
-        @name = name
         @counter = Fluent::Counter::Counter.new(name, @log)
         @server = Coolio::TCPServer.new(@host, @port, Handler, @counter.method(:on_message))
         @thread = nil
@@ -60,8 +60,8 @@ module Fluent
 
     class Counter
       def initialize(name, log)
-        @name = name
         raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
+        @name = name
         @log = log
         @store = Fluent::Counter::Store.new
         @mutex_hash = MutexHash.new(@store)
@@ -101,7 +101,7 @@ module Fluent
         validator = Fluent::Counter::HashValidator.new(:empty, :name, :reset_interval)
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
-        vp = valid_params.map { |e| e['name'] }
+        keys = valid_params.map { |e| e['name'] }
 
         do_init = lambda do |store, key|
           begin
@@ -115,9 +115,9 @@ module Fluent
         end
 
         if options['random']
-          @mutex_hash.synchronize_keys(*vp, &do_init)
+          @mutex_hash.synchronize_keys(*keys, &do_init)
         else
-          @mutex_hash.synchronize(*vp, &do_init)
+          @mutex_hash.synchronize(*keys, &do_init)
         end
 
         res.to_hash
@@ -154,7 +154,7 @@ module Fluent
 
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
-        vp = valid_params.map { |par| par['name'] }
+        keys = valid_params.map { |par| par['name'] }
 
         do_inc = lambda do |store, key|
           begin
@@ -168,9 +168,9 @@ module Fluent
         end
 
         if options['random']
-          @mutex_hash.synchronize_keys(*vp, &do_inc)
+          @mutex_hash.synchronize_keys(*keys, &do_inc)
         else
-          @mutex_hash.synchronize(*vp, &do_inc)
+          @mutex_hash.synchronize(*keys, &do_inc)
         end
 
         res.to_hash

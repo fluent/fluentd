@@ -55,7 +55,6 @@ module Fluent
       end
 
       def initialize
-        @mutex = Mutex.new
         @store = {}
       end
 
@@ -92,7 +91,7 @@ module Fluent
         init(name, scope, data) if force
         v = get(name, scope, raise_error: true)
         value = data['value']
-        valida_type!(v, value)
+        valid_type!(v, value)
 
         v.total += value
         v.current += value
@@ -106,7 +105,7 @@ module Fluent
         success = false
         old_data = v.to_response_hash
 
-        # Check it is need reset or not
+        #  Does it need reset?
         if (v.last_reset_at + v.reset_interval) <= now
           success = true
           v.current = Value.initial_value(v.type)
@@ -123,18 +122,17 @@ module Fluent
 
       private
 
-      def valida_type!(v, value)
-        if (v.type != 'numeric') && (extract_type(value) != v.type)
-          raise InvalidParams.new("`type` is #{v.type}. You should pass #{v.type} value as a `value`")
-        end
+      def valid_type!(v, value)
+        return unless (v.type != 'numeric') && (type_str(value) != v.type)
+        raise InvalidParams.new("`type` is #{v.type}. You should pass #{v.type} value as a `value`")
       end
 
-      def extract_type(v)
+      def type_str(v)
         case v
         when Integer
           'integer'
         when Float
-          'flaot'
+          'float'
         when Numeric
           'numeric'
         else

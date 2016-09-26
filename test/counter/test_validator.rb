@@ -3,19 +3,19 @@ require 'fluent/counter/validator'
 
 class CounterValidatorTest < ::Test::Unit::TestCase
   data(
-    invald_name1: '',
-    invald_name3: '_',
-    invald_name4: 'A',
-    invald_name5: 'a*',
-    invald_name6: "a\t",
-    invald_name7: "\n",
+    invalid_name1: '',
+    invalid_name3: '_',
+    invalid_name4: 'A',
+    invalid_name5: 'a*',
+    invalid_name6: "a\t",
+    invalid_name7: "\n",
   )
   test 'invalid name' do |invalid_name|
     assert_nil(Fluent::Counter::Validator::VALID_NAME =~ invalid_name)
   end
 
   sub_test_case 'request' do
-    test 'return an empty ary' do
+    test 'return an empty array' do
       data = { 'id' => 0, 'method' => 'init' }
       errors = Fluent::Counter::Validator.request(data)
       assert_empty errors
@@ -34,12 +34,12 @@ class CounterValidatorTest < ::Test::Unit::TestCase
         { 'id' => 0, 'method' => "A\t" },
         { 'code' => 'invalid_request', 'message' => '`method` is the invalid format' }
       ],
-      missing_unknow_method: [
+      unknown_method: [
         { 'id' => 0, 'method' => 'unknown_method' },
-        { 'code' => 'method_not_found', 'message' => 'Unknown Method name passed: unknown_method' }
+        { 'code' => 'method_not_found', 'message' => 'Unknown method name passed: unknown_method' }
       ]
     )
-    test "return errors ary" do |(data, expected_error)|
+    test 'return an error array' do |(data, expected_error)|
       errors = Fluent::Counter::Validator.request(data)
       assert_equal [expected_error], errors
     end
@@ -47,7 +47,7 @@ class CounterValidatorTest < ::Test::Unit::TestCase
 
   sub_test_case 'call' do
     test "return an error hash when passed method doesn't exist" do
-      v = Fluent::Counter::Validator.new(:unknow)
+      v = Fluent::Counter::Validator.new(:unknown)
       success, errors = v.call(['key1'])
       assert_empty success
       assert_equal 'internal_server_error', errors.first.to_hash['code']
@@ -83,7 +83,8 @@ class CounterHashValidatorTest < ::Test::Unit::TestCase
       { 'name' => 'key' },
       {},
       { 'name' => 10 },
-      { 'name' => '_' }]
+      { 'name' => '_' }
+    ]
     error_expected = [
       { 'code' => 'invalid_params', 'message' => '`name` is required' },
       { 'code' => 'invalid_params', 'message' => 'The type of `name` should be String' },
@@ -92,7 +93,7 @@ class CounterHashValidatorTest < ::Test::Unit::TestCase
     v = Fluent::Counter::HashValidator.new(:name)
     success, errors = v.call(hash)
 
-    assert_equal [{'name' => 'key'}], success
+    assert_equal [{ 'name' => 'key' }], success
     assert_equal error_expected, errors.map(&:to_hash)
   end
 

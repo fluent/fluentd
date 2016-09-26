@@ -32,7 +32,7 @@ class CounterStoreValueTest < ::Test::Unit::TestCase
     data(
       integer: ['integer', 0, Integer],
       numeric: ['numeric', 0, Numeric],
-      flaot: ['float', 0.0, Float]
+      float: ['float', 0.0, Float]
     )
     test 'set a type' do |(type_name, value, type)|
       v = Fluent::Counter::Store::Value.init(
@@ -166,7 +166,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
 
     test "raise a error when when a passed key doesn't exist and raise_error option is true" do
       assert_raise Fluent::Counter::UnknownKey do
-        @store.get('unkonwn_key', @scope, raise_error: true)
+        @store.get('unknown_key', @scope, raise_error: true)
       end
 
       assert_raise Fluent::Counter::UnknownKey do
@@ -188,7 +188,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
 
     test "return false when passed key doesn't exist" do
       assert_true !@store.key?('unknown_key', @scope)
-      assert_true !@store.key?(@name, 'unkonwn_scope')
+      assert_true !@store.key?(@name, 'unknown_scope')
     end
   end
 
@@ -251,7 +251,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
       end
     end
 
-    test 'raise an error when a tyep of passed value is incompatible with a stored value' do
+    test 'raise an error when a type of passed value is incompatible with a stored value' do
       name2 = 'key_name2'
       name3 = 'key_name3'
       v = @store.init(@name, @scope, @init_data.merge('type' => 'integer'))
