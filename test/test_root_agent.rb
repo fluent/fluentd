@@ -381,4 +381,65 @@ EOC
       end
     end
   end
+
+  sub_test_case 'configured with MultiOutput plugin which creates plugin instances dynamically' do
+    setup do
+      @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent { @ra }
+      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+<source>
+  @type test_in
+  @id test_in
+  @label @testing
+</source>
+<label @testing>
+  <match **>
+    @type test_dynamic_out
+    @id test_dyn
+  </match>
+</label>
+EOC
+      @ra
+    end
+
+    test 'plugin status with multi output' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 0, @ra.filters.size
+      assert_equal 0, @ra.outputs.size
+      assert_equal 1, @ra.labels.size
+      assert_equal '@testing', @ra.labels.keys.first
+      assert_equal 0, @ra.labels.values.first.filters.size
+      assert_equal 1, @ra.labels.values.first.outputs.size
+
+      dyn_out = @ra.labels.values.first.outputs.first
+      assert_nil dyn_out.child
+
+      @ra.start
+
+      assert_equal 1, @ra.labels.values.first.outputs.size
+
+      assert dyn_out.child
+      assert_false dyn_out.child.outputs_statically_created
+      assert_equal 2, dyn_out.child.outputs.size
+
+      assert_equal true, dyn_out.child.outputs[0].started?
+      assert_equal true, dyn_out.child.outputs[1].started?
+      assert_equal true, dyn_out.child.outputs[0].after_started?
+      assert_equal true, dyn_out.child.outputs[1].after_started?
+
+      @ra.shutdown
+
+      assert_equal 1, @ra.labels.values.first.outputs.size
+
+      assert_false dyn_out.child.outputs_statically_created
+      assert_equal 2, dyn_out.child.outputs.size
+
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.stopped? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.before_shutdown? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.shutdown? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.after_shutdown? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.closed? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.terminated? }
+    end
+  end
 end

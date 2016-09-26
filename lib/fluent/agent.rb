@@ -131,7 +131,12 @@ module Fluent
       @outputs << output
       if output.respond_to?(:outputs) && (output.respond_to?(:multi_output?) && output.multi_output? || output.is_a?(Fluent::MultiOutput))
         # TODO: ruby 2.3 or later: replace `output.respond_to?(:multi_output?) && output.multi_output?` with output&.multi_output?
-        @outputs.push(*output.outputs)
+        outputs = if output.respond_to?(:static_outputs)
+                    output.static_outputs
+                  else
+                    output.outputs
+                  end
+        @outputs.push(*outputs)
       end
       @event_router.add_rule(pattern, output)
 

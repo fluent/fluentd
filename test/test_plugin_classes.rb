@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/plugin/input'
 require 'fluent/plugin/output'
+require 'fluent/plugin/bare_output'
 require 'fluent/plugin/filter'
 
 module FluentTest
@@ -39,6 +40,67 @@ module FluentTest
     def shutdown
       @started = false
       super
+    end
+
+    def process(tag, es)
+      es.each do |time, record|
+        @events[tag] << record
+      end
+    end
+  end
+
+  class FluentTestDynamicOutput < ::Fluent::Plugin::BareOutput
+    ::Fluent::Plugin.register_output('test_dynamic_out', self)
+
+    attr_reader :child
+    attr_reader :started
+
+    def start
+      super
+      @started = true
+      @child = Fluent::Plugin.new_output('copy')
+      conf = config_element('DYNAMIC', '', {}, [
+          config_element('store', '', {'@type' => 'test_out', '@id' => 'dyn_out1'}),
+          config_element('store', '', {'@type' => 'test_out', '@id' => 'dyn_out2'}),
+      ])
+      @child.configure(conf)
+      @child.start
+    end
+
+    def after_start
+      super
+      @child.after_start
+    end
+
+    def stop
+      super
+      @child.stop
+    end
+
+    def before_shutdown
+      super
+      @child.before_shutdown
+    end
+
+    def shutdown
+      @started = false
+      super
+      @child.shutdown
+    end
+
+    def after_shutdown
+      super
+      @child.after_shutdown
+    end
+
+    def close
+      super
+      @child.close
+    end
+
+    def terminate
+      super
+      @child.terminate
     end
 
     def process(tag, es)
