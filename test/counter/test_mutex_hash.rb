@@ -34,7 +34,7 @@ class MutexHashTest < ::Test::Unit::TestCase
       assert_true @store.empty?
     end
 
-    test 'use a one mutex value when the same key specifed' do
+    test 'use a one mutex value when the same key specified' do
       key = 'key'
       @counter_store_mutex.synchronize(key) do |store, k|
         store[k] = @value
@@ -85,7 +85,7 @@ class MutexHashTest < ::Test::Unit::TestCase
       assert_true @store.empty?
     end
 
-    test 'use a one mutex value when the same key specifed' do
+    test 'use a one mutex value when the same key specified' do
       key = 'key'
       @counter_store_mutex.synchronize_keys(key) do |store, k|
         store[k] = @value

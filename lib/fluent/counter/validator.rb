@@ -25,9 +25,9 @@ module Fluent
 
       def self.request(data)
         errors = []
-        raise "Recieved data is not Hash: #{data}" unless data.is_a?(Hash)
+        raise "Received data is not Hash: #{data}" unless data.is_a?(Hash)
 
-        if !data['id']
+        unless data['id']
           errors << Fluent::Counter::InvalidRequest.new('Request should include `id`')
         end
 
@@ -36,7 +36,7 @@ module Fluent
         elsif !(VALID_NAME =~ data['method'])
           errors << Fluent::Counter::InvalidRequest.new('`method` is the invalid format')
         elsif !VALID_METHODS.include?(data['method'])
-          errors << Fluent::Counter::MethodNotFound.new("Unknown Method name passed: #{data['method']}")
+          errors << Fluent::Counter::MethodNotFound.new("Unknown method name passed: #{data['method']}")
         end
 
         errors.map(&:to_hash)

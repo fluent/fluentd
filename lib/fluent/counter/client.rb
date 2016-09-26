@@ -28,37 +28,37 @@ module Fluent
         @loop = loop
         @port = opt[:port] || DEFAULT_PORT
         @host = opt[:host] || DEFAULT_HOST
-        @lsock = Connection.connect(@host, @port, method(:on_message))
-        @id_mutex = Mutex.new
         @log = opt[:log] || $log
+        @conn = Connection.connect(@host, @port, method(:on_message))
         @responses = {}
         @id = 0
+        @id_mutex = Mutex.new
         @loop_mutex = Mutex.new
       end
 
       def start
-        @loop.attach(@lsock)
+        @loop.attach(@conn)
         self
       rescue => e
         @log.error e
       end
 
       def stop
-        @lsock.close
+        @conn.close
       end
 
       def establish(scope)
         response = send_request('establish', nil, [scope])
 
-        raise response.errors if response.errors?
+        raise response.errors.first if response.errors?
         data = response.data
         @scope = data.first
       end
 
       # if `async` is true, return a Future object (nonblocking).
-      # if `async` is false, block at this method and return a Hash object.
+      # if `async` is false or missing, block at this method and return a Hash object.
       def init(*params, options: {})
-        # raise 'call `estabslish` method to set a scope before call this method' unless @scope
+        # raise 'call `establish` method to set a scope before call this method' unless @scope
         res = send_request('init', @scope, params, options)
         options[:async] ? res : res.get
       end
@@ -96,10 +96,10 @@ module Fluent
       def send_request(method, scope, params, opt = {})
         id = generate_id
         res = Future.new(@loop, @loop_mutex)
-        @responses[id] = res                 # set a response value to this future object at `on_message`
+        @responses[id] = res # set a response value to this future object at `on_message`
         request = build_request(method, id, scope, params, opt)
         @log.debug(request) if @log
-        @lsock.send_data request
+        @conn.send_data request
         res
       end
 
@@ -180,6 +180,7 @@ module Fluent
       end
 
       def get
+        # Block until `set` method is called and @result is set a value
         join if @result.nil?
         @result
       end

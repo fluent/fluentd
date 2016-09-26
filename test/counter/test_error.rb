@@ -18,7 +18,7 @@ class CounterErrorTest < ::Test::Unit::TestCase
     assert_equal expected, error.to_hash
   end
 
-  test 'parase_error' do
+  test 'parse_error' do
     error = Fluent::Counter::ParseError.new(@message)
     expected = { 'code' => 'parse_error', 'message' => @message }
     assert_equal expected, error.to_hash
