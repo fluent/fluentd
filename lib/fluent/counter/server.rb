@@ -26,13 +26,14 @@ module Fluent
       DEFAULT_HOST = '127.0.0.1'
       DEFAULT_PORT = 4321
 
-      def initialize(opt = {})
+      def initialize(name, opt = {})
         @opt = opt
         @host = @opt[:host] || DEFAULT_HOST
         @port = @opt[:port] || DEFAULT_PORT
         @loop = @opt[:loop] || Coolio::Loop.new
 
-        @counter = Fluent::Counter::Counter.new(opt)
+        @name = name
+        @counter = Fluent::Counter::Counter.new(name, opt)
         @server = Coolio::TCPServer.new(@host, @port, Handler, @counter.method(:on_message))
         @thread = nil
         @run = false
@@ -57,7 +58,9 @@ module Fluent
     end
 
     class Counter
-      def initialize(opt = {})
+      def initialize(name, opt = {})
+        @name = name
+        raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
         @opt = opt
         @store = Fluent::Counter::Store.new
         @mutex_hash = MutexHash.new(@store)
@@ -82,9 +85,8 @@ module Fluent
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
 
-        valid_params.take(1).each do |param|
-          # TODO
-          res.push_data "somthing_name\t#{param}"
+        if scope = valid_params.first
+          res.push_data "#{@name}\t#{scope}"
         end
 
         res.to_hash

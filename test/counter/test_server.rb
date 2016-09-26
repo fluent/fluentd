@@ -12,7 +12,8 @@ class CounterCounterTest < ::Test::Unit::TestCase
     @now = Fluent::EventTime.now
 
     @scope = "server\tworker\tplugin"
-    @counter = Fluent::Counter::Counter.new
+    @server_name = 'server1'
+    @counter = Fluent::Counter::Counter.new(@server_name)
   end
 
   teardown do
@@ -23,6 +24,12 @@ class CounterCounterTest < ::Test::Unit::TestCase
     store = counter.instance_variable_get(:@store).instance_variable_get(:@store)
     key = "#{scope}\t#{name}"
     store[key]
+  end
+
+  test 'raise an error when server name is invalid' do
+    assert_raise do
+      Fluent::Counter::Counter.new("\tinvalid_name")
+    end
   end
 
   sub_test_case 'on_message' do
@@ -88,7 +95,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
   sub_test_case 'establish' do
     test 'establish a scope in a counter' do
       result = @counter.send('establish', ['key'], nil, nil)
-      expected = { 'data' => ["somthing_name\tkey"] }
+      expected = { 'data' => ["#{@server_name}\tkey"] }
       assert_equal expected, result
     end
 
@@ -101,7 +108,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
       result = @counter.send('establish', params, nil, nil)
       expected = {
         'data' => [],
-        'errors' => [{ 'code' => 'invalid_params',  'message' => msg }]
+        'errors' => [{ 'code' => 'invalid_params', 'message' => msg }]
       }
       assert_equal expected, result
     end
