@@ -18,9 +18,10 @@ class CounterClientTest < ::Test::Unit::TestCase
       port: TEST_PORT,
     }
 
-    @scope = "server\tplugins"
+    @server_name = 'server1'
+    @scope = "worker1\tplugin1"
     @loop = Coolio::Loop.new
-    @server = Fluent::Counter::Server.new(@options).start
+    @server = Fluent::Counter::Server.new(@server_name, @options).start
     @client = Fluent::Counter::Client.new(@loop, @options).start
   end
 
@@ -46,7 +47,7 @@ class CounterClientTest < ::Test::Unit::TestCase
   sub_test_case 'establish' do
     test 'establish a scope' do
       @client.establish(@scope)
-      assert_equal "somthing_name\t#{@scope}", @client.instance_variable_get(:@scope)
+      assert_equal "#{@server_name}\t#{@scope}", @client.instance_variable_get(:@scope)
     end
 
     data(
