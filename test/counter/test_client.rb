@@ -49,7 +49,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'call a set method to a corresponding object' do
       @future.should_receive(:set).once.with(Hash)
 
-      @client.send(:on_message, {'id' => 1})
+      @client.send(:on_message, { 'id' => 1 })
     end
 
     test "output a warning log when passed id doesn't exist" do
@@ -91,56 +91,56 @@ class CounterClientTest < ::Test::Unit::TestCase
 
     data(
       numeric_type: [
-        { 'name' => 'key', 'reset_interval' => 20, 'type' => 'numeric' }, 0
+        { name: 'key', reset_interval: 20, type: 'numeric' }, 0
       ],
       float_type: [
-        { 'name' => 'key', 'reset_interval' => 20, 'type' => 'float' }, 0.0
+        { name: 'key', reset_interval: 20, type: 'float' }, 0.0
       ],
       integer_type: [
-        { 'name' => 'key', 'reset_interval' => 20, 'type' => 'integer' }, 0
+        { name: 'key', reset_interval: 20, type: 'integer' }, 0
       ]
     )
     test 'create a value' do |(param, initial_value)|
-      assert_nil extract_value_from_server(@server, @scope, 'key')
+      assert_nil extract_value_from_server(@server, @scope, param[:name])
 
       response = @client.init(param)
       data = response['data'].first
 
       assert_nil response['errors']
-      assert_equal 'key', data['name']
-      assert_equal 20, data['reset_interval']
-      assert_equal param['type'], data['type']
+      assert_equal param[:name], data['name']
+      assert_equal param[:reset_interval], data['reset_interval']
+      assert_equal param[:type], data['type']
       assert_equal initial_value, data['current']
       assert_equal initial_value, data['total']
 
-      v = extract_value_from_server(@server, @scope, 'key')
-      assert_equal 'key', v.name
-      assert_equal 20, v.reset_interval
-      assert_equal param['type'], v.type
+      v = extract_value_from_server(@server, @scope, param[:name])
+      assert_equal param[:name], v.name
+      assert_equal param[:reset_interval], v.reset_interval
+      assert_equal param[:type], v.type
       assert_equal initial_value, v.total
       assert_equal initial_value, v.current
     end
 
     data(
       already_exist_key: [
-        { 'name' => 'key1', 'reset_interval' => 10 },
+        { name: 'key1', reset_interval: 10 },
         { 'code' => 'invalid_params', 'message' => "worker1\tplugin1\tkey1 already exists in counter" }
       ],
       missing_name: [
-        { 'reset_interval' => 10 },
+        { reset_interval: 10 },
         { 'code' => 'invalid_params', 'message' => '`name` is required' },
       ],
       missing_reset_interval: [
-        { 'name' => 'key' },
+        { name: 'key' },
         { 'code' => 'invalid_params', 'message' => '`reset_interval` is required' },
       ],
       invalid_name: [
-        { 'name' => '\tkey' },
+        { name: '\tkey' },
         { 'code' => 'invalid_params', 'message' => '`name` is the invalid format' }
       ]
     )
     test 'return an error object' do |(param, expected_error)|
-      @client.init({ 'name' => 'key1', 'reset_interval' => 10 })
+      @client.init(:name => 'key1', :reset_interval => 10)
       response = @client.init(param)
 
       errors = response['errors'].first
@@ -150,34 +150,34 @@ class CounterClientTest < ::Test::Unit::TestCase
     end
 
     test 'return an existing value when passed key already exists and ignore option is true' do
-      res1 = @client.init({ 'name' => 'key1', 'reset_interval' => 10 })
+      res1 = @client.init(name: 'key1', reset_interval: 10)
 
       res2 = nil
       assert_nothing_raised do
-        res2 = @client.init({ 'name' => 'key1', 'reset_interval' => 10 }, options: { ignore: true })
+        res2 = @client.init({ name: 'key1', reset_interval: 10 }, options: { ignore: true })
       end
 
       assert_equal res1['data'], res2['data']
     end
 
     test 'return an error object and data object' do
-      param = { 'name' => 'key1', 'reset_interval' => 10 }
-      param2 = { 'name' => 'key2', 'reset_interval' => 10 }
+      param = { name: 'key1', reset_interval: 10 }
+      param2 = { name: 'key2', reset_interval: 10 }
       @client.init(param)
 
-      response = @client.init(param2, param)
+      response = @client.init([param2, param])
       data = response['data'].first
       error = response['errors'].first
 
-      assert_equal param2['name'], data['name']
-      assert_equal param2['reset_interval'], data['reset_interval']
+      assert_equal param2[:name], data['name']
+      assert_equal param2[:reset_interval], data['reset_interval']
 
       assert_equal 'invalid_params', error['code']
-      assert_equal "#{@scope}\t#{param['name']} already exists in counter", error['message']
+      assert_equal "#{@scope}\t#{param[:name]} already exists in counter", error['message']
     end
 
     test 'return a future object when async option is true' do
-      param = { 'name' => 'key', 'reset_interval' => 10 }
+      param = { name: 'key', reset_interval: 10 }
       r = @client.init(param, options: { async: true })
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
@@ -190,7 +190,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       @name = 'key'
       @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
-      @init_obj = { 'name' => @name, 'reset_interval' => 20, 'type' => 'numeric' }
+      @init_obj = { name: @name, reset_interval: 20, type: 'numeric' }
       @client.init(@init_obj)
     end
 
@@ -201,9 +201,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       v = response['data'].first
 
       assert_nil response['errors']
-      assert_equal @init_obj['name'], v['name']
-      assert_equal @init_obj['type'], v['type']
-      assert_equal @init_obj['reset_interval'], v['reset_interval']
+      assert_equal @init_obj[:name], v['name']
+      assert_equal @init_obj[:type], v['type']
+      assert_equal @init_obj[:reset_interval], v['reset_interval']
 
       assert_nil extract_value_from_server(@server, @scope, @name)
     end
@@ -235,7 +235,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       error = response['errors'].first
 
       assert_equal @name, data['name']
-      assert_equal @init_obj['reset_interval'], data['reset_interval']
+      assert_equal @init_obj[:reset_interval], data['reset_interval']
 
       assert_equal 'unknown_key', error['code']
       assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
@@ -256,7 +256,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       @name = 'key'
       @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
-      @init_obj = { 'name' => @name, 'reset_interval' => 20, 'type' => 'numeric' }
+      @init_obj = { name: @name, reset_interval: 20, type: 'numeric' }
       @client.init(@init_obj)
     end
 
@@ -266,18 +266,18 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal 0, v.current
 
       Timecop.travel(1)
-      inc_obj = { 'name' => @name, 'value' => 10 }
+      inc_obj = { name: @name, value: 10 }
       @client.inc(inc_obj)
 
       v = extract_value_from_server(@server, @scope, @name)
-      assert_equal inc_obj['value'], v.total
-      assert_equal inc_obj['value'], v.current
+      assert_equal inc_obj[:value], v.total
+      assert_equal inc_obj[:value], v.current
       assert_equal (@now + 1), v.last_modified_at
     end
 
     test 'create and increment a value when force option is true' do
       name = 'new_key'
-      param = { 'name' => name, 'value' => 11, 'reset_interval' => 1 }
+      param = { name: name, value: 11, reset_interval: 1 }
 
       assert_nil extract_value_from_server(@server, @scope, name)
 
@@ -285,27 +285,27 @@ class CounterClientTest < ::Test::Unit::TestCase
 
       v = extract_value_from_server(@server, @scope, name)
       assert v
-      assert_equal param['name'], v.name
+      assert_equal param[:name], v.name
       assert_equal 1, v.reset_interval
-      assert_equal param['value'], v.current
-      assert_equal param['value'], v.total
+      assert_equal param[:value], v.current
+      assert_equal param[:value], v.total
     end
 
     data(
       not_exist_key: [
-        { 'name' => 'key2', 'value' => 10 },
+        { name: 'key2', value: 10 },
         { 'code' => 'unknown_key', 'message' => "`worker1\tplugin1\tkey2` doesn't exist in counter" }
       ],
       missing_name: [
-        { 'value' => 10 },
+        { value: 10 },
         { 'code' => 'invalid_params', 'message' => '`name` is required' },
       ],
       missing_value: [
-        { 'name' => 'key' },
+        { name: 'key' },
         { 'code' => 'invalid_params', 'message' => '`value` is required' },
       ],
       invalid_name: [
-        { 'name' => '\tkey' },
+        { name: '\tkey' },
         { 'code' => 'invalid_params', 'message' => '`name` is the invalid format' }
       ]
     )
@@ -319,10 +319,10 @@ class CounterClientTest < ::Test::Unit::TestCase
 
     test 'return an error object and data object' do
       parmas = [
-        { 'name' => @name, 'value' => 10 },
-        { 'name' => 'unknown_key', 'value' => 9 }
+        { name: @name, value: 10 },
+        { name: 'unknown_key', value: 9 },
       ]
-      response = @client.inc(*parmas)
+      response = @client.inc(parmas)
 
       data = response['data'].first
       error = response['errors'].first
@@ -336,7 +336,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     end
 
     test 'return a future object when async option is true' do
-      param = { 'name' => 'key', 'value' => 10 }
+      param = { name: 'key', value: 10 }
       r = @client.inc(param, options: { async: true })
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
@@ -348,7 +348,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       @client.instance_variable_set(:@scope, @scope)
       @name = 'key'
 
-      @init_obj = { 'name' => @name, 'reset_interval' => 20, 'type' => 'numeric' }
+      @init_obj = { name: @name, reset_interval: 20, type: 'numeric' }
       @client.init(@init_obj)
     end
 
@@ -389,7 +389,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       error = response['errors'].first
 
       assert_equal @name, data['name']
-      assert_equal @init_obj['reset_interval'], data['reset_interval']
+      assert_equal @init_obj[:reset_interval], data['reset_interval']
 
       assert_equal 'unknown_key', error['code']
       assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
@@ -408,16 +408,16 @@ class CounterClientTest < ::Test::Unit::TestCase
       @name = 'key'
       @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
-      @init_obj = { 'name' => @name, 'reset_interval' => 5, 'type' => 'numeric' }
+      @init_obj = { name: @name, reset_interval: 5, type: 'numeric' }
       @client.init(@init_obj)
-      @inc_obj = { 'name' => @name, 'value' => 10 }
+      @inc_obj = { name: @name, value: 10 }
       @client.inc(@inc_obj)
     end
 
     test 'reset a value after `reset_interval` passed' do
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal @inc_obj['value'], v1.total
-      assert_equal @inc_obj['value'], v1.current
+      assert_equal @inc_obj[:value], v1.total
+      assert_equal @inc_obj[:value], v1.current
       assert_equal @now, v1.last_reset_at
 
       travel_sec = 6            # greater than reset_interval
@@ -431,21 +431,21 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal travel_sec, data['elapsed_time']
       assert_true data['success']
 
-      assert_equal @inc_obj['value'], c['current']
-      assert_equal @inc_obj['value'], c['total']
+      assert_equal @inc_obj[:value], c['current']
+      assert_equal @inc_obj[:value], c['total']
       assert_equal @now, c['last_reset_at']
 
       v1 = extract_value_from_server(@server, @scope, @name)
       assert_equal 0, v1.current
-      assert_equal @inc_obj['value'], v1.total
+      assert_equal @inc_obj[:value], v1.total
       assert_equal (@now + travel_sec), v1.last_reset_at
       assert_equal (@now + travel_sec), v1.last_modified_at
     end
 
     test 'return a value object before `reset_interval` passed' do
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal @inc_obj['value'], v1.total
-      assert_equal @inc_obj['value'], v1.current
+      assert_equal @inc_obj[:value], v1.total
+      assert_equal @inc_obj[:value], v1.current
       assert_equal @now, v1.last_reset_at
 
       travel_sec = 4            # less than reset_interval
@@ -459,13 +459,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal travel_sec, data['elapsed_time']
       assert_equal false, data['success']
 
-      assert_equal @inc_obj['value'], c['current']
-      assert_equal @inc_obj['value'], c['total']
+      assert_equal @inc_obj[:value], c['current']
+      assert_equal @inc_obj[:value], c['total']
       assert_equal @now, c['last_reset_at']
 
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal @inc_obj['value'], v1.current
-      assert_equal @inc_obj['value'], v1.total
+      assert_equal @inc_obj[:value], v1.current
+      assert_equal @inc_obj[:value], v1.total
       assert_equal @now, v1.last_reset_at
     end
 
@@ -502,16 +502,16 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_true data['success']
       assert_equal travel_sec, data['elapsed_time']
       assert_equal @name, counter['name']
-      assert_equal @init_obj['reset_interval'], counter['reset_interval']
-      assert_equal @inc_obj['value'], counter['total']
-      assert_equal @inc_obj['value'], counter['current']
+      assert_equal @init_obj[:reset_interval], counter['reset_interval']
+      assert_equal @inc_obj[:value], counter['total']
+      assert_equal @inc_obj[:value], counter['current']
 
       assert_equal 'unknown_key', error['code']
       assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
 
       v1 = extract_value_from_server(@server, @scope, @name)
       assert_equal 0, v1.current
-      assert_equal @inc_obj['value'], v1.total
+      assert_equal @inc_obj[:value], v1.total
       assert_equal (@now + travel_sec), v1.last_reset_at
       assert_equal (@now + travel_sec), v1.last_modified_at
     end
