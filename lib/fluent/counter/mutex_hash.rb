@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'timeout'
+
 module Fluent
   module Counter
     class MutexHash
@@ -21,17 +23,17 @@ module Fluent
         @mutex = Mutex.new
         @data_store = data_store
         @mutex_hash = {}
-        # @thread = nil
-        # @cleaup_thread = CleaupThread.new(@store, @dict, @dict_mutex)
+        @thread = nil
+        @cleanup_thread = CleanupThread.new(@data_store, @mutex_hash, @mutex)
       end
 
-      # def start
-      #   @cleaup_thread.start
-      # end
+      def start
+        @cleanup_thread.start
+      end
 
-      # def stop
-      #   @cleaup_thread.stop
-      # end
+      def stop
+        @cleanup_thread.stop
+      end
 
       def synchronize(*keys)
         return if keys.empty?
@@ -89,6 +91,68 @@ module Fluent
             # release global lock
             @mutex.unlock
             keys.push(key)          # failed lock, retry this key
+          end
+        end
+      end
+    end
+
+    class CleanupThread
+      CLEANUP_INTERVAL = 60 * 15 # 15 min
+
+      def initialize(store, mutex_hash, mutex)
+        @store = store
+        @mutex_hash = mutex_hash
+        @mutex = mutex
+        @thread = nil
+        @running = false
+      end
+
+      def start
+        @running = true
+        @thread = Thread.new do
+          while @running
+            sleep CLEANUP_INTERVAL
+            run_once
+          end
+        end
+      end
+
+      def stop
+        return unless @running
+        @running = false
+        begin
+          # Avoid waiting CLEANUP_INTERVAL
+          Timeout.timeout(1) do
+            @thread.join
+          end
+        rescue Timeout::Error
+          @thread.kill
+        end
+      end
+
+      private
+
+      def run_once
+        @mutex.synchronize do
+          last_cleanup_at = (Time.now - CLEANUP_INTERVAL).to_i
+          @mutex_hash.each do |(key, mutex)|
+            v = @store.get(key)
+            next unless v
+            next if last_cleanup_at < v.last_modified_at.to_i
+            next unless mutex.try_lock
+
+            @mutex_hash[key] = nil
+            mutex.unlock
+
+            # Check that a waiting thread is in a lock queue.
+            # Can't get a lock here means this key is used in other places.
+            # So restore a mutex value to a corresponding key.
+            if mutex.try_lock
+              @mutex_hash.delete(key)
+              mutex.unlock
+            else
+              @mutex_hash[key] = mutex
+            end
           end
         end
       end

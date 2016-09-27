@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/counter/client'
+require 'fluent/counter/store'
 require 'fluent/counter/server'
 require 'flexmock/test_unit'
 require 'timecop'
@@ -123,7 +124,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     data(
       already_exist_key: [
         { 'name' => 'key1', 'reset_interval' => 10 },
-        { 'code' => 'invalid_params', 'message' => 'key1 already exists in counter' }
+        { 'code' => 'invalid_params', 'message' => "worker1\tplugin1\tkey1 already exists in counter" }
       ],
       missing_name: [
         { 'reset_interval' => 10 },
@@ -172,7 +173,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal param2['reset_interval'], data['reset_interval']
 
       assert_equal 'invalid_params', error['code']
-      assert_equal "#{param['name']} already exists in counter", error['message']
+      assert_equal "#{@scope}\t#{param['name']} already exists in counter", error['message']
     end
 
     test 'return a future object when async option is true' do
@@ -187,6 +188,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     setup do
       @client.instance_variable_set(:@scope, @scope)
       @name = 'key'
+      @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
       @init_obj = { 'name' => @name, 'reset_interval' => 20, 'type' => 'numeric' }
       @client.init(@init_obj)
@@ -209,7 +211,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     data(
       key_not_found: [
         'key2',
-        { 'code' => 'unknown_key', 'message' => "`key2` doesn't exist in counter" }
+        { 'code' => 'unknown_key', 'message' => "`worker1\tplugin1\tkey2` doesn't exist in counter" }
       ],
       invalid_key: [
         '\tkey',
@@ -236,7 +238,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @init_obj['reset_interval'], data['reset_interval']
 
       assert_equal 'unknown_key', error['code']
-      assert_equal "`#{unknown_name}` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
 
       assert_nil extract_value_from_server(@server, @scope, @name)
     end
@@ -252,6 +254,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     setup do
       @client.instance_variable_set(:@scope, @scope)
       @name = 'key'
+      @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
       @init_obj = { 'name' => @name, 'reset_interval' => 20, 'type' => 'numeric' }
       @client.init(@init_obj)
@@ -291,7 +294,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     data(
       not_exist_key: [
         { 'name' => 'key2', 'value' => 10 },
-        { 'code' => 'unknown_key', 'message' => "`key2` doesn't exist in counter" }
+        { 'code' => 'unknown_key', 'message' => "`worker1\tplugin1\tkey2` doesn't exist in counter" }
       ],
       missing_name: [
         { 'value' => 10 },
@@ -329,7 +332,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal 10, data['total']
 
       assert_equal 'unknown_key', error['code']
-      assert_equal "`unknown_key` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\tunknown_key` doesn't exist in counter", error['message']
     end
 
     test 'return a future object when async option is true' do
@@ -362,7 +365,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     data(
       key_not_found: [
         'key2',
-        { 'code' => 'unknown_key', 'message' => "`key2` doesn't exist in counter" }
+        { 'code' => 'unknown_key', 'message' => "`worker1\tplugin1\tkey2` doesn't exist in counter" }
       ],
       invalid_key: [
         '\tkey',
@@ -389,7 +392,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @init_obj['reset_interval'], data['reset_interval']
 
       assert_equal 'unknown_key', error['code']
-      assert_equal "`#{unknown_name}` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
     end
 
     test 'return a future object when async option is true' do
@@ -403,6 +406,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     setup do
       @client.instance_variable_set(:@scope, @scope)
       @name = 'key'
+      @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
       @init_obj = { 'name' => @name, 'reset_interval' => 5, 'type' => 'numeric' }
       @client.init(@init_obj)
@@ -468,7 +472,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     data(
       key_not_found: [
         'key2',
-        { 'code' => 'unknown_key', 'message' => "`key2` doesn't exist in counter" }
+        { 'code' => 'unknown_key', 'message' => "`worker1\tplugin1\tkey2` doesn't exist in counter" }
       ],
       invalid_key: [
         '\tkey',
@@ -503,7 +507,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @inc_obj['value'], counter['current']
 
       assert_equal 'unknown_key', error['code']
-      assert_equal "`#{unknown_name}` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
 
       v1 = extract_value_from_server(@server, @scope, @name)
       assert_equal 0, v1.current

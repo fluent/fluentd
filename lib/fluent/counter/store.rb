@@ -58,38 +58,34 @@ module Fluent
         @store = {}
       end
 
-      def init(name, scope, data, ignore: false)
-        if v = get(name, scope)
-          raise InvalidParams.new("#{name} already exists in counter") unless ignore
+      def init(key, data, ignore: false)
+        if v = get(key)
+          raise InvalidParams.new("#{key} already exists in counter") unless ignore
           v
         else
-          key = Store.gen_key(scope, name)
           @store[key] = Value.init(data)
         end
       end
 
-      def get(name, scope, raise_error: false)
-        key = Store.gen_key(scope, name)
+      def get(key, raise_error: false)
         if raise_error
-          @store[key] or raise UnknownKey.new("`#{name}` doesn't exist in counter")
+          @store[key] or raise UnknownKey.new("`#{key}` doesn't exist in counter")
         else
           @store[key]
         end
       end
 
-      def key?(name, scope)
-        key = Store.gen_key(scope, name)
+      def key?(key)
         @store.key?(key)
       end
 
-      def delete(name, scope)
-        key = Store.gen_key(scope, name)
-        @store.delete(key) or raise UnknownKey.new("`#{name}` doesn't exist in counter")
+      def delete(key)
+        @store.delete(key) or raise UnknownKey.new("`#{key}` doesn't exist in counter")
       end
 
-      def inc(name, scope, data, force: false)
-        init(name, scope, data) if force
-        v = get(name, scope, raise_error: true)
+      def inc(key, data, force: false)
+        init(key, data) if force
+        v = get(key, raise_error: true)
         value = data['value']
         valid_type!(v, value)
 
@@ -99,8 +95,8 @@ module Fluent
         v
       end
 
-      def reset(name, scope)
-        v = get(name, scope, raise_error: true)
+      def reset(key)
+        v = get(key, raise_error: true)
         now = EventTime.now
         success = false
         old_data = v.to_response_hash
