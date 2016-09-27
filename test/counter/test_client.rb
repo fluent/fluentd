@@ -121,6 +121,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal initial_value, v.current
     end
 
+    test 'raise an error when @scope is nil' do
+      @client.instance_variable_set(:@scope, nil)
+      assert_raise 'Call `establish` method to get a `scope` before calling this method' do
+        @client.init(name: 'key1', reset_interval: 10)
+      end
+    end
+
     data(
       already_exist_key: [
         { name: 'key1', reset_interval: 10 },
@@ -208,6 +215,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_nil extract_value_from_server(@server, @scope, @name)
     end
 
+    test 'raise an error when @scope is nil' do
+      @client.instance_variable_set(:@scope, nil)
+      assert_raise 'Call `establish` method to get a `scope` before calling this method' do
+        @client.delete(@name)
+      end
+    end
+
     data(
       key_not_found: [
         'key2',
@@ -291,6 +305,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal param[:value], v.total
     end
 
+    test 'raise an error when @scope is nil' do
+      @client.instance_variable_set(:@scope, nil)
+      assert_raise 'Call `establish` method to get a `scope` before calling this method' do
+        @client.inc(name: 'name', value: 1)
+      end
+    end
+
     data(
       not_exist_key: [
         { name: 'key2', value: 10 },
@@ -360,6 +381,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal v1.current, v2['current']
       assert_equal v1.total, v2['total']
       assert_equal v1.type, v2['type']
+    end
+
+    test 'raise an error when @scope is nil' do
+      @client.instance_variable_set(:@scope, nil)
+      assert_raise 'Call `establish` method to get a `scope` before calling this method' do
+        @client.get(@name)
+      end
     end
 
     data(
@@ -467,6 +495,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @inc_obj[:value], v1.current
       assert_equal @inc_obj[:value], v1.total
       assert_equal @now, v1.last_reset_at
+    end
+
+    test 'raise an error when @scope is nil' do
+      @client.instance_variable_set(:@scope, nil)
+      assert_raise 'Call `establish` method to get a `scope` before calling this method' do
+        @client.reset(@name)
+      end
     end
 
     data(
