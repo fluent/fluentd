@@ -126,7 +126,7 @@ module Fluent
       output.router = @event_router if output.respond_to?(:router=)
       output.configure(conf)
       @outputs << output
-      if output.respond_to?(:outputs) && (output.respond_to?(:multi_output?) && output.multi_output? || output.is_a?(Fluent::MultiOutput))
+      if output.respond_to?(:outputs) && output.respond_to?(:multi_output?) && output.multi_output?
         # TODO: ruby 2.3 or later: replace `output.respond_to?(:multi_output?) && output.multi_output?` with output&.multi_output?
         outputs = if output.respond_to?(:static_outputs)
                     output.static_outputs
