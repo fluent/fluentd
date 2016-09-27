@@ -1,5 +1,7 @@
 require_relative '../helper'
 require 'fluent/counter/mutex_hash'
+require 'fluent/counter/store'
+require 'flexmock/test_unit'
 require 'timecop'
 
 class MutexHashTest < ::Test::Unit::TestCase
@@ -109,5 +111,70 @@ class MutexHashTest < ::Test::Unit::TestCase
 
       assert_equal m, m2
     end
+  end
+end
+
+class CleanupThreadTest < ::Test::Unit::TestCase
+  StoreValue = Struct.new(:last_modified_at)
+
+  setup do
+    # timecop isn't compatible with EventTime
+    t = Time.parse('2016-09-22 16:59:59 +0900')
+    Timecop.freeze(t)
+
+
+    @store = Fluent::Counter::Store.new
+    @mhash = Fluent::Counter::MutexHash.new(@store)
+
+    # stub sleep method to avoid waiting CLEANUP_INTERVAL
+    ct = @mhash.instance_variable_get(:@cleanup_thread)
+    flexstub(ct).should_receive(:sleep)
+  end
+
+  teardown do
+    @mhash.stop
+    Timecop.return
+  end
+
+  test 'clean up unused mutex' do
+    name = 'key1'
+    init_obj = { 'name' => name, 'reset_interval' => 2 }
+
+    @mhash.synchronize(init_obj['name']) do
+      @store.init(name, init_obj)
+    end
+
+    ct = @mhash.instance_variable_get(:@mutex_hash)
+    assert ct[name]
+
+    Timecop.travel(15 * 60 + 1)     # 15 min
+
+    @mhash.start                # start cleanup
+    sleep 1
+
+    ct = @mhash.instance_variable_get(:@mutex_hash)
+    assert_empty ct
+
+    @mhash.stop
+  end
+
+  test "don't remove when `last_modified_at` is greater than (Time.now - CLEANUP_INTERVAL)" do
+    name = 'key1'
+    init_obj = { 'name' => name, 'reset_interval' => 2 }
+
+    @mhash.synchronize(init_obj['name']) do
+      @store.init(name, init_obj)
+    end
+
+    ct = @mhash.instance_variable_get(:@mutex_hash)
+    assert ct[name]
+
+    @mhash.start                # start cleanup
+    sleep 1
+
+    ct = @mhash.instance_variable_get(:@mutex_hash)
+    assert ct[name]
+
+    @mhash.stop
   end
 end
