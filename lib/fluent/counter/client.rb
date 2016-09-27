@@ -63,6 +63,7 @@ module Fluent
       # 3. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }])
       # 4. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }], options: {})
       def init(params, options: {})
+        exist_scope!
         params = [params] unless params.is_a?(Array)
         res = send_request('init', @scope, params, options)
 
@@ -72,6 +73,7 @@ module Fluent
       end
 
       def delete(*params, options: {})
+        exist_scope!
         res = send_request('delete', @scope, params, options)
         options[:async] ? res : res.get
       end
@@ -84,22 +86,29 @@ module Fluent
       # 3. init([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }])
       # 4. init([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }], options: {})
       def inc(params, options: {})
+        exist_scope!
         params = [params] unless params.is_a?(Array)
         res = send_request('inc', @scope, params, options)
         options[:async] ? res : res.get
       end
 
       def get(*params, options: {})
+        exist_scope!
         res = send_request('get', @scope, params, options)
         options[:async] ? res : res.get
       end
 
       def reset(*params, options: {})
+        exist_scope!
         res = send_request('reset', @scope, params, options)
         options[:async] ? res : res.get
       end
 
       private
+
+      def exist_scope!
+        raise 'Call `establish` method to get a `scope` before calling this method' unless @scope
+      end
 
       def on_message(data)
         if response = @responses.delete(data['id'])
