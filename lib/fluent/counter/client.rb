@@ -55,11 +55,19 @@ module Fluent
         @scope = data.first
       end
 
-      # if `async` is true, return a Future object (nonblocking).
-      # if `async` is false or missing, block at this method and return a Hash object.
-      def init(*params, options: {})
-        # raise 'call `establish` method to set a scope before call this method' unless @scope
+      # === Example
+      # `init` receives various arguments.
+      #
+      # 1. init(name: 'name')
+      # 2. init({ name: 'name',reset_interval: 20 }, options: {})
+      # 3. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }])
+      # 4. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }], options: {})
+      def init(params, options: {})
+        params = [params] unless params.is_a?(Array)
         res = send_request('init', @scope, params, options)
+
+        # if `async` is true, return a Future object (non blocking).
+        # if `async` is false or missing, block at this method and return a Hash object.
         options[:async] ? res : res.get
       end
 
@@ -68,7 +76,15 @@ module Fluent
         options[:async] ? res : res.get
       end
 
-      def inc(*params, options: {})
+      # === Example
+      # `inc` receives various arguments.
+      #
+      # 1. init(name: 'name')
+      # 2. init({ name: 'name',value: 20 }, options: {})
+      # 3. init([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }])
+      # 4. init([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }], options: {})
+      def inc(params, options: {})
+        params = [params] unless params.is_a?(Array)
         res = send_request('inc', @scope, params, options)
         options[:async] ? res : res.get
       end
