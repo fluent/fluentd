@@ -522,7 +522,7 @@ module Fluent
             sock.close
           end
         when :udp
-          @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
+          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
         else

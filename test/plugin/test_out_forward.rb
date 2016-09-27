@@ -598,4 +598,20 @@ class ForwardOutputTest < Test::Unit::TestCase
     node.tick
     assert_equal node.available, true
   end
+
+  def test_heartbeat_type_udp
+    d = create_driver(CONFIG + "\nheartbeat_type udp")
+
+    d.instance.start
+    usock = d.instance.instance_variable_get(:@usock)
+    timer = d.instance.instance_variable_get(:@timer)
+    hb = d.instance.instance_variable_get(:@hb)
+    assert_equal UDPSocket, usock.class
+    assert_equal Fluent::ForwardOutput::HeartbeatRequestTimer, timer.class
+    assert_equal Fluent::ForwardOutput::HeartbeatHandler, hb.class
+
+    mock(usock).send("\0", 0, Socket.pack_sockaddr_in(TARGET_PORT, '127.0.0.1')).once
+    timer.disable # call send_heartbeat at just once
+    timer.on_timer
+  end
 end
