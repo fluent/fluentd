@@ -46,6 +46,7 @@ module Fluent
           @loop.run(0.5)
           @run = true
         end
+        @counter.start
         self
       end
 
@@ -54,6 +55,7 @@ module Fluent
         sleep 0.1 unless @run
         @server.close
         @loop.stop
+        @counter.stop
         @thread.join if @thread
       end
     end
@@ -65,6 +67,14 @@ module Fluent
         @log = log
         @store = Fluent::Counter::Store.new
         @mutex_hash = MutexHash.new(@store)
+      end
+
+      def start
+        @mutex_hash.start
+      end
+
+      def stop
+        @mutex_hash.stop
       end
 
       def on_message(data)
@@ -101,12 +111,14 @@ module Fluent
         validator = Fluent::Counter::HashValidator.new(:empty, :name, :reset_interval)
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
-        keys = valid_params.map { |e| e['name'] }
+        key_hash = valid_params.reduce({}) do |acc, vp|
+          acc.merge(Store.gen_key(scope, vp['name']) => vp)
+        end
 
         do_init = lambda do |store, key|
           begin
-            param = valid_params.find { |par| par['name'] == key }
-            v = store.init(key, scope, param, ignore: options['ignore'])
+            param = key_hash[key]
+            v = store.init(key, param, ignore: options['ignore'])
             @log.debug("Create new key: #{param['name']}") if @log
             res.push_data v
           rescue => e
@@ -115,9 +127,9 @@ module Fluent
         end
 
         if options['random']
-          @mutex_hash.synchronize_keys(*keys, &do_init)
+          @mutex_hash.synchronize_keys(*(key_hash.keys), &do_init)
         else
-          @mutex_hash.synchronize(*keys, &do_init)
+          @mutex_hash.synchronize(*(key_hash.keys), &do_init)
         end
 
         res.to_hash
@@ -127,10 +139,11 @@ module Fluent
         validator = Fluent::Counter::ArrayValidator.new(:empty, :key)
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
+        keys = valid_params.map { |vp| Store.gen_key(scope, vp) }
 
         do_delete = lambda do |store, key|
           begin
-            v = store.delete(key, scope)
+            v = store.delete(key)
             @log.debug("delete a key: #{key}") if @log
             res.push_data v
           rescue => e
@@ -139,9 +152,9 @@ module Fluent
         end
 
         if options['random']
-          @mutex_hash.synchronize_keys(*valid_params, &do_delete)
+          @mutex_hash.synchronize_keys(*keys, &do_delete)
         else
-          @mutex_hash.synchronize(*valid_params, &do_delete)
+          @mutex_hash.synchronize(*keys, &do_delete)
         end
 
         res.to_hash
@@ -151,15 +164,16 @@ module Fluent
         validate_param = [:empty, :name, :value]
         validate_param << :reset_interval if options['force']
         validator = Fluent::Counter::HashValidator.new(*validate_param)
-
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
-        keys = valid_params.map { |par| par['name'] }
+        key_hash = valid_params.reduce({}) do |acc, vp|
+          acc.merge(Store.gen_key(scope, vp['name']) => vp)
+        end
 
         do_inc = lambda do |store, key|
           begin
-            param = valid_params.find { |par| par['name'] == key }
-            v = store.inc(key, scope, param, force: options['force'])
+            param = key_hash[key]
+            v = store.inc(key, param, force: options['force'])
             @log.debug("Increment #{key} by #{param['value']}") if @log
             res.push_data v
           rescue => e
@@ -168,9 +182,9 @@ module Fluent
         end
 
         if options['random']
-          @mutex_hash.synchronize_keys(*keys, &do_inc)
+          @mutex_hash.synchronize_keys(*(key_hash.keys), &do_inc)
         else
-          @mutex_hash.synchronize(*keys, &do_inc)
+          @mutex_hash.synchronize(*(key_hash.keys), &do_inc)
         end
 
         res.to_hash
@@ -180,10 +194,11 @@ module Fluent
         validator = Fluent::Counter::ArrayValidator.new(:empty, :key)
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
+        keys = valid_params.map { |vp| Store.gen_key(scope, vp) }
 
         do_reset = lambda do |store, key|
           begin
-            v = store.reset(key, scope)
+            v = store.reset(key)
             @log.debug("Reset #{key}'s' counter value") if @log
             res.push_data v
           rescue => e
@@ -192,9 +207,9 @@ module Fluent
         end
 
         if options['random']
-          @mutex_hash.synchronize_keys(*valid_params, &do_reset)
+          @mutex_hash.synchronize_keys(*keys, &do_reset)
         else
-          @mutex_hash.synchronize(*valid_params, &do_reset)
+          @mutex_hash.synchronize(*keys, &do_reset)
         end
 
         res.to_hash
@@ -205,9 +220,10 @@ module Fluent
         valid_params, errors = validator.call(params)
         res = Response.new(errors)
 
-        valid_params.each do |key|
+        keys = valid_params.map { |vp| Store.gen_key(scope, vp) }
+        keys.each do |key|
           begin
-            v = @store.get(key, scope, raise_error: true)
+            v = @store.get(key, raise_error: true)
             @log.debug("Get counter value: #{key}") if @log
             res.push_data v
           rescue => e

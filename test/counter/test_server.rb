@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/counter/server'
+require 'fluent/counter/store'
 require 'fluent/time'
 require 'flexmock/test_unit'
 require 'timecop'
@@ -22,7 +23,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
 
   def extract_value_from_counter(counter, scope, name)
     store = counter.instance_variable_get(:@store).instance_variable_get(:@store)
-    key = "#{scope}\t#{name}"
+    key = Fluent::Counter::Store.gen_key(scope, name)
     store[key]
   end
 
@@ -123,6 +124,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
   sub_test_case 'init' do
     setup do
       @name = 'key1'
+      @key = Fluent::Counter::Store.gen_key(@scope, @name)
     end
 
     test 'create new value in a counter' do
@@ -192,7 +194,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
       assert_empty result['data']
       error = result['errors'].first
 
-      expected = { 'code' => 'invalid_params', 'message' => "#{@name} already exists in counter" }
+      expected = { 'code' => 'invalid_params', 'message' => "#{@key} already exists in counter" }
       assert_equal expected, error
     end
 
@@ -207,11 +209,11 @@ class CounterCounterTest < ::Test::Unit::TestCase
 
     test 'call `synchronize_keys` when random option is true' do
       mhash = @counter.instance_variable_get(:@mutex_hash)
-      mock(mhash).synchronize(@name).once
+      mock(mhash).synchronize(@key).once
       @counter.send('init', [{ 'name' => @name, 'reset_interval' => 1 }], @scope, {})
 
       mhash = @counter.instance_variable_get(:@mutex_hash)
-      mock(mhash).synchronize_keys(@name).once
+      mock(mhash).synchronize_keys(@key).once
       @counter.send('init', [{ 'name' => @name, 'reset_interval' => 1 }], @scope, { 'random' => true })
     end
   end
@@ -219,6 +221,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
   sub_test_case 'delete' do
     setup do
       @name = 'key1'
+      @key = Fluent::Counter::Store.gen_key(@scope, @name)
       @counter.send('init', [{ 'name' => @name, 'reset_interval' => 20 }], @scope, {})
     end
 
@@ -259,16 +262,16 @@ class CounterCounterTest < ::Test::Unit::TestCase
       assert_empty result['data']
       error = result['errors'].first
       assert_equal unknown_key, error['code']
-      assert_equal "`#{unknown_key}` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\t#{unknown_key}` doesn't exist in counter", error['message']
     end
 
     test 'call `synchronize_keys` when random option is true' do
       mhash = @counter.instance_variable_get(:@mutex_hash)
-      mock(mhash).synchronize(@name).once
+      mock(mhash).synchronize(@key).once
       @counter.send('delete', [@name], @scope, {})
 
       mhash = @counter.instance_variable_get(:@mutex_hash)
-      mock(mhash).synchronize_keys(@name).once
+      mock(mhash).synchronize_keys(@key).once
       @counter.send('delete', [@name], @scope, { 'random' => true })
     end
   end
@@ -277,6 +280,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
     setup do
       @name1 = 'key1'
       @name2 = 'key2'
+      @key1 = Fluent::Counter::Store.gen_key(@scope, @name1)
       inc_objects = [
         { 'name' => @name1, 'reset_interval' => 20 },
         { 'name' => @name2, 'type' => 'integer', 'reset_interval' => 20 }
@@ -363,12 +367,12 @@ class CounterCounterTest < ::Test::Unit::TestCase
 
     test 'call `synchronize_keys` when random option is true' do
       mhash = @counter.instance_variable_get(:@mutex_hash)
-      mock(mhash).synchronize(@name1).once
+      mock(mhash).synchronize(@key1).once
       params = [{ 'name' => @name1, 'value' => 1 }]
       @counter.send('inc', params, @scope, {})
 
       mhash = @counter.instance_variable_get(:@mutex_hash)
-      mock(mhash).synchronize_keys(@name1).once
+      mock(mhash).synchronize_keys(@key1).once
       @counter.send('inc', params, @scope, { 'random' => true })
     end
   end
@@ -451,7 +455,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
       assert_empty result['data']
       error = result['errors'].first
       assert_equal unknown_key, error['code']
-      assert_equal "`#{unknown_key}` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\t#{unknown_key}` doesn't exist in counter", error['message']
     end
   end
 
@@ -514,7 +518,7 @@ class CounterCounterTest < ::Test::Unit::TestCase
       assert_empty result['data']
       error = result['errors'].first
       assert_equal unknown_key, error['code']
-      assert_equal "`#{unknown_key}` doesn't exist in counter", error['message']
+      assert_equal "`#{@scope}\t#{unknown_key}` doesn't exist in counter", error['message']
     end
   end
 end
