@@ -351,5 +351,95 @@ EOC
       assert_equal [true], label_filters.map{|i| i.terminated? }
       assert_equal [true, true, true], label_outputs.map{|i| i.terminated? }
     end
+
+    test 'plugin #shutdown is not called twice' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 0, @ra.filters.size
+      assert_equal 0, @ra.outputs.size
+      assert_equal 1, @ra.labels.size
+      assert_equal '@testing', @ra.labels.keys.first
+      assert_equal 1, @ra.labels.values.first.filters.size
+      assert_equal 3, @ra.labels.values.first.outputs.size
+
+      @ra.start
+
+      old_level = @ra.log.level
+      begin
+        @ra.log.instance_variable_get(:@logger).level = Fluent::Log::LEVEL_INFO - 1
+        assert_equal Fluent::Log::LEVEL_INFO, @ra.log.level
+
+        @ra.log.out.flush_logs = false
+
+        @ra.shutdown
+
+        test_out1_shutdown_logs = @ra.log.out.logs.select{|line| line =~ /shutting down output plugin type=:test_out plugin_id="test_out1"/ }
+        assert_equal 1, test_out1_shutdown_logs.size
+      ensure
+        @ra.log.out.flush_logs = true
+        @ra.log.out.reset
+        @ra.log.level = old_level
+      end
+    end
+  end
+
+  sub_test_case 'configured with MultiOutput plugin which creates plugin instances dynamically' do
+    setup do
+      @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent { @ra }
+      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+<source>
+  @type test_in
+  @id test_in
+  @label @testing
+</source>
+<label @testing>
+  <match **>
+    @type test_dynamic_out
+    @id test_dyn
+  </match>
+</label>
+EOC
+      @ra
+    end
+
+    test 'plugin status with multi output' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 0, @ra.filters.size
+      assert_equal 0, @ra.outputs.size
+      assert_equal 1, @ra.labels.size
+      assert_equal '@testing', @ra.labels.keys.first
+      assert_equal 0, @ra.labels.values.first.filters.size
+      assert_equal 1, @ra.labels.values.first.outputs.size
+
+      dyn_out = @ra.labels.values.first.outputs.first
+      assert_nil dyn_out.child
+
+      @ra.start
+
+      assert_equal 1, @ra.labels.values.first.outputs.size
+
+      assert dyn_out.child
+      assert_false dyn_out.child.outputs_statically_created
+      assert_equal 2, dyn_out.child.outputs.size
+
+      assert_equal true, dyn_out.child.outputs[0].started?
+      assert_equal true, dyn_out.child.outputs[1].started?
+      assert_equal true, dyn_out.child.outputs[0].after_started?
+      assert_equal true, dyn_out.child.outputs[1].after_started?
+
+      @ra.shutdown
+
+      assert_equal 1, @ra.labels.values.first.outputs.size
+
+      assert_false dyn_out.child.outputs_statically_created
+      assert_equal 2, dyn_out.child.outputs.size
+
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.stopped? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.before_shutdown? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.shutdown? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.after_shutdown? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.closed? }
+      assert_equal [true, true], dyn_out.child.outputs.map{|i| i.terminated? }
+    end
   end
 end

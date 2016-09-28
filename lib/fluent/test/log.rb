@@ -21,13 +21,15 @@ module Fluent
   module Test
     class DummyLogDevice
       attr_reader :logs
+      attr_accessor :flush_logs
 
       def initialize
         @logs = []
+        @flush_logs = true
       end
 
       def reset
-        @logs = []
+        @logs = [] if @flush_logs
       end
 
       def tty?

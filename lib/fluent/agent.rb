@@ -86,21 +86,12 @@ module Fluent
           lifecycle_control_list[:input] << i
         end
       end
-      recursive_output_traverse = ->(o) {
+      outputs.each do |o|
         if o.has_router?
           lifecycle_control_list[:output_with_router] << o
         else
           lifecycle_control_list[:output] << o
         end
-
-        if o.respond_to?(:outputs)
-          o.outputs.each do |store|
-            recursive_output_traverse.call(store)
-          end
-        end
-      }
-      outputs.each do |o|
-        recursive_output_traverse.call(o)
       end
       filters.each do |f|
         lifecycle_control_list[:filter] << f
@@ -135,9 +126,14 @@ module Fluent
       output.router = @event_router if output.respond_to?(:router=)
       output.configure(conf)
       @outputs << output
-      if output.respond_to?(:outputs) && (output.respond_to?(:multi_output?) && output.multi_output? || output.is_a?(Fluent::MultiOutput))
+      if output.respond_to?(:outputs) && output.respond_to?(:multi_output?) && output.multi_output?
         # TODO: ruby 2.3 or later: replace `output.respond_to?(:multi_output?) && output.multi_output?` with output&.multi_output?
-        @outputs.push(*output.outputs)
+        outputs = if output.respond_to?(:static_outputs)
+                    output.static_outputs
+                  else
+                    output.outputs
+                  end
+        @outputs.push(*outputs)
       end
       @event_router.add_rule(pattern, output)
 
