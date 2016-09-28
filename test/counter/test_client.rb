@@ -60,8 +60,7 @@ class CounterClientTest < ::Test::Unit::TestCase
   end
 
   def extract_value_from_server(server, scope, name)
-    counter = server.instance_variable_get(:@counter)
-    store = counter.instance_variable_get(:@store).instance_variable_get(:@store)
+    store = server.instance_variable_get(:@store).instance_variable_get(:@storage).instance_variable_get(:@store)
     key = Fluent::Counter::Store.gen_key(scope, name)
     store[key]
   end
@@ -114,11 +113,11 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal initial_value, data['total']
 
       v = extract_value_from_server(@server, @scope, param[:name])
-      assert_equal param[:name], v.name
-      assert_equal param[:reset_interval], v.reset_interval
-      assert_equal param[:type], v.type
-      assert_equal initial_value, v.total
-      assert_equal initial_value, v.current
+      assert_equal param[:name], v['name']
+      assert_equal param[:reset_interval], v['reset_interval']
+      assert_equal param[:type], v['type']
+      assert_equal initial_value, v['total']
+      assert_equal initial_value, v['current']
     end
 
     test 'raise an error when @scope is nil' do
@@ -276,17 +275,17 @@ class CounterClientTest < ::Test::Unit::TestCase
 
     test 'increment a value' do
       v = extract_value_from_server(@server, @scope, @name)
-      assert_equal 0, v.total
-      assert_equal 0, v.current
+      assert_equal 0, v['total']
+      assert_equal 0, v['current']
 
       Timecop.travel(1)
       inc_obj = { name: @name, value: 10 }
       @client.inc(inc_obj)
 
       v = extract_value_from_server(@server, @scope, @name)
-      assert_equal inc_obj[:value], v.total
-      assert_equal inc_obj[:value], v.current
-      assert_equal (@now + 1), v.last_modified_at
+      assert_equal inc_obj[:value], v['total']
+      assert_equal inc_obj[:value], v['current']
+      assert_equal (@now + 1), Fluent::EventTime.new(*v['last_modified_at'])
     end
 
     test 'create and increment a value when force option is true' do
@@ -299,10 +298,10 @@ class CounterClientTest < ::Test::Unit::TestCase
 
       v = extract_value_from_server(@server, @scope, name)
       assert v
-      assert_equal param[:name], v.name
-      assert_equal 1, v.reset_interval
-      assert_equal param[:value], v.current
-      assert_equal param[:value], v.total
+      assert_equal param[:name], v['name']
+      assert_equal 1, v['reset_interval']
+      assert_equal param[:value], v['current']
+      assert_equal param[:value], v['total']
     end
 
     test 'raise an error when @scope is nil' do
@@ -377,10 +376,10 @@ class CounterClientTest < ::Test::Unit::TestCase
       v1 = extract_value_from_server(@server, @scope, @name)
       v2 = @client.get(@name)['data'].first
 
-      assert_equal v1.name, v2['name']
-      assert_equal v1.current, v2['current']
-      assert_equal v1.total, v2['total']
-      assert_equal v1.type, v2['type']
+      assert_equal v1['name'], v2['name']
+      assert_equal v1['current'], v2['current']
+      assert_equal v1['total'], v2['total']
+      assert_equal v1['type'], v2['type']
     end
 
     test 'raise an error when @scope is nil' do
@@ -444,9 +443,9 @@ class CounterClientTest < ::Test::Unit::TestCase
 
     test 'reset a value after `reset_interval` passed' do
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal @inc_obj[:value], v1.total
-      assert_equal @inc_obj[:value], v1.current
-      assert_equal @now, v1.last_reset_at
+      assert_equal @inc_obj[:value], v1['total']
+      assert_equal @inc_obj[:value], v1['current']
+      assert_equal @now, Fluent::EventTime.new(*v1['last_reset_at'])
 
       travel_sec = 6            # greater than reset_interval
       Timecop.travel(travel_sec)
@@ -464,17 +463,17 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @now, c['last_reset_at']
 
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal 0, v1.current
-      assert_equal @inc_obj[:value], v1.total
-      assert_equal (@now + travel_sec), v1.last_reset_at
-      assert_equal (@now + travel_sec), v1.last_modified_at
+      assert_equal 0, v1['current']
+      assert_equal @inc_obj[:value], v1['total']
+      assert_equal (@now + travel_sec), Fluent::EventTime.new(*v1['last_reset_at'])
+      assert_equal (@now + travel_sec), Fluent::EventTime.new(*v1['last_modified_at'])
     end
 
-    test 'return a value object before `reset_interval` passed' do
+    test 'areturn a value object before `reset_interval` passed' do
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal @inc_obj[:value], v1.total
-      assert_equal @inc_obj[:value], v1.current
-      assert_equal @now, v1.last_reset_at
+      assert_equal @inc_obj[:value], v1['total']
+      assert_equal @inc_obj[:value], v1['current']
+      assert_equal @now, Fluent::EventTime.new(*v1['last_reset_at'])
 
       travel_sec = 4            # less than reset_interval
       Timecop.travel(travel_sec)
@@ -492,9 +491,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @now, c['last_reset_at']
 
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal @inc_obj[:value], v1.current
-      assert_equal @inc_obj[:value], v1.total
-      assert_equal @now, v1.last_reset_at
+      assert_equal @inc_obj[:value], v1['current']
+      assert_equal @inc_obj[:value], v1['total']
+      assert_equal @now, Fluent::EventTime.new(*v1['last_reset_at'])
     end
 
     test 'raise an error when @scope is nil' do
@@ -545,10 +544,10 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
 
       v1 = extract_value_from_server(@server, @scope, @name)
-      assert_equal 0, v1.current
-      assert_equal @inc_obj[:value], v1.total
-      assert_equal (@now + travel_sec), v1.last_reset_at
-      assert_equal (@now + travel_sec), v1.last_modified_at
+      assert_equal 0, v1['current']
+      assert_equal @inc_obj[:value], v1['total']
+      assert_equal (@now + travel_sec), Fluent::EventTime.new(*v1['last_reset_at'])
+      assert_equal (@now + travel_sec), Fluent::EventTime.new(*v1['last_modified_at'])
     end
 
     test 'return a future object when async option is true' do

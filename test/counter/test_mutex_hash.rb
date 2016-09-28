@@ -122,7 +122,6 @@ class CleanupThreadTest < ::Test::Unit::TestCase
     t = Time.parse('2016-09-22 16:59:59 +0900')
     Timecop.freeze(t)
 
-
     @store = Fluent::Counter::Store.new
     @mhash = Fluent::Counter::MutexHash.new(@store)
 

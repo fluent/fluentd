@@ -16,111 +16,146 @@
 
 require 'fluent/time'
 require 'fluent/counter/error'
+require 'fluent/plugin/storage_local'
 
 module Fluent
   module Counter
     class Store
-      Value = Struct.new(:name, :total, :current, :type, :reset_interval, :last_reset_at, :last_modified_at) do
-        class << self
-          def init(data)
-            type = data['type'] || 'numeric'
-            now = EventTime.now
-            v = initial_value(type)
-            Value.new(data['name'], v, v, type, data['reset_interval'], now, now)
-          end
-
-          def initial_value(type)
-            case type
-            when 'numeric', 'integer' then 0
-            when 'float' then 0.0
-            else raise InvalidParams.new('`type` should be integer, float, or numeric')
-            end
-          end
-        end
-
-        def to_response_hash
-          {
-            'name' => name,
-            'total' => total,
-            'current' => current,
-            'type' => type,
-            'reset_interval' => reset_interval,
-            'last_reset_at' => last_reset_at,
-          }
-        end
-      end
-
       def self.gen_key(scope, key)
         "#{scope}\t#{key}"
       end
 
-      def initialize
-        @store = {}
+      def initialize(opt = {})
+        # Notice: This storage is not be implemented auto save.
+        @storage = Fluent::Plugin::LocalStorage.new
+        @storage.configure(
+          Fluent::Config::Element.new('storage', {}, {'persistent' => true, 'path' => opt[:path] }, [])
+        )
+      end
+
+      def start
+        @storage.load
+      end
+
+      def stop
+        @storage.save
       end
 
       def init(key, data, ignore: false)
-        if v = get(key)
-          raise InvalidParams.new("#{key} already exists in counter") unless ignore
-          v
-        else
-          @store[key] = Value.init(data)
-        end
+        ret = if v = get(key)
+                raise InvalidParams.new("#{key} already exists in counter") unless ignore
+                v
+              else
+                @storage.put(key, build_value(data))
+              end
+
+        build_response(ret)
       end
 
-      def get(key, raise_error: false)
-        if raise_error
-          @store[key] or raise UnknownKey.new("`#{key}` doesn't exist in counter")
+      def get(key, raise_error: false, raw: false)
+        ret = if raise_error
+                @storage.get(key) or raise UnknownKey.new("`#{key}` doesn't exist in counter")
+              else
+                @storage.get(key)
+              end
+        if raw
+          ret
         else
-          @store[key]
+          ret && build_response(ret)
         end
       end
 
       def key?(key)
-        @store.key?(key)
+        !!@storage.get(key)
       end
 
       def delete(key)
-        @store.delete(key) or raise UnknownKey.new("`#{key}` doesn't exist in counter")
+        ret = @storage.delete(key) or raise UnknownKey.new("`#{key}` doesn't exist in counter")
+        build_response(ret)
       end
 
       def inc(key, data, force: false)
         init(key, data) if force
-        v = get(key, raise_error: true)
+        v = get(key, raise_error: true, raw: true)
         value = data['value']
         valid_type!(v, value)
 
-        v.total += value
-        v.current += value
-        v.last_modified_at = EventTime.now
-        v
+        v['total'] += value
+        v['current'] += value
+        t = EventTime.now
+        v['last_modified_at'] = [t.sec, t.nsec]
+        @storage.put(key, v)
+
+        build_response(v)
       end
 
       def reset(key)
-        v = get(key, raise_error: true)
-        now = EventTime.now
+        v = get(key, raise_error: true, raw: true)
         success = false
-        old_data = v.to_response_hash
+        old_data = v.dup
+        now = EventTime.now
+        last_reset_at = EventTime.new(*v['last_reset_at'])
 
         #  Does it need reset?
-        if (v.last_reset_at + v.reset_interval) <= now
+        if (last_reset_at + v['reset_interval']) <= now
           success = true
-          v.current = Value.initial_value(v.type)
-          v.last_reset_at = now
-          v.last_modified_at = now
+          v['current'] = initial_value(v['type'])
+          t = [now.sec, now.nsec]
+          v['last_reset_at'] = t
+          v['last_modified_at'] = t
+          @storage.put(key, v)
         end
 
         {
-          'elapsed_time' => now - old_data['last_reset_at'],
+          'elapsed_time' => now - last_reset_at,
           'success' => success,
-          'counter_data' => old_data
+          'counter_data' => build_response(old_data)
         }
       end
 
       private
 
+      def build_response(d)
+        {
+          'name' => d['name'],
+          'total' => d['total'],
+          'current' => d['current'],
+          'type' => d['type'],
+          'reset_interval' => d['reset_interval'],
+          'last_reset_at' => EventTime.new(*d['last_reset_at']),
+        }
+      end
+
+      # value is Hash. value requires these fileds.
+      # :name, :total, :current, :type, :reset_interval, :last_reset_at, :last_modified_at
+      def build_value(data)
+        type = data['type'] || 'numeric'
+        now = EventTime.now
+        t = [now.sec, now.nsec]
+
+        v = initial_value(type)
+
+        data.merge(
+          'type' => type,
+          'last_reset_at' => t,
+          'last_modified_at' => t,
+          'current' => v,
+          'total' => v,
+        )
+      end
+
+      def initial_value(type)
+        case type
+        when 'numeric', 'integer' then 0
+        when 'float' then 0.0
+        else raise InvalidParams.new('`type` should be integer, float, or numeric')
+        end
+      end
+
       def valid_type!(v, value)
-        return unless (v.type != 'numeric') && (type_str(value) != v.type)
-        raise InvalidParams.new("`type` is #{v.type}. You should pass #{v.type} value as a `value`")
+        type = v['type']
+        return unless (type != 'numeric') && (type_str(value) != type)
+        raise InvalidParams.new("`type` is #{type}. You should pass #{type} value as a `value`")
       end
 
       def type_str(v)
