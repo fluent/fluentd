@@ -5,6 +5,7 @@ require 'fluent/plugin/buffer'
 require 'fluent/system_config'
 require 'net/http'
 require 'flexmock/test_unit'
+require 'timecop'
 
 class TailInputTest < Test::Unit::TestCase
   include FlexMock::TestCase
@@ -766,9 +767,7 @@ class TailInputTest < Test::Unit::TestCase
       @loop = Coolio::Loop.new
     end
 
-    flexstub(Time) do |timeclass|
-      timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5), Time.new(2010, 1, 2, 3, 4, 6), Time.new(2010, 1, 2, 3, 4, 7))
-
+    Timecop.freeze(2010, 1, 2, 3, 4, 5) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
           watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
@@ -781,11 +780,13 @@ class TailInputTest < Test::Unit::TestCase
         end
         plugin.refresh_watchers
       end
+    end
 
-      plugin.instance_eval do
-        @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).zero_or_more_times
-      end
+    plugin.instance_eval do
+      @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).zero_or_more_times
+    end
 
+    Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
