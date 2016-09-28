@@ -56,7 +56,8 @@ module Fluent
         elsif @path
           # ok
         else # @_plugin_id_configured is true
-          raise NotImplementedError, "implement this feature later with system_config"
+          log.warn "path for <storage> is not specified. Using on-memory store temporarily, but will use file store after support global storage path"
+          @on_memory = true
           ## TODO: get process-wide directory for plugin storage, and generate path for this plugin storage instance
           # path = 
         end
