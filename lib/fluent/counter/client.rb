@@ -215,7 +215,7 @@ module Fluent
       def join
         until @set
           @mutex.synchronize do
-            @loop.run_once
+            @loop.run_once(0.0001) # retun a lock as soon as possible
           end
         end
       end
