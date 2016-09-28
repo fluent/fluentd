@@ -21,15 +21,15 @@ module Fluent
   module Counter
     class Client
       DEFAULT_PORT = 4321
-      DEFAULT_HOST = '127.0.0.1'
+      DEFAULT_ADDR = '127.0.0.1'
       ID_LIMIT_COUNT = 1 << 31
 
-      def initialize(loop = Coolio::Loop.new, opt = {})
-        @loop = loop
+      def initialize(loop = nil, opt = {})
+        @loop = loop || Coolio::Loop.new
         @port = opt[:port] || DEFAULT_PORT
-        @host = opt[:host] || DEFAULT_HOST
+        @addr = opt[:addr] || DEFAULT_ADDR
         @log = opt[:log] || $log
-        @conn = Connection.connect(@host, @port, method(:on_message))
+        @conn = Connection.connect(@addr, @port, method(:on_message))
         @responses = {}
         @id = 0
         @id_mutex = Mutex.new
@@ -38,13 +38,19 @@ module Fluent
 
       def start
         @loop.attach(@conn)
+        @log.debug("starting counter client: #{@addr}:#{@port}")
         self
       rescue => e
-        @log.error e
+        if @log
+          @log.error e
+        else
+          STDERR.puts e
+        end
       end
 
       def stop
         @conn.close
+        @log.debug("calling stop in counter client: #{@addr}:#{@port}")
       end
 
       def establish(scope)
@@ -123,7 +129,7 @@ module Fluent
         res = Future.new(@loop, @loop_mutex)
         @responses[id] = res # set a response value to this future object at `on_message`
         request = build_request(method, id, scope, params, opt)
-        @log.debug(request) if @log
+        @log.debug(request)
         @conn.send_data request
         res
       end

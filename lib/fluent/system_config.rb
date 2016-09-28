@@ -38,6 +38,22 @@ module Fluent
       v.to_i(8)
     end
 
+    config_section :counter_server, multi: false do
+      desc 'scope name of counter server'
+      config_param :scope, :string
+
+      desc 'endpoint of counter server'
+      config_param :endpoint, :string # host:port
+
+      desc 'backup file path of counter values'
+      config_param :path, :string
+    end
+
+    config_section :counter_client, multi: false do
+      desc 'endpoint of counter client'
+      config_param :endpoint, :string # host:port
+    end
+
     def self.create(conf)
       systems = conf.elements(name: 'system')
       return SystemConfig.new if systems.empty?
@@ -74,6 +90,8 @@ module Fluent
       s.suppress_config_dump = @suppress_config_dump
       s.without_source = @without_source
       s.rpc_endpoint = @rpc_endpoint
+      s.counter_server = @counter_server
+      s.counter_client = @counter_client
       s.enable_get_dump = @enable_get_dump
       s.process_name = @process_name
       s.file_permission = @file_permission
@@ -91,6 +109,8 @@ module Fluent
         @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
         @without_source = system.without_source unless system.without_source.nil?
         @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
+        @counter_server = system.counter_server unless system.counter_server.nil?
+        @counter_client = system.counter_client unless system.counter_client.nil?
         @enable_get_dump = system.enable_get_dump unless system.enable_get_dump.nil?
         @process_name = system.process_name unless system.process_name.nil?
         @file_permission = system.file_permission unless system.file_permission.nil?

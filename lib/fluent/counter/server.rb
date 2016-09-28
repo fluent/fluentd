@@ -23,14 +23,14 @@ require 'fluent/counter/mutex_hash'
 module Fluent
   module Counter
     class Server
-      DEFAULT_HOST = '127.0.0.1'
+      DEFAULT_ADDR = '127.0.0.1'
       DEFAULT_PORT = 4321
 
       def initialize(name, opt = {})
         raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
         @name = name
         @opt = opt
-        @host = @opt[:host] || DEFAULT_HOST
+        @addr = @opt[:addr] || DEFAULT_ADDR
         @port = @opt[:port] || DEFAULT_PORT
         @loop = @opt[:loop] || Coolio::Loop.new
         @log =  @opt[:log] || $log
@@ -38,7 +38,7 @@ module Fluent
         @store = Fluent::Counter::Store.new(opt)
         @mutex_hash = MutexHash.new(@store)
 
-        @server = Coolio::TCPServer.new(@host, @port, Handler, method(:on_message))
+        @server = Coolio::TCPServer.new(@addr, @port, Handler, method(:on_message))
         @thread = nil
         @running = false
       end
@@ -50,6 +50,7 @@ module Fluent
           @loop.run(0.5)
           @running = false
         end
+        @log.debug("starting counter server #{@addr}:#{@port}")
         @mutex_hash.start
         self
       end
@@ -61,6 +62,7 @@ module Fluent
         @loop.stop if @running
         @mutex_hash.stop
         @thread.join if @thread
+        @log.debug("calling stop in counter server #{@addr}:#{@port}")
       end
 
       def on_message(data)
@@ -87,7 +89,7 @@ module Fluent
         if scope = valid_params.first
           new_scope = "#{@name}\t#{scope}"
           res.push_data new_scope
-          @log.debug("Establish new key: #{new_scope}") if @log
+          @log.debug("Establish new key: #{new_scope}")
         end
 
         res.to_hash
@@ -105,7 +107,7 @@ module Fluent
           begin
             param = key_hash[key]
             v = store.init(key, param, ignore: options['ignore'])
-            @log.debug("Create new key: #{param['name']}") if @log
+            @log.debug("Create new key: #{param['name']}")
             res.push_data v
           rescue => e
             res.push_error e
@@ -130,7 +132,7 @@ module Fluent
         do_delete = lambda do |store, key|
           begin
             v = store.delete(key)
-            @log.debug("delete a key: #{key}") if @log
+            @log.debug("delete a key: #{key}")
             res.push_data v
           rescue => e
             res.push_error e
@@ -160,7 +162,7 @@ module Fluent
           begin
             param = key_hash[key]
             v = store.inc(key, param, force: options['force'])
-            @log.debug("Increment #{key} by #{param['value']}") if @log
+            @log.debug("Increment #{key} by #{param['value']}")
             res.push_data v
           rescue => e
             res.push_error e
@@ -185,7 +187,7 @@ module Fluent
         do_reset = lambda do |store, key|
           begin
             v = store.reset(key)
-            @log.debug("Reset #{key}'s' counter value") if @log
+            @log.debug("Reset #{key}'s' counter value")
             res.push_data v
           rescue => e
             res.push_error e
@@ -210,7 +212,7 @@ module Fluent
         keys.each do |key|
           begin
             v = @store.get(key, raise_error: true)
-            @log.debug("Get counter value: #{key}") if @log
+            @log.debug("Get counter value: #{key}")
             res.push_data v
           rescue => e
             res.push_error e
