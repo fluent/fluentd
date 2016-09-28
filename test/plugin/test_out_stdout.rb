@@ -9,6 +9,7 @@ class StdoutOutputTest < Test::Unit::TestCase
 
   CONFIG = %[
   ]
+  TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%9N %z'
 
   def create_driver(conf = CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::StdoutOutput).configure(conf)
@@ -40,7 +41,7 @@ class StdoutOutputTest < Test::Unit::TestCase
           d.feed(time, {'test' => 'test1'})
         end
       end
-      assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
+      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test1\"}\n", out
     end
 
     data('oj' => 'oj', 'yajl' => 'yajl')
@@ -52,14 +53,14 @@ class StdoutOutputTest < Test::Unit::TestCase
           d.feed(time, {'test' => 'test1'})
         end
       end
-      assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test1\"}\n", out
+      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test1\"}\n", out
 
       if data == 'yajl'
         # NOTE: Float::NAN is not jsonable
         assert_raise(Yajl::EncodeError) { d.feed('test', time, {'test' => Float::NAN}) }
       else
         out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
-        assert_equal "#{Time.at(time).localtime} test: {\"test\":NaN}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":NaN}\n", out
       end
     end
 
@@ -71,11 +72,11 @@ class StdoutOutputTest < Test::Unit::TestCase
           d.feed(time, {'test' => 'test2'})
         end
       end
-      assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test2\"}\n", out
+      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test2\"}\n", out
 
       # NOTE: Float::NAN is not jsonable, but hash string can output it.
       out = capture_log { d.feed('test', time, {'test' => Float::NAN}) }
-      assert_equal "#{Time.at(time).localtime} test: {\"test\"=>NaN}\n", out
+      assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>NaN}\n", out
     end
   end
 
@@ -113,7 +114,7 @@ class StdoutOutputTest < Test::Unit::TestCase
             d.feed(time, {'test' => 'test'})
           end
         end
-        assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test\"}\n", out
       end
     end
 
@@ -128,7 +129,7 @@ class StdoutOutputTest < Test::Unit::TestCase
             d.feed(time, {'test' => 'test'})
           end
         end
-        assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test\"}\n", out
       end
 
       data('oj' => 'oj', 'yajl' => 'yajl')
@@ -143,7 +144,7 @@ class StdoutOutputTest < Test::Unit::TestCase
           end
         end
 
-        assert_equal "#{Time.at(time).localtime} test: {\"test\":\"test\"}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test\"}\n", out
       end
     end
 
@@ -158,7 +159,7 @@ class StdoutOutputTest < Test::Unit::TestCase
           end
         end
 
-        assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test\"}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test\"}\n", out
       end
 
       test '#try_write(asynchronous)' do
@@ -172,7 +173,7 @@ class StdoutOutputTest < Test::Unit::TestCase
           end
         end
 
-        assert_equal "#{Time.at(time).localtime} test: {\"test\"=>\"test\"}\n", out
+        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test\"}\n", out
       end
     end
   end

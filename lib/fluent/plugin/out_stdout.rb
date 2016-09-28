@@ -23,6 +23,7 @@ module Fluent::Plugin
     helpers :inject, :formatter, :compat_parameters
 
     DEFAULT_FORMAT_TYPE = 'json'
+    TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%9N %z'
 
     config_section :buffer do
       config_set_default :chunk_keys, ['tag']
@@ -69,7 +70,7 @@ module Fluent::Plugin
 
     def format(tag, time, record)
       record = inject_values_to_record(tag, time, record)
-      "#{Time.at(time).localtime} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
+      "#{Time.at(time).localtime.strftime(TIME_FORMAT)} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
     end
 
     def write(chunk)
