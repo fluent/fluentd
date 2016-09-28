@@ -110,16 +110,19 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     # Zlib::GzipReader has a bug of concatenated file: https://bugs.ruby-lang.org/issues/9790
     # Following code from https://www.ruby-forum.com/topic/971591#979520
     result = ""
-    File.open(path, "rb") { |io|
-      loop do
-        gzr = Zlib::GzipReader.new(io)
-        result << gzr.read
-        unused = gzr.unused
-        gzr.finish
-        break if unused.nil?
-        io.pos -= unused.length
-      end
-    }
+    waiting(10) do
+      # we can expect that GzipReader#read can wait unflushed raw data of `io` on disk
+      File.open(path, "rb") { |io|
+        loop do
+          gzr = Zlib::GzipReader.new(io)
+          result << gzr.read
+          unused = gzr.unused
+          gzr.finish
+          break if unused.nil?
+          io.pos -= unused.length
+        end
+      }
+    end
 
     assert_equal expect, result
   end
@@ -155,10 +158,15 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         basename out_file_test
       ], @primary)
 
-      path = d.instance.write(@chunk)
+      msgpack_binary = @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
 
+      path = d.instance.write(@chunk)
       assert_equal "#{TMP_DIR}/out_file_test.0", path
-      assert_equal File.read(path), @es.to_msgpack_stream.force_encoding('ASCII-8BIT')
+      waiting(5) do
+        sleep 0.1 until File.stat(path).size == msgpack_binary.size
+      end
+
+      assert_equal File.read(path), msgpack_binary
     end
 
     test 'path should be incremental when append option is false' do
