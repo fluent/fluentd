@@ -14,9 +14,10 @@
 #    limitations under the License.
 #
 
-require 'fluent/time'
+require 'fluent/config'
 require 'fluent/counter/error'
 require 'fluent/plugin/storage_local'
+require 'fluent/time'
 
 module Fluent
   module Counter
@@ -26,11 +27,35 @@ module Fluent
       end
 
       def initialize(opt = {})
+        @log = opt[:log] || $log
+
         # Notice: This storage is not be implemented auto save.
-        @storage = Fluent::Plugin::LocalStorage.new
-        @storage.configure(
-          Fluent::Config::Element.new('storage', {}, {'persistent' => true, 'path' => opt[:path] }, [])
-        )
+        @storage = Plugin.new_storage('local', parent: DummyParent.new(@log))
+        conf = if opt[:path]
+                 {'persistent' => true, 'path' => opt[:path] }
+               else
+                 {'persistent' => false }
+               end
+        @storage.configure(Fluent::Config::Element.new('storage', {}, conf, []))
+      end
+
+      # This class behaves as a configurable plugin for using in storage (OwnedByMixin).
+      class DummyParent
+        include Configurable
+
+        attr_reader :log
+
+        def initialize(log)
+          @log = log
+        end
+
+        def plugin_id
+          'dummy_parent_store'
+        end
+
+        def plugin_id_configured?
+          false
+        end
       end
 
       def start
@@ -75,9 +100,9 @@ module Fluent
       end
 
       def inc(key, data, force: false)
-        init(key, data) if force
+        value = data.delete('value')
+        init(key, data) if !key?(key) && force
         v = get(key, raise_error: true, raw: true)
-        value = data['value']
         valid_type!(v, value)
 
         v['total'] += value

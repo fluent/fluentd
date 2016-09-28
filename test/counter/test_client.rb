@@ -6,7 +6,7 @@ require 'flexmock/test_unit'
 require 'timecop'
 
 class CounterClientTest < ::Test::Unit::TestCase
-  TEST_HOST = '127.0.0.1'
+  TEST_ADDR = '127.0.0.1'
   TEST_PORT = '8277'
 
   setup do
@@ -16,7 +16,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     @now = Fluent::EventTime.now
 
     @options = {
-      host: TEST_HOST,
+      addr: TEST_ADDR,
       port: TEST_PORT,
       log: $log,
     }

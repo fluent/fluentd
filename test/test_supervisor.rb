@@ -134,6 +134,11 @@ class SupervisorTest < ::Test::Unit::TestCase
     format json
     time_format %Y
   </log>
+  <counter_server>
+    endpoint 127.0.0.1:4321
+    scope server1
+    path /tmp/backup
+  </counter_server>
 </system>
     EOC
     conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
@@ -151,6 +156,10 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal TMP_ROOT_DIR, sys_conf.root_dir
     assert_equal :json, sys_conf.log.format
     assert_equal '%Y', sys_conf.log.time_format
+    counter_server = sys_conf.counter_server
+    assert_equal '127.0.0.1:4321', counter_server.endpoint
+    assert_equal 'server1', counter_server.scope
+    assert_equal '/tmp/backup', counter_server.path
   end
 
   def test_main_process_signal_handlers
