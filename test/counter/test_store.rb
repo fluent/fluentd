@@ -1,96 +1,7 @@
 require_relative '../helper'
 require 'fluent/counter/store'
+require 'fluent/time'
 require 'timecop'
-
-class CounterStoreValueTest < ::Test::Unit::TestCase
-  setup do
-    # timecop isn't compatible with EventTime
-    t = Time.parse('2016-09-22 16:59:59 +0900')
-    Timecop.freeze(t)
-    @now = Fluent::EventTime.now
-  end
-
-  teardown do
-    Timecop.return
-  end
-
-  sub_test_case 'init' do
-    test 'default values' do
-      v = Fluent::Counter::Store::Value.init(
-        'name' => 'name',
-        'reset_interval' => 10
-      )
-      assert_equal 'name', v.name
-      assert_equal 10, v.reset_interval
-      assert_equal 'numeric', v.type
-      assert_equal @now, v.last_reset_at
-      assert_equal @now, v.last_modified_at
-      assert_equal 0, v.current
-      assert_equal 0, v.total
-    end
-
-    data(
-      integer: ['integer', 0, Integer],
-      numeric: ['numeric', 0, Numeric],
-      float: ['float', 0.0, Float]
-    )
-    test 'set a type' do |(type_name, value, type)|
-      v = Fluent::Counter::Store::Value.init(
-        'type' => type_name,
-        'name' => 'name',
-        'reset_interval' => 10
-      )
-
-      assert_true v.current.is_a?(type)
-      assert_equal value, v.current
-      assert_equal value, v.total
-      assert_equal type_name, v.type
-    end
-
-    test 'raise an error when an invalid type has passed' do
-      assert_raise do
-        Fluent::Counter::Store::Value.init(
-          'type' => 'invalid_type',
-          'name' => 'name',
-          'reset_interval' => 10
-        )
-      end
-    end
-  end
-
-  sub_test_case 'initial_value' do
-    data(
-      integer: ['integer', Integer],
-      numeric: ['numeric', Integer],
-      float: ['float', Float],
-    )
-    test 'return a initial value' do |(type, type_class)|
-      assert_true Fluent::Counter::Store::Value.initial_value(type).is_a?(type_class)
-    end
-
-    test 'raise an error when passed string is invalid' do
-      assert_raise Fluent::Counter::InvalidParams do
-        Fluent::Counter::Store::Value.initial_value('invalid value')
-      end
-    end
-  end
-
-  test 'to_response_hash' do
-    v = Fluent::Counter::Store::Value.init(
-      'name' => 'name',
-      'reset_interval' => 10
-    )
-    expected = {
-      'name' => 'name',
-      'total' => 0,
-      'current' => 0,
-      'type' => 'numeric',
-      'reset_interval' => 10,
-      'last_reset_at' => @now,
-    }
-    assert_equal expected, v.to_response_hash
-  end
-end
 
 class CounterStoreTest < ::Test::Unit::TestCase
   setup do
@@ -108,7 +19,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
   end
 
   def extract_value_from_counter(counter, key)
-    store = counter.instance_variable_get(:@store)
+    store = counter.instance_variable_get(:@storage).instance_variable_get(:@store)
     store[key]
   end
 
@@ -123,10 +34,11 @@ class CounterStoreTest < ::Test::Unit::TestCase
     test 'create new value in the counter' do
       v = @store.init(@key, @data)
 
-      assert_equal @name, v.name
-      assert_equal @reset_interval, v.reset_interval
+      assert_equal @name, v['name']
+      assert_equal @reset_interval, v['reset_interval']
 
       v2 = extract_value_from_counter(@store, @key)
+      v2 = @store.send(:build_response, v2)
       assert_equal v, v2
     end
 
@@ -141,6 +53,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
     test 'return a value when passed key already exists and a ignore option is true' do
       v = @store.init(@key, @data)
       v1 = extract_value_from_counter(@store, @key)
+      v1 = @store.send(:build_response, v1)
       v2 = @store.init(@key, @data, ignore: true)
       assert_equal v, v2
       assert_equal v1, v2
@@ -157,7 +70,13 @@ class CounterStoreTest < ::Test::Unit::TestCase
 
     test 'return a value from the counter' do
       v = extract_value_from_counter(@store, @key)
-      assert_equal v, @store.get(@key)
+      expected = @store.send(:build_response, v)
+      assert_equal expected, @store.get(@key)
+    end
+
+    test 'return a raw value from the counter when raw option is true' do
+      v = extract_value_from_counter(@store, @key)
+      assert_equal v, @store.get(@key, raw: true)
     end
 
     test "return nil when a passed key doesn't exist" do
@@ -226,12 +145,12 @@ class CounterStoreTest < ::Test::Unit::TestCase
       Timecop.travel(@travel_sec)
       v = @store.inc(key, { 'value' => value })
 
-      assert_equal value, v.total
-      assert_equal value, v.current
-      assert_equal (@now + @travel_sec), v.last_modified_at
-      assert_equal @now, v.last_reset_at # last_reset_at doesn't change
+      assert_equal value, v['total']
+      assert_equal value, v['current']
+      assert_equal @now, v['last_reset_at'] # last_reset_at doesn't change
 
       v1 = extract_value_from_counter(@store, key)
+      v1 = @store.send(:build_response, v1)
       assert_equal v, v1
     end
 
@@ -248,9 +167,9 @@ class CounterStoreTest < ::Test::Unit::TestCase
       v1 = @store.init(key1, @init_data.merge('type' => 'integer'))
       v2 = @store.init(key2, @init_data.merge('type' => 'float'))
       v3 = @store.init(key3, @init_data.merge('type' => 'numeric'))
-      assert_equal 'integer', v1.type
-      assert_equal 'float', v2.type
-      assert_equal 'numeric', v3.type
+      assert_equal 'integer', v1['type']
+      assert_equal 'float', v2['type']
+      assert_equal 'numeric', v3['type']
 
       assert_raise Fluent::Counter::InvalidParams do
         @store.inc(key1, { 'value' => 1.1 })
@@ -294,11 +213,11 @@ class CounterStoreTest < ::Test::Unit::TestCase
       assert_equal 10, counter['reset_interval']
 
       v1 = extract_value_from_counter(@store, @key)
-      assert_equal 0, v1.current
-      assert_true v1.current.is_a?(Integer)
-      assert_equal @inc_value, v1.total
-      assert_equal (@now + @travel_sec), v1.last_reset_at
-      assert_equal (@now + @travel_sec), v1.last_modified_at
+      assert_equal 0, v1['current']
+      assert_true v1['current'].is_a?(Integer)
+      assert_equal @inc_value, v1['total']
+      assert_equal (@now + @travel_sec), Fluent::EventTime.new(*v1['last_reset_at'])
+      assert_equal (@now + @travel_sec), Fluent::EventTime.new(*v1['last_modified_at'])
     end
 
     test 'reset a value after `reset_interval` passed' do
@@ -309,8 +228,8 @@ class CounterStoreTest < ::Test::Unit::TestCase
       assert_equal false, v['success']
       assert_equal first_travel_sec, v['elapsed_time']
       store = extract_value_from_counter(@store, @key)
-      assert_equal 10, store.current
-      assert_equal @now, store.last_reset_at
+      assert_equal 10, store['current']
+      assert_equal @now, Fluent::EventTime.new(*store['last_reset_at'])
 
       # time is passed greater than reset_interval
       Timecop.travel(@travel_sec)
@@ -319,9 +238,9 @@ class CounterStoreTest < ::Test::Unit::TestCase
       assert_equal @travel_sec + first_travel_sec, v['elapsed_time']
 
       v1 = extract_value_from_counter(@store, @key)
-      assert_equal 0, v1.current
-      assert_equal (@now + @travel_sec + first_travel_sec), v1.last_reset_at
-      assert_equal (@now + @travel_sec + first_travel_sec), v1.last_modified_at
+      assert_equal 0, v1['current']
+      assert_equal (@now + @travel_sec + first_travel_sec), Fluent::EventTime.new(*v1['last_reset_at'])
+      assert_equal (@now + @travel_sec + first_travel_sec), Fluent::EventTime.new(*v1['last_modified_at'])
     end
 
     test "raise an error when passed key doesn't exist" do

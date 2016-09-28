@@ -27,6 +27,7 @@ module Fluent
       DEFAULT_PORT = 4321
 
       def initialize(name, opt = {})
+        raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
         @name = name
         @opt = opt
         @host = @opt[:host] || DEFAULT_HOST
@@ -34,47 +35,32 @@ module Fluent
         @loop = @opt[:loop] || Coolio::Loop.new
         @log =  @opt[:log] || $log
 
-        @counter = Fluent::Counter::Counter.new(name, @log)
-        @server = Coolio::TCPServer.new(@host, @port, Handler, @counter.method(:on_message))
+        @store = Fluent::Counter::Store.new(opt)
+        @mutex_hash = MutexHash.new(@store)
+
+        @server = Coolio::TCPServer.new(@host, @port, Handler, method(:on_message))
         @thread = nil
-        @run = false
+        @running = false
       end
 
       def start
         @server.attach(@loop)
         @thread = Thread.new do
+          @running = true
           @loop.run(0.5)
-          @run = true
+          @running = false
         end
-        @counter.start
+        @mutex_hash.start
         self
       end
 
       def stop
         # This `sleep` for a test to wait for a `@loop` to begin to run
-        sleep 0.1 unless @run
+        sleep 0.1
         @server.close
-        @loop.stop
-        @counter.stop
-        @thread.join if @thread
-      end
-    end
-
-    class Counter
-      def initialize(name, log)
-        raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name
-        @name = name
-        @log = log
-        @store = Fluent::Counter::Store.new
-        @mutex_hash = MutexHash.new(@store)
-      end
-
-      def start
-        @mutex_hash.start
-      end
-
-      def stop
+        @loop.stop if @running
         @mutex_hash.stop
+        @thread.join if @thread
       end
 
       def on_message(data)
@@ -257,16 +243,14 @@ module Fluent
         end
 
         def to_hash
-          data = @data.map { |d| d.respond_to?(:to_response_hash) ? d.to_response_hash : d }
-
           if @errors.empty?
-            { 'data' => data }
+            { 'data' => @data }
           else
             errors = @errors.map do |e|
               error = e.respond_to?(:to_hash) ? e : InternalServerError.new(e.to_s)
               error.to_hash
             end
-            { 'data' => data, 'errors' => errors }
+            { 'data' => @data, 'errors' => errors }
           end
         end
       end

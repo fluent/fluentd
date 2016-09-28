@@ -28,10 +28,12 @@ module Fluent
       end
 
       def start
+        @data_store.start
         @cleanup_thread.start
       end
 
       def stop
+        @data_store.stop
         @cleanup_thread.stop
       end
 
@@ -136,9 +138,9 @@ module Fluent
         @mutex.synchronize do
           last_cleanup_at = (Time.now - CLEANUP_INTERVAL).to_i
           @mutex_hash.each do |(key, mutex)|
-            v = @store.get(key)
+            v = @store.get(key, raw: true)
             next unless v
-            next if last_cleanup_at < v.last_modified_at.to_i
+            next if last_cleanup_at < v['last_modified_at'][0] # v['last_modified_at'] = [sec, nsec]
             next unless mutex.try_lock
 
             @mutex_hash[key] = nil
