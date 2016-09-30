@@ -106,7 +106,7 @@ module Fluent
           else
             k = scan_string(SPACING)
             spacing_without_comment
-            if prev_match.include?("\n") # support 'tag_mapped' like "without value" configuration
+            if prev_match.include?("\n") || eof? # support 'tag_mapped' like "without value" configuration
               attrs[k] = ""
             else
               if k == '@include'
