@@ -402,7 +402,7 @@ class TailInputTest < Test::Unit::TestCase
 
     d = create_driver
 
-    d.run do
+    d.run(expect_emits: 1) do
       File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.print "test3"
       }
@@ -411,7 +411,6 @@ class TailInputTest < Test::Unit::TestCase
       File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
         f.puts "test4"
       }
-      sleep 1
     end
 
     events = d.events
