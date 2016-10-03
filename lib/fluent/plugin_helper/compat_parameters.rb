@@ -77,7 +77,10 @@ module Fluent
         "json_parser" => "json_parser", # JSONFormatter
         "label_delimiter" => "label_delimiter", # LabeledTSVFormatter
         "output_time" => "output_time", # OutFileFormatter
-        "output_tag"  => "output_tag", # OutFileFormatter
+        "output_tag"  => "output_tag",  # OutFileFormatter
+        "localtime"   => "localtime",   # OutFileFormatter
+        "utc"         => nil,           # OutFileFormatter
+        "timezone"    => "timezone",    # OutFileFormatter
         "message_key" => "message_key", # SingleValueFormatter
         "add_newline" => "add_newline", # SingleValueFormatter
         "output_type" => "output_type", # StdoutFormatter
@@ -198,6 +201,20 @@ module Fluent
 
         # TODO: warn obsolete parameters if these are deprecated
         attr = compat_parameters_copy_to_subsection_attributes(conf, FORMATTER_PARAMS)
+
+        if conf.has_key?('localtime') || conf.has_key?('utc')
+          if conf.has_key?('localtime') && conf.has_key?('utc')
+            raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
+          elsif conf.has_key?('localtime')
+            attr['localtime'] = Fluent::Config.bool_value(conf['localtime'])
+          elsif conf.has_key?('utc')
+            attr['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
+            # Specifying "localtime false" means using UTC in TimeFormatter
+            # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
+            # There are difference between "Z" and "+0000" in timezone formatting.
+            # TODO: add kwargs to TimeFormatter to specify "using localtime", "using UTC" or "using specified timezone" in more explicit way
+          end
+        end
 
         e = Fluent::Config::Element.new('format', '', attr, [])
         conf.elements << e

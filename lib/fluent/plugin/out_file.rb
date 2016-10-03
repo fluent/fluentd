@@ -16,16 +16,17 @@
 
 require 'fileutils'
 require 'zlib'
+require 'time'
 
-require 'fluent/output'
+require 'fluent/plugin/output'
+require 'fluent/plugin/file_util'
 require 'fluent/config/error'
-require 'fluent/system_config'
 
-module Fluent
-  class FileOutput < TimeSlicedOutput
-    include SystemConfig::Mixin
+module Fluent::Plugin
+  class FileOutput < Output
+    Fluent::Plugin.register_output('file', self)
 
-    Plugin.register_output('file', self)
+    helpers :formatter, :inject, :compat_parameters
 
     SUPPORTED_COMPRESS = {
       'gz' => :gz,
@@ -34,23 +35,30 @@ module Fluent
 
     FILE_PERMISSION = 0644
     DIR_PERMISSION = 0755
+    DEFAULT_FORMAT_TYPE = "out_file"
+    DEFAULT_BUFFER_TYPE = "file"
 
     desc "The Path of the file."
     config_param :path, :string
-    desc "The format of the file content. The default is out_file."
-    config_param :format, :string, default: 'out_file', skip_accessor: true
     desc "The flushed chunk is appended to existence file or not."
     config_param :append, :bool, default: false
     desc "Compress flushed file."
     config_param :compress, default: nil do |val|
       c = SUPPORTED_COMPRESS[val]
       unless c
-        raise ConfigError, "Unsupported compression algorithm '#{val}'"
+        raise Fluent::ConfigError, "Unsupported compression algorithm '#{val}'"
       end
       c
     end
     desc "Create symlink to temporary buffered file when buffer_type is file."
     config_param :symlink_path, :string, default: nil
+
+    config_section :buffer do
+      config_set_default :@type, DEFAULT_BUFFER_TYPE
+    end
+    config_section :format do
+      config_set_default :@type, DEFAULT_FORMAT_TYPE
+    end
 
     module SymlinkBufferMixin
       def symlink_path=(path)
@@ -71,11 +79,12 @@ module Fluent
       end
     end
 
+    # for test
+    attr_reader :_paths
+
     def initialize
-      require 'zlib'
-      require 'time'
-      require 'fluent/plugin/file_util'
       super
+      @_paths = []
     end
 
     def configure(conf)
@@ -83,8 +92,12 @@ module Fluent
         @path = path
       end
       unless @path
-        raise ConfigError, "'path' parameter is required on file output"
+        raise Fluent::ConfigError, "'path' parameter is required on file output"
       end
+
+      conf["buffer_path"] ||= @path # For backward compatibility
+
+      compat_parameters_convert(conf, :formatter, :buffer, :inject, default_chunk_key: "time")
 
       if pos = @path.index('*')
         @path_prefix = @path[0,pos]
@@ -96,15 +109,14 @@ module Fluent
         conf['buffer_path'] ||= "#{@path}.*"
       end
 
-      test_path = generate_path(Time.now.strftime(@time_slice_format))
-      unless ::Fluent::FileUtil.writable_p?(test_path)
-        raise ConfigError, "out_file: `#{test_path}` is not writable"
-      end
-
       super
 
-      @formatter = Plugin.new_formatter(@format)
-      @formatter.configure(conf)
+      unless @inject_config
+        raise Fluent::ConfigError, "<inject> section is required"
+      end
+
+      @formatter = formatter_create(conf: @config.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
+      @time_formatter = Fluent::TimeFormatter.new(extract_time_format, @inject_config.localtime, @inject_config.timezone)
 
       if @symlink_path && @buffer.respond_to?(:path)
         @buffer.extend SymlinkBufferMixin
@@ -113,14 +125,20 @@ module Fluent
 
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
+
+      test_path = generate_path(Fluent::EventTime.now)
+      unless ::Fluent::FileUtil.writable_p?(test_path)
+        raise ::Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
+      end
     end
 
     def format(tag, time, record)
-      @formatter.format(tag, time, record)
+      r = inject_values_to_record(tag, time, record)
+      @formatter.format(tag, time, r)
     end
 
     def write(chunk)
-      path = generate_path(chunk.key)
+      path = generate_path(chunk.metadata.timekey)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       case @compress
@@ -136,7 +154,7 @@ module Fluent
         }
       end
 
-      return path  # for test
+      @_paths << path  # for test
     end
 
     def secondary_init(primary)
@@ -154,7 +172,8 @@ module Fluent
       end
     end
 
-    def generate_path(time_string)
+    def generate_path(time)
+      time_string = @time_formatter.format(time)
       if @append
         "#{@path_prefix}#{time_string}#{@path_suffix}#{suffix}"
       else
@@ -165,6 +184,26 @@ module Fluent
           i += 1
         end while File.exist?(path)
         path
+      end
+    end
+
+    def extract_time_format
+      if @config["time_slice_format"]
+        # For backward compatibility
+        @config["time_slice_format"]
+      else
+        case @buffer_config && @buffer_config.timekey
+        when 1
+          "%Y%m%d%H%M%S"
+        when 60
+          "%Y%m%d%H%M"
+        when 3600
+          "%Y%m%d%H"
+        when 86400
+          "%Y%m%d"
+        else
+          "%Y%m%d"
+        end
       end
     end
   end

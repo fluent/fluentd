@@ -56,6 +56,8 @@ module Fluent
 
         super
 
+        Fluent::Timezone.validate!(@timezone) if @timezone
+
         @timef = case @time_type
                  when :float then ->(time){ time.to_r.to_f }
                  when :unixtime then ->(time){ time.to_i }

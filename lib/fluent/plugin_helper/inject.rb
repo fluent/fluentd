@@ -92,6 +92,8 @@ module Fluent
       def configure(conf)
         super
 
+        Fluent::Timezone.validate!(@timezone) if instance_variable_defined?(:@timezone) && @timezone
+
         if @inject_config
           @_inject_hostname_key = @inject_config.hostname_key
           if @_inject_hostname_key
