@@ -26,9 +26,12 @@ module Fluent
 
       State = Struct.new(:configure, :start, :after_start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
 
+      attr_accessor :under_plugin_development
+
       def initialize
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
+        @under_plugin_development = false
       end
 
       def has_router?
