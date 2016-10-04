@@ -160,6 +160,13 @@ module Fluent
         end
       end
 
+      # it's too dangerous, and use it so carefully to remove metadata for tests
+      def metadata_list_clear!
+        synchronize do
+          @metadata_list.clear
+        end
+      end
+
       def new_metadata(timekey: nil, tag: nil, variables: nil)
         Metadata.new(timekey, tag, variables)
       end

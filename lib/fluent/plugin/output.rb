@@ -740,6 +740,13 @@ module Fluent
         end
       end
 
+      def metadata_for_test(tag, time, record)
+        raise "BUG: #test_metadata is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
+        m = metadata(tag, time, record)
+        @buffer.metadata_list_clear!
+        m
+      end
+
       def execute_chunking(tag, es, enqueue: false)
         if @simple_chunking
           handle_stream_simple(tag, es, enqueue: enqueue)
