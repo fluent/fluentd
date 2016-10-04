@@ -191,5 +191,21 @@ class TimeParserTest < ::Test::Unit::TestCase
       end
       assert_equal_event_time(event_time("2016-09-05 17:59:38.987654321 +09:00", format: '%Y-%m-%d %H:%M:%S.%N %z'), time)
     end
+
+    test '#time_parser_create returns NumericTimeParser to parse time as unixtime when time_type unixtime specified' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '', {'time_type' => 'unixtime'}))
+      parser = i.time_parser_create
+      time = event_time("2016-10-03 20:08:30.123456789 +0100", format: '%Y-%m-%d %H:%M:%S.%N %z')
+      assert_equal_event_time(Fluent::EventTime.new(time.to_i), parser.parse("#{time.sec}"))
+    end
+
+    test '#time_parser_create returns NumericTimeParser to parse time as float when time_type float specified' do
+      i = DummyForTimeParser.new
+      i.configure(config_element('parse', '', {'time_type' => 'float'}))
+      parser = i.time_parser_create
+      time = event_time("2016-10-03 20:08:30.123456789 +0100", format: '%Y-%m-%d %H:%M:%S.%N %z')
+      assert_equal_event_time(time, parser.parse("#{time.sec}.#{time.nsec}"))
+    end
   end
 end

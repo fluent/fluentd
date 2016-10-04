@@ -263,4 +263,20 @@ class TimeFormatterTest < ::Test::Unit::TestCase
       assert_equal "09/02/2016 11-42-31 012345678", str
     end
   end
+
+  test '#time_formatter_create returns NumericTimeFormatter to format time as unixtime when time_type unixtime specified' do
+    i = DummyForTimeFormatter.new
+    i.configure(config_element('format', '', {'time_type' => 'unixtime'}))
+    fmt = i.time_formatter_create
+    time = event_time("2016-10-03 20:08:30.123456789 +0100", format: '%Y-%m-%d %H:%M:%S.%N %z')
+    assert_equal "#{time.sec}", fmt.format(time)
+  end
+
+  test '#time_formatter_create returns NumericTimeFormatter to format time as float when time_type float specified' do
+    i = DummyForTimeFormatter.new
+    i.configure(config_element('format', '', {'time_type' => 'float'}))
+    fmt = i.time_formatter_create
+    time = event_time("2016-10-03 20:08:30.123456789 +0100", format: '%Y-%m-%d %H:%M:%S.%N %z')
+    assert_equal "#{time.sec}.#{time.nsec}", fmt.format(time)
+  end
 end
