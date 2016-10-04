@@ -44,6 +44,7 @@ module Fluent
       BUFFER_TIME_SLICED_PARAMS = {
         "time_slice_format" => nil,
         "time_slice_wait" => "timekey_wait",
+        "timezone" => "timekey_zone",
       }
 
       PARSER_PARAMS = {
@@ -56,6 +57,7 @@ module Fluent
         "format_firstline" => "format_firstline", # MultilineParser
         "message_key"      => "message_key", # NoneParser
         "with_priority"    => "with_priority", # SyslogParser
+        # There has been no parsers which can handle timezone in v0.12
       }
 
       INJECT_PARAMS = {
@@ -77,7 +79,10 @@ module Fluent
         "json_parser" => "json_parser", # JSONFormatter
         "label_delimiter" => "label_delimiter", # LabeledTSVFormatter
         "output_time" => "output_time", # OutFileFormatter
-        "output_tag"  => "output_tag", # OutFileFormatter
+        "output_tag"  => "output_tag",  # OutFileFormatter
+        "localtime"   => "localtime",   # OutFileFormatter
+        "utc"         => "utc",         # OutFileFormatter
+        "timezone"    => "timezone",    # OutFileFormatter
         "message_key" => "message_key", # SingleValueFormatter
         "add_newline" => "add_newline", # SingleValueFormatter
         "output_type" => "output_type", # StdoutFormatter
@@ -129,6 +134,15 @@ module Fluent
                             else
                               raise Fluent::ConfigError, "time_slice_format only with %Y or %m is too long"
                             end
+          if conf.has_key?('localtime') || conf.has_key?('utc')
+            if conf.has_key?('localtime') && conf.has_key?('utc')
+              raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
+            elsif conf.has_key?('localtime')
+              attr['timekey_use_utc'] = !(Fluent::Config.bool_value(conf['localtime']))
+            elsif conf.has_key?('utc')
+              attr['timekey_use_utc'] = Fluent::Config.bool_value(conf['utc'])
+            end
+          end
         else
           if chunk_key == 'time'
             attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
@@ -198,6 +212,12 @@ module Fluent
 
         # TODO: warn obsolete parameters if these are deprecated
         attr = compat_parameters_copy_to_subsection_attributes(conf, FORMATTER_PARAMS)
+
+        # TODO: make a utility method in TimeFormatter to handle these conversion
+        #       copies of this code: plugin_helper/compat_parameters, compat/formatter_utils and here
+        if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
+          attr['time_type'] = 'unixtime'
+        end
 
         e = Fluent::Config::Element.new('format', '', attr, [])
         conf.elements << e
