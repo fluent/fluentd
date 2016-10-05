@@ -248,9 +248,11 @@ module Fluent::Plugin
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(path, pe)
-      unless pe.read_inode == @pf[path].read_inode
-        log.trace "Skip update_watcher because watcher has been already updated by other inotify event"
-        return
+      if @pf
+        unless pe.read_inode == @pf[path].read_inode
+          log.trace "Skip update_watcher because watcher has been already updated by other inotify event"
+          return
+        end
       end
       rotated_tw = @tails[path]
       @tails[path] = setup_watcher(path, pe)
