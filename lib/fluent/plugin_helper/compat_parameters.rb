@@ -213,8 +213,6 @@ module Fluent
         # TODO: warn obsolete parameters if these are deprecated
         attr = compat_parameters_copy_to_subsection_attributes(conf, FORMATTER_PARAMS)
 
-        # TODO: make a utility method in TimeFormatter to handle these conversion
-        #       copies of this code: plugin_helper/compat_parameters, compat/formatter_utils and here
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
           attr['time_type'] = 'unixtime'
         end
