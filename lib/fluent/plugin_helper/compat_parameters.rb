@@ -114,7 +114,7 @@ module Fluent
 
         # TODO: warn obsolete parameters if these are deprecated
         buffer_params = BUFFER_PARAMS.merge(BUFFER_TIME_SLICED_PARAMS)
-        attr = compat_parameters_copy_to_subsection_attributes(conf, buffer_params) do |compat_key, value|
+        hash = compat_parameters_copy_to_subsection_attributes(conf, buffer_params) do |compat_key, value|
           if compat_key == 'buffer_queue_full_action' && value == 'exception'
             'throw_exception'
           else
@@ -126,7 +126,7 @@ module Fluent
 
         if conf.has_key?('time_slice_format')
           chunk_key = 'time'
-          attr['timekey'] = case conf['time_slice_format']
+          hash['timekey'] = case conf['time_slice_format']
                             when /\%S/ then 1
                             when /\%M/ then 60
                             when /\%H/ then 3600
@@ -138,18 +138,18 @@ module Fluent
             if conf.has_key?('localtime') && conf.has_key?('utc')
               raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
             elsif conf.has_key?('localtime')
-              attr['timekey_use_utc'] = !(Fluent::Config.bool_value(conf['localtime']))
+              hash['timekey_use_utc'] = !(Fluent::Config.bool_value(conf['localtime']))
             elsif conf.has_key?('utc')
-              attr['timekey_use_utc'] = Fluent::Config.bool_value(conf['utc'])
+              hash['timekey_use_utc'] = Fluent::Config.bool_value(conf['utc'])
             end
           end
         else
           if chunk_key == 'time'
-            attr['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
+            hash['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
           end
         end
 
-        e = Fluent::Config::Element.new('buffer', chunk_key, attr, [])
+        e = Fluent::Config::Element.new('buffer', chunk_key, hash, [])
         conf.elements << e
 
         conf
@@ -160,22 +160,22 @@ module Fluent
         return if INJECT_PARAMS.keys.all?{|k| !conf.has_key?(k) }
 
         # TODO: warn obsolete parameters if these are deprecated
-        attr = compat_parameters_copy_to_subsection_attributes(conf, INJECT_PARAMS)
+        hash = compat_parameters_copy_to_subsection_attributes(conf, INJECT_PARAMS)
 
         if conf.has_key?('include_time_key') && Fluent::Config.bool_value(conf['include_time_key'])
-          attr['time_key'] ||= 'time'
-          attr['time_type'] ||= 'string'
+          hash['time_key'] ||= 'time'
+          hash['time_type'] ||= 'string'
         end
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
-          attr['time_type'] = 'unixtime'
+          hash['time_type'] = 'unixtime'
         end
         if conf.has_key?('localtime') || conf.has_key?('utc')
           if conf.has_key?('localtime') && conf.has_key?('utc')
             raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
           elsif conf.has_key?('localtime')
-            attr['localtime'] = Fluent::Config.bool_value(conf['localtime'])
+            hash['localtime'] = Fluent::Config.bool_value(conf['localtime'])
           elsif conf.has_key?('utc')
-            attr['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
+            hash['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
             # Specifying "localtime false" means using UTC in TimeFormatter
             # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
             # There are difference between "Z" and "+0000" in timezone formatting.
@@ -184,10 +184,10 @@ module Fluent
         end
 
         if conf.has_key?('include_tag_key') && Fluent::Config.bool_value(conf['include_tag_key'])
-          attr['tag_key'] ||= 'tag'
+          hash['tag_key'] ||= 'tag'
         end
 
-        e = Fluent::Config::Element.new('inject', '', attr, [])
+        e = Fluent::Config::Element.new('inject', '', hash, [])
         conf.elements << e
 
         conf
@@ -198,9 +198,9 @@ module Fluent
         return if PARSER_PARAMS.keys.all?{|k| !conf.has_key?(k) }
 
         # TODO: warn obsolete parameters if these are deprecated
-        attr = compat_parameters_copy_to_subsection_attributes(conf, PARSER_PARAMS)
+        hash = compat_parameters_copy_to_subsection_attributes(conf, PARSER_PARAMS)
 
-        e = Fluent::Config::Element.new('parse', '', attr, [])
+        e = Fluent::Config::Element.new('parse', '', hash, [])
         conf.elements << e
 
         conf
@@ -211,31 +211,31 @@ module Fluent
         return if FORMATTER_PARAMS.keys.all?{|k| !conf.has_key?(k) }
 
         # TODO: warn obsolete parameters if these are deprecated
-        attr = compat_parameters_copy_to_subsection_attributes(conf, FORMATTER_PARAMS)
+        hash = compat_parameters_copy_to_subsection_attributes(conf, FORMATTER_PARAMS)
 
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
-          attr['time_type'] = 'unixtime'
+          hash['time_type'] = 'unixtime'
         end
 
-        e = Fluent::Config::Element.new('format', '', attr, [])
+        e = Fluent::Config::Element.new('format', '', hash, [])
         conf.elements << e
 
         conf
       end
 
       def compat_parameters_copy_to_subsection_attributes(conf, params, &block)
-        attr = {}
+        hash = {}
         params.each do |compat, current|
           next unless current
           if conf.has_key?(compat)
             if block_given?
-              attr[current] = block.call(compat, conf[compat])
+              hash[current] = block.call(compat, conf[compat])
             else
-              attr[current] = conf[compat]
+              hash[current] = conf[compat]
             end
           end
         end
-        attr
+        hash
       end
     end
   end
