@@ -428,8 +428,8 @@ module Fluent::Plugin
       end
 
       def attach
-        yield self
         on_notify
+        yield self
       end
 
       def detach
