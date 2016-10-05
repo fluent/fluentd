@@ -46,6 +46,8 @@ module Fluent
         config_section :extract, required: false, multi: false, param_name: :extract_config do
           config_param :tag_key, :string, default: nil
           config_param :time_key, :string, default: nil
+
+          # To avoid defining :time_type twice
           config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
 
           Fluent::TimeMixin::TIME_PARAMETERS.each do |name, type, opts|
