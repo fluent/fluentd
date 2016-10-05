@@ -287,6 +287,208 @@ class OutputTest < Test::Unit::TestCase
       assert_equal "/mypath/2016/04/11/20-30/fluentd.test.output/////tail", @i.extract_placeholders(tmpl, m)
     end
 
+    sub_test_case '#placeholder_validators' do
+      test 'returns validators for time, tag and keys when a template has placeholders even if plugin is not configured with these keys' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        validators = @i.placeholder_validators(:path, "/my/path/${tag}/${username}/file.%Y%m%d_%H%M.log")
+        assert_equal 3, validators.size
+        assert_equal 1, validators.select(&:time?).size
+        assert_equal 1, validators.select(&:tag?).size
+        assert_equal 1, validators.select(&:keys?).size
+      end
+
+      test 'returns validators for time, tag and keys when a plugin is configured with these keys even if a template does not have placeholders' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,username', {'timekey' => 60})]))
+        validators = @i.placeholder_validators(:path, "/my/path/file.log")
+        assert_equal 3, validators.size
+        assert_equal 1, validators.select(&:time?).size
+        assert_equal 1, validators.select(&:tag?).size
+        assert_equal 1, validators.select(&:keys?).size
+      end
+
+      test 'returns a validator for time if a template has timestamp placeholders' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        validators = @i.placeholder_validators(:path, "/my/path/file.%Y-%m-%d.log")
+        assert_equal 1, validators.size
+        assert_equal 1, validators.select(&:time?).size
+        assert_raise Fluent::ConfigError.new("Parameter 'path' has timestamp placeholders, but chunk key 'time' is not configured") do
+          validators.first.validate!
+        end
+      end
+
+      test 'returns a validator for time if a plugin is configured with time key' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => '30'})]))
+        validators = @i.placeholder_validators(:path, "/my/path/to/file.log")
+        assert_equal 1, validators.size
+        assert_equal 1, validators.select(&:time?).size
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have timestamp placeholders for timekey 30") do
+          validators.first.validate!
+        end
+      end
+
+      test 'returns a validator for tag if a template has tag placeholders' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        validators = @i.placeholder_validators(:path, "/my/path/${tag}/file.log")
+        assert_equal 1, validators.size
+        assert_equal 1, validators.select(&:tag?).size
+        assert_raise Fluent::ConfigError.new("Parameter 'path' has tag placeholders, but chunk key 'tag' is not configured") do
+          validators.first.validate!
+        end
+      end
+
+      test 'returns a validator for tag if a plugin is configured with tag key' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        validators = @i.placeholder_validators(:path, "/my/path/file.log")
+        assert_equal 1, validators.size
+        assert_equal 1, validators.select(&:tag?).size
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have tag placeholder") do
+          validators.first.validate!
+        end
+      end
+
+      test 'returns a validator for variable keys if a template has variable placeholders' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        validators = @i.placeholder_validators(:path, "/my/path/${username}/file.${group}.log")
+        assert_equal 1, validators.size
+        assert_equal 1, validators.select(&:keys?).size
+        assert_raise Fluent::ConfigError.new("Parameter 'path' has placeholders, but chunk keys doesn't have keys group,username") do
+          validators.first.validate!
+        end
+      end
+
+      test 'returns a validator for variable keys if a plugin is configured with variable keys' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'username,group')]))
+        validators = @i.placeholder_validators(:path, "/my/path/file.log")
+        assert_equal 1, validators.size
+        assert_equal 1, validators.select(&:keys?).size
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys group,username") do
+          validators.first.validate!
+        end
+      end
+    end
+
+    sub_test_case '#placeholder_validate!' do
+      test 'raises configuration error for a templace when timestamp placeholders exist but time key is missing' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' has timestamp placeholders, but chunk key 'time' is not configured") do
+          @i.placeholder_validate!(:path, "/path/without/timestamp/file.%Y%m%d-%H%M.log")
+        end
+      end
+
+      test 'raises configuration error for a template without timestamp placeholders when timekey is configured' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {"timekey" => 180})]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have timestamp placeholders for timekey 180") do
+          @i.placeholder_validate!(:path, "/my/path/file.log")
+        end
+        assert_nothing_raised do
+          @i.placeholder_validate!(:path, "/my/path/%Y%m%d/file.%H%M.log")
+        end
+      end
+
+      test 'raises configuration error for a template with timestamp placeholders when plugin is configured more fine timekey' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {"timekey" => 180})]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have timestamp placeholder for hour('%H') for timekey 180") do
+          @i.placeholder_validate!(:path, "/my/path/file.%Y%m%d_%H.log")
+        end
+        assert_nothing_raised do
+          @i.placeholder_validate!(:path, "/my/path/file.%Y%m%d_%H%M.log")
+        end
+      end
+
+      test 'raises configuration error for a template when tag placeholders exist but tag key is missing' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' has tag placeholders, but chunk key 'tag' is not configured") do
+          @i.placeholder_validate!(:path, "/my/path/${tag}/file.${tag[2]}.log")
+        end
+      end
+
+      test 'raises configuration error for a template without tag placeholders when tagkey is configured' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have tag placeholder") do
+          @i.placeholder_validate!(:path, "/my/path/file.log")
+        end
+        assert_nothing_raised do
+          @i.placeholder_validate!(:path, "/my/path/${tag}/file.${tag[2]}.log")
+        end
+      end
+
+      test 'raises configuration error for a template when variable key placeholders exist but chunk keys are missing' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' has placeholders, but chunk keys doesn't have keys service,username") do
+          @i.placeholder_validate!(:path, "/my/path/${service}/file.${username}.log")
+        end
+      end
+
+      test 'raises configuration error for a template without variable key placeholders when chunk keys are configured' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'username,service')]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys service,username") do
+          @i.placeholder_validate!(:path, "/my/path/file.log")
+        end
+        assert_nothing_raised do
+          @i.placeholder_validate!(:path, "/my/path/${service}/file.${username}.log")
+        end
+      end
+
+      test 'raise configuration error for a template and configuration with keys mismatch' do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'username,service')]))
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys service") do
+          @i.placeholder_validate!(:path, "/my/path/file.${username}.log")
+        end
+        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys username") do
+          @i.placeholder_validate!(:path, "/my/path/${service}/file.log")
+        end
+        assert_nothing_raised do
+          @i.placeholder_validate!(:path, "/my/path/${service}/file.${username}.log")
+        end
+      end
+    end
+
+    test '#get_placeholders_time returns seconds,title and example placeholder for a template' do
+      s, t, e = @i.get_placeholders_time("/path/to/dir/yay")
+      assert_nil s
+      assert_nil t
+      assert_nil e
+
+      s, t, e = @i.get_placeholders_time("/path/to/%Y%m%d/yay")
+      assert_equal 86400, s
+      assert_equal :day, t
+      assert_equal '%d', e
+      s, t, e = @i.get_placeholders_time("my birthiday! at %F")
+      assert_equal 86400, s
+      assert_equal :day, t
+      assert_equal '%d', e
+
+      s, t, e = @i.get_placeholders_time("myfile.%Y-%m-%d_%H.log")
+      assert_equal 3600, s
+      assert_equal :hour, t
+      assert_equal '%H', e
+
+      s, t, e = @i.get_placeholders_time("part-%Y%m%d-%H%M.ts")
+      assert_equal 60, s
+      assert_equal :minute, t
+      assert_equal '%M', e
+
+      s, t, e = @i.get_placeholders_time("my first data at %F %T %z")
+      assert_equal 1, s
+      assert_equal :second, t
+      assert_equal '%S', e
+    end
+
+    test '#get_placeholders_tag returns a list of tag part position for a template' do
+      assert_equal [], @i.get_placeholders_tag("db.table")
+      assert_equal [], @i.get_placeholders_tag("db.table_${non_tag}")
+      assert_equal [-1], @i.get_placeholders_tag("table_${tag}")
+      assert_equal [0, 1], @i.get_placeholders_tag("db_${tag[0]}.table_${tag[1]}")
+      assert_equal [-1, 0], @i.get_placeholders_tag("/treedir/${tag[0]}/${tag}")
+    end
+
+    test '#get_placeholders_keys returns a list of keys for a template' do
+      assert_equal [], @i.get_placeholders_keys("/path/to/my/data/file.log")
+      assert_equal [], @i.get_placeholders_keys("/path/to/my/${tag}/file.log")
+      assert_equal ['key1', 'key2'], @i.get_placeholders_keys("/path/to/${key2}/${tag}/file.${key1}.log")
+      assert_equal ['.hidden', '0001', '@timestamp', 'a_key', 'my-domain'], @i.get_placeholders_keys("http://${my-domain}/${.hidden}/${0001}/${a_key}?timestamp=${@timestamp}")
+    end
+
     test '#metadata returns object which contains tag/timekey/variables from records as specified in configuration' do
       tag = 'test.output'
       time = event_time('2016-04-12 15:31:23 -0700')

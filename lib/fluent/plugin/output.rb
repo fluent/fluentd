@@ -36,6 +36,7 @@ module Fluent
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
+      CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
 
@@ -486,12 +487,146 @@ module Fluent
         end
       end
 
+      def placeholder_validate!(name, str)
+        placeholder_validators(name, str).each do |v|
+          v.validate!
+        end
+      end
+
+      def placeholder_validators(name, str, time_key = (@chunk_key_time && @buffer_config.timekey), tag_key = @chunk_key_tag, chunk_keys = @chunk_keys)
+        validators = []
+
+        sec, title, example = get_placeholders_time(str)
+        if sec || time_key
+          validators << PlaceholderValidator.new(name, str, :time, {sec: sec, title: title, example: example, timekey: time_key})
+        end
+
+        parts = get_placeholders_tag(str)
+        if tag_key || !parts.empty?
+          validators << PlaceholderValidator.new(name, str, :tag, {parts: parts, tagkey: tag_key})
+        end
+
+        keys = get_placeholders_keys(str)
+        if chunk_keys && !chunk_keys.empty? || !keys.empty?
+          validators << PlaceholderValidator.new(name, str, :keys, {keys: keys, chunkkeys: chunk_keys})
+        end
+
+        validators
+      end
+
+      class PlaceholderValidator
+        attr_reader :name, :string, :type, :argument
+
+        def initialize(name, str, type, arg)
+          @name = name
+          @string = str
+          @type = type
+          raise ArgumentError, "invalid type:#{type}" if @type != :time && @type != :tag && @type != :keys
+          @argument = arg
+        end
+
+        def time?
+          @type == :time
+        end
+
+        def tag?
+          @type == :tag
+        end
+
+        def keys?
+          @type == :keys
+        end
+
+        def validate!
+          case @type
+          when :time then validate_time!
+          when :tag  then validate_tag!
+          when :keys then validate_keys!
+          end
+        end
+
+        def validate_time!
+          sec = @argument[:sec]
+          title = @argument[:title]
+          example = @argument[:example]
+          timekey = @argument[:timekey]
+          if !sec && timekey
+            raise Fluent::ConfigError, "Parameter '#{name}' doesn't have timestamp placeholders for timekey #{timekey.to_i}"
+          end
+          if sec && !timekey
+            raise Fluent::ConfigError, "Parameter '#{name}' has timestamp placeholders, but chunk key 'time' is not configured"
+          end
+          if sec && timekey && timekey < sec
+            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have timestamp placeholder for #{title}('#{example}') for timekey #{timekey.to_i}"
+          end
+        end
+
+        def validate_tag!
+          parts = @argument[:parts]
+          tagkey = @argument[:tagkey]
+          if tagkey && parts.empty?
+            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have tag placeholder"
+          end
+          if !tagkey && !parts.empty?
+            raise Fluent::ConfigError, "Parameter '#{@name}' has tag placeholders, but chunk key 'tag' is not configured"
+          end
+        end
+
+        def validate_keys!
+          keys = @argument[:keys]
+          chunk_keys = @argument[:chunkkeys]
+          if (chunk_keys - keys).size > 0
+            not_specified = (chunk_keys - keys).sort
+            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have enough placeholders for keys #{not_specified.join(',')}"
+          end
+          if (keys - chunk_keys).size > 0
+            not_satisfied = (keys - chunk_keys).sort
+            raise Fluent::ConfigError, "Parameter '#{@name}' has placeholders, but chunk keys doesn't have keys #{not_satisfied.join(',')}"
+          end
+        end
+      end
+
+      TIME_KEY_PLACEHOLDER_THRESHOLDS = [
+        [1, :second, '%S'],
+        [60, :minute, '%M'],
+        [3600, :hour, '%H'],
+        [86400, :day, '%d'],
+      ]
+      TIMESTAMP_CHECK_BASE_TIME = Time.parse("2016-01-01 00:00:00 UTC")
+      # it's not validated to use timekey larger than 1 day
+      def get_placeholders_time(str)
+        base_str = TIMESTAMP_CHECK_BASE_TIME.strftime(str)
+        TIME_KEY_PLACEHOLDER_THRESHOLDS.each do |triple|
+          sec = triple.first
+          return triple if (TIMESTAMP_CHECK_BASE_TIME + sec).strftime(str) != base_str
+        end
+        nil
+      end
+
+      # -1 means whole tag
+      def get_placeholders_tag(str)
+        # [["tag"],["tag[0]"]]
+        parts = []
+        str.scan(CHUNK_TAG_PLACEHOLDER_PATTERN).map(&:first).each do |ph|
+          if ph == "tag"
+            parts << -1
+          elsif ph =~ /^tag\[(\d+)\]$/
+            parts << $1.to_i
+          end
+        end
+        parts.sort
+      end
+
+      def get_placeholders_keys(str)
+        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| s == "tag"}.sort
+      end
+
       # TODO: optimize this code
       def extract_placeholders(str, metadata)
         if metadata.empty?
           str
         else
-          rvalue = str
+          rvalue = str.dup
           # strftime formatting
           if @chunk_key_time # this section MUST be earlier than rest to use raw 'str'
             @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@timekey_zone, str)
@@ -499,14 +634,18 @@ module Fluent
           end
           # ${tag}, ${tag[0]}, ${tag[1]}, ...
           if @chunk_key_tag
-            if str =~ /\$\{tag\[\d+\]\}/
-              hash = {'${tag}' => metadata.tag}
+            if str.include?('${tag}')
+              rvalue = rvalue.gsub('${tag}', metadata.tag)
+            end
+            if str =~ CHUNK_TAG_PLACEHOLDER_PATTERN
+              hash = {}
               metadata.tag.split('.').each_with_index do |part, i|
                 hash["${tag[#{i}]}"] = part
               end
-              rvalue = rvalue.gsub(/\$\{tag(\[\d+\])?\}/, hash)
-            elsif str.include?('${tag}')
-              rvalue = rvalue.gsub('${tag}', metadata.tag)
+              rvalue = rvalue.gsub(CHUNK_TAG_PLACEHOLDER_PATTERN, hash)
+            end
+            if rvalue =~ CHUNK_TAG_PLACEHOLDER_PATTERN
+              log.warn "tag placeholder '#{$1}' not replaced. tag:#{metadata.tag}, template:#{str}"
             end
           end
           # ${a_chunk_key}, ...
@@ -516,6 +655,9 @@ module Fluent
               hash["${#{key}}"] = metadata.variables[key.to_sym]
             end
             rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN, hash)
+          end
+          if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
+            log.warn "chunk key placeholder '#{$1}' not replaced. templace:#{str}"
           end
           rvalue
         end
