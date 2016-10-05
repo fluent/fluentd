@@ -1107,7 +1107,7 @@ module Fluent
         log.debug "enqueue_thread actually running"
 
         begin
-          while @output_flush_threads_running
+          while @output_flush_threads_running && thread_current_running?
             now_int = Time.now.to_i
             if @output_flush_interrupted
               sleep interval
@@ -1132,16 +1132,17 @@ module Fluent
               end
             rescue => e
               raise if @under_plugin_development
-              log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e
+              log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error: e
               log.error_backtrace
+            ensure
+              @output_enqueue_thread_waiting = false
+              @output_enqueue_thread_mutex.unlock
             end
-            @output_enqueue_thread_waiting = false
-            @output_enqueue_thread_mutex.unlock
             sleep interval
           end
         rescue => e
           # normal errors are rescued by inner begin-rescue clause.
-          log.error "error on enqueue thread", plugin_id: plugin_id, error_class: e.class, error: e
+          log.error "error on enqueue thread", plugin_id: plugin_id, error: e
           log.error_backtrace
           raise
         end
