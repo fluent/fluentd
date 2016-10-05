@@ -741,7 +741,7 @@ module Fluent
       end
 
       def metadata_for_test(tag, time, record)
-        raise "BUG: #test_metadata is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
+        raise "BUG: #metadata_for_test is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
         m = metadata(tag, time, record)
         @buffer.metadata_list_clear!
         m
