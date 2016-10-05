@@ -36,6 +36,7 @@ module Fluent
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
+      CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
 
@@ -606,7 +607,7 @@ module Fluent
       def get_placeholders_tag(str)
         # [["tag"],["tag[0]"]]
         parts = []
-        str.scan(/\$\{(tag(?:\[\d+\])?)\}/).map(&:first).each do |ph|
+        str.scan(CHUNK_TAG_PLACEHOLDER_PATTERN).map(&:first).each do |ph|
           if ph == "tag"
             parts << -1
           elsif ph =~ /^tag\[(\d+)\]$/
@@ -633,16 +634,17 @@ module Fluent
           end
           # ${tag}, ${tag[0]}, ${tag[1]}, ...
           if @chunk_key_tag
-            if str =~ /\$\{tag\[\d+\]\}/
-              hash = {'${tag}' => metadata.tag}
+            if str.include?('${tag}')
+              rvalue = rvalue.gsub('${tag}', metadata.tag)
+            end
+            if str =~ CHUNK_TAG_PLACEHOLDER_PATTERN
+              hash = {}
               metadata.tag.split('.').each_with_index do |part, i|
                 hash["${tag[#{i}]}"] = part
               end
-              rvalue = rvalue.gsub(/\$\{tag(\[\d+\])?\}/, hash)
-            elsif str.include?('${tag}')
-              rvalue = rvalue.gsub('${tag}', metadata.tag)
+              rvalue = rvalue.gsub(CHUNK_TAG_PLACEHOLDER_PATTERN, hash)
             end
-            if rvalue =~ /\$\{tag(?:\[\d+\])?\}/
+            if rvalue =~ CHUNK_TAG_PLACEHOLDER_PATTERN
               log.warn "tag placeholder '#{$1}' not replaced. tag:#{metadata.tag}, template:#{str}"
             end
           end
