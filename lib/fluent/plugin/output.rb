@@ -119,6 +119,12 @@ module Fluent
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
 
+      def formatted_to_msgpack_binary
+        # To indicate custom format method (#format) returns msgpack binary or not.
+        # If #format returns msgpack binary, override this method to return true.
+        false
+      end
+
       def prefer_buffered_processing
         # override this method to return false only when all of these are true:
         #  * plugin has both implementation for buffered and non-buffered methods
@@ -176,6 +182,7 @@ module Fluent
           @buffering = true
         end
         @custom_format = implement?(:custom_format)
+        @enable_msgpack_streamer = false # decided later
 
         @buffer = nil
         @secondary = nil
@@ -340,6 +347,7 @@ module Fluent
           end
 
           @custom_format = implement?(:custom_format)
+          @enable_msgpack_streamer = @custom_format ? formatted_to_msgpack_binary : true
           @delayed_commit = if implement?(:buffered) && implement?(:delayed_commit)
                               prefer_delayed_commit
                             else
@@ -955,7 +963,7 @@ module Fluent
           using_secondary = true
         end
 
-        unless @custom_format
+        if @enable_msgpack_streamer
           chunk.extend ChunkMessagePackEventStreamer
         end
 
