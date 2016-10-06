@@ -224,8 +224,10 @@ class FileOutputTest < Test::Unit::TestCase
       b1_path = d.instance.buffer.stage[m1].path
       b1_size = File.lstat(b1_path).size
 
-      assert File.symlink?("#{TMP_DIR}/full.current.log")
-      assert_equal d.instance.buffer.stage[m2].path, File.readlink("#{TMP_DIR}/full.current.log")
+      unless Fluent.windows?
+        assert File.symlink?("#{TMP_DIR}/full.current.log")
+        assert_equal d.instance.buffer.stage[m2].path, File.readlink("#{TMP_DIR}/full.current.log")
+      end
 
       Timecop.freeze(Time.parse("2016-10-04 00:00:06 UTC"))
 

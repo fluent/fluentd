@@ -54,7 +54,7 @@ module Fluent::Plugin
     config_param :compress, :enum, list: SUPPORTED_COMPRESS, default: :text
     desc "Execute compression again even when buffer chunk is already compressed."
     config_param :recompress, :bool, default: false
-    desc "Create symlink to temporary buffered file when buffer_type is file."
+    desc "Create symlink to temporary buffered file when buffer_type is file (disabled on Windows)."
     config_param :symlink_path, :string, default: nil
 
     config_section :format, init: true do
@@ -132,8 +132,13 @@ module Fluent::Plugin
       @formatter = formatter_create(conf: conf.elements('format').first)
 
       if @symlink_path && @buffer.respond_to?(:path)
-        @buffer.extend SymlinkBufferMixin
-        @buffer.symlink_path = @symlink_path
+        if Fluent.windows?
+          log.warn "symlink_path is unavailable on Windows platform. disabled."
+          @symlink_path = nil
+        else
+          @buffer.extend SymlinkBufferMixin
+          @buffer.symlink_path = @symlink_path
+        end
       end
 
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
