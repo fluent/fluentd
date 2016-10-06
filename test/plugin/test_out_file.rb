@@ -79,13 +79,15 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     test 'configuration error raised if specified directory via template is not writable' do
-      conf = config_element('match', '**', {
-          'path' => "#{TMP_DIR}/prohibited/${tag}/file.%Y%m%d.log",
-        }, [ config_element('buffer', 'time,tag', {'timekey' => 86400}) ])
-      FileUtils.mkdir_p("#{TMP_DIR}/prohibited")
-      File.chmod(0555, "#{TMP_DIR}/prohibited")
-      assert_raise Fluent::ConfigError.new("out_file: `#{TMP_DIR}/prohibited/a/file.20161004.log_**.log` is not writable") do
-        create_driver(conf)
+      Timecop.freeze(Time.parse("2016-10-04 21:33:27 UTC")) do
+        conf = config_element('match', '**', {
+            'path' => "#{TMP_DIR}/prohibited/${tag}/file.%Y%m%d.log",
+          }, [ config_element('buffer', 'time,tag', {'timekey' => 86400, 'timekey_zone' => '+0000'}) ])
+        FileUtils.mkdir_p("#{TMP_DIR}/prohibited")
+        File.chmod(0555, "#{TMP_DIR}/prohibited")
+        assert_raise Fluent::ConfigError.new("out_file: `#{TMP_DIR}/prohibited/a/file.20161004.log_**.log` is not writable") do
+          create_driver(conf)
+        end
       end
     end
 
