@@ -40,6 +40,7 @@ module Fluent
           else
             @instance = klass
           end
+          @instance.under_plugin_development = true
 
           @logs = []
 

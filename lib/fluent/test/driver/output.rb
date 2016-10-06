@@ -18,6 +18,7 @@ require 'fluent/test/driver/base_owner'
 require 'fluent/test/driver/event_feeder'
 
 require 'fluent/plugin/output'
+require 'timeout'
 
 module Fluent
   module Test
@@ -43,6 +44,7 @@ module Fluent
           super(**kwargs, &block)
           if @flush_buffer_at_cleanup
             @instance.force_flush
+            Timeout.timeout(10){ sleep 0.1 until !@instance.buffer || @instance.buffer.queue.size == 0 }
           end
         end
 
@@ -52,6 +54,7 @@ module Fluent
 
         def flush
           @instance.force_flush
+          Timeout.timeout(10){ sleep 0.1 until !@instance.buffer || @instance.buffer.queue.size == 0 }
         end
 
         def instance_hook_after_started

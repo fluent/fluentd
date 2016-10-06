@@ -740,6 +740,13 @@ module Fluent
         end
       end
 
+      def metadata_for_test(tag, time, record)
+        raise "BUG: #metadata_for_test is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
+        m = metadata(tag, time, record)
+        @buffer.metadata_list_clear!
+        m
+      end
+
       def execute_chunking(tag, es, enqueue: false)
         if @simple_chunking
           handle_stream_simple(tag, es, enqueue: enqueue)
@@ -976,6 +983,10 @@ module Fluent
           log.debug "taking back chunk for errors.", plugin_id: plugin_id, chunk: dump_unique_id_hex(chunk.unique_id)
           @buffer.takeback_chunk(chunk.unique_id)
 
+          if @under_plugin_development
+            raise
+          end
+
           @retry_mutex.synchronize do
             if @retry
               @counters_monitor.synchronize{ @num_errors += 1 }
@@ -1120,6 +1131,7 @@ module Fluent
                 @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_timekey && metadata.timekey + timekey_unit + timekey_wait <= now_int }
               end
             rescue => e
+              raise if @under_plugin_development
               log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e
               log.error_backtrace
             end
