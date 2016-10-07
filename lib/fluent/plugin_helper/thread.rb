@@ -112,7 +112,7 @@ module Fluent
         super
         wakeup_threads = []
         @_threads_mutex.synchronize do
-          @_threads.values.each do |thread|
+          @_threads.each_value do |thread|
             thread[:_fluentd_plugin_helper_thread_running] = false
             wakeup_threads << thread if thread.alive? && thread.status == "sleep"
           end
@@ -128,7 +128,7 @@ module Fluent
         super
         wakeup_threads = []
         @_threads_mutex.synchronize do
-          @_threads.values.each do |thread|
+          @_threads.each_value do |thread|
             wakeup_threads << thread if thread.alive? && thread.status == "sleep"
           end
         end
