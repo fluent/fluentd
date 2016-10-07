@@ -4,12 +4,16 @@
 
 ### New features / Enhancement
 
+* Support data compression in buffer plugins
+  https://github.com/fluent/fluentd/pull/1172
 * in_forward: support to transfer compressed data
   https://github.com/fluent/fluentd/pull/1179
 * out_stdout: fix to show nanosecond resolution time
   https://github.com/fluent/fluentd/pull/1249
 * Add option to rotate Fluentd daemon's log
   https://github.com/fluent/fluentd/pull/1235
+* Add extract plugin helper, with symmetric time parameter support in parser/formatter and inject/extract
+  https://github.com/fluent/fluentd/pull/1207
 * Add a feature to parse/format numeric time (unix time [+ subsecond value])
   https://github.com/fluent/fluentd/pull/1254
 * Raise configuration errors for inconsistent <label> configurations
@@ -22,6 +26,8 @@
   https://github.com/fluent/fluentd/pull/1227
 * Add some features to write plugins more easily
   https://github.com/fluent/fluentd/pull/1256
+* Add a tool to load dumped events from file
+  https://github.com/fluent/fluentd/pull/1165
 
 ### Bug fixes
 
