@@ -29,7 +29,6 @@ module Fluent
       class Chunk
         include MonitorMixin
         include UniqueId::Mixin
-        include ChunkMessagePackEventStreamer
 
         # Chunks has 2 part:
         # * metadata: contains metadata which should be restored after resume (if possible)

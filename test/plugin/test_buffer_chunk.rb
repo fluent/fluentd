@@ -31,7 +31,6 @@ class BufferChunkTest < Test::Unit::TestCase
       assert chunk.respond_to?(:read)
       assert chunk.respond_to?(:open)
       assert chunk.respond_to?(:write_to)
-      assert chunk.respond_to?(:msgpack_each)
       assert_raise(NotImplementedError){ chunk.append([]) }
       assert_raise(NotImplementedError){ chunk.concat(nil, 0) }
       assert_raise(NotImplementedError){ chunk.commit }
@@ -43,7 +42,19 @@ class BufferChunkTest < Test::Unit::TestCase
       assert_raise(NotImplementedError){ chunk.read }
       assert_raise(NotImplementedError){ chunk.open(){} }
       assert_raise(NotImplementedError){ chunk.write_to(nil) }
-      assert_raise(NotImplementedError){ chunk.msgpack_each(){|v| v} }
+      assert !chunk.respond_to?(:msgpack_each)
+    end
+
+    test 'has method #each and #msgpack_each only when extended by ChunkMessagePackEventStreamer' do
+      meta = Object.new
+      chunk = Fluent::Plugin::Buffer::Chunk.new(meta)
+
+      assert !chunk.respond_to?(:each)
+      assert !chunk.respond_to?(:msgpack_each)
+
+      chunk.extend Fluent::ChunkMessagePackEventStreamer
+      assert chunk.respond_to?(:each)
+      assert chunk.respond_to?(:msgpack_each)
     end
 
     test 'some methods raise ArgumentError with an option of `compressed: :gzip` and without extending Compressble`' do
@@ -162,9 +173,10 @@ class BufferChunkTest < Test::Unit::TestCase
       assert "my data\nyour data\n", io.to_s
     end
 
-    test 'can feed objects into blocks with unpacking msgpack' do
+    test 'can feed objects into blocks with unpacking msgpack if ChunkMessagePackEventStreamer is included' do
       require 'msgpack'
       c = TestChunk.new(Object.new)
+      c.extend Fluent::ChunkMessagePackEventStreamer
       c.data << MessagePack.pack(['my data', 1])
       c.data << MessagePack.pack(['your data', 2])
       ary = []
