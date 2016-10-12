@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/output'
 require 'fluent/plugin/buffer'
+require 'fluent/output'
 require 'fluent/event'
 
 require 'json'
@@ -126,6 +127,28 @@ module FluentPluginOutputAsBufferedTest
       @try_write ? @try_write.call(chunk) : nil
     end
   end
+  module OldPluginMethodMixin
+    def initialize
+      super
+      @format = nil
+      @write = nil
+    end
+    def register(name, &block)
+      instance_variable_set("@#{name}", block)
+    end
+    def format(tag, time, record)
+      @format ? @format.call(tag, time, record) : [tag, time, record].to_json
+    end
+    def write(chunk)
+      @write ? @write.call(chunk) : nil
+    end
+  end
+  class DummyOldBufferedOutput < Fluent::BufferedOutput
+    include OldPluginMethodMixin
+  end
+  class DummyOldObjectBufferedOutput < Fluent::ObjectBufferedOutput
+    include OldPluginMethodMixin
+  end
 end
 
 class BufferedOutputTest < Test::Unit::TestCase
@@ -138,6 +161,8 @@ class BufferedOutputTest < Test::Unit::TestCase
     when :standard then FluentPluginOutputAsBufferedTest::DummyStandardBufferedOutput.new
     when :custom   then FluentPluginOutputAsBufferedTest::DummyCustomFormatBufferedOutput.new
     when :full     then FluentPluginOutputAsBufferedTest::DummyFullFeatureOutput.new
+    when :old_buf  then FluentPluginOutputAsBufferedTest::DummyOldBufferedOutput.new
+    when :old_obj  then FluentPluginOutputAsBufferedTest::DummyOldObjectBufferedOutput.new
     else
       raise ArgumentError, "unknown type: #{type}"
     end
@@ -344,6 +369,37 @@ class BufferedOutputTest < Test::Unit::TestCase
         assert_equal 'test.tag', each_pushed[0][0]
         assert_equal 'test.tag', each_pushed[1][0]
         assert_equal events, each_pushed.map{|tag,time,record| [time,record]}
+      end
+    end
+
+    data(:BufferedOutput => :old_buf,
+         :ObjectBufferedOutput => :old_obj)
+    test 'old plugin types can iterate chunk by msgpack_each in #write' do |plugin_type|
+      events_from_chunk = []
+      # event_emitter helper requires Engine.root_agent for routing
+      ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { ra }
+      @i = create_output(plugin_type)
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', @hash)]))
+      @i.register(:format) { |tag, time, record| [time, record].to_msgpack }
+      @i.register(:write) { |chunk| e = []; chunk.msgpack_each { |t, r| e << [t, r] }; events_from_chunk << [:write, e]; }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5) { sleep 0.1 until events_from_chunk.size == 2 }
+
+      assert_equal 2, events_from_chunk.size
+      2.times.each do |i|
+        assert_equal :write, events_from_chunk[i][0]
+        assert_equal events, events_from_chunk[i][1]
       end
     end
   end
