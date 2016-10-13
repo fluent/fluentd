@@ -26,6 +26,7 @@ require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 require 'fluent/mixin'
+require 'fluent/event'
 require 'fluent/process' # to load Fluent::DetachProcessMixin
 
 require 'fluent/plugin_helper/compat_parameters'
@@ -123,6 +124,7 @@ module Fluent
       # prepend this module to BufferedOutput (including ObjectBufferedOutput) plugin singleton class
       def write(chunk)
         chunk.extend(ChunkSizeCompatMixin)
+        chunk.extend(ChunkMessagePackEventStreamer)
         chunk.extend(AddKeyToChunkMixin) if chunk.metadata.variables && chunk.metadata.variables.has_key?(:key)
         super
       end
@@ -132,6 +134,7 @@ module Fluent
       # prepend this module to TimeSlicedOutput plugin singleton class
       def write(chunk)
         chunk.extend(ChunkSizeCompatMixin)
+        chunk.extend(ChunkMessagePackEventStreamer)
         chunk.extend(AddTimeSliceKeyToChunkMixin)
         chunk.time_slice_format = @time_slice_format
         chunk.timekey = @_timekey
