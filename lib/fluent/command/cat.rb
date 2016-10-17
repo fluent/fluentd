@@ -17,7 +17,7 @@
 require 'optparse'
 require 'fluent/env'
 require 'fluent/time'
-require 'fluent/engine'
+require 'fluent/msgpack_factory'
 
 op = OptionParser.new
 
@@ -202,7 +202,7 @@ class Writer
     end
 
     begin
-      packer = Fluent::Engine.msgpack_factory.packer
+      packer = Fluent::MessagePackFactory.packer
       socket.write packer.pack([@tag, array])
       socket.flush
     rescue
