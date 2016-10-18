@@ -17,6 +17,9 @@ class FormatterHelperTest < Test::Unit::TestCase
   end
   class Dummy < Fluent::Plugin::TestBase
     helpers :formatter
+    config_section :format do
+      config_set_default :@type, 'example'
+    end
   end
 
   class Dummy2 < Fluent::Plugin::TestBase
@@ -77,12 +80,12 @@ class FormatterHelperTest < Test::Unit::TestCase
     end
   end
 
-  test 'can be configured without format sections' do
+  test 'can be configured with default type without format sections' do
     d = Dummy.new
     assert_nothing_raised do
       d.configure(config_element())
     end
-    assert_equal 0, d._formatters.size
+    assert_equal 1, d._formatters.size
   end
 
   test 'can be configured with a format section' do

@@ -28,6 +28,9 @@ class ParserHelperTest < Test::Unit::TestCase
   end
   class Dummy < Fluent::Plugin::TestBase
     helpers :parser
+    config_section :parse do
+      config_set_default :@type, 'example'
+    end
   end
 
   class Dummy2 < Fluent::Plugin::TestBase
@@ -88,12 +91,10 @@ class ParserHelperTest < Test::Unit::TestCase
     end
   end
 
-  test 'can be configured without parse sections' do
+  test 'can be configured with default type without parse sections' do
     d = Dummy.new
-    assert_nothing_raised do
-      d.configure(config_element())
-    end
-    assert_equal 0, d._parsers.size
+    d.configure(config_element())
+    assert_equal 1, d._parsers.size
   end
 
   test 'can be configured with a parse section' do

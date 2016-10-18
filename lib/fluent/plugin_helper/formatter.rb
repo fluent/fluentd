@@ -24,7 +24,7 @@ module Fluent
     module Formatter
       def formatter_create(usage: '', type: nil, conf: nil, default_type: nil)
         formatter = @_formatters[usage]
-        return formatter if formatter
+        return formatter if formatter && !type && !conf
 
         type = if type
                  type
@@ -61,9 +61,9 @@ module Fluent
       module FormatterParams
         include Fluent::Configurable
         # minimum section definition to instantiate formatter plugin instances
-        config_section :format, required: false, multi: true, param_name: :formatter_configs do
+        config_section :format, required: false, multi: true, init: true, param_name: :formatter_configs do
           config_argument :usage, :string, default: ''
-          config_param    :@type, :string
+          config_param    :@type, :string # config_set_default required for :@type
         end
       end
 
@@ -82,15 +82,13 @@ module Fluent
       def configure(conf)
         super
 
-        if @formatter_configs
-          @formatter_configs.each do |section|
-            if @_formatters[section.usage]
-              raise Fluent::ConfigError, "duplicated formatter configured: #{section.usage}"
-            end
-            formatter = Plugin.new_formatter(section[:@type], parent: self)
-            formatter.configure(section.corresponding_config_element)
-            @_formatters[section.usage] = formatter
+        @formatter_configs.each do |section|
+          if @_formatters[section.usage]
+            raise Fluent::ConfigError, "duplicated formatter configured: #{section.usage}"
           end
+          formatter = Plugin.new_formatter(section[:@type], parent: self)
+          formatter.configure(section.corresponding_config_element)
+          @_formatters[section.usage] = formatter
         end
       end
 
