@@ -22,6 +22,7 @@ module Fluent::Plugin
 
     helpers :inject, :formatter, :compat_parameters
 
+    DEFAULT_LINE_FORMAT_TYPE = 'stdout'
     DEFAULT_FORMAT_TYPE = 'json'
     TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%9N %z'
 
@@ -32,7 +33,8 @@ module Fluent::Plugin
     end
 
     config_section :format do
-      config_set_default :@type, DEFAULT_FORMAT_TYPE
+      config_set_default :@type, DEFAULT_LINE_FORMAT_TYPE
+      config_set_default :output_type, DEFAULT_FORMAT_TYPE
     end
 
     def prefer_buffered_processing
@@ -44,6 +46,7 @@ module Fluent::Plugin
     end
 
     attr_accessor :delayed
+    attr_accessor :formatter
 
     def initialize
       super
@@ -51,14 +54,11 @@ module Fluent::Plugin
     end
 
     def configure(conf)
-      if conf['output_type'] && !conf['format']
-        conf['format'] = conf['output_type']
-      end
       compat_parameters_convert(conf, :inject, :formatter)
 
       super
 
-      @formatter = formatter_create(conf: conf.elements('format').first, default_type: DEFAULT_FORMAT_TYPE)
+      @formatter = formatter_create
     end
 
     def process(tag, es)
@@ -70,7 +70,7 @@ module Fluent::Plugin
 
     def format(tag, time, record)
       record = inject_values_to_record(tag, time, record)
-      "#{Time.at(time).localtime.strftime(TIME_FORMAT)} #{tag}: #{@formatter.format(tag, time, record).chomp}\n"
+      @formatter.format(tag, time, record).chomp + "\n"
     end
 
     def write(chunk)

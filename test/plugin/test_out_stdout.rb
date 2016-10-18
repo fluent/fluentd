@@ -18,15 +18,19 @@ class StdoutOutputTest < Test::Unit::TestCase
   sub_test_case 'non-buffered' do
     test 'configure' do
       d = create_driver
-      assert_equal [], d.instance.formatter_configs
+      assert_equal 1, d.instance.formatter_configs.size # init: true
+      assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
+      assert_equal 'json', d.instance.formatter.output_type
     end
 
     test 'configure output_type' do
       d = create_driver(CONFIG + "\noutput_type json")
-      assert_equal 'json', d.instance.formatter_configs.first[:@type]
+      assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
+      assert_equal 'json', d.instance.formatter.output_type
 
       d = create_driver(CONFIG + "\noutput_type hash")
-      assert_equal 'hash', d.instance.formatter_configs.first[:@type]
+      assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
+      assert_equal 'hash', d.instance.formatter.output_type
 
       assert_raise(Fluent::ConfigError) do
         d = create_driver(CONFIG + "\noutput_type foo")
@@ -83,7 +87,9 @@ class StdoutOutputTest < Test::Unit::TestCase
   sub_test_case 'buffered' do
     test 'configure' do
       d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
-      assert_equal [], d.instance.formatter_configs
+      assert_equal 1, d.instance.formatter_configs.size
+      assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
+      assert_equal 'json', d.instance.formatter.output_type
       assert_equal 10 * 1024, d.instance.buffer_config.chunk_limit_size
       assert d.instance.buffer_config.flush_at_shutdown
       assert_equal ['tag'], d.instance.buffer_config.chunk_keys
@@ -94,10 +100,12 @@ class StdoutOutputTest < Test::Unit::TestCase
 
     test 'configure with output_type' do
       d = create_driver(config_element("ROOT", "", {"output_type" => "json"}, [config_element("buffer")]))
-      assert_equal 'json', d.instance.formatter_configs.first[:@type]
+      assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
+      assert_equal 'json', d.instance.formatter.output_type
 
       d = create_driver(config_element("ROOT", "", {"output_type" => "hash"}, [config_element("buffer")]))
-      assert_equal 'hash', d.instance.formatter_configs.first[:@type]
+      assert_kind_of Fluent::Plugin::StdoutFormatter, d.instance.formatter
+      assert_equal 'hash', d.instance.formatter.output_type
 
       assert_raise(Fluent::ConfigError) do
         create_driver(config_element("ROOT", "", {"output_type" => "foo"}, [config_element("buffer")]))
