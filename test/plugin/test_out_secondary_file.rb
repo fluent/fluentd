@@ -166,7 +166,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         sleep 0.1 until File.stat(path).size == msgpack_binary.size
       end
 
-      assert_equal File.read(path), msgpack_binary
+      assert_equal msgpack_binary, File.binread(path)
     end
 
     test 'path should be incremental when append option is false' do
