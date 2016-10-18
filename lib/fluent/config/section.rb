@@ -166,6 +166,13 @@ module Fluent
           varname = subproxy.variable_name
           elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
           if elements.empty? && subproxy.init?
+            if subproxy.argument && !subproxy.defaults.has_key?(subproxy.argument.first)
+              raise ArgumentError, "#{name}: init is specified, but default value of argument is missing"
+            end
+            missing_keys = subproxy.params.keys.select{|param_name| !subproxy.defaults.has_key?(param_name)}
+            if !missing_keys.empty?
+              raise ArgumentError, "#{name}: init is specified, but there're parameters without default values:#{missing_keys.join(',')}"
+            end
             elements << Fluent::Config::Element.new(subproxy.name.to_s, '', {}, [])
           end
 

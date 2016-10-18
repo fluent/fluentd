@@ -1236,5 +1236,117 @@ module Fluent::Config
         end
       end
     end
+
+    sub_test_case '#config_param without default values cause error if section is configured as init:true' do
+      setup do
+        @type_lookup = ->(type) { Fluent::Configurable.lookup_type(type) }
+        @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
+      end
+
+      test 'with simple config_param with default value' do
+        class InitTestClass01
+          include Fluent::Configurable
+          config_section :subsection, init: true do
+            config_param :param1, :integer, default: 1
+          end
+        end
+        c = InitTestClass01.new
+        c.configure(config_element('root', ''))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 1, c.subsection.first.param1
+      end
+
+      test 'with simple config_param without default value' do
+        class InitTestClass02
+          include Fluent::Configurable
+          config_section :subsection, init: true do
+            config_param :param1, :integer
+          end
+        end
+        c = InitTestClass02.new
+        assert_raises ArgumentError.new("subsection: init is specified, but there're parameters without default values:param1") do
+          c.configure(config_element('root', ''))
+        end
+
+        c.configure(config_element('root', '', {}, [config_element('subsection', '', {'param1' => '1'})]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 1, c.subsection.first.param1
+      end
+
+      test 'with config_param with config_set_default' do
+        module InitTestModule03
+          include Fluent::Configurable
+          config_section :subsection, init: true do
+            config_param :param1, :integer
+          end
+        end
+        class InitTestClass03
+          include Fluent::Configurable
+          include InitTestModule03
+          config_section :subsection do
+            config_set_default :param1, 1
+          end
+        end
+
+        c = InitTestClass03.new
+        c.configure(config_element('root', ''))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 1, c.subsection.first.param1
+      end
+
+      test 'with config_argument with default value' do
+        class InitTestClass04
+          include Fluent::Configurable
+          config_section :subsection, init: true do
+            config_argument :param0, :string, default: 'yay'
+          end
+        end
+
+        c = InitTestClass04.new
+        c.configure(config_element('root', ''))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 'yay', c.subsection.first.param0
+      end
+
+      test 'with config_argument without default value' do
+        class InitTestClass04
+          include Fluent::Configurable
+          config_section :subsection, init: true do
+            config_argument :param0, :string
+          end
+        end
+
+        c = InitTestClass04.new
+        assert_raise ArgumentError.new("subsection: init is specified, but default value of argument is missing") do
+          c.configure(config_element('root', ''))
+        end
+      end
+
+      test 'with config_argument with config_set_default' do
+        module InitTestModule05
+          include Fluent::Configurable
+          config_section :subsection, init: true do
+            config_argument :param0, :string
+          end
+        end
+        class InitTestClass05
+          include Fluent::Configurable
+          include InitTestModule05
+          config_section :subsection do
+            config_set_default :param0, 'foo'
+          end
+        end
+
+        c = InitTestClass05.new
+        c.configure(config_element('root', ''))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 'foo', c.subsection.first.param0
+      end
+    end
   end
 end
