@@ -37,10 +37,11 @@ module Fluent
         end
 
         def run_actual(**kwargs, &block)
-          super(**kwargs, &block)
+          val = super(**kwargs, &block)
           if @flush_buffer_at_cleanup
             @instance.outputs.each{|o| o.force_flush }
           end
+          val
         end
 
         def flush

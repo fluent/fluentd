@@ -139,8 +139,9 @@ module Fluent
             raise ArgumentError, "no stop conditions nor block specified"
           end
 
+          return_value = nil
           proc = if block_given?
-                   ->(){ block.call; sleep(0.1) until stop? }
+                   ->(){ return_value = block.call; sleep(0.1) until stop? }
                  else
                    ->(){ sleep(0.1) until stop? }
                  end
@@ -156,6 +157,7 @@ module Fluent
           else
             proc.call
           end
+          return_value
         end
 
         def stop?
