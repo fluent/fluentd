@@ -140,7 +140,7 @@ module Fluent
           end
 
           proc = if block_given?
-                   ->(){ block.call; sleep(0.1) until stop? }
+                   ->(){ value = block.call; sleep(0.1) until stop?; value }
                  else
                    ->(){ sleep(0.1) until stop? }
                  end
