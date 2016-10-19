@@ -339,15 +339,6 @@ module Fluent
         sub_proxy = ConfigureProxy.new(name, type_lookup: @type_lookup, **kwargs)
         sub_proxy.instance_exec(&block)
 
-        if sub_proxy.init?
-          if sub_proxy.argument && !sub_proxy.defaults.has_key?(sub_proxy.argument.first)
-            raise ArgumentError, "#{name}: init is specified, but default value of argument is missing"
-          end
-          if sub_proxy.params.keys.any?{|param_name| !sub_proxy.defaults.has_key?(param_name)}
-            raise ArgumentError, "#{name}: init is specified, but there're parameters without default values"
-          end
-        end
-
         @params.delete(name)
         @sections[name] = sub_proxy
 

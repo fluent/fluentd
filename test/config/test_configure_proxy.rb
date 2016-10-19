@@ -184,49 +184,6 @@ module Fluent::Config
         end
       end
 
-      sub_test_case '#config_param without default values cause error if section is configured as init:true' do
-        setup do
-          @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
-        end
-
-        test 'with simple config_param with default value' do
-          assert_nothing_raised do
-            @proxy.config_section :subsection, init: true do
-              config_param :param1, :integer, default: 1
-            end
-          end
-        end
-        test 'with simple config_param without default value' do
-          assert_raise ArgumentError do
-            @proxy.config_section :subsection, init: true do
-              config_param :param1, :integer
-            end
-          end
-        end
-        test 'with config_param with config_set_default' do
-          assert_nothing_raised do
-            @proxy.config_section :subsection, init: true do
-              config_param :param1, :integer
-              config_set_default :param1, 1
-            end
-          end
-        end
-        test 'with config_argument' do
-          assert_raise ArgumentError do
-            @proxy.config_section :subsection, init: true do
-              config_argument :param0, :string
-            end
-          end
-        end
-        test 'with config_argument with default value' do
-          assert_nothing_raised do
-            @proxy.config_section :subsection, init: true do
-              config_argument :param0, :string, default: ''
-            end
-          end
-        end
-      end
-
       sub_test_case '#config_set_desc' do
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)

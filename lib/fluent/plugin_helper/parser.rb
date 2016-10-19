@@ -24,7 +24,7 @@ module Fluent
     module Parser
       def parser_create(usage: '', type: nil, conf: nil, default_type: nil)
         parser = @_parsers[usage]
-        return parser if parser
+        return parser if parser && !type && !conf
 
         type = if type
                  type
@@ -61,9 +61,9 @@ module Fluent
       module ParserParams
         include Fluent::Configurable
         # minimum section definition to instantiate parser plugin instances
-        config_section :parse, required: false, multi: true, param_name: :parser_configs do
+        config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
           config_argument :usage, :string, default: ''
-          config_param    :@type, :string
+          config_param    :@type, :string # config_set_default required for :@type
         end
       end
 

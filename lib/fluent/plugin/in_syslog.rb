@@ -25,8 +25,9 @@ module Fluent::Plugin
   class SyslogInput < Input
     Fluent::Plugin.register_input('syslog', self)
 
-    helpers :parser, :event_loop
+    helpers :parser, :compat_parameters, :event_loop
 
+    DEFAULT_PARSER = 'syslog'
     SYSLOG_REGEXP = /^\<([0-9]+)\>(.*)/
 
     FACILITY_MAP = {
@@ -96,31 +97,28 @@ module Fluent::Plugin
     config_param :blocking_timeout, :time, default: 0.5
     config_param :message_length_limit, :size, default: 2048
 
+    config_section :parse do
+      config_set_default :@type, DEFAULT_PARSER
+      config_param :with_priority, :bool, default: true
+    end
+
     def configure(conf)
+      compat_parameters_convert(conf, :parser)
+
       super
 
       @use_default = false
 
-      if conf.has_key?('format')
-        @parser = parser_create(usage: 'syslog_input', type: conf['format'], conf: conf)
-      else
-        conf['with_priority'] = true
-        @parser = parser_create(usage: 'syslog_input', type: 'syslog', conf: conf)
-        @use_default = true
-      end
+      @parser = parser_create
+      @parser_parse_priority = @parser.respond_to?(:with_priority) && @parser.with_priority
+
       @_event_loop_run_timeout = @blocking_timeout
     end
 
     def start
       super
 
-      callback = if @use_default
-                   method(:receive_data)
-                 else
-                   method(:receive_data_parser)
-                 end
-
-      @handler = listen(callback)
+      @handler = listen(method(:message_handler))
       event_loop_attach(@handler)
     end
 
@@ -132,42 +130,30 @@ module Fluent::Plugin
 
     private
 
-    def receive_data_parser(data, addr)
-      m = SYSLOG_REGEXP.match(data)
-      unless m
-        log.warn "invalid syslog message: #{data.dump}"
-        return
+    def message_handler(data, addr)
+      pri = nil
+      text = data
+      unless @parser_parse_priority
+        m = SYSLOG_REGEXP.match(data)
+        unless m
+          log.warn "invalid syslog message: #{data.dump}"
+          return
+        end
+        pri = m[1].to_i
+        text = m[2]
       end
-      pri = m[1].to_i
-      text = m[2]
 
-      @parser.parse(text) { |time, record|
+      @parser.parse(text) do |time, record|
         unless time && record
-          log.warn "pattern not match: #{text.inspect}"
+          log.warn "failed to parse message", data: data
           return
         end
 
         record[@source_host_key] = addr[2] if @include_source_host
         emit(pri, time, record)
-      }
+      end
     rescue => e
-      log.error data.dump, error: e.to_s
-      log.error_backtrace
-    end
-
-    def receive_data(data, addr)
-      @parser.parse(data) { |time, record|
-        unless time && record
-          log.warn "invalid syslog message", data: data
-          return
-        end
-
-        pri = record.delete('pri')
-        record[@source_host_key] = addr[2] if @include_source_host
-        emit(pri, time, record)
-      }
-    rescue => e
-      log.error data.dump, error: e.to_s
+      log.error "invalid input", data: data, error: e
       log.error_backtrace
     end
 

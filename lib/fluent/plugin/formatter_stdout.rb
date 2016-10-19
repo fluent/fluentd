@@ -21,6 +21,8 @@ module Fluent
     class StdoutFormatter < Formatter
       Plugin.register_formatter('stdout', self)
 
+      TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%9N %z'
+
       config_param :output_type, :string, default: 'json'
 
       def configure(conf)
@@ -36,8 +38,7 @@ module Fluent
       end
 
       def format(tag, time, record)
-        header = "#{Time.now.localtime} #{tag}: "
-        "#{header}#{@sub_formatter.format(tag, time, record)}"
+        "#{Time.at(time).localtime.strftime(TIME_FORMAT)} #{tag}: #{@sub_formatter.format(tag, time, record).chomp}\n"
       end
 
       def stop
