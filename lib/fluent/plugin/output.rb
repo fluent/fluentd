@@ -207,6 +207,7 @@ module Fluent
           @timekey_zone = @primary_instance.timekey_zone
           @output_time_formatter_cache = {}
         end
+        self.context_router = primary.context_router
 
         (class << self; self; end).module_eval do
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
@@ -317,7 +318,6 @@ module Fluent
           @secondary = Plugin.new_output(secondary_type)
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
-          @secondary.router = router if @secondary.has_router?
           if (self.class != @secondary.class) && (@custom_format || @secondary.implement?(:custom_format))
             log.warn "secondary type should be same with primary one", primary: self.class.to_s, secondary: @secondary.class.to_s
           end

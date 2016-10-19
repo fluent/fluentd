@@ -233,7 +233,7 @@ module Fluent
       # <source> emits events to the top-level event router (RootAgent#event_router).
       # Input#configure overwrites event_router to a label's event_router if it has `@label` parameter.
       # See also 'fluentd/plugin/input.rb'
-      input.router = @event_router
+      input.context_router = @event_router
       input.configure(conf)
       @inputs << input
 

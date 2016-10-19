@@ -31,6 +31,7 @@ module Fluent
       def initialize
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
+        @_context_router = nil
         @under_plugin_development = false
       end
 
@@ -43,6 +44,14 @@ module Fluent
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
         @_state.configure = true
         self
+      end
+
+      def context_router=(router)
+        @_context_router = router
+      end
+
+      def context_router
+        @_context_router
       end
 
       def start
