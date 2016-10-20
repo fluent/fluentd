@@ -110,6 +110,26 @@ module FluentTest
     end
   end
 
+  class FluentTestBufferedOutput < ::Fluent::Plugin::Output
+    ::Fluent::Plugin.register_output('test_out_buffered', self)
+    def write(chunk)
+      # drop everything
+    end
+  end
+
+  class FluentTestEmitOutput < ::Fluent::Plugin::Output
+    ::Fluent::Plugin.register_output('test_out_emit', self)
+    helpers :event_emitter
+    def write(chunk)
+      tag = chunk.metadata.tag || 'test'
+      array = []
+      chunk.each do |time, record|
+        array << [time, record]
+      end
+      router.emit_array(tag, array)
+    end
+  end
+
   class FluentTestErrorOutput < ::Fluent::Plugin::Output
     ::Fluent::Plugin.register_output('test_out_error', self)
 

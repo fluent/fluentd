@@ -207,6 +207,145 @@ EOC
     end
   end
 
+  sub_test_case 'configured with label and secondary plugin' do
+    setup do
+      @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent{ @ra }
+      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+<source>
+  @type test_in
+  @label @route_a
+</source>
+<label @route_a>
+  <match a.**>
+    @type test_out_buffered
+    <secondary>
+      @type test_out_emit
+    </secondary>
+  </match>
+</label>
+<label @route_b>
+  <match b.**>
+    @type test_out
+  </match>
+</label>
+EOC
+    end
+
+    test 'secondary plugin has an event router for the label which the plugin is in' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 2, @ra.labels.size
+      assert_equal ['@route_a', '@route_b'], @ra.labels.keys
+      assert_equal '@route_a', @ra.labels['@route_a'].context
+      assert_equal '@route_b', @ra.labels['@route_b'].context
+
+      c1 = @ra.labels['@route_a']
+
+      assert_equal 1, c1.outputs.size
+      assert !c1.outputs.first.has_router?
+
+      assert c1.outputs.first.secondary
+      assert c1.outputs.first.secondary.has_router?
+      assert_equal c1.event_router, c1.outputs.first.secondary.router
+    end
+  end
+
+  sub_test_case 'configured with label and secondary plugin with @label specifier' do
+    setup do
+      @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent{ @ra }
+      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+<source>
+  @type test_in
+  @label @route_a
+</source>
+<label @route_a>
+  <match a.**>
+    @type test_out_buffered
+    <secondary>
+      @type test_out_emit
+      @label @route_b
+    </secondary>
+  </match>
+</label>
+<label @route_b>
+  <match b.**>
+    @type test_out
+  </match>
+</label>
+EOC
+    end
+
+    test 'secondary plugin has an event router for the label specified in secondary section' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 2, @ra.labels.size
+      assert_equal ['@route_a', '@route_b'], @ra.labels.keys
+      assert_equal '@route_a', @ra.labels['@route_a'].context
+      assert_equal '@route_b', @ra.labels['@route_b'].context
+
+      c1 = @ra.labels['@route_a']
+      c2 = @ra.labels['@route_b']
+
+      assert_equal 1, c1.outputs.size
+      assert !c1.outputs.first.has_router?
+
+      assert c1.outputs.first.secondary
+      assert c1.outputs.first.secondary.has_router?
+      assert_equal c2.event_router, c1.outputs.first.secondary.router
+    end
+  end
+
+  sub_test_case 'configured with label and secondary plugin with @label specifier in primary output' do
+    setup do
+      @ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent{ @ra }
+      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+<source>
+  @type test_in
+  @label @route_a
+</source>
+<label @route_a>
+  <match a.**>
+    @type test_out_emit
+    @label @route_b
+    <secondary>
+      @type test_out_emit
+    </secondary>
+  </match>
+</label>
+<label @route_b>
+  <match b.**>
+    @type test_out
+  </match>
+</label>
+EOC
+    end
+
+    test 'secondary plugin has an event router for the label specified in secondary section' do
+      assert_equal 1, @ra.inputs.size
+      assert_equal 2, @ra.labels.size
+      assert_equal ['@route_a', '@route_b'], @ra.labels.keys
+      assert_equal '@route_a', @ra.labels['@route_a'].context
+      assert_equal '@route_b', @ra.labels['@route_b'].context
+
+      c1 = @ra.labels['@route_a']
+      c2 = @ra.labels['@route_b']
+
+      assert_equal 1, c1.outputs.size
+      assert c1.outputs.first.secondary
+
+      p1 = c1.outputs.first
+      assert p1.has_router?
+      assert_equal c1.event_router, p1.context_router
+      assert_equal c2.event_router, p1.router
+
+      s1 = p1.secondary
+      assert s1.has_router?
+      assert_equal c1.event_router, s1.context_router
+      assert_equal c2.event_router, s1.router
+    end
+  end
+
   sub_test_case 'configured with MultiOutput plugins' do
     setup do
       @ra = RootAgent.new(log: $log)

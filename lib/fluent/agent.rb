@@ -123,7 +123,7 @@ module Fluent
       log.info "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       output = Plugin.new_output(type)
-      output.router = @event_router if output.respond_to?(:router=)
+      output.context_router = @event_router
       output.configure(conf)
       @outputs << output
       if output.respond_to?(:outputs) && output.respond_to?(:multi_output?) && output.multi_output?
@@ -144,7 +144,7 @@ module Fluent
       log.info "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       filter = Plugin.new_filter(type)
-      filter.router = @event_router
+      filter.context_router = @event_router
       filter.configure(conf)
       @filters << filter
       @event_router.add_rule(pattern, filter)

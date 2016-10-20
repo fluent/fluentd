@@ -69,9 +69,7 @@ module Fluent
           log.debug "adding store", type: type
 
           output = Fluent::Plugin.new_output(type)
-          if output.has_router?
-            output.router = router
-          end
+          output.context_router = self.context_router
           output.configure(store_conf)
           @outputs << output
         end
