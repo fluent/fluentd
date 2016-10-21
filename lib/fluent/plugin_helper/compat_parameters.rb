@@ -49,6 +49,12 @@ module Fluent
 
       PARSER_PARAMS = {
         "format" => "@type",
+        "types" => nil,
+        "types_delimiter" => nil,
+        "types_label_delimiter" => nil,
+        "null_value_pattern" => "null_value_pattern",
+        "null_empty_string" => "null_empty_string",
+        "keys" => "keys", # CSVParser, TSVParser (old ValuesParser)
         "time_key"    => "time_key",
         "time_format" => "time_format",
         "delimiter"   => "delimiter",
@@ -199,6 +205,17 @@ module Fluent
 
         # TODO: warn obsolete parameters if these are deprecated
         hash = compat_parameters_copy_to_subsection_attributes(conf, PARSER_PARAMS)
+
+        if conf["types"]
+          delimiter = conf["types_delimiter"] || ','
+          label_delimiter = conf["types_label_delimiter"] || ':'
+          types = {}
+          conf['types'].split(delimiter).each do |pair|
+            key, value = pair.split(label_delimiter, 2)
+            types[key] = value
+          end
+          hash["types"] = JSON.dump(types)
+        end
 
         e = Fluent::Config::Element.new('parse', '', hash, [])
         conf.elements << e
