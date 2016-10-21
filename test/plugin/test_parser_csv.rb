@@ -37,8 +37,7 @@ class CSVParserTest < ::Test::Unit::TestCase
     }
 
     d = Fluent::Test::Driver::Parser.new(Fluent::Plugin::CSVParser)
-    d.instance.estimate_current_event = false
-    d.configure('keys' => param)
+    d.configure('keys' => param, 'estimate_current_event' => 'no')
     d.instance.parse("192.168.0.1,111") { |time, record|
       assert_equal({
                      'c' => '192.168.0.1',

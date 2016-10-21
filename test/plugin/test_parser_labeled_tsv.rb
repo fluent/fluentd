@@ -78,8 +78,7 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
     }
 
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
-    parser.instance.estimate_current_event = false
-    parser.configure({})
+    parser.configure({'estimate_current_event' => 'no'})
     parser.instance.parse("host:192.168.0.1\treq_id:111") { |time, record|
       assert_equal({
                      'host'   => '192.168.0.1',

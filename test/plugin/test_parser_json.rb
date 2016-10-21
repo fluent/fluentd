@@ -44,8 +44,7 @@ class JsonParserTest < ::Test::Unit::TestCase
     }
 
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
-    parser.instance.estimate_current_event = false
-    parser.configure('json_parser' => data)
+    parser.configure('json_parser' => data, 'estimate_current_event' => 'false')
     parser.instance.parse('{"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
       assert_equal({
                      'host'   => '192.168.0.1',

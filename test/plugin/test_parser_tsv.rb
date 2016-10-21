@@ -13,7 +13,9 @@ class TSVParserTest < ::Test::Unit::TestCase
 
   data('array param' => '["a","b"]', 'string param' => 'a,b')
   def test_config_params(param)
-    d = create_driver
+    d = create_driver(
+      'keys' => param,
+    )
 
     assert_equal "\t", d.instance.delimiter
 
@@ -51,8 +53,7 @@ class TSVParserTest < ::Test::Unit::TestCase
     }
 
     d = Fluent::Test::Driver::Parser.new(Fluent::Plugin::TSVParser)
-    d.instance.estimate_current_event = false
-    d.configure('keys' => 'a,b', 'time_key' => 'time')
+    d.configure('keys' => 'a,b', 'time_key' => 'time', 'estimate_current_event' => 'no')
     d.instance.parse("192.168.0.1\t111") { |time, record|
       assert_equal({
                      'a' => '192.168.0.1',
