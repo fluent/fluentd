@@ -197,7 +197,7 @@ module Fluent
                     else Time.now.localtime.utc_offset # utc
                     end
 
-      strptime = format && (Strptime.new(time_format) rescue nil)
+      strptime = format && (Strptime.new(format) rescue nil)
 
       @parse = case
                when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
@@ -291,7 +291,7 @@ module Fluent
 
       begin
         sec_s, nsec_s, _ = value.split('.', 3) # throw away second-dot and later
-        nsec_s = nsec_s[0..9]
+        nsec_s = nsec_s && nsec_s[0..9] || '0'
         nsec_s += '0' * (9 - nsec_s.size) if nsec_s.size < 9
         time = Fluent::EventTime.new(sec_s.to_i, nsec_s.to_i)
       rescue => e
