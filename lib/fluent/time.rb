@@ -107,6 +107,8 @@ module Fluent
   end
 
   module TimeMixin
+    TIME_TYPES = ['string', 'unixtime', 'float']
+
     TIME_PARAMETERS = [
       [:time_format, :string, {default: nil}],
       [:localtime, :bool, {default: true}],  # UTC if :localtime is false and :timezone is nil
@@ -115,7 +117,7 @@ module Fluent
     ]
     TIME_FULL_PARAMETERS = [
       # To avoid to define :time_type twice (in plugin_helper/inject)
-      [:time_type, :enum, {default: :string, list: [:string, :unixtime, :float]}],
+      [:time_type, :enum, {default: :string, list: TIME_TYPES.map(&:to_sym)}],
     ] + TIME_PARAMETERS
 
     module TimeParameters
