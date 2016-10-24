@@ -29,7 +29,13 @@ module Fluent
       config_set_default :time_key, 'time'
       config_param :json_parser, :enum, list: [:oj, :yajl, :json], default: :oj
 
+      config_set_default :time_type, :float
+
       def configure(conf)
+        if conf.has_key?('time_format')
+          conf['time_type'] ||= 'string'
+        end
+
         super
         @load_proc, @error_class = configure_json_parser(@json_parser)
       end
