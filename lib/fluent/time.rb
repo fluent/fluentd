@@ -250,8 +250,8 @@ module Fluent
     end
 
     def parse_unixtime(value)
-      unless value.is_a?(String)
-        raise TimeParseError, "value must be a string: #{value}"
+      unless value.is_a?(String) || value.is_a?(Numeric)
+        raise TimeParseError, "value must be a string or a number: #{value}(value.class)"
       end
 
       if @cache1_key == value
@@ -281,8 +281,8 @@ module Fluent
     ## parse_by_to_r  (full): 28.722362 sec
     ## parse_by_to_r  (msec): 28.232856 sec
     def parse_float(value)
-      unless value.is_a?(String)
-        raise TimeParseError, "value must be a string: #{value}"
+      unless value.is_a?(String) || value.is_a?(Numeric)
+        raise TimeParseError, "value must be a string or a number: #{value}(value.class)"
       end
 
       if @cache1_key == value
@@ -292,7 +292,7 @@ module Fluent
       end
 
       begin
-        sec_s, nsec_s, _ = value.split('.', 3) # throw away second-dot and later
+        sec_s, nsec_s, _ = value.to_s.split('.', 3) # throw away second-dot and later
         nsec_s = nsec_s && nsec_s[0..9] || '0'
         nsec_s += '0' * (9 - nsec_s.size) if nsec_s.size < 9
         time = Fluent::EventTime.new(sec_s.to_i, nsec_s.to_i)

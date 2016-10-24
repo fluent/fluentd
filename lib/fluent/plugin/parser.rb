@@ -85,11 +85,13 @@ module Fluent
         else
           nil
         end
+      rescue Fluent::TimeParser::TimeParseError => e
+        raise ParserError, e.message
       end
 
       # def parse(text, &block)
-      #   time, record = ...
-      #   yield convert_values(time, record)
+      #   time, record = convert_values(time, record)
+      #   yield time, record
       # end
       def convert_values(time, record)
         return time, record unless @execute_convert_values
