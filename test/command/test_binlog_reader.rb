@@ -58,8 +58,12 @@ class TestBaseCommand < ::Test::Unit::TestCase
   def create_message_packed_file(path, times = [event_time], records = [{ 'message' => 'dummy' }])
     es = Fluent::MultiEventStream.new(times, records)
     v = es.to_msgpack_stream
-    File.open("#{TMP_DIR}/#{path}", 'w') do |f|
+    out_path = "#{TMP_DIR}/#{path}"
+    File.open(out_path, 'wb') do |f|
       f.print(v)
+    end
+    waiting(5) do
+      sleep 0.5 until File.size(out_path) == v.bytesize
     end
   end
 

@@ -164,7 +164,7 @@ module BinlogReaderCommand
     def call
       @formatter = lookup_formatter(@options[:format], @options[:config_params])
 
-      File.open(@path, 'r') do |io|
+      File.open(@path, 'rb') do |io|
         i = 1
         Fluent::MessagePackFactory.unpacker(io).each do |(time, record)|
           print @formatter.format(@path, time, record) # path is used for tag
