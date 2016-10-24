@@ -34,7 +34,8 @@ module Fluent
           key, value = pair.split(@label_delimiter, 2)
           r[key] = value
         end
-        yield convert_values(parse_time(r), r)
+        time, record = convert_values(parse_time(r), r)
+        yield time, record
       end
     end
   end

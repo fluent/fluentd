@@ -30,14 +30,15 @@ module Fluent
           return
         end
 
-        record = {}
+        r = {}
         m.names.each do |name|
           if value = m[name]
-            record[name] = value
+            r[name] = value
           end
         end
 
-        yield convert_values(parse_time(record), record)
+        time, record = convert_values(parse_time(r), r)
+        yield time, record
       end
     end
   end
