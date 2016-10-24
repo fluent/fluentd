@@ -34,7 +34,7 @@ module Fluent
       ### types can be specified as string-based hash style
       # field1:type, field2:type, field3:type:option, field4:type:option
       ### or, JSON format
-      # {"field1":"type", "field2":"type", "field3":"type:option", "field4":["type", "option"]}
+      # {"field1":"type", "field2":"type", "field3":"type:option", "field4":"type:option"}
       config_param :types, :hash, value_type: :string, default: nil
 
       # available options are:
@@ -123,11 +123,7 @@ module Fluent
         converters = {}
 
         types.each_pair do |field_name, type_definition|
-          type, option = if type_definition.is_a?(Array)
-                           type_definition
-                         else
-                           type_definition.split(":", 2)
-                         end
+          type, option = type_definition.split(":", 2)
           unless AVAILABLE_PARSER_VALUE_TYPES.include?(type)
             raise Fluent::ConfigError, "unknown value conversion for key:'#{field_name}', type:'#{type}'"
           end
