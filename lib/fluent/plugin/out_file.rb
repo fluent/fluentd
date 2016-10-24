@@ -57,7 +57,7 @@ module Fluent::Plugin
     desc "Create symlink to temporary buffered file when buffer_type is file (disabled on Windows)."
     config_param :symlink_path, :string, default: nil
 
-    config_section :format, init: true do
+    config_section :format do
       config_set_default :@type, 'out_file'
     end
 
@@ -129,7 +129,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
       end
 
-      @formatter = formatter_create(conf: conf.elements('format').first)
+      @formatter = formatter_create
 
       if @symlink_path && @buffer.respond_to?(:path)
         if Fluent.windows?
