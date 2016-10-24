@@ -130,6 +130,8 @@ module Fluent
               key, value = pair.split(label_delimiter, 2)
               if value.start_with?("time#{label_delimiter}")
                 value = value.split(label_delimiter, 2).join(':')
+              elsif value.start_with?("array#{label_delimiter}")
+                value = value.split(label_delimiter, 2).join(':')
               end
               types[key] = value
             end
