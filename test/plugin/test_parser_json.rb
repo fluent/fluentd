@@ -77,8 +77,8 @@ class JsonParserTest < ::Test::Unit::TestCase
     parser.configure('json_parser' => data)
     text = "100.1"
     parser.instance.parse("{\"time\":\"#{text}\"}") do |time, record|
-      assert_equal Time.at(text.to_f).to_i, time.sec
-      assert_equal Time.at(text.to_f).nsec, time.nsec
+      assert_equal 100, time.sec
+      assert_equal 100_000_000, time.nsec
     end
   end
 
