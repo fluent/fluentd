@@ -24,6 +24,9 @@ end
 
 desc 'Run test_unit based test'
 Rake::TestTask.new(:base_test) do |t|
+  # To run test with dumping all test case names (to find never ending test case)
+  #  $ bundle exec rake test TESTOPTS=-v
+  #
   # To run test for only one file (or file path pattern)
   #  $ bundle exec rake base_test TEST=test/test_specified_path.rb
   #  $ bundle exec rake base_test TEST=test/test_*.rb

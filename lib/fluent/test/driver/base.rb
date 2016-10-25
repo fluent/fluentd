@@ -26,6 +26,8 @@ module Fluent
       class Base
         attr_reader :instance, :logs
 
+        DEFAULT_TIMEOUT = 300
+
         def initialize(klass, opts: {}, &block)
           if klass.is_a?(Class)
             if block
@@ -130,10 +132,9 @@ module Fluent
             end
           end
 
-          if timeout
-            stop_at = Time.now + timeout
-            @run_breaking_conditions << ->(){ Time.now >= stop_at }
-          end
+          timeout ||= DEFAULT_TIMEOUT
+          stop_at = Time.now + timeout
+          @run_breaking_conditions << ->(){ Time.now >= stop_at }
 
           if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
             raise ArgumentError, "no stop conditions nor block specified"
@@ -146,16 +147,12 @@ module Fluent
                    ->(){ sleep(0.1) until stop? }
                  end
 
-          if timeout
-            begin
-              Timeout.timeout(timeout * 1.1) do |sec|
-                proc.call
-              end
-            rescue Timeout::Error
-              @broken = true
+          begin
+            Timeout.timeout(timeout * 1.1) do |sec|
+              proc.call
             end
-          else
-            proc.call
+          rescue Timeout::Error
+            @broken = true
           end
           return_value
         end
