@@ -43,8 +43,7 @@ class NoneParserTest < ::Test::Unit::TestCase
     }
 
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin.new_parser('none'))
-    parser.instance.estimate_current_event = false
-    parser.configure({})
+    parser.configure({'estimate_current_event' => 'false'})
     parser.instance.parse('log message!') { |time, record|
       assert_equal({'message' => 'log message!'}, record)
       assert_nil time, "parser returns nil w/o time if configured so"

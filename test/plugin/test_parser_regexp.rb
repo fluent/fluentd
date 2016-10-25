@@ -28,7 +28,12 @@ class RegexpParserTest < ::Test::Unit::TestCase
       if initialize_conf
         Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp, conf))
       else
-        Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
+        # Fluent::Test::Driver::Parser.new(Fluent::Compat::TextParser::RegexpParser.new(regexp)).configure(conf)
+        instance = Fluent::Compat::TextParser::RegexpParser.new(regexp)
+        instance.configure(conf)
+        d = Struct.new(:instance).new
+        d.instance = instance
+        d
       end
     end
 
@@ -188,12 +193,11 @@ class RegexpParserTest < ::Test::Unit::TestCase
       internal_test_case(d.instance)
     end
 
-    def test_parse_with_typed_and_name_separator
+    def test_parse_with_typed_by_json_hash
       conf = {
         'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
         'time_format' => "%d/%b/%Y:%H:%M:%S %z",
-        'types' => 'user|string,date|time|%d/%b/%Y:%H:%M:%S %z,flag|bool,path|array,code|float,size|integer',
-        'types_label_delimiter' => '|'
+        'types' => '{"user":"string","date":"time:%d/%b/%Y:%H:%M:%S %z","flag":"bool","path":"array","code":"float","size":"integer"}',
       }
       d = create_driver(conf)
       internal_test_case(d.instance)

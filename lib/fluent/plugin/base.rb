@@ -46,6 +46,14 @@ module Fluent
         self
       end
 
+      def string_safe_encoding(str)
+        unless str.valid_encoding?
+          log.info "invalid byte sequence is replaced in `#{str}`" if self.respond_to?(:log)
+          str = str.scrub('?')
+        end
+        yield str
+      end
+
       def context_router=(router)
         @_context_router = router
       end

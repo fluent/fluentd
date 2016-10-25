@@ -107,6 +107,8 @@ module Fluent
   end
 
   module TimeMixin
+    TIME_TYPES = ['string', 'unixtime', 'float']
+
     TIME_PARAMETERS = [
       [:time_format, :string, {default: nil}],
       [:localtime, :bool, {default: true}],  # UTC if :localtime is false and :timezone is nil
@@ -115,7 +117,7 @@ module Fluent
     ]
     TIME_FULL_PARAMETERS = [
       # To avoid to define :time_type twice (in plugin_helper/inject)
-      [:time_type, :enum, {default: :string, list: [:string, :unixtime, :float]}],
+      [:time_type, :enum, {default: :string, list: TIME_TYPES.map(&:to_sym)}],
     ] + TIME_PARAMETERS
 
     module TimeParameters
@@ -197,7 +199,7 @@ module Fluent
                     else Time.now.localtime.utc_offset # utc
                     end
 
-      strptime = format && (Strptime.new(time_format) rescue nil)
+      strptime = format && (Strptime.new(format) rescue nil)
 
       @parse = case
                when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
@@ -248,8 +250,8 @@ module Fluent
     end
 
     def parse_unixtime(value)
-      unless value.is_a?(String)
-        raise TimeParseError, "value must be a string: #{value}"
+      unless value.is_a?(String) || value.is_a?(Numeric)
+        raise TimeParseError, "value must be a string or a number: #{value}(value.class)"
       end
 
       if @cache1_key == value
@@ -279,8 +281,8 @@ module Fluent
     ## parse_by_to_r  (full): 28.722362 sec
     ## parse_by_to_r  (msec): 28.232856 sec
     def parse_float(value)
-      unless value.is_a?(String)
-        raise TimeParseError, "value must be a string: #{value}"
+      unless value.is_a?(String) || value.is_a?(Numeric)
+        raise TimeParseError, "value must be a string or a number: #{value}(value.class)"
       end
 
       if @cache1_key == value
@@ -290,8 +292,8 @@ module Fluent
       end
 
       begin
-        sec_s, nsec_s, _ = value.split('.', 3) # throw away second-dot and later
-        nsec_s = nsec_s[0..9]
+        sec_s, nsec_s, _ = value.to_s.split('.', 3) # throw away second-dot and later
+        nsec_s = nsec_s && nsec_s[0..9] || '0'
         nsec_s += '0' * (9 - nsec_s.size) if nsec_s.size < 9
         time = Fluent::EventTime.new(sec_s.to_i, nsec_s.to_i)
       rescue => e
