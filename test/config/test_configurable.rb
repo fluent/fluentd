@@ -346,6 +346,19 @@ module ConfigurableSpec
       configured_in :buffer
       config_param :size_of_something, :size, default: 128
     end
+
+    class BufferBase
+      include Fluent::Configurable
+    end
+
+    class BufferSubclass < BufferBase
+      attr_accessor :owner
+      configured_in :buffer
+      config_param :size_of_something, :size, default: 512
+    end
+
+    class BufferSubclass2 < BufferSubclass
+    end
   end
   class UnRecommended
     include Fluent::Configurable
@@ -1038,6 +1051,8 @@ module Fluent::Config
       test 'for feature plugin which has flat parameters with parent' do
         owner = ConfigurableSpec::OverwriteDefaults::Owner.new
         child = ConfigurableSpec::OverwriteDefaults::FlatChild.new
+        assert_nil child.class.merged_configure_proxy.configured_in_section
+
         child.owner = owner
         child.configure(config_element('ROOT', '', {}, []))
         assert_equal "V1", child.key1
@@ -1046,6 +1061,8 @@ module Fluent::Config
       test 'for feature plugin which has parameters in subsection of parent' do
         owner = ConfigurableSpec::OverwriteDefaults::Owner.new
         child = ConfigurableSpec::OverwriteDefaults::BufferChild.new
+        assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
+
         child.owner = owner
         child.configure(config_element('ROOT', '', {}, []))
         assert_equal 1024, child.size_of_something
@@ -1054,9 +1071,37 @@ module Fluent::Config
       test 'even in subclass of owner' do
         owner = ConfigurableSpec::OverwriteDefaults::SubOwner.new
         child = ConfigurableSpec::OverwriteDefaults::BufferChild.new
+        assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
+
         child.owner = owner
         child.configure(config_element('ROOT', '', {}, []))
         assert_equal 2048, child.size_of_something
+      end
+
+      test 'the first configured_in (in the order from base class) will be applied' do
+        child = ConfigurableSpec::OverwriteDefaults::BufferSubclass.new
+        assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
+
+        child.configure(config_element('ROOT', '', {}, []))
+        assert_equal 512, child.size_of_something
+      end
+
+      test 'the first configured_in is valid with owner classes' do
+        owner = ConfigurableSpec::OverwriteDefaults::Owner.new
+        child = ConfigurableSpec::OverwriteDefaults::BufferSubclass.new
+        assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
+
+        child.owner = owner
+        child.configure(config_element('ROOT', '', {}, []))
+        assert_equal 1024, child.size_of_something
+      end
+
+      test 'the only first configured_in is valid even in subclasses of a class with configured_in' do
+        child = ConfigurableSpec::OverwriteDefaults::BufferSubclass2.new
+        assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
+
+        child.configure(config_element('ROOT', '', {}, []))
+        assert_equal 512, child.size_of_something
       end
     end
 
