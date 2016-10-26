@@ -71,9 +71,7 @@ module Fluent
       root.instance_eval{ @params.keys }.each do |param_name|
         next if param_name.to_s.start_with?('@')
         varname = "@#{param_name}".to_sym
-        if (! root[param_name].nil?) || (instance_variable_defined?(varname) && instance_variable_get(varname).nil?)
-          instance_variable_set(varname, root[param_name])
-        end
+        instance_variable_set(varname, root[param_name])
       end
 
       self
