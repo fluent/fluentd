@@ -785,22 +785,24 @@ class ForwardInputTest < Test::Unit::TestCase
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
-    data(tcp: {
-           config: CONFIG,
-           options: {
-             auth: false
-           }
-         },
-         auth: {
-           config: CONFIG_AUTH,
-           options: {
-             auth: true
-           }
-         })
+    data(
+      tcp: {
+        config: CONFIG,
+        options: {
+          auth: false
+        }
+      },
+      ### Auth is not supported with json
+      # auth: {
+      #   config: CONFIG_AUTH,
+      #   options: {
+      #     auth: true
+      #   }
+      # },
+    )
     def test_message_json(data)
       config = data[:config]
       options = data[:options]
-      omit "with json, auth doen NOT work" if options[:auth]
       d = create_driver(config)
 
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
@@ -956,22 +958,24 @@ class ForwardInputTest < Test::Unit::TestCase
       sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
-    data(tcp: {
-           config: CONFIG,
-           options: {
-             auth: false
-           }
-         },
-         auth: {
-           config: CONFIG_AUTH,
-           options: {
-             auth: true
-           }
-         })
+    data(
+      tcp: {
+        config: CONFIG,
+        options: {
+          auth: false
+        }
+      },
+      ### Auth is not supported with json
+      # auth: {
+      #   config: CONFIG_AUTH,
+      #   options: {
+      #     auth: true
+      #   }
+      # },
+    )
     def test_message_json(data)
       config = data[:config]
       options = data[:options]
-      omit "with json, auth doen NOT work" if options[:auth]
       d = create_driver(config)
 
       time = Time.parse("2011-01-02 13:14:15 UTC").to_i
