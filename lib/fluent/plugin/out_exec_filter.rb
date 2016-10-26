@@ -96,20 +96,20 @@ module Fluent
     def configure(conf)
       if tag_key = conf['tag_key']
         # TODO obsoleted?
-        @in_tag_key = tag_key
-        @out_tag_key = tag_key
+        conf['in_tag_key'] = tag_key
+        conf['out_tag_key'] = tag_key
       end
 
       if time_key = conf['time_key']
         # TODO obsoleted?
-        @in_time_key = time_key
-        @out_time_key = time_key
+        conf['in_time_key'] = time_key
+        conf['out_time_key'] = time_key
       end
 
       if time_format = conf['time_format']
         # TODO obsoleted?
-        @in_time_format = time_format
-        @out_time_format = time_format
+        conf['in_time_format'] = time_format
+        conf['out_time_format'] = time_format
       end
 
       super
