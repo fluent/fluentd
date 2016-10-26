@@ -14,136 +14,104 @@
 #    limitations under the License.
 #
 
-require 'strptime'
-require 'yajl'
-
 require 'fluent/plugin/input'
-require 'fluent/time'
-require 'fluent/timezone'
-require 'fluent/config/error'
+require 'yajl'
 
 module Fluent::Plugin
   class ExecInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('exec', self)
 
-    helpers :child_process
-
-    def initialize
-      super
-      require 'fluent/plugin/exec_util'
-    end
+    helpers :compat_parameters, :extract, :parser, :child_process
 
     desc 'The command (program) to execute.'
     config_param :command, :string
-    desc 'The format used to map the program output to the incoming event.(tsv,json,msgpack)'
-    config_param :format, :string, default: 'tsv'
-    desc 'Specify the comma-separated keys when using the tsv format.'
-    config_param :keys, default: [] do |val|
-      val.split(',')
+
+    config_section :parse do
+      config_set_default :@type, 'tsv'
+      config_set_default :time_type, :float
+      config_set_default :time_key, nil
+      config_set_default :estimate_current_event, false
     end
+
+    config_section :extract do
+      config_set_default :time_type, :float
+    end
+
     desc 'Tag of the output events.'
     config_param :tag, :string, default: nil
-    desc 'The key to use as the event tag instead of the value in the event record. '
-    config_param :tag_key, :string, default: nil
-    desc 'The key to use as the event time instead of the value in the event record.'
-    config_param :time_key, :string, default: nil
-    desc 'The format of the event time used for the time_key parameter.'
-    config_param :time_format, :string, default: nil
     desc 'The interval time between periodic program runs.'
     config_param :run_interval, :time, default: nil
+    desc 'The default block size to read if parser requires partial read.'
+    config_param :read_block_size, :size, default: 10240 # 10k
+
+    attr_reader :parser
 
     def configure(conf)
+      compat_parameters_convert(conf, :extract, :parser)
+      ['parse', 'extract'].each do |subsection_name|
+        if subsection = conf.elements(subsection_name).first
+          if subsection.has_key?('time_format')
+            subsection['time_type'] ||= 'string'
+          end
+        end
+      end
+
       super
 
-      if conf['localtime']
-        @localtime = true
-      elsif conf['utc']
-        @localtime = false
-      end
-
-      if conf['timezone']
-        @timezone = conf['timezone']
-        Fluent::Timezone.validate!(@timezone)
-      end
-
-      if !@tag && !@tag_key
+      if !@tag && (!@extract_config || !@extract_config.tag_key)
         raise Fleunt::ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
-
-      if @time_key
-        if @time_format
-          f = @time_format
-          @time_parse_proc =
-            begin
-              strptime = Strptime.new(f)
-              Proc.new { |str| Fluent::EventTime.from_time(strptime.exec(str)) }
-            rescue
-              Proc.new {|str| Fluent::EventTime.from_time(Time.strptime(str, f)) }
-            end
-        else
-          @time_parse_proc = Proc.new {|str| Fluent::EventTime.from_time(Time.at(str.to_f)) }
-        end
-      end
-
-      @parser = setup_parser(conf)
-    end
-
-    def setup_parser(conf)
-      case @format
-      when 'tsv'
-        if @keys.empty?
-          raise Fluent::ConfigError, "keys option is required on exec input for tsv format"
-        end
-        Fluent::ExecUtil::TSVParser.new(@keys, method(:on_message))
-      when 'json'
-        Fluent::ExecUtil::JSONParser.new(method(:on_message))
-      when 'msgpack'
-        Fluent::ExecUtil::MessagePackParser.new(method(:on_message))
-      else
-        Fluent::ExecUtil::TextParserWrapperParser.new(conf, method(:on_message))
-      end
+      @parser = parser_create
     end
 
     def start
       super
 
+      receiver = case
+                 when @parser.implement?(:parse_io) then method(:run_with_io)
+                 when @parser.implement?(:parse_partial_data) then method(:run_with_partial_read)
+                 else method(:run)
+                 end
       if @run_interval
-        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read]) do |io|
-          run(io)
-        end
+        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read], &receiver)
       else
-        child_process_execute(:exec_input, @command, immediate: true, mode: [:read]) do |io|
-          run(io)
-        end
+        child_process_execute(:exec_input, @command, immediate: true, mode: [:read], &receiver)
       end
+    end
+
+    def run_with_io(io)
+      @parser.parse_io(io, &method(:on_record))
+    end
+
+    def run_with_partial_read(io)
+      until io.eof?
+        @parser.parse_partial_data(io.readpartial(@read_block_size), &method(:on_record))
+      end
+    rescue EOFError
+      # ignore
     end
 
     def run(io)
-      @parser.call(io)
+      if @parser.parser_type == :text_per_line
+        io.each_line do |line|
+          @parser.parse(line.chomp, &method(:on_record))
+        end
+      else
+        @parser.parse(io.read, &method(:on_record))
+      end
+    rescue EOFError
+      # ignore
     end
 
-    private
-
-    def on_message(record, parsed_time = nil)
-      if val = record.delete(@tag_key)
-        tag = val
-      else
-        tag = @tag
-      end
-
-      if parsed_time
-        time = parsed_time
-      else
-        if val = record.delete(@time_key)
-          time = @time_parse_proc.call(val)
-        else
-          time = Fluent::EventTime.now
-        end
-      end
-
+    def on_record(time, record)
+      tag = nil
+      tag = extract_tag_from_record(record)
+      tag ||= @tag
+      time ||= extract_time_from_record(record) || Fluent::EventTime.now
       router.emit(tag, time, record)
     rescue => e
-      log.error "exec failed to emit", error: e, tag: tag, record: Yajl.dump(record)
+      log.error "exec failed to emit", tag: tag, record: Yajl.dump(record), error: e
+      router.emit_error_event(tag, time, record, "exec failed to emit")
     end
   end
 end

@@ -14,24 +14,20 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/parser'
-
-require 'csv'
+require 'fluent/plugin/formatter'
 
 module Fluent
   module Plugin
-    class CSVParser < Parser
-      Plugin.register_parser('csv', self)
+    class TSVFormatter < Formatter
+      Plugin.register_formatter('tsv', self)
 
       desc 'Names of fields included in each lines'
       config_param :keys, :array, value_type: :string
-      desc 'The delimiter character (or string) of CSV values'
-      config_param :delimiter, :string, default: ','
+      desc 'The delimiter character (or string) of TSV values'
+      config_param :delimiter, :string, default: "\t"
 
-      def parse(text, &block)
-        values = CSV.parse_line(text, col_sep: @delimiter)
-        r = Hash[@keys.zip(values)]
-        convert_values(parse_time(r), r, &block)
+      def format(tag, time, record)
+        @keys.map{|k| record[k].to_s }.join(@delimiter)
       end
     end
   end

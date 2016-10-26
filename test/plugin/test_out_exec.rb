@@ -44,11 +44,11 @@ class ExecOutputTest < Test::Unit::TestCase
   def test_configure
     d = create_driver
 
-    assert_equal ["time","tag","k1"], d.instance.keys
-    assert_equal "tag", d.instance.tag_key
-    assert_equal "time", d.instance.time_key
-    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.time_format
-    assert_equal true, d.instance.localtime
+    assert_equal ["time","tag","k1"], d.instance.formatter.keys
+    assert_equal "tag", d.instance.inject_config.tag_key
+    assert_equal "time", d.instance.inject_config.time_key
+    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.inject_config.time_format
+    assert_equal true, d.instance.inject_config.localtime
   end
 
   def test_configure_with_compat_buffer_parameters

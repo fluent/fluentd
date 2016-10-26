@@ -64,6 +64,18 @@ module Fluent
       rescue @error_class
         yield nil, nil
       end
+
+      def parser_type
+        :text
+      end
+
+      def parse_io(io, &block)
+        y = Yajl::Parser.new
+        y.on_parse_complete = ->(record){
+          block.call(parse_time(record), record)
+        }
+        y.parse(io)
+      end
     end
   end
 end
