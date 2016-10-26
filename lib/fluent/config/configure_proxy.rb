@@ -123,7 +123,7 @@ module Fluent
                  end
 
         # configured_in MUST be kept
-        merged.configured_in_section = self.configured_in_section
+        merged.configured_in_section = self.configured_in_section || other.configured_in_section
 
         merged.argument = other.argument || self.argument
         merged.params = other.params.merge(self.params)
@@ -177,7 +177,7 @@ module Fluent
                    self.class.new(@name, options)
                  end
 
-        merged.configured_in_section = self.configured_in_section
+        merged.configured_in_section = self.configured_in_section || other.configured_in_section
 
         merged.argument = self.argument || other.argument
         merged.params = other.params.merge(self.params)
