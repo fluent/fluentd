@@ -53,6 +53,11 @@ module Fluent
       # for tests
       attr_reader :type_converters
 
+      PARSER_TYPES = [:text_per_line, :text, :binary]
+      def parser_type
+        :text_per_line
+      end
+
       def configure(conf)
         super
 
@@ -70,6 +75,24 @@ module Fluent
         # Keep backward compatibility for existing plugins
         # TODO: warn when deprecated
         parse(*a, &b)
+      end
+
+      def implement?(feature)
+        methods_of_plugin = self.class.instance_methods(false)
+        case feature
+        when :parse_io then methods_of_plugin.include?(:parse_io)
+        when :parse_partial_data then methods_of_plugin.include?(:parse_partial_data)
+        else
+          raise ArgumentError, "Unknown feature for parser plugin: #{feature}"
+        end
+      end
+
+      def parse_io(io, &block)
+        raise NotImplementedError, "Optional API #parse_io is not implemented"
+      end
+
+      def parse_partial_data(data, &block)
+        raise NotImplementedError, "Optional API #parse_partial_data is not implemented"
       end
 
       def parse_time(record)

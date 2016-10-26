@@ -26,6 +26,11 @@ module Fluent
 
       configured_in :format
 
+      PARSER_TYPES = [:text_per_line, :text, :binary]
+      def formatter_type
+        :text_per_line
+      end
+
       def format(tag, time, record)
         raise NotImplementedError, "Implement this method in child class"
       end
