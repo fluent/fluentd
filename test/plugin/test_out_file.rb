@@ -731,12 +731,12 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     data(
-      'day' => [86400, '%Y%m%d', '%Y-%m-%d'],
-      'hour' => [3600, '%Y%m%d%H', '%Y-%m-%d_%H'],
-      'minute' => [60, '%Y%m%d%H%M', '%Y-%m-%d_%H%M'],
+      'day' => [86400, '%Y%m%d'],
+      'hour' => [3600, '%Y%m%d%H'],
+      'minute' => [60, '%Y%m%d%H%M'],
     )
     test 'generates path with timestamp placeholder for original path without star with timekey, and path_suffix not configured' do |data|
-      timekey, placeholder, time_slice_format = data
+      timekey, placeholder = data
       # with index placeholder, without compression suffix when append disabled and compression disabled
       assert_equal "/path/to/file.#{placeholder}_**",    @i.generate_path_template('/path/to/file', timekey, false, nil)
       # with index placeholder, with .gz suffix when append disabled and gzip compression enabled
