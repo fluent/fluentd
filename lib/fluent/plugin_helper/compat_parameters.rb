@@ -57,6 +57,8 @@ module Fluent
         "keys" => "keys", # CSVParser, TSVParser (old ValuesParser)
         "time_key"    => "time_key",
         "time_format" => "time_format",
+        "localtim" => nil,
+        "utc" => nil,
         "delimiter"   => "delimiter",
         "json_parser"      => "json_parser", # JSONParser
         "label_delimiter"  => "label_delimiter", # LabeledTSVParser
@@ -77,10 +79,20 @@ module Fluent
         "utc" => nil,
       }
 
+      EXTRACT_PARAMS = {
+        "time_key"      => "time_key",
+        "time_format"   => "time_format",
+        "timezone"      => "timezone",
+        "tag_key" => "tag_key",
+        "localtime" => nil,
+        "utc" => nil,
+      }
+
       FORMATTER_PARAMS = {
         "format" => "@type",
         "delimiter" => "delimiter",
         "force_quotes" => "force_quotes", # CsvFormatter
+        "keys" => "keys", # TSVFormatter
         "fields" => "fields", # CsvFormatter
         "json_parser" => "json_parser", # JSONFormatter
         "label_delimiter" => "label_delimiter", # LabeledTSVFormatter
@@ -101,6 +113,8 @@ module Fluent
             compat_parameters_buffer(conf, **kwargs)
           when :inject
             compat_parameters_inject(conf)
+          when :extract
+            compat_parameters_extract(conf)
           when :parser
             compat_parameters_parser(conf)
           when :formatter
@@ -173,6 +187,7 @@ module Fluent
           hash['time_type'] ||= 'string'
         end
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
+          hash['time_key'] ||= 'time'
           hash['time_type'] = 'unixtime'
         end
         if conf.has_key?('localtime') || conf.has_key?('utc')
@@ -199,6 +214,37 @@ module Fluent
         conf
       end
 
+      def compat_parameters_extract(conf)
+        return unless conf.elements('extract').empty?
+        return if EXTRACT_PARAMS.keys.all?{|k| !conf.has_key?(k) }
+
+        # TODO: warn obsolete parameters if these are deprecated
+        hash = compat_parameters_copy_to_subsection_attributes(conf, EXTRACT_PARAMS)
+
+        if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
+          hash['time_key'] ||= 'time'
+          hash['time_type'] = 'unixtime'
+        end
+        if conf.has_key?('localtime') || conf.has_key?('utc')
+          if conf.has_key?('localtime') && conf.has_key?('utc')
+            raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
+          elsif conf.has_key?('localtime')
+            hash['localtime'] = Fluent::Config.bool_value(conf['localtime'])
+          elsif conf.has_key?('utc')
+            hash['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
+            # Specifying "localtime false" means using UTC in TimeFormatter
+            # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
+            # There are difference between "Z" and "+0000" in timezone formatting.
+            # TODO: add kwargs to TimeFormatter to specify "using localtime", "using UTC" or "using specified timezone" in more explicit way
+          end
+        end
+
+        e = Fluent::Config::Element.new('extract', '', hash, [])
+        conf.elements << e
+
+        conf
+      end
+
       def compat_parameters_parser(conf)
         return unless conf.elements('parse').empty?
         return if PARSER_PARAMS.keys.all?{|k| !conf.has_key?(k) }
@@ -215,6 +261,19 @@ module Fluent
             types[key] = value
           end
           hash["types"] = JSON.dump(types)
+        end
+        if conf.has_key?('localtime') || conf.has_key?('utc')
+          if conf.has_key?('localtime') && conf.has_key?('utc')
+            raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
+          elsif conf.has_key?('localtime')
+            hash['localtime'] = Fluent::Config.bool_value(conf['localtime'])
+          elsif conf.has_key?('utc')
+            hash['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
+            # Specifying "localtime false" means using UTC in TimeFormatter
+            # And specifying "utc" is different from specifying "timezone +0000"(it's not always UTC).
+            # There are difference between "Z" and "+0000" in timezone formatting.
+            # TODO: add kwargs to TimeFormatter to specify "using localtime", "using UTC" or "using specified timezone" in more explicit way
+          end
         end
 
         e = Fluent::Config::Element.new('parse', '', hash, [])

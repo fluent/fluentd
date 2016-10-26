@@ -1,6 +1,8 @@
 require_relative '../helper'
 require 'fluent/plugin_helper/compat_parameters'
-require 'fluent/plugin/base'
+require 'fluent/plugin/input'
+require 'fluent/plugin/output'
+require 'fluent/time'
 
 require 'time'
 
@@ -21,6 +23,26 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
+  class DummyI0 < Fluent::Plugin::Input
+    helpers :compat_parameters, :parser, :extract
+    attr_reader :parser
+    def configure(conf)
+      compat_parameters_convert(conf, :extract, :parser)
+      super
+    end
+    def start
+      super
+      @parser = parser_create
+    end
+    def produce_events(input_data)
+      emit_events = [] # tag, time, record
+      @parser.parse(input_data) do |time, record|
+        tag = extract_tag_from_record(record) || 'dummy_tag'
+        emit_events << [tag, time, record]
+      end
+      emit_events
+    end
+  end
   class DummyO0 < Fluent::Plugin::Output
     helpers :compat_parameters
     def configure(conf)
@@ -237,6 +259,71 @@ class CompatParameterTest < Test::Unit::TestCase
       iso8601str = Time.at(t.to_i).iso8601
       formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
       assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
+    end
+  end
+
+  sub_test_case 'input plugins' do
+    test 'plugin helper converts parameters into plugin configuration parameters for extract and parser' do
+      hash = {
+        'format' => 'ltsv',
+        'delimiter' => ',',
+        'label_delimiter' => '%',
+        'tag_key' => 't2',
+        'time_key' => 't',
+        'time_format' => '%Y-%m-%d.%H:%M:%S.%N',
+        'utc' => 'yes',
+        'types' => 'A integer|B string|C bool',
+        'types_delimiter' => '|',
+        'types_label_delimiter' => ' ',
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyI0.new
+      @i.configure(conf)
+      @i.start
+      @i.after_start
+
+      parser = @i.parser
+      assert{ parser.is_a? Fluent::Plugin::LabeledTSVParser }
+      assert_equal ',', parser.delimiter
+      assert_equal '%', parser.label_delimiter
+
+      events = @i.produce_events("A%1,B%x,C%true,t2%mytag,t%2016-10-20.03:50:11.987654321")
+      assert_equal 1, events.size
+
+      tag, time, record = events.first
+      assert_equal 'mytag', tag
+      assert_equal_event_time event_time("2016-10-20 03:50:11.987654321 +0000"), time
+      assert_equal 3, record.keys.size
+      assert_equal ['A','B','C'], record.keys.sort
+      assert_equal 1, record['A']
+      assert_equal 'x', record['B']
+      assert_equal true, record['C']
+    end
+
+    test 'plugin helper converts parameters into plugin configuration parameters for extract and parser, using numeric time' do
+      hash = {
+        'format' => 'ltsv',
+        'delimiter' => ',',
+        'label_delimiter' => '%',
+        'tag_key' => 't2',
+        'time_key' => 't',
+        'time_type' => 'float',
+        'localtime' => 'yes',
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyI0.new
+      @i.configure(conf)
+      @i.start
+      @i.after_start
+
+      parser = @i.parser
+      assert{ parser.is_a? Fluent::Plugin::LabeledTSVParser }
+      assert_equal ',', parser.delimiter
+      assert_equal '%', parser.label_delimiter
+    end
+
+    test 'plugin helper setups time extraction as unix time (integer from epoch)' do
+      # TODO:
     end
   end
 end
