@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/plugin/out_exec_filter'
 require 'fileutils'
 
@@ -20,8 +20,8 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     num_children 3
   ]
 
-  def create_driver(conf = CONFIG, tag = 'test')
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::ExecFilterOutput, tag).configure(conf)
+  def create_driver(conf = CONFIG)
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::ExecFilterOutput).configure(conf)
   end
 
   def sed_unbuffered_support?
@@ -38,17 +38,17 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   def test_configure
     d = create_driver
 
-    assert d.instance.instance_eval{ @overrides_format_stream }
+    assert_false d.instance.parser.estimate_current_event
 
-    assert_equal ["time_in","tag","k1"], d.instance.in_keys
-    assert_equal ["time_out","tag","k2"], d.instance.out_keys
-    assert_equal "tag", d.instance.out_tag_key
-    assert_equal "tag", d.instance.in_tag_key
-    assert_equal "time_in", d.instance.in_time_key
-    assert_equal "time_out", d.instance.out_time_key
-    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.in_time_format
-    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.out_time_format
-    assert_equal true, d.instance.localtime
+    assert_equal ["time_in","tag","k1"], d.instance.formatter.keys
+    assert_equal ["time_out","tag","k2"], d.instance.parser.keys
+    assert_equal "tag", d.instance.inject_config.tag_key
+    assert_equal "tag", d.instance.extract_config.tag_key
+    assert_equal "time_in", d.instance.inject_config.time_key
+    assert_equal "time_out", d.instance.extract_config.time_key
+    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.inject_config.time_format
+    assert_equal "%Y-%m-%d %H:%M:%S", d.instance.extract_config.time_format
+    assert_equal true, d.instance.inject_config.localtime
     assert_equal 3, d.instance.num_children
 
     d = create_driver %[
@@ -72,20 +72,20 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   def test_emit_1
     d = create_driver
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15")
 
-    d.expected_emits_length = 2
-    d.run do
-      d.emit({"k1"=>1}, time)
-      d.emit({"k1"=>2}, time)
+    d.run(default_tag: 'test', expect_emits: 2, timeout: 10) do
+      # sleep 0.1 until d.instance.children && !d.instance.children.empty? && d.instance.children.all?{|c| c.finished == false }
+      d.feed(time, {"k1"=>1})
+      d.feed(time, {"k1"=>2})
     end
 
-    emits = d.emits
-    assert_equal 2, emits.length
-    assert_equal ["test", time, {"k2"=>"1"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
-    assert_equal ["test", time, {"k2"=>"2"}], emits[1]
-    assert_equal_event_time time, emits[1][1]
+    events = d.events
+    assert_equal 2, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["test", time, {"k2"=>"1"}], events[0]
+    assert_equal_event_time time, events[1][1]
+    assert_equal ["test", time, {"k2"=>"2"}], events[1]
   end
 
   def test_emit_2
@@ -98,20 +98,19 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ]
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15")
 
-    d.expected_emits_length = 2
-    d.run do
-      d.emit({"k1"=>1}, time)
-      d.emit({"k1"=>2}, time)
+    d.run(default_tag: 'test', expect_emits: 2, timeout: 10) do
+      d.feed(time, {"k1"=>1})
+      d.feed(time, {"k1"=>2})
     end
 
-    emits = d.emits
-    assert_equal 2, emits.length
-    assert_equal ["xxx", time, {"k2"=>"1"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
-    assert_equal ["xxx", time, {"k2"=>"2"}], emits[1]
-    assert_equal_event_time time, emits[1][1]
+    events = d.events
+    assert_equal 2, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["xxx", time, {"k2"=>"1"}], events[0]
+    assert_equal_event_time time, events[1][1]
+    assert_equal ["xxx", time, {"k2"=>"2"}], events[1]
   end
 
   def test_emit_3
@@ -124,18 +123,17 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ]
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15")
 
-    d.expected_emits_length = 2
-    d.run do
-      d.emit({"val1"=>"sed-ed value foo"}, time)
-      d.emit({"val1"=>"sed-ed value poo"}, time)
+    d.run(default_tag: 'test', expect_emits: 1, timeout: 10) do
+      d.feed(time, {"val1"=>"sed-ed value poo"})
+      d.feed(time, {"val1"=>"sed-ed value foo"})
     end
 
-    emits = d.emits
-    assert_equal 1, emits.length
-    assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
+    events = d.events
+    assert_equal 1, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["xxx", time, {"val2"=>"sed-ed value foo"}], events[0]
 
     d = create_driver %[
       command sed #{sed_unbuffered_option} -l -e s/foo/bar/
@@ -146,20 +144,19 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       num_children 3
     ]
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15")
 
-    d.expected_emits_length = 2
-    d.run do
-      d.emit({"val1"=>"sed-ed value foo"}, time)
-      d.emit({"val1"=>"sed-ed value poo"}, time)
+    d.run(default_tag: 'test', expect_emits: 1, timeout: 10) do
+      d.feed(time, {"val1"=>"sed-ed value poo"})
+      d.feed(time, {"val1"=>"sed-ed value foo"})
     end
 
-    emits = d.emits
-    assert_equal 2, emits.length
-    assert_equal ["xxx", time, {"val2"=>"sed-ed value bar"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
-    assert_equal ["xxx", time, {"val2"=>"sed-ed value poo"}], emits[1]
-    assert_equal_event_time time, emits[1][1]
+    events = d.events
+    assert_equal 2, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["xxx", time, {"val2"=>"sed-ed value poo"}], events[0]
+    assert_equal_event_time time, events[1][1]
+    assert_equal ["xxx", time, {"val2"=>"sed-ed value bar"}], events[1]
   end
 
   def test_emit_4
@@ -172,22 +169,21 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       tag_key tag
       time_key time
       num_children 3
-    ], 'input.test')
+    ])
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15")
 
-    d.expected_emits_length = 2
-    d.run do
-      d.emit({"val1"=>"sed-ed value foo"}, time)
-      d.emit({"val1"=>"sed-ed value poo"}, time)
+    d.run(default_tag: 'input.test', expect_emits: 2, timeout: 10) do
+      d.feed(time, {"val1"=>"sed-ed value foo"})
+      d.feed(time, {"val1"=>"sed-ed value poo"})
     end
 
-    emits = d.emits
-    assert_equal 2, emits.length
-    assert_equal ["output.test", time, {"val2"=>"sed-ed value bar"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
-    assert_equal ["output.test", time, {"val2"=>"sed-ed value poo"}], emits[1]
-    assert_equal_event_time time, emits[1][1]
+    events = d.events
+    assert_equal 2, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["output.test", time, {"val2"=>"sed-ed value bar"}], events[0]
+    assert_equal_event_time time, events[1][1]
+    assert_equal ["output.test", time, {"val2"=>"sed-ed value poo"}], events[1]
   end
 
   def test_json_1
@@ -197,19 +193,18 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       out_format json
       time_key time
       tag_key tag
-    ], 'input.test')
+    ])
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15")
 
-    d.expected_emits_length = 1
-    d.run do
-      d.emit({"message"=>%[{"time":#{time},"tag":"t1","k1":"v1"}]}, time+10)
+    d.run(default_tag: 'input.test', expect_emits: 1, timeout: 10) do
+      d.feed(time, {"message"=>%[{"time":#{time},"tag":"t1","k1":"v1"}]})
     end
 
-    emits = d.emits
-    assert_equal 1, emits.length
-    assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
+    events = d.events
+    assert_equal 1, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["t1", time, {"k1"=>"v1"}], events[0]
   end
 
   def test_json_with_float_time
@@ -219,20 +214,18 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       out_format json
       time_key time
       tag_key tag
-    ], 'input.test')
+    ])
 
-    float_time = Time.parse("2011-01-02 13:14:15").to_f
-    time = Fluent::EventTime.from_time(Time.at(float_time))
+    time = event_time("2011-01-02 13:14:15.123")
 
-    d.expected_emits_length = 1
-    d.run do
-      d.emit({"message"=>%[{"time":#{float_time},"tag":"t1","k1":"v1"}]}, time+10)
+    d.run(default_tag: 'input.test', expect_emits: 1, timeout: 10) do
+      d.feed(time + 10, {"message"=>%[{"time":#{time.sec}.#{time.nsec},"tag":"t1","k1":"v1"}]})
     end
 
-    emits = d.emits
-    assert_equal 1, emits.length
-    assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
+    events = d.events
+    assert_equal 1, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["t1", time, {"k1"=>"v1"}], events[0]
   end
 
   def test_json_with_time_format
@@ -243,20 +236,19 @@ class ExecFilterOutputTest < Test::Unit::TestCase
       time_key time
       time_format %d/%b/%Y %H:%M:%S.%N %z
       tag_key tag
-    ], 'input.test')
+    ])
 
     time_str = "28/Feb/2013 12:00:00.123456789 +0900"
-    time = Fluent::EventTime.from_time(Time.strptime(time_str, "%d/%b/%Y %H:%M:%S.%N %z"))
+    time = event_time(time_str, format: "%d/%b/%Y %H:%M:%S.%N %z")
 
-    d.expected_emits_length = 1
-    d.run do
-      d.emit({"message"=>%[{"time":"#{time_str}","tag":"t1","k1":"v1"}]}, time+10)
+    d.run(default_tag: 'input.test', expect_emits: 1, timeout: 10) do
+      d.feed(time + 10, {"message"=>%[{"time":"#{time_str}","tag":"t1","k1":"v1"}]})
     end
 
-    emits = d.emits
-    assert_equal 1, emits.length
-    assert_equal ["t1", time, {"k1"=>"v1"}], emits[0]
-    assert_equal_event_time time, emits[0][1]
+    events = d.events
+    assert_equal 1, events.length
+    assert_equal_event_time time, events[0][1]
+    assert_equal ["t1", time, {"k1"=>"v1"}], events[0]
   end
 end
 
