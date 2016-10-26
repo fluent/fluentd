@@ -36,7 +36,14 @@ module Fluent
     end
 
     def helpers(*snake_case_symbols)
-      helper_modules = snake_case_symbols.map{|name| Fluent::PluginHelper.const_get(name.to_s.split('_').map(&:capitalize).join) }
+      helper_modules = []
+      snake_case_symbols.each do |name|
+        begin
+          helper_modules << Fluent::PluginHelper.const_get(name.to_s.split('_').map(&:capitalize).join)
+        rescue NameError
+          raise "Unknown plugin helper:#{name}"
+        end
+      end
       include(*helper_modules)
     end
   end
