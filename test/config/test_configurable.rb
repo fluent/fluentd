@@ -357,7 +357,7 @@ module ConfigurableSpec
       config_param :size_of_something, :size, default: 512
     end
 
-    class BufferSubclass2 < BufferSubclass
+    class BufferSubSubclass < BufferSubclass
     end
   end
   class UnRecommended
@@ -1097,7 +1097,7 @@ module Fluent::Config
       end
 
       test 'the only first configured_in is valid even in subclasses of a class with configured_in' do
-        child = ConfigurableSpec::OverwriteDefaults::BufferSubclass2.new
+        child = ConfigurableSpec::OverwriteDefaults::BufferSubSubclass.new
         assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
 
         child.configure(config_element('ROOT', '', {}, []))
