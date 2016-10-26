@@ -149,11 +149,15 @@ module Fluent
 
         def run_actual(timeout: DEFAULT_TIMEOUT, &block)
           if @instance.respond_to?(:_threads)
-            sleep 0.01 until @instance._threads.values.all?(&:alive?)
+            sleep 0.1 until @instance._threads.values.all?(&:alive?)
           end
 
           if @instance.respond_to?(:event_loop_running?)
-            sleep 0.01 until @instance.event_loop_running?
+            sleep 0.1 until @instance.event_loop_running?
+          end
+
+          if @instance.respond_to?(:_child_process_processes)
+            sleep 0.1 until @instance._child_process_processes.values.all?{|pinfo| pinfo.alive }
           end
 
           return_value = nil

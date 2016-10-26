@@ -265,6 +265,7 @@ module Fluent
           m.lock # run after plugin thread get pid, thread instance and i/o
           m.unlock
           begin
+            @_child_process_processes[pid].alive = true
             block.call(*io_objects)
           rescue EOFError => e
             log.debug "Process exit and I/O closed", title: title, pid: pid, command: command, arguments: arguments
@@ -286,7 +287,7 @@ module Fluent
         end
         thread[:_fluentd_plugin_helper_child_process_running] = true
         thread[:_fluentd_plugin_helper_child_process_pid] = pid
-        pinfo = ProcessInfo.new(title, thread, pid, readio, readio_in_use, writeio, writeio_in_use, stderrio, stderrio_in_use, wait_thread, true, nil)
+        pinfo = ProcessInfo.new(title, thread, pid, readio, readio_in_use, writeio, writeio_in_use, stderrio, stderrio_in_use, wait_thread, false, nil)
         @_child_process_mutex.synchronize do
           @_child_process_processes[pid] = pinfo
         end
