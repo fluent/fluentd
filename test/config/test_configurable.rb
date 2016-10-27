@@ -334,6 +334,12 @@ module ConfigurableSpec
       end
     end
 
+    class NilOwner < Owner
+      config_section :buffer do
+        config_set_default :size_of_something, nil
+      end
+    end
+
     class FlatChild
       include Fluent::Configurable
       attr_accessor :owner
@@ -1076,6 +1082,16 @@ module Fluent::Config
         child.owner = owner
         child.configure(config_element('ROOT', '', {}, []))
         assert_equal 2048, child.size_of_something
+      end
+
+      test 'default values can be overwritten with nil' do
+        owner = ConfigurableSpec::OverwriteDefaults::NilOwner.new
+        child = ConfigurableSpec::OverwriteDefaults::BufferChild.new
+        assert_equal :buffer, child.class.merged_configure_proxy.configured_in_section
+
+        child.owner = owner
+        child.configure(config_element('ROOT', '', {}, []))
+        assert_nil child.size_of_something
       end
 
       test 'the first configured_in (in the order from base class) will be applied' do
