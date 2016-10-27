@@ -53,4 +53,22 @@ task :coverage do |t|
   Rake::Task["test"].invoke
 end
 
+desc 'Build Coverity tarball & upload it'
+task :coverity do
+  # https://scan.coverity.com/projects/fluentd?tab=overview
+  # See "View Defects" after sign-in.
+  #
+  # Setup steps:
+  # 1. get coverity build tool and set PATH to bin/: https://scan.coverity.com/download
+  # 2. set environment variables:
+  #    * $COVERITY_USER (your email address)
+  #    * $COVERITY_TOKEN (token for Fluentd project: https://scan.coverity.com/projects/fluentd?tab=project_settings)
+  sh "cov-build --dir cov-int --no-command --fs-capture-search ./"
+  sh "tar czf cov-fluentd.tar.gz cov-int"
+  user = ENV['COVERITY_USER']
+  token = ENV['COVERITY_TOKEN']
+  sh "curl --form token=#{token} --form email=#{user} --form file=@cov-fluentd.tar.gz --form version=\"Master\" --form description=\"GIT Master\" https://scan.coverity.com/builds?project=Fluentd"
+  FileUtils.rm_rf(['./cov-int', 'cov-fluentd.tar.gz'])
+end
+
 task default: [:test, :build]

@@ -24,3 +24,5 @@ Gemfile.local
 *.swp
 coverage/*
 .vagrant/
+cov-int/
+cov-fluentd.tar.gz
