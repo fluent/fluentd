@@ -77,7 +77,6 @@ module Fluent::Plugin
     config_param :suppress_error_log_interval, :time, default: 0
 
     attr_reader :formatter, :parser # for tests
-    attr_reader :children # for tests (temp)
 
     KEYS_FOR_IN_AND_OUT = {
       'tag_key' => ['in_tag_key', 'out_tag_key'],
