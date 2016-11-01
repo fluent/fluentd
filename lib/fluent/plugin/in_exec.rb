@@ -59,7 +59,7 @@ module Fluent::Plugin
       super
 
       if !@tag && (!@extract_config || !@extract_config.tag_key)
-        raise Fleunt::ConfigError, "'tag' or 'tag_key' option is required on exec input"
+        raise Fluent::ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
       @parser = parser_create
     end
