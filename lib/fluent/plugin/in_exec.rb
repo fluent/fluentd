@@ -67,40 +67,28 @@ module Fluent::Plugin
     def start
       super
 
-      receiver = case
-                 when @parser.implement?(:parse_io) then method(:run_with_io)
-                 when @parser.implement?(:parse_partial_data) then method(:run_with_partial_read)
-                 else method(:run)
-                 end
       if @run_interval
-        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read], &receiver)
+        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read], &method(:run))
       else
-        child_process_execute(:exec_input, @command, immediate: true, mode: [:read], &receiver)
+        child_process_execute(:exec_input, @command, immediate: true, mode: [:read], &method(:run))
       end
-    end
-
-    def run_with_io(io)
-      @parser.parse_io(io, &method(:on_record))
-    end
-
-    def run_with_partial_read(io)
-      until io.eof?
-        @parser.parse_partial_data(io.readpartial(@read_block_size), &method(:on_record))
-      end
-    rescue EOFError
-      # ignore
     end
 
     def run(io)
-      if @parser.parser_type == :text_per_line
+      case
+      when @parser.implement?(:parse_io)
+        @parser.parse_io(io, &method(:on_record))
+      when @parser.implement?(:parse_partial_data)
+        until io.eof?
+          @parser.parse_partial_data(io.readpartial(@read_block_size), &method(:on_record))
+        end
+      when @parser.parser_type == :text_per_line
         io.each_line do |line|
           @parser.parse(line.chomp, &method(:on_record))
         end
       else
         @parser.parse(io.read, &method(:on_record))
       end
-    rescue EOFError
-      # ignore
     end
 
     def on_record(time, record)
