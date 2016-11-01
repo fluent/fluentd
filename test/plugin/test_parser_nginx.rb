@@ -45,4 +45,12 @@ class NginxParserTest < ::Test::Unit::TestCase
       assert_equal(@expected, record)
     }
   end
+
+  def test_parse_with_gzip_ratio
+    d = create_driver
+    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0" "-"') { |time, record|
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(@expected.merge('ratio' => '-'), record)
+    }
+  end
 end
