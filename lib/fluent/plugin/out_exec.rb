@@ -23,10 +23,12 @@ module Fluent::Plugin
   class ExecOutput < Output
     Fluent::Plugin.register_output('exec', self)
 
-    helpers :inject, :formatter, :compat_parameters
+    helpers :inject, :formatter, :compat_parameters, :child_process
 
-    desc 'The command (program) to execute. The exec plugin passes the path of a TSV file as the last argumen'
+    desc 'The command (program) to execute. The exec plugin passes the path of a TSV file as the last argument'
     config_param :command, :string
+
+    config_param :command_timeout, :time, default: 270 # 4min 30sec
 
     config_section :format do
       config_set_default :@type, 'tsv'
@@ -35,6 +37,10 @@ module Fluent::Plugin
     config_section :inject do
       config_set_default :time_type, :string
       config_set_default :localtime, false
+    end
+
+    config_section :buffer do
+      config_set_default :delayed_commit_timeout, 300 # 5 min
     end
 
     attr_reader :formatter # for tests
@@ -54,24 +60,31 @@ module Fluent::Plugin
       end
     end
 
-    def write(chunk)
-      if chunk.respond_to?(:path)
-        prog = "#{@command} #{chunk.path}"
-      else
-        tmpfile = Tempfile.new("fluent-plugin-exec-")
-        tmpfile.binmode
-        chunk.write_to(tmpfile)
-        tmpfile.close
-        prog = "#{@command} #{tmpfile.path}"
-      end
-
-      system(prog)
-      ecode = $?.to_i
-      tmpfile.delete if tmpfile
-
-      if ecode != 0
-        raise "command returns #{ecode}: #{prog}"
-      end
+    def try_write(chunk)
+      tmpfile = nil
+      prog = if chunk.respond_to?(:path)
+               "#{@command} #{chunk.path}"
+             else
+               tmpfile = Tempfile.new("fluent-plugin-exec-")
+               tmpfile.binmode
+               chunk.write_to(tmpfile)
+               tmpfile.close
+               "#{@command} #{tmpfile.path}"
+             end
+      chunk_id = chunk.unique_id
+      callback = ->(status){
+        if tmpfile
+          tmpfile.delete rescue nil
+        end
+        if status && status.success?
+          commit_write(chunk_id)
+        elsif status
+          log.error "command exits with error code", code: ecode, prog: prog, status: status.exitstatus, signal: status.termsig
+        else
+          log.error "command unexpectedly exits without exit status", prog: prog
+        end
+      }
+      child_process_execute(:out_exec_process, prog, stderr: :connect, immediate: true, parallel: true, mode: [], wait_timeout: @command_timeout, on_exit_callback: callback)
     end
   end
 end
