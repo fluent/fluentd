@@ -889,9 +889,10 @@ module Fluent
       def commit_write(chunk_id, delayed: @delayed_commit, secondary: false)
         log.trace "committing write operation to a chunk", chunk: dump_unique_id_hex(chunk_id), delayed: delayed
         if delayed
-          @dequeued_chunks_mutex.synchronize do
-            @dequeued_chunks.delete_if{ |info| info.chunk_id == chunk_id }
+          r = @dequeued_chunks_mutex.synchronize do
+            @dequeued_chunks.reject!{ |info| info.chunk_id == chunk_id }
           end
+          raise "BUG: chunk is not committed, does plugin call #commit_write in #try_write ?" if r.nil? # nothing deleted from @dequeued_chunks
         end
         @buffer.purge_chunk(chunk_id)
 
