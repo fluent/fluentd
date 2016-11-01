@@ -49,8 +49,18 @@ module Fluent
         ::Thread.current[:_fluentd_plugin_helper_child_process_pid]
       end
 
-      def child_process_exit_status
-        ::Thread.current[:_fluentd_plugin_helper_child_process_exit_status]
+      def child_process_exist?(pid)
+        pinfo = @_child_process_processes[pid]
+        return false unless pinfo
+
+        return false if pinfo.exit_status
+
+        if pinfo.wait_thread.status
+          return true
+        end
+
+        pinfo.exit_status = pinfo.wait_thread.value
+        false
       end
 
       def child_process_execute(
@@ -58,30 +68,41 @@ module Fluent
           arguments: nil, subprocess_name: nil, interval: nil, immediate: false, parallel: false,
           mode: [:read, :write], stderr: :discard, env: {}, unsetenv: false, chdir: nil,
           internal_encoding: 'utf-8', external_encoding: 'ascii-8bit', scrub: true, replace_string: nil,
+          wait_timeout: nil, on_exit_callback: nil,
           &block
       )
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
         raise ArgumentError, "BUG: arguments required if subprocess name is replaced" if subprocess_name && !arguments
 
+        mode ||= []
         raise ArgumentError, "BUG: invalid mode specification" unless mode.all?{|m| MODE_PARAMS.include?(m) }
         raise ArgumentError, "BUG: read_with_stderr is exclusive with :read and :stderr" if mode.include?(:read_with_stderr) && (mode.include?(:read) || mode.include?(:stderr))
         raise ArgumentError, "BUG: invalid stderr handling specification" unless STDERR_OPTIONS.include?(stderr)
 
-        raise ArgumentError, "BUG: block not specified which receive i/o object" unless block_given?
-        raise ArgumentError, "BUG: number of block arguments are different from size of mode" unless block.arity == mode.size
+        raise ArgumentError, "BUG: number of block arguments are different from size of mode" if block && block.arity != mode.size
 
         running = false
         callback = ->(*args) {
           running = true
           begin
-            block.call(*args)
+            block && block.call(*args)
           ensure
             running = false
           end
         }
 
+        execute_child_process = ->(){
+          child_process_execute_once(
+            title, command, arguments,
+            subprocess_name, mode, stderr, env, unsetenv, chdir,
+            internal_encoding, external_encoding, scrub, replace_string,
+            wait_timeout, on_exit_callback,
+            &callback
+          )
+        }
+
         if immediate || !interval
-          child_process_execute_once(title, command, arguments, subprocess_name, mode, stderr, env, unsetenv, chdir, internal_encoding, external_encoding, scrub, replace_string, &callback)
+          execute_child_process.call
         end
 
         if interval
@@ -89,7 +110,7 @@ module Fluent
             if !parallel && running
               log.warn "previous child process is still running. skipped.", title: title, command: command, arguments: arguments, interval: interval, parallel: parallel
             else
-              child_process_execute_once(title, command, arguments, subprocess_name, mode, stderr, env, unsetenv, chdir, internal_encoding, external_encoding, scrub, replace_string, &callback)
+              execute_child_process.call
             end
           end
         end
@@ -101,10 +122,6 @@ module Fluent
         @_child_process_exit_timeout = CHILD_PROCESS_DEFAULT_EXIT_TIMEOUT
         @_child_process_kill_timeout = CHILD_PROCESS_DEFAULT_KILL_TIMEOUT
         @_child_process_mutex = Mutex.new
-      end
-
-      def start
-        super
         @_child_process_processes = {} # pid => ProcessInfo
       end
 
@@ -115,6 +132,8 @@ module Fluent
             process_info.thread[:_fluentd_plugin_helper_child_process_running] = false
           end
         end
+
+        super
       end
 
       def shutdown
@@ -157,44 +176,50 @@ module Fluent
         super
       end
 
-      def child_process_kill(process_info, force: false)
-        if !process_info || !process_info.alive
-          return
-        end
+      def child_process_kill(pinfo, force: false)
+        return if !pinfo
+        pinfo.killed_at = Time.now unless force
 
-        process_info.killed_at = Time.now unless force
-
-        begin
-          pid, status = Process.waitpid2(process_info.pid, Process::WNOHANG)
-          if pid && status
-            process_info.thread[:_fluentd_plugin_helper_child_process_exit_status] = status
-            process_info.alive = false
+        call_exit_callback = ->(){
+          cb = pinfo.on_exit_callback_mutex.synchronize do
+            cback = pinfo.on_exit_callback
+            pinfo.on_exit_callback = nil
+            cback
           end
-        rescue Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-          process_info.alive = false
-        rescue
-          # ignore
-        end
-        if !process_info.alive
-          return
-        end
+          if cb
+            cb.call(pinfo.exit_status) rescue nil
+          end
+        }
 
+        pid = pinfo.pid
         begin
-          signal = (Fluent.windows? || force) ? :KILL : :TERM
-          Process.kill(signal, process_info.pid)
-          if force
-            process_info.alive = false
+          if child_process_exist?(pid)
+            signal = (Fluent.windows? || force) ? :KILL : :TERM
+            Process.kill(signal, pinfo.pid)
+            if force
+              sleep 0.1 while child_process_exist?(pid)
+            end
           end
         rescue Errno::ECHILD, Errno::ESRCH
-          process_info.alive = false
+          # ignore
+        end
+
+        unless child_process_exist?(pid)
+          call_exit_callback.call
         end
       end
 
-      ProcessInfo = Struct.new(:title, :thread, :pid, :readio, :readio_in_use, :writeio, :writeio_in_use, :stderrio, :stderrio_in_use, :wait_thread, :alive, :killed_at)
+      ProcessInfo = Struct.new(
+        :title,
+        :thread, :pid,
+        :readio, :readio_in_use, :writeio, :writeio_in_use, :stderrio, :stderrio_in_use,
+        :wait_thread, :alive, :killed_at, :exit_status,
+        :on_exit_callback, :on_exit_callback_mutex,
+      )
 
       def child_process_execute_once(
           title, command, arguments, subprocess_name, mode, stderr, env, unsetenv, chdir,
-          internal_encoding, external_encoding, scrub, replace_string, &block
+          internal_encoding, external_encoding, scrub, replace_string, wait_timeout, on_exit_callback, &block
       )
         spawn_args = if arguments || subprocess_name
                        [ env, (subprocess_name ? [command, subprocess_name] : command), *(arguments || []) ]
@@ -227,36 +252,40 @@ module Fluent
           writeio, readio, wait_thread = *Open3.popen2e(*spawn_args, spawn_opts)
         else
           writeio, readio, stderrio, wait_thread = *Open3.popen3(*spawn_args, spawn_opts)
-          if !mode.include?(:stderr) # stderr == :discard
-            stderrio.reopen(IO::NULL)
-          end
         end
 
         if mode.include?(:write)
           writeio.set_encoding(external_encoding, internal_encoding, encoding_options)
           writeio_in_use = true
+        else
+          writeio.reopen(IO::NULL) if writeio
         end
         if mode.include?(:read) || mode.include?(:read_with_stderr)
           readio.set_encoding(external_encoding, internal_encoding, encoding_options)
           readio_in_use = true
+        else
+          readio.reopen(IO::NULL) if readio
         end
         if mode.include?(:stderr)
           stderrio.set_encoding(external_encoding, internal_encoding, encoding_options)
           stderrio_in_use = true
+        else
+          stderrio.reopen(IO::NULL) if stderrio && stderrio == :discard
         end
 
         pid = wait_thread.pid # wait_thread => Process::Waiter
 
         io_objects = []
         mode.each do |m|
-          io_objects << case m
-                        when :read then readio
-                        when :write then writeio
-                        when :read_with_stderr then readio
-                        when :stderr then stderrio
-                        else
-                          raise "BUG: invalid mode must be checked before here: '#{m}'"
-                        end
+          io_obj = case m
+                   when :read then readio
+                   when :write then writeio
+                   when :read_with_stderr then readio
+                   when :stderr then stderrio
+                   else
+                     raise "BUG: invalid mode must be checked before here: '#{m}'"
+                   end
+          io_objects << io_obj
         end
 
         m = Mutex.new
@@ -266,7 +295,16 @@ module Fluent
           m.unlock
           begin
             @_child_process_processes[pid].alive = true
-            block.call(*io_objects)
+            block.call(*io_objects) if block_given?
+            writeio.close if writeio
+            if wait_timeout
+              if wait_thread.join(wait_timeout) # Thread#join returns nil when limit expires
+                # wait_thread successfully exits
+                @_child_process_processes[pid].exit_status = wait_thread.value
+              else
+                log.warn "child process timed out", title: title, pid: pid, command: command, arguments: arguments
+              end
+            end
           rescue EOFError => e
             log.debug "Process exit and I/O closed", title: title, pid: pid, command: command, arguments: arguments
           rescue IOError => e
@@ -275,19 +313,24 @@ module Fluent
             else
               log.error "Unexpected I/O error for child process", title: title, pid: pid, command: command, arguments: arguments, error: e
             end
+          rescue Errno::EPIPE => e
+            log.debug "Broken pipe, child process unexpectedly exits", title: title, pid: pid, command: command, arguments: arguments
           rescue => e
             log.warn "Unexpected error while processing I/O for child process", title: title, pid: pid, command: command, error: e
           end
-          process_info = @_child_process_mutex.synchronize do
-            process_info = @_child_process_processes[pid]
-            @_child_process_processes.delete(pid)
-            process_info
+          process_info = @_child_process_mutex.synchronize{ @_child_process_processes.delete(pid) }
+          if process_info
+            child_process_kill(process_info, force: true)
           end
-          child_process_kill(process_info, force: true) if process_info && process_info.alive && ::Thread.current[:_fluentd_plugin_helper_child_process_running]
         end
         thread[:_fluentd_plugin_helper_child_process_running] = true
         thread[:_fluentd_plugin_helper_child_process_pid] = pid
-        pinfo = ProcessInfo.new(title, thread, pid, readio, readio_in_use, writeio, writeio_in_use, stderrio, stderrio_in_use, wait_thread, false, nil)
+        pinfo = ProcessInfo.new(
+          title, thread, pid,
+          readio, readio_in_use, writeio, writeio_in_use, stderrio, stderrio_in_use,
+          wait_thread, false, nil, nil, on_exit_callback, Mutex.new
+        )
+
         @_child_process_mutex.synchronize do
           @_child_process_processes[pid] = pinfo
         end
