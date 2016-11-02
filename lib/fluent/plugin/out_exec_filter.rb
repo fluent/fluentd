@@ -219,12 +219,12 @@ module Fluent::Plugin
       end
 
       if @respawns != 0
-        thread_create do
+        thread_create(:out_exec_filter_respawn_monitor) do
           while thread_current_running?
             @children.each_with_index do |c, i|
               if c.mutex && c.mutex.synchronize{ c.pid.nil? && c.respawns != 0 }
                 respawns = c.mutex.synchronize do
-                  c.respawns -= 1 if c.respanws > 0
+                  c.respawns -= 1 if c.respawns > 0
                   c.respawns
                 end
                 log.info "respawning child process", num: i, respawn_counter: respawns
