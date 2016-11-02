@@ -80,7 +80,7 @@ class NullOutputTest < Test::Unit::TestCase
       d.instance.delayed = true
 
       t = event_time("2016-05-23 00:22:13 -0800")
-      d.run(default_tag: 'test', flush: true, shutdown: false) do
+      d.run(default_tag: 'test', flush: true, wait_flush_completion: false, shutdown: false) do
         d.feed(t, {"message" => "null null null"})
         d.feed(t, {"message" => "null null"})
         d.feed(t, {"message" => "null"})

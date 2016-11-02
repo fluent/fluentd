@@ -29,14 +29,15 @@ module Fluent
         def initialize(klass, opts: {}, &block)
           super
           raise ArgumentError, "plugin is not an instance of Fluent::Plugin::Output" unless @instance.is_a? Fluent::Plugin::Output
-          @instance.in_tests = true
           @flush_buffer_at_cleanup = nil
+          @wait_flush_completion = nil
           @format_hook = nil
           @format_results = []
         end
 
-        def run(flush: true, **kwargs, &block)
+        def run(flush: true, wait_flush_completion: true, **kwargs, &block)
           @flush_buffer_at_cleanup = flush
+          @wait_flush_completion = wait_flush_completion
           super(**kwargs, &block)
         end
 
@@ -55,7 +56,22 @@ module Fluent
 
         def flush
           @instance.force_flush
-          Timeout.timeout(10){ sleep 0.1 until !@instance.buffer || @instance.buffer.queue.size == 0 }
+          wait_flush_completion if @wait_flush_completion
+        end
+
+        def wait_flush_completion
+          buffer_queue = ->(){ @instance.buffer && @instance.buffer.queue.size > 0 }
+          dequeued_chunks = ->(){
+            @instance.dequeued_chunks_mutex &&
+            @instance.dequeued_chunks &&
+            @instance.dequeued_chunks_mutex.synchronize{ @instance.dequeued_chunks.size > 0 }
+          }
+
+          Timeout.timeout(10) do
+            while buffer_queue.call || dequeued_chunks.call
+              sleep 0.1
+            end
+          end
         end
 
         def instance_hook_after_started
