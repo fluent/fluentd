@@ -140,7 +140,6 @@ class ExecOutputTest < Test::Unit::TestCase
     assert_equal 3600, d.instance.buffer_config.timekey
     assert_equal 5, d.instance.buffer_config.flush_thread_count
     assert_equal 50*1024*1024, d.instance.buffer.chunk_limit_size
-    # assert_equal 128, d.instance.buffer.queue_length_limit
     assert_equal 50*1024*1024*128, d.instance.buffer.total_limit_size
     assert d.instance.buffer_config.flush_at_shutdown
   end
@@ -239,5 +238,77 @@ class ExecOutputTest < Test::Unit::TestCase
       %[2011-01-02 13:14:15\ttest\tv1\n] +
       %[2011-01-02 13:14:15\ttest\tv2\n]
     assert_equal expect_data, data
+  end
+
+  sub_test_case 'when executed process dies unexpectedly' do
+    setup do
+      @gen_config = ->(num){ <<EOC
+    command ruby -e 'ARGV.first.to_i == 0 ? open(ARGV[1]){|f| STDOUT.write f.read} : (sleep 1 ; exit ARGV.first.to_i)' #{num} >#{TMP_DIR}/fail_out
+    <inject>
+      tag_key tag
+      time_key time
+      time_format %Y-%m-%d %H:%M:%S
+      localtime yes
+    </inject>
+    <format>
+      @type tsv
+      keys time, tag, k1
+    </format>
+EOC
+      }
+    end
+
+    test 'flushed chunk will be committed after child process successfully exits' do
+      d = create_driver(@gen_config.call(0))
+      time, records = create_test_data
+
+      d.run(default_tag: 'test', flush: true, wait_flush_completion: false, shutdown: false) do
+        d.feed(time, records[0])
+        d.feed(time, records[1])
+      end
+
+      expect_path = "#{TMP_DIR}/fail_out"
+
+      waiting(10, plugin: d.instance) do
+        sleep(0.1) until File.exist?(expect_path)
+      end
+
+      assert{ File.exist?(expect_path) }
+
+      data = File.read(expect_path)
+      expect_data =
+        %[2011-01-02 13:14:15\ttest\tv1\n] +
+        %[2011-01-02 13:14:15\ttest\tv2\n]
+      assert_equal expect_data, data
+
+      assert{ d.instance.buffer.queue.empty? }
+      assert{ d.instance.dequeued_chunks.empty? }
+
+      d.instance_shutdown
+    end
+
+    test 'flushed chunk will be taken back after child process unexpectedly exits' do
+      d = create_driver(@gen_config.call(3))
+      time, records = create_test_data
+
+      d.run(default_tag: 'test', flush: true, wait_flush_completion: false, shutdown: false) do
+        d.feed(time, records[0])
+        d.feed(time, records[1])
+      end
+
+      expect_path = "#{TMP_DIR}/fail_out"
+
+      sleep 5
+
+      logs = d.instance.log.out.logs
+      assert{ logs.any?{|line| line.include?("command exits with error code") && line.include?("status=3") } }
+
+      assert{ File.exist?(expect_path) && File.size(expect_path) == 0 }
+
+      assert{ d.instance.dequeued_chunks.empty? } # because it's already taken back
+      assert{ d.instance.buffer.queue.size == 1 }
+
+      d.instance_shutdown
+    end
   end
 end
