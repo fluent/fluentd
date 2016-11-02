@@ -73,15 +73,24 @@ module Fluent::Plugin
              end
       chunk_id = chunk.unique_id
       callback = ->(status){
-        if tmpfile
-          tmpfile.delete rescue nil
-        end
-        if status && status.success?
-          commit_write(chunk_id)
-        elsif status
-          log.error "command exits with error code", code: ecode, prog: prog, status: status.exitstatus, signal: status.termsig
-        else
-          log.error "command unexpectedly exits without exit status", prog: prog
+        begin
+          if tmpfile
+            tmpfile.delete rescue nil
+          end
+          if status && status.success?
+            commit_write(chunk_id)
+          elsif status
+            # #rollback_write will be done automatically if it isn't called at here.
+            # But it's after command_timeout, and this timeout should be longer than users expectation.
+            # So here, this plugin calls it explicitly.
+            rollback_write(chunk_id)
+            log.warn "command exits with error code", prog: prog, status: status.exitstatus, signal: status.termsig
+          else
+            rollback_write(chunk_id)
+            log.warn "command unexpectedly exits without exit status", prog: prog
+          end
+        rescue => e
+          log.error "unexpected error in child process callback", error: e
         end
       }
       child_process_execute(:out_exec_process, prog, stderr: :connect, immediate: true, parallel: true, mode: [], wait_timeout: @command_timeout, on_exit_callback: callback)
