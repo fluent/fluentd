@@ -55,12 +55,7 @@ module Fluent
 
         return false if pinfo.exit_status
 
-        if pinfo.wait_thread.status
-          return true
-        end
-
-        pinfo.exit_status = pinfo.wait_thread.value
-        false
+        true
       end
 
       def child_process_execute(
@@ -75,6 +70,7 @@ module Fluent
         raise ArgumentError, "BUG: arguments required if subprocess name is replaced" if subprocess_name && !arguments
 
         mode ||= []
+        mode = [] unless block
         raise ArgumentError, "BUG: invalid mode specification" unless mode.all?{|m| MODE_PARAMS.include?(m) }
         raise ArgumentError, "BUG: read_with_stderr is exclusive with :read and :stderr" if mode.include?(:read_with_stderr) && (mode.include?(:read) || mode.include?(:stderr))
         raise ArgumentError, "BUG: invalid stderr handling specification" unless STDERR_OPTIONS.include?(stderr)
@@ -91,6 +87,7 @@ module Fluent
           end
         }
 
+        retval = nil
         execute_child_process = ->(){
           child_process_execute_once(
             title, command, arguments,
@@ -102,7 +99,7 @@ module Fluent
         }
 
         if immediate || !interval
-          execute_child_process.call
+          retval = execute_child_process.call
         end
 
         if interval
@@ -114,6 +111,8 @@ module Fluent
             end
           end
         end
+
+        retval # nil if interval
       end
 
       def initialize
@@ -159,7 +158,6 @@ module Fluent
           pids.each do |pid|
             process_info = @_child_process_processes[pid]
             if !process_info || !process_info.alive
-              @_child_process_mutex.synchronize{ @_child_process_processes.delete(pid) }
               next
             end
 
@@ -167,7 +165,6 @@ module Fluent
             next if Time.now < process_info.killed_at + @_child_process_kill_timeout
 
             child_process_kill(process_info, force: true)
-            @_child_process_mutex.synchronize{ @_child_process_processes.delete(pid) }
           end
 
           sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
@@ -176,36 +173,24 @@ module Fluent
         super
       end
 
+      def terminate
+        @_child_process_processes = {}
+
+        super
+      end
+
       def child_process_kill(pinfo, force: false)
         return if !pinfo
         pinfo.killed_at = Time.now unless force
 
-        call_exit_callback = ->(){
-          cb = pinfo.on_exit_callback_mutex.synchronize do
-            cback = pinfo.on_exit_callback
-            pinfo.on_exit_callback = nil
-            cback
-          end
-          if cb
-            cb.call(pinfo.exit_status) rescue nil
-          end
-        }
-
         pid = pinfo.pid
         begin
-          if child_process_exist?(pid)
+          if !pinfo.exit_status && child_process_exist?(pid)
             signal = (Fluent.windows? || force) ? :KILL : :TERM
             Process.kill(signal, pinfo.pid)
-            if force
-              sleep 0.1 while child_process_exist?(pid)
-            end
           end
         rescue Errno::ECHILD, Errno::ESRCH
           # ignore
-        end
-
-        unless child_process_exist?(pid)
-          call_exit_callback.call
         end
       end
 
@@ -297,14 +282,6 @@ module Fluent
             @_child_process_processes[pid].alive = true
             block.call(*io_objects) if block_given?
             writeio.close if writeio
-            if wait_timeout
-              if wait_thread.join(wait_timeout) # Thread#join returns nil when limit expires
-                # wait_thread successfully exits
-                @_child_process_processes[pid].exit_status = wait_thread.value
-              else
-                log.warn "child process timed out", title: title, pid: pid, command: command, arguments: arguments
-              end
-            end
           rescue EOFError => e
             log.debug "Process exit and I/O closed", title: title, pid: pid, command: command, arguments: arguments
           rescue IOError => e
@@ -318,9 +295,29 @@ module Fluent
           rescue => e
             log.warn "Unexpected error while processing I/O for child process", title: title, pid: pid, command: command, error: e
           end
+
+          if wait_timeout
+            if wait_thread.join(wait_timeout) # Thread#join returns nil when limit expires
+              # wait_thread successfully exits
+              @_child_process_processes[pid].exit_status = wait_thread.value
+            else
+              log.warn "child process timed out", title: title, pid: pid, command: command, arguments: arguments
+              child_process_kill(@_child_process_processes[pid], force: true)
+              @_child_process_processes[pid].exit_status = wait_thread.value
+            end
+          else
+            @_child_process_processes[pid].exit_status = wait_thread.value # with join
+          end
+
           process_info = @_child_process_mutex.synchronize{ @_child_process_processes.delete(pid) }
-          if process_info
-            child_process_kill(process_info, force: true)
+
+          cb = process_info.on_exit_callback_mutex.synchronize do
+            cback = process_info.on_exit_callback
+            process_info.on_exit_callback = nil
+            cback
+          end
+          if cb
+            cb.call(process_info.exit_status) rescue nil
           end
         end
         thread[:_fluentd_plugin_helper_child_process_running] = true

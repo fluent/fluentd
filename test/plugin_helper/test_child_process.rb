@@ -2,6 +2,7 @@ require_relative '../helper'
 require 'fluent/plugin_helper/child_process'
 require 'fluent/plugin/base'
 require 'timeout'
+require 'tempfile'
 
 class ChildProcessTest < Test::Unit::TestCase
   TEST_DEADLOCK_TIMEOUT = 30
@@ -603,6 +604,182 @@ class ChildProcessTest < Test::Unit::TestCase
         assert_equal mytmpdir, str
         @d.stop; @d.shutdown; @d.close; @d.terminate
       end
+    end
+  end
+
+  sub_test_case 'on_exit_callback is specified' do
+    setup do
+      @temp = Tempfile.create("child_process_wait_with_on_exit_callback")
+      @temp_path = @temp.path
+      @temp.close
+    end
+
+    teardown do
+      File.unlink @temp_path if File.exist?(@temp_path)
+    end
+
+    test 'can return exit status for child process successfully exits using on_exit_callback' do
+      assert File.exist?(@temp_path)
+
+      block_exits = false
+      callback_called = false
+      exit_status = nil
+      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '1', @temp_path]
+      cb = ->(status){ exit_status = status; callback_called = true }
+
+      str = nil
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        pid = nil
+        @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
+          pid = @d.instance_eval{ child_process_id }
+          str = readio.read.chomp
+          block_exits = true
+        end
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING while @d.child_process_exist?(pid) # to get exit status
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until block_exits
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+
+      assert callback_called
+      assert exit_status
+      assert_equal 0, exit_status.exitstatus
+      assert !File.exist?(@temp_path)
+
+      assert_equal "yay", str
+    end
+
+    test 'can return exit status with signal code for child process killed by signal using on_exit_callback' do
+      assert File.exist?(@temp_path)
+
+      block_exits = false
+      callback_called = false
+      exit_status = nil
+      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '10', @temp_path]
+      cb = ->(status){ exit_status = status; callback_called = true }
+
+      str = nil
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        pid = nil
+        @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
+          Process.kill(:QUIT, @d.instance_eval{ child_process_id })
+          str = readio.read.chomp rescue nil # empty string before EOF
+          block_exits = true
+        end
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING while @d.child_process_exist?(pid) # to get exit status
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until block_exits
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+
+      assert callback_called
+      assert exit_status
+
+      assert_nil exit_status.exitstatus
+      assert_equal 3, exit_status.termsig # SIGQUIT
+
+      assert File.exist?(@temp_path)
+      assert_equal "", str
+    end
+
+    test 'calls on_exit_callback for each process exits for interval call using on_exit_callback' do
+      read_data_list = []
+      exit_status_list = []
+
+      args = ['-e', 'puts "yay"', '1']
+      cb = ->(status){ exit_status_list << status }
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:st1, "ruby", arguments: args, immediate: true, interval: 2, mode: [:read], on_exit_callback: cb) do |readio|
+          read_data_list << readio.read.chomp
+        end
+        sleep 10
+      end
+
+      assert{ read_data_list.size >= 3 }
+      assert{ exit_status_list.size >= 3 }
+    end
+
+    test 'waits lasting child process until wait_timeout if block is not specified' do
+      assert File.exist?(@temp_path)
+
+      callback_called = false
+      exit_status = nil
+      args = ['-e', 'sleep ARGV[0].to_i; File.unlink ARGV[1]', '1', @temp_path]
+      cb = ->(status){ exit_status = status; callback_called = true }
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:t17, "ruby", arguments: args, on_exit_callback: cb, wait_timeout: 5)
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+
+      assert callback_called
+      assert exit_status
+      assert_equal 0, exit_status.exitstatus
+      assert !File.exist?(@temp_path)
+    end
+
+    test 'waits lasting child process until wait_timeout after block rans if block is specified' do
+      assert File.exist?(@temp_path)
+
+      callback_called = false
+      exit_status = nil
+      args = ['-e', 'sleep ARGV[0].to_i; File.unlink ARGV[1]', '3', @temp_path]
+      cb = ->(status){ exit_status = status; callback_called = true }
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:t17, "ruby", arguments: args, mode: nil, on_exit_callback: cb, wait_timeout: 10) do
+          sleep 1
+        end
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+
+      assert callback_called
+      assert exit_status
+      assert_equal 0, exit_status.exitstatus
+      assert !File.exist?(@temp_path)
+    end
+
+    test 'kills lasting child process after wait_timeout if block is not specified' do
+      assert File.exist?(@temp_path)
+
+      callback_called = false
+      exit_status = nil
+      args = ['-e', 'sleep ARGV[0].to_i; File.unlink ARGV[1]', '20', @temp_path]
+      cb = ->(status){ exit_status = status; callback_called = true }
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:t17, "ruby", arguments: args, on_exit_callback: cb, wait_timeout: 3)
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+
+      assert callback_called
+      assert exit_status
+      assert_nil exit_status.exitstatus
+      assert_equal 9, exit_status.termsig # SIGKILL
+      assert File.exist?(@temp_path)
+    end
+
+    test 'kills lasting child process after block ran and wait_timeout expires if block is specified' do
+      assert File.exist?(@temp_path)
+
+      callback_called = false
+      exit_status = nil
+      args = ['-e', 'sleep ARGV[0].to_i; File.unlink ARGV[1]', '20', @temp_path]
+      cb = ->(status){ exit_status = status; callback_called = true }
+
+      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+        @d.child_process_execute(:t17, "ruby", arguments: args, mode: nil, on_exit_callback: cb, wait_timeout: 3) do
+          sleep 3
+        end
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      end
+
+      assert callback_called
+      assert exit_status
+      assert_nil exit_status.exitstatus
+      assert_equal 9, exit_status.termsig # SIGKILL
+      assert File.exist?(@temp_path)
     end
   end
 end
