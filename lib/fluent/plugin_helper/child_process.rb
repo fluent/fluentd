@@ -122,6 +122,7 @@ module Fluent
         @_child_process_kill_timeout = CHILD_PROCESS_DEFAULT_KILL_TIMEOUT
         @_child_process_mutex = Mutex.new
         @_child_process_processes = {} # pid => ProcessInfo
+        @_child_process_clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
       end
 
       def stop
@@ -138,31 +139,43 @@ module Fluent
       def shutdown
         @_child_process_mutex.synchronize{ @_child_process_processes.keys }.each do |pid|
           process_info = @_child_process_processes[pid]
-          next if !process_info || !process_info.writeio_in_use
-          begin
-            Timeout.timeout(@_child_process_exit_timeout) do
-              process_info.writeio.close
-            end
-          rescue Timeout::Error
-            log.debug "External process #{process_info.title} doesn't exist after STDIN close in timeout #{@_child_process_exit_timeout}sec"
-          end
-
-          child_process_kill(process_info)
+          next if !process_info
+          process_info.writeio && process_info.writeio.close rescue nil
         end
 
         super
+
+        @_child_process_mutex.synchronize{ @_child_process_processes.keys }.each do |pid|
+          process_info = @_child_process_processes[pid]
+          next if !process_info
+          child_process_kill(process_info)
+        end
+
+        exit_wait_timeout = Process.clock_gettime(@_child_process_clock_id) + @_child_process_exit_timeout
+        while Process.clock_gettime(@_child_process_clock_id) < exit_wait_timeout
+          process_exists = false
+          @_child_process_mutex.synchronize{ @_child_process_processes.keys }.each do |pid|
+            unless @_child_process_processes[pid].exit_status
+              process_exists = true
+              break
+            end
+          end
+          if process_exists
+            sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
+          else
+            break
+          end
+        end
       end
 
       def close
         while (pids = @_child_process_mutex.synchronize{ @_child_process_processes.keys }).size > 0
           pids.each do |pid|
             process_info = @_child_process_processes[pid]
-            if !process_info || !process_info.alive
-              next
-            end
+            next if !process_info || !process_info.alive
 
-            process_info.killed_at ||= Time.now # for illegular case (e.g., created after shutdown)
-            next if Time.now < process_info.killed_at + @_child_process_kill_timeout
+            process_info.killed_at ||= Process.clock_gettime(@_child_process_clock_id) # for illegular case (e.g., created after shutdown)
+            next if Process.clock_gettime(@_child_process_clock_id) < process_info.killed_at + @_child_process_kill_timeout
 
             child_process_kill(process_info, force: true)
           end
@@ -181,7 +194,7 @@ module Fluent
 
       def child_process_kill(pinfo, force: false)
         return if !pinfo
-        pinfo.killed_at = Time.now unless force
+        pinfo.killed_at = Process.clock_gettime(@_child_process_clock_id) unless force
 
         pid = pinfo.pid
         begin
