@@ -22,6 +22,7 @@ require 'yajl'
 require 'fluent/config/error'
 require 'fluent/config/element'
 require 'fluent/configurable'
+require 'fluent/env'
 require 'fluent/engine'
 require 'fluent/registry'
 require 'fluent/time'
@@ -260,7 +261,7 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
-          Oj.default_options = {bigdecimal_load: :float, mode: :strict}
+          Oj.default_options = Fluent::DEFAULT_OJ_OPTIONS
           @load_proc = Oj.method(:load)
           @error_class = Oj::ParseError
         rescue LoadError

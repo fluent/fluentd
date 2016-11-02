@@ -15,6 +15,7 @@
 #
 
 require 'fluent/configurable'
+require 'fluent/env'
 require 'fluent/registry'
 require 'fluent/mixin'
 
@@ -141,7 +142,7 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
-          Oj.default_options = {mode: :compat}
+          Oj.default_options = Fluent::DEFAULT_OJ_OPTIONS
           @dump_proc = Oj.method(:dump)
         rescue LoadError
           @dump_proc = Yajl.method(:dump)

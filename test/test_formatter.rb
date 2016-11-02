@@ -29,6 +29,10 @@ module FormatterTest
     {'message' => 'awesome'}
   end
 
+  def symbolic_record
+    {:message => :awesome}
+  end
+
   def with_timezone(tz)
     oldtz, ENV['TZ'] = ENV['TZ'], tz
     yield
@@ -136,6 +140,14 @@ module FormatterTest
       formatted = @formatter.format(tag, @time, record)
 
       assert_equal("#{Yajl.dump(record)}\n", formatted)
+    end
+
+    data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_format_with_symbolic_record(data)
+      @formatter.configure('json_parser' => data)
+      formatted = @formatter.format(tag, @time, symbolic_record)
+
+      assert_equal("#{JSON.generate(record)}\n", formatted)
     end
 
     data('oj' => 'oj', 'yajl' => 'yajl')
