@@ -15,7 +15,7 @@ class DummyTest < Test::Unit::TestCase
   sub_test_case 'configure' do
     test 'required parameters' do
       assert_raise_message("'tag' parameter is required") do
-        create_driver('')
+        Fluent::Plugin::DummyInput.new.configure(config_element('ROOT',''))
       end
     end
 
