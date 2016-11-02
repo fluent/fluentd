@@ -41,17 +41,7 @@ module Fluent::Plugin
       false
     end
 
-    def prefer_delayed_commit
-      @delayed
-    end
-
-    attr_accessor :delayed
     attr_accessor :formatter
-
-    def initialize
-      super
-      @delayed = false
-    end
 
     def configure(conf)
       compat_parameters_convert(conf, :inject, :formatter)
@@ -75,11 +65,6 @@ module Fluent::Plugin
 
     def write(chunk)
       chunk.write_to($log)
-    end
-
-    def try_write(chunk)
-      chunk.write_to($log)
-      commit_write(chunk.unique_id)
     end
   end
 end

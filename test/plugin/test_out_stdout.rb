@@ -139,21 +139,6 @@ class StdoutOutputTest < Test::Unit::TestCase
         end
         assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test\"}\n", out
       end
-
-      data('oj' => 'oj', 'yajl' => 'yajl')
-      test '#try_write(asynchronous)' do |data|
-        d = create_driver(config_element("ROOT", "", {"output_type" => "json", "json_parser" => data}, [config_element("buffer")]))
-        time = event_time()
-        d.instance.delayed = true
-
-        out = capture_log do
-          d.run(default_tag: 'test', flush: true, shutdown: false) do
-            d.feed(time, {'test' => 'test'})
-          end
-        end
-
-        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\":\"test\"}\n", out
-      end
     end
 
     sub_test_case 'emit hash' do
@@ -163,20 +148,6 @@ class StdoutOutputTest < Test::Unit::TestCase
 
         out = capture_log do
           d.run(default_tag: 'test', flush: true) do
-            d.feed(time, {'test' => 'test'})
-          end
-        end
-
-        assert_equal "#{Time.at(time).localtime.strftime(TIME_FORMAT)} test: {\"test\"=>\"test\"}\n", out
-      end
-
-      test '#try_write(asynchronous)' do
-        d = create_driver(config_element("ROOT", "", {"output_type" => "hash"}, [config_element("buffer")]))
-        time = event_time()
-        d.instance.delayed = true
-
-        out = capture_log do
-          d.run(default_tag: 'test', flush: true, shutdown: false) do
             d.feed(time, {'test' => 'test'})
           end
         end
