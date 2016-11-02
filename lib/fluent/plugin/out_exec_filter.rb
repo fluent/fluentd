@@ -237,19 +237,6 @@ module Fluent::Plugin
       end
     end
 
-    def stop
-      @children.each_with_index do |c, i|
-        c.mutex.synchronize do
-          if c.pid
-            c.writeio.close rescue nil
-            c.writeio = nil
-          end
-        end
-      end
-
-      super
-    end
-
     def terminate
       @children = []
       super
