@@ -184,7 +184,9 @@ module Fluent::Plugin
       exit_callback = ->(status){
         c = @children.select{|child| child.pid == status.pid }.first
         if c
-          log.warn "child process exits with error code", code: status.to_i, status: status.exitstatus, signal: status.termsig
+          unless self.stopped?
+            log.warn "child process exits with error code", code: status.to_i, status: status.exitstatus, signal: status.termsig
+          end
           c.mutex.synchronize do
             (c.writeio && c.writeio.close) rescue nil
             (c.readio && c.readio.close) rescue nil
@@ -301,7 +303,7 @@ module Fluent::Plugin
     rescue => e
       if @suppress_error_log_interval == 0 || Time.now.to_i > @next_log_time
         log.error "exec_filter failed to emit", record: Yajl.dump(record), error: e
-        log.warn_backtrace e.backtrace
+        log.error_backtrace e.backtrace
         @next_log_time = Time.now.to_i + @suppress_error_log_interval
       end
       router.emit_error_event(tag, time, record, "exec_filter failed to emit") if tag && time && record
