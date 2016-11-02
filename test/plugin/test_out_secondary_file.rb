@@ -97,7 +97,9 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
 
     test 'should be passed directory' do
       assert_raise Fluent::ConfigError do
-        create_driver %[]
+        i = Fluent::Plugin::SecondaryFileOutput.new
+        i.acts_as_secondary(create_primary)
+        i.configure(config_element())
       end
 
       assert_nothing_raised do

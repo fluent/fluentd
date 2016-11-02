@@ -150,10 +150,9 @@ module Fluent
 
       # for tests
       attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_time, :chunk_key_tag
-      attr_accessor :output_enqueue_thread_waiting, :in_tests
+      attr_accessor :output_enqueue_thread_waiting, :dequeued_chunks, :dequeued_chunks_mutex
 
       # output_enqueue_thread_waiting: for test of output.rb itself
-      # in_tests: for tests of plugins with test drivers
 
       def initialize
         super
@@ -161,7 +160,6 @@ module Fluent
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
-        @in_tests = false
         @primary_instance = nil
 
         # TODO: well organized counters
@@ -188,6 +186,7 @@ module Fluent
         @secondary = nil
         @retry = nil
         @dequeued_chunks = nil
+        @dequeued_chunks_mutex = nil
         @output_enqueue_thread = nil
         @output_flush_threads = nil
 
@@ -399,10 +398,8 @@ module Fluent
           end
           @output_flush_thread_current_position = 0
 
-          unless @in_tests
-            if @flush_mode == :interval || @chunk_key_time
-              @output_enqueue_thread = thread_create(:enqueue_thread, &method(:enqueue_thread_run))
-            end
+          if !@under_plugin_development && (@flush_mode == :interval || @chunk_key_time)
+            @output_enqueue_thread = thread_create(:enqueue_thread, &method(:enqueue_thread_run))
           end
         end
         @secondary.start if @secondary
@@ -981,11 +978,11 @@ module Fluent
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
             @counters_monitor.synchronize{ @write_count += 1 }
-            output.try_write(chunk)
             @dequeued_chunks_mutex.synchronize do
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
             end
+            output.try_write(chunk)
           else # output plugin without delayed purge
             chunk_id = chunk.unique_id
             dump_chunk_id = dump_unique_id_hex(chunk_id)
@@ -994,11 +991,16 @@ module Fluent
             log.trace "executing sync write", chunk: dump_chunk_id
             output.write(chunk)
             log.trace "write operation done, committing", chunk: dump_chunk_id
-            commit_write(chunk_id, secondary: using_secondary)
+            commit_write(chunk_id, delayed: false, secondary: using_secondary)
             log.trace "done to commit a chunk", chunk: dump_chunk_id
           end
         rescue => e
           log.debug "taking back chunk for errors.", plugin_id: plugin_id, chunk: dump_unique_id_hex(chunk.unique_id)
+          if output.delayed_commit
+            @dequeued_chunks_mutex.synchronize do
+              @dequeued_chunks.delete_if{|d| d.chunk_id == chunk.unique_id }
+            end
+          end
           @buffer.takeback_chunk(chunk.unique_id)
 
           if @under_plugin_development
@@ -1059,7 +1061,11 @@ module Fluent
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
         state.next_time = 0
-        state.thread.run
+        if state.thread && state.thread.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
+          state.thread.run
+        else
+          log.warn "thread is already dead"
+        end
       end
 
       def force_flush
@@ -1204,7 +1210,7 @@ module Fluent
         rescue => e
           # normal errors are rescued by output plugins in #try_flush
           # so this rescue section is for critical & unrecoverable errors
-          log.error "error on output thread", plugin_id: plugin_id, error_class: e.class, error: e
+          log.error "error on output thread", plugin_id: plugin_id, error: e
           log.error_backtrace
           raise
         end
