@@ -138,8 +138,9 @@ module Fluent
           end
 
           timeout ||= DEFAULT_TIMEOUT
-          stop_at = Time.now + timeout
-          @run_breaking_conditions << ->(){ Time.now >= stop_at }
+          clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
+          stop_at = Process.clock_gettime(clock_id) + timeout
+          @run_breaking_conditions << ->(){ Process.clock_gettime(clock_id) >= stop_at }
 
           if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
             raise ArgumentError, "no stop conditions nor block specified"
