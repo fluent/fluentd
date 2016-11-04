@@ -89,18 +89,25 @@ module Fluent
         def instance_start
           unless @instance.started?
             @instance.start
-            instance_hook_after_started
           end
           unless @instance.after_started?
             @instance.after_start
           end
+
+          instance_hook_after_started
         end
 
         def instance_hook_after_started
           # insert hooks for tests available after instance.start
         end
 
+        def instance_hook_before_stopped
+          # same with above
+        end
+
         def instance_shutdown
+          instance_hook_before_stopped
+
           @instance.stop            unless @instance.stopped?
           @instance.before_shutdown unless @instance.before_shutdown?
           @instance.shutdown        unless @instance.shutdown?
