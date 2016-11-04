@@ -22,9 +22,12 @@ class ParserFilterTest < Test::Unit::TestCase
   ParserError = Fluent::Plugin::Parser::ParserError
   CONFIG = %[
     key_name     message
-    format       /^(?<x>.)(?<y>.) (?<time>.+)$/
-    time_format  %Y%m%d%H%M%S
     reserve_data true
+    <parse>
+      @type regexp
+      expression /^(?<x>.)(?<y>.) (?<time>.+)$/
+      time_format %Y%m%d%H%M%S
+    </parse>
   ]
 
   def create_driver(conf=CONFIG)
@@ -37,63 +40,69 @@ class ParserFilterTest < Test::Unit::TestCase
     }
     assert_raise(Fluent::ConfigError) {
       create_driver %[
-        format unknown_format_that_will_never_be_implemented
         key_name foo
+        <parse>
+          @type unknown_format_that_will_never_be_implemented
+        </parse>
       ]
     }
     assert_nothing_raised {
       create_driver %[
-        format /(?<x>.)/
         key_name foo
+        <parse>
+          @type regexp
+          expression /(?<x>.)/
+        </parse>
       ]
     }
     assert_nothing_raised {
       create_driver %[
-        format /(?<x>.)/
         key_name foo
+        <parse>
+          @type json
+        </parse>
       ]
     }
     assert_nothing_raised {
       create_driver %[
-        format /(?<x>.)/
         key_name foo
-      ]
-    }
-    assert_nothing_raised {
-      create_driver %[
-        format /(?<x>.)/
-        key_name foo
-      ]
-    }
-    assert_nothing_raised {
-      create_driver %[
         format json
-        key_name foo
       ]
     }
     assert_nothing_raised {
       create_driver %[
-        format ltsv
         key_name foo
+        <parse>
+          @type ltsv
+        </parse>
       ]
     }
     assert_nothing_raised {
       create_driver %[
-        format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
         key_name message
         suppress_parse_error_log true
+        <parse>
+          @type regexp
+          expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+        </parse>
       ]
     }
     assert_nothing_raised {
       create_driver %[
-        format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
         key_name message
         suppress_parse_error_log false
+        <parse>
+          @type regexp
+          expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+        </parse>
       ]
     }
     d = create_driver %[
       key_name foo
-      format /(?<x>.)/
+      <parse>
+        @type regexp
+        expression /(?<x>.)/
+      </parse>
     ]
     assert_false d.instance.reserve_data
   end
@@ -172,9 +181,11 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal '20120402182100', second[1]['t']
 
     d3 = create_driver(%[
-      tag parsed
-      key_name      data
-      format        /^(?<x>[0-9])(?<y>[0-9]) (?<t>.+)$/
+      key_name data
+      <parse>
+        @type regexp
+        expression /^(?<x>[0-9])(?<y>[0-9]) (?<t>.+)$/
+      </parse>
     ])
     time = Time.parse("2012-04-02 18:20:59").to_i
     d3.run do
@@ -186,10 +197,12 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 2, filtered.length
 
     d3x = create_driver(%[
-      tag parsed
-      key_name      data
-      format        /^(?<x>\\d)(?<y>\\d) (?<t>.+)$/
-      reserve_data  yes
+      key_name data
+      reserve_data yes
+      <parse>
+        @type regexp
+        expression /^(?<x>\\d)(?<y>\\d) (?<t>.+)$/
+      </parse>
     ])
     time = Time.parse("2012-04-02 18:20:59").to_i
     d3x.run do
@@ -201,9 +214,10 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 3, filtered.length
 
     d4 = create_driver(%[
-      tag parsed
-      key_name      data
-      format        json
+      key_name data
+      <parse>
+        @type json
+      </parse>
     ])
     time = Time.parse("2012-04-02 18:20:59").to_i
     d4.run do
@@ -214,10 +228,11 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
 
     d4x = create_driver(%[
-      tag parsed
-      key_name      data
-      format        json
-      reserve_data  yes
+      key_name data
+      reserve_data yes
+      <parse>
+        @type json
+      </parse>
     ])
     time = @default_time.to_i
     d4x.run do
@@ -241,8 +256,17 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_LTSV =  %[
-    format ltsv
     key_name data
+    <parse>
+      @type ltsv
+    </parse>
+  ]
+  CONFIG_LTSV_WITH_TYPES =  %[
+    key_name data
+    <parse>
+      @type ltsv
+      types i:integer,s:string,f:float,b:bool
+    </parse>
   ]
   def test_filter_ltsv
     d = create_driver(CONFIG_LTSV)
@@ -288,7 +312,8 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 'second2', second[1]['yyy']
 
     # convert types
-    d = create_driver(CONFIG_LTSV + %[types i:integer,s:string,f:float,b:bool])
+    #d = create_driver(CONFIG_LTSV + %[
+    d = create_driver(CONFIG_LTSV_WITH_TYPES)
     time = @default_time.to_i
     d.run do
       d.feed(@tag, time, {'data' => "i:1\ts:2\tf:3\tb:true\tx:123"})
@@ -306,9 +331,11 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_TSV =  %[
-    format tsv
     key_name data
-    keys key1,key2,key3
+    <parse>
+      @type tsv
+      keys key1,key2,key3
+    </parse>
   ]
   def test_filter_tsv
     d = create_driver(CONFIG_TSV)
@@ -328,12 +355,21 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_CSV =  %[
-    format csv
     key_name data
+    <parse>
+      @type csv
+      keys key1,key2,key3
+    </parse>
+  ]
+  CONFIG_CSV_COMPAT =  %[
+    key_name data
+    format csv
     keys key1,key2,key3
   ]
-  def test_filter_csv
-    d = create_driver(CONFIG_CSV)
+  data(new_conf: CONFIG_CSV,
+       compat_conf: CONFIG_CSV_COMPAT)
+  def test_filter_csv(conf)
+    d = create_driver(conf)
     time = @default_time.to_i
     d.run do
       d.feed(@tag, time, {'data' => 'value1,"value2","value""ThreeYes!"', 'xxx' => 'x', 'yyy' => 'y'})
@@ -350,21 +386,27 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_HASH_VALUE_FIELD = %[
-    format       json
-    key_name     data
+    key_name data
     hash_value_field parsed
+    <parse>
+      @type json
+    </parse>
   ]
   CONFIG_HASH_VALUE_FIELD_RESERVE_DATA = %[
-    format       json
-    key_name     data
+    key_name data
     reserve_data yes
     hash_value_field parsed
+    <parse>
+      @type json
+    </parse>
   ]
   CONFIG_HASH_VALUE_FIELD_WITH_INJECT_KEY_PREFIX = %[
-    format       json
-    key_name     data
+    key_name data
     hash_value_field parsed
     inject_key_prefix data.
+    <parse>
+      @type json
+    </parse>
   ]
   def test_filter_inject_hash_value_field
     original = {'data' => '{"xxx":"first","yyy":"second"}', 'xxx' => 'x', 'yyy' => 'y'}
@@ -420,13 +462,23 @@ class ParserFilterTest < Test::Unit::TestCase
 
   CONFIG_DONT_PARSE_TIME = %[
     key_name data
+    reserve_time true
+    <parse>
+      @type json
+      keep_time_key true
+    </parse>
+  ]
+  CONFIG_DONT_PARSE_TIME_COMPAT = %[
+    key_name data
+    reserve_time true
     format json
     keep_time_key true
-    reserve_time true
   ]
-  def test_time_should_be_reserved
+  data(new_conf: CONFIG_DONT_PARSE_TIME,
+       compat_conf: CONFIG_DONT_PARSE_TIME_COMPAT)
+  def test_time_should_be_reserved(conf)
     t = Time.now.to_i
-    d = create_driver(CONFIG_DONT_PARSE_TIME)
+    d = create_driver(conf)
     d.run do
       d.feed(@tag, t, {'data' => '{"time":1383190430, "f1":"v1"}'})
       d.feed(@tag, t, {'data' => '{"time":"1383190430", "f1":"v1"}'})
@@ -449,9 +501,10 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_INVALID_TIME_VALUE = %[
-    remove_prefix test
     key_name data
-    format json
+    <parse>
+      @type json
+    </parse>
   ] # 'time' is implicit @time_key
   def test_filter_invalid_time_data
     # should not raise errors
@@ -474,9 +527,11 @@ class ParserFilterTest < Test::Unit::TestCase
   # REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/
 
   CONFIG_NOT_REPLACE = %[
-    remove_prefix test
-    key_name      data
-    format        /^(?<message>.*)$/
+    key_name data
+    <parse>
+      @type regexp
+      expression /^(?<message>.*)$/
+    </parse>
   ]
   CONFIG_INVALID_BYTE = CONFIG_NOT_REPLACE + %[
     replace_invalid_sequence true
@@ -529,10 +584,11 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_NOT_IGNORE = %[
-    remove_prefix    test
-    key_name         data
-    format           json
+    key_name data
     hash_value_field parsed
+    <parse>
+      @type json
+    </parse>
   ]
   CONFIG_IGNORE = CONFIG_NOT_IGNORE + %[
     ignore_key_not_exist true
@@ -587,9 +643,11 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_DEFAULT_SUPPRESS_PARSE_ERROR_LOG = %[
-    tag hogelog
-    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
     key_name message
+    <parse>
+      @type regexp
+      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+    </parse>
   ]
 
   class DefaultSuppressParseErrorLogTest < self
@@ -615,10 +673,12 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_DISABELED_SUPPRESS_PARSE_ERROR_LOG = %[
-    tag hogelog
-    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
     key_name message
     suppress_parse_error_log false
+    <parse>
+      @type regexp
+      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+    </parse>
   ]
 
   class DisabledSuppressParseErrorLogTest < self
@@ -644,10 +704,12 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   CONFIG_ENABELED_SUPPRESS_PARSE_ERROR_LOG = %[
-    tag hogelog
-    format /^col1=(?<col1>.+) col2=(?<col2>.+)$/
     key_name message
     suppress_parse_error_log true
+    <parse>
+      @type regexp
+      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
+    </parse>
   ]
 
   class EnabledSuppressParseErrorLogTest < self
