@@ -41,13 +41,6 @@ module Fluent
         args.each{ |arg| write(arg + "\n") }
       end
 
-      def dump_stderr(&block)
-        @use_stderr = true
-        block.call
-      ensure
-        @use_stderr = false
-      end
-
       def write(message)
         if @use_stderr
           STDERR.write message
@@ -65,48 +58,13 @@ module Fluent
     end
 
     class TestLogger < Fluent::PluginLogger
-      attr_accessor :under_plugin_development
-
       def initialize
         @logdev = DummyLogDevice.new
-        @under_plugin_development = false
         dl_opts = {}
         dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
         logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
         log = Fluent::Log.new(logger)
         super(log)
-      end
-
-      def error(*args, &block)
-        if @under_plugin_development
-          @logdev.dump_stderr{ super }
-        else
-          super
-        end
-      end
-
-      def error_backtrace(backtrace=$!.backtrace)
-        if @under_plugin_development
-          @logdev.dump_stderr{ super }
-        else
-          super
-        end
-      end
-
-      def fatal(*args, &block)
-        if @under_plugin_development
-          @logdev.dump_stderr{ super }
-        else
-          super
-        end
-      end
-
-      def fatal_backtrace(backtrace=$!.backtrace)
-        if @under_plugin_development
-          @logdev.dump_stderr{ super }
-        else
-          super
-        end
       end
 
       def reset
