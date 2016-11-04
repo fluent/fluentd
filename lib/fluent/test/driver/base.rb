@@ -165,7 +165,7 @@ module Fluent
 
         def stop?
           # Should stop running if post conditions are not registered.
-          return true unless @run_post_conditions
+          return true unless @run_post_conditions || @run_post_conditions.empty?
 
           # Should stop running if all of the post conditions are true.
           return true if @run_post_conditions.all? {|proc| proc.call }
