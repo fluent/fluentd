@@ -122,7 +122,7 @@ module Fluent
         @_child_process_kill_timeout = CHILD_PROCESS_DEFAULT_KILL_TIMEOUT
         @_child_process_mutex = Mutex.new
         @_child_process_processes = {} # pid => ProcessInfo
-        @_child_process_clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
+        @_child_process_clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
       end
 
       def stop
