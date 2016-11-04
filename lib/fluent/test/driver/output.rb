@@ -31,22 +31,29 @@ module Fluent
           raise ArgumentError, "plugin is not an instance of Fluent::Plugin::Output" unless @instance.is_a? Fluent::Plugin::Output
           @flush_buffer_at_cleanup = nil
           @wait_flush_completion = nil
+          @force_flush_retry = nil
           @format_hook = nil
           @format_results = []
         end
 
-        def run(flush: true, wait_flush_completion: true, **kwargs, &block)
+        def run(flush: true, wait_flush_completion: true, force_flush_retry: false, **kwargs, &block)
           @flush_buffer_at_cleanup = flush
           @wait_flush_completion = wait_flush_completion
+          @force_flush_retry = force_flush_retry
           super(**kwargs, &block)
         end
 
         def run_actual(**kwargs, &block)
+          if @force_flush_retry
+            @instance.retry_for_error_chunk = true
+          end
           val = super(**kwargs, &block)
           if @flush_buffer_at_cleanup
             self.flush
           end
           val
+        ensure
+          @instance.retry_for_error_chunk = false
         end
 
         def formatted

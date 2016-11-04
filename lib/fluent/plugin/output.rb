@@ -151,8 +151,8 @@ module Fluent
       # for tests
       attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_time, :chunk_key_tag
       attr_accessor :output_enqueue_thread_waiting, :dequeued_chunks, :dequeued_chunks_mutex
-
       # output_enqueue_thread_waiting: for test of output.rb itself
+      attr_accessor :retry_for_error_chunk # if true, error flush will be retried even if under_plugin_development is true
 
       def initialize
         super
@@ -194,6 +194,8 @@ module Fluent
         @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
         @flush_mode = nil
         @timekey_zone = nil
+
+        @retry_for_error_chunk = false
       end
 
       def acts_as_secondary(primary)
@@ -1003,7 +1005,7 @@ module Fluent
           end
           @buffer.takeback_chunk(chunk.unique_id)
 
-          if @under_plugin_development
+          if @under_plugin_development && !@retry_for_error_chunk
             raise
           end
 
