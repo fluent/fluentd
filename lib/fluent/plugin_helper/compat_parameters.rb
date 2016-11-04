@@ -52,8 +52,6 @@ module Fluent
         "types" => nil,
         "types_delimiter" => nil,
         "types_label_delimiter" => nil,
-        "null_value_pattern" => "null_value_pattern",
-        "null_empty_string" => "null_empty_string",
         "keys" => "keys", # CSVParser, TSVParser (old ValuesParser)
         "time_key"    => "time_key",
         "time_format" => "time_format",
