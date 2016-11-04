@@ -1005,10 +1005,6 @@ module Fluent
           end
           @buffer.takeback_chunk(chunk.unique_id)
 
-          if @under_plugin_development && !@retry_for_error_chunk
-            raise
-          end
-
           @retry_mutex.synchronize do
             if @retry
               @counters_monitor.synchronize{ @num_errors += 1 }
@@ -1036,6 +1032,8 @@ module Fluent
               log.warn_backtrace e.backtrace
             end
           end
+
+          raise if @under_plugin_development && !@retry_for_error_chunk
         end
       end
 
