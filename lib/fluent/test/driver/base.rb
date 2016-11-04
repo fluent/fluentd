@@ -48,6 +48,8 @@ module Fluent
 
           @logs = []
 
+          @test_clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
+
           @run_post_conditions = []
           @run_breaking_conditions = []
           @broken = false
@@ -79,6 +81,14 @@ module Fluent
           end
           if @instance.respond_to?(:event_loop_wait_until_start)
             @instance.event_loop_wait_until_start
+          end
+
+          timeout ||= DEFAULT_TIMEOUT
+          stop_at = Process.clock_gettime(@test_clock_id) + timeout
+          @run_breaking_conditions << ->(){ Process.clock_gettime(@test_clock_id) >= stop_at }
+
+          if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
+            raise ArgumentError, "no stop conditions nor block specified"
           end
 
           begin
@@ -128,22 +138,13 @@ module Fluent
           @instance.terminate unless @instance.terminated?
         end
 
-        def run_actual(timeout: nil, &block)
+        def run_actual(timeout: DEFAULT_TIMEOUT, &block)
           if @instance.respond_to?(:_threads)
             sleep 0.01 until @instance._threads.values.all?(&:alive?)
           end
 
           if @instance.respond_to?(:event_loop_running?)
             sleep 0.01 until @instance.event_loop_running?
-          end
-
-          timeout ||= DEFAULT_TIMEOUT
-          clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
-          stop_at = Process.clock_gettime(clock_id) + timeout
-          @run_breaking_conditions << ->(){ Process.clock_gettime(clock_id) >= stop_at }
-
-          if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
-            raise ArgumentError, "no stop conditions nor block specified"
           end
 
           return_value = nil
