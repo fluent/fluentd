@@ -421,7 +421,8 @@ class ParserFilterTest < Test::Unit::TestCase
   CONFIG_DONT_PARSE_TIME = %[
     key_name data
     format json
-    time_parse no
+    keep_time_key true
+    reserve_time true
   ]
   def test_time_should_be_reserved
     t = Time.now.to_i
@@ -465,9 +466,9 @@ class ParserFilterTest < Test::Unit::TestCase
     filtered = d.filtered
     assert_equal 1, filtered.length
 
-    assert_equal 0, filtered[0][0]
+    assert_equal 0, filtered[0][0].to_i
     assert_equal 'v1', filtered[0][1]['f1']
-    assert_equal 0, filtered[0][1]['time'].to_i
+    assert_equal nil, filtered[0][1]['time']
   end
 
   # REGEXP = /^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$/

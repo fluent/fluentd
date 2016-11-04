@@ -28,32 +28,22 @@ module Fluent::Plugin
 
     config_param :key_name, :string
     config_param :reserve_data, :bool, default: false
+    config_param :reserve_time, :bool, default: false
     config_param :inject_key_prefix, :string, default: nil
     config_param :replace_invalid_sequence, :bool, default: false
     config_param :hash_value_field, :string, default: nil
-    config_param :time_parse, :bool, default: true
+
+    config_section :parse do
+    end
 
     attr_reader :parser
 
     def configure(conf)
       compat_parameters_convert(conf, :parser)
-      parser_config = conf.elements('parse').first
-      unless parser_config
-        raise Fluent::ConfigError, "<parse> section is required"
-      end
-      unless parser_config["@type"]
-        raise Fluent::ConfigError, "parse/@type is required"
-      end
 
       super
 
-      @parser = parser_create(usage: 'filter_parser', conf: parser_config)
-      if !@time_parse && @parser.respond_to?("time_key=".to_sym)
-        # disable parse time
-        @parser.time_key = nil
-      end
-
-      self
+      @parser = parser_create
     end
 
     FAILED_RESULT = [nil, nil].freeze # reduce allocation cost 
@@ -71,7 +61,11 @@ module Fluent::Plugin
       begin
         @parser.parse(raw_value) do |t, values|
           if values
-            t ||= time
+            t = if @reserve_time
+                  time
+                else
+                  t.nil? ? time : t
+                end
             r = handle_parsed(tag, record, t, values)
             return t, r
           else
