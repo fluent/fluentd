@@ -130,15 +130,11 @@ module Fluent
 
         def run_actual(timeout: nil, &block)
           if @instance.respond_to?(:_threads)
-            until @instance._threads.values.all?(&:alive?)
-              sleep 0.01
-            end
+            sleep 0.01 until @instance._threads.values.all?(&:alive?)
           end
 
           if @instance.respond_to?(:event_loop_running?)
-            until @instance.event_loop_running?
-              sleep 0.01
-            end
+            sleep 0.01 until @instance.event_loop_running?
           end
 
           timeout ||= DEFAULT_TIMEOUT
