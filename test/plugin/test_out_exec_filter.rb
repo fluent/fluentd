@@ -148,7 +148,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   )
   test 'emit events without time format configuration' do |conf|
     d = create_driver(conf)
-    time = event_time("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15 +0900")
 
     d.run(default_tag: 'test', expect_emits: 2, timeout: 10) do
       d.feed(time, {"k1"=>1})
@@ -198,7 +198,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   )
   test 'emit events through grep command' do |conf|
     d = create_driver(conf)
-    time = event_time("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15 +0900")
 
     d.run(default_tag: 'test', expect_emits: 1, timeout: 10) do
       d.feed(time, {"val1"=>"sed-ed value poo"})
@@ -246,7 +246,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   )
   test 'emit events through sed command' do |conf|
     d = create_driver(conf)
-    time = event_time("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15 +0900")
 
     d.run(default_tag: 'test', expect_emits: 1, timeout: 10) do
       d.feed(time, {"val1"=>"sed-ed value poo"})
@@ -302,7 +302,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   test 'emit events with add/remove tag prefix' do |conf|
     d = create_driver(conf)
 
-    time = event_time("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15 +0900")
 
     d.run(default_tag: 'input.test', expect_emits: 2, timeout: 10) do
       d.feed(time, {"val1"=>"sed-ed value foo"})
@@ -348,7 +348,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   )
   test 'using json format' do |conf|
     d = create_driver(conf)
-    time = event_time("2011-01-02 13:14:15")
+    time = event_time("2011-01-02 13:14:15 +0900")
 
     d.run(default_tag: 'input.test', expect_emits: 1, timeout: 10) do
       i = d.instance
@@ -392,7 +392,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   )
   test 'using json format with float time' do |conf|
     d = create_driver(conf)
-    time = event_time("2011-01-02 13:14:15.123")
+    time = event_time("2011-01-02 13:14:15.123 +0900")
 
     d.run(default_tag: 'input.test', expect_emits: 1, timeout: 10) do
       d.feed(time + 10, {"message"=>%[{"time":#{time.sec}.#{time.nsec},"tag":"t1","k1":"v1"}]})
