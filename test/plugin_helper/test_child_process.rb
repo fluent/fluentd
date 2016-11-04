@@ -655,7 +655,7 @@ class ChildProcessTest < Test::Unit::TestCase
       block_exits = false
       callback_called = false
       exit_status = nil
-      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '10', @temp_path]
+      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '25', @temp_path]
       cb = ->(status){ exit_status = status; callback_called = true }
 
       str = nil
@@ -675,8 +675,7 @@ class ChildProcessTest < Test::Unit::TestCase
       assert callback_called
       assert exit_status
 
-      assert_nil exit_status.exitstatus
-      assert_equal 3, exit_status.termsig # SIGQUIT
+      assert_equal [nil, 3], [exit_status.exitstatus, exit_status.termsig] # SIGQUIT
 
       assert File.exist?(@temp_path)
       assert_equal "", str
