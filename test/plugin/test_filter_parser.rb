@@ -2,8 +2,11 @@ require_relative '../helper'
 require 'timecop'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_parser'
+require 'flexmock/test_unit'
 
 class ParserFilterTest < Test::Unit::TestCase
+  include FlexMock::TestCase
+
   def setup
     Fluent::Test.setup
     @tag = 'test'
@@ -12,9 +15,11 @@ class ParserFilterTest < Test::Unit::TestCase
   end
 
   def teardown
+    super
     Timecop.return
   end
 
+  ParserError = Fluent::Plugin::Parser::ParserError
   CONFIG = %[
     key_name     message
     format       /^(?<x>.)(?<y>.) (?<time>.+)$/
@@ -536,12 +541,14 @@ class ParserFilterTest < Test::Unit::TestCase
   ]
   def test_filter_key_not_exist
     d = create_driver(CONFIG_NOT_IGNORE)
+    flexmock(d.instance.router).should_receive(:emit_error_event).
+      with(String, Integer, Hash, ArgumentError.new("data does not exist")).once
     assert_nothing_raised {
       d.run(shutdown: false) do
         d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
       end
     }
-    assert_match(/data does not exist/, d.instance.log.logs.first)
+    #assert_match(/data does not exist/, d.instance.log.logs.first)
     d.instance_shutdown
 
     d = create_driver(CONFIG_IGNORE)
@@ -571,11 +578,11 @@ class ParserFilterTest < Test::Unit::TestCase
 
   def test_parser_error_warning
     d = create_driver(CONFIG_INVALID_TIME_VALUE)
-    d.run(shutdown: false) do
+    flexmock(d.instance.router).should_receive(:emit_error_event).
+      with(String, Integer, Hash, ParserError).once
+    d.run do
       d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
     end
-    assert_match(/\[warn\]: invalid time value:/, d.instance.log.logs.first)
-    d.instance_shutdown
   end
 
   CONFIG_DEFAULT_SUPPRESS_PARSE_ERROR_LOG = %[
@@ -591,19 +598,18 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_raise_exception
-      @d.run(shutdown: false) do
+      flexmock(@d.instance.router).should_receive(:emit_error_event).
+        with(String, Integer, Hash, ParserError.new("pattern not match with data '#{INVALID_MESSAGE}'")).once
+      @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
       end
-      assert_match(/\[warn\]: pattern not match with data/, @d.instance.log.logs.first)
-      @d.instance_shutdown
     end
 
     def test_nothing_raised
-      @d.run(shutdown: false) do
+      flexmock(@d.instance.router).should_receive(:emit_error_event).never
+      @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
-      assert_empty @d.instance.log.logs
-      @d.instance_shutdown
     end
   end
 
@@ -621,19 +627,18 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_raise_exception
-      @d.run(shutdown: false) do
+      flexmock(@d.instance.router).should_receive(:emit_error_event).
+        with(String, Integer, Hash, ParserError.new("pattern not match with data '#{INVALID_MESSAGE}'")).once
+      @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
       end
-      assert_match(/\[warn\]: pattern not match with data/, @d.instance.log.logs.first)
-      @d.instance_shutdown
     end
 
     def test_nothing_raised
-      @d.run(shutdown: false) do
+      flexmock(@d.instance.router).should_receive(:emit_error_event).never
+      @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
-      assert_empty @d.instance.log.logs
-      @d.instance_shutdown
     end
   end
 
@@ -651,12 +656,12 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_nothing_raised
-      @d.run(shutdown: false) do
+      flexmock(@d.instance.router).should_receive(:emit_error_event).
+        with(String, Integer, Hash, ParserError).once
+      @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
-      assert_empty @d.instance.log.logs
-      @d.instance_shutdown
     end
   end
 end
