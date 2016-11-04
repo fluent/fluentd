@@ -50,7 +50,6 @@ class ExtractHelperTest < Test::Unit::TestCase
     assert_nil @d.instance_eval{ @_extract_time_key }
     assert_nil @d.instance_eval{ @_extract_time_parser }
 
-    time = event_time()
     record = {"key1" => "value1", "key2" => 2, "tag" => "yay", "time" => Time.now.to_i}
 
     assert_nil @d.extract_tag_from_record(record)
