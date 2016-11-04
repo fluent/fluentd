@@ -169,16 +169,26 @@ module Fluent
       end
 
       def close
-        while (pids = @_child_process_mutex.synchronize{ @_child_process_processes.keys }).size > 0
+        while true
+          pids = @_child_process_mutex.synchronize{ @_child_process_processes.keys }
+          break if pids.size < 1
+
+          living_process_exist = false
           pids.each do |pid|
             process_info = @_child_process_processes[pid]
-            next if !process_info || !process_info.alive
+            next if !process_info || process_info.exit_status
+
+            living_process_exist = true
 
             process_info.killed_at ||= Process.clock_gettime(@_child_process_clock_id) # for illegular case (e.g., created after shutdown)
-            next if Process.clock_gettime(@_child_process_clock_id) < process_info.killed_at + @_child_process_kill_timeout
+            timeout_at = process_info.killed_at + @_child_process_kill_timeout
+            now = Process.clock_gettime(@_child_process_clock_id)
+            next if now < timeout_at
 
             child_process_kill(process_info, force: true)
           end
+
+          break if living_process_exist
 
           sleep CHILD_PROCESS_LOOP_CHECK_INTERVAL
         end
@@ -321,7 +331,6 @@ module Fluent
           else
             @_child_process_processes[pid].exit_status = wait_thread.value # with join
           end
-
           process_info = @_child_process_mutex.synchronize{ @_child_process_processes.delete(pid) }
 
           cb = process_info.on_exit_callback_mutex.synchronize do
