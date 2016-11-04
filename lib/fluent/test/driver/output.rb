@@ -44,8 +44,7 @@ module Fluent
         def run_actual(**kwargs, &block)
           val = super(**kwargs, &block)
           if @flush_buffer_at_cleanup
-            @instance.force_flush
-            Timeout.timeout(10){ sleep 0.1 until !@instance.buffer || @instance.buffer.queue.size == 0 }
+            self.flush
           end
           val
         end
