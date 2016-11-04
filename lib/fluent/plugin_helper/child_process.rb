@@ -298,7 +298,7 @@ module Fluent
           rescue EOFError => e
             log.debug "Process exit and I/O closed", title: title, pid: pid, command: command, arguments: arguments
           rescue IOError => e
-            if e.message == 'stream closed'
+            if e.message == 'stream closed' || e.message == 'closed stream' # "closed stream" is of ruby 2.1
               log.debug "Process I/O stream closed", title: title, pid: pid, command: command, arguments: arguments
             else
               log.error "Unexpected I/O error for child process", title: title, pid: pid, command: command, arguments: arguments, error: e
