@@ -23,6 +23,8 @@ require 'timeout'
 module Fluent
   module Test
     module Driver
+      class TestTimedOut < RuntimeError; end
+
       class Base
         attr_reader :instance, :logs
 
@@ -159,7 +161,7 @@ module Fluent
               proc.call
             end
           rescue Timeout::Error
-            @broken = true
+            raise TestTimedOut, "Test case timed out with hard limit."
           end
           return_value
         end
