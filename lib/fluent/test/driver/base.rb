@@ -91,8 +91,17 @@ module Fluent
             raise ArgumentError, "no stop conditions nor block specified"
           end
 
+          sleep_with_watching_threads = ->(){
+            if @instance.respond_to?(:_threads)
+              @instance._threads.values.each{|t| t.join(0) }
+            end
+            sleep 0.1
+          }
+
           begin
-            run_actual(timeout: timeout, &block)
+            retval = run_actual(timeout: timeout, &block)
+            sleep_with_watching_threads.call until stop?
+            retval
           ensure
             instance_shutdown if shutdown
           end
@@ -148,15 +157,9 @@ module Fluent
           end
 
           return_value = nil
-          proc = if block_given?
-                   ->(){ return_value = block.call; sleep(0.1) until stop? }
-                 else
-                   ->(){ sleep(0.1) until stop? }
-                 end
-
           begin
             Timeout.timeout(timeout * 1.1) do |sec|
-              proc.call
+              return_value = block.call if block_given?
             end
           rescue Timeout::Error
             raise TestTimedOut, "Test case timed out with hard limit."
