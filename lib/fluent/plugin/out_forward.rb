@@ -14,41 +14,22 @@
 #    limitations under the License.
 #
 
-require 'base64'
-require 'socket'
-require 'fileutils'
-
-require 'cool.io'
-
 require 'fluent/output'
 require 'fluent/config/error'
+require 'base64'
 
-module Fluent
-  class ForwardOutputError < StandardError
-  end
+require 'fluent/compat/socket_util'
 
-  class ForwardOutputResponseError < ForwardOutputError
-  end
+module Fluent::Plugin
+  class ForwardOutput < Output
+    class Error < StandardError; end
+    class ResponseError < Error; end
+    class ConnectionClosedError < Error; end
+    class ACKTimeoutError < Error; end
 
-  class ForwardOutputConnectionClosedError < ForwardOutputError
-  end
-
-  class ForwardOutputACKTimeoutError < ForwardOutputResponseError
-  end
-
-  class ForwardOutput < ObjectBufferedOutput
-    Plugin.register_output('forward', self)
+    Fluent::Plugin.register_output('forward', self)
 
     LISTEN_PORT = 24224
-
-    def initialize
-      super
-      require 'fluent/plugin/socket_util'
-      @nodes = []  #=> [Node]
-      @loop = nil
-      @thread = nil
-      @finished = false
-    end
 
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, default: 60
@@ -114,17 +95,34 @@ module Fluent
     config_param :port, :integer, default: LISTEN_PORT, obsoleted: "User <server> section instead."
     config_param :host, :string, default: nil, obsoleted: "Use <server> section instead."
 
+    config_section :buffer do
+      config_set_default :chunk_keys, ["tag"]
+    end
+
     attr_reader :read_interval, :recover_sample_size
+
+    def initialize
+      super
+
+      @nodes = [] #=> [Node]
+      @loop = nil
+      @thread = nil
+      @finished = false
+    end
 
     def configure(conf)
       super
+
+      unless @chunk_key_tag
+        raise Fluent::ConfigError, "buffer chunk key must include 'tag' for forward output"
+      end
 
       @read_interval = @read_interval_msec / 1000.0
       @recover_sample_size = @recover_wait / @heartbeat_interval
 
       if @dns_round_robin
         if @heartbeat_type == :udp
-          raise ConfigError, "forward output heartbeat type must be 'tcp' or 'none' to use dns_round_robin option"
+          raise Fluent::ConfigError, "forward output heartbeat type must be 'tcp' or 'none' to use dns_round_robin option"
         end
       end
 
@@ -147,7 +145,7 @@ module Fluent
       end
 
       if @nodes.empty?
-        raise ConfigError, "forward output plugin requires at least one <server> is required"
+        raise Fluent::ConfigError, "forward output plugin requires at least one <server> is required"
       end
 
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
@@ -166,7 +164,7 @@ module Fluent
 
         if @heartbeat_type == :udp
           # assuming all hosts use udp
-          @usock = SocketUtil.create_udp_socket(@nodes.first.host)
+          @usock = Fluent::Compat::SocketUtil.create_udp_socket(@nodes.first.host)
           @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
           @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
           @loop.attach(@hb)
@@ -183,7 +181,8 @@ module Fluent
       @finished = true
       if @loop
         @loop.watchers.each {|w| w.detach }
-        @loop.stop
+        # @loop.stop
+        @loop.stop rescue nil
       end
       @thread.join if @thread
       @usock.close if @usock
@@ -198,9 +197,10 @@ module Fluent
       log.error_backtrace
     end
 
-    def write_objects(tag, chunk)
+    def write(chunk)
       return if chunk.empty?
 
+      tag = chunk.metadata.tag
       error = nil
 
       wlen = @weight_array.length
@@ -439,10 +439,10 @@ module Fluent
           end
 
           unless available?
-            raise ForwardOutputConnectionClosedError, "failed to establish connection with node #{@name}"
+            raise ConnectionClosedError, "failed to establish connection with node #{@name}"
           end
 
-          option = { 'size' => chunk.size_of_events, 'compressed' => @compress }
+          option = { 'size' => chunk.size, 'compressed' => @compress }
           option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
 
           # out_forward always uses Raw32 type for content.
@@ -472,13 +472,13 @@ module Fluent
               if raw_data.empty?
                 @log.warn "node closed the connection. regard it as unavailable.", host: @host, port: @port
                 disable!
-                raise ForwardOutputConnectionClosedError, "node #{@host}:#{@port} closed connection"
+                raise ConnectionClosedError, "node #{@host}:#{@port} closed connection"
               else
                 @unpacker.feed(raw_data)
                 res = @unpacker.read
                 if res['ack'] != option['chunk']
                   # Some errors may have occured when ack and chunk id is different, so send the chunk again.
-                  raise ForwardOutputResponseError, "ack in response and chunk id in sent data are different"
+                  raise ResponseError, "ack in response and chunk id in sent data are different"
                 end
               end
 
@@ -489,7 +489,7 @@ module Fluent
               # (2) the node does support sending response but responses have not arrived for some reasons.
               @log.warn "no response from node. regard it as unavailable.", host: @host, port: @port
               disable!
-              raise ForwardOutputACKTimeoutError, "node #{host}:#{port} does not return ACK"
+              raise ACKTimeoutError, "node #{host}:#{port} does not return ACK"
             end
           end
 
@@ -599,11 +599,6 @@ module Fluent
         else
           nil
         end
-      end
-
-      # TODO: #to_msgpack(string) is deprecated
-      def to_msgpack(out = '')
-        [@host, @port, @weight, @available].to_msgpack(out)
       end
 
       def generate_salt
