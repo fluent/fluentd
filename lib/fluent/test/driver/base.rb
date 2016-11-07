@@ -76,13 +76,6 @@ module Fluent
         def run(timeout: nil, start: true, shutdown: true, &block)
           instance_start if start
 
-          if @instance.respond_to?(:thread_wait_until_start)
-            @instance.thread_wait_until_start
-          end
-          if @instance.respond_to?(:event_loop_wait_until_start)
-            @instance.event_loop_wait_until_start
-          end
-
           timeout ||= DEFAULT_TIMEOUT
           stop_at = Process.clock_gettime(@test_clock_id) + timeout
           @run_breaking_conditions << ->(){ Process.clock_gettime(@test_clock_id) >= stop_at }
@@ -113,6 +106,14 @@ module Fluent
           end
           unless @instance.after_started?
             @instance.after_start
+          end
+
+          if @instance.respond_to?(:thread_wait_until_start)
+            @instance.thread_wait_until_start
+          end
+
+          if @instance.respond_to?(:event_loop_wait_until_start)
+            @instance.event_loop_wait_until_start
           end
 
           instance_hook_after_started
