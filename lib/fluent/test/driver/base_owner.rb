@@ -28,7 +28,6 @@ module Fluent
             @instance.system_config_override(opts)
           end
           @instance.log = TestLogger.new
-          @instance.log.under_plugin_development = true
           @logs = @instance.log.out.logs
 
           @event_streams = nil

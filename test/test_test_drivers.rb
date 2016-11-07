@@ -12,6 +12,8 @@ require 'fluent/test/driver/parser'
 require 'fluent/plugin/formatter'
 require 'fluent/test/driver/formatter'
 
+require 'timecop'
+
 class TestDriverTest < ::Test::Unit::TestCase
   def setup
     Fluent::Test.setup
@@ -33,6 +35,66 @@ class TestDriverTest < ::Test::Unit::TestCase
         3 || x || y
       end
       assert_equal 3, v
+    end
+
+    data(
+      'input plugin test driver'  => [Fluent::Test::Driver::Input, Fluent::Plugin::Input],
+      'multi_output plugin test driver' => [Fluent::Test::Driver::MultiOutput, Fluent::Plugin::MultiOutput],
+      'parser plugin test driver'       => [Fluent::Test::Driver::Parser, Fluent::Plugin::Parser],
+      'formatter plugin test driver'    => [Fluent::Test::Driver::Formatter, Fluent::Plugin::Formatter],
+    )
+    test 'raises error for hard timeout' do |args|
+      driver_class, plugin_class = args
+      d = driver_class.new(Class.new(plugin_class))
+      assert_raise Fluent::Test::Driver::TestTimedOut do
+        d.run(timeout: 1) do
+          sleep 5
+        end
+      end
+    end
+
+    data(
+      'input plugin test driver'  => [Fluent::Test::Driver::Input, Fluent::Plugin::Input],
+      'multi_output plugin test driver' => [Fluent::Test::Driver::MultiOutput, Fluent::Plugin::MultiOutput],
+      'parser plugin test driver'       => [Fluent::Test::Driver::Parser, Fluent::Plugin::Parser],
+      'formatter plugin test driver'    => [Fluent::Test::Driver::Formatter, Fluent::Plugin::Formatter],
+    )
+    test 'can stop with soft timeout for blocks never stops, even with Timecop' do |args|
+      Timecop.freeze(Time.parse("2016-11-04 18:49:00"))
+      begin
+        driver_class, plugin_class = args
+        d = driver_class.new(Class.new(plugin_class))
+        assert_nothing_raised do
+          before = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          d.end_if{ false }
+          d.run(timeout: 1) do
+            sleep 0.1 until d.stop?
+          end
+          after = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          assert{ after >= before + 1.0 }
+        end
+      ensure
+        Timecop.return
+      end
+    end
+
+    test 'raise errors raised in threads' do
+      d = Fluent::Test::Driver::Input.new(Fluent::Plugin::Input) do
+        helpers :thread
+        def start
+          super
+          thread_create(:input_thread_for_test_driver_test) do
+            sleep 0.5
+            raise "yaaaaaaaaaay!"
+          end
+        end
+      end
+      assert_raise "yaaaaaaaaaay!" do
+        d.end_if{ false }
+        d.run(timeout: 3) do
+          sleep 0.1 until d.stop?
+        end
+      end
     end
   end
 

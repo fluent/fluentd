@@ -23,6 +23,8 @@ require 'timeout'
 module Fluent
   module Test
     module Driver
+      class TestTimedOut < RuntimeError; end
+
       class Base
         attr_reader :instance, :logs
 
@@ -45,6 +47,8 @@ module Fluent
           @instance.under_plugin_development = true
 
           @logs = []
+
+          @test_clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
 
           @run_post_conditions = []
           @run_breaking_conditions = []
@@ -79,8 +83,25 @@ module Fluent
             @instance.event_loop_wait_until_start
           end
 
+          timeout ||= DEFAULT_TIMEOUT
+          stop_at = Process.clock_gettime(@test_clock_id) + timeout
+          @run_breaking_conditions << ->(){ Process.clock_gettime(@test_clock_id) >= stop_at }
+
+          if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
+            raise ArgumentError, "no stop conditions nor block specified"
+          end
+
+          sleep_with_watching_threads = ->(){
+            if @instance.respond_to?(:_threads)
+              @instance._threads.values.each{|t| t.join(0) }
+            end
+            sleep 0.1
+          }
+
           begin
-            run_actual(timeout: timeout, &block)
+            retval = run_actual(timeout: timeout, &block)
+            sleep_with_watching_threads.call until stop?
+            retval
           ensure
             instance_shutdown if shutdown
           end
@@ -89,18 +110,25 @@ module Fluent
         def instance_start
           unless @instance.started?
             @instance.start
-            instance_hook_after_started
           end
           unless @instance.after_started?
             @instance.after_start
           end
+
+          instance_hook_after_started
         end
 
         def instance_hook_after_started
           # insert hooks for tests available after instance.start
         end
 
+        def instance_hook_before_stopped
+          # same with above
+        end
+
         def instance_shutdown
+          instance_hook_before_stopped
+
           @instance.stop            unless @instance.stopped?
           @instance.before_shutdown unless @instance.before_shutdown?
           @instance.shutdown        unless @instance.shutdown?
@@ -119,47 +147,29 @@ module Fluent
           @instance.terminate unless @instance.terminated?
         end
 
-        def run_actual(timeout: nil, &block)
+        def run_actual(timeout: DEFAULT_TIMEOUT, &block)
           if @instance.respond_to?(:_threads)
-            until @instance._threads.values.all?(&:alive?)
-              sleep 0.01
-            end
+            sleep 0.01 until @instance._threads.values.all?(&:alive?)
           end
 
           if @instance.respond_to?(:event_loop_running?)
-            until @instance.event_loop_running?
-              sleep 0.01
-            end
-          end
-
-          timeout ||= DEFAULT_TIMEOUT
-          stop_at = Time.now + timeout
-          @run_breaking_conditions << ->(){ Time.now >= stop_at }
-
-          if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
-            raise ArgumentError, "no stop conditions nor block specified"
+            sleep 0.01 until @instance.event_loop_running?
           end
 
           return_value = nil
-          proc = if block_given?
-                   ->(){ return_value = block.call; sleep(0.1) until stop? }
-                 else
-                   ->(){ sleep(0.1) until stop? }
-                 end
-
           begin
             Timeout.timeout(timeout * 1.1) do |sec|
-              proc.call
+              return_value = block.call if block_given?
             end
           rescue Timeout::Error
-            @broken = true
+            raise TestTimedOut, "Test case timed out with hard limit."
           end
           return_value
         end
 
         def stop?
           # Should stop running if post conditions are not registered.
-          return true unless @run_post_conditions
+          return true unless @run_post_conditions || @run_post_conditions.empty?
 
           # Should stop running if all of the post conditions are true.
           return true if @run_post_conditions.all? {|proc| proc.call }

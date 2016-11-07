@@ -66,12 +66,6 @@ module Fluent
             yield
             thread_exit = true
           rescue Exception => e
-            if @under_plugin_development
-              STDERR.puts "\nError raised in thread from #thread_create, #{e.class}:#{e.message}"
-              e.backtrace.each do |msg|
-                STDERR.puts [" ", msg].join
-              end
-            end
             log.warn "thread exited by unexpected error", plugin: self.class, title: title, error: e
             thread_exit = true
             raise
