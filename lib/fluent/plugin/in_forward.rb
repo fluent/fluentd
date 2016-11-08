@@ -128,6 +128,7 @@ module Fluent::Plugin
             })
         end
       end
+      @lsock = @usock = nil
     end
 
     def start
