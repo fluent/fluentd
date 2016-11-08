@@ -67,7 +67,7 @@ module Fluent::Plugin
       prog = if chunk.respond_to?(:path)
                "#{@command} #{chunk.path}"
              else
-               tmpfile = Tempfile.new("fluent-plugin-exec-")
+               tmpfile = Tempfile.new("fluent-plugin-out-exec-")
                tmpfile.binmode
                chunk.write_to(tmpfile)
                tmpfile.close
