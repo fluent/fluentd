@@ -294,7 +294,6 @@ module Fluent::Plugin
     end
 
     def on_record(time, record)
-      tag = nil
       tag = extract_tag_from_record(record)
       tag = @added_prefix_string + tag if tag && @add_prefix
       tag ||= @tag

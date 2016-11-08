@@ -92,7 +92,6 @@ module Fluent::Plugin
     end
 
     def on_record(time, record)
-      tag = nil
       tag = extract_tag_from_record(record)
       tag ||= @tag
       time ||= extract_time_from_record(record) || Fluent::EventTime.now
