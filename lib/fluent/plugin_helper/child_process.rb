@@ -58,6 +58,9 @@ module Fluent
         true
       end
 
+      # on_exit_callback = ->(status){ ... }
+      # status is an instance of Process::Status
+      # On Windows, exitstatus=0 and termsig=nil even when child process was killed.
       def child_process_execute(
           title, command,
           arguments: nil, subprocess_name: nil, interval: nil, immediate: false, parallel: false,

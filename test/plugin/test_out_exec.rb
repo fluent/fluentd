@@ -243,7 +243,7 @@ class ExecOutputTest < Test::Unit::TestCase
   sub_test_case 'when executed process dies unexpectedly' do
     setup do
       @gen_config = ->(num){ <<EOC
-    command ruby -e 'ARGV.first.to_i == 0 ? open(ARGV[1]){|f| STDOUT.write f.read} : (sleep 1 ; exit ARGV.first.to_i)' #{num} >#{TMP_DIR}/fail_out
+    command ruby -e "ARGV.first.to_i == 0 ? open(ARGV[1]){|f| STDOUT.write f.read} : (sleep 1 ; exit ARGV.first.to_i)" #{num} >#{TMP_DIR}/fail_out
     <inject>
       tag_key tag
       time_key time

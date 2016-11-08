@@ -650,6 +650,8 @@ class ChildProcessTest < Test::Unit::TestCase
     end
 
     test 'can return exit status with signal code for child process killed by signal using on_exit_callback' do
+      omit "SIGQUIT is unsupported on Windows" if Fluent.windows?
+
       assert File.exist?(@temp_path)
 
       block_exits = false
@@ -663,7 +665,8 @@ class ChildProcessTest < Test::Unit::TestCase
       Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
         pid = nil
         @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
-          Process.kill(:QUIT, @d.instance_eval{ child_process_id })
+          pid = @d.instance_eval{ child_process_id }
+          Process.kill(:QUIT, pid)
           str = readio.read.chomp rescue nil # empty string before EOF
           block_exits = true
         end
@@ -754,8 +757,10 @@ class ChildProcessTest < Test::Unit::TestCase
 
       assert callback_called
       assert exit_status
-      assert_nil exit_status.exitstatus
-      assert_equal 9, exit_status.termsig # SIGKILL
+      unless Fluent.windows? # On Windows, exitstatus is always 0 and termsig is nil
+        assert_nil exit_status.exitstatus
+        assert_equal 9, exit_status.termsig # SIGKILL
+      end
       assert File.exist?(@temp_path)
     end
 
@@ -776,8 +781,10 @@ class ChildProcessTest < Test::Unit::TestCase
 
       assert callback_called
       assert exit_status
-      assert_nil exit_status.exitstatus
-      assert_equal 9, exit_status.termsig # SIGKILL
+      unless Fluent.windows? # On Windows, exitstatus is always 0 and termsig is nil
+        assert_nil exit_status.exitstatus
+        assert_equal 9, exit_status.termsig # SIGKILL
+      end
       assert File.exist?(@temp_path)
     end
   end
