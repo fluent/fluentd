@@ -38,7 +38,7 @@ module Fluent
       end
       alias parse_partial_data parse
 
-      def parse_io(io)
+      def parse_io(io, &block)
         u = Fluent::MessagePackFactory.engine_factory.unpacker(io)
         u.each do |obj|
           time, record = convert_values(parse_time(obj), obj)

@@ -70,9 +70,9 @@ module Fluent
 
       INJECT_PARAMS = {
         "include_time_key" => nil,
-        "time_key"      => "time_key",
-        "time_format"   => "time_format",
-        "timezone"      => "timezone",
+        "time_key"    => "time_key",
+        "time_format" => "time_format",
+        "timezone"    => "timezone",
         "include_tag_key" => nil,
         "tag_key" => "tag_key",
         "localtime" => nil,
@@ -80,9 +80,9 @@ module Fluent
       }
 
       EXTRACT_PARAMS = {
-        "time_key"      => "time_key",
-        "time_format"   => "time_format",
-        "timezone"      => "timezone",
+        "time_key"    => "time_key",
+        "time_format" => "time_format",
+        "timezone"    => "timezone",
         "tag_key" => "tag_key",
         "localtime" => nil,
         "utc" => nil,

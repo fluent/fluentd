@@ -21,7 +21,7 @@ module Fluent
     class TSVFormatter < Formatter
       Plugin.register_formatter('tsv', self)
 
-      desc 'Names of fields included in each lines'
+      desc 'Field names included in each lines'
       config_param :keys, :array, value_type: :string
       desc 'The delimiter character (or string) of TSV values'
       config_param :delimiter, :string, default: "\t"
