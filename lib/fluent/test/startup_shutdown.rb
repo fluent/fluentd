@@ -38,7 +38,8 @@ module Fluent
 
       def self.teardown
         @server.close
-        FileUtils.rm_f @socket_manager_path
+        # on Windows, socket_manager_path is a TCP port number
+        FileUtils.rm_f @socket_manager_path unless Fluent.windows?
       end
     end
   end
