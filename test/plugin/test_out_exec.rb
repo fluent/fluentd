@@ -262,15 +262,12 @@ EOC
       d = create_driver(@gen_config.call(0))
       time, records = create_test_data
 
+      expect_path = "#{TMP_DIR}/fail_out"
+
+      d.end_if{ File.exist?(expect_path) }
       d.run(default_tag: 'test', flush: true, wait_flush_completion: false, shutdown: false) do
         d.feed(time, records[0])
         d.feed(time, records[1])
-      end
-
-      expect_path = "#{TMP_DIR}/fail_out"
-
-      waiting(10, plugin: d.instance) do
-        sleep(0.1) until File.exist?(expect_path)
       end
 
       assert{ File.exist?(expect_path) }
@@ -291,22 +288,21 @@ EOC
       d = create_driver(@gen_config.call(3))
       time, records = create_test_data
 
+      expect_path = "#{TMP_DIR}/fail_out"
+
+      d.end_if{ d.instance.log.out.logs.any?{|line| line.include?("command exits with error code") } }
       d.run(default_tag: 'test', flush: true, wait_flush_completion: false, shutdown: false) do
         d.feed(time, records[0])
         d.feed(time, records[1])
       end
 
-      expect_path = "#{TMP_DIR}/fail_out"
-
-      sleep 5
+      assert{ d.instance.dequeued_chunks.empty? } # because it's already taken back
+      assert{ d.instance.buffer.queue.size == 1 }
 
       logs = d.instance.log.out.logs
       assert{ logs.any?{|line| line.include?("command exits with error code") && line.include?("status=3") } }
 
       assert{ File.exist?(expect_path) && File.size(expect_path) == 0 }
-
-      assert{ d.instance.dequeued_chunks.empty? } # because it's already taken back
-      assert{ d.instance.buffer.queue.size == 1 }
 
       d.instance_shutdown
     end
