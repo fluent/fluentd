@@ -667,6 +667,7 @@ class ChildProcessTest < Test::Unit::TestCase
         @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
           pid = @d.instance_eval{ child_process_id }
           Process.kill(:QUIT, pid)
+          Process.kill(:QUIT, pid) rescue nil # once more to kill certainly
           str = readio.read.chomp rescue nil # empty string before EOF
           block_exits = true
         end
