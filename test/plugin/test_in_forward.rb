@@ -199,7 +199,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag2", time_i, {"a"=>2}],
       ]
 
-      d.run(expect_records: records.length, timeout: 5) do
+      d.run(expect_records: records.length, timeout: 20) do
         records.each {|tag, _time, record|
           send_data [tag, _time, record].to_json
         }
@@ -218,7 +218,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag2", time_i, {"a"=>2}],
       ]
 
-      d.run(expect_records: records.length, timeout: 5) do
+      d.run(expect_records: records.length, timeout: 20) do
         records.each {|tag, _time, record|
           send_data [tag, _time, record].to_json + "\n"
         }
@@ -260,7 +260,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag1", time, {"a"=>2}]
       ]
 
-      d.run(expect_records: records.length, timeout: 5) do
+      d.run(expect_records: records.length, timeout: 20) do
         entries = []
         records.each {|tag, _time, record|
           entries << [_time, record]
@@ -294,7 +294,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag1", time_i, {"a"=>2}]
       ]
 
-      d.run(expect_records: records.length, timeout: 5) do
+      d.run(expect_records: records.length, timeout: 20) do
         entries = []
         records.each {|tag, _time, record|
           entries << [_time, record]
@@ -329,7 +329,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag1", time, {"a" => 2}],
       ]
 
-      d.run(shutdown: false, expect_records: records.length, timeout: 5) do
+      d.run(shutdown: false, expect_records: records.length, timeout: 20) do
         entries = records.map { |tag, _time, record| [_time, record] }
         # These entries are skipped
         entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
@@ -376,7 +376,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag1", time, {"a"=>2}],
       ]
 
-      d.run(expect_records: records.length, timeout: 5) do
+      d.run(expect_records: records.length, timeout: 20) do
         entries = ''
         records.each {|_tag, _time, record|
           packer(entries).write([_time, record]).flush
@@ -410,7 +410,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag1", time_i, {"a"=>2}],
       ]
 
-      d.run(expect_records: records.length, timeout: 5) do
+      d.run(expect_records: records.length, timeout: 20) do
         entries = ''
         records.each {|tag, _time, record|
           packer(entries).write([_time, record]).flush
@@ -444,7 +444,7 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag1", time, {"a" => 2}],
       ]
 
-      d.run(shutdown: false, expect_records: records.length, timeout: 5) do
+      d.run(shutdown: false, expect_records: records.length, timeout: 20) do
         entries = records.map { |tag, _time, record| [_time, record] }
         # These entries are skipped
         entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
