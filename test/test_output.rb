@@ -178,12 +178,24 @@ module FluentOutputTest
 
     CONFIG = %[
       buffer_path #{TMP_DIR}/foo
-      time_slice_format %Y%m%d
+      time_slice_format %Y%m%d%H
     ]
 
     class TimeSlicedOutputTestPlugin < Fluent::TimeSlicedOutput
+      attr_reader :written_chunk_keys, :errors_in_write
+      def initialize
+        super
+        @written_chunk_keys = []
+        @errors_in_write = []
+      end
       def format(tag, time, record)
-        ''
+        [tag, time, record].to_json + "\n"
+      end
+      def write(chunk)
+        @written_chunk_keys << chunk.key
+        true
+      rescue => e
+        @errors_in_write << e
       end
     end
 
@@ -208,6 +220,16 @@ module FluentOutputTest
         assert_raise ArgumentError, "time must be a Fluent::EventTime (or Integer)" do
           d.instance.emit_events('test', OneEventStream.new('string', 10))
         end
+      end
+
+      test "plugin can get key of chunk in #write" do
+        d = create_driver
+        d.instance.start
+        d.instance.after_start
+        d.instance.emit_events('test', OneEventStream.new(event_time("2016-11-08 17:44:30 +0900"), {"message" => "yay"}))
+        d.instance.force_flush
+        assert_equal [], d.instance.errors_in_write
+        assert_equal ["2016110808"], d.instance.written_chunk_keys # default timezone is UTC
       end
     end
   end
