@@ -617,17 +617,16 @@ module Fluent
           end
 
           if conf['timezone']
-            @timezone = conf['timezone']
-            Fluent::Timezone.validate!(@timezone)
+            Fluent::Timezone.validate!(conf['timezone'])
           elsif conf['utc']
-            @timezone = "+0000"
-            @localtime = false
+            conf['timezone'] = "+0000"
+            conf['localtime'] = "false"
           elsif conf['localtime']
-            @timezone = Time.now.strftime('%z')
-            @localtime = true
+            conf['timezone'] = Time.now.strftime('%z')
+            conf['localtime'] = "true"
           else
-            @timezone = "+0000" # v0.12 assumes UTC without any configuration
-            @localtime = false
+            conf['timezone'] = "+0000" # v0.12 assumes UTC without any configuration
+            conf['localtime'] = "false"
           end
 
           @_timekey = case conf['time_slice_format']
