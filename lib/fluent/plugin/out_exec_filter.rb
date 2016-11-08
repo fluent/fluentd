@@ -305,7 +305,7 @@ module Fluent::Plugin
         log.error_backtrace e.backtrace
         @next_log_time = Time.now.to_i + @suppress_error_log_interval
       end
-      router.emit_error_event(tag, time, record, "exec_filter failed to emit") if tag && time && record
+      router.emit_error_event(tag, time, record, e) if tag && time && record
     end
   end
 end

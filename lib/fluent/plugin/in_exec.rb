@@ -98,7 +98,7 @@ module Fluent::Plugin
       router.emit(tag, time, record)
     rescue => e
       log.error "exec failed to emit", tag: tag, record: Yajl.dump(record), error: e
-      router.emit_error_event(tag, time, record, "exec failed to emit")
+      router.emit_error_event(tag, time, record, e) if tag && time && record
     end
   end
 end
