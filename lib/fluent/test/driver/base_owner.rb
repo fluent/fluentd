@@ -71,22 +71,32 @@ module Fluent
         end
 
         def events(tag: nil)
-          return [] if @event_streams.nil?
-          selected = @event_streams.select{|e| tag.nil? ? true : e.tag == tag }
           if block_given?
-            selected.each do |e|
-              e.es.each do |time, record|
-                yield e.tag, time, record
+            event_streams(tag: tag) do |t, es|
+              es.each do |time, record|
+                yield t, time, record
               end
             end
           else
             list = []
-            selected.each do |e|
-              e.es.each do |time, record|
-                list << [e.tag, time, record]
+            event_streams(tag: tag) do |t, es|
+              es.each do |time, record|
+                list << [t, time, record]
               end
             end
             list
+          end
+        end
+
+        def event_streams(tag: nil)
+          return [] if @event_streams.nil?
+          selected = @event_streams.select{|e| tag.nil? ? true : e.tag == tag }
+          if block_given?
+            selected.each do |e|
+              yield e.tag, e.es
+            end
+          else
+            selected.map{|e| [e.tag, e.es] }
           end
         end
 
