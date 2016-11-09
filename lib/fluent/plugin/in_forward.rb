@@ -149,7 +149,7 @@ module Fluent::Plugin
       event_loop_attach(@hbr)
     end
 
-    def stop
+    def close
       @lsock.close if @lsock
       @usock.close if @usock
       super
