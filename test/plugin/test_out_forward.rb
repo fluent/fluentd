@@ -1,8 +1,11 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/output'
 require 'fluent/test/startup_shutdown'
 require 'fluent/plugin/out_forward'
 require 'flexmock/test_unit'
+
+require 'fluent/test/driver/input'
+require 'fluent/plugin/in_forward'
 
 class ForwardOutputTest < Test::Unit::TestCase
   extend Fluent::Test::StartupShutdown
@@ -29,8 +32,12 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::ForwardOutput) {
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
       attr_reader :responses, :exceptions
+
+      def write(chunk)
+        super
+      end
 
       def initialize
         super
@@ -53,12 +60,6 @@ class ForwardOutputTest < Test::Unit::TestCase
         end
       end
     }.configure(conf)
-    router = Object.new
-    def router.method_missing(name, *args, **kw_args, &block)
-      Engine.root_agent.event_router.__send__(name, *args, **kw_args, &block)
-    end
-    d.instance.router = router
-    d
   end
 
   def test_configure
@@ -173,29 +174,26 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
     target_input_driver.run do
-      d.run do
+      d.end_if{ d.instance.responses.length == 1 }
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit record, time
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
-    assert(emits[0][1].is_a?(Integer))
-    assert(emits[1][1].is_a?(Integer))
+    events = target_input_driver.events
+    assert_equal_event_time(time, events[0][1])
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal_event_time(time, events[1][1])
+    assert_equal ['test', time, records[1]], events[1]
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
@@ -209,29 +207,26 @@ class ForwardOutputTest < Test::Unit::TestCase
       time_as_integer false
     ])
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
     target_input_driver.run do
-      d.run do
+      d.end_if{ d.instance.responses.length == 1 }
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit record, time
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
-    assert_equal_event_time(time, emits[0][1])
-    assert_equal_event_time(time, emits[1][1])
+    events = target_input_driver.events
+    assert_equal_event_time(time, events[0][1])
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal_event_time(time, events[1][1])
+    assert_equal ['test', time, records[1]], events[1]
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
@@ -251,24 +246,21 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
     target_input_driver.run do
-      d.run do
+      d.end_if{ d.instance.responses.length == 1 }
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit record, time
+          d.feed(time, record)
         end
       end
     end
 
     event_streams = target_input_driver.event_streams
-    assert_true event_streams[0].is_a?(Fluent::CompressedMessagePackEventStream)
+    assert_true event_streams[0][1].is_a?(Fluent::CompressedMessagePackEventStream)
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
   end
 
   def test_send_to_a_node_supporting_responses
@@ -276,27 +268,24 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
     target_input_driver.run do
-      d.run do
+      d.end_if{ d.instance.responses.length == 1 }
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit record, time
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
@@ -307,27 +296,24 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
     target_input_driver.run do
-      d.run do
+      d.end_if{ d.instance.responses.length == 1 }
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit record, time
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
@@ -342,27 +328,24 @@ class ForwardOutputTest < Test::Unit::TestCase
       ack_response_timeout 1s
     ])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-
     target_input_driver.run do
-      d.run do
+      d.end_if{ d.instance.responses.length == 1 }
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit record, time
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
 
     assert_equal 1, d.instance.responses.length
     assert d.instance.responses[0].has_key?('ack')
@@ -378,30 +361,26 @@ class ForwardOutputTest < Test::Unit::TestCase
       ack_response_timeout 1s
     ])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-    d.run_timeout = 2
-
-    assert_raise Fluent::ForwardOutputACKTimeoutError do
+    assert_raise Fluent::Plugin::ForwardOutput::ACKTimeoutError do
       target_input_driver.run do
-        d.run do
+        d.end_if{ d.instance.responses.length == 1 }
+        d.run(default_tag: 'test', timeout: 2, wait_flush_completion: false) do
           records.each do |record|
-            d.emit record, time
+            d.feed(time, record)
           end
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
 
     node = d.instance.nodes.first
     assert_equal false, node.available # node is regarded as unavailable when timeout
@@ -421,30 +400,26 @@ class ForwardOutputTest < Test::Unit::TestCase
       ack_response_timeout 5s
     ])
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
 
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
-    d.register_run_post_condition do
-      d.instance.responses.length == 1
-    end
-    d.run_timeout = 2
-
-    assert_raise Fluent::ForwardOutputACKTimeoutError do
+    assert_raise Fluent::Plugin::ForwardOutput::ACKTimeoutError do
       target_input_driver.run do
-        d.run do
+        d.end_if{ d.instance.responses.length == 1 }
+        d.run(default_tag: 'test', timeout: 2, wait_flush_completion: false) do
           records.each do |record|
-            d.emit record, time
+            d.feed(time, record)
           end
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert_equal ['test', time, records[0]], emits[0]
-    assert_equal ['test', time, records[1]], emits[1]
+    events = target_input_driver.events
+    assert_equal ['test', time, records[0]], events[0]
+    assert_equal ['test', time, records[1]], events[1]
 
     assert_equal 0, d.instance.responses.size
     assert_equal 1, d.instance.exceptions.size # send_data() fails and to be retried
@@ -480,32 +455,24 @@ class ForwardOutputTest < Test::Unit::TestCase
     ]
     d = create_driver(output_conf)
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
 
-    target_input_driver.run do
-      sleep 0.1 until target_input_driver.instance.instance_eval{ @thread } && target_input_driver.instance.instance_eval{ @thread }.status
-
-      d.run do
+    target_input_driver.run(expect_records: 2, timeout: 15) do
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit(record, time)
-        end
-
-        # run_post_condition of Fluent::Test::*Driver are buggy:
-        t = Time.now
-        while Time.now < t + 15 && target_input_driver.emits.size < 2
-          sleep 0.1
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert{ emits != [] }
-    assert_equal(['test', time, records[0]], emits[0])
-    assert_equal(['test', time, records[1]], emits[1])
+    events = target_input_driver.events
+    assert{ events != [] }
+    assert_equal(['test', time, records[0]], events[0])
+    assert_equal(['test', time, records[1]], events[1])
   end
 
   def test_authentication_with_user_auth
@@ -542,39 +509,31 @@ class ForwardOutputTest < Test::Unit::TestCase
     ]
     d = create_driver(output_conf)
 
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+    time = event_time("2011-01-02 13:14:15 UTC")
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
 
-    target_input_driver.run do
-      sleep 0.1 until target_input_driver.instance.instance_eval{ @thread } && target_input_driver.instance.instance_eval{ @thread }.status
-
-      d.run do
+    target_input_driver.run(expect_records: 2, timeout: 15) do
+      d.run(default_tag: 'test') do
         records.each do |record|
-          d.emit(record, time)
-        end
-
-        # run_post_condition of Fluent::Test::*Driver are buggy:
-        t = Time.now
-        while Time.now < t + 15 && target_input_driver.emits.size < 2
-          sleep 0.1
+          d.feed(time, record)
         end
       end
     end
 
-    emits = target_input_driver.emits
-    assert{ emits != [] }
-    assert_equal(['test', time, records[0]], emits[0])
-    assert_equal(['test', time, records[1]], emits[1])
+    events = target_input_driver.events
+    assert{ events != [] }
+    assert_equal(['test', time, records[0]], events[0])
+    assert_equal(['test', time, records[1]], events[1])
   end
 
   def create_target_input_driver(response_stub: nil, disconnect: false, conf: TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
     # TODO: Support actual TCP heartbeat test
-    Fluent::Test::InputTestDriver.new(Fluent::ForwardInput) {
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput) {
       if response_stub.nil?
         # do nothing because in_forward responds for ack option in default
       else
@@ -588,7 +547,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   def test_heartbeat_type_none
     d = create_driver(CONFIG + "\nheartbeat_type none")
     node = d.instance.nodes.first
-    assert_equal Fluent::ForwardOutput::NoneHeartbeatNode, node.class
+    assert_equal Fluent::Plugin::ForwardOutput::NoneHeartbeatNode, node.class
 
     d.instance.start
     assert_nil d.instance.instance_variable_get(:@loop)   # no HeartbeatHandler, or HeartbeatRequestTimer
@@ -607,8 +566,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     timer = d.instance.instance_variable_get(:@timer)
     hb = d.instance.instance_variable_get(:@hb)
     assert_equal UDPSocket, usock.class
-    assert_equal Fluent::ForwardOutput::HeartbeatRequestTimer, timer.class
-    assert_equal Fluent::ForwardOutput::HeartbeatHandler, hb.class
+    assert_equal Fluent::Plugin::ForwardOutput::HeartbeatRequestTimer, timer.class
+    assert_equal Fluent::Plugin::ForwardOutput::HeartbeatHandler, hb.class
 
     mock(usock).send("\0", 0, Socket.pack_sockaddr_in(TARGET_PORT, '127.0.0.1')).once
     timer.disable # call send_heartbeat at just once

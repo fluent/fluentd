@@ -1,6 +1,6 @@
 require_relative '../helper'
 
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/test/startup_shutdown'
 require 'base64'
 
@@ -9,12 +9,19 @@ require 'fluent/event'
 require 'fluent/plugin/in_forward'
 require 'fluent/plugin/compressable'
 
+require 'timecop'
+
 class ForwardInputTest < Test::Unit::TestCase
  include Fluent::Plugin::Compressable
 
   def setup
     Fluent::Test.setup
     @responses = []  # for testing responses after sending data
+    @d = nil
+  end
+
+  def teardown
+    @d.instance_shutdown if @d
   end
 
   PORT = unused_port
@@ -48,12 +55,19 @@ class ForwardInputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::InputTestDriver.new(Fluent::ForwardInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ForwardInput).configure(conf)
   end
 
-  class Configure < self
-    def test_simple
-      d = create_driver
+  sub_test_case '#configure' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
+
+    test 'simple' do
+      @d = d = create_driver
       assert_equal PORT, d.instance.port
       assert_equal '127.0.0.1', d.instance.bind
       assert_equal 0, d.instance.linger_timeout
@@ -61,8 +75,8 @@ class ForwardInputTest < Test::Unit::TestCase
       assert !d.instance.backlog
     end
 
-    def test_auth
-      d = create_driver(CONFIG_AUTH)
+    test 'auth' do
+      @d = d = create_driver(CONFIG_AUTH)
       assert_equal PORT, d.instance.port
       assert_equal '127.0.0.1', d.instance.bind
       assert_equal 0, d.instance.linger_timeout
@@ -74,187 +88,152 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
-  # TODO: Will add Loop::run arity check with stub/mock library
-
   def connect
     TCPSocket.new('127.0.0.1', PORT)
   end
 
-  class Message < self
-    extend Fluent::Test::StartupShutdown
-
-    def test_time
-      d = create_driver
-
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
-      Fluent::Engine.now = time
-
-      records = [
-        ["tag1", time, {"a"=>1}],
-        ["tag2", time, {"a"=>2}],
-      ]
-
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        records.each {|tag, _time, record|
-          send_data packer.write([tag, 0, record]).to_s
-        }
-      end
-      assert_equal(records, d.emits.sort_by {|a| a[0] })
+  sub_test_case 'message' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
     end
 
-    def test_plain
-      d = create_driver
+    test 'time' do
+      time = event_time("2011-01-02 13:14:15 UTC")
+      begin
+        Timecop.freeze(Time.at(time))
+        @d = d = create_driver
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+        records = [
+          ["tag1", time, {"a"=>1}],
+          ["tag2", time, {"a"=>2}],
+        ]
 
-      records = [
-        ["tag1", time, {"a"=>1}],
-        ["tag2", time, {"a"=>2}],
-      ]
-
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        records.each {|tag, _time, record|
-          send_data packer.write([tag, _time, record]).to_s
-        }
+        d.run(expect_records: records.length, timeout: 5) do
+          records.each {|tag, _time, record|
+            send_data packer.write([tag, 0, record]).to_s
+          }
+        end
+        assert_equal(records, d.events.sort_by {|a| a[0] })
+      ensure
+        Timecop.return
       end
-      assert_equal(records, d.emits)
     end
 
-    def test_time_as_integer
-      d = create_driver
+    test 'plain' do
+      @d = d = create_driver
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       records = [
         ["tag1", time, {"a"=>1}],
         ["tag2", time, {"a"=>2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
+      d.run(expect_records: records.length, timeout: 5) do
         records.each {|tag, _time, record|
           send_data packer.write([tag, _time, record]).to_s
         }
       end
-
-      assert_equal(records, d.emits)
+      assert_equal(records, d.events)
     end
 
-    def test_skip_invalid_event
-      d = create_driver(CONFIG + "skip_invalid_event true")
+    test 'time_as_integer' do
+      @d = d = create_driver
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
+
+      records = [
+        ["tag1", time_i, {"a"=>1}],
+        ["tag2", time_i, {"a"=>2}],
+      ]
+
+      d.run(expect_records: records.length, timeout: 5) do
+        records.each {|tag, _time, record|
+          send_data packer.write([tag, _time, record]).to_s
+        }
+      end
+
+      assert_equal(records, d.events)
+    end
+
+    test 'skip_invalid_event' do
+      @d = d = create_driver(CONFIG + "skip_invalid_event true")
+
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       records = [
         ["tag1", time, {"a" => 1}],
         ["tag2", time, {"a" => 2}],
       ]
 
-      d.run do
-        entries = records.map { |tag, _time, record| [tag, _time, record] }
+      d.run(shutdown: false, expect_records: 2, timeout: 10) do
+        entries = []
         # These entries are skipped
         entries << ['tag1', true, {'a' => 3}] << ['tag2', time, 'invalid record']
+        entries += records.map { |tag, _time, record| [tag, _time, record] }
 
         entries.each {|tag, _time, record|
           # Without ack, logs are sometimes not saved to logs during test.
-          send_data packer.write([tag, _time, record]).to_s, try_to_receive_response: true
+          send_data packer.write([tag, _time, record]).to_s #, try_to_receive_response: true
         }
       end
 
-      assert_equal 2, d.instance.log.logs.count { |line| line =~ /got invalid event and drop it/ }
-      assert_equal records[0], d.emits[0]
-      assert_equal records[1], d.emits[1]
+      logs = d.instance.log.logs
+      assert_equal 2, logs.count { |line| line =~ /got invalid event and drop it/ }
+      assert_equal records[0], d.events[0]
+      assert_equal records[1], d.events[1]
+
+      d.instance_shutdown
     end
 
-    def test_json
-      d = create_driver
+    test 'json_using_integer_time' do
+      @d = d = create_driver
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
 
       records = [
-        ["tag1", time, {"a"=>1}],
-        ["tag2", time, {"a"=>2}],
+        ["tag1", time_i, {"a"=>1}],
+        ["tag2", time_i, {"a"=>2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
+      d.run(expect_records: records.length, timeout: 20) do
         records.each {|tag, _time, record|
           send_data [tag, _time, record].to_json
         }
       end
 
-      assert_equal(records, d.emits.sort_by {|a| a[1] })
+      assert_equal(records, d.events.sort_by {|a| a[1] })
     end
 
-    def test_json_with_newline
-      d = create_driver
+    test 'json_with_newline' do
+      @d = d = create_driver
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
 
       records = [
-        ["tag1", time, {"a"=>1}],
-        ["tag2", time, {"a"=>2}],
+        ["tag1", time_i, {"a"=>1}],
+        ["tag2", time_i, {"a"=>2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
+      d.run(expect_records: records.length, timeout: 20) do
         records.each {|tag, _time, record|
           send_data [tag, _time, record].to_json + "\n"
         }
       end
 
-      assert_equal(records, d.emits.sort_by {|a| a[1] })
+      assert_equal(records, d.events.sort_by {|a| a[1] })
     end
   end
 
-  class Forward < self
-    extend Fluent::Test::StartupShutdown
-
-    data(tcp: {
-           config: CONFIG,
-           options: {
-             auth: false
-           }
-         },
-         auth: {
-           config: CONFIG_AUTH,
-           options: {
-             auth: true
-           }
-         })
-    def test_plain(data)
-      config = data[:config]
-      options = data[:options]
-      d = create_driver(config)
-
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
-
-      records = [
-        ["tag1", time, {"a"=>1}],
-        ["tag1", time, {"a"=>2}]
-      ]
-
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
-        entries = []
-        records.each {|tag, _time, record|
-          entries << [_time, record]
-        }
-        send_data packer.write(["tag1", entries]).to_s, **options
-      end
-      assert_equal(records, d.emits)
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+  sub_test_case 'forward' do
+     setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
     end
 
     data(tcp: {
@@ -269,33 +248,26 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_time_as_integer(data)
+    test 'plain' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       records = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: records.length, timeout: 20) do
         entries = []
         records.each {|tag, _time, record|
           entries << [_time, record]
         }
         send_data packer.write(["tag1", entries]).to_s, **options
       end
-
-      assert_equal(records, d.emits)
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+      assert_equal(records, d.events)
     end
 
     data(tcp: {
@@ -310,23 +282,54 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_skip_invalid_event(data)
+    test 'time_as_integer' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config + "skip_invalid_event true")
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time_i = event_time("2011-01-02 13:14:15 UTC")
+
+      records = [
+        ["tag1", time_i, {"a"=>1}],
+        ["tag1", time_i, {"a"=>2}]
+      ]
+
+      d.run(expect_records: records.length, timeout: 20) do
+        entries = []
+        records.each {|tag, _time, record|
+          entries << [_time, record]
+        }
+        send_data packer.write(["tag1", entries]).to_s, **options
+      end
+
+      assert_equal(records, d.events)
+    end
+
+    data(tcp: {
+           config: CONFIG,
+           options: {
+             auth: false
+           }
+         },
+         auth: {
+           config: CONFIG_AUTH,
+           options: {
+             auth: true
+           }
+         })
+    test 'skip_invalid_event' do |data|
+      config = data[:config]
+      options = data[:options]
+      @d = d = create_driver(config + "skip_invalid_event true")
+
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       records = [
         ["tag1", time, {"a" => 1}],
         ["tag1", time, {"a" => 2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(shutdown: false, expect_records: records.length, timeout: 20) do
         entries = records.map { |tag, _time, record| [_time, record] }
         # These entries are skipped
         entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
@@ -334,14 +337,20 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data packer.write(["tag1", entries]).to_s, **options
       end
 
-      assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
+      logs = d.instance.log.out.logs
+      assert{ logs.select{|line| line =~ /skip invalid event/ }.size == 2 }
 
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+      d.instance_shutdown
     end
   end
 
-  class PackedForward < self
-    extend Fluent::Test::StartupShutdown
+  sub_test_case 'packed forward' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
 
     data(tcp: {
            config: CONFIG,
@@ -355,32 +364,26 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_plain(data)
+    test 'plain' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       records = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: records.length, timeout: 20) do
         entries = ''
         records.each {|_tag, _time, record|
           packer(entries).write([_time, record]).flush
         }
         send_data packer.write(["tag1", entries]).to_s, **options
       end
-      assert_equal(records, d.emits)
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+      assert_equal(records, d.events)
     end
 
     data(tcp: {
@@ -395,32 +398,26 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_time_as_integer(data)
+    test 'time_as_integer' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
 
       records = [
-        ["tag1", time, {"a"=>1}],
-        ["tag1", time, {"a"=>2}],
+        ["tag1", time_i, {"a"=>1}],
+        ["tag1", time_i, {"a"=>2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: records.length, timeout: 20) do
         entries = ''
         records.each {|tag, _time, record|
           packer(entries).write([_time, record]).flush
         }
         send_data packer.write(["tag1", entries]).to_s, **options
       end
-      assert_equal(records, d.emits)
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+      assert_equal(records, d.events)
     end
 
     data(tcp: {
@@ -435,23 +432,19 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_skip_invalid_event(data)
+    test 'skip_invalid_event' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config + "skip_invalid_event true")
+      @d = d = create_driver(config + "skip_invalid_event true")
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       records = [
         ["tag1", time, {"a" => 1}],
         ["tag1", time, {"a" => 2}],
       ]
 
-      d.expected_emits_length = records.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(shutdown: false, expect_records: records.length, timeout: 20) do
         entries = records.map { |tag, _time, record| [_time, record] }
         # These entries are skipped
         entries << ['invalid time', {'a' => 3}] << [time, 'invalid record']
@@ -463,22 +456,28 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data packer.write(["tag1", packed_entries]).to_s, **options
       end
 
-      assert_equal 2, d.instance.log.logs.count { |line| line =~ /skip invalid event/ }
+      logs = d.instance.log.logs
+      assert_equal 2, logs.count { |line| line =~ /skip invalid event/ }
 
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
+      d.instance_shutdown
     end
   end
 
-  class CompressedPackedForward < self
-    extend Fluent::Test::StartupShutdown
+  sub_test_case 'compressed packed forward' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
 
-    def test_set_compress_to_option
-      d = create_driver
+    test 'set_compress_to_option' do
+      @d = d = create_driver
 
-      time = event_time("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
       events = [
-        ["tag1", time, {"a"=>1}],
-        ["tag1", time, {"a"=>2}]
+        ["tag1", time_i, {"a"=>1}],
+        ["tag1", time_i, {"a"=>2}]
       ]
 
       # create compressed entries
@@ -496,16 +495,16 @@ class ForwardInputTest < Test::Unit::TestCase
         end
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
     end
 
-    def test_create_CompressedMessagePackEventStream_with_gzip_compress_option
-      d = create_driver
+    test 'create_CompressedMessagePackEventStream_with_gzip_compress_option' do
+      @d = d = create_driver
 
-      time = event_time("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
       events = [
-        ["tag1", time, {"a"=>1}],
-        ["tag1", time, {"a"=>2}]
+        ["tag1", time_i, {"a"=>1}],
+        ["tag1", time_i, {"a"=>2}]
       ]
 
       # create compressed entries
@@ -525,20 +524,24 @@ class ForwardInputTest < Test::Unit::TestCase
           assert_equal 'gzip', option['compressed']
         end
       end
-      d.emits
     end
   end
 
-  class Warning < self
-    extend Fluent::Test::StartupShutdown
+  sub_test_case 'warning' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
 
-    def test_send_large_chunk_warning
-      d = create_driver(CONFIG + %[
-      chunk_size_warn_limit 16M
-      chunk_size_limit 32M
-    ])
+    test 'send_large_chunk_warning' do
+      @d = d = create_driver(CONFIG + %[
+        chunk_size_warn_limit 16M
+        chunk_size_limit 32M
+      ])
 
-      time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
+      time = event_time("2014-04-25 13:14:15 UTC")
 
       # generate over 16M chunk
       str = "X" * 1024 * 1024
@@ -546,59 +549,61 @@ class ForwardInputTest < Test::Unit::TestCase
       assert chunk.size > (16 * 1024 * 1024)
       assert chunk.size < (32 * 1024 * 1024)
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
           d.instance.send(:on_message, obj, chunk.size, PEERADDR)
         end
       end
 
       # check emitted data
-      emits = d.emits
+      emits = d.events
       assert_equal 16, emits.size
       assert emits.map(&:first).all?{|t| t == "test.tag" }
       assert_equal (0...16).to_a, emits.map{|_tag, t, _record| t - time }
 
       # check log
-      assert d.instance.log.logs.select{|line|
+      logs = d.instance.log.logs
+      assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
         line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
-      }.size == 1, "large chunk warning is not logged"
+      }.size, "large chunk warning is not logged"
+
+      d.instance_shutdown
     end
 
-    def test_send_large_chunk_only_warning
-      d = create_driver(CONFIG + %[
-      chunk_size_warn_limit 16M
-    ])
-      time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
+    test 'send_large_chunk_only_warning' do
+      @d = d = create_driver(CONFIG + %[
+        chunk_size_warn_limit 16M
+      ])
+      time = event_time("2014-04-25 13:14:15 UTC")
 
       # generate over 16M chunk
       str = "X" * 1024 * 1024
       chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
           d.instance.send(:on_message, obj, chunk.size, PEERADDR)
         end
       end
 
       # check log
-      assert d.instance.log.logs.select{ |line|
+      logs = d.instance.log.logs
+      assert_equal 1, logs.select{ |line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
         line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
-      }.size == 1, "large chunk warning is not logged"
+      }.size, "large chunk warning is not logged"
+
+      d.instance_shutdown
     end
 
-    def test_send_large_chunk_limit
-      d = create_driver(CONFIG + %[
-      chunk_size_warn_limit 16M
-      chunk_size_limit 32M
-    ])
+    test 'send_large_chunk_limit' do
+      @d = d = create_driver(CONFIG + %[
+        chunk_size_warn_limit 16M
+        chunk_size_limit 32M
+      ])
 
-      time = Fluent::EventTime.parse("2014-04-25 13:14:15 UTC")
+      time = event_time("2014-04-25 13:14:15 UTC")
 
       # generate over 32M chunk
       str = "X" * 1024 * 1024
@@ -606,50 +611,56 @@ class ForwardInputTest < Test::Unit::TestCase
       assert chunk.size > (32 * 1024 * 1024)
 
       # d.run => send_data
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
           d.instance.send(:on_message, obj, chunk.size, PEERADDR)
         end
       end
 
       # check emitted data
-      emits = d.emits
+      emits = d.events
       assert_equal 0, emits.size
 
       # check log
-      assert d.instance.log.logs.select{|line|
+      logs = d.instance.log.logs
+      assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
         line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=33554432 size=33554989/
-      }.size == 1, "large chunk warning is not logged"
+      }.size, "large chunk warning is not logged"
+
+      d.instance_shutdown
     end
 
     data('string chunk' => 'broken string',
          'integer chunk' => 10)
-    def test_send_broken_chunk(data)
-      d = create_driver
+    test 'send_broken_chunk' do |data|
+      @d = d = create_driver
 
       # d.run => send_data
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(shutdown: false) do
         d.instance.send(:on_message, data, 1000000000, PEERADDR)
       end
 
       # check emitted data
-      emits = d.emits
-      assert_equal 0, emits.size
+      assert_equal 0, d.events.size
 
       # check log
-      assert d.instance.log.logs.select{|line|
+      logs = d.instance.log.logs
+      assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: incoming chunk is broken: source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" msg=#{data.inspect}/
-      }.size == 1, "should not accept broken chunk"
+      }.size, "should not accept broken chunk"
+
+      d.instance_shutdown
     end
   end
 
-  class RespondToRequiringAck < self
-    extend Fluent::Test::StartupShutdown
+  sub_test_case 'respond to required ack' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
 
     data(tcp: {
            config: CONFIG,
@@ -663,24 +674,21 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_message(data)
+    test 'message' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag2", time, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
       expected_acks = []
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size) do
         events.each {|tag, _time, record|
           op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
           expected_acks << op['chunk']
@@ -688,10 +696,8 @@ class ForwardInputTest < Test::Unit::TestCase
         }
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
     # FIX: response is not pushed into @responses because IO.select has been blocked until InputForward shutdowns
@@ -707,24 +713,21 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_forward(data)
+    test 'forward' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
       expected_acks = []
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size) do
         entries = []
         events.each {|_tag, _time, record|
           entries << [_time, record]
@@ -734,10 +737,8 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data ["tag1", entries, op].to_msgpack, try_to_receive_response: true, **options
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
     data(tcp: {
@@ -752,24 +753,21 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_packed_forward(data)
+    test 'packed_forward' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
       expected_acks = []
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size) do
         entries = ''
         events.each {|_tag, _time,record|
           [time, record].to_msgpack(entries)
@@ -779,10 +777,8 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data ["tag1", entries, op].to_msgpack, try_to_receive_response: true, **options
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal expected_acks, @responses.map { |res| MessagePack.unpack(res)['ack'] }
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
     data(
@@ -800,26 +796,21 @@ class ForwardInputTest < Test::Unit::TestCase
       #   }
       # },
     )
-    def test_message_json(data)
+    test 'message_json' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
-        ["tag1", time, {"a"=>1}],
-        ["tag2", time, {"a"=>2}]
+        ["tag1", time_i, {"a"=>1}],
+        ["tag2", time_i, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
       expected_acks = []
 
-      d.expected_emits_length = events.length
-      d.run_timeout = 2
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size, timeout: 20) do
         events.each {|tag, _time, record|
           op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
           expected_acks << op['chunk']
@@ -827,15 +818,18 @@ class ForwardInputTest < Test::Unit::TestCase
         }
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal expected_acks, @responses.map { |res| JSON.parse(res)['ack'] }
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
   end
 
-  class NotRespondToNotRequiringAck < self
-    extend Fluent::Test::StartupShutdown
+  sub_test_case 'not respond without required ack' do
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
 
     data(tcp: {
            config: CONFIG,
@@ -849,31 +843,26 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_message(data)
+    test 'message' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag2", time, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size, timeout: 20) do
         events.each {|tag, _time, record|
           send_data [tag, _time, record].to_msgpack, try_to_receive_response: true, **options
         }
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal [nil, nil], @responses
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
     data(tcp: {
@@ -888,22 +877,19 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_forward(data)
+    test 'forward' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size, timeout: 20) do
         entries = []
         events.each {|tag, _time, record|
           entries << [_time, record]
@@ -911,10 +897,8 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data ["tag1", entries].to_msgpack, try_to_receive_response: true, **options
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal [nil], @responses
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
     data(tcp: {
@@ -929,22 +913,19 @@ class ForwardInputTest < Test::Unit::TestCase
              auth: true
            }
          })
-    def test_packed_forward(data)
+    test 'packed_forward' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+      time = event_time("2011-01-02 13:14:15 UTC")
 
       events = [
         ["tag1", time, {"a"=>1}],
         ["tag1", time, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size, timeout: 20) do
         entries = ''
         events.each {|tag, _time, record|
           [_time, record].to_msgpack(entries)
@@ -952,10 +933,8 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data ["tag1", entries].to_msgpack, try_to_receive_response: true, **options
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal [nil], @responses
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
 
     data(
@@ -973,31 +952,26 @@ class ForwardInputTest < Test::Unit::TestCase
       #   }
       # },
     )
-    def test_message_json(data)
+    test 'message_json' do |data|
       config = data[:config]
       options = data[:options]
-      d = create_driver(config)
+      @d = d = create_driver(config)
 
-      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      time_i = event_time("2011-01-02 13:14:15 UTC").to_i
 
       events = [
-        ["tag1", time, {"a"=>1}],
-        ["tag2", time, {"a"=>2}]
+        ["tag1", time_i, {"a"=>1}],
+        ["tag2", time_i, {"a"=>2}]
       ]
-      d.expected_emits_length = events.length
 
-      d.run do
-        sleep 0.1 until d.instance.instance_eval{ @thread } && d.instance.instance_eval{ @thread }.status
-
+      d.run(expect_records: events.size, timeout: 20) do
         events.each {|tag, _time, record|
           send_data [tag, _time, record].to_json, try_to_receive_response: true, **options
         }
       end
 
-      assert_equal events, d.emits
+      assert_equal events, d.events
       assert_equal [nil, nil], @responses
-
-      sleep 0.1 while d.instance.instance_eval{ @thread }.status # to confirm that plugin stopped completely
     end
   end
 
@@ -1015,11 +989,12 @@ class ForwardInputTest < Test::Unit::TestCase
   def read_data(io, timeout, &block)
     res = ''
     select_timeout = 2
-    timeout_at = Time.now + timeout
+    clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
+    timeout_at = Process.clock_gettime(clock_id) + timeout
     begin
       buf = ''
       io_activated = false
-      while Time.now < timeout_at
+      while Process.clock_gettime(clock_id) < timeout_at
         if IO.select([io], nil, nil, select_timeout)
           io_activated = true
           buf = io.readpartial(2048)
@@ -1114,7 +1089,12 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'source_hostname_key feature' do
-    extend Fluent::Test::StartupShutdown
+    setup do
+      Fluent::Test::StartupShutdown.setup
+    end
+    teardown do
+      Fluent::Test::StartupShutdown.teardown
+    end
 
     test 'message protocol with source_hostname_key' do
       execute_test { |events|
@@ -1146,20 +1126,19 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   def execute_test(&block)
-    d = create_driver(CONFIG + 'source_hostname_key source')
+    @d = d = create_driver(CONFIG + 'source_hostname_key source')
 
-    time = Fluent::EventTime.parse("2011-01-02 13:14:15 UTC")
+    time = event_time("2011-01-02 13:14:15 UTC")
     events = [
       ["tag1", time, {"a"=>1}],
       ["tag1", time, {"a"=>2}]
     ]
-    d.expected_emits_length = events.length
 
-    d.run do
+    d.run(expect_records: events.size) do
       block.call(events)
     end
 
-    d.emits.each { |tag, _time, record|
+    d.events.each { |tag, _time, record|
       assert_true record.has_key?('source')
     }
   end
