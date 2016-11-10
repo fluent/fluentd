@@ -19,6 +19,14 @@ class ParserFilterTest < Test::Unit::TestCase
     Timecop.return
   end
 
+  def assert_equal_parsed_time(expected, actual)
+    if expected.is_a?(Integer)
+      assert_equal(expected, actual.to_i)
+    else
+      assert_equal_event_time(expected, actual)
+    end
+  end
+
   ParserError = Fluent::Plugin::Parser::ParserError
   CONFIG = %[
     key_name     message
@@ -106,7 +114,7 @@ class ParserFilterTest < Test::Unit::TestCase
   # ]
   def test_filter
     d1 = create_driver(CONFIG)
-    time = Time.parse("2012-01-02 13:14:15").to_i
+    time = event_time("2012-01-02 13:14:15")
     d1.run(default_tag: @tag) do
       d1.feed(time, {'message' => '12 20120402182059'})
       d1.feed(time, {'message' => '34 20120402182100'})
@@ -118,28 +126,28 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 5, filtered.length
 
     first = filtered[0]
-    assert_equal Time.parse("2012-04-02 18:20:59").to_i, first[0]
+    assert_equal_event_time event_time("2012-04-02 18:20:59"), first[0]
     assert_equal '1', first[1]['x']
     assert_equal '2', first[1]['y']
     assert_equal '12 20120402182059', first[1]['message']
 
     second = filtered[1]
-    assert_equal Time.parse("2012-04-02 18:21:00").to_i, second[0]
+    assert_equal_event_time event_time("2012-04-02 18:21:00"), second[0]
     assert_equal '3', second[1]['x']
     assert_equal '4', second[1]['y']
 
     third = filtered[2]
-    assert_equal Time.parse("2012-04-02 18:21:00").to_i, third[0]
+    assert_equal_event_time event_time("2012-04-02 18:21:00"), third[0]
     assert_equal '5', third[1]['x']
     assert_equal '6', third[1]['y']
 
     fourth = filtered[3]
-    assert_equal Time.parse("2012-04-02 18:21:01").to_i, fourth[0]
+    assert_equal_event_time event_time("2012-04-02 18:21:01"), fourth[0]
     assert_equal '7', fourth[1]['x']
     assert_equal '8', fourth[1]['y']
 
     fifth = filtered[4]
-    assert_equal Time.parse("2012-04-02 18:21:00").to_i, fifth[0]
+    assert_equal_event_time event_time("2012-04-02 18:21:00"), fifth[0]
     assert_equal '9', fifth[1]['x']
     assert_equal '0', fifth[1]['y']
 
@@ -156,14 +164,14 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 2, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_event_time time, first[0]
     assert_nil first[1]['data']
     assert_equal '1', first[1]['x']
     assert_equal '2', first[1]['y']
     assert_equal '20120402182059', first[1]['t']
 
     second = filtered[1]
-    assert_equal time, second[0]
+    assert_equal_event_time time, second[0]
     assert_nil second[1]['data']
     assert_equal '3', second[1]['x']
     assert_equal '4', second[1]['y']
@@ -185,23 +193,6 @@ class ParserFilterTest < Test::Unit::TestCase
     filtered = d3.filtered
     assert_equal 2, filtered.length
 
-    d3x = create_driver(%[
-      key_name data
-      reserve_data yes
-      <parse>
-        @type regexp
-        expression /^(?<x>\\d)(?<y>\\d) (?<t>.+)$/
-      </parse>
-    ])
-    time = Time.parse("2012-04-02 18:20:59").to_i
-    d3x.run(default_tag: @tag) do
-      d3x.feed(time, {'data' => '12 20120402182059'})
-      d3x.feed(time, {'data' => '34 20120402182100'})
-      d3x.feed(time, {'data' => 'xy 20120402182101'})
-    end
-    filtered = d3x.filtered
-    assert_equal 3, filtered.length
-
     d4 = create_driver(%[
       key_name data
       <parse>
@@ -216,7 +207,27 @@ class ParserFilterTest < Test::Unit::TestCase
     filtered = d4.filtered
     assert_equal 1, filtered.length
 
-    d4x = create_driver(%[
+  end
+
+  def test_filter_with_reserved_data
+    d1 = create_driver(%[
+      key_name data
+      reserve_data yes
+      <parse>
+        @type regexp
+        expression /^(?<x>\\d)(?<y>\\d) (?<t>.+)$/
+      </parse>
+    ])
+    time = Time.parse("2012-04-02 18:20:59").to_i
+    d1.run(default_tag: @tag) do
+      d1.feed(time, {'data' => '12 20120402182059'})
+      d1.feed(time, {'data' => '34 20120402182100'})
+      d1.feed(time, {'data' => 'xy 20120402182101'})
+    end
+    filtered = d1.filtered
+    assert_equal 3, filtered.length
+
+    d2 = create_driver(%[
       key_name data
       reserve_data yes
       <parse>
@@ -224,11 +235,11 @@ class ParserFilterTest < Test::Unit::TestCase
       </parse>
     ])
     time = @default_time.to_i
-    d4x.run(default_tag: @tag) do
-      d4x.feed(time, {'data' => '{"xxx":"first","yyy":"second"}', 'xxx' => 'x', 'yyy' => 'y'})
-      d4x.feed(time, {'data' => 'foobar', 'xxx' => 'x', 'yyy' => 'y'})
+    d2.run(default_tag: @tag) do
+      d2.feed(time, {'data' => '{"xxx":"first","yyy":"second"}', 'xxx' => 'x', 'yyy' => 'y'})
+      d2.feed(time, {'data' => 'foobar', 'xxx' => 'x', 'yyy' => 'y'})
     end
-    filtered = d4x.filtered
+    filtered = d2.filtered
     assert_equal 2, filtered.length
 
     first = filtered[0]
@@ -244,6 +255,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 'y', second[1]['yyy']
   end
 
+
   CONFIG_LTSV =  %[
     key_name data
     <parse>
@@ -257,9 +269,11 @@ class ParserFilterTest < Test::Unit::TestCase
       types i:integer,s:string,f:float,b:bool
     </parse>
   ]
-  def test_filter_ltsv
+  data(:event_time => lambda { |time| Fluent::EventTime.from_time(time) },
+       :int_time => lambda { |time| time.to_i })
+  def test_filter_ltsv(time_parse)
     d = create_driver(CONFIG_LTSV)
-    time = @default_time.to_i
+    time = time_parse.call(@default_time)
     d.run(default_tag: @tag) do
       d.feed(time, {'data' => "xxx:first\tyyy:second", 'xxx' => 'x', 'yyy' => 'y'})
       d.feed(time, {'data' => "xxx:first\tyyy:second2", 'xxx' => 'x', 'yyy' => 'y'})
@@ -268,13 +282,13 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 2, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
     assert_nil first[1]['data']
     assert_equal 'first', first[1]['xxx']
     assert_equal 'second', first[1]['yyy']
 
     second = filtered[1]
-    assert_equal time, second[0]
+    assert_equal_parsed_time time, second[0]
     assert_nil first[1]['data']
     assert_equal 'first', second[1]['xxx']
     assert_equal 'second2', second[1]['yyy']
@@ -289,13 +303,13 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 2, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
     assert_equal "xxx:first\tyyy:second", first[1]['data']
     assert_equal 'first', first[1]['xxx']
     assert_equal 'second', first[1]['yyy']
 
     second = filtered[1]
-    assert_equal time, second[0]
+    assert_equal_parsed_time time, second[0]
     assert_equal "xxx:first\tyyy:second", first[1]['data']
     assert_equal 'first', second[1]['xxx']
     assert_equal 'second2', second[1]['yyy']
@@ -311,7 +325,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
     assert_equal 1, first[1]['i']
     assert_equal '2', first[1]['s']
     assert_equal 3.0, first[1]['f']
@@ -326,9 +340,11 @@ class ParserFilterTest < Test::Unit::TestCase
       keys key1,key2,key3
     </parse>
   ]
-  def test_filter_tsv
+  data(:event_time => lambda { |time| Fluent::EventTime.from_time(time) },
+       :int_time => lambda { |time| time.to_i })
+  def test_filter_tsv(time_parse)
     d = create_driver(CONFIG_TSV)
-    time = @default_time.to_i
+    time = time_parse.call(@default_time)
     d.run do
       d.feed(@tag, time, {'data' => "value1\tvalue2\tvalueThree", 'xxx' => 'x', 'yyy' => 'y'})
     end
@@ -336,7 +352,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
     assert_nil first[1]['data']
     assert_equal 'value1', first[1]['key1']
     assert_equal 'value2', first[1]['key2']
@@ -397,11 +413,13 @@ class ParserFilterTest < Test::Unit::TestCase
       @type json
     </parse>
   ]
-  def test_filter_inject_hash_value_field
+  data(:event_time => lambda { |time| Fluent::EventTime.from_time(time) },
+       :int_time => lambda { |time| time.to_i })
+  def test_filter_inject_hash_value_field(time_parse)
     original = {'data' => '{"xxx":"first","yyy":"second"}', 'xxx' => 'x', 'yyy' => 'y'}
 
     d = create_driver(CONFIG_HASH_VALUE_FIELD)
-    time = @default_time.to_i
+    time = time_parse.call(@default_time)
     d.run do
       d.feed(@tag, time, original)
     end
@@ -409,7 +427,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
 
     record = first[1]
     assert_equal 1, record.keys.size
@@ -424,7 +442,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
 
     record = first[1]
     assert_equal 4, record.keys.size
@@ -442,7 +460,7 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_parsed_time time, first[0]
 
     record = first[1]
     assert_equal 1, record.keys.size
