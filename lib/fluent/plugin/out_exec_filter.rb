@@ -253,11 +253,13 @@ module Fluent::Plugin
       tag
     end
 
+    NEWLINE = "\n"
+
     def format(tag, time, record)
       tag = tag_remove_prefix(tag)
       record = inject_values_to_record(tag, time, record)
       if @formatter.formatter_type == :text_per_line
-        @formatter.format(tag, time, record).chomp + "\n"
+        @formatter.format(tag, time, record).chomp + NEWLINE
       else
         @formatter.format(tag, time, record)
       end
