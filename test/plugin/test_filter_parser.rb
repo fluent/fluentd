@@ -80,17 +80,6 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_nothing_raised {
       create_driver %[
         key_name message
-        suppress_parse_error_log true
-        <parse>
-          @type regexp
-          expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-        </parse>
-      ]
-    }
-    assert_nothing_raised {
-      create_driver %[
-        key_name message
-        suppress_parse_error_log false
         <parse>
           @type regexp
           expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
@@ -590,10 +579,7 @@ class ParserFilterTest < Test::Unit::TestCase
       @type json
     </parse>
   ]
-  CONFIG_IGNORE = CONFIG_NOT_IGNORE + %[
-    ignore_key_not_exist true
-  ]
-  CONFIG_PASS_SAME_RECORD = CONFIG_IGNORE + %[
+  CONFIG_PASS_SAME_RECORD = CONFIG_NOT_IGNORE + %[
     reserve_data true
   ]
   def test_filter_key_not_exist
@@ -605,16 +591,6 @@ class ParserFilterTest < Test::Unit::TestCase
         d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
       end
     }
-    #assert_match(/data does not exist/, d.instance.log.logs.first)
-    d.instance_shutdown
-
-    d = create_driver(CONFIG_IGNORE)
-    assert_nothing_raised {
-      d.run(shutdown: false) do
-        d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
-      end
-    }
-    assert_not_match(/data does not exist/, d.instance.log.logs.first)
     d.instance_shutdown
 
     d = create_driver(CONFIG_PASS_SAME_RECORD)
@@ -652,7 +628,6 @@ class ParserFilterTest < Test::Unit::TestCase
 
   class DefaultSuppressParseErrorLogTest < self
     setup do
-      # default(disabled) 'suppress_parse_error_log' is not specify
       @d = create_driver(CONFIG_DEFAULT_SUPPRESS_PARSE_ERROR_LOG)
     end
 
@@ -668,62 +643,6 @@ class ParserFilterTest < Test::Unit::TestCase
       flexmock(@d.instance.router).should_receive(:emit_error_event).never
       @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-      end
-    end
-  end
-
-  CONFIG_DISABELED_SUPPRESS_PARSE_ERROR_LOG = %[
-    key_name message
-    suppress_parse_error_log false
-    <parse>
-      @type regexp
-      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-    </parse>
-  ]
-
-  class DisabledSuppressParseErrorLogTest < self
-    setup do
-      # disabled 'suppress_parse_error_log'
-      @d = create_driver(CONFIG_DISABELED_SUPPRESS_PARSE_ERROR_LOG)
-    end
-
-    def test_raise_exception
-      flexmock(@d.instance.router).should_receive(:emit_error_event).
-        with(String, Integer, Hash, ParserError.new("pattern not match with data '#{INVALID_MESSAGE}'")).once
-      @d.run do
-        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-      end
-    end
-
-    def test_nothing_raised
-      flexmock(@d.instance.router).should_receive(:emit_error_event).never
-      @d.run do
-        @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
-      end
-    end
-  end
-
-  CONFIG_ENABELED_SUPPRESS_PARSE_ERROR_LOG = %[
-    key_name message
-    suppress_parse_error_log true
-    <parse>
-      @type regexp
-      expression /^col1=(?<col1>.+) col2=(?<col2>.+)$/
-    </parse>
-  ]
-
-  class EnabledSuppressParseErrorLogTest < self
-    setup do
-      # enabled 'suppress_parse_error_log'
-      @d = create_driver(CONFIG_ENABELED_SUPPRESS_PARSE_ERROR_LOG)
-    end
-
-    def test_nothing_raised
-      flexmock(@d.instance.router).should_receive(:emit_error_event).
-        with(String, Integer, Hash, ParserError).once
-      @d.run(default_tag: @tag) do
-        @d.feed(Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
-        @d.feed(Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
       end
     end
   end
