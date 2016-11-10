@@ -52,12 +52,13 @@ module Fluent
         "types" => nil,
         "types_delimiter" => nil,
         "types_label_delimiter" => nil,
-        "null_value_pattern" => "null_value_pattern",
-        "null_empty_string" => "null_empty_string",
         "keys" => "keys", # CSVParser, TSVParser (old ValuesParser)
         "time_key"    => "time_key",
         "time_format" => "time_format",
         "delimiter"   => "delimiter",
+        "keep_time_key" => "keep_time_key",
+        "null_empty_string" => "null_empty_string",
+        "null_value_pattern" => "null_value_pattern",
         "json_parser"      => "json_parser", # JSONParser
         "label_delimiter"  => "label_delimiter", # LabeledTSVParser
         "format_firstline" => "format_firstline", # MultilineParser
