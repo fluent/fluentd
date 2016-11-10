@@ -605,11 +605,11 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 'bar', filtered[0][1]['foo']
   end
 
-  # suppress_parse_error_log test
+  # emit_error_event test
   INVALID_MESSAGE = 'foo bar'
   VALID_MESSAGE   = 'col1=foo col2=bar'
 
-  def test_parser_error_warning
+  def test_call_emit_error_event_when_parser_error
     d = create_driver(CONFIG_INVALID_TIME_VALUE)
     flexmock(d.instance.router).should_receive(:emit_error_event).
       with(String, Integer, Hash, ParserError).once
@@ -618,7 +618,7 @@ class ParserFilterTest < Test::Unit::TestCase
     end
   end
 
-  CONFIG_DEFAULT_SUPPRESS_PARSE_ERROR_LOG = %[
+  CONFIG_UNMATCHED_PATTERN_LOG = %[
     key_name message
     <parse>
       @type regexp
@@ -626,12 +626,12 @@ class ParserFilterTest < Test::Unit::TestCase
     </parse>
   ]
 
-  class DefaultSuppressParseErrorLogTest < self
+  class UnmatchedPatternLogTest < self
     setup do
-      @d = create_driver(CONFIG_DEFAULT_SUPPRESS_PARSE_ERROR_LOG)
+      @d = create_driver(CONFIG_UNMATCHED_PATTERN_LOG)
     end
 
-    def test_raise_exception
+    def test_call_emit_error_event_when_pattern_is_mismached
       flexmock(@d.instance.router).should_receive(:emit_error_event).
         with(String, Integer, Hash, ParserError.new("pattern not match with data '#{INVALID_MESSAGE}'")).once
       @d.run do
@@ -639,7 +639,7 @@ class ParserFilterTest < Test::Unit::TestCase
       end
     end
 
-    def test_nothing_raised
+    def test_not_call_emit_error_event_when_pattern_is_mached
       flexmock(@d.instance.router).should_receive(:emit_error_event).never
       @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => VALID_MESSAGE})
