@@ -547,13 +547,12 @@ class ParserFilterTest < Test::Unit::TestCase
     invalid_utf8 = "\xff".force_encoding('UTF-8')
 
     d = create_driver(CONFIG_NOT_REPLACE)
-    d.run(shutdown: false) do
+    d.run do
       d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => invalid_utf8})
     end
     error_event = d.error_events.first
     assert_equal "test", error_event[0]
     assert_instance_of ArgumentError, error_event[3]
-    d.instance_shutdown      
 
     d = create_driver(CONFIG_INVALID_BYTE)
     assert_nothing_raised {
@@ -605,11 +604,10 @@ class ParserFilterTest < Test::Unit::TestCase
     flexmock(d.instance.router).should_receive(:emit_error_event).
       with(String, Integer, Hash, ArgumentError.new("data does not exist")).once
     assert_nothing_raised {
-      d.run(shutdown: false) do
+      d.run do
         d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
       end
     }
-    d.instance_shutdown
 
     d = create_driver(CONFIG_PASS_SAME_RECORD)
     assert_nothing_raised {
