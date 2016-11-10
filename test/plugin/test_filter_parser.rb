@@ -218,7 +218,7 @@ class ParserFilterTest < Test::Unit::TestCase
         expression /^(?<x>\\d)(?<y>\\d) (?<t>.+)$/
       </parse>
     ])
-    time = Time.parse("2012-04-02 18:20:59").to_i
+    time = event_time("2012-04-02 18:20:59")
     d1.run(default_tag: @tag) do
       d1.feed(time, {'data' => '12 20120402182059'})
       d1.feed(time, {'data' => '34 20120402182100'})
@@ -234,7 +234,7 @@ class ParserFilterTest < Test::Unit::TestCase
         @type json
       </parse>
     ])
-    time = @default_time.to_i
+    time = Fluent::EventTime.from_time(@default_time)
     d2.run(default_tag: @tag) do
       d2.feed(time, {'data' => '{"xxx":"first","yyy":"second"}', 'xxx' => 'x', 'yyy' => 'y'})
       d2.feed(time, {'data' => 'foobar', 'xxx' => 'x', 'yyy' => 'y'})
@@ -243,13 +243,13 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 2, filtered.length
 
     first = filtered[0]
-    assert_equal time, first[0]
+    assert_equal_event_time time, first[0]
     assert_equal '{"xxx":"first","yyy":"second"}', first[1]['data']
     assert_equal 'first', first[1]['xxx']
     assert_equal 'second', first[1]['yyy']
 
     second = filtered[1]
-    assert_equal time, second[0]
+    assert_equal_event_time time, second[0]
     assert_equal 'foobar', second[1]['data']
     assert_equal 'x', second[1]['xxx']
     assert_equal 'y', second[1]['yyy']
