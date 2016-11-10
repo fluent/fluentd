@@ -33,9 +33,6 @@ module Fluent::Plugin
     config_param :replace_invalid_sequence, :bool, default: false
     config_param :hash_value_field, :string, default: nil
 
-    config_section :parse do
-    end
-
     attr_reader :parser
 
     def configure(conf)
