@@ -81,30 +81,11 @@ module Fluent::Plugin
         router.emit_error_event(tag, time, record, e)
         return FAILED_RESULT
       rescue ArgumentError => e
-        if @replace_invalid_sequence
-          unless e.message.index("invalid byte sequence in") == 0
-            raise
-          end
-          replaced_string = raw_value.scrub(REPLACE_CHAR)
-          @parser.parse(replaced_string) do |t, values|
-            if values
-              t ||= time
-              r = handle_parsed(tag, record, t, values)
-              return t, r
-            else
-              router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("pattern not match with data '#{raw_value}'"))
-              if @reserve_data
-                t = time
-                r = handle_parsed(tag, record, time, {})
-                return t, r
-              else
-                return FAILED_RESULT
-              end
-            end
-          end
-        else
-          raise
-        end
+        raise unless @replace_invalid_sequence
+        raise unless e.message.index("invalid byte sequence in") == 0
+
+        raw_value = raw_value.scrub(REPLACE_CHAR)
+        retry
       rescue => e
         router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("parse failed #{e.message}"))
         return FAILED_RESULT
