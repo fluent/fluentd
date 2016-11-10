@@ -46,7 +46,8 @@ module Fluent::Plugin
       @parser = parser_create
     end
 
-    FAILED_RESULT = [nil, nil].freeze # reduce allocation cost 
+    FAILED_RESULT = [nil, nil].freeze # reduce allocation cost
+    REPLACE_CHAR = '?'.freeze
 
     def filter_with_time(tag, time, record)
       raw_value = record[@key_name]
@@ -87,7 +88,7 @@ module Fluent::Plugin
           unless e.message.index("invalid byte sequence in") == 0
             raise
           end
-          replaced_string = replace_invalid_byte(raw_value)
+          replaced_string = raw_value.scrub(REPLACE_CHAR)
           @parser.parse(replaced_string) do |t, values|
             if values
               t ||= time
@@ -124,13 +125,6 @@ module Fluent::Plugin
         r = r ? record.merge(r) : record
       end
       r
-    end
-
-    def replace_invalid_byte(string)
-      replace_options = {invalid: :replace, undef: :replace, replace: '?'}
-      original_encoding = string.encoding
-      temporal_encoding = (original_encoding == Encoding::UTF_8 ? Encoding::UTF_16BE : Encoding::UTF_8)
-      string.encode(temporal_encoding, original_encoding, replace_options).encode(original_encoding)
     end
   end
 end
