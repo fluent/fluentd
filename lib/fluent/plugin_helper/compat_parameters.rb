@@ -57,8 +57,8 @@ module Fluent
         "time_format" => "time_format",
         "delimiter"   => "delimiter",
         "keep_time_key" => "keep_time_key",
-        "null_empty_string" => "null_empty_string", # ValuesParser
-        "null_value_pattern" => "null_value_pattern", # ValuesParser
+        "null_empty_string" => "null_empty_string",
+        "null_value_pattern" => "null_value_pattern",
         "json_parser"      => "json_parser", # JSONParser
         "label_delimiter"  => "label_delimiter", # LabeledTSVParser
         "format_firstline" => "format_firstline", # MultilineParser
