@@ -137,6 +137,8 @@ module Fluent::Plugin
       event_loop_attach(@km)
       event_loop_attach(@lsock)
 
+      @float_time_parser = Fluent::NumericTimeParser.new(:float)
+
       # detach_multi_process do
       #   super
       #   @km = KeepaliveManager.new(@keepalive_timeout)
@@ -187,7 +189,7 @@ module Fluent::Plugin
         end
         time = if param_time = params['time']
                  param_time = param_time.to_f
-                 param_time.zero? ? Fluent::Engine.now : Fluent::EventTime.from_time(Time.at(param_time))
+                 param_time.zero? ? Fluent::Engine.now : @float_time_parser.parse(param_time)
                else
                  record_time.nil? ? Fluent::Engine.now : record_time
                end
