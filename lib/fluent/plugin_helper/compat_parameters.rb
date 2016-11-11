@@ -259,7 +259,7 @@ module Fluent
         if conf["format"]
           if conf["format"].start_with?("/") && conf["format"].end_with?("/")
             hash["@type"] = "regexp"
-            hash["expression"] = conf["format"]
+            hash["expression"] = conf["format"][1..-2]
           else
             hash["@type"] = conf["format"]
           end
