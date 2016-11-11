@@ -21,6 +21,10 @@ module Fluent
     class MessagePackFormatter < Formatter
       Plugin.register_formatter('msgpack', self)
 
+      def formatter_type
+        :binary
+      end
+
       def format(tag, time, record)
         record.to_msgpack
       end

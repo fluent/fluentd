@@ -113,6 +113,10 @@ module Fluent
                                         localtime = @inject_config.localtime && !@inject_config.utc
                                         Fluent::TimeFormatter.new(@inject_config.time_format, localtime, @inject_config.timezone)
                                       end
+          else
+            if @inject_config.time_format
+              log.warn "'time_format' specified without 'time_key', will be ignored"
+            end
           end
 
           @_inject_enabled = @_inject_hostname_key || @_inject_tag_key || @_inject_time_key

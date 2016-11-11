@@ -14,36 +14,20 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/base'
-require 'fluent/plugin/owned_by_mixin'
-require 'fluent/time'
+require 'fluent/plugin/formatter'
 
 module Fluent
   module Plugin
-    class Formatter < Base
-      include OwnedByMixin
-      include TimeMixin::Formatter
+    class TSVFormatter < Formatter
+      Plugin.register_formatter('tsv', self)
 
-      configured_in :format
-
-      PARSER_TYPES = [:text_per_line, :text, :binary]
-      def formatter_type
-        :text_per_line
-      end
+      desc 'Field names included in each lines'
+      config_param :keys, :array, value_type: :string
+      desc 'The delimiter character (or string) of TSV values'
+      config_param :delimiter, :string, default: "\t"
 
       def format(tag, time, record)
-        raise NotImplementedError, "Implement this method in child class"
-      end
-    end
-
-    class ProcWrappedFormatter < Formatter
-      def initialize(proc)
-        super()
-        @proc = proc
-      end
-
-      def format(tag, time, record)
-        @proc.call(tag, time, record)
+        @keys.map{|k| record[k].to_s }.join(@delimiter)
       end
     end
   end

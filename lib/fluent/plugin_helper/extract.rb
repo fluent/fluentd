@@ -25,7 +25,8 @@ module Fluent
         return nil unless @_extract_enabled
 
         if @_extract_tag_key && record.has_key?(@_extract_tag_key)
-          return record[@_extract_tag_key].to_s
+          v = @_extract_keep_tag_key ? record[@_extract_tag_key] : record.delete(@_extract_tag_key)
+          return v.to_s
         end
 
         nil
@@ -35,7 +36,8 @@ module Fluent
         return nil unless @_extract_enabled
 
         if @_extract_time_key && record.has_key?(@_extract_time_key)
-          return @_extract_time_parser.call(record[@_extract_time_key])
+          v = @_extract_keep_time_key ? record[@_extract_time_key] : record.delete(@_extract_time_key)
+          return @_extract_time_parser.call(v)
         end
 
         nil
@@ -45,7 +47,9 @@ module Fluent
         include Fluent::Configurable
         config_section :extract, required: false, multi: false, param_name: :extract_config do
           config_param :tag_key, :string, default: nil
+          config_param :keep_tag_key, :bool, default: false
           config_param :time_key, :string, default: nil
+          config_param :keep_time_key, :bool, default: false
 
           # To avoid defining :time_type twice
           config_param :time_type, :enum, list: [:float, :unixtime, :string], default: :float
@@ -64,7 +68,9 @@ module Fluent
         super
         @_extract_enabled = false
         @_extract_tag_key = nil
+        @_extract_keep_tag_key = nil
         @_extract_time_key = nil
+        @_extract_keep_time_key = nil
         @_extract_time_parser = nil
       end
 
@@ -73,15 +79,21 @@ module Fluent
 
         if @extract_config
           @_extract_tag_key = @extract_config.tag_key
+          @_extract_keep_tag_key = @extract_config.keep_tag_key
           @_extract_time_key = @extract_config.time_key
           if @_extract_time_key
+            @_extract_keep_time_key = @extract_config.keep_time_key
             @_extract_time_parser = case @extract_config.time_type
-                                    when :float then ->(v){ Fluent::EventTime.new(v.to_i, ((v.to_f - v.to_i) * 1_000_000_000).to_i) }
-                                    when :unixtime then ->(v){ Fluent::EventTime.new(v.to_i, 0) }
+                                    when :float then Fluent::NumericTimeParser.new(:float)
+                                    when :unixtime then Fluent::NumericTimeParser.new(:unixtime)
                                     else
                                       localtime = @extract_config.localtime && !@extract_config.utc
                                       Fluent::TimeParser.new(@extract_config.time_format, localtime, @extract_config.timezone)
                                     end
+          else
+            if @extract_config.time_format
+              log.warn "'time_format' specified without 'time_key', will be ignored"
+            end
           end
 
           @_extract_enabled = @_extract_tag_key || @_extract_time_key
