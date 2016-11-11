@@ -217,7 +217,7 @@ module Fluent
 
       def compat_parameters_extract(conf)
         return unless conf.elements('extract').empty?
-        return if EXTRACT_PARAMS.keys.all?{|k| !conf.has_key?(k) }
+        return if EXTRACT_PARAMS.keys.all?{|k| !conf.has_key?(k) } && !conf.has_key?('format')
 
         # TODO: warn obsolete parameters if these are deprecated
         hash = compat_parameters_copy_to_subsection_attributes(conf, EXTRACT_PARAMS)
@@ -225,6 +225,9 @@ module Fluent
         if conf.has_key?('time_as_epoch') && Fluent::Config.bool_value(conf['time_as_epoch'])
           hash['time_key'] ||= 'time'
           hash['time_type'] = 'unixtime'
+        elsif conf.has_key?('format') && conf["format"].start_with?("/") && conf["format"].end_with?("/") # old-style regexp parser
+          hash['time_key'] ||= 'time'
+          hash['time_type'] ||= 'string'
         end
         if conf.has_key?('localtime') || conf.has_key?('utc')
           if conf.has_key?('localtime') && conf.has_key?('utc')
