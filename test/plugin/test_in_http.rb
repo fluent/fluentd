@@ -61,7 +61,7 @@ class HttpInputTest < Test::Unit::TestCase
     d.run(expect_records: 2) do
       events.each do |tag, _time, record|
         res = post("/#{tag}", {"json"=>record.to_json})
-        res_codes << res.conde
+        res_codes << res.code
       end
     end
 
@@ -77,13 +77,13 @@ class HttpInputTest < Test::Unit::TestCase
     float_time = time.to_f
 
     events = [
-      ["tag1", float_time, {"a"=>1}],
+      ["tag1", time, {"a"=>1}],
     ]
     res_codes = []
 
     d.run(expect_records: 1) do
       events.each do |tag, t, record|
-        res = post("/#{tag}", {"json"=>record.to_json, "time"=>t.to_s})
+        res = post("/#{tag}", {"json"=>record.to_json, "time"=>float_time.to_s})
         res_codes << res.code
       end
     end
@@ -125,8 +125,9 @@ class HttpInputTest < Test::Unit::TestCase
       ["tag1", time_i, records[0]],
       ["tag1", time_i, records[1]],
     ]
+    tag = "tag1"
     res_codes = []
-    d.run(expect_records: 2) do
+    d.run(expect_records: 2, timeout: 5) do
       res = post("/#{tag}", {"json"=>records.to_json, "time"=>time_i.to_s})
       res_codes << res.code
     end
@@ -164,20 +165,23 @@ class HttpInputTest < Test::Unit::TestCase
     time_i = time.to_i
 
     records = [{"a"=>1},{"a"=>2}]
-    events = [
-      ["tag1", time, records[0]],
-      ["tag1", time, records[1]],
-    ]
+    tag = "tag1"
     res_codes = []
 
-    d.run(expect_records: 2) do
+    d.run(expect_records: 2, timeout: 5) do
       res = post("/#{tag}", {"json"=>records.to_json, "time"=>time_i.to_s})
       res_codes << res.code
     end
     assert_equal ["200"], res_codes
-    assert_equal events, d.events
+
+    assert_equal "tag1", d.events[0][0]
     assert_equal_event_time time, d.events[0][1]
+    assert_equal 1, d.events[0][2]["a"]
+    assert{ d.events[0][2].has_key?("REMOTE_ADDR") && d.events[0][2]["REMOTE_ADDR"] =~ /^\d{1,4}(\.\d{1,4}){3}$/ }
+
+    assert_equal "tag1", d.events[1][0]
     assert_equal_event_time time, d.events[1][1]
+    assert_equal 2, d.events[1][2]["a"]
   end
 
   def test_json_with_add_remote_addr_given_x_forwarded_for
@@ -213,13 +217,14 @@ class HttpInputTest < Test::Unit::TestCase
       ["tag1", time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>1}],
       ["tag1", time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>2}],
     ]
+    tag = "tag1"
     res_codes = []
 
-    d.run(expect_records: 2) do
+    d.run(expect_records: 2, timeout: 5) do
       res = post("/#{tag}", {"json"=>records.to_json, "time"=>time_i.to_s}, {"X-Forwarded-For"=>"129.78.138.66, 127.0.0.1"})
       res_codes << res.code
     end
-    assert_equal ["200", "200"], res_codes
+    assert_equal ["200"], res_codes
     assert_equal events, d.events
     assert_equal_event_time time, d.events[0][1]
     assert_equal_event_time time, d.events[1][1]
@@ -230,20 +235,25 @@ class HttpInputTest < Test::Unit::TestCase
     time = event_time("2011-01-02 13:14:15 UTC")
     time_i = time.to_i
     records = [{"a"=>1},{"a"=>2}]
-    events = [
-      ["tag1", time, records[0]],
-      ["tag1", time, records[1]],
-    ]
+    tag = "tag1"
     res_codes = []
 
-    d.run(expect_records: 2) do
+    d.run(expect_records: 2, timeout: 5) do
       res = post("/#{tag}", {"json"=>records.to_json, "time"=>time_i.to_s})
       res_codes << res.code
     end
     assert_equal ["200"], res_codes
-    assert_equal events, d.events
+
+    assert_equal "tag1", d.events[0][0]
     assert_equal_event_time time, d.events[0][1]
+    assert_equal 1, d.events[0][2]["a"]
+
+    assert_equal "tag1", d.events[1][0]
     assert_equal_event_time time, d.events[1][1]
+    assert_equal 2, d.events[1][2]["a"]
+
+    assert include_http_header?(d.events[0][2])
+    assert include_http_header?(d.events[1][2])
   end
 
   def test_json_with_add_http_headers
@@ -263,9 +273,14 @@ class HttpInputTest < Test::Unit::TestCase
       end
     end
     assert_equal ["200", "200"], res_codes
-    assert_equal events, d.events
+
+    assert_equal "tag1", d.events[0][0]
     assert_equal_event_time time, d.events[0][1]
+    assert_equal 1, d.events[0][2]["a"]
+
+    assert_equal "tag2", d.events[1][0]
     assert_equal_event_time time, d.events[1][1]
+    assert_equal 2, d.events[1][2]["a"]
 
     assert include_http_header?(d.events[0][2])
     assert include_http_header?(d.events[1][2])
@@ -327,9 +342,10 @@ class HttpInputTest < Test::Unit::TestCase
       ["tag1", time, records[0]],
       ["tag1", time, records[1]],
     ]
+    tag = "tag1"
     res_codes = []
     d.run(expect_records: 2) do
-      res = post("/#{tag}", {"msgpack"=>events.to_msgpack, "time"=>time_i.to_s})
+      res = post("/#{tag}", {"msgpack"=>records.to_msgpack, "time"=>time_i.to_s})
       res_codes << res.code
     end
     assert_equal ["200"], res_codes
@@ -461,7 +477,9 @@ class HttpInputTest < Test::Unit::TestCase
     d.end_if{ res_codes.size == 2 }
     d.run do
       res = post("/tag1", {"json"=>{"a"=>1}.to_json, "time"=>time_i.to_s}, {"Origin"=>"http://bar.com"})
+      res_codes << res.code
       res = post("/tag2", {"json"=>{"a"=>1}.to_json, "time"=>time_i.to_s}, {"Origin"=>"http://bar.com"})
+      res_codes << res.code
     end
     assert_equal ["403", "403"], res_codes
   end
