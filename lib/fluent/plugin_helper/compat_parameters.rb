@@ -48,7 +48,7 @@ module Fluent
       }
 
       PARSER_PARAMS = {
-        "format" => "@type",
+        "format" => nil,
         "types" => nil,
         "types_delimiter" => nil,
         "types_label_delimiter" => nil,
@@ -252,6 +252,15 @@ module Fluent
 
         # TODO: warn obsolete parameters if these are deprecated
         hash = compat_parameters_copy_to_subsection_attributes(conf, PARSER_PARAMS)
+
+        if conf["format"]
+          if conf["format"].start_with?("/") && conf["format"].end_with?("/")
+            hash["@type"] = "regexp"
+            hash["expression"] = conf["format"]
+          else
+            hash["@type"] = conf["format"]
+          end
+        end
 
         if conf["types"]
           delimiter = conf["types_delimiter"] || ','
