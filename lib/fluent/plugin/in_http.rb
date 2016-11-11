@@ -17,7 +17,6 @@
 require 'fluent/plugin/input'
 require 'fluent/plugin/parser'
 require 'fluent/event'
-require 'fluent/process'
 
 require 'http/parser'
 require 'webrick/httputils'
@@ -37,7 +36,6 @@ module Fluent::Plugin
   class HttpInput < Input
     Fluent::Plugin.register_input('http', self)
 
-    # include DetachMultiProcessMixin
     helpers :parser, :compat_parameters, :event_loop
 
     EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
@@ -138,21 +136,6 @@ module Fluent::Plugin
       event_loop_attach(@lsock)
 
       @float_time_parser = Fluent::NumericTimeParser.new(:float)
-
-      # detach_multi_process do
-      #   super
-      #   @km = KeepaliveManager.new(@keepalive_timeout)
-      #   @lsock = Coolio::TCPServer.new(lsock, nil, Handler, @km, method(:on_request),
-      #                                  @body_size_limit, @format, log,
-      #                                  @cors_allow_origins)
-      #   @lsock.listen(@backlog) unless @backlog.nil?
-
-      #   @loop = Coolio::Loop.new
-      #   @loop.attach(@km)
-      #   @loop.attach(@lsock)
-
-      #   @thread = Thread.new(&method(:run))
-      # end
     end
 
     def close
