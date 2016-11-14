@@ -71,9 +71,9 @@ module Fluent::Plugin
       super
 
       m = if @parser_configs.first['@type'] == 'in_http'
-            @parser_msgpack = parser_create(type: 'msgpack')
+            @parser_msgpack = parser_create(usage: 'parser_in_http_msgpack', type: 'msgpack')
             @parser_msgpack.estimate_current_event = false
-            @parser_json = parser_create(type: 'json')
+            @parser_json = parser_create(usage: 'parser_in_http_json', type: 'json')
             @parser_json.estimate_current_event = false
             @format_name = 'default'
             method(:parse_params_default)
