@@ -95,10 +95,9 @@ module Fluent::Plugin
       last_record = nil
       es.each do |time, record|
         last_record = record # for debug log
-        placeholder_values.merge!({
-          'time'     => @placeholder_expander.time_value(time),
-          'record'   => record,
-        })
+        placeholder_values['time'] = @placeholder_expander.time_value(time)
+        placeholder_values['record'] = record
+
         new_record = reform(record, placeholder_values)
         if @renew_time_key && new_record.has_key?(@renew_time_key)
           time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
