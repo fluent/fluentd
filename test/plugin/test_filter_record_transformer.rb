@@ -250,7 +250,11 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         ]
         filtered = filter(config)
         filtered.each do |t, r|
-          assert_equal(Time.at(@time).localtime.to_s, r['message'])
+          if enable_ruby == "yes"
+            assert_equal(Time.at(@time).localtime, r['message'])
+          else
+            assert_equal(Time.at(@time).localtime.to_s, r['message'])
+          end
         end
       end
 
@@ -499,15 +503,19 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       }
     end
 
-    test 'failed to expand (enable_ruby yes)' do
+    data(auto_typecast_yes: ["yes", "unknown['bar']"],
+         auto_typecast_no: ["no", "%Q[\#{unknown['bar']}]"])
+    test 'failed to expand (enable_ruby yes)' do |(param, expected_log)|
+
       config = %[
         enable_ruby yes
+        auto_typecast #{param}
         <record>
           message ${unknown['bar']}
         </record>
       ]
       filtered = filter(config) { |d|
-        mock(d.instance.log).warn("failed to expand `%Q[\#{unknown['bar']}]`", anything)
+        mock(d.instance.log).warn("failed to expand `#{expected_log}`", anything)
       }
       filtered.each do |t, r|
         assert_nil(r['message'])
