@@ -190,8 +190,8 @@ class HttpInputTest < Test::Unit::TestCase
     time_i = time.to_i
 
     events = [
-      ["tag1", time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>1}],
-      ["tag2", time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>1}],
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}],
     ]
     res_codes = []
 
@@ -202,9 +202,14 @@ class HttpInputTest < Test::Unit::TestCase
       end
     end
     assert_equal ["200", "200"], res_codes
-    assert_equal events, d.events
+
+    assert_equal "tag1", d.events[0][0]
     assert_equal_event_time time, d.events[0][1]
+    assert_equal({"REMOTE_ADDR"=>"129.78.138.66", "a"=>1}, d.events[0][2])
+
+    assert_equal "tag2", d.events[1][0]
     assert_equal_event_time time, d.events[1][1]
+    assert_equal({"REMOTE_ADDR"=>"129.78.138.66", "a"=>2}, d.events[1][2])
   end
 
   def test_multi_json_with_add_remote_addr_given_x_forwarded_for
