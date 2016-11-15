@@ -138,10 +138,12 @@ module Fluent::Plugin
         end
       end
 
-      if @compress == :gzip && @buffer.compress == :text
-        @buffer.compress = :gzip
-      elsif @compress == :text && @buffer.compress == :gzip
-        log.info "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
+      unless @as_secondary
+        if @compress == :gzip && @buffer.compress == :text
+          @buffer.compress = :gzip
+        elsif @compress == :text && @buffer.compress == :gzip
+          log.info "buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>"
+        end
       end
 
       if @nodes.empty?
