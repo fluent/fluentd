@@ -96,7 +96,7 @@ module Fluent
       end
 
       def parse_time(record)
-        if @time_key && record.has_key?(@time_key)
+        if @time_key && record.respond_to?(:has_key?) && record.has_key?(@time_key)
           src = if @keep_time_key
                   record[@time_key]
                 else
