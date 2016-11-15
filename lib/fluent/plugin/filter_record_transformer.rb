@@ -38,7 +38,7 @@ module Fluent::Plugin
     desc 'When set to true, the full Ruby syntax is enabled in the ${...} expression.'
     config_param :enable_ruby, :bool, default: false
     desc 'Use original value type.'
-    config_param :auto_typecast, :bool, default: false # false for lower version compatibility
+    config_param :auto_typecast, :bool, default: true
 
     def configure(conf)
       super
@@ -95,10 +95,9 @@ module Fluent::Plugin
       last_record = nil
       es.each do |time, record|
         last_record = record # for debug log
-        placeholder_values.merge!({
-          'time'     => @placeholder_expander.time_value(time),
-          'record'   => record,
-        })
+        placeholder_values['time'] = @placeholder_expander.time_value(time)
+        placeholder_values['record'] = record
+
         new_record = reform(record, placeholder_values)
         if @renew_time_key && new_record.has_key?(@renew_time_key)
           time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
@@ -316,8 +315,6 @@ module Fluent::Plugin
 
       class CleanroomExpander
         def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
-          tags = tag_parts # for old version compatibility
-          _ = tags # to suppress "unused variable" warning for tags
           Thread.current[:record_transformer_record] = record # for old version compatibility
           instance_eval(__str_to_eval__)
         end
