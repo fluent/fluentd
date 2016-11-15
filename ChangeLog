@@ -1,5 +1,43 @@
 # v0.14
 
+## Release v0.14.9 - 2016/11/15
+
+### New features / Enhancement
+
+* filter_parser: Port fluent-plugin-parser into built-in plugin
+  https://github.com/fluent/fluentd/pull/1191
+* parser/formatter plugin helpers with default @type in plugin side
+  https://github.com/fluent/fluentd/pull/1267
+* parser: Reconstruct Parser related classes
+  https://github.com/fluent/fluentd/pull/1286
+* filter_record_transformer: Remove old behaviours
+  https://github.com/fluent/fluentd/pull/1311
+* Migrate some built-in plugins into v0.14 API
+  https://github.com/fluent/fluentd/pull/1257 (out_file)
+  https://github.com/fluent/fluentd/pull/1297 (out_exec, out_exec_filter)
+  https://github.com/fluent/fluentd/pull/1306 (in_forward, out_forward)
+  https://github.com/fluent/fluentd/pull/1308 (in_http)
+* test: Improve test drivers
+  https://github.com/fluent/fluentd/pull/1302
+  https://github.com/fluent/fluentd/pull/1305
+
+### Bug fixes
+
+* log: Avoid name conflict between Fluent::Logger
+  https://github.com/fluent/fluentd/pull/1274
+* fluent-cat: Fix fluent-cat command to send sub-second precision time
+  https://github.com/fluent/fluentd/pull/1277
+* config: Fix a bug not to overwrite default value with nil
+  https://github.com/fluent/fluentd/pull/1296
+* output: Fix timezone for compat timesliced output plugins
+  https://github.com/fluent/fluentd/pull/1307
+* out_forward: fix not to raise error when out_forward is initialized as secondary
+  https://github.com/fluent/fluentd/pull/1313
+* output: Event router for secondary output
+  https://github.com/fluent/fluentd/pull/1283
+* test: fix to return the block value as expected by many rubyists
+  https://github.com/fluent/fluentd/pull/1284
+
 ## Release v0.14.8 - 2016/10/13
 
 ### Bug fixes
