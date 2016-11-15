@@ -65,11 +65,14 @@ module Fluent
 
         # event loop does not run here, so mutex lock is not required
         thread_create :event_loop do
-          default_watcher = DefaultWatcher.new
-          @_event_loop.attach(default_watcher)
-          @_event_loop_running = true
-          @_event_loop.run(@_event_loop_run_timeout) # this method blocks
-          @_event_loop_running = false
+          begin
+            default_watcher = DefaultWatcher.new
+            @_event_loop.attach(default_watcher)
+            @_event_loop_running = true
+            @_event_loop.run(@_event_loop_run_timeout) # this method blocks
+          ensure
+            @_event_loop_running = false
+          end
         end
       end
 
