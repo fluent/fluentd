@@ -573,4 +573,23 @@ class ForwardOutputTest < Test::Unit::TestCase
     timer.disable # call send_heartbeat at just once
     timer.on_timer
   end
+
+  def test_acts_as_secondary
+    i = Fluent::Plugin::ForwardOutput.new
+    conf = config_element(
+      'match',
+      'primary.**',
+      {'@type' => 'forward'},
+      [
+        config_element('server', '', {'host' => '127.0.0.1'}),
+        config_element('secondary', '', {}, [
+            config_element('server', '', {'host' => '192.168.1.2'}),
+            config_element('server', '', {'host' => '192.168.1.3'})
+          ]),
+      ]
+    )
+    assert_nothing_raised do
+      i.configure(conf)
+    end
+  end
 end
