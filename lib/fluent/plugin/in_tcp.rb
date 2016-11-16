@@ -14,28 +14,66 @@
 #    limitations under the License.
 #
 
-require 'cool.io'
+require 'fluent/plugin/input'
 
-require 'fluent/plugin/socket_util'
+module Fluent::Plugin
+  class TcpInput < Input
+    Fluent::Plugin.register_input('tcp', self)
 
-module Fluent
-  class TcpInput < SocketUtil::BaseInput
-    Plugin.register_input('tcp', self)
+    helpers :server, :parser, :extract, :compat_parameters
 
-    config_set_default :port, 5170
+    desc 'Tag of output events.'
+    config_param :tag, :string
+    desc 'The port to listen to.'
+    config_param :port, :integer, default: 5170
+    desc 'The bind address to listen to.'
+    config_param :bind, :string, default: '0.0.0.0'
+
+    desc "The field name of the client's hostname."
+    config_param :source_host_key, :string, default: nil, deprecated: "use source_hostname_key instead."
+    desc "The field name of the client's hostname."
+    config_param :source_hostname_key, :string, default: nil
+
+    config_param :blocking_timeout, :time, default: 0.5
+
     desc 'The payload is read up to this character.'
     config_param :delimiter, :string, default: "\n" # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
 
-    def listen(callback)
-      log.info "listening tcp socket on #{@bind}:#{@port}"
+    def configure(conf)
+      compat_parameters_convert(conf, :parser)
+      super
+      @_event_loop_blocking_timeout = @blocking_timeout
+      @parser = parser_create
+    end
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
+    def start
+      super
+
+      @buffer = ''
+      server_create(:in_tcp_server, @port, proto: :tcp, bind: @bind) do |data, conn|
+        @buffer << data
+        begin
+          pos = 0
+          while i = @buffer.index(@delimiter, pos)
+            msg = @buffer[pos...i]
+            pos = i + @delimiter.length
+
+            @parser.parse(msg) do |time, record|
+              unless time && record
+                log.warn "pattern not match", message: msg
+                next
+              end
+
+              tag = extract_tag_from_record(record)
+              tag ||= @tag
+              time ||= extract_time_from_record(record) || Fluent::EventTime.now
+              record[@source_host_key] = conn.remote_host if @source_host_key
+              router.emit(tag, time, record)
+            end
+          end
+          @buffer.slice!(0, pos) if pos > 0
+        end
       end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
-      lsock = client.listen_tcp(@bind, @port)
-      Coolio::TCPServer.new(lsock, nil, SocketUtil::TcpHandler, log, @delimiter, callback)
     end
   end
 end
