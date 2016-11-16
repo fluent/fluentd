@@ -264,7 +264,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_to_a_node_supporting_responses
-    target_input_driver = create_target_input_driver(response_stub: true)
+    target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
