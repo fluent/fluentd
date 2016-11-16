@@ -184,7 +184,9 @@ module Fluent
                else
                  TCPServer.new(bind, port) # this method call can create sockets for AF_INET6
                end
-        sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) # close-on-exec
+        unless Fluent.windows?
+          sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) # close-on-exec
+        end
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
         sock
       end
@@ -198,7 +200,9 @@ module Fluent
                  usock.bind(bind, port)
                  usock
                end
-        sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) # close-on-exec
+        unless Fluent.windows?
+          sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) # close-on-exec
+        end
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
         sock
       end
