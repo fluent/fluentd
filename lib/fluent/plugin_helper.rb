@@ -24,6 +24,8 @@ require 'fluent/plugin_helper/parser'
 require 'fluent/plugin_helper/formatter'
 require 'fluent/plugin_helper/inject'
 require 'fluent/plugin_helper/extract'
+# require 'fluent/plugin_helper/socket'
+require 'fluent/plugin_helper/server'
 require 'fluent/plugin_helper/retry_state'
 require 'fluent/plugin_helper/compat_parameters'
 
