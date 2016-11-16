@@ -18,6 +18,8 @@ require 'fluent/config'
 require 'fluent/config/element'
 require 'fluent/log'
 
+require 'serverengine/socket_manager'
+require 'fileutils'
 require 'timeout'
 
 module Fluent
@@ -45,6 +47,8 @@ module Fluent
             @instance = klass
           end
           @instance.under_plugin_development = true
+
+          @socket_manager_server = nil
 
           @logs = []
 
@@ -101,6 +105,13 @@ module Fluent
         end
 
         def instance_start
+          if @instance.respond_to?(:server_wait_until_start)
+            @socket_manager_path = ServerEngine::SocketManager::Server.generate_path
+            FileUtils.rm_f @socket_manager_path if File.exist?(@socket_manager_path)
+            @socket_manager_server = ServerEngine::SocketManager::Server.open(@socket_manager_path)
+            ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_path.to_s
+          end
+
           unless @instance.started?
             @instance.start
           end
@@ -145,7 +156,16 @@ module Fluent
             @instance.thread_wait_until_stop
           end
 
+          if @instance.respond_to?(:server_wait_until_stop)
+            @instance.server_wait_until_stop
+          end
+
           @instance.terminate unless @instance.terminated?
+
+          if @socket_manager_server
+            @socket_manager_server.close
+            FileUtils.rm_f @socket_manager_path if File.exist?(@socket_manager_path)
+          end
         end
 
         def run_actual(timeout: DEFAULT_TIMEOUT, &block)
