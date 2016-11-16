@@ -184,9 +184,7 @@ module Fluent
                else
                  TCPServer.new(bind, port) # this method call can create sockets for AF_INET6
                end
-        unless Fluent.windows?
-          sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) # close-on-exec
-        end
+        # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
         sock
       end
@@ -200,9 +198,7 @@ module Fluent
                  usock.bind(bind, port)
                  usock
                end
-        unless Fluent.windows?
-          sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) # close-on-exec
-        end
+        # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
         sock
       end
