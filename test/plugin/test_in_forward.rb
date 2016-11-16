@@ -59,13 +59,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case '#configure' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     test 'simple' do
       @d = d = create_driver
       assert_equal PORT, d.instance.port
@@ -88,18 +81,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
-  def connect
-    TCPSocket.new('127.0.0.1', PORT)
-  end
-
   sub_test_case 'message' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     test 'time' do
       time = event_time("2011-01-02 13:14:15 UTC")
       begin
@@ -221,6 +203,7 @@ class ForwardInputTest < Test::Unit::TestCase
       d.run(expect_records: records.length, timeout: 20) do
         records.each {|tag, _time, record|
           send_data [tag, _time, record].to_json + "\n"
+        sleep 1
         }
       end
 
@@ -229,13 +212,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'forward' do
-     setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     data(tcp: {
            config: CONFIG,
            options: {
@@ -345,13 +321,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'packed forward' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     data(tcp: {
            config: CONFIG,
            options: {
@@ -464,13 +433,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'compressed packed forward' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     test 'set_compress_to_option' do
       @d = d = create_driver
 
@@ -528,13 +490,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'warning' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     test 'send_large_chunk_warning' do
       @d = d = create_driver(CONFIG + %[
         chunk_size_warn_limit 16M
@@ -551,7 +506,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          d.instance.send(:on_message, obj, chunk.size, '127.0.0.1')
         end
       end
 
@@ -565,7 +520,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-        line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
+        line =~ / tag="test.tag" host="127.0.0.1" limit=16777216 size=16777501/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -583,7 +538,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          d.instance.send(:on_message, obj, chunk.size, '127.0.0.1')
         end
       end
 
@@ -591,7 +546,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{ |line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-        line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=16777216 size=16777501/
+        line =~ / tag="test.tag" host="127.0.0.1" limit=16777216 size=16777501/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -613,7 +568,7 @@ class ForwardInputTest < Test::Unit::TestCase
       # d.run => send_data
       d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          d.instance.send(:on_message, obj, chunk.size, '127.0.0.1')
         end
       end
 
@@ -625,7 +580,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
-        line =~ / tag="test.tag" source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" limit=33554432 size=33554989/
+        line =~ / tag="test.tag" host="127.0.0.1" limit=33554432 size=33554989/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -638,7 +593,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # d.run => send_data
       d.run(shutdown: false) do
-        d.instance.send(:on_message, data, 1000000000, PEERADDR)
+        d.instance.send(:on_message, data, 1000000000, '127.0.0.1')
       end
 
       # check emitted data
@@ -647,7 +602,7 @@ class ForwardInputTest < Test::Unit::TestCase
       # check log
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
-        line =~ / \[warn\]: incoming chunk is broken: source="host: 127.0.0.1, addr: 127.0.0.1, port: \d+" msg=#{data.inspect}/
+        line =~ / \[warn\]: incoming chunk is broken: host="127.0.0.1" msg=#{data.inspect}/
       }.size, "should not accept broken chunk"
 
       d.instance_shutdown
@@ -655,13 +610,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'respond to required ack' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     data(tcp: {
            config: CONFIG,
            options: {
@@ -824,13 +772,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'not respond without required ack' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     data(tcp: {
            config: CONFIG,
            options: {
@@ -1068,6 +1009,10 @@ class ForwardInputTest < Test::Unit::TestCase
     true
   end
 
+  def connect
+    TCPSocket.new('127.0.0.1', PORT)
+  end
+
   # Data ordering is not assured:
   #  Records in different sockets are processed on different thread, so its scheduling make effect
   #  on order of emitted records.
@@ -1089,13 +1034,6 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   sub_test_case 'source_hostname_key feature' do
-    setup do
-      Fluent::Test::StartupShutdown.setup
-    end
-    teardown do
-      Fluent::Test::StartupShutdown.teardown
-    end
-
     test 'message protocol with source_hostname_key' do
       execute_test { |events|
         events.each { |tag, time, record|
