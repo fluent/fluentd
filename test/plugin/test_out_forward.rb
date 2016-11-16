@@ -1,6 +1,5 @@
 require_relative '../helper'
 require 'fluent/test/driver/output'
-require 'fluent/test/startup_shutdown'
 require 'fluent/plugin/out_forward'
 require 'flexmock/test_unit'
 
@@ -8,8 +7,6 @@ require 'fluent/test/driver/input'
 require 'fluent/plugin/in_forward'
 
 class ForwardOutputTest < Test::Unit::TestCase
-  extend Fluent::Test::StartupShutdown
-
   def setup
     Fluent::Test.setup
   end
