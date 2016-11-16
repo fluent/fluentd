@@ -107,7 +107,9 @@ module Fluent
         def instance_start
           if @instance.respond_to?(:server_wait_until_start)
             @socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-            FileUtils.rm_f @socket_manager_path if File.exist?(@socket_manager_path)
+            if @socket_manager_path.is_a?(String) && File.exist?(@socket_manager_path)
+              FileUtils.rm_f @socket_manager_path
+            end
             @socket_manager_server = ServerEngine::SocketManager::Server.open(@socket_manager_path)
             ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_path.to_s
           end
@@ -164,7 +166,9 @@ module Fluent
 
           if @socket_manager_server
             @socket_manager_server.close
-            FileUtils.rm_f @socket_manager_path if File.exist?(@socket_manager_path)
+            if @socket_manager_server.is_a?(String) && File.exist?(@socket_manager_path)
+              FileUtils.rm_f @socket_manager_path
+            end
           end
         end
 
