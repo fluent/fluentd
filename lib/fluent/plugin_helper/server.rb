@@ -143,6 +143,7 @@ module Fluent
 
       def server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog, &block)
         sock = server_create_tcp_socket(shared, bind, port)
+        sock.do_not_reverse_lookup = !resolve_name
         server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, resolve_name, linger_timeout, @log, @under_plugin_development, block)
         server.listen(backlog) if backlog
         server
@@ -340,8 +341,8 @@ module Fluent
 
             sock_opt = [1, linger_timeout].pack(SOCK_OPT_FORMAT)
             sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, sock_opt)
+            sock.do_not_reverse_lookup = !resolve_name
 
-            @resolve_name = resolve_name
             @log = log
             @connect_callback = connect_callback
 
