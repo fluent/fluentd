@@ -18,8 +18,7 @@ require 'json'
 require 'webrick'
 require 'cgi'
 
-require 'cool.io'
-
+require 'fluent/config/types'
 require 'fluent/plugin/input'
 require 'fluent/plugin/output'
 require 'fluent/plugin/multi_output'
@@ -78,10 +77,14 @@ module Fluent::Plugin
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
-        opts = {}
+        opts = {with_config: false}
         if s = qs['debug'] and s[0]
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
+        end
+
+        if with_config = get_search_parameter(qs, 'with_config'.freeze)
+          opts[:with_config] = Fluent::Config.bool_value(with_config)
         end
 
         if tag = get_search_parameter(qs, 'tag'.freeze)
@@ -329,7 +332,7 @@ module Fluent::Plugin
       obj['plugin_id'] = pe.plugin_id
       obj['plugin_category'] = plugin_category(pe)
       obj['type'] = pe.config['@type']
-      obj['config'] = pe.config if !opts.has_key?(:with_config) || opts[:with_config]
+      obj['config'] = pe.config if opts[:with_config]
 
       # run MONITOR_INFO in plugins' instance context and store the info to obj
       MONITOR_INFO.each_pair {|key,code|
