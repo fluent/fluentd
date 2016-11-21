@@ -203,6 +203,16 @@ module FluentOutputTest
       Fluent::Test::TimeSlicedOutputTestDriver.new(TimeSlicedOutputTestPlugin).configure(conf, true)
     end
 
+    data(:none => '',
+         :utc => "utc",
+         :localtime => 'localtime',
+         :timezone => 'timezone +0000')
+    test 'configure with timezone related parameters' do |param|
+      assert_nothing_raised {
+        create_driver(CONFIG + param)
+      }
+    end
+
     sub_test_case "test emit" do
       setup do
         @time = Time.parse("2011-01-02 13:14:15 UTC")

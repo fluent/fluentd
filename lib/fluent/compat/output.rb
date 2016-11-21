@@ -621,6 +621,7 @@ module Fluent
           elsif conf['utc']
             conf['timezone'] = "+0000"
             conf['localtime'] = "false"
+            conf.delete('utc')
           elsif conf['localtime']
             conf['timezone'] = Time.now.strftime('%z')
             conf['localtime'] = "true"
