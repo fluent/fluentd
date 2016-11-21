@@ -30,6 +30,7 @@ class MonitorAgentInputTest < Test::Unit::TestCase
     assert_equal(24220, d.instance.port)
     assert_equal(nil, d.instance.tag)
     assert_equal(60, d.instance.emit_interval)
+    assert_true d.instance.include_config
   end
 
   sub_test_case "collect plugin information" do
@@ -90,48 +91,37 @@ EOC
       assert_equal("output", d.instance.plugin_category(error_label.outputs.first))
     end
 
-    test "get_monitor_info" do
+    data(:with_config_yes => true,
+         :with_config_no => false)
+    test "get_monitor_info" do |with_config|
       d = create_driver
       test_label = @ra.labels['@test']
       error_label = @ra.labels['@ERROR']
       input_info = {
-        "config" => {
-          "@id"   => "test_in",
-          "@type" => "test_in"
-        },
         "output_plugin"  => false,
         "plugin_category"=> "input",
         "plugin_id"      => "test_in",
         "retry_count"    => nil,
         "type"           => "test_in"
       }
+      input_info.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       filter_info = {
-        "config" => {
-          "@id"   => "test_filter",
-          "@type" => "test_filter"
-        },
         "output_plugin"   => false,
         "plugin_category" => "filter",
         "plugin_id"       => "test_filter",
         "retry_count"     => nil,
         "type"            => "test_filter"
       }
+      filter_info.merge!("config" => {"@id" => "test_filter", "@type" => "test_filter"}) if with_config
       output_info = {
-        "config" => {
-          "@id"   => "test_out",
-          "@type" => "test_out"
-        },
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "test_out",
         "retry_count"     => 0,
         "type"            => "test_out"
       }
+      output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
       error_label_info = {
-        "config" => {
-          "@id"=>"null",
-          "@type" => "null"
-        },
         "buffer_queue_length" => 0,
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
@@ -140,10 +130,12 @@ EOC
         "retry_count"     => 0,
         "type"            => "null"
       }
-      assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first))
-      assert_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first))
-      assert_equal(output_info, d.instance.get_monitor_info(test_label.outputs.first))
-      assert_equal(error_label_info, d.instance.get_monitor_info(error_label.outputs.first))
+      error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
+      opts = {with_config: with_config}
+      assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first, opts))
+      assert_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first, opts))
+      assert_equal(output_info, d.instance.get_monitor_info(test_label.outputs.first, opts))
+      assert_equal(error_label_info, d.instance.get_monitor_info(error_label.outputs.first, opts))
     end
 
     test "fluentd opts" do
@@ -207,7 +199,7 @@ EOC
 
   def get(uri, header = {})
     url = URI.parse(uri)
-    req = Net::HTTP::Get.new(url.path, header)
+    req = Net::HTTP::Get.new(url, header)
     unless header.has_key?('Content-Type')
       header['Content-Type'] = 'application/octet-stream'
     end
@@ -258,6 +250,8 @@ EOC
       @ra = Fluent::RootAgent.new(log: $log)
       stub(Fluent::Engine).root_agent { @ra }
       @ra = configure_ra(@ra, conf)
+      # store Supervisor instance to avoid collected by GC
+      @supervisor = Fluent::Supervisor.new(Fluent::Supervisor.default_options)
     end
 
     test "/api/plugins" do
@@ -280,7 +274,47 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_test_filter_response, test_filter)
     end
 
-    test "/api/plugins.json" do
+    data(:include_config_yes => [true, "include_config yes"],
+         :include_config_no => [false, "include_config no"])
+    test "/api/plugins.json" do |(with_config, include_conf)|
+
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+  #{include_conf}
+")
+      d.instance.start
+      expected_test_in_response = {
+        "output_plugin"   => false,
+        "plugin_category" => "input",
+        "plugin_id"       => "test_in",
+        "retry_count"     => nil,
+        "type"            => "test_in"
+      }
+      expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
+      expected_null_response = {
+        "buffer_queue_length" => 0,
+        "buffer_total_queued_size" => 0,
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "null",
+        "retry_count"     => 0,
+        "type"            => "null"
+      }
+      expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
+      test_in_response = response["plugins"][0]
+      null_response = response["plugins"][5]
+      assert_equal(expected_test_in_response, test_in_response)
+      assert_equal(expected_null_response, null_response)
+    end
+
+    data(:with_config_yes => [true, "?with_config=yes"],
+         :with_config_no => [false, "?with_config=no"])
+    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, query_param)|
+
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
@@ -288,29 +322,25 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   tag monitor
 ")
       d.instance.start
-      expected_test_in_response =
-        {"config" => {
-          "@id"   => "test_in",
-          "@type" => "test_in"
-        },
+      expected_test_in_response = {
         "output_plugin"   => false,
         "plugin_category" => "input",
         "plugin_id"       => "test_in",
         "retry_count"     => nil,
-        "type"            => "test_in"}
-      expected_null_response =
-        {"config" => {
-          "@id"   => "null",
-          "@type" => "null"
-        },
+        "type"            => "test_in"
+      }
+      expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
+      expected_null_response = {
         "buffer_queue_length" => 0,
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"}
-      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
+        "type"            => "null"
+      }
+      expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}"))
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
