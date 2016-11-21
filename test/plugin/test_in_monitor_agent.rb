@@ -30,6 +30,7 @@ class MonitorAgentInputTest < Test::Unit::TestCase
     assert_equal(24220, d.instance.port)
     assert_equal(nil, d.instance.tag)
     assert_equal(60, d.instance.emit_interval)
+    assert_true d.instance.include_config
   end
 
   sub_test_case "collect plugin information" do
