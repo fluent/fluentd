@@ -34,6 +34,7 @@ module Fluent::Plugin
     config_param :port, :integer, default: 24220
     config_param :tag, :string, default: nil
     config_param :emit_interval, :time, default: 60
+    config_param :include_config, :bool, default: true
 
     class MonitorServlet < WEBrick::HTTPServlet::AbstractServlet
       def initialize(server, agent)
@@ -77,7 +78,7 @@ module Fluent::Plugin
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
-        opts = {with_config: false}
+        opts = {with_config: @agent.include_config}
         if s = qs['debug'] and s[0]
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
