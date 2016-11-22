@@ -19,6 +19,16 @@ end
 
 module ServerEngine
   module SocketManager
+    def self.recv_peer(peer)
+      STDERR.puts "#{__LINE__}: running..."
+      len = peer.read(4).unpack('N').first
+      STDERR.puts "#{__LINE__}: running..."
+      data = peer.read(len)
+      STDERR.puts "#{__LINE__}: running..."
+      ret = Marshal.load(data)
+      STDERR.puts "#{__LINE__}: running..."
+      ret
+    end
 
     class Client
       def initialize(path)
