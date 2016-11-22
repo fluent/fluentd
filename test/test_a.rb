@@ -42,17 +42,8 @@ class AToFailAtFirstTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case '#server_create and #server_create_connection' do
-    data(
-      'server_create tcp' => [:server_create, :tcp, {}],
-      'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
-      # 'server_create tls' => [:server_create, :tls, {}],
-      # 'server_create unix' => [:server_create, :unix, {}],
-      'server_create_connection tcp' => [:server_create, :tcp, {}],
-      # 'server_create_connection tls' => [:server_create, :tls, {}],
-      # 'server_create_connection unix' => [:server_create, :unix, {}],
-    )
-    test 'cannot create 2 or more servers using same bind address and port if shared option is false' do |(m, proto, kwargs)|
+    def test_foo
+      m, proto, kwargs = *[:server_create, :tcp, {}]
       STDERR.puts "#{__LINE__}: running..."
       begin
         d2 = Dummy.new; d2.start; d2.after_start
@@ -73,6 +64,5 @@ class AToFailAtFirstTest < Test::Unit::TestCase
       STDERR.puts "#{__LINE__}: running..."
       end
       STDERR.puts "#{__LINE__}: running..."
-    end
   end
 end
