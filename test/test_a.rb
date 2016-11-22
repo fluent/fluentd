@@ -54,7 +54,7 @@ module ServerEngine
         begin
           SocketManager.send_peer(peer, [Process.pid, listen_method, bind, port])
           meth = SocketManager.method(:recv_peer)
-          STDERR.puts "#{__LINE__}: #{meth} running..."
+          STDERR.puts "#{__LINE__}: #{meth} #{meth.source_location} running..."
           res = SocketManager.recv_peer(peer)
         STDERR.puts "#{__LINE__}: running..."
           if res.is_a?(Exception)
