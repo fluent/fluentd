@@ -1176,7 +1176,7 @@ module Fluent
         flush_thread_interval = @buffer_config.flush_thread_interval
 
         # If the given clock_id is not supported, Errno::EINVAL is raised.
-        clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
+        clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
         state.next_time = Process.clock_gettime(clock_id) + flush_thread_interval
 
         while !self.after_started? && !self.stopped?
