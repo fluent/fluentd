@@ -390,6 +390,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'does resolve name of client address if resolve_name is true' do
+      hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
+
       received = ""
       sources = []
       @d.server_create_tcp(:s, PORT, resolve_name: true) do |data, conn|
@@ -403,7 +405,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s != "127.0.0.1" && Socket.getaddrinfo(s, PORT, Socket::AF_INET).any?{|i| i[3] == "127.0.0.1"} } }
+      assert{ sources.all?{|s| s == hostname } }
     end
 
     test 'can keep connections alive for tcp if keepalive specified' do
@@ -608,6 +610,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     test 'does resolve name of client address if resolve_name is true' do
+      hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
+
       received = ""
       sources = []
       @d.server_create_udp(:s, PORT, resolve_name: true, max_bytes: 128) do |data, sock|
@@ -622,7 +626,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s != "127.0.0.1" && Socket.getaddrinfo(s, PORT, Socket::AF_INET).any?{|i| i[3] == "127.0.0.1"} } }
+      assert{ sources.all?{|s| s == hostname } }
     end
 
     test 'raises error if plugin registers data callback for connection object from #server_create' do
@@ -773,9 +777,11 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(protocols)
     test 'does resolve name of client address if resolve_name is true' do |(proto, kwargs)|
+      hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
+
       received = ""
       sources = []
-      @d.server_create_connection(:s, PORT, proto: proto, **kwargs) do |conn|
+      @d.server_create_connection(:s, PORT, proto: proto, resolve_name: true, **kwargs) do |conn|
         sources << conn.remote_host
         conn.data do |d|
           received << d
@@ -788,7 +794,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
       assert_equal "yay\nyay\nyay\n", received
-      assert{ sources.all?{|s| s == "127.0.0.1" } }
+      assert{ sources.all?{|s| s == hostname } }
     end
 
     data(protocols)
