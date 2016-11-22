@@ -1,6 +1,7 @@
 source 'https://rubygems.org/'
 
 gemspec
+gem 'test-unit', github: 'nurse/test-unit', branch: 'SignalException'
 
 local_gemfile = File.join(File.dirname(__FILE__), "Gemfile.local")
 if File.exist?(local_gemfile)

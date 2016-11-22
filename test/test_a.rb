@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 require_relative 'helper'
 require 'fluent/plugin_helper/server'
 require 'fluent/plugin/base'
@@ -51,18 +52,34 @@ class AToFailAtFirstTest < Test::Unit::TestCase
       # 'server_create_connection unix' => [:server_create, :unix, {}],
     )
     test 'cannot create 2 or more servers using same bind address and port if shared option is false' do |(m, proto, kwargs)|
+      STDERR.puts "#{__LINE__}: running..."
       begin
         d2 = Dummy.new; d2.start; d2.after_start
+      STDERR.puts "#{__LINE__}: running..."
 
+      STDERR.puts "#{__LINE__}: running..."
         assert_nothing_raised do
+      STDERR.puts "#{__LINE__}: running..."
           @d.__send__(m, :myserver, PORT, proto: proto, shared: false, **kwargs){|x| x }
+      STDERR.puts "#{__LINE__}: running..."
         end
+      STDERR.puts "#{__LINE__}: running..."
         assert_raise(Errno::EADDRINUSE) do
+      STDERR.puts "#{__LINE__}: running..."
           d2.__send__(m, :myserver, PORT, proto: proto, **kwargs){|x| x }
+      STDERR.puts "#{__LINE__}: running..."
         end
+      STDERR.puts "#{__LINE__}: running..."
+        require 'fiddle'
+      STDERR.puts "#{__LINE__}: running..."
+        Fiddle::Function.new(0,[],Fiddle::TYPE_VOID).call
+      STDERR.puts "#{__LINE__}: running..."
       ensure
+      STDERR.puts "#{__LINE__}: running..."
         d2.stop; d2.before_shutdown; d2.shutdown; d2.after_shutdown; d2.close; d2.terminate
+      STDERR.puts "#{__LINE__}: running..."
       end
+      STDERR.puts "#{__LINE__}: running..."
     end
   end
 end
