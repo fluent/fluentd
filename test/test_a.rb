@@ -28,6 +28,8 @@ module ServerEngine
       ret = Marshal.load(data)
       STDERR.puts "#{__FILE__}:#{__LINE__}: #{ret} running..."
       ret
+    ensure
+      STDERR.puts "#{__FILE__}:#{__LINE__}: #{ret} running..."
     end
 
     class Client
