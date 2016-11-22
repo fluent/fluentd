@@ -64,11 +64,7 @@ class AToFailAtFirstTest < Test::Unit::TestCase
       STDERR.puts "#{__LINE__}: running..."
         end
       STDERR.puts "#{__LINE__}: running..."
-        assert_raise(Errno::EADDRINUSE) do
-      STDERR.puts "#{__LINE__}: running..."
           d2.__send__(m, :myserver, PORT, proto: proto, **kwargs){|x| x }
-      STDERR.puts "#{__LINE__}: running..."
-        end
       STDERR.puts "#{__LINE__}: running..."
         require 'fiddle'
       STDERR.puts "#{__LINE__}: running..."
