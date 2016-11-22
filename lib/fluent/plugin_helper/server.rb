@@ -244,7 +244,7 @@ module Fluent
           socket_manager_path = socket_manager_path.to_i
         end
         STDERR.puts "#{__LINE__}: socket_manager_path=#{socket_manager_path} running..."
-        meth = ServerEngine::SocketManager::Client.method(:initialize)
+        meth = ServerEngine::SocketManager::Client.instance_method(:initialize)
         modules = ServerEngine::SocketManager::Client.included_modules
         STDERR.puts "#{__LINE__}: meth=#{meth} modules=#{modules} running..."
         client = ServerEngine::SocketManager::Client.new(socket_manager_path)
