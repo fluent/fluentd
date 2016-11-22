@@ -3,10 +3,8 @@ $: << File.expand_path('../../lib', __FILE__)
 require_relative 'helper'
 require 'fluent/plugin_helper/server'
 require 'fluent/plugin/base'
-require 'timeout'
 
 require 'serverengine'
-require 'fileutils'
 
 class Dummy < Fluent::Plugin::TestBase
   helpers :server
@@ -21,15 +19,14 @@ end
 @socket_manager_server = ServerEngine::SocketManager::Server.open(@socket_manager_path)
 ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = @socket_manager_path.to_s
 
-@d = Dummy.new
-@d.start
-@d.after_start
-m, proto, kwargs = *[:server_create, :tcp, {}]
+d = Dummy.new
+d.start
+d.after_start
 begin
   d2 = Dummy.new; d2.start; d2.after_start
-  @d.__send__(m, :myserver, PORT, proto: proto, shared: false, **kwargs){|x| x }
-  STDERR.puts "#{__LINE__}: #{d2} #{m} #{proto} #{kwargs} running..."
-  d2.server_create(:myserver, PORT, proto: proto, **kwargs){|x| x }
+  d.server_create(:myserver, PORT, proto: :tcp, shared: false){|x| x }
+  STDERR.puts "#{__LINE__}: #{d2} running..."
+  d2.server_create(:myserver, PORT, proto: :tcp){|x| x }
   STDERR.puts "#{__LINE__}: running..."
 ensure
   STDERR.puts "#{__LINE__}: running..."
