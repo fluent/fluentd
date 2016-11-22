@@ -87,10 +87,9 @@ module ServerEngine
     end
   end
   module RbWinSock
-    extern "void rb_syserr_fail(int, const char *)"
+    extern "void rb_sys_fail(const char *)"
     def self.raise_last_error(name)
-      errno = rb_w32_map_errno(WinSock.WSAGetLastError)
-      rb_syserr_fail(errno, name)
+      rb_sys_fail(name)
     end
   end
 end
