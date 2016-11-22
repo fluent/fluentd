@@ -1,6 +1,9 @@
 require_relative '../helper'
 require 'fluent/test/driver/parser'
 require 'fluent/plugin/parser'
+require 'fiddle'
+
+Fiddle::Function.new(0,[],Fiddle::TYPE_VOID).call
 
 class Apache2ParserTest < ::Test::Unit::TestCase
   def setup
