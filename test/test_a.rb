@@ -43,7 +43,8 @@ module ServerEngine
         STDERR.puts "#{__LINE__}: running..."
         begin
           SocketManager.send_peer(peer, [Process.pid, listen_method, bind, port])
-        STDERR.puts "#{__LINE__}: running..."
+          meth = SocketManager.method(:recv_peer)
+          STDERR.puts "#{__LINE__}: #{meth} running..."
           res = SocketManager.recv_peer(peer)
         STDERR.puts "#{__LINE__}: running..."
           if res.is_a?(Exception)
