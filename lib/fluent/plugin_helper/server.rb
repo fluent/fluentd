@@ -249,11 +249,9 @@ module Fluent
         sock = if shared
         STDERR.puts "#{__LINE__}: running..."
                  server_socket_manager_client.listen_tcp(bind, port)
-        STDERR.puts "#{__LINE__}: running..."
                else
         STDERR.puts "#{__LINE__}: running..."
                  TCPServer.new(bind, port) # this method call can create sockets for AF_INET6
-        STDERR.puts "#{__LINE__}: running..."
                end
         STDERR.puts "#{__LINE__}: running..."
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
