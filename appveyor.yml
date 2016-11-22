@@ -11,7 +11,7 @@ install:
   - bundle install
 build: off
 test_script:
-  - bundle exec ruby ./test_a.rb
+  - bundle exec ruby ./test/test_a.rb
 
 branches:
   only:
