@@ -6,7 +6,10 @@ require 'fluent/plugin/base'
 
 require 'serverengine'
 
-class Dummy < Fluent::Plugin::TestBase
+class Dummy < Fluent::Plugin::Base
+  include PluginId
+  include PluginLoggerMixin
+  include PluginHelper::Mixin
   helpers :server
 end
 
