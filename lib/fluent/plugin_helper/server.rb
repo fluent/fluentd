@@ -130,7 +130,9 @@ module Fluent
 
         case proto
         when :tcp
+          STDERR.puts "#{__LINE__}: running..."
           server = server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog) do |conn|
+            STDERR.puts "#{__LINE__}: #{conn} running..."
             conn.data(&callback)
           end
         when :tls
