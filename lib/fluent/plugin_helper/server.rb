@@ -92,7 +92,7 @@ module Fluent
           raise "unknown protocol #{proto}"
         end
 
-        server_attach(title, port, bind, shared, server)
+        server_attach(title, proto, port, bind, shared, server)
       end
 
       # server_create(:title, @port) do |data|
@@ -148,7 +148,7 @@ module Fluent
           raise "BUG: unknown protocol #{proto}"
         end
 
-        server_attach(title, port, bind, shared, server)
+        server_attach(title, proto, port, bind, shared, server)
       end
 
       def server_create_tcp(title, port, **kwargs, &callback)
@@ -159,10 +159,18 @@ module Fluent
         server_create(title, port, proto: :udp, **kwargs, &callback)
       end
 
-      ServerInfo = Struct.new(:title, :port, :bind, :shared, :server)
+      def server_create_tls(title, port, **kwargs, &callback)
+        server_create(title, port, proto: :tls, **kwargs, &callback)
+      end
 
-      def server_attach(title, port, bind, shared, server)
-        @_servers << ServerInfo.new(title, port, bind, shared, server)
+      def server_create_unix(title, port, **kwargs, &callback)
+        server_create(title, port, proto: :unix, **kwargs, &callback)
+      end
+
+      ServerInfo = Struct.new(:title, :proto, :port, :bind, :shared, :server)
+
+      def server_attach(title, proto, port, bind, shared, server)
+        @_servers << ServerInfo.new(title, proto, port, bind, shared, server)
         event_loop_attach(server)
       end
 
