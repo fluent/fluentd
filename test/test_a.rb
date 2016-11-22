@@ -63,7 +63,7 @@ class AToFailAtFirstTest < Test::Unit::TestCase
           @d.__send__(m, :myserver, PORT, proto: proto, shared: false, **kwargs){|x| x }
       STDERR.puts "#{__LINE__}: running..."
         end
-      STDERR.puts "#{__LINE__}: running..."
+      STDERR.puts "#{__LINE__}: #{d2} #{m} {proto} {kwargs} running..."
           d2.__send__(m, :myserver, PORT, proto: proto, **kwargs){|x| x }
       STDERR.puts "#{__LINE__}: running..."
       ensure
