@@ -57,8 +57,13 @@ module ServerEngine
           SocketManager.send_peer(peer, [Process.pid, listen_method, bind, port])
           meth = SocketManager.method(:recv_peer)
           STDERR.puts "#{__LINE__}: #{meth} #{meth.source_location} running..."
+          trace = TracePoint.new do |tp|
+            p [tp.lineno, tp.defined_class, tp.method_id, tp.event]
+          end
+          trace.enable
           res = SocketManager.recv_peer(peer)
         STDERR.puts "#{__LINE__}: #{res} running..."
+        trace.disable
         STDERR.puts "#{__LINE__}: running..."
         STDERR.puts "#{__LINE__}: running..."
         STDERR.puts "#{__LINE__}: running..."
