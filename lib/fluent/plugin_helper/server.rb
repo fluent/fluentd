@@ -238,9 +238,12 @@ module Fluent
 
       def server_socket_manager_client
         socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
+        STDERR.puts "#{__LINE__}: running..."
         if Fluent.windows?
+        STDERR.puts "#{__LINE__}: running..."
           socket_manager_path = socket_manager_path.to_i
         end
+        STDERR.puts "#{__LINE__}: running..."
         ServerEngine::SocketManager::Client.new(socket_manager_path)
       end
 
