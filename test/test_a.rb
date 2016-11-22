@@ -17,6 +17,51 @@ class Dummy < Fluent::Plugin::Base
   helpers :server
 end
 
+module ServerEngine
+  module SocketManager
+
+    class Client
+      def initialize(path)
+        @path = path
+      end
+
+      def listen(proto, bind, port)
+        STDERR.puts "#{__LINE__}: running..."
+        bind_ip = IPAddr.new(IPSocket.getaddress(bind))
+        STDERR.puts "#{__LINE__}: running..."
+        family = bind_ip.ipv6? ? Socket::AF_INET6 : Socket::AF_INET
+        STDERR.puts "#{__LINE__}: running..."
+
+        listen_method = case proto
+                        when :tcp then :listen_tcp
+                        when :udp then :listen_udp
+                        else
+                          raise ArgumentError, "unknown protocol: #{proto}"
+                        end
+        STDERR.puts "#{__LINE__}: running..."
+        peer = connect_peer(@path)
+        STDERR.puts "#{__LINE__}: running..."
+        begin
+          SocketManager.send_peer(peer, [Process.pid, listen_method, bind, port])
+        STDERR.puts "#{__LINE__}: running..."
+          res = SocketManager.recv_peer(peer)
+        STDERR.puts "#{__LINE__}: running..."
+          if res.is_a?(Exception)
+        STDERR.puts "#{__LINE__}: running..."
+            raise res
+          else
+        STDERR.puts "#{__LINE__}: running..."
+            return send(:recv, family, proto, peer, res)
+          end
+        ensure
+        STDERR.puts "#{__LINE__}: running..."
+          peer.close
+        end
+      end
+    end
+  end
+end
+
 def unused_port(num = 1)
   ports = []
   sockets = []
