@@ -65,7 +65,6 @@ module ServerEngine
             end
           end
           trace.enable
-          GC.disable
           res = SocketManager.recv_peer(peer)
         STDERR.puts "#{__LINE__}: #{res} running..."
         trace.disable
@@ -85,6 +84,13 @@ module ServerEngine
           peer.close
         end
       end
+    end
+  end
+  module RbWinSock
+    extern "VALUE rb_syserr_fail(int, const char *)"
+    def self.raise_last_error(name)
+      errno = rb_w32_map_errno(WinSock.WSAGetLastError)
+      rb_syserr_fail(errno, name)
     end
   end
 end
