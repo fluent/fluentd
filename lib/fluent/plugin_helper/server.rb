@@ -62,10 +62,20 @@ module Fluent
       #   end
       # end
       def server_create_connection(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, certopts: nil, resolve_name: false, linger_timeout: 0, backlog: nil, &block)
-        raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
+        raise ArgumentError, "BUG: title must be a symbol" unless title && title.is_a?(Symbol)
+        raise ArgumentError, "BUG: port must be an integer" unless port && port.is_a?(Integer)
+        raise ArgumentError, "BUG: invalid protocol name" unless PROTOCOLS.include?(proto)
         raise ArgumentError, "BUG: cannot create connection for UDP" unless CONNECTION_PROTOCOLS.include?(proto)
+
         raise ArgumentError, "BUG: block not specified which handles connection" unless block_given?
         raise ArgumentError, "BUG: block must have just one argument" unless block.arity == 1
+
+        if proto != :tls # TLS options
+          raise ArgumentError, "BUG: certopts is available only for tls" if certopts
+        end
+        if proto != :tcp && proto != :tls # TCP/TLS options
+          raise ArgumentError, "BUG: linger_timeout is available for tcp/tls" if linger_timeout != 0
+        end
 
         case proto
         when :tcp
@@ -97,11 +107,26 @@ module Fluent
       #   # ...
       # end
       def server_create(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, certopts: nil, resolve_name: false, linger_timeout: 0, backlog: nil, max_bytes: nil, flags: 0, &callback)
-        raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
+        raise ArgumentError, "BUG: title must be a symbol" unless title && title.is_a?(Symbol)
+        raise ArgumentError, "BUG: port must be an integer" unless port && port.is_a?(Integer)
         raise ArgumentError, "BUG: invalid protocol name" unless PROTOCOLS.include?(proto)
 
         raise ArgumentError, "BUG: block not specified which handles received data" unless block_given?
         raise ArgumentError, "BUG: block must have 1 or 2 arguments" unless callback.arity == 1 || callback.arity == 2
+
+        if proto != :tls # TLS options
+          raise ArgumentError, "BUG: certopts is available only for tls" if certopts
+        end
+        if proto != :tcp && proto != :tls # TCP/TLS options
+          raise ArgumentError, "BUG: linger_timeout is available for tcp/tls" if linger_timeout != 0
+        end
+        if proto != :tcp && proto != :tls && proto != :unix # options to listen/accept connections
+          raise ArgumentError, "BUG: backlog is available for tcp/tls" if backlog
+        end
+        if proto != :udp # UDP options
+          raise ArgumentError, "BUG: max_bytes is available only for udp" if max_bytes
+          raise ArgumentError, "BUG: flags is available only for udp" if flags != 0
+        end
 
         case proto
         when :tcp
