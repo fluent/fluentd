@@ -243,8 +243,12 @@ module Fluent
         STDERR.puts "#{__LINE__}: running..."
           socket_manager_path = socket_manager_path.to_i
         end
-        STDERR.puts "#{__LINE__}: #{socket_manager_path} running..."
-        ServerEngine::SocketManager::Client.new(socket_manager_path)
+        STDERR.puts "#{__LINE__}: socket_manager_path=#{socket_manager_path} running..."
+        meth = ServerEngine::SocketManager::Client.method(:new)
+        STDERR.puts "#{__LINE__}: meth=#{meth} running..."
+        client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+        STDERR.puts "#{__LINE__}: running..."
+        client
       end
 
       def server_create_tcp_socket(shared, bind, port)
