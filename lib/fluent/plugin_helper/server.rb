@@ -177,10 +177,15 @@ module Fluent
       end
 
       def server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog, &block)
+        STDERR.puts "#{__LINE__}: running..."
         sock = server_create_tcp_socket(shared, bind, port)
+        STDERR.puts "#{__LINE__}: running..."
         sock.do_not_reverse_lookup = !resolve_name
+        STDERR.puts "#{__LINE__}: running..."
         close_callback = ->(conn){ @_server_mutex.synchronize{ @_server_connections.delete(conn) } }
+        STDERR.puts "#{__LINE__}: running..."
         server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, close_callback, resolve_name, linger_timeout, @log, @under_plugin_development, block) do |conn|
+          STDERR.puts "#{__LINE__}: running..."
           @_server_mutex.synchronize do
             @_server_connections << conn
           end
