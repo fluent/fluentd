@@ -22,11 +22,11 @@ module ServerEngine
     def self.recv_peer(peer)
       STDERR.puts "#{__LINE__}: running..."
       len = peer.read(4).unpack('N').first
-      STDERR.puts "#{__LINE__}: running..."
+      STDERR.puts "#{__FILE__}:#{__LINE__}: #{len} running..."
       data = peer.read(len)
-      STDERR.puts "#{__LINE__}: running..."
+      STDERR.puts "#{__FILE__}:#{__LINE__}: #{data} running..."
       ret = Marshal.load(data)
-      STDERR.puts "#{__LINE__}: running..."
+      STDERR.puts "#{__FILE__}:#{__LINE__}: #{ret} running..."
       ret
     end
 
