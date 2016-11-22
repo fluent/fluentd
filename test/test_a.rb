@@ -86,6 +86,12 @@ module ServerEngine
       end
     end
   end
+  module RbWinSock
+    def self.raise_last_error(name)
+      errno = rb_w32_map_errno(WinSock.WSAGetLastError)
+      raise SystemCallError.new(name, errno)
+    end
+  end
 end
 
 def unused_port(num = 1)
