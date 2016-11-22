@@ -116,22 +116,29 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       @d.__send__(m, :myserver, PORT){|x| x }
 
       assert_equal 1, @d._servers.size
-      assert_equal :myserver, @d._servers.first.title
-      assert_equal PORT, @d._servers.first.port
 
-      assert_equal :tcp, @d._servers.first.proto
-      assert_equal "0.0.0.0", @d._servers.first.bind
+      created_server_info = @d._servers.first
 
-      assert{ @d._servers.first.server.is_a? Coolio::TCPServer }
-      assert_equal "0.0.0.0", @d._servers.first.server.instance_eval{ @listen_socket }.addr[3]
+      assert_equal :myserver, created_server_info.title
+      assert_equal PORT, created_server_info.port
+
+      assert_equal :tcp, created_server_info.proto
+      assert_equal "0.0.0.0", created_server_info.bind
+
+      created_server = created_server_info.server
+
+      assert created_server.is_a?(Coolio::TCPServer)
+      assert_equal "0.0.0.0", created_server.instance_eval{ @listen_socket }.addr[3]
     end
 
     data(methods)
     test 'creates tcp server if specified in proto' do |m|
       @d.__send__(m, :myserver, PORT, proto: :tcp){|x| x }
 
-      assert_equal :tcp, @d._servers.first.proto
-      assert{ @d._servers.first.server.is_a? Coolio::TCPServer }
+      created_server_info = @d._servers.first
+      assert_equal :tcp, created_server_info.proto
+      created_server = created_server_info.server
+      assert created_server.is_a?(Coolio::TCPServer)
     end
 
     # tests about "proto: :udp" is in #server_create
@@ -294,8 +301,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'creates udp server if specified in proto' do
       @d.server_create(:myserver, PORT, proto: :udp, max_bytes: 512){|x| x }
 
-      assert_equal :udp, @d._servers.first.proto
-      assert{ @d._servers.first.server.is_a? Fluent::PluginHelper::Server::EventHandler::UDPServer }
+      created_server_info = @d._servers.first
+      assert_equal :udp, created_server_info.proto
+      created_server = created_server_info.server
+      assert created_server.is_a?(Fluent::PluginHelper::Server::EventHandler::UDPServer)
     end
   end
 
