@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 require_relative 'helper'
-require 'fluent/plugin_helper/server'
-require 'fluent/plugin/base'
+require_relative '../lib/fluent/plugin_helper/server'
+require_relative '../lib/fluent/plugin/base'
 require 'timeout'
 
 require 'serverengine'
