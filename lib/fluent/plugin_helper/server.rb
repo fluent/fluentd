@@ -190,6 +190,7 @@ module Fluent
             @_server_connections << conn
           end
         end
+        STDERR.puts "#{__LINE__}: running..."
         server.listen(backlog) if backlog
         server
       end
@@ -244,13 +245,20 @@ module Fluent
       end
 
       def server_create_tcp_socket(shared, bind, port)
+        STDERR.puts "#{__LINE__}: running..."
         sock = if shared
+        STDERR.puts "#{__LINE__}: running..."
                  server_socket_manager_client.listen_tcp(bind, port)
+        STDERR.puts "#{__LINE__}: running..."
                else
+        STDERR.puts "#{__LINE__}: running..."
                  TCPServer.new(bind, port) # this method call can create sockets for AF_INET6
+        STDERR.puts "#{__LINE__}: running..."
                end
+        STDERR.puts "#{__LINE__}: running..."
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
+        STDERR.puts "#{__LINE__}: running..."
         sock
       end
 
