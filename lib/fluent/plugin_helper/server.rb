@@ -177,7 +177,12 @@ module Fluent
       def server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog, &block)
         sock = server_create_tcp_socket(shared, bind, port)
         sock.do_not_reverse_lookup = !resolve_name
-        server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, resolve_name, linger_timeout, @log, @under_plugin_development, block)
+        close_callback = ->(conn){ @_server_mutex.synchronize{ @_server_connections.delete(conn) } }
+        server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, close_callback, resolve_name, linger_timeout, @log, @under_plugin_development, block) do |conn|
+          @_server_mutex.synchronize do
+            @_server_connections << conn
+          end
+        end
         server.listen(backlog) if backlog
         server
       end
@@ -185,13 +190,32 @@ module Fluent
       def initialize
         super
         @_servers = []
+        @_server_connections = []
+        @_server_mutex = Mutex.new
+      end
+
+      def shutdown
+        @_server_connections.each do |conn|
+          conn.close rescue nil
+        end
+        @_server_mutex.synchronize do
+          @_servers.each do |si|
+            si.server.detach if si.server.attached?
+          end
+        end
+
+        super
       end
 
       def close
-        @_servers.each do |si|
-          si.server.close rescue nil
+        @_server_connections.each do |conn|
+          conn.close rescue nil
         end
-
+        @_server_mutex.synchronize do
+          @_servers.each do |si|
+            si.server.close rescue nil
+          end
+        end
         super
       end
 
@@ -260,16 +284,21 @@ module Fluent
           @sock.peeraddr[1]
         end
 
-        def send(data, flag)
-          @sock.send(data, flag)
+        def send(data, flags = 0)
+          @sock.send(data, flags)
         end
 
         def write(data)
-          @sock.write(data)
+          raise "not implemented here"
         end
 
         def close
           @sock.close
+          # close cool.io socket in another thread, not to make deadlock
+          # for flushing @_write_buffer when conn.close is called in callback
+          # ::Thread.new{
+          #   @sock.close
+          # }
         end
 
         def data(&callback)
@@ -277,16 +306,18 @@ module Fluent
         end
 
         def on(event, &callback)
-          raise "BUG: this event is disabled for #{@server_type}" unless @enabled_events.include?(event)
+          raise "BUG: this event is disabled for #{@server_type}: #{event}" unless @enabled_events.include?(event)
           case event
           when :data
             @sock.data(&callback)
           when :write_complete
-            @sock.on_write_complete(&callback)
-          when :before_close
-            @sock.before_close(&callback)
+            cb = ->(){
+              callback.call(self)
+            }
+            @sock.on_write_complete(&cb)
           when :close
-            @sock.on_close(&callback)
+            cb = ->(){ callback.call(self) }
+            @sock.on_close(&cb)
           else
             raise "BUG: unknown event: #{event}"
           end
@@ -295,17 +326,34 @@ module Fluent
 
       class TCPCallbackSocket < CallbackSocket
         def initialize(sock)
-          super("tcp", sock, [:data, :write_complete, :before_close, :close])
+          super("tcp", sock, [:data, :write_complete, :close])
+        end
+
+        def write(data)
+          @sock.write(data)
         end
       end
 
       class UDPCallbackSocket < CallbackSocket
-        def initialize(sock)
-          super("udp", sock, [:write_complete])
+        def initialize(sock, peeraddr)
+          super("udp", sock, [])
+          @peeraddr = peeraddr
+        end
+
+        def remote_addr
+          @peeraddr[3]
+        end
+
+        def remote_host
+          @peeraddr[2]
+        end
+
+        def remote_port
+          @peeraddr[1]
         end
 
         def write(data)
-          self.send(data, 0)
+          @sock.send(data, 0, @peeraddr[3], @peeraddr[1])
         end
       end
 
@@ -353,10 +401,7 @@ module Fluent
             rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
               return
             end
-            sock = UDPSocket.new(addr[0]) # Address family: "AF_INET", "AF_INET6"
-            sock.do_not_reverse_lookup = !@resolve_name
-            sock.connect(addr[3], addr[1])
-            @callback.call(data, UDPCallbackSocket.new(sock))
+            @callback.call(data, UDPCallbackSocket.new(@sock, addr))
           rescue => e
             @log.error "unexpected error in processing UDP data", error: e
             @log.error_backtrace
@@ -367,26 +412,31 @@ module Fluent
         class TCPServer < Coolio::TCPSocket
           SOCK_OPT_FORMAT = 'I!I!' # { int l_onoff; int l_linger; }
 
-          def initialize(sock, resolve_name, linger_timeout, log, under_plugin_development, connect_callback)
+          def initialize(sock, close_callback, resolve_name, linger_timeout, log, under_plugin_development, connect_callback)
             raise ArgumentError, "socket must be a TCPSocket" unless sock.is_a?(TCPSocket)
-
-            super(sock)
 
             sock_opt = [1, linger_timeout].pack(SOCK_OPT_FORMAT)
             sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, sock_opt)
             sock.do_not_reverse_lookup = !resolve_name
 
-            @log = log
-            @connect_callback = connect_callback
+            @_handler_socket = sock
+            super(sock)
 
+            @log = log
             @under_plugin_development = under_plugin_development
 
+            @connect_callback = connect_callback
             @data_callback = nil
+            @close_callback = close_callback
+
+            @callback_connection = nil
             @closing = false
+
             @mutex = Mutex.new # to serialize #write and #close
           end
 
           def data(&callback)
+            raise "data callback can be registered just once, but registered twice" if self.singleton_methods.include?(:on_read)
             @data_callback = callback
             on_read_impl = case callback.arity
                            when 1 then :on_read_without_connection
@@ -398,15 +448,14 @@ module Fluent
           end
 
           def write(data)
-            raise IOError, "server TCP connection is already going to be closed" if @closing
             @mutex.synchronize do
               super
             end
           end
 
           def on_connect
-            conn = TCPCallbackSocket.new(self)
-            @connect_callback.call(conn)
+            @callback_connection = TCPCallbackSocket.new(self)
+            @connect_callback.call(@callback_connection)
             unless @data_callback
               raise "connection callback must call #data to set data callback"
             end
@@ -422,7 +471,7 @@ module Fluent
           end
 
           def on_read_with_connection(data)
-            @data_callback.call(data, self)
+            @data_callback.call(data, @callback_connection)
           rescue => e
             @log.error "unexpected error on reading data", host: remote_host, port: remote_port, error: e
             @log.error_backtrace
@@ -430,12 +479,12 @@ module Fluent
             raise if @under_plugin_development
           end
 
-          def close(force = false)
-            @closing = true
-            if force
-              super()
-            else
-              @mutex.synchronize{ super() }
+          def close
+            @mutex.synchronize do
+              return if @closing
+              @closing = true
+              @close_callback.call(self)
+              super
             end
           end
         end
