@@ -144,7 +144,7 @@ module Fluent
         #   To emulate normal inspect behavior `ruby -e'o=Object.new;p o;p (o.__id__<<1).to_s(16)'`.
         #   https://github.com/ruby/ruby/blob/trunk/gc.c#L788
         "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__ << 1)]
-      end
+      end if nil
     end
   end
 end
