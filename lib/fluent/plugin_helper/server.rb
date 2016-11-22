@@ -243,7 +243,7 @@ module Fluent
         STDERR.puts "#{__LINE__}: running..."
           socket_manager_path = socket_manager_path.to_i
         end
-        STDERR.puts "#{__LINE__}: running..."
+        STDERR.puts "#{__LINE__}: #{socket_manager_path} running..."
         ServerEngine::SocketManager::Client.new(socket_manager_path)
       end
 
