@@ -58,7 +58,7 @@ module ServerEngine
           meth = SocketManager.method(:recv_peer)
           STDERR.puts "#{__LINE__}: #{meth} #{meth.source_location} running..."
           trace = TracePoint.new do |tp|
-            p [tp.lineno, tp.defined_class, tp.method_id, tp.event]
+            p [tp.path, tp.lineno, tp.defined_class, tp.method_id, tp.event, tp.raised_exception]
           end
           trace.enable
           res = SocketManager.recv_peer(peer)
