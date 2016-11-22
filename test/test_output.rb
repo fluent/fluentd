@@ -188,8 +188,16 @@ module FluentOutputTest
         @written_chunk_keys = []
         @errors_in_write = []
       end
+
+      def configure(conf)
+        super
+
+        @formatter = Fluent::Plugin.new_formatter('out_file')
+        @formatter.configure(conf)
+      end
+
       def format(tag, time, record)
-        [tag, time, record].to_json + "\n"
+        @formatter.format(tag, time, record)
       end
       def write(chunk)
         @written_chunk_keys << chunk.key
@@ -240,6 +248,17 @@ module FluentOutputTest
         d.instance.force_flush
         assert_equal [], d.instance.errors_in_write
         assert_equal ["2016110808"], d.instance.written_chunk_keys # default timezone is UTC
+      end
+
+      test "check formatted time compatibility with utc. Should Z, not +00:00" do
+        d = create_driver(CONFIG + %[
+          utc
+          include_time_key
+        ])
+        time = Time.parse("2016-11-08 12:00:00 UTC").to_i
+        d.emit({"a" => 1}, time)
+        d.expect_format %[2016-11-08T12:00:00Z\ttest\t{"a":1,"time":"2016-11-08T12:00:00Z"}\n]
+        d.run
       end
     end
   end
