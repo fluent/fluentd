@@ -36,6 +36,7 @@ module Fluent
         timer = TimerWatcher.new(title, interval, repeat, log, checker, &block)
         @_timers << title
         event_loop_attach(timer)
+        timer
       end
 
       def timer_running?

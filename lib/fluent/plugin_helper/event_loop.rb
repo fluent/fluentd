@@ -36,6 +36,8 @@ module Fluent
       def event_loop_attach(watcher)
         @_event_loop_mutex.synchronize do
           @_event_loop.attach(watcher)
+          @_event_loop_attached_watchers << watcher
+          watcher
         end
       end
 
@@ -58,6 +60,7 @@ module Fluent
         @_event_loop_mutex = Mutex.new
         # plugin MAY configure loop run timeout in #configure
         @_event_loop_run_timeout = EVENT_LOOP_RUN_DEFAULT_TIMEOUT
+        @_event_loop_attached_watchers = []
       end
 
       def start
@@ -67,7 +70,7 @@ module Fluent
         thread_create :event_loop do
           begin
             default_watcher = DefaultWatcher.new
-            @_event_loop.attach(default_watcher)
+            event_loop_attach(default_watcher)
             @_event_loop_running = true
             @_event_loop.run(@_event_loop_run_timeout) # this method blocks
           ensure
@@ -78,7 +81,11 @@ module Fluent
 
       def shutdown
         @_event_loop_mutex.synchronize do
-          @_event_loop.watchers.each {|w| w.detach if w.attached? }
+          @_event_loop_attached_watchers.reverse.each do |w|
+            if w.attached?
+              w.detach
+            end
+          end
         end
         while @_event_loop_running
           sleep 0.1
