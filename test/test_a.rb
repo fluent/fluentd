@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
+$: << File.expand_path('../../lib', __FILE__)
 require_relative 'helper'
-require_relative '../lib/fluent/plugin_helper/server'
-require_relative '../lib/fluent/plugin/base'
+require 'fluent/plugin_helper/server'
+require 'fluent/plugin/base'
 require 'timeout'
 
 require 'serverengine'
