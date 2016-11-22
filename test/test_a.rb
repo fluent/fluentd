@@ -56,6 +56,10 @@ module ServerEngine
           meth = SocketManager.method(:recv_peer)
           STDERR.puts "#{__LINE__}: #{meth} #{meth.source_location} running..."
           res = SocketManager.recv_peer(peer)
+        STDERR.puts "#{__LINE__}: #{res} running..."
+        STDERR.puts "#{__LINE__}: running..."
+        STDERR.puts "#{__LINE__}: running..."
+        STDERR.puts "#{__LINE__}: running..."
         STDERR.puts "#{__LINE__}: running..."
           if res.is_a?(Exception)
         STDERR.puts "#{__LINE__}: running..."
