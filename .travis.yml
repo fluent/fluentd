@@ -1,7 +1,7 @@
 language: ruby
 cache: bundler
 
-script: bundle exec rake test TESTOPTS=-v
+# script: bundle exec rake test TESTOPTS=-v
 
 # http://rubies.travis-ci.org/
 # See here for osx_image -> OSX versions: https://docs.travis-ci.com/user/languages/objective-c
