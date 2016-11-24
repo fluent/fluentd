@@ -71,6 +71,11 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test4"
       }
     end
+    ObjectSpace.each_object do |obj|
+      if obj.is_a?(Fluent::WindowsFile)
+        obj.close
+      end
+    end
   end
 
   def test_whitespace
