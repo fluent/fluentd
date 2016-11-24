@@ -42,6 +42,8 @@ module Fluent::Plugin
       compat_parameters_convert(conf, :parser)
       super
       @_event_loop_blocking_timeout = @blocking_timeout
+      @source_hostname_key ||= @source_host_key if @source_host_key
+
       @parser = parser_create
     end
 
@@ -61,7 +63,7 @@ module Fluent::Plugin
             tag = extract_tag_from_record(record)
             tag ||= @tag
             time ||= extract_time_from_record(record) || Fluent::EventTime.now
-            record[@source_host_key] = sock.remote_host if @source_host_key
+            record[@source_hostname_key] = sock.remote_host if @source_hostname_key
             router.emit(tag, time, record)
           end
         end
