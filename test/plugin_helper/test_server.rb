@@ -510,7 +510,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       @d.server_create_udp(:s, PORT, max_bytes: 128) do |data|
         received << data
       end
-      bind_port = unused_port
+      bind_port = unused_port(protocol: :udp, bind: "127.0.0.1")
       3.times do
         sock = UDPSocket.new(Socket::AF_INET)
         sock.bind("127.0.0.1", bind_port)
