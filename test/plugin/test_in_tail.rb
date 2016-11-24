@@ -63,16 +63,6 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
-
-    d = create_driver
-
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-        f.puts "test4"
-      }
-    end
-
-    events = d.events
   end
 
   def test_whitespace
