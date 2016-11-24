@@ -19,6 +19,7 @@ class TailInputTest < Test::Unit::TestCase
   def teardown
     super
     Fluent::Engine.stop
+    Fluent::Test.setup
     FileUtils.rm_rf(TMP_DIR, secure: true)
     if File.exist?(TMP_DIR)
       # ensure files are closed for Windows, on which deleted files
@@ -63,6 +64,14 @@ class TailInputTest < Test::Unit::TestCase
 
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
+
+    d = create_driver
+
+    d.run(expect_emits: 1) do
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test4"
+      }
+    end
   end
 
   def test_whitespace
