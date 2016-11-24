@@ -322,8 +322,6 @@ module Fluent::Plugin
 
       # return option for response
       option
-    ensure
-      p(here: "ensure of on_message", error: $!) if $!
     end
 
     def invalid_event?(tag, time, record)
