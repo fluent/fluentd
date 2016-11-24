@@ -85,6 +85,11 @@ module Fluent
         end
         raise SystemCallError.new(err)
       end
+      ObjectSpace.define_finalizer(self) do
+        unless @file_handle == INVALID_HANDLE_VALUE
+          CloseHandle.call(@file_handle)
+        end
+      end
     end
 
     def close
