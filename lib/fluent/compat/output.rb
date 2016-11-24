@@ -81,7 +81,7 @@ module Fluent
       end
 
       def assume_timekey!
-        @_formatter = Fluent::Timezone.formatter(@_timezone, @_time_slice_format)
+        @_formatter = Fluent::TimeFormatter.new(@_time_slice_format, nil, @_timezone)
 
         return if self.metadata.timekey
         if self.respond_to?(:path) && self.path =~ /\.(\d+)\.(?:b|q)(?:[a-z0-9]+)/
