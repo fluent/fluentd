@@ -19,7 +19,6 @@ class TailInputTest < Test::Unit::TestCase
   def teardown
     super
     Fluent::Engine.stop
-    Fluent::Test.setup
     FileUtils.rm_rf(TMP_DIR, secure: true)
     if File.exist?(TMP_DIR)
       # ensure files are closed for Windows, on which deleted files
@@ -65,6 +64,10 @@ class TailInputTest < Test::Unit::TestCase
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
 
+    trace = TracePoint.new(:c_call) do |tp|
+      p [tp.path, tp.lineno, tp.defined_class, tp.method_id, tp.event]
+    end
+    trace.enable
     d = create_driver
 
     d.run(expect_emits: 1) do
