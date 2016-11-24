@@ -6,14 +6,6 @@ require 'fluent/plugin/string_util'
 module ParserTest
   include Fluent
 
-  def str2time(str_time, format = nil)
-    if format
-      Time.strptime(str_time, format).to_i
-    else
-      Time.parse(str_time).to_i
-    end
-  end
-
   class BaseParserTest < ::Test::Unit::TestCase
     include ParserTest
 
@@ -71,15 +63,15 @@ module ParserTest
     def test_call_with_parse
       parser = TextParser::TimeParser.new(nil)
 
-      time = str2time('2013-09-18 12:00:00 +0900')
-      assert_equal(time, parser.parse('2013-09-18 12:00:00 +0900'))
+      time = event_time('2013-09-18 12:00:00 +0900')
+      assert_equal_event_time(time, parser.parse('2013-09-18 12:00:00 +0900'))
     end
 
     def test_parse_with_strptime
       parser = TextParser::TimeParser.new('%d/%b/%Y:%H:%M:%S %z')
 
-      time = str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z')
-      assert_equal(time, parser.parse('28/Feb/2013:12:00:00 +0900'))
+      time = event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z')
+      assert_equal_event_time(time, parser.parse('28/Feb/2013:12:00:00 +0900'))
     end
 
     def test_parse_with_invalid_argument
@@ -99,13 +91,13 @@ module ParserTest
     def internal_test_case(parser)
       text = '192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] [14/Feb/2013:12:00:00 +0900] "true /,/user HTTP/1.1" 200 777'
       [parser.parse(text), parser.parse(text) { |time, record| return time, record}].each { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal({
           'user' => '-',
           'flag' => true,
           'code' => 200.0,
           'size' => 777,
-          'date' => str2time('14/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'),
+          'date' => event_time('14/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'),
           'host' => '192.168.0.1',
           'path' => ['/', '/user']
         }, record)
@@ -139,12 +131,12 @@ module ParserTest
       )
       text = '2013-02-28 12:00:00 +0900'
       parser.parse(text) do |time, record|
-        assert_equal Time.parse(text).to_i, time
+        assert_equal event_time(text), time
       end
     end
 
     def test_parse_without_time
-      time_at_start = Time.now.to_i
+      time_at_start = event_time()
       text = "tagomori_satoshi tagomoris 34\n"
 
       parser = TextParser::RegexpParser.new(Regexp.new(%q!^(?<name>[^ ]*) (?<user>[^ ]*) (?<age>\d*)$!))
@@ -206,7 +198,7 @@ module ParserTest
     def test_call(method_name)
       m = @parser.method(method_name)
       m.call('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777') { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal({
           'user'    => '-',
           'method'  => 'GET',
@@ -245,21 +237,21 @@ module ParserTest
 
     def test_parse
       @parser.parse('[Wed Oct 11 14:32:52 2000] [error] [client 127.0.0.1] client denied by server configuration') { |time, record|
-        assert_equal(str2time('Wed Oct 11 14:32:52 2000'), time)
+        assert_equal_event_time(event_time('Wed Oct 11 14:32:52 2000'), time)
         assert_equal(@expected, record)
       }
     end
 
     def test_parse_with_pid
       @parser.parse('[Wed Oct 11 14:32:52 2000] [error] [pid 1000] [client 127.0.0.1] client denied by server configuration') { |time, record|
-        assert_equal(str2time('Wed Oct 11 14:32:52 2000'), time)
+        assert_equal_event_time(event_time('Wed Oct 11 14:32:52 2000'), time)
         assert_equal(@expected.merge('pid' => '1000'), record)
       }
     end
 
     def test_parse_without_client
       @parser.parse('[Wed Oct 11 14:32:52 2000] [notice] Apache/2.2.15 (Unix) DAV/2 configured -- resuming normal operations') { |time, record|
-        assert_equal(str2time('Wed Oct 11 14:32:52 2000'), time)
+        assert_equal_event_time(event_time('Wed Oct 11 14:32:52 2000'), time)
         assert_equal({
           'level' => 'notice',
           'message' => 'Apache/2.2.15 (Unix) DAV/2 configured -- resuming normal operations'
@@ -287,7 +279,7 @@ module ParserTest
 
     def test_parse
       @parser.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal(@expected, record)
       }
       assert_equal(TextParser::ApacheParser::REGEXP, @parser.patterns['format'])
@@ -296,7 +288,7 @@ module ParserTest
 
     def test_parse_without_http_version
       @parser.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0"') { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal(@expected, record)
       }
     end
@@ -318,7 +310,7 @@ module ParserTest
     def test_parse
       @parser.configure({})
       @parser.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
-        assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
       assert_equal(TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
@@ -328,7 +320,7 @@ module ParserTest
     def test_parse_with_time_format
       @parser.configure('time_format' => '%b %d %M:%S:%H')
       @parser.parse('Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
-        assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
       assert_equal('%b %d %M:%S:%H', @parser.instance.patterns['time_format'])
@@ -337,7 +329,7 @@ module ParserTest
     def test_parse_with_priority
       @parser.configure('with_priority' => true)
       @parser.parse('<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
-        assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
         assert_equal(@expected.merge('pri' => 6), record)
       }
       assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
@@ -347,7 +339,7 @@ module ParserTest
     def test_parse_without_colon
       @parser.configure({})
       @parser.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111] [error] Syslog test') { |time, record|
-        assert_equal(str2time('Feb 28 12:00:00', '%b %d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
         assert_equal(@expected, record)
       }
       assert_equal(TextParser::SyslogParser::REGEXP, @parser.instance.patterns['format'])
@@ -377,7 +369,7 @@ module ParserTest
     def test_parse(data)
       @parser.configure('json_parser' => data)
       @parser.parse('{"time":1362020400,"host":"192.168.0.1","size":777,"method":"PUT"}') { |time, record|
-        assert_equal(str2time('2013-02-28 12:00:00 +0900').to_i, time)
+        assert_equal_event_time(event_time('2013-02-28 12:00:00 +0900'), time)
         assert_equal({
           'host'   => '192.168.0.1',
           'size'   => 777,
@@ -472,21 +464,21 @@ module ParserTest
 
     def test_parse
       @parser.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal(@expected, record)
       }
     end
 
     def test_parse_with_empty_included_path
       @parser.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /a[ ]b HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal(@expected.merge('path' => '/a[ ]b'), record)
       }
     end
 
     def test_parse_without_http_version
       @parser.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0"') { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal(@expected, record)
       }
     end
@@ -515,7 +507,7 @@ module ParserTest
       parser = TextParser::TSVParser.new
       parser.configure('keys' => param, 'time_key' => 'time')
       parser.parse("2013/02/28 12:00:00\t192.168.0.1\t111") { |time, record|
-        assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
         assert_equal({
           'a' => '192.168.0.1',
           'b' => '111',
@@ -620,7 +612,7 @@ module ParserTest
       parser = TextParser::CSVParser.new
       parser.configure('keys' => param, 'time_key' => 'time')
       parser.parse("2013/02/28 12:00:00,192.168.0.1,111") { |time, record|
-        assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
         assert_equal({
           'c' => '192.168.0.1',
           'd' => '111',
@@ -723,7 +715,7 @@ module ParserTest
       parser = TextParser::LabeledTSVParser.new
       parser.configure({})
       parser.parse("time:2013/02/28 12:00:00\thost:192.168.0.1\treq_id:111") { |time, record|
-        assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
         assert_equal({
           'host'   => '192.168.0.1',
           'req_id' => '111',
@@ -738,7 +730,7 @@ module ParserTest
         'label_delimiter' => '=',
       )
       parser.parse('time=2013/02/28 12:00:00,host=192.168.0.1,req_id=111') { |time, record|
-        assert_equal(str2time('2013/02/28 12:00:00', '%Y/%m/%d %H:%M:%S'), time)
+        assert_equal_event_time(event_time('2013/02/28 12:00:00', format: '%Y/%m/%d %H:%M:%S'), time)
         assert_equal({
           'host'   => '192.168.0.1',
           'req_id' => '111',
@@ -753,7 +745,7 @@ module ParserTest
         'time_format' => '%d/%b/%Y:%H:%M:%S %z',
       )
       parser.parse("mytime:28/Feb/2013:12:00:00 +0900\thost:192.168.0.1\treq_id:111") { |time, record|
-        assert_equal(str2time('28/Feb/2013:12:00:00 +0900', '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal_event_time(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal({
           'host'   => '192.168.0.1',
           'req_id' => '111',
@@ -898,7 +890,7 @@ javax.management.RuntimeErrorException: null
 \tat Main.main(Main.java:16) ~[bin/:na]
 EOS
 
-        assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
+        assert_equal_event_time(event_time('2013-3-03 14:27:33'), time)
         assert_equal({
           "thread"  => "main",
           "level"   => "ERROR",
@@ -916,7 +908,7 @@ message=test1
 EOS
 
         assert(parser.firstline?('----'))
-        assert_equal(str2time('2013-3-03 14:27:33').to_i, time)
+        assert_equal_event_time(event_time('2013-3-03 14:27:33'), time)
         assert_equal({"message" => "test1"}, record)
       }
     end
@@ -938,7 +930,7 @@ Completed 200 OK in 4ms (Views: 3.2ms | ActiveRecord: 0.0ms)
 EOS
 
         assert(parser.firstline?('Started GET "/users/123/" for 127.0.0.1...'))
-        assert_equal(str2time('2013-06-14 12:00:11 +0900').to_i, time)
+        assert_equal_event_time(event_time('2013-06-14 12:00:11 +0900'), time)
         assert_equal({
           "method" => "GET",
           "path" => "/users/123/",
