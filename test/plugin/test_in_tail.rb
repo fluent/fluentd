@@ -67,44 +67,10 @@ class TailInputTest < Test::Unit::TestCase
     d = create_driver
 
     d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.print "test3"
-      }
-      sleep 1
-
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.puts "test4"
-      }
     end
-
-    events = d.events
-    assert_equal(true, events.length > 0)
-    assert_equal({"message" => "test3test4"}, events[0][2])
   end
 
   def test_whitespace
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
-
-    d = create_driver
-
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
-        f.puts "    "		# 4 spaces
-        f.puts "    4 spaces"
-        f.puts "4 spaces    "
-        f.puts "	"	# tab
-        f.puts "	tab"
-        f.puts "tab	"
-      }
-    end
-
-    events = d.events
-    assert_equal(true, events.length > 0)
-    assert_equal({"message" => "    "}, events[0][2])
-    assert_equal({"message" => "    4 spaces"}, events[1][2])
-    assert_equal({"message" => "4 spaces    "}, events[2][2])
-    assert_equal({"message" => "	"}, events[3][2])
-    assert_equal({"message" => "	tab"}, events[4][2])
-    assert_equal({"message" => "tab	"}, events[5][2])
   end
 end
