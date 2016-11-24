@@ -13,6 +13,7 @@ class TailInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
     FileUtils.mkdir_p(TMP_DIR)
+    system('ls', '-la', TMP_DIR) if File.exist?(TMP_DIR)
   end
 
   def teardown
@@ -445,30 +446,6 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "	"}, events[3][2])
     assert_equal({"message" => "	tab"}, events[4][2])
     assert_equal({"message" => "tab	"}, events[5][2])
-  end
-
-  data(
-    'flat default encoding' => [SINGLE_LINE_CONFIG, Encoding::ASCII_8BIT],
-    'flat explicit encoding config' => [SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8],
-    'parse default encoding' => [PARSE_SINGLE_LINE_CONFIG, Encoding::ASCII_8BIT],
-    'parse explicit encoding config' => [PARSE_SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" }), Encoding::UTF_8])
-  def test_encoding(data)
-    encoding_config, encoding = data
-
-    d = create_driver(CONFIG_READ_FROM_HEAD + encoding_config)
-
-    d.run(expect_emits: 1) do
-      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
-        f.puts "test"
-      }
-    end
-
-    events = d.events
-    assert_equal(encoding, events[0][2]['message'].encoding)
-  ensure
-    if $!.is_a?(Errno::EACCES)
-      system('ls', '-la', TMP_DIR)
-    end
   end
 
   def test_from_encoding
