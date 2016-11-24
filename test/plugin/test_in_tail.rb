@@ -359,46 +359,6 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test7"}, events[2][2])
       assert_equal({"message" => "test8"}, events[3][2])
     end
-
-    def sub_test_rotate_file(config = nil, expect_emits: nil, expect_records: nil, timeout: nil)
-      file = Fluent::FileWrapper.open("#{TMP_DIR}/tail.txt", "wb")
-      file.puts "test1"
-      file.puts "test2"
-      file.flush
-
-      d = create_driver(config)
-      d.run(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout) do
-        size = d.emit_count
-        file.puts "test3"
-        file.puts "test4"
-        file.flush
-        sleep(0.1) until d.emit_count >= size + 1
-        size = d.emit_count
-
-        if Fluent.windows?
-          file.close
-          FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt", force: true)
-          file = File.open("#{TMP_DIR}/tail.txt", "ab")
-        else
-          FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
-        end
-        if block_given?
-          yield file
-        else
-          File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
-          sleep 1
-
-          File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
-            f.puts "test5"
-            f.puts "test6"
-          }
-        end
-      end
-
-      d.events
-    ensure
-      file.close if file && !file.closed?
-    end
   end
 
   def test_lf
