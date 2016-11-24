@@ -88,7 +88,7 @@ module Fluent
 
     def close
       CloseHandle.call(@file_handle)
-      p(op: :close, file_handle: @file_handle)
+      p(op: :close, file_handle: @file_handle, self: self)
       @file_handle = INVALID_HANDLE_VALUE
     end
 
