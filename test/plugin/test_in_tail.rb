@@ -12,6 +12,12 @@ class TailInputTest < Test::Unit::TestCase
 
   def setup
     Fluent::Test.setup
+    FileUtils.mkdir_p(TMP_DIR)
+  end
+
+  def teardown
+    super
+    Fluent::Engine.stop
     FileUtils.rm_rf(TMP_DIR, secure: true)
     if File.exist?(TMP_DIR)
       # ensure files are closed for Windows, on which deleted files
@@ -19,12 +25,7 @@ class TailInputTest < Test::Unit::TestCase
       GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
       FileUtils.remove_entry_secure(TMP_DIR, true)
     end
-    FileUtils.mkdir_p(TMP_DIR)
-  end
-
-  def teardown
-    super
-    Fluent::Engine.stop
+    system('ls', '-la', TMP_DIR) if File.exist?(TMP_DIR)
   end
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
@@ -245,11 +246,13 @@ class TailInputTest < Test::Unit::TestCase
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
       # Store default permission
       @default_permission = system_config.instance_variable_get(:@file_permission)
+      super
     end
 
     def teardown
       # Restore default permission
       system_config.instance_variable_set(:@file_permission, @default_permission)
+      super
     end
 
     def parse_system(text)
