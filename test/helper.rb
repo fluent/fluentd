@@ -41,11 +41,14 @@ require 'test/unit/rr'
 require 'fileutils'
 require 'fluent/log'
 require 'fluent/test'
+require 'fluent/test/helpers'
 
 unless defined?(Test::Unit::AssertionFailedError)
   class Test::Unit::AssertionFailedError < StandardError
   end
 end
+
+include Fluent::Test::Helpers
 
 def unused_port
   s = TCPServer.open(0)

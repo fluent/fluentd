@@ -296,7 +296,7 @@ module Fluent::Config
         def e(name, arg = '', attrs = {}, elements = [])
           attrs_str_keys = {}
           attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
-          Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+          config_element(name, arg, attrs_str_keys, elements)
         end
 
         BASE_ATTRS = {
@@ -577,7 +577,7 @@ module Fluent::Config
         def e(name, arg = '', attrs = {}, elements = [])
           attrs_str_keys = {}
           attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
-          Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+          config_element(name, arg, attrs_str_keys, elements)
         end
 
         test 'subclass configuration spec can overwrite superclass specs' do
@@ -682,7 +682,7 @@ module Fluent::Config
         def e(name, arg = '', attrs = {}, elements = [])
           attrs_str_keys = {}
           attrs.each{|key, value| attrs_str_keys[key.to_s] = value }
-          Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+          config_element(name, arg, attrs_str_keys, elements)
         end
 
         test 'provides accessible data for alias attribute keys' do
@@ -701,7 +701,7 @@ module Fluent::Config
       def e(name, arg = '', attrs = {}, elements = [])
         attrs_str_keys = {}
         attrs.each { |key, value| attrs_str_keys[key.to_s] = value }
-        Fluent::Config::Element.new(name, arg, attrs_str_keys, elements)
+        config_element(name, arg, attrs_str_keys, elements)
       end
 
       setup do
@@ -813,7 +813,7 @@ module Fluent::Config
       test 'warned if deprecated parameter is configured' do
         obj = ConfigurableSpec::UnRecommended.new
         obj.log = Fluent::Test::TestLogger.new
-        obj.configure(Fluent::Config::Element.new('ROOT', '', {'key1' => 'yay'}, []))
+        obj.configure(config_element('ROOT', '', {'key1' => 'yay'}, []))
 
         assert_equal 'yay', obj.key1
         first_log = obj.log.logs.first
@@ -825,7 +825,7 @@ module Fluent::Config
         obj.log = Fluent::Test::TestLogger.new
 
         assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed: key2 has been removed.") do
-          obj.configure(Fluent::Config::Element.new('ROOT', '', {'key2' => 'yay'}, []))
+          obj.configure(config_element('ROOT', '', {'key2' => 'yay'}, []))
         end
       end
     end
