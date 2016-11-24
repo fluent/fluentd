@@ -311,9 +311,7 @@ module Fluent
           when :data
             @sock.data(&callback)
           when :write_complete
-            cb = ->(){
-              callback.call(self)
-            }
+            cb = ->(){ callback.call(self) }
             @sock.on_write_complete(&cb)
           when :close
             cb = ->(){ callback.call(self) }
@@ -413,7 +411,7 @@ module Fluent
           SOCK_OPT_FORMAT = 'I!I!' # { int l_onoff; int l_linger; }
 
           def initialize(sock, close_callback, resolve_name, linger_timeout, log, under_plugin_development, connect_callback)
-            raise ArgumentError, "socket must be a TCPSocket" unless sock.is_a?(TCPSocket)
+            raise ArgumentError, "socket must be a TCPSocket: sock=#{sock}" unless sock.is_a?(TCPSocket)
 
             sock_opt = [1, linger_timeout].pack(SOCK_OPT_FORMAT)
             sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, sock_opt)
