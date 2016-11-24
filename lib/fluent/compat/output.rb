@@ -619,14 +619,16 @@ module Fluent
           if conf['timezone']
             Fluent::Timezone.validate!(conf['timezone'])
           elsif conf['utc']
-            conf['timezone'] = "+0000"
+            # v0.12 assumes UTC without any configuration
+            # 'localtime=false && no timezone key' means UTC
             conf['localtime'] = "false"
             conf.delete('utc')
           elsif conf['localtime']
             conf['timezone'] = Time.now.strftime('%z')
             conf['localtime'] = "true"
           else
-            conf['timezone'] = "+0000" # v0.12 assumes UTC without any configuration
+            # v0.12 assumes UTC without any configuration
+            # 'localtime=false && no timezone key' means UTC
             conf['localtime'] = "false"
           end
 
