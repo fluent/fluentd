@@ -462,6 +462,10 @@ class TailInputTest < Test::Unit::TestCase
 
     events = d.events
     assert_equal(encoding, events[0][2]['message'].encoding)
+  ensure
+    if $!.is_a?(Errno::EACCES)
+      system('ls', '-la', TMP_DIR)
+    end
   end
 
   def test_from_encoding

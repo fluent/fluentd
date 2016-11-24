@@ -5,32 +5,11 @@ cache: bundler
 
 # http://rubies.travis-ci.org/
 # See here for osx_image -> OSX versions: https://docs.travis-ci.com/user/languages/objective-c
-matrix:
-  include:
-    - rvm: 2.1.10
-      os: linux
-    - rvm: 2.2.5
-      os: linux
-    - rvm: 2.3.1
-      os: linux
-    - rvm: ruby-head
-      os: linux
-    - rvm: 2.1.10
-      os: osx
-      osx_image: xcode7.3 # OSX 10.11
-    - rvm: 2.2.5
-      os: osx
-      osx_image: xcode7.3 # OSX 10.11
-    - rvm: ruby-head
-      os: osx
-      osx_image: xcode 7.3 # OSX 10.11
-  allow_failures:
-    - rvm: ruby-head
-
 # no valid version/env for ruby 2.3 right now
 # - rvm: 2.3.0
 #   os: osx
 #   osx_image: ....
+script: ruby -v
 
 branches:
   only:
