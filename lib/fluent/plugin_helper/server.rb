@@ -16,7 +16,7 @@
 
 require 'fluent/plugin_helper/event_loop'
 
-require 'serverengine/socket_manager'
+require 'serverengine'
 require 'cool.io'
 require 'socket'
 require 'ipaddr'
