@@ -79,4 +79,14 @@ class TextParserTest < ::Test::Unit::TestCase
     p2.configure('format' => 'none')
     assert_equal false, p2.parser.estimate_current_event
   end
+
+  data(ignorecase: Regexp::IGNORECASE,
+       multiline: Regexp::MULTILINE,
+       both: Regexp::IGNORECASE & Regexp::MULTILINE)
+  def test_regexp_parser_config(options)
+    source = "a"
+    parser = Fluent::TextParser::RegexpParser.new(Regexp.new(source, options), { "dummy" => "dummy" })
+    regexp = parser.instance_variable_get("@regexp")
+    assert_equal(options, regexp.options)
+  end
 end

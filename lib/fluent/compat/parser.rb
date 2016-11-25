@@ -168,6 +168,8 @@ module Fluent
           return if @manually_configured # not to run twice
 
           conf['expression'] ||= @stored_regexp.source
+          conf['ignorecase'] ||= @stored_regexp.options & Regexp::IGNORECASE != 0
+          conf['multiline'] ||= @stored_regexp.options & Regexp::MULTILINE != 0
           convert_type_converter_parameters!(conf)
 
           super
