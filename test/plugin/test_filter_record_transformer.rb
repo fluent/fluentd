@@ -2,9 +2,11 @@ require_relative '../helper'
 require 'timecop'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_record_transformer'
+require 'flexmock/test_unit'
 
 class RecordTransformerFilterTest < Test::Unit::TestCase
   include Fluent
+  include FlexMock::TestCase
 
   setup do
     Test.setup
@@ -481,25 +483,6 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       }
     end
 
-    data(auto_typecast_yes: ["yes", "unknown['bar']"],
-         auto_typecast_no: ["no", "%Q[\#{unknown['bar']}]"])
-    test 'failed to expand (enable_ruby yes)' do |(param, expected_log)|
-
-      config = %[
-        enable_ruby yes
-        auto_typecast #{param}
-        <record>
-          message ${unknown['bar']}
-        </record>
-      ]
-      filtered = filter(config) { |d|
-        mock(d.instance.log).warn("failed to expand `#{expected_log}`", anything)
-      }
-      filtered.each do |t, r|
-        assert_nil(r['message'])
-      end
-    end
-
     test 'expand fields starting with @ (enable_ruby no)' do
       config = %[
         enable_ruby no
@@ -534,4 +517,20 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
   end # test placeholders
+
+  sub_test_case 'test error record' do
+    test 'invalid record for placeholders' do
+      d = create_driver(%[
+        enable_ruby yes
+        <record>
+          foo ${record["unknown"]["key"]}
+        </record>
+      ])
+      flexmock(d.instance.router).should_receive(:emit_error_event).
+        with(String, Fluent::EventTime, Hash, RuntimeError).once
+      d.run do
+        d.feed(@tag, Fluent::EventTime.now, {'key' => 'value'})
+      end
+    end
+  end
 end

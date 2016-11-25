@@ -92,23 +92,22 @@ module Fluent::Plugin
         'tag_suffix' => tag_suffix,
         'hostname'   => @hostname,
       }
-      last_record = nil
       es.each do |time, record|
-        last_record = record # for debug log
-        placeholder_values['time'] = @placeholder_expander.time_value(time)
-        placeholder_values['record'] = record
+        begin
+          placeholder_values['time'] = @placeholder_expander.time_value(time)
+          placeholder_values['record'] = record
 
-        new_record = reform(record, placeholder_values)
-        if @renew_time_key && new_record.has_key?(@renew_time_key)
-          time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
+          new_record = reform(record, placeholder_values)
+          if @renew_time_key && new_record.has_key?(@renew_time_key)
+            time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
+          end
+          new_es.add(time, new_record)
+        rescue => e
+          router.emit_error_event(tag, time, record, e)
+          log.debug { "map:#{@map} record:#{record} placeholder_values:#{placeholder_values}" }
         end
-        new_es.add(time, new_record)
       end
       new_es
-    rescue => e
-      log.warn "failed to reform records", error: e
-      log.warn_backtrace
-      log.debug "map:#{@map} record:#{last_record} placeholder_values:#{placeholder_values}"
     end
 
     private
@@ -305,9 +304,7 @@ module Fluent::Plugin
           placeholders['hostname'],
         )
       rescue => e
-        log.warn "failed to expand `#{str}`", error: e
-        log.warn_backtrace
-        nil
+        raise "failed to expand `#{str}` : error = #{e}"
       end
 
       class CleanroomExpander
