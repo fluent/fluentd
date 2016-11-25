@@ -164,6 +164,12 @@ module Fluent::Plugin
       super
     end
 
+    def close
+      super
+      # close file handles after all threads stopped (in #close of thread plugin helper)
+      close_watcher_handles
+    end
+
     def expand_paths
       date = Time.now
       paths = []
@@ -234,16 +240,25 @@ module Fluent::Plugin
 
     def stop_watchers(paths, immediate = false, unwatched = false)
       paths.each { |path|
-        tw = @tails.delete(path)
+        tw = @tails[path]
         if tw
           tw.unwatched = unwatched
           if immediate
-            close_watcher(tw, false)
+            detach_watcher(tw, false)
           else
-            close_watcher_after_rotate_wait(tw)
+            detach_watcher_after_rotate_wait(tw)
           end
         end
       }
+    end
+
+    def close_watcher_handles
+      @tails.keys.each do |path|
+        tw = @tails.delete(path)
+        if tw
+          tw.close
+        end
+      end
     end
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
@@ -256,24 +271,25 @@ module Fluent::Plugin
       end
       rotated_tw = @tails[path]
       @tails[path] = setup_watcher(path, pe)
-      close_watcher_after_rotate_wait(rotated_tw) if rotated_tw
+      detach_watcher_after_rotate_wait(rotated_tw) if rotated_tw
     end
 
     # TailWatcher#close is called by another thread at shutdown phase.
     # It causes 'can't modify string; temporarily locked' error in IOHandler
     # so adding close_io argument to avoid this problem.
     # At shutdown, IOHandler's io will be released automatically after detached the event loop
-    def close_watcher(tw, close_io = true)
-      tw.close(close_io)
+    def detach_watcher(tw, close_io = true)
+      tw.detach
+      tw.close if close_io
       flush_buffer(tw)
       if tw.unwatched && @pf
         @pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
       end
     end
 
-    def close_watcher_after_rotate_wait(tw)
+    def detach_watcher_after_rotate_wait(tw)
       timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
-        close_watcher(tw)
+        detach_watcher(tw)
       end
     end
 
@@ -435,14 +451,13 @@ module Fluent::Plugin
       def detach
         @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
         @stat_trigger.detach if @stat_trigger.attached?
+        @io_handler.on_notify if @io_handler
       end
 
-      def close(close_io = true)
-        if close_io && @io_handler
-          @io_handler.on_notify
+      def close
+        if @io_handler
           @io_handler.close
         end
-        detach
       end
 
       def on_notify
