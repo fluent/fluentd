@@ -22,14 +22,16 @@ require 'socket'
 require 'ipaddr'
 require 'fcntl'
 
+require_relative 'socket_option'
+
 module Fluent
   module PluginHelper
     module Server
       include Fluent::PluginHelper::EventLoop
+      include Fluent::PluginHelper::SocketOption
 
       # This plugin helper doesn't support these things for now:
       # * SSL/TLS (TBD)
-      # * IPv6
       # * TCP/TLS keepalive
 
       # stop     : [-]
@@ -61,7 +63,7 @@ module Fluent
       #     conn.close
       #   end
       # end
-      def server_create_connection(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, certopts: nil, resolve_name: false, linger_timeout: 0, backlog: nil, &block)
+      def server_create_connection(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, backlog: nil, **socket_options, &block)
         raise ArgumentError, "BUG: title must be a symbol" unless title && title.is_a?(Symbol)
         raise ArgumentError, "BUG: port must be an integer" unless port && port.is_a?(Integer)
         raise ArgumentError, "BUG: invalid protocol name" unless PROTOCOLS.include?(proto)
@@ -70,16 +72,16 @@ module Fluent
         raise ArgumentError, "BUG: block not specified which handles connection" unless block_given?
         raise ArgumentError, "BUG: block must have just one argument" unless block.arity == 1
 
-        if proto != :tls # TLS options
-          raise ArgumentError, "BUG: certopts is available only for tls" if certopts
+        if proto == :tcp || proto == :tls # default linger_timeout only for server
+          socket_options[:linger_timeout] ||= 0
         end
-        if proto != :tcp && proto != :tls # TCP/TLS options
-          raise ArgumentError, "BUG: linger_timeout is available for tcp/tls" if linger_timeout != 0
-        end
+
+        socket_option_validate!(proto, **socket_options)
+        socket_option_setter = ->(sock){ socket_option_set(sock, **socket_options) }
 
         case proto
         when :tcp
-          server = server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog, &block)
+          server = server_create_for_tcp_connection(shared, bind, port, backlog, socket_option_setter, &block)
         when :tls
           raise ArgumentError, "BUG: certopts (certificate options) not specified for TLS" unless certopts
           # server_certopts_validate!(certopts)
@@ -106,7 +108,7 @@ module Fluent
       #   sock.remote_port
       #   # ...
       # end
-      def server_create(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, certopts: nil, resolve_name: false, linger_timeout: 0, backlog: nil, max_bytes: nil, flags: 0, &callback)
+      def server_create(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, backlog: nil, max_bytes: nil, flags: 0, **socket_options, &callback)
         raise ArgumentError, "BUG: title must be a symbol" unless title && title.is_a?(Symbol)
         raise ArgumentError, "BUG: port must be an integer" unless port && port.is_a?(Integer)
         raise ArgumentError, "BUG: invalid protocol name" unless PROTOCOLS.include?(proto)
@@ -114,12 +116,13 @@ module Fluent
         raise ArgumentError, "BUG: block not specified which handles received data" unless block_given?
         raise ArgumentError, "BUG: block must have 1 or 2 arguments" unless callback.arity == 1 || callback.arity == 2
 
-        if proto != :tls # TLS options
-          raise ArgumentError, "BUG: certopts is available only for tls" if certopts
+        if proto == :tcp || proto == :tls # default linger_timeout only for server
+          socket_options[:linger_timeout] ||= 0
         end
-        if proto != :tcp && proto != :tls # TCP/TLS options
-          raise ArgumentError, "BUG: linger_timeout is available for tcp/tls" if linger_timeout != 0
-        end
+
+        socket_option_validate!(proto, **socket_options)
+        socket_option_setter = ->(sock){ socket_option_set(sock, **socket_options) }
+
         if proto != :tcp && proto != :tls && proto != :unix # options to listen/accept connections
           raise ArgumentError, "BUG: backlog is available for tcp/tls" if backlog
         end
@@ -130,18 +133,16 @@ module Fluent
 
         case proto
         when :tcp
-          server = server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog) do |conn|
+          server = server_create_for_tcp_connection(shared, bind, port, backlog, socket_option_setter) do |conn|
             conn.data(&callback)
           end
         when :tls
-          raise ArgumentError, "BUG: certopts (certificate options) not specified for TLS" unless certopts
-          server_certopts_validate!(certopts)
           raise "not implemented yet"
         when :udp
           raise ArgumentError, "BUG: max_bytes must be specified for UDP" unless max_bytes
           sock = server_create_udp_socket(shared, bind, port)
-          sock.do_not_reverse_lookup = !resolve_name
-          server = EventHandler::UDPServer.new(sock, resolve_name, max_bytes, flags, @log, @under_plugin_development, &callback)
+          socket_option_setter.call(sock)
+          server = EventHandler::UDPServer.new(sock, max_bytes, flags, @log, @under_plugin_development, &callback)
         when :unix
           raise "not implemented yet"
         else
@@ -174,11 +175,11 @@ module Fluent
         event_loop_attach(server)
       end
 
-      def server_create_for_tcp_connection(shared, bind, port, resolve_name, linger_timeout, backlog, &block)
+      def server_create_for_tcp_connection(shared, bind, port, backlog, socket_option_setter, &block)
         sock = server_create_tcp_socket(shared, bind, port)
-        sock.do_not_reverse_lookup = !resolve_name
+        socket_option_setter.call(sock)
         close_callback = ->(conn){ @_server_mutex.synchronize{ @_server_connections.delete(conn) } }
-        server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, close_callback, resolve_name, linger_timeout, @log, @under_plugin_development, block) do |conn|
+        server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, socket_option_setter, close_callback, @log, @under_plugin_development, block) do |conn|
           @_server_mutex.synchronize do
             @_server_connections << conn
           end
@@ -357,20 +358,18 @@ module Fluent
 
       module EventHandler
         class UDPServer < Coolio::IO
-          def initialize(sock, resolve_name, max_bytes, flags, log, under_plugin_development, &callback)
+          def initialize(sock, max_bytes, flags, log, under_plugin_development, &callback)
             raise ArgumentError, "socket must be a UDPSocket: sock = #{sock}" unless sock.is_a?(UDPSocket)
 
             super(sock)
 
             @sock = sock
-            @resolve_name = resolve_name
             @max_bytes = max_bytes
             @flags = flags
             @log = log
             @under_plugin_development = under_plugin_development
             @callback = callback
 
-            @sock.do_not_reverse_lookup = !resolve_name
             on_readable_impl = case @callback.arity
                                when 1 then :on_readable_without_sock
                                when 2 then :on_readable_with_sock
@@ -408,14 +407,10 @@ module Fluent
         end
 
         class TCPServer < Coolio::TCPSocket
-          SOCK_OPT_FORMAT = 'I!I!' # { int l_onoff; int l_linger; }
-
-          def initialize(sock, close_callback, resolve_name, linger_timeout, log, under_plugin_development, connect_callback)
+          def initialize(sock, socket_option_setter, close_callback, log, under_plugin_development, connect_callback)
             raise ArgumentError, "socket must be a TCPSocket: sock=#{sock}" unless sock.is_a?(TCPSocket)
 
-            sock_opt = [1, linger_timeout].pack(SOCK_OPT_FORMAT)
-            sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_LINGER, sock_opt)
-            sock.do_not_reverse_lookup = !resolve_name
+            socket_option_setter.call(sock)
 
             @_handler_socket = sock
             super(sock)
