@@ -203,9 +203,6 @@ module Fluent::Plugin
             end
           elsif value.kind_of?(Hash) # record, etc
             value.each do |k, v|
-              unless placeholder_values.has_key?(k) # prevent overwriting reserved keys such as tag
-                placeholders.store("${#{k}}", v) # foo
-              end
               placeholders.store(%Q[${#{key}["#{k}"]}], v) # record["foo"]
             end
           else # string, interger, float, and others?
@@ -315,19 +312,7 @@ module Fluent::Plugin
 
       class CleanroomExpander
         def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
-          Thread.current[:record_transformer_record] = record # for old version compatibility
           instance_eval(__str_to_eval__)
-        end
-
-        # for old version compatibility
-        def method_missing(name)
-          key = name.to_s
-          record = Thread.current[:record_transformer_record]
-          if record.has_key?(key)
-            record[key]
-          else
-            raise NameError, "undefined local variable or method `#{key}'"
-          end
         end
 
         (Object.instance_methods).each do |m|
