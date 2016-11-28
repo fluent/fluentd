@@ -1,20 +1,8 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_udp'
 
 class UdpInputTest < Test::Unit::TestCase
-  class << self
-    def startup
-      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-      @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
-      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
-    end
-
-    def shutdown
-      @server.close
-    end
-  end
-
   def setup
     Fluent::Test.setup
   end
@@ -34,88 +22,121 @@ class UdpInputTest < Test::Unit::TestCase
   !
 
   def create_driver(conf)
-    Fluent::Test::InputTestDriver.new(Fluent::UdpInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::UdpInput).configure(conf)
   end
 
-  def test_configure
-    configs = {'127.0.0.1' => CONFIG}
-    configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
-
-    configs.each_pair { |k, v|
-      d = create_driver(v)
-      assert_equal PORT, d.instance.port
-      assert_equal k, d.instance.bind
-      assert_equal 4096, d.instance.body_size_limit
-    }
-  end
-
-  def test_time_format
-    configs = {'127.0.0.1' => CONFIG}
-    configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
-
-    configs.each_pair { |k, v|
-      d = create_driver(v)
-
-      tests = [
-        {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Sep 11 00:00:00', '%b %d %H:%M:%S'))},
-        {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Sep  1 00:00:00', '%b  %d %H:%M:%S'))},
-      ]
-
-      d.run do
-        u = Fluent::SocketUtil.create_udp_socket(k)
-        u.connect(k, PORT)
-        tests.each {|test|
-          u.send(test['msg'], 0)
-        }
-        u.close
-        sleep 1
+  def create_udp_socket(host, port)
+    u = if IPAddr.new(IPSocket.getaddress(host)).ipv4?
+          UDPSocket.new(Socket::AF_INET)
+        else
+          UDPSocket.new(Socket::AF_INET6)
+        end
+    u.connect(host, port)
+    if block_given?
+      begin
+        yield u
+      ensure
+        u.close rescue nil
       end
-
-      emits = d.emits
-      emits.each_index {|i|
-        assert_equal_event_time(tests[i]['expected'], emits[i][1])
-      }
-    }
-
-  end
-
-  {
-    'none' => [
-      {'msg' => "tcptest1\n", 'expected' => 'tcptest1'},
-      {'msg' => "tcptest2\n", 'expected' => 'tcptest2'},
-    ],
-    'json' => [
-      {'msg' => {'k' => 123, 'message' => 'tcptest1'}.to_json + "\n", 'expected' => 'tcptest1'},
-      {'msg' => {'k' => 'tcptest2', 'message' => 456}.to_json + "\n", 'expected' => 456},
-    ],
-    '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/' => [
-      {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 100 + "\n", 'expected' => 'localhost: ' + 'x' * 100},
-      {'msg' => '[Sep 10 00:00:00] localhost: ' + 'x' * 1024 + "\n", 'expected' => 'localhost: ' + 'x' * 1024},
-    ]
-  }.each { |format, test_cases|
-    define_method("test_msg_size_#{format[0] == '/' ? 'regexp' : format}") do
-      d = create_driver(BASE_CONFIG + "format #{format}")
-      tests = test_cases
-
-      d.run do
-        u = UDPSocket.new
-        u.connect('127.0.0.1', PORT)
-        tests.each { |test|
-          u.send(test['msg'], 0)
-        }
-        u.close
-        sleep 1
-      end
-
-      compare_test_result(d.emits, tests)
+    else
+      u
     end
-  }
+  end
 
-  def compare_test_result(emits, tests)
-    assert_equal(2, emits.size)
-    emits.each_index {|i|
-      assert_equal(tests[i]['expected'], emits[i][2]['message'])
-      assert(emits[i][1].is_a?(Fluent::EventTime))
-    }
+  data(
+    'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
+    'ipv6' => [IPv6_CONFIG, '::1', :ipv6],
+  )
+  test 'configure' do |data|
+    conf, bind, protocol = data
+    omit "IPv6 is not supported on this environment" if protocol == :ipv6 && !ipv6_enabled?
+
+    d = create_driver(conf)
+    assert_equal PORT, d.instance.port
+    assert_equal bind, d.instance.bind
+    assert_equal 4096, d.instance.body_size_limit
+  end
+
+  data(
+    'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
+    'ipv6' => [IPv6_CONFIG, '::1', :ipv6],
+  )
+  test 'time_format' do |data|
+    conf, bind, protocol = data
+    omit "IPv6 is not supported on this environment" if protocol == :ipv6 && !ipv6_enabled?
+
+    d = create_driver(conf)
+
+    tests = [
+      {'msg' => '[Sep 11 00:00:00] localhost logger: foo', 'expected' => event_time('Sep 11 00:00:00', format: '%b %d %H:%M:%S')},
+      {'msg' => '[Sep  1 00:00:00] localhost logger: foo', 'expected' => event_time('Sep  1 00:00:00', format: '%b  %d %H:%M:%S')},
+    ]
+
+    d.run(expect_records: 2) do
+      create_udp_socket(bind, PORT) do |u|
+        tests.each do |test|
+          u.send(test['msg'], 0)
+        end
+      end
+    end
+
+    events = d.events
+    tests.each_with_index do |t, i|
+      assert_equal_event_time(t['expected'], events[i][1])
+    end
+  end
+
+  data(
+    'none' => {
+      'format' => 'none',
+      'payloads' => ["tcptest1\n", "tcptest2\n"],
+      'expecteds' => [
+        {"message" => "tcptest1"},
+        {"message" => "tcptest2"},
+      ],
+    },
+    'json' => {
+      'format' => 'json',
+      'payloads' => [
+        {'k' => 123, 'message' => 'tcptest1'}.to_json + "\n",
+        {'k' => 'tcptest2', 'message' => 456}.to_json + "\n",
+      ],
+      'expecteds' => [
+        {'k' => 123, 'message' => 'tcptest1'},
+        {'k' => 'tcptest2', 'message' => 456},
+      ],
+    },
+    'regexp' => {
+      'format' => '/^\\[(?<time>[^\\]]*)\\] (?<message>.*)/',
+      'payloads' => [
+        '[Sep 10 00:00:00] localhost: ' + 'x' * 100 + "\n",
+        '[Sep 10 00:00:00] localhost: ' + 'x' * 1024 + "\n"
+      ],
+      'expecteds' => [
+        {"message" => 'localhost: ' + 'x' * 100},
+        {"message" => 'localhost: ' + 'x' * 1024},
+      ],
+    },
+  )
+  test 'message size with format' do |data|
+    format = data['format']
+    payloads = data['payloads']
+    expecteds = data['expecteds']
+
+    d = create_driver(BASE_CONFIG + "format #{format}")
+    d.run(expect_records: 2) do
+      create_udp_socket('127.0.0.1', PORT) do |u|
+        payloads.each do |payload|
+          u.send(payload, 0)
+        end
+      end
+    end
+
+    assert_equal 2, d.events.size
+    expecteds.each_with_index do |expected_record, i|
+      assert_equal "udp", d.events[i][0]
+      assert d.events[i][1].is_a?(Fluent::EventTime)
+      assert_equal expected_record, d.events[i][2]
+    end
   end
 end

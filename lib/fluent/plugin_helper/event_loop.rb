@@ -30,12 +30,16 @@ module Fluent
       # terminate: initialize internal state
 
       EVENT_LOOP_RUN_DEFAULT_TIMEOUT = 0.5
+      EVENT_LOOP_SHUTDOWN_TIMEOUT = 5
+      EVENT_LOOP_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
 
       attr_reader :_event_loop # for tests
 
       def event_loop_attach(watcher)
         @_event_loop_mutex.synchronize do
           @_event_loop.attach(watcher)
+          @_event_loop_attached_watchers << watcher
+          watcher
         end
       end
 
@@ -58,6 +62,7 @@ module Fluent
         @_event_loop_mutex = Mutex.new
         # plugin MAY configure loop run timeout in #configure
         @_event_loop_run_timeout = EVENT_LOOP_RUN_DEFAULT_TIMEOUT
+        @_event_loop_attached_watchers = []
       end
 
       def start
@@ -65,19 +70,32 @@ module Fluent
 
         # event loop does not run here, so mutex lock is not required
         thread_create :event_loop do
-          default_watcher = DefaultWatcher.new
-          @_event_loop.attach(default_watcher)
-          @_event_loop_running = true
-          @_event_loop.run(@_event_loop_run_timeout) # this method blocks
-          @_event_loop_running = false
+          begin
+            default_watcher = DefaultWatcher.new
+            event_loop_attach(default_watcher)
+            @_event_loop_running = true
+            @_event_loop.run(@_event_loop_run_timeout) # this method blocks
+          ensure
+            @_event_loop_running = false
+          end
         end
       end
 
       def shutdown
         @_event_loop_mutex.synchronize do
-          @_event_loop.watchers.each {|w| w.detach if w.attached? }
+          @_event_loop_attached_watchers.reverse.each do |w|
+            if w.attached?
+              w.detach
+            end
+          end
         end
+        timeout_at = Process.clock_gettime(EVENT_LOOP_CLOCK_ID) + EVENT_LOOP_SHUTDOWN_TIMEOUT
         while @_event_loop_running
+          if Process.clock_gettime(EVENT_LOOP_CLOCK_ID) >= timeout_at
+            log.warn "event loop does NOT exit until hard timeout."
+            raise "event loop does NOT exit until hard timeout." if @under_plugin_development
+            break
+          end
           sleep 0.1
         end
 

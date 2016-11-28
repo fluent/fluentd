@@ -1,6 +1,5 @@
 require_relative '../helper'
 require 'fluent/test/driver/output'
-require 'fluent/test/startup_shutdown'
 require 'fluent/plugin/out_forward'
 require 'flexmock/test_unit'
 
@@ -8,8 +7,6 @@ require 'fluent/test/driver/input'
 require 'fluent/plugin/in_forward'
 
 class ForwardOutputTest < Test::Unit::TestCase
-  extend Fluent::Test::StartupShutdown
-
   def setup
     Fluent::Test.setup
   end
@@ -264,7 +261,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_to_a_node_supporting_responses
-    target_input_driver = create_target_input_driver(response_stub: true)
+    target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
