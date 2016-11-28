@@ -317,7 +317,7 @@ module Fluent::Plugin
       def on_readable
         begin
           msg, addr = @io.recvfrom(1024)
-        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR
+        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
           return
         end
         host = addr[3]
