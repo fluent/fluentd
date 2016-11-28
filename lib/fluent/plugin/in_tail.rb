@@ -579,8 +579,8 @@ module Fluent
                   else
                     @buffer << @io.readpartial(2048, @iobuf)
                   end
-                  while line = @buffer.slice!(/.*?\n/m)
-                    @lines << line
+                  while idx = @buffer.index("\n".freeze)
+                    @lines << @buffer.slice!(0, idx + 1)
                   end
                   if @lines.size >= @read_lines_limit
                     # not to use too much memory in case the file is very large
