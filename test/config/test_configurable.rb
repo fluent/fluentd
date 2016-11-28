@@ -1298,6 +1298,24 @@ module Fluent::Config
         first_log = obj.log.logs.first
         assert{ first_log && first_log.include?("[error]") && first_log.include?("'key2' parameter is already removed: key2 has been removed.") }
       end
+
+      sub_test_case 'logger is nil' do
+        test 'nothing raised if deprecated parameter is configured' do
+          obj = ConfigurableSpec::UnRecommended.new
+          obj.log = nil
+          obj.configure(config_element('ROOT', '', {'key1' => 'yay'}, []))
+          assert_nil(obj.log)
+        end
+
+        test 'nothing raised if obsoleted parameter is configured' do
+          obj = ConfigurableSpec::UnRecommended.new
+          obj.log = nil
+          assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed: key2 has been removed.") do
+            obj.configure(config_element('ROOT', '', {'key2' => 'yay'}, []))
+          end
+          assert_nil(obj.log)
+        end
+      end
     end
 
     sub_test_case '#config_param without default values cause error if section is configured as init:true' do
