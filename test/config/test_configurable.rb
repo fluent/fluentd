@@ -1307,7 +1307,7 @@ module Fluent::Config
           assert_nil(obj.log)
         end
 
-        test 'nothing raised if obsoleted parameter is configured' do
+        test 'NoMethodError is not raised if obsoleted parameter is configured' do
           obj = ConfigurableSpec::UnRecommended.new
           obj.log = nil
           assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed: key2 has been removed.") do
