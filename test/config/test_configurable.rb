@@ -1295,6 +1295,8 @@ module Fluent::Config
         assert_raise Fluent::ObsoletedParameterError.new("'key2' parameter is already removed: key2 has been removed.") do
           obj.configure(config_element('ROOT', '', {'key2' => 'yay'}, []))
         end
+        first_log = obj.log.logs.first
+        assert{ first_log && first_log.include?("[error]") && first_log.include?("'key2' parameter is already removed: key2 has been removed.") }
       end
     end
 
