@@ -76,6 +76,7 @@ module Fluent
 
       @file_handle = CreateFile.call(@path, access, sharemode,
                      0, creationdisposition, FILE_ATTRIBUTE_NORMAL, 0)
+      p(op: :open, file_handle: @file_handle, self: self)
       if @file_handle == INVALID_HANDLE_VALUE
         err = GetLastError.call
         if err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == ERROR_ACCESS_DENIED
@@ -87,6 +88,7 @@ module Fluent
 
     def close
       CloseHandle.call(@file_handle)
+      p(op: :close, file_handle: @file_handle, self: self)
       @file_handle = INVALID_HANDLE_VALUE
     end
 
