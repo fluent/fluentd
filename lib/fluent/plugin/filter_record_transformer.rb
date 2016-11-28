@@ -92,23 +92,22 @@ module Fluent::Plugin
         'tag_suffix' => tag_suffix,
         'hostname'   => @hostname,
       }
-      last_record = nil
       es.each do |time, record|
-        last_record = record # for debug log
-        placeholder_values['time'] = @placeholder_expander.time_value(time)
-        placeholder_values['record'] = record
+        begin
+          placeholder_values['time'] = @placeholder_expander.time_value(time)
+          placeholder_values['record'] = record
 
-        new_record = reform(record, placeholder_values)
-        if @renew_time_key && new_record.has_key?(@renew_time_key)
-          time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
+          new_record = reform(record, placeholder_values)
+          if @renew_time_key && new_record.has_key?(@renew_time_key)
+            time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
+          end
+          new_es.add(time, new_record)
+        rescue => e
+          router.emit_error_event(tag, time, record, e)
+          log.debug { "map:#{@map} record:#{record} placeholder_values:#{placeholder_values}" }
         end
-        new_es.add(time, new_record)
       end
       new_es
-    rescue => e
-      log.warn "failed to reform records", error: e
-      log.warn_backtrace
-      log.debug "map:#{@map} record:#{last_record} placeholder_values:#{placeholder_values}"
     end
 
     private
@@ -203,9 +202,6 @@ module Fluent::Plugin
             end
           elsif value.kind_of?(Hash) # record, etc
             value.each do |k, v|
-              unless placeholder_values.has_key?(k) # prevent overwriting reserved keys such as tag
-                placeholders.store("${#{k}}", v) # foo
-              end
               placeholders.store(%Q[${#{key}["#{k}"]}], v) # record["foo"]
             end
           else # string, interger, float, and others?
@@ -308,26 +304,12 @@ module Fluent::Plugin
           placeholders['hostname'],
         )
       rescue => e
-        log.warn "failed to expand `#{str}`", error: e
-        log.warn_backtrace
-        nil
+        raise "failed to expand `#{str}` : error = #{e}"
       end
 
       class CleanroomExpander
         def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
-          Thread.current[:record_transformer_record] = record # for old version compatibility
           instance_eval(__str_to_eval__)
-        end
-
-        # for old version compatibility
-        def method_missing(name)
-          key = name.to_s
-          record = Thread.current[:record_transformer_record]
-          if record.has_key?(key)
-            record[key]
-          else
-            raise NameError, "undefined local variable or method `#{key}'"
-          end
         end
 
         (Object.instance_methods).each do |m|

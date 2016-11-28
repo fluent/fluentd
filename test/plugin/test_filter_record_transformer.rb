@@ -2,9 +2,11 @@ require_relative '../helper'
 require 'timecop'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_record_transformer'
+require 'flexmock/test_unit'
 
 class RecordTransformerFilterTest < Test::Unit::TestCase
   include Fluent
+  include FlexMock::TestCase
 
   setup do
     Test.setup
@@ -53,7 +55,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         hostname ${hostname}
         tag ${tag}
         time ${time}
-        message ${hostname} ${tag_parts[-1]} ${message}
+        message ${hostname} ${tag_parts[-1]} ${record["message"]}
       </record>
     ]
 
@@ -119,7 +121,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       config = %[
         enable_ruby yes
         <record>
-          message ${hostname} ${tag_parts.last} ${"'" + message + "'"}
+          message ${hostname} ${tag_parts.last} ${"'" + record["message"] + "'"}
         </record>
       ]
       msgs = ['1', '2']
@@ -263,8 +265,8 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           enable_ruby #{enable_ruby}
           remove_keys eventType0
           <record>
-            message bar ${message}
-            eventtype ${eventType0}
+            message bar ${record["message"]}
+            eventtype ${record["eventType0"]}
           </record>
         ]
         msgs = ['1', '2']
@@ -360,11 +362,11 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           auto_typecast false
           enable_ruby #{enable_ruby}
           <record>
-            single      ${source}
-            multiple    ${source}${source}
-            with_prefix prefix-${source}
-            with_suffix ${source}-suffix
-            with_quote  source[""]
+            single      ${record["source"]}
+            multiple    ${record["source"]}${record["source"]}
+            with_prefix prefix-${record["source"]}
+            with_suffix ${record["source"]}-suffix
+            with_quote  record["source"][""]
           </record>
         ]
         msgs = [
@@ -379,27 +381,27 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
             multiple: "stringstring",
             with_prefix: "prefix-string",
             with_suffix: "string-suffix",
-            with_quote: %Q{source[""]} },
+            with_quote: %Q{record["source"][""]} },
           { single: 123.to_s,
             multiple: "#{123.to_s}#{123.to_s}",
             with_prefix: "prefix-#{123.to_s}",
             with_suffix: "#{123.to_s}-suffix",
-            with_quote: %Q{source[""]} },
+            with_quote: %Q{record["source"][""]} },
           { single: [1, 2].to_s,
             multiple: "#{[1, 2].to_s}#{[1, 2].to_s}",
             with_prefix: "prefix-#{[1, 2].to_s}",
             with_suffix: "#{[1, 2].to_s}-suffix",
-            with_quote: %Q{source[""]} },
+            with_quote: %Q{record["source"][""]} },
           { single: {a:1, b:2}.to_s,
             multiple: "#{{a:1, b:2}.to_s}#{{a:1, b:2}.to_s}",
             with_prefix: "prefix-#{{a:1, b:2}.to_s}",
             with_suffix: "#{{a:1, b:2}.to_s}-suffix",
-            with_quote: %Q{source[""]} },
+            with_quote: %Q{record["source"][""]} },
           { single: nil.to_s,
             multiple: "#{nil.to_s}#{nil.to_s}",
             with_prefix: "prefix-#{nil.to_s}",
             with_suffix: "#{nil.to_s}-suffix",
-            with_quote: %Q{source[""]} },
+            with_quote: %Q{record["source"][""]} },
         ]
         actual_results = []
         filtered = filter(config, msgs)
@@ -420,10 +422,10 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
           auto_typecast yes
           enable_ruby #{enable_ruby}
           <record>
-            single      ${source}
-            multiple    ${source}${source}
-            with_prefix prefix-${source}
-            with_suffix ${source}-suffix
+            single      ${record["source"]}
+            multiple    ${record["source"]}${record["source"]}
+            with_prefix prefix-${record["source"]}
+            with_suffix ${record["source"]}-suffix
           </record>
         ]
         msgs = [
@@ -467,28 +469,6 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         end
         assert_equal(expected_results, actual_results)
       end
-
-      test %Q[record["key"] with enable_ruby #{enable_ruby}] do
-        config = %[
-          enable_ruby #{enable_ruby}
-          auto_typecast yes
-          <record>
-            _timestamp ${record["@timestamp"]}
-            _foo_bar   ${record["foo.bar"]}
-          </record>
-        ]
-        d = create_driver(config)
-        record = {
-          "foo.bar"    => "foo.bar",
-          "@timestamp" => 10,
-        }
-        d.run { d.feed(@tag, @time, record) }
-        filtered = d.filtered
-        filtered.each do |t, r|
-          assert { r['_timestamp'] == record['@timestamp'] }
-          assert { r['_foo_bar'] == record['foo.bar'] }
-        end
-      end
     end
 
     test 'unknown placeholder (enable_ruby no)' do
@@ -503,30 +483,11 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       }
     end
 
-    data(auto_typecast_yes: ["yes", "unknown['bar']"],
-         auto_typecast_no: ["no", "%Q[\#{unknown['bar']}]"])
-    test 'failed to expand (enable_ruby yes)' do |(param, expected_log)|
-
-      config = %[
-        enable_ruby yes
-        auto_typecast #{param}
-        <record>
-          message ${unknown['bar']}
-        </record>
-      ]
-      filtered = filter(config) { |d|
-        mock(d.instance.log).warn("failed to expand `#{expected_log}`", anything)
-      }
-      filtered.each do |t, r|
-        assert_nil(r['message'])
-      end
-    end
-
     test 'expand fields starting with @ (enable_ruby no)' do
       config = %[
         enable_ruby no
         <record>
-          foo ${@timestamp}
+          foo ${record["@timestamp"]}
         </record>
       ]
       d = create_driver(config)
@@ -555,54 +516,21 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal([message["@timestamp"]], r['foo'])
       end
     end
-
-    test 'expand fields starting with @ (enable_ruby yes)' do
-      config = %[
-        enable_ruby yes
-        <record>
-          foo ${__send__("@timestamp")}
-        </record>
-      ]
-      d = create_driver(config)
-      message = {"@timestamp" => "foo"}
-      d.run { d.feed(@tag, @time, message) }
-      filtered = d.filtered
-      filtered.each do |t, r|
-        assert_equal(message["@timestamp"], r['foo'])
-      end
-    end
   end # test placeholders
 
-  test "compatibility test (enable_ruby yes)" do
-    config = %[
-      enable_ruby yes
-      auto_typecast yes
-      <record>
-        _message   prefix-${message}-suffix
-        _time      ${Time.at(time)}
-        _number    ${number == '-' ? 0 : number}
-        _match     ${/0x[0-9a-f]+/.match(hex)[0]}
-        _timestamp ${__send__("@timestamp")}
-        _foo_bar   ${__send__('foo.bar')}
-      </record>
-    ]
-    d = create_driver(config)
-    record = {
-      "number"     => "-",
-      "hex"        => "0x10",
-      "foo.bar"    => "foo.bar",
-      "@timestamp" => 10,
-      "message"    => "10",
-    }
-    d.run { d.feed(@tag, @time, record) }
-    filtered = d.filtered
-    filtered.each do |t, r|
-      assert { r['_message'] == "prefix-#{record['message']}-suffix" }
-      assert { r['_time'] == Time.at(@time) }
-      assert { r['_number'] == 0 }
-      assert { r['_match'] == record['hex'] }
-      assert { r['_timestamp'] == record['@timestamp'] }
-      assert { r['_foo_bar'] == record['foo.bar'] }
+  sub_test_case 'test error record' do
+    test 'invalid record for placeholders' do
+      d = create_driver(%[
+        enable_ruby yes
+        <record>
+          foo ${record["unknown"]["key"]}
+        </record>
+      ])
+      flexmock(d.instance.router).should_receive(:emit_error_event).
+        with(String, Fluent::EventTime, Hash, RuntimeError).once
+      d.run do
+        d.feed(@tag, Fluent::EventTime.now, {'key' => 'value'})
+      end
     end
   end
 end
