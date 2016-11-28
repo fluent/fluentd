@@ -51,7 +51,9 @@ class EventTimeTest < Test::Unit::TestCase
 
   test 'Oj.dump' do
     time = Fluent::EventTime.new(100)
-    assert_equal('{"time":100}', Oj.dump({'time' => time}, mode: :compat))
+    require 'fluent/env'
+    Oj.default_options = Fluent::DEFAULT_OJ_OPTIONS
+    assert_equal('{"time":100}', Oj.dump({'time' => time}))
     assert_equal('["tag",100,{"key":"value"}]', Oj.dump(["tag", time, {"key" => "value"}], mode: :compat))
   end
 
