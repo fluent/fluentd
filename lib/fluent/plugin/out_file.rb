@@ -113,25 +113,41 @@ module Fluent::Plugin
       end
 
       path_suffix = @add_path_suffix ? @path_suffix : ''
-      @path_template = generate_path_template(@path, @buffer_config.timekey, @append, @compress_method, path_suffix: path_suffix, time_slice_format: configured_time_slice_format)
+      path_timekey = if @chunk_key_time
+                       @as_secondary ? @primary_instance.buffer_config.timekey : @buffer_config.timekey
+                     else
+                       nil
+                     end
+      @path_template = generate_path_template(@path, path_timekey, @append, @compress_method, path_suffix: path_suffix, time_slice_format: configured_time_slice_format)
 
-      placeholder_validate!(:path, @path_template)
+      if @as_secondary
+        # When this plugin is configured as secondary & primary plugin has tag key, but this plugin may not have it.
+        # Increment placeholder can make another output file per chunk tag/keys even if original path doesn't include it.
+        placeholder_validators(:path, @path_template).select{|v| v.type == :time }.each do |v|
+          v.validate!
+        end
+      else
+        placeholder_validate!(:path, @path_template)
 
-      max_tag_index = get_placeholders_tag(@path_template).max || 1
-      max_tag_index = 1 if max_tag_index < 1
-      dummy_tag = (['a'] * max_tag_index).join('.')
-      dummy_record_keys = get_placeholders_keys(@path_template) || ['message']
-      dummy_record = Hash[dummy_record_keys.zip(['data'] * dummy_record_keys.size)]
+        max_tag_index = get_placeholders_tag(@path_template).max || 1
+        max_tag_index = 1 if max_tag_index < 1
+        dummy_tag = (['a'] * max_tag_index).join('.')
+        dummy_record_keys = get_placeholders_keys(@path_template) || ['message']
+        dummy_record = Hash[dummy_record_keys.zip(['data'] * dummy_record_keys.size)]
 
-      test_meta1 = metadata_for_test(dummy_tag, Fluent::Engine.now, dummy_record)
-      test_path = extract_placeholders(@path_template, test_meta1)
-      unless ::Fluent::FileUtil.writable_p?(test_path)
-        raise Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
+        test_meta1 = metadata_for_test(dummy_tag, Fluent::Engine.now, dummy_record)
+        test_path = extract_placeholders(@path_template, test_meta1)
+        unless ::Fluent::FileUtil.writable_p?(test_path)
+          raise Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
+        end
       end
 
       @formatter = formatter_create
 
       if @symlink_path && @buffer.respond_to?(:path)
+        if @as_secondary
+          raise Fluent::ConfigError, "symlink_path option is unavailable in <secondary>: consider to use secondary_file plugin"
+        end
         if Fluent.windows?
           log.warn "symlink_path is unavailable on Windows platform. disabled."
           @symlink_path = nil
