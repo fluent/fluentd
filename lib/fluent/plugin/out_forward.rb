@@ -29,6 +29,8 @@ module Fluent::Plugin
 
     Fluent::Plugin.register_output('forward', self)
 
+    helpers :compat_parameters
+
     LISTEN_PORT = 24224
 
     desc 'The timeout time when sending event logs.'
@@ -111,6 +113,8 @@ module Fluent::Plugin
     end
 
     def configure(conf)
+      compat_parameters_convert(conf, :buffer, default_chunk_key: 'tag')
+
       super
 
       unless @chunk_key_tag

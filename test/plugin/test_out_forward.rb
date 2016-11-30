@@ -78,6 +78,24 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal TARGET_PORT, node.port
   end
 
+  def test_configure_traditional
+    d = create_driver(<<EOL)
+      self_hostname localhost
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+      buffer_chunk_limit 10m
+EOL
+    instance = d.instance
+    assert instance.chunk_key_tag
+    assert !instance.chunk_key_time
+    assert_equal [], instance.chunk_keys
+    assert{ instance.buffer.is_a?(Fluent::Plugin::MemoryBuffer) }
+    assert_equal( 10*1024*1024, instance.buffer.chunk_limit_size )
+  end
+
   def test_configure_udp_heartbeat
     d = create_driver(CONFIG + "\nheartbeat_type udp")
     assert_equal :udp, d.instance.heartbeat_type
