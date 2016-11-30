@@ -1,8 +1,11 @@
 require_relative '../helper'
 require 'timecop'
 require 'fluent/plugin/filter_parser'
+require 'flexmock/test_unit'
 
 class ParserFilterTest < Test::Unit::TestCase
+  include FlexMock::TestCase
+
   setup do
     Fluent::Test.setup
     @time = Time.parse("2012-01-02 13:14:15")
@@ -588,6 +591,15 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 1, filtered.length
     assert_nil filtered[0][2]['data']
     assert_equal 'bar', filtered[0][2]['foo']
+
+    d = create_driver(CONFIG_NOT_IGNORE + "emit_invalid_record_to_error true", 'test.no.ignore')
+    assert_nothing_raised {
+      flexmock(d.instance.router).should_receive(:emit_error_event).
+        with(String, Integer, Hash, ArgumentError).once
+      d.run do
+        d.filter({'foo' => 'bar'}, Time.now.to_i)
+      end
+    }
   end
 
   # suppress_parse_error_log test
@@ -689,13 +701,11 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_nothing_raised
-      swap_logger(@d.instance) do
       assert_nothing_raised {
         @d.run do
           @d.filter({'message' => VALID_MESSAGE}, Time.now.to_i)
         end
       }
-      end
     end
   end
 
@@ -706,14 +716,29 @@ class ParserFilterTest < Test::Unit::TestCase
     end
 
     def test_nothing_raised
-      swap_logger(@d.instance) do
       assert_nothing_raised {
         @d.run do
           @d.filter({'message' => INVALID_MESSAGE}, Time.now.to_i)
           @d.filter({'message' => VALID_MESSAGE},   Time.now.to_i)
         end
       }
-      end
+    end
+  end
+
+  class EmitInvalidRecordErrorTest < self
+    def setup
+      # enabled 'suppress_parse_error_log'
+      @d = create_driver(CONFIG_ENABELED_SUPPRESS_PARSE_ERROR_LOG + "emit_invalid_record_to_error true", 'test.no.change')
+    end
+
+    def test_nothing_raised
+      flexmock(@d.instance.router).should_receive(:emit_error_event).
+        with(String, Integer, Hash, Fluent::ParserError).once
+      assert_nothing_raised {
+        @d.run do
+          @d.filter({'message' => INVALID_MESSAGE}, Time.now.to_i)
+        end
+      }
     end
   end
 end
