@@ -1296,7 +1296,7 @@ module Fluent::Config
           obj.configure(config_element('ROOT', '', {'key2' => 'yay'}, []))
         end
         first_log = obj.log.logs.first
-        assert{ first_log && first_log.include?("[error]") && first_log.include?("'key2' parameter is already removed: key2 has been removed.") }
+        assert{ first_log && first_log.include?("[error]") && first_log.include?("config error in:\n<ROOT>\n  key2 yay\n</ROOT>") }
       end
 
       sub_test_case 'logger is nil' do
