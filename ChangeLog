@@ -1,5 +1,25 @@
 # v0.12
 
+## Release 0.12.30 - 2016/12/01
+
+### New features / Enhancement
+
+* in_tail: Optimize to split lines
+  https://github.com/fluent/fluentd/pull/1325
+* in_monitor_agent: Port #1317 changes
+  https://github.com/fluent/fluentd/pull/1317
+* filter_parser: Add emit_invalid_record_to_error parameter
+  https://github.com/fluent/fluentd/pull/1339
+* test: Add v0.14 compatible test helpers
+  https://github.com/fluent/fluentd/pull/1322
+
+### Bug fixes
+
+* Use compat mode instead of stric mode for oj
+  https://github.com/fluent/fluentd/pull/1304
+* Port #1331 changes for oj
+  https://github.com/fluent/fluentd/pull/1331
+
 ## Release 0.12.29 - 2016/09/05
 
 ### New features / Enhancement
