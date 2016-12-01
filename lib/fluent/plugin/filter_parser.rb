@@ -12,6 +12,7 @@ class Fluent::ParserFilter < Fluent::Filter
   config_param :suppress_parse_error_log, :bool, default: false
   config_param :time_parse, :bool, default: true
   config_param :ignore_key_not_exist, :bool, default: false
+  config_param :emit_invalid_record_to_error, :bool, default: false
 
   attr_reader :parser
 
@@ -34,7 +35,11 @@ class Fluent::ParserFilter < Fluent::Filter
     es.each do |time,record|
       raw_value = record[@key_name]
       if raw_value.nil?
-        log.warn "#{@key_name} does not exist" unless @ignore_key_not_exist
+        if @emit_invalid_record_to_error
+          router.emit_error_event(tag, time, record, ArgumentError.new("#{@key_name} does not exist"))
+        else
+          log.warn "#{@key_name} does not exist" unless @ignore_key_not_exist
+        end
         new_es.add(time, handle_parsed(tag, record, time, {})) if @reserve_data
         next
       end
@@ -45,7 +50,11 @@ class Fluent::ParserFilter < Fluent::Filter
             r = handle_parsed(tag, record, t, values)
             new_es.add(t, r)
           else
-            log.warn "pattern not match with data '#{raw_value}'" unless @suppress_parse_error_log
+            if @emit_invalid_record_to_error
+              router.emit_error_event(tag, time, record, ::Fluent::ParserError.new("pattern not match with data '#{raw_value}'"))
+            else
+              log.warn "pattern not match with data '#{raw_value}'" unless @suppress_parse_error_log
+            end
             if @reserve_data
               t = time
               r = handle_parsed(tag, record, time, {})
@@ -53,33 +62,24 @@ class Fluent::ParserFilter < Fluent::Filter
             end
           end
         end
-      rescue Fluent::TextParser::ParserError => e
-        log.warn e.message unless @suppress_parse_error_log
-      rescue ArgumentError => e
-        if @replace_invalid_sequence
-          unless e.message.index("invalid byte sequence in") == 0
-            raise
-          end
-          replaced_string = replace_invalid_byte(raw_value)
-          @parser.parse(replaced_string) do |t,values|
-            if values
-              t ||= time
-              r = handle_parsed(tag, record, t, values)
-              new_es.add(t, r)
-            else
-              log.warn "pattern not match with data '#{raw_value}'" unless @suppress_parse_error_log
-              if @reserve_data
-                t = time
-                r = handle_parsed(tag, record, time, {})
-                new_es.add(t, r)
-              end
-            end
-          end
+      rescue Fluent::ParserError => e
+        if @emit_invalid_record_to_error
+          router.emit_error_event(tag, time, record, e)
         else
-          raise
+          log.warn e.message unless @suppress_parse_error_log
         end
+      rescue ArgumentError => e
+        raise unless @replace_invalid_sequence
+        raise unless e.message.index("invalid byte sequence in") == 0
+
+        raw_value = replace_invalid_byte(raw_value)
+        retry
       rescue => e
-        log.warn "parse failed #{e.message}" unless @suppress_parse_error_log
+        if @emit_invalid_record_to_error
+          router.emit_error_event(tag, time, record, Fluent::ParserError.new("parse failed #{e.message}"))
+        else
+          log.warn "parse failed #{e.message}" unless @suppress_parse_error_log
+        end
       end
     end
     new_es
