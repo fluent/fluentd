@@ -7,6 +7,11 @@ class ExecInputTest < Test::Unit::TestCase
     Fluent::Test.setup
     @test_time = Time.parse("2011-01-02 13:14:15").to_i
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
+    @count_file = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'count.txt'))
+  end
+
+  def teardown
+    FileUtils.rm_f(@count_file)
   end
 
   def create_driver(conf = tsv_config)
@@ -50,6 +55,17 @@ class ExecInputTest < Test::Unit::TestCase
       format /(?<time>[^\\\]]*) (?<message>[^ ]*)/
       tag regex_tag
       run_interval 1s
+    ]
+  end
+
+  def invalid_json_config
+    # For counting command execution, redirect stderr to file
+    %[
+      command ruby #{@script} #{@test_time} 4 2>>#{@count_file}
+      format json
+      tag_key tag
+      time_key time
+      run_interval 0.5
     ]
   end
 
@@ -129,5 +145,16 @@ class ExecInputTest < Test::Unit::TestCase
     assert_equal true, emits.length > 0
     assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
     assert_equal @test_time, emits[0][1]
+  end
+
+  def test_emit_with_invalid_script
+    d = create_driver invalid_json_config
+
+    d.run do
+      sleep 2
+    end
+
+    assert_equal true, d.emits.empty?
+    assert_equal true, File.read(@count_file).length.between?(1, 4)
   end
 end
