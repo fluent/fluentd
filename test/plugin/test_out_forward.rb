@@ -106,6 +106,11 @@ EOL
     assert_equal :none, d.instance.heartbeat_type
   end
 
+  def test_configure_expire_dns_cache
+    d = create_driver(CONFIG + "\nexpire_dns_cache 5")
+    assert_equal 5, d.instance.expire_dns_cache
+  end
+
   def test_configure_dns_round_robin
     assert_raise(Fluent::ConfigError) do
       create_driver(CONFIG + "\nheartbeat_type udp\ndns_round_robin true")
