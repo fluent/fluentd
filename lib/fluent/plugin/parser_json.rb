@@ -53,7 +53,7 @@ module Fluent
         end
       rescue LoadError
         name = :yajl
-        log.info "Oj is not installed, and failing back to Yajl for json parser"
+        log.info "Oj is not installed, and failing back to Yajl for json parser" if log
         retry
       end
 
