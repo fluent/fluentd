@@ -147,7 +147,7 @@ module Fluent
             #             because they are expected to be removed entirely sometime in the future.
             # Obsoleted: These obsolete features have been entirely removed from JavaScript and can no longer be used.
             if opts[:deprecated]
-              logger.warn "'#{name}' parameter is deprecated: #{opts[:deprecated]}"
+              logger.warn "'#{name}' parameter is deprecated: #{opts[:deprecated]}" if logger
             end
             if opts[:obsoleted]
               logger.error "config error in:\n#{conf}" if logger
