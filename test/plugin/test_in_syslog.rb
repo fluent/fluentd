@@ -176,7 +176,41 @@ class SyslogInputTest < Test::Unit::TestCase
     end
 
     assert(d.events.size > 0)
-    compare_test_result(d.events, tests, host)
+    compare_test_result(d.events, tests, {host: host})
+  end
+
+  def test_msg_size_with_include_priority
+    d = create_driver([CONFIG, 'priority_key priority'].join("\n"))
+    tests = create_test_case
+
+    priority = 'info'
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size > 0)
+    compare_test_result(d.events, tests, {priority: priority})
+  end
+
+  def test_msg_size_with_include_facility
+    d = create_driver([CONFIG, 'facility_key facility'].join("\n"))
+    tests = create_test_case
+
+    facility = 'kern'
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size > 0)
+    compare_test_result(d.events, tests, {facility: facility})
   end
 
   def create_test_case(large_message: false)
@@ -195,11 +229,13 @@ class SyslogInputTest < Test::Unit::TestCase
     end
   end
 
-  def compare_test_result(events, tests, host = nil)
+  def compare_test_result(events, tests, options = {})
     events.each_index { |i|
       assert_equal('syslog.kern.info', events[i][0]) # <6> means kern.info
       assert_equal(tests[i]['expected'], events[i][2]['message'])
-      assert_equal(host, events[i][2]['source_host']) if host
+      assert_equal(options[:host], events[i][2]['source_host']) if options[:host]
+      assert_equal(options[:priority], events[i][2]['priority']) if options[:priority]
+      assert_equal(options[:facility], events[i][2]['facility']) if options[:facility]
     }
   end
 end
