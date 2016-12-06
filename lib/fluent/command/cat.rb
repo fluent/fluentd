@@ -128,7 +128,7 @@ class Writer
     end
   end
 
-  def initialize(tag, connector, time_as_integer)
+  def initialize(tag, connector, time_as_integer: false)
     @tag = tag
     @connector = connector
     @socket = false
@@ -283,7 +283,7 @@ else
   }
 end
 
-w = Writer.new(tag, connector, time_as_integer)
+w = Writer.new(tag, connector, time_as_integer: time_as_integer)
 w.start
 
 case format
