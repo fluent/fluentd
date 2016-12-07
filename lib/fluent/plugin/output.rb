@@ -918,6 +918,8 @@ module Fluent
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
           @counters_monitor.synchronize{ @rollback_count += 1 }
+          primary = @as_secondary ? @primary_instance : self
+          primary.update_retry_state(chunk_id, @as_secondary)
           true
         else
           false
@@ -930,7 +932,9 @@ module Fluent
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
               @counters_monitor.synchronize{ @rollback_count += 1 }
-              log.warn "failed to flush the buffer chunk, timeout to commit.", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
+              log.warn "failed to flush the buffer chunk, timeout to commit.", chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
+              primary = @as_secondary ? @primary_instance : self
+              primary.update_retry_state(info.chunk_id, @as_secondary)
             end
           end
         end
@@ -943,7 +947,9 @@ module Fluent
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
               @counters_monitor.synchronize{ @rollback_count += 1 }
-              log.info "delayed commit for buffer chunks was cancelled in shutdown", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(info.chunk_id)
+              log.info "delayed commit for buffer chunks was cancelled in shutdown", chunk_id: dump_unique_id_hex(info.chunk_id)
+              primary = @as_secondary ? @primary_instance : self
+              primary.update_retry_state(info.chunk_id, @as_secondary)
             end
           end
         end
@@ -1005,35 +1011,52 @@ module Fluent
           end
           @buffer.takeback_chunk(chunk.unique_id)
 
-          @retry_mutex.synchronize do
-            if @retry
-              @counters_monitor.synchronize{ @num_errors += 1 }
-              if @retry.limit?
-                records = @buffer.queued_records
-                log.error "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.", plugin_id: plugin_id, retry_times: @retry.steps, records: records, error: e
-                log.error_backtrace e.backtrace
-                @buffer.clear_queue!
-                log.debug "buffer queue cleared", plugin_id: plugin_id
-                @retry = nil
-              else
-                @retry.step
-                msg = if using_secondary
-                        "failed to flush the buffer with secondary output."
-                      else
-                        "failed to flush the buffer."
-                      end
-                log.warn msg, plugin_id: plugin_id, retry_time: @retry.steps, next_retry: @retry.next_time, chunk: dump_unique_id_hex(chunk.unique_id), error: e
-                log.warn_backtrace e.backtrace
-              end
+          update_retry_state(chunk.unique_id, using_secondary, e)
+
+          raise if @under_plugin_development && !@retry_for_error_chunk
+        end
+      end
+
+      def update_retry_state(chunk_id, using_secondary, error = nil)
+        @retry_mutex.synchronize do
+          @counters_monitor.synchronize{ @num_errors += 1 }
+          chunk_id_hex = dump_unique_id_hex(chunk_id)
+
+          unless @retry
+            @retry = retry_state(@buffer_config.retry_randomize)
+            if error
+              log.warn "failed to flush the buffer.", retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+              log.warn_backtrace error.backtrace
+            end
+            return
+          end
+
+          # @retry exists
+
+          if error
+            if @retry.limit?
+              records = @buffer.queued_records
+              msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
+              log.error msg, retry_times: @retry.steps, records: records, error: error
+              log.error_backtrace error.backtrace
+            elsif using_secondary
+              msg = "failed to flush the buffer with secondary output."
+              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+              log.warn_backtrace error.backtrace
             else
-              @retry = retry_state(@buffer_config.retry_randomize)
-              @counters_monitor.synchronize{ @num_errors += 1 }
-              log.warn "failed to flush the buffer.", plugin_id: plugin_id, retry_time: @retry.steps, next_retry: @retry.next_time, chunk: dump_unique_id_hex(chunk.unique_id), error: e
-              log.warn_backtrace e.backtrace
+              msg = "failed to flush the buffer."
+              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+              log.warn_backtrace error.backtrace
             end
           end
 
-          raise if @under_plugin_development && !@retry_for_error_chunk
+          if @retry.limit?
+            @buffer.clear_queue!
+            log.debug "buffer queue cleared"
+            @retry = nil
+          else
+            @retry.step
+          end
         end
       end
 
