@@ -34,15 +34,11 @@ module Fluent
 
         def initialize(klass, opts: {}, &block)
           if klass.is_a?(Class)
-            if block
-              # Create new class for test w/ overwritten methods
-              #   klass.dup is worse because its ancestors does NOT include original class name
-              klass_name = klass.name
-              klass = Class.new(klass)
-              klass.define_singleton_method("name") { klass_name }
-              klass.module_eval(&block)
-            end
             @instance = klass.new
+            if block
+              @instance.singleton_class.module_eval(&block)
+              @instance.send(:initialize)
+            end
           else
             @instance = klass
           end
@@ -143,16 +139,26 @@ module Fluent
         def instance_shutdown
           instance_hook_before_stopped
 
-          @instance.stop            unless @instance.stopped?
-          @instance.before_shutdown unless @instance.before_shutdown?
-          @instance.shutdown        unless @instance.shutdown?
+          unless @instance.stopped?
+            @instance.stop rescue nil
+          end
+          unless @instance.before_shutdown?
+            @instance.before_shutdown rescue nil
+          end
+          unless @instance.shutdown?
+            @instance.shutdown rescue nil
+          end
 
           if @instance.respond_to?(:event_loop_wait_until_stop)
             @instance.event_loop_wait_until_stop
           end
 
-          @instance.after_shutdown  unless @instance.after_shutdown?
-          @instance.close     unless @instance.closed?
+          unless @instance.after_shutdown?
+            @instance.after_shutdown rescue nil
+          end
+          unless @instance.closed?
+            @instance.close rescue nil
+          end
 
           if @instance.respond_to?(:thread_wait_until_stop)
             @instance.thread_wait_until_stop
@@ -162,7 +168,9 @@ module Fluent
             @instance.server_wait_until_stop
           end
 
-          @instance.terminate unless @instance.terminated?
+          unless @instance.terminated?
+            @instance.terminate rescue nil
+          end
 
           if @socket_manager_server
             @socket_manager_server.close
