@@ -1460,6 +1460,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
       @i.after_start
+      @i.log = Fluent::Test::TestLogger.new
     end
 
     test '#format is called for each event streams' do
@@ -1740,8 +1741,9 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       assert{ chunks[0...3].all?{|c| !c.empty? } }
 
-      # rollback is in progress, but some may be flushed again after rollback
-      Timecop.freeze( Time.parse('2016-04-13 14:04:46 +0900') )
+      # rollback is in progress, but some may be flushed again in retry state, after rollback
+      # retry.next_time is 14:04:49
+      Timecop.freeze( Time.parse('2016-04-13 14:04:50 +0900') )
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
 
