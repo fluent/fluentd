@@ -99,7 +99,7 @@ module Fluent
           if @_inject_hostname_key
             @_inject_hostname =  @inject_config.hostname
             unless @_inject_hostname
-              @_inject_hostname = Socket.gethostname
+              @_inject_hostname = ::Socket.gethostname
               log.info "using hostname for specified field", host_key: @_inject_hostname_key, host_name: @_inject_hostname
             end
           end
