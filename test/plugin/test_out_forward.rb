@@ -9,6 +9,11 @@ require 'fluent/plugin/in_forward'
 class ForwardOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    @d = nil
+  end
+
+  def teardown
+    @d.instance_shutdown if @d
   end
 
   TARGET_HOST = '127.0.0.1'
@@ -32,35 +37,23 @@ class ForwardOutputTest < Test::Unit::TestCase
     Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
       attr_reader :responses, :exceptions
 
-      def write(chunk)
-        super
-      end
-
       def initialize
         super
         @responses = []
         @exceptions = []
       end
 
-      def configure(conf)
-        super
-        m = Module.new do
-          def send_data(tag, chunk)
-            @sender.responses << super
-          rescue => e
-            @sender.exceptions << e
-            raise e
-          end
-        end
-        @nodes.each do |node|
-          node.singleton_class.prepend(m)
-        end
+      def read_ack_from_sock(sock, unpacker)
+        @responses << super
+      rescue => e
+        @exceptions << e
+        raise e
       end
     }.configure(conf)
   end
 
-  def test_configure
-    d = create_driver(%[
+  test 'configure' do
+    @d = d = create_driver(%[
       self_hostname localhost
       <server>
         name test
@@ -78,8 +71,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal TARGET_PORT, node.port
   end
 
-  def test_configure_traditional
-    d = create_driver(<<EOL)
+  test 'configure_traditional' do
+    @d = d = create_driver(<<EOL)
       self_hostname localhost
       <server>
         name test
@@ -96,49 +89,53 @@ EOL
     assert_equal( 10*1024*1024, instance.buffer.chunk_limit_size )
   end
 
-  def test_configure_udp_heartbeat
-    d = create_driver(CONFIG + "\nheartbeat_type udp")
+  test 'configure_udp_heartbeat' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type udp")
     assert_equal :udp, d.instance.heartbeat_type
   end
 
-  def test_configure_none_heartbeat
-    d = create_driver(CONFIG + "\nheartbeat_type none")
+  test 'configure_none_heartbeat' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type none")
     assert_equal :none, d.instance.heartbeat_type
   end
 
-  def test_configure_expire_dns_cache
-    d = create_driver(CONFIG + "\nexpire_dns_cache 5")
+  test 'configure_expire_dns_cache' do
+    @d = d = create_driver(CONFIG + "\nexpire_dns_cache 5")
     assert_equal 5, d.instance.expire_dns_cache
   end
 
-  def test_configure_dns_round_robin
+  test 'configure_dns_round_robin udp' do
     assert_raise(Fluent::ConfigError) do
       create_driver(CONFIG + "\nheartbeat_type udp\ndns_round_robin true")
     end
+  end
 
-    d = create_driver(CONFIG + "\nheartbeat_type tcp\ndns_round_robin true")
-    assert_equal true, d.instance.dns_round_robin
-
-    d = create_driver(CONFIG + "\nheartbeat_type none\ndns_round_robin true")
+  test 'configure_dns_round_robin tcp' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type tcp\ndns_round_robin true")
     assert_equal true, d.instance.dns_round_robin
   end
 
-  def test_configure_no_server
+  test 'configure_dns_round_robin none' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type none\ndns_round_robin true")
+    assert_equal true, d.instance.dns_round_robin
+  end
+
+  test 'configure_no_server' do
     assert_raise(Fluent::ConfigError, 'forward output plugin requires at least one <server> is required') do
       create_driver('')
     end
   end
 
-  def test_compress_default_value
-    d = create_driver
+  test 'compress_default_value' do
+    @d = d = create_driver
     assert_equal :text, d.instance.compress
 
     node = d.instance.nodes.first
     assert_equal :text, node.instance_variable_get(:@compress)
   end
 
-  def test_set_compress_is_gzip
-    d = create_driver(CONFIG + %[compress gzip])
+  test 'set_compress_is_gzip' do
+    @d = d = create_driver(CONFIG + %[compress gzip])
     assert_equal :gzip, d.instance.compress
     assert_equal :gzip, d.instance.buffer.compress
 
@@ -146,11 +143,11 @@ EOL
     assert_equal :gzip, node.instance_variable_get(:@compress)
   end
 
-  def test_set_compress_is_gzip_in_buffer_section
+  test 'set_compress_is_gzip_in_buffer_section' do
     mock = flexmock($log)
     mock.should_receive(:log).with("buffer is compressed.  If you also want to save the bandwidth of a network, Add `compress` configuration in <match>")
 
-    d = create_driver(CONFIG + %[
+    @d = d = create_driver(CONFIG + %[
        <buffer>
          type memory
          compress gzip
@@ -163,25 +160,29 @@ EOL
     assert_equal :text, node.instance_variable_get(:@compress)
   end
 
-  def test_phi_failure_detector
-    d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
+  test 'phi_failure_detector disabled' do
+    @d = d = create_driver(CONFIG + %[phi_failure_detector false \n phi_threshold 0])
     node = d.instance.nodes.first
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
     assert_equal node.available, true
+  end
 
-    d = create_driver(CONFIG + %[phi_failure_detector true \n phi_threshold 0])
+  test 'phi_failure_detector enabled' do
+    @d = d = create_driver(CONFIG + %[phi_failure_detector true \n phi_threshold 0])
     node = d.instance.nodes.first
     node.tick
     assert_equal node.available, false
   end
 
-  def test_wait_response_timeout_config
-    d = create_driver(CONFIG)
+  test 'require_ack_response is disabled in default' do
+    @d = d = create_driver(CONFIG)
     assert_equal false, d.instance.require_ack_response
     assert_equal 190, d.instance.ack_response_timeout
+  end
 
-    d = create_driver(CONFIG + %[
+  test 'require_ack_response can be enabled' do
+    @d = d = create_driver(CONFIG + %[
       require_ack_response true
       ack_response_timeout 2s
     ])
@@ -189,10 +190,10 @@ EOL
     assert_equal 2, d.instance.ack_response_timeout
   end
 
-  def test_send_with_time_as_integer
+  test 'send_with_time_as_integer' do
     target_input_driver = create_target_input_driver
 
-    d = create_driver(CONFIG + %[flush_interval 1s])
+    @d = d = create_driver(CONFIG + %[flush_interval 1s])
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
@@ -200,8 +201,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run do
-      d.end_if{ d.instance.responses.length == 1 }
+    target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
           d.feed(time, record)
@@ -215,14 +215,13 @@ EOL
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
   end
 
-  def test_send_without_time_as_integer
+  test 'send_without_time_as_integer' do
     target_input_driver = create_target_input_driver
 
-    d = create_driver(CONFIG + %[
+    @d = d = create_driver(CONFIG + %[
       flush_interval 1s
       time_as_integer false
     ])
@@ -233,8 +232,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run do
-      d.end_if{ d.instance.responses.length == 1 }
+    target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
           d.feed(time, record)
@@ -248,14 +246,13 @@ EOL
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
   end
 
-  def test_send_comprssed_message_pack_stream_if_compress_is_gzip
+  test 'send_comprssed_message_pack_stream_if_compress_is_gzip' do
     target_input_driver = create_target_input_driver
 
-    d = create_driver(CONFIG + %[
+    @d = d = create_driver(CONFIG + %[
       flush_interval 1s
       compress gzip
     ])
@@ -266,8 +263,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run do
-      d.end_if{ d.instance.responses.length == 1 }
+    target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
           d.feed(time, record)
@@ -283,10 +279,10 @@ EOL
     assert_equal ['test', time, records[1]], events[1]
   end
 
-  def test_send_to_a_node_supporting_responses
+  test 'send_to_a_node_supporting_responses' do
     target_input_driver = create_target_input_driver
 
-    d = create_driver(CONFIG + %[flush_interval 1s])
+    @d = d = create_driver(CONFIG + %[flush_interval 1s])
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
@@ -294,8 +290,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run do
-      d.end_if{ d.instance.responses.length == 1 }
+    target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
           d.feed(time, record)
@@ -307,14 +302,14 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
+    assert_empty d.instance.responses # not attempt to receive responses, so it's empty
     assert_empty d.instance.exceptions
   end
 
-  def test_send_to_a_node_not_supporting_responses
+  test 'send_to_a_node_not_supporting_responses' do
     target_input_driver = create_target_input_driver
 
-    d = create_driver(CONFIG + %[flush_interval 1s])
+    @d = d = create_driver(CONFIG + %[flush_interval 1s])
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
@@ -322,8 +317,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run do
-      d.end_if{ d.instance.responses.length == 1 }
+    target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
           d.feed(time, record)
@@ -335,17 +329,22 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
+    assert_empty d.instance.responses # not attempt to receive responses, so it's empty
     assert_empty d.instance.exceptions
   end
 
-  def test_require_a_node_supporting_responses_to_respond_with_ack
+  test 'a node supporting responses' do
     target_input_driver = create_target_input_driver
 
-    d = create_driver(CONFIG + %[
-      flush_interval 1s
+    @d = d = create_driver(CONFIG + %[
       require_ack_response true
       ack_response_timeout 1s
+      <buffer tag>
+        flush_mode immediate
+        retry_type periodic
+        retry_wait 30s
+        flush_at_shutdown false # suppress errors in d.instance_shutdown
+      </buffer>
     ])
 
     time = event_time("2011-01-02 13:14:15 UTC")
@@ -354,12 +353,10 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    target_input_driver.run do
-      d.end_if{ d.instance.responses.length == 1 }
-      d.run(default_tag: 'test') do
-        records.each do |record|
-          d.feed(time, record)
-        end
+    target_input_driver.run(expect_records: 2) do
+      d.end_if{ d.instance.responses.length > 0 }
+      d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
+        d.feed([[time, records[0]], [time,records[1]]])
       end
     end
 
@@ -368,18 +365,25 @@ EOL
     assert_equal ['test', time, records[1]], events[1]
 
     assert_equal 1, d.instance.responses.length
-    assert d.instance.responses[0].has_key?('ack')
     assert_empty d.instance.exceptions
   end
 
-  def test_require_a_node_not_supporting_responses_to_respond_with_ack
-    target_input_driver = create_target_input_driver(response_stub: ->(_option) { nil }, disconnect: true)
+  test 'a destination node not supporting responses by just ignoring' do
+    target_input_driver = create_target_input_driver(response_stub: ->(_option) { nil }, disconnect: false)
 
-    d = create_driver(CONFIG + %[
-      flush_interval 1s
+    @d = d = create_driver(CONFIG + %[
       require_ack_response true
       ack_response_timeout 1s
+      <buffer tag>
+        flush_mode immediate
+        retry_type periodic
+        retry_wait 30s
+        flush_at_shutdown false # suppress errors in d.instance_shutdown
+      </buffer>
     ])
+
+    node = d.instance.nodes.first
+    delayed_commit_timeout_value = nil
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
@@ -387,38 +391,44 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    assert_raise Fluent::Plugin::ForwardOutput::ACKTimeoutError do
-      target_input_driver.run do
-        d.end_if{ d.instance.responses.length == 1 }
-        d.run(default_tag: 'test', timeout: 2, wait_flush_completion: false) do
-          records.each do |record|
-            d.feed(time, record)
-          end
-        end
+    target_input_driver.end_if{ d.instance.rollback_count > 0 }
+    target_input_driver.end_if{ !node.available }
+    target_input_driver.run(expect_records: 2, timeout: 25) do
+      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false) do
+        delayed_commit_timeout_value = d.instance.delayed_commit_timeout
+        d.feed([[time, records[0]], [time,records[1]]])
       end
     end
+
+    assert_equal 1, delayed_commit_timeout_value
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    node = d.instance.nodes.first
-    assert_equal false, node.available # node is regarded as unavailable when timeout
+    assert{ d.instance.rollback_count > 0 }
 
-    assert_empty d.instance.responses # send_data() raises exception, so response is missing
-    assert_equal 1, d.instance.exceptions.size
+    logs = d.instance.log.logs
+    assert{ logs.any?{|log| log.include?("failed to flush the buffer chunk, timeout to commit.") } }
+    assert{ logs.any?{|log| log.include?("no response from node. regard it as unavailable.") } }
   end
 
-  # bdf1f4f104c00a791aa94dc20087fe2011e1fd83
-  def test_require_a_node_not_supporting_responses_2_to_respond_with_ack
-    # in_forward, that doesn't support ack feature, and disconnect immediately
+  test 'a destination node not supporting responses by disconnection' do
     target_input_driver = create_target_input_driver(response_stub: ->(_option) { nil }, disconnect: true)
 
-    d = create_driver(CONFIG + %[
-      flush_interval 1s
+    @d = d = create_driver(CONFIG + %[
       require_ack_response true
       ack_response_timeout 5s
+      <buffer tag>
+        flush_mode immediate
+        retry_type periodic
+        retry_wait 30s
+        flush_at_shutdown false # suppress errors in d.instance_shutdown
+      </buffer>
     ])
+
+    node = d.instance.nodes.first
+    delayed_commit_timeout_value = nil
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
@@ -426,29 +436,29 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    assert_raise Fluent::Plugin::ForwardOutput::ACKTimeoutError do
-      target_input_driver.run do
-        d.end_if{ d.instance.responses.length == 1 }
-        d.run(default_tag: 'test', timeout: 2, wait_flush_completion: false) do
-          records.each do |record|
-            d.feed(time, record)
-          end
-        end
+    target_input_driver.end_if{ d.instance.rollback_count > 0 }
+    target_input_driver.end_if{ !node.available }
+    target_input_driver.run(expect_records: 2, timeout: 25) do
+      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false) do
+        delayed_commit_timeout_value = d.instance.delayed_commit_timeout
+        d.feed([[time, records[0]], [time,records[1]]])
       end
     end
+
+    assert_equal 5, delayed_commit_timeout_value
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal 0, d.instance.responses.size
-    assert_equal 1, d.instance.exceptions.size # send_data() fails and to be retried
+    assert{ d.instance.rollback_count > 0 }
 
-    node = d.instance.nodes.first
-    assert_equal false, node.available # node is regarded as unavailable when unexpected EOF
+    logs = d.instance.log.logs
+    assert{ logs.any?{|log| log.include?("failed to flush the buffer chunk, timeout to commit.") } }
+    assert{ logs.any?{|log| log.include?("no response from node. regard it as unavailable.") } }
   end
 
-  def test_authentication_with_shared_key
+  test 'authentication_with_shared_key' do
     input_conf = TARGET_CONFIG + %[
                    <security>
                      self_hostname in.localhost
@@ -473,7 +483,7 @@ EOL
         shared_key fluentd-sharedkey
       </server>
     ]
-    d = create_driver(output_conf)
+    @d = d = create_driver(output_conf)
 
     time = event_time("2011-01-02 13:14:15 UTC")
     records = [
@@ -495,7 +505,7 @@ EOL
     assert_equal(['test', time, records[1]], events[1])
   end
 
-  def test_authentication_with_user_auth
+  test 'authentication_with_user_auth' do
     input_conf = TARGET_CONFIG + %[
                    <security>
                      self_hostname in.localhost
@@ -527,7 +537,7 @@ EOL
         password fluentd
       </server>
     ]
-    d = create_driver(output_conf)
+    @d = d = create_driver(output_conf)
 
     time = event_time("2011-01-02 13:14:15 UTC")
     records = [
@@ -564,8 +574,8 @@ EOL
     }.configure(conf)
   end
 
-  def test_heartbeat_type_none
-    d = create_driver(CONFIG + "\nheartbeat_type none")
+  test 'heartbeat_type_none' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type none")
     node = d.instance.nodes.first
     assert_equal Fluent::Plugin::ForwardOutput::NoneHeartbeatNode, node.class
 
@@ -578,23 +588,23 @@ EOL
     assert_equal node.available, true
   end
 
-  def test_heartbeat_type_udp
-    d = create_driver(CONFIG + "\nheartbeat_type udp")
+  test 'heartbeat_type_udp' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type udp")
 
     d.instance.start
     usock = d.instance.instance_variable_get(:@usock)
-    timer = d.instance.instance_variable_get(:@timer)
-    hb = d.instance.instance_variable_get(:@hb)
+    servers = d.instance.instance_variable_get(:@_servers)
+    timers = d.instance.instance_variable_get(:@_timers)
     assert_equal UDPSocket, usock.class
-    assert_equal Fluent::Plugin::ForwardOutput::HeartbeatRequestTimer, timer.class
-    assert_equal Fluent::Plugin::ForwardOutput::HeartbeatHandler, hb.class
+    assert servers.find{|s| s.title == :out_forward_heartbeat_receiver }
+    assert timers.include?(:out_forward_heartbeat_request)
 
     mock(usock).send("\0", 0, Socket.pack_sockaddr_in(TARGET_PORT, '127.0.0.1')).once
-    timer.disable # call send_heartbeat at just once
-    timer.on_timer
+    # timer.disable # call send_heartbeat at just once
+    d.instance.send(:on_timer)
   end
 
-  def test_acts_as_secondary
+  test 'acts_as_secondary' do
     i = Fluent::Plugin::ForwardOutput.new
     conf = config_element(
       'match',

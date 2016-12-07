@@ -23,18 +23,21 @@ require 'fluent/compat/socket_util'
 module Fluent::Plugin
   class ForwardOutput < Output
     class Error < StandardError; end
-    class ResponseError < Error; end
+    class NoNodesAvailable < Error; end
     class ConnectionClosedError < Error; end
-    class ACKTimeoutError < Error; end
 
     Fluent::Plugin.register_output('forward', self)
 
-    helpers :compat_parameters
+    helpers :socket, :server, :timer, :thread, :compat_parameters
 
     LISTEN_PORT = 24224
 
+    PROCESS_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
+
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, default: 60
+    # TODO: add linger_timeout, recv_timeout
+
     desc 'The transport protocol to use for heartbeats.(udp,tcp,none)'
     config_param :heartbeat_type, :enum, list: [:tcp, :udp, :none], default: :tcp
     desc 'The interval of the heartbeat packer.'
@@ -43,8 +46,6 @@ module Fluent::Plugin
     config_param :recover_wait, :time, default: 10
     desc 'The hard timeout used to detect server failure.'
     config_param :hard_timeout, :time, default: 60
-    desc 'Set TTL to expire DNS cache in seconds.'
-    config_param :expire_dns_cache, :time, default: nil  # 0 means disable cache
     desc 'The threshold parameter used to detect server faults.'
     config_param :phi_threshold, :integer, default: 16
     desc 'Use the "Phi accrual failure detector" to detect server failure.'
@@ -52,14 +53,20 @@ module Fluent::Plugin
 
     desc 'Change the protocol to at-least-once.'
     config_param :require_ack_response, :bool, default: false  # require in_forward to respond with ack
-    desc 'This option is used when require_ack_response is true.'
-    config_param :ack_response_timeout, :time, default: 190
-    desc 'Reading data size from server'
-    config_param :read_length, :size, default: 512 # 512bytes
-    desc 'The interval while reading data from server'
-    config_param :read_interval_msec, :integer, default: 50 # 50ms
+
+    ## The reason of default value of :ack_response_timeout:
     # Linux default tcp_syn_retries is 5 (in many environment)
     # 3 + 6 + 12 + 24 + 48 + 96 -> 189 (sec)
+    desc 'This option is used when require_ack_response is true.'
+    config_param :ack_response_timeout, :time, default: 190
+
+    desc 'The interval while reading data from server'
+    config_param :read_interval_msec, :integer, default: 50 # 50ms
+    desc 'Reading data size from server'
+    config_param :read_length, :size, default: 512 # 512bytes
+
+    desc 'Set TTL to expire DNS cache in seconds.'
+    config_param :expire_dns_cache, :time, default: nil  # 0 means disable cache
     desc 'Enable client-side DNS round robin.'
     config_param :dns_round_robin, :bool, default: false # heartbeat_type 'udp' is not available for this
 
@@ -109,7 +116,10 @@ module Fluent::Plugin
       @nodes = [] #=> [Node]
       @loop = nil
       @thread = nil
-      @finished = false
+
+      @usock = nil
+      @sock_ack_waiting = nil
+      @sock_ack_waiting_mutex = nil
     end
 
     def configure(conf)
@@ -157,79 +167,104 @@ module Fluent::Plugin
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
     end
 
+    def prefer_delayed_commit
+      @require_ack_response
+    end
+
     def start
       super
+
+      # Output#start sets @delayed_commit_timeout by @buffer_config.delayed_commit_timeout
+      # But it should be overwritten by ack_response_timeout to rollback chunks after timeout
+      if @ack_response_timeout && @delayed_commit_timeout != @ack_response_timeout
+        log.info "delayed_commit_timeout is overwritten by ack_response_timeout"
+        @delayed_commit_timeout = @ack_response_timeout
+      end
 
       @rand_seed = Random.new.seed
       rebuild_weight_array
       @rr = 0
-      @usock = nil
 
       unless @heartbeat_type == :none
-        @loop = Coolio::Loop.new
-
         if @heartbeat_type == :udp
-          # assuming all hosts use udp
-          @usock = Fluent::Compat::SocketUtil.create_udp_socket(@nodes.first.host)
-          @usock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-          @hb = HeartbeatHandler.new(@usock, method(:on_heartbeat))
-          @loop.attach(@hb)
+          @usock = socket_create_udp(@nodes.first.host, @nodes.first.port, nonblock: true)
+          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length) do |data, sock|
+            sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
+            on_heartbeat(sockaddr, data)
+          end
         end
+        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_timer))
+      end
 
-        @timer = HeartbeatRequestTimer.new(@heartbeat_interval, method(:on_timer))
-        @loop.attach(@timer)
-
-        @thread = Thread.new(&method(:run))
+      if @require_ack_response
+        @sock_ack_waiting_mutex = Mutex.new
+        @sock_ack_waiting = []
+        thread_create(:out_forward_receiving_ack, &method(:ack_reader))
       end
     end
 
-    def shutdown
-      @finished = true
-      if @loop
-        @loop.watchers.each {|w| w.detach }
-        # @loop.stop
-        @loop.stop rescue nil
-      end
-      @thread.join if @thread
+    def close
       @usock.close if @usock
-
       super
-    end
-
-    def run
-      @loop.run if @loop
-    rescue
-      log.error "unexpected error", error: $!.to_s
-      log.error_backtrace
     end
 
     def write(chunk)
       return if chunk.empty?
-
       tag = chunk.metadata.tag
+      select_a_healthy_node{|node| node.send_data(tag, chunk) }
+    end
+
+    ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :node, :time, :timeout) do
+      def expired?(now)
+        time + timeout < now
+      end
+    end
+
+    def try_write(chunk)
+      if chunk.empty?
+        commit_write(chunk.unique_id)
+        return
+      end
+      tag = chunk.metadata.tag
+      sock, node = select_a_healthy_node{|n| n.send_data(tag, chunk) }
+      chunk_id = Base64.encode64(chunk.unique_id)
+      current_time = Process.clock_gettime(PROCESS_CLOCK_ID)
+      info = ACKWaitingSockInfo.new(sock, chunk_id, node, current_time, @ack_response_timeout)
+      @sock_ack_waiting_mutex.synchronize do
+        @sock_ack_waiting << info
+      end
+    end
+
+    def select_a_healthy_node
       error = nil
 
       wlen = @weight_array.length
       wlen.times do
         @rr = (@rr + 1) % wlen
         node = @weight_array[@rr]
+        next unless node.available?
 
-        if node.available?
-          begin
-            node.send_data(tag, chunk)
-            return
-          rescue
-            # for load balancing during detecting crashed servers
-            error = $!  # use the latest error
-          end
+        begin
+          ret = yield node
+          return ret, node
+        rescue
+          # for load balancing during detecting crashed servers
+          error = $!  # use the latest error
         end
       end
 
-      if error
-        raise error
-      else
-        raise "no nodes are available"  # TODO message
-      end
+      raise error if error
+      raise NoNodesAvailable, "no nodes are available"
+    end
+
+    def create_transfer_socket(host, port, &block)
+      socket_create_tcp(
+        host, port,
+        linger_timeout: @send_timeout,
+        send_timeout: @send_timeout,
+        recv_timeout: @ack_response_timeout,
+        &block
+      )
     end
 
     # MessagePack FixArray length is 3
@@ -282,21 +317,7 @@ module Fluent::Plugin
       @weight_array = weight_array
     end
 
-    class HeartbeatRequestTimer < Coolio::TimerWatcher
-      def initialize(interval, callback)
-        super(interval, true)
-        @callback = callback
-      end
-
-      def on_timer
-        @callback.call
-      rescue
-        # TODO log?
-      end
-    end
-
     def on_timer
-      return if @finished
       @nodes.each {|n|
         if n.tick
           rebuild_weight_array
@@ -311,33 +332,86 @@ module Fluent::Plugin
       }
     end
 
-    class HeartbeatHandler < Coolio::IO
-      def initialize(io, callback)
-        super(io)
-        @io = io
-        @callback = callback
-      end
-
-      def on_readable
-        begin
-          msg, addr = @io.recvfrom(1024)
-        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
-          return
+    def on_heartbeat(sockaddr, msg)
+      if node = @nodes.find {|n| n.sockaddr == sockaddr }
+        # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
+        if node.heartbeat
+          rebuild_weight_array
         end
-        host = addr[3]
-        port = addr[1]
-        sockaddr = Socket.pack_sockaddr_in(port, host)
-        @callback.call(sockaddr, msg)
-      rescue
-        # TODO log?
       end
     end
 
-    def on_heartbeat(sockaddr, msg)
-      if node = @nodes.find {|n| n.sockaddr == sockaddr }
-        #log.trace "heartbeat from '#{node.name}'", :host=>node.host, :port=>node.port
-        if node.heartbeat
-          rebuild_weight_array
+    # return chunk id when succeeded for tests
+    def read_ack_from_sock(sock, unpacker)
+      begin
+        raw_data = sock.recv(@read_length)
+      rescue Errno::ECONNRESET
+        raw_data = ""
+      end
+      info = @sock_ack_waiting_mutex.synchronize{ @sock_ack_waiting.find{|i| i.sock == sock } }
+
+      # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+      # If this happens we assume the data wasn't delivered and retry it.
+      if raw_data.empty?
+        log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
+        info.node.disable!
+        return nil
+      else
+        unpacker.feed(raw_data)
+        res = unpacker.read
+        if res['ack'] != info.chunk_id
+          # Some errors may have occured when ack and chunk id is different, so send the chunk again.
+          log.warn "ack in response and chunk id in sent data are different", chunk_id: info.chunk_id, ack: res['ack']
+          rollback_write(info.chunk_id)
+          return nil
+        end
+        return info.chunk_id
+      end
+    rescue => e
+      log.error "unexpected error while receiving ack message", error: e
+      log.error_backtrace
+    ensure
+      @sock_ack_waiting_mutex.synchronize do
+        @sock_ack_waiting.delete(info)
+      end
+    end
+
+    def ack_reader
+      select_interval = if @delayed_commit_timeout > 3
+                          2
+                        else
+                          @delayed_commit_timeout / 2.0
+                        end
+
+      unpacker = Fluent::Engine.msgpack_unpacker
+
+      while thread_current_running?
+        now = Process.clock_gettime(PROCESS_CLOCK_ID)
+        sockets = []
+        @sock_ack_waiting_mutex.synchronize do
+          new_list = []
+          @sock_ack_waiting.each do |info|
+            if info.expired?(now)
+              # There are 2 types of cases when no response has been received from socket:
+              # (1) the node does not support sending responses
+              # (2) the node does support sending response but responses have not arrived for some reasons.
+              log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
+              info.node.disable!
+              info.sock.close rescue nil
+              rollback_write(info.chunk_id)
+            else
+              sockets << info.sock
+              new_list << info
+            end
+          end
+          @sock_ack_waiting = new_list
+        end
+
+        readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
+        next unless readable_sockets
+
+        readable_sockets.each do |sock|
+          read_ack_from_sock(sock, unpacker)
         end
       end
     end
@@ -390,20 +464,6 @@ module Fluent::Plugin
         @standby
       end
 
-      def connect
-        TCPSocket.new(resolved_host, port)
-      end
-
-      def set_socket_options(sock)
-        opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-
-        opt = [@sender.send_timeout.to_i, 0].pack('L!L!')  # struct timeval
-        sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
-
-        sock
-      end
-
       def establish_connection(sock)
         while available? && @state != :established
           begin
@@ -434,98 +494,60 @@ module Fluent::Plugin
         end
       end
 
-      def send_data(tag, chunk)
-        sock = connect
+      def send_data_actual(sock, tag, chunk)
         @state = @sender.security ? :helo : :established
-        begin
-          set_socket_options(sock)
-
-          if @state != :established
-            establish_connection(sock)
-          end
-
-          unless available?
-            raise ConnectionClosedError, "failed to establish connection with node #{@name}"
-          end
-
-          option = { 'size' => chunk.size, 'compressed' => @compress }
-          option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
-
-          # out_forward always uses Raw32 type for content.
-          # Raw16 can store only 64kbytes, and it should be much smaller than buffer chunk size.
-
-          sock.write @sender.forward_header        # beginArray(3)
-          sock.write tag.to_msgpack                # 1. writeRaw(tag)
-          chunk.open(compressed: @compress) do |chunk_io|
-            sock.write [0xdb, chunk_io.size].pack('CN') # 2. beginRaw(size) raw32
-            IO.copy_stream(chunk_io, sock)              # writeRawBody(packed_es)
-          end
-          sock.write option.to_msgpack             # 3. writeOption(option)
-
-          if @sender.require_ack_response
-            # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
-            # To avoid a decrease of throughput, it is necessary to prepare a list of chunks that wait for responses
-            # and process them asynchronously.
-            if IO.select([sock], nil, nil, @sender.ack_response_timeout)
-              raw_data = begin
-                           sock.recv(1024)
-                         rescue Errno::ECONNRESET
-                           ""
-                         end
-
-              # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
-              # If this happens we assume the data wasn't delivered and retry it.
-              if raw_data.empty?
-                @log.warn "node closed the connection. regard it as unavailable.", host: @host, port: @port
-                disable!
-                raise ConnectionClosedError, "node #{@host}:#{@port} closed connection"
-              else
-                @unpacker.feed(raw_data)
-                res = @unpacker.read
-                if res['ack'] != option['chunk']
-                  # Some errors may have occured when ack and chunk id is different, so send the chunk again.
-                  raise ResponseError, "ack in response and chunk id in sent data are different"
-                end
-              end
-
-            else
-              # IO.select returns nil on timeout.
-              # There are 2 types of cases when no response has been received:
-              # (1) the node does not support sending responses
-              # (2) the node does support sending response but responses have not arrived for some reasons.
-              @log.warn "no response from node. regard it as unavailable.", host: @host, port: @port
-              disable!
-              raise ACKTimeoutError, "node #{host}:#{port} does not return ACK"
-            end
-          end
-
-          heartbeat(false)
-          res  # for test
-        ensure
-          sock.close_write
-          sock.close
+        if @state != :established
+          establish_connection(sock)
         end
+
+        unless available?
+          raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+        end
+
+        option = { 'size' => chunk.size, 'compressed' => @compress }
+        option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
+
+        # out_forward always uses Raw32 type for content.
+        # Raw16 can store only 64kbytes, and it should be much smaller than buffer chunk size.
+
+        sock.write @sender.forward_header        # beginArray(3)
+        sock.write tag.to_msgpack                # 1. writeRaw(tag)
+        chunk.open(compressed: @compress) do |chunk_io|
+          sock.write [0xdb, chunk_io.size].pack('CN') # 2. beginRaw(size) raw32
+          IO.copy_stream(chunk_io, sock)              # writeRawBody(packed_es)
+        end
+        sock.write option.to_msgpack             # 3. writeOption(option)
+      end
+
+      def send_data(tag, chunk)
+        sock = @sender.create_transfer_socket(resolved_host, port)
+        begin
+          send_data_actual(sock, tag, chunk)
+        rescue
+          sock.close rescue nil
+          raise
+        end
+
+        if @sender.require_ack_response
+          return sock # to read ACK from socket
+        end
+
+        sock.close_write rescue nil
+        sock.close rescue nil
+        heartbeat(false)
+        nil
       end
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
       def send_heartbeat
         case @sender.heartbeat_type
         when :tcp
-          sock = connect
-          begin
-            opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
-            sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
-            # opt = [@sender.send_timeout.to_i, 0].pack('L!L!')  # struct timeval
-            # sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
-
+          @sender.create_transfer_socket(resolved_host, port) do |sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
             # successful tcp connection establishment is considered as valid heartbeat
             heartbeat(true)
-          ensure
-            sock.close_write
-            sock.close
           end
         when :udp
           @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
