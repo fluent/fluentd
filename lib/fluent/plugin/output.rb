@@ -40,6 +40,8 @@ module Fluent
 
       CHUNKING_FIELD_WARN_NUM = 4
 
+      PROCESS_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
+
       config_param :time_as_integer, :bool, default: false
 
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
@@ -138,7 +140,7 @@ module Fluent
       end
 
       # Internal states
-      FlushThreadState = Struct.new(:thread, :next_time)
+      FlushThreadState = Struct.new(:thread, :next_clock)
       DequeuedChunkInfo = Struct.new(:chunk_id, :time, :timeout) do
         def expired?
           time + timeout < Time.now
@@ -898,9 +900,9 @@ module Fluent
         @retry_mutex.synchronize do
           if @retry # success to flush chunks in retries
             if secondary
-              log.warn "retry succeeded by secondary.", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(chunk_id)
+              log.warn "retry succeeded by secondary.", chunk_id: dump_unique_id_hex(chunk_id)
             else
-              log.warn "retry succeeded.", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(chunk_id)
+              log.warn "retry succeeded.", chunk_id: dump_unique_id_hex(chunk_id)
             end
             @retry = nil
           end
@@ -1003,7 +1005,7 @@ module Fluent
             log.trace "done to commit a chunk", chunk: dump_chunk_id
           end
         rescue => e
-          log.debug "taking back chunk for errors.", plugin_id: plugin_id, chunk: dump_unique_id_hex(chunk.unique_id)
+          log.debug "taking back chunk for errors.", chunk: dump_unique_id_hex(chunk.unique_id)
           if output.delayed_commit
             @dequeued_chunks_mutex.synchronize do
               @dequeued_chunks.delete_if{|d| d.chunk_id == chunk.unique_id }
@@ -1083,7 +1085,7 @@ module Fluent
         # Without locks: it is rough but enough to select "next" writer selection
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
-        state.next_time = 0
+        state.next_clock = 0
         if state.thread && state.thread.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
           state.thread.run
         else
@@ -1125,7 +1127,7 @@ module Fluent
       # only for tests of output plugin
       def flush_thread_wakeup
         @output_flush_threads.each do |state|
-          state.next_time = 0
+          state.next_clock = 0
           state.thread.run
         end
       end
@@ -1179,7 +1181,7 @@ module Fluent
               end
             rescue => e
               raise if @under_plugin_development
-              log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error: e
+              log.error "unexpected error while checking flushed chunks. ignored.", error: e
               log.error_backtrace
             ensure
               @output_enqueue_thread_waiting = false
@@ -1189,7 +1191,7 @@ module Fluent
           end
         rescue => e
           # normal errors are rescued by inner begin-rescue clause.
-          log.error "error on enqueue thread", plugin_id: plugin_id, error: e
+          log.error "error on enqueue thread", error: e
           log.error_backtrace
           raise
         end
@@ -1198,9 +1200,7 @@ module Fluent
       def flush_thread_run(state)
         flush_thread_interval = @buffer_config.flush_thread_interval
 
-        # If the given clock_id is not supported, Errno::EINVAL is raised.
-        clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
-        state.next_time = Process.clock_gettime(clock_id) + flush_thread_interval
+        state.next_clock = Process.clock_gettime(PROCESS_CLOCK_ID) + flush_thread_interval
 
         while !self.after_started? && !self.stopped?
           sleep 0.5
@@ -1210,16 +1210,18 @@ module Fluent
         begin
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase
           while @output_flush_threads_running
-            time = Process.clock_gettime(clock_id)
-            interval = state.next_time - time
+            current_clock = Process.clock_gettime(PROCESS_CLOCK_ID)
+            interval = state.next_clock - current_clock
 
-            if state.next_time <= time
+            if state.next_clock <= current_clock
               try_flush
-              # next_flush_interval uses flush_thread_interval or flush_thread_burst_interval (or retrying)
+
+              # next_flush_time uses flush_thread_interval or flush_thread_burst_interval (or retrying)
               interval = next_flush_time.to_f - Time.now.to_f
-              # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected (because @retry still exists)
-              #   @retry should be cleared if delayed commit is enabled? Or any other solution?
-              state.next_time = Process.clock_gettime(clock_id) + interval
+              # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected
+              #       because @retry still exists (#commit_write is not called yet in #try_flush)
+              #       @retry should be cleared if delayed commit is enabled? Or any other solution?
+              state.next_clock = Process.clock_gettime(PROCESS_CLOCK_ID) + interval
             end
 
             if @dequeued_chunks_mutex.synchronize{ !@dequeued_chunks.empty? && @dequeued_chunks.first.expired? }
@@ -1233,7 +1235,7 @@ module Fluent
         rescue => e
           # normal errors are rescued by output plugins in #try_flush
           # so this rescue section is for critical & unrecoverable errors
-          log.error "error on output thread", plugin_id: plugin_id, error: e
+          log.error "error on output thread", error: e
           log.error_backtrace
           raise
         end
