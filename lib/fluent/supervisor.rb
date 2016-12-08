@@ -20,6 +20,7 @@ require 'fcntl'
 require 'fluent/config'
 require 'fluent/env'
 require 'fluent/engine'
+require 'fluent/error'
 require 'fluent/log'
 require 'fluent/plugin'
 require 'fluent/rpc'
@@ -617,39 +618,54 @@ module Fluent
       }.run
     end
 
+    def logging_with_console_output
+      yield $log
+      unless @log.stdout?
+        logger = ServerEngine::DaemonLogger.new(STDOUT)
+        log = Fluent::Log.new(logger)
+        log.level = @log_level
+        console = log.enable_debug
+        yield console
+      end
+    end
+
     def main_process(&block)
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
-      configuration_error = false
+      unrecoverable_error = false
 
       begin
         block.call
       rescue Fluent::ConfigError
-        $log.error "config error", file: @config_path, error: $!.to_s
-        $log.debug_backtrace
-        unless @log.stdout?
-          logger = ServerEngine::DaemonLogger.new(STDOUT)
-          log = Fluent::Log.new(logger)
-          log.level = @log_level
-          console = log.enable_debug
-          console.error "config error", file: @config_path, error: $!.to_s
-          console.debug_backtrace
+        logging_with_console_output do |log|
+          log.error "config error", file: @config_path, error: $!
+          log.debug_backtrace
         end
-        configuration_error = true
+        unrecoverable_error = true
+      rescue Fluent::UnrecoverableError
+        logging_with_console_output do |log|
+          log.error $!.message, error: $!
+          log.error_backtrace
+        end
+        unrecoverable_error = true
+      rescue ScriptError # LoadError, NotImplementedError, SyntaxError
+        logging_with_console_output do |log|
+          if $!.respond_to?(:path)
+            log.error $!.message, path: $!.path, error: $!
+          else
+            log.error $!.message, error: $!
+          end
+          log.error_backtrace
+        end
+        unrecoverable_error = true
       rescue
-        $log.error "unexpected error", error: $!.to_s
-        $log.error_backtrace
-        unless @log.stdout?
-          logger = ServerEngine::DaemonLogger.new(STDOUT)
-          log = Fluent::Log.new(logger)
-          log.level = @log_level
-          console = log.enable_debug
-          console.error "unexpected error", error: $!.to_s
-          console.error_backtrace
+        logging_with_console_output do |log|
+          log.error "unexpected error", error: $!
+          log.error_backtrace
         end
       end
 
-      exit!(configuration_error ? 2 : 1)
+      exit!(unrecoverable_error ? 2 : 1)
     end
 
     def read_config

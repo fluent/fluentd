@@ -172,6 +172,7 @@ module Fluent
 
     def run
       begin
+        $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid # TODO: worker number
         start
 
         if @event_router.match?($log.tag)
@@ -179,6 +180,7 @@ module Fluent
           @log_emit_thread = Thread.new(&method(:log_event_loop))
         end
 
+        $log.info "fluentd worker is now running" # TODO: worker number
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
 
       rescue Exception => e
@@ -187,7 +189,7 @@ module Fluent
         raise
       end
 
-      $log.info "shutting down fluentd"
+      $log.info "shutting down fluentd worker" # TODO: worker number
       shutdown
       if @log_emit_thread
         @log_event_loop_stop = true
