@@ -1743,7 +1743,7 @@ class BufferedOutputTest < Test::Unit::TestCase
 
       # rollback is in progress, but some may be flushed again in retry state, after rollback
       # retry.next_time is 14:04:49
-      Timecop.freeze( Time.parse('2016-04-13 14:04:50 +0900') )
+      Timecop.freeze( Time.parse('2016-04-13 14:04:51 +0900') )
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
 
