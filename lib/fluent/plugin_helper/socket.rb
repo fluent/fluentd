@@ -33,7 +33,7 @@ module Fluent
 
       # TODO: implement connection pool for specified host
 
-      def socket_create(host, port, proto: :tcp, **kwargs, &block)
+      def socket_create(proto, host, port, **kwargs, &block)
         case proto
         when :tcp
           socket_create_tcp(host, port, **kwargs, &block)
@@ -44,7 +44,7 @@ module Fluent
         when :unix
           raise "not implemented yet"
         else
-          raise ArgumentError, "invalid protocol"
+          raise ArgumentError, "invalid protocol: #{proto}"
         end
       end
 
