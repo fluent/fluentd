@@ -85,6 +85,10 @@ module Fluent::Plugin
     config_param :include_source_host, :bool, default: false
     desc 'Specify key of source host when include_source_host is true.'
     config_param :source_host_key, :string, default: 'source_host'.freeze
+    desc 'The field name of the priority.'
+    config_param :priority_key, :string, default: nil
+    desc 'The field name of the facility.'
+    config_param :facility_key, :string, default: nil
     config_param :blocking_timeout, :time, default: 0.5
     config_param :message_length_limit, :size, default: 2048
 
@@ -141,8 +145,15 @@ module Fluent::Plugin
         end
 
         pri ||= record.delete('pri')
+        facility = FACILITY_MAP[pri >> 3]
+        priority = PRIORITY_MAP[pri & 0b111]
+
+        record[@priority_key] = priority if @priority_key
+        record[@facility_key] = facility if @facility_key
         record[@source_host_key] = addr[2] if @include_source_host
-        emit(pri, time, record)
+
+        tag = "#{@tag}.#{facility}.#{priority}"
+        emit(tag, time, record)
       end
     rescue => e
       log.error "invalid input", data: data, error: e
@@ -168,12 +179,7 @@ module Fluent::Plugin
       end
     end
 
-    def emit(pri, time, record)
-      facility = FACILITY_MAP[pri >> 3]
-      priority = PRIORITY_MAP[pri & 0b111]
-
-      tag = "#{@tag}.#{facility}.#{priority}"
-
+    def emit(tag, time, record)
       router.emit(tag, time, record)
     rescue => e
       log.error "syslog failed to emit", error: e, tag: tag, record: Yajl.dump(record)
