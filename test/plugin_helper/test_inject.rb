@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/plugin_helper/inject'
+require 'fluent/plugin/output'
 require 'fluent/event'
 require 'time'
 
@@ -15,6 +16,13 @@ class InjectHelperTest < Test::Unit::TestCase
     end
   end
 
+  class Dummy3 < Fluent::Plugin::Output
+    helpers :inject
+    def write(chunk)
+      # dummy
+    end
+  end
+
   def config_inject_section(hash = {})
     config_element('ROOT', '', {}, [config_element('inject', '', hash)])
   end
@@ -27,7 +35,9 @@ class InjectHelperTest < Test::Unit::TestCase
   teardown do
     if @d
       @d.stop unless @d.stopped?
+      @d.before_shutdown unless @d.before_shutdown?
       @d.shutdown unless @d.shutdown?
+      @d.after_shutdown unless @d.after_shutdown?
       @d.close unless @d.closed?
       @d.terminate unless @d.terminated?
     end
@@ -91,6 +101,17 @@ class InjectHelperTest < Test::Unit::TestCase
     assert_equal "time", @d.instance_eval{ @_inject_time_key }
     assert_equal :string, @d.instance_eval{ @inject_config.time_type }
     assert_not_nil @d.instance_eval{ @_inject_time_formatter }
+  end
+
+  test 'raise an error when injected hostname is used in buffer chunk key too' do
+    @d = Dummy3.new
+    conf = config_element('ROOT', '', {}, [
+      config_element('inject', '', {'hostname_key' => 'h'}),
+      config_element('buffer', 'tag,h'),
+    ])
+    assert_raise Fluent::ConfigError.new("the key specified by 'hostname_key' in <inject> cannot be used in buffering chunk key.") do
+      @d.configure(conf)
+    end
   end
 
   sub_test_case 'using inject_values_to_record' do
