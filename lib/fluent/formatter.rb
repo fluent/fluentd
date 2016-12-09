@@ -196,16 +196,16 @@ module Fluent
         ['\t', 'TAB'].include?(val) ? "\t" : val
       end
       config_param :force_quotes, :bool, default: true
-      config_param :fields, default: [] do |val|
-        val.split(',').map do |f|
-          f.strip!
-          f.size > 0 ? f : nil
-        end.compact
-      end
+      config_param :fields, :array, value_type: :string
 
       def initialize
         super
         require 'csv'
+      end
+
+      def configure(conf)
+        super
+        @fields = fields.select { |f| !f.empty? }
       end
 
       def format(tag, time, record)
