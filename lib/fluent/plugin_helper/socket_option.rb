@@ -15,6 +15,7 @@
 #
 
 require 'socket'
+require 'fcntl'
 
 # this module is only for Socket/Server plugin helpers
 module Fluent
@@ -50,9 +51,12 @@ module Fluent
         raise "not implemented yet"
       end
 
-      def socket_option_set(sock, resolve_name: nil, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, certopts: nil)
+      def socket_option_set(sock, resolve_name: nil, nonblock: false, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, certopts: nil)
         unless resolve_name.nil?
           sock.do_not_reverse_lookup = !resolve_name
+        end
+        if nonblock
+          sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
         end
         if linger_timeout
           optval = [1, linger_timeout.to_i].pack(FORMAT_STRUCT_LINGER)
@@ -71,7 +75,7 @@ module Fluent
       end
 
       def socket_option_set_one(sock, option, value)
-        sock.setsockopt(Socket::SOL_SOCKET, option, value)
+        sock.setsockopt(::Socket::SOL_SOCKET, option, value)
       rescue => e
         log.warn "failed to set socket option", sock: sock.class, option: option, value: value, error: e
       end

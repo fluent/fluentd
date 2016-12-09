@@ -108,10 +108,12 @@ module Fluent
       #   sock.remote_port
       #   # ...
       # end
-      def server_create(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, backlog: nil, max_bytes: nil, flags: 0, **socket_options, &callback)
+      def server_create(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, socket: nil, backlog: nil, max_bytes: nil, flags: 0, **socket_options, &callback)
         raise ArgumentError, "BUG: title must be a symbol" unless title && title.is_a?(Symbol)
         raise ArgumentError, "BUG: port must be an integer" unless port && port.is_a?(Integer)
         raise ArgumentError, "BUG: invalid protocol name" unless PROTOCOLS.include?(proto)
+
+        raise ArgumentError, "BUG: socket option is available only for udp" if socket && proto != :udp
 
         raise ArgumentError, "BUG: block not specified which handles received data" unless block_given?
         raise ArgumentError, "BUG: block must have 1 or 2 arguments" unless callback.arity == 1 || callback.arity == 2
@@ -120,8 +122,10 @@ module Fluent
           socket_options[:linger_timeout] ||= 0
         end
 
-        socket_option_validate!(proto, **socket_options)
-        socket_option_setter = ->(sock){ socket_option_set(sock, **socket_options) }
+        unless socket
+          socket_option_validate!(proto, **socket_options)
+          socket_option_setter = ->(sock){ socket_option_set(sock, **socket_options) }
+        end
 
         if proto != :tcp && proto != :tls && proto != :unix # options to listen/accept connections
           raise ArgumentError, "BUG: backlog is available for tcp/tls" if backlog
@@ -140,9 +144,15 @@ module Fluent
           raise "not implemented yet"
         when :udp
           raise ArgumentError, "BUG: max_bytes must be specified for UDP" unless max_bytes
-          sock = server_create_udp_socket(shared, bind, port)
-          socket_option_setter.call(sock)
-          server = EventHandler::UDPServer.new(sock, max_bytes, flags, @log, @under_plugin_development, &callback)
+          if socket
+            sock = socket
+            close_socket = false
+          else
+            sock = server_create_udp_socket(shared, bind, port)
+            socket_option_setter.call(sock)
+            close_socket = true
+          end
+          server = EventHandler::UDPServer.new(sock, max_bytes, flags, close_socket, @log, @under_plugin_development, &callback)
         when :unix
           raise "not implemented yet"
         else
@@ -267,10 +277,11 @@ module Fluent
       end
 
       class CallbackSocket
-        def initialize(server_type, sock, enabled_events = [])
+        def initialize(server_type, sock, enabled_events = [], close_socket: true)
           @server_type = server_type
           @sock = sock
           @enabled_events = enabled_events
+          @close_socket = close_socket
         end
 
         def remote_addr
@@ -294,12 +305,7 @@ module Fluent
         end
 
         def close
-          @sock.close
-          # close cool.io socket in another thread, not to make deadlock
-          # for flushing @_write_buffer when conn.close is called in callback
-          # ::Thread.new{
-          #   @sock.close
-          # }
+          @sock.close if @close_socket
         end
 
         def data(&callback)
@@ -334,8 +340,8 @@ module Fluent
       end
 
       class UDPCallbackSocket < CallbackSocket
-        def initialize(sock, peeraddr)
-          super("udp", sock, [])
+        def initialize(sock, peeraddr, **kwargs)
+          super("udp", sock, [], **kwargs)
           @peeraddr = peeraddr
         end
 
@@ -358,7 +364,7 @@ module Fluent
 
       module EventHandler
         class UDPServer < Coolio::IO
-          def initialize(sock, max_bytes, flags, log, under_plugin_development, &callback)
+          def initialize(sock, max_bytes, flags, close_socket, log, under_plugin_development, &callback)
             raise ArgumentError, "socket must be a UDPSocket: sock = #{sock}" unless sock.is_a?(UDPSocket)
 
             super(sock)
@@ -366,6 +372,7 @@ module Fluent
             @sock = sock
             @max_bytes = max_bytes
             @flags = flags
+            @close_socket = close_socket
             @log = log
             @under_plugin_development = under_plugin_development
             @callback = callback
@@ -398,7 +405,7 @@ module Fluent
             rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
               return
             end
-            @callback.call(data, UDPCallbackSocket.new(@sock, addr))
+            @callback.call(data, UDPCallbackSocket.new(@sock, addr, close_socket: @close_socket))
           rescue => e
             @log.error "unexpected error in processing UDP data", error: e
             @log.error_backtrace

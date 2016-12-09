@@ -100,7 +100,10 @@ class TestDriverTest < ::Test::Unit::TestCase
 
   sub_test_case 'output plugin test driver' do
     test 'returns the block value as the return value of #run' do
-      d = Fluent::Test::Driver::Output.new(Class.new(Fluent::Plugin::Output)) do
+      d = Fluent::Test::Driver::Output.new(Fluent::Plugin::Output) do
+        def prefer_buffered_processing
+          false
+        end
         def process(tag, es)
           # drop
         end
@@ -116,7 +119,7 @@ class TestDriverTest < ::Test::Unit::TestCase
 
   sub_test_case 'filter plugin test driver' do
     test 'returns the block value as the return value of #run' do
-      d = Fluent::Test::Driver::Filter.new(Class.new(Fluent::Plugin::Filter)) do
+      d = Fluent::Test::Driver::Filter.new(Fluent::Plugin::Filter) do
         def filter(tag, time, record)
           record
         end
