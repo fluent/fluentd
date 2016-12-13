@@ -292,6 +292,14 @@ module FormatterTest
       assert_nil @formatter.fields
     end
 
+    data('empty array' => [],
+         'array including empty string' => ['', ''])
+    def test_empty_fields(param)
+      assert_raise ConfigError do
+        @formatter.configure('fields' => param)
+      end
+    end
+
     data(
       'tab_char' => ["\t", '\t'],
       'tab_string' => ["\t", 'TAB'],

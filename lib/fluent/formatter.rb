@@ -206,6 +206,7 @@ module Fluent
       def configure(conf)
         super
         @fields = fields.select { |f| !f.empty? }
+        raise ConfigError, "empty value is specified in fields parameter" if @fields.empty?
       end
 
       def format(tag, time, record)
