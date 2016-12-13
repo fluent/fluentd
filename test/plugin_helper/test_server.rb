@@ -273,7 +273,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_nothing_raised do
           @d.__send__(m, :myserver, PORT, proto: proto, shared: false, **kwargs){|x| x }
         end
-        assert_raise(Errno::EADDRINUSE) do
+        assert_raise(Errno::EADDRINUSE, Errno::EACCES) do
           d2.__send__(m, :myserver, PORT, proto: proto, **kwargs){|x| x }
         end
       ensure
