@@ -203,6 +203,8 @@ module Fluent
     config_param :max_retry_wait, :time, default: nil
     desc 'The number of threads to flush the buffer.'
     config_param :num_threads, :integer, default: 1
+    desc 'The threshold to show slow flush logs'
+    config_param :slow_flush_threshold, :float, default: 5.0
     desc 'The interval between data flushes for queued chunk.'
     config_param :queued_chunk_flush_interval, :time, default: 1
 
@@ -332,10 +334,18 @@ module Fluent
           end
         end
 
+        chunk_write_start = Time.now
+
         if @secondary && !@disable_retry_limit && @num_errors > @retry_limit
           has_next = flush_secondary(@secondary)
         else
           has_next = @buffer.pop(self)
+        end
+
+        elapsed_time = Time.now - chunk_write_start
+        if elapsed_time > @slow_flush_threshold
+          $log.warn "buffer flush took longer time than slow_flush_threshold",
+                    plugin_id: plugin_id, elapsed_time: elapsed_time, slow_flush_threshold: @slow_flush_threshold
         end
 
         # success
