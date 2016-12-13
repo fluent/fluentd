@@ -58,7 +58,7 @@ begin
       ev.set
       ev.close
       if @pid > 0
-        Porcess.waitpid(@pid)
+        Process.waitpid(@pid)
       end
     end
   end
