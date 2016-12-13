@@ -47,6 +47,7 @@ module FluentOutputTest
       assert_equal nil, d.instance.max_retry_wait
       assert_equal 1.0, d.instance.retry_wait
       assert_equal 1, d.instance.num_threads
+      assert_equal 20.0, d.instance.slow_flush_log_threshold
       assert_equal 1, d.instance.queued_chunk_flush_interval
 
       # max_retry_wait

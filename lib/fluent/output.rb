@@ -204,7 +204,7 @@ module Fluent
     desc 'The number of threads to flush the buffer.'
     config_param :num_threads, :integer, default: 1
     desc 'The threshold to show slow flush logs'
-    config_param :slow_flush_log_threshold, :float, default: 5.0
+    config_param :slow_flush_log_threshold, :float, default: 20.0
     desc 'The interval between data flushes for queued chunk.'
     config_param :queued_chunk_flush_interval, :time, default: 1
 
@@ -510,6 +510,7 @@ module Fluent
     config_set_default :buffer_type, 'file'  # overwrite default buffer_type
     config_set_default :buffer_chunk_limit, 256*1024*1024  # overwrite default buffer_chunk_limit
     config_set_default :flush_interval, nil
+    config_set_default :slow_flush_log_threshold, 40.0
 
     attr_accessor :localtime
     attr_reader :time_slicer # for test
