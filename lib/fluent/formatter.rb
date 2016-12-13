@@ -207,6 +207,8 @@ module Fluent
         super
         @fields = fields.select { |f| !f.empty? }
         raise ConfigError, "empty value is specified in fields parameter" if @fields.empty?
+
+        @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes}
       end
 
       def format(tag, time, record)
@@ -215,8 +217,7 @@ module Fluent
             memo << record[key]
             memo
         end
-        CSV.generate_line(row, col_sep: @delimiter,
-                          force_quotes: @force_quotes)
+        CSV.generate_line(row, @generate_opts)
       end
     end
 
