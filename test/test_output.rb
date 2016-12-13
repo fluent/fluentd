@@ -202,7 +202,7 @@ module FluentOutputTest
       end
     end
 
-    sub_test_case "test slow_flush_threshold" do
+    sub_test_case "test slow_flush_log_threshold" do
       def create_slow_driver(conf, sleep_time)
         d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::BufferedOutput) do
           attr_accessor :sleep_time
@@ -240,20 +240,20 @@ module FluentOutputTest
         $log = @orig_log
       end
 
-      test "flush took longer time than slow_flush_threshold" do
+      test "flush took longer time than slow_flush_log_threshold" do
         d = create_slow_driver(%[
-          slow_flush_threshold 0.5
+          slow_flush_log_threshold 0.5
         ], 1.5)
         run_driver(d)
-        assert_equal 1, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_threshold/ }
+        assert_equal 1, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold/ }
       end
 
-      test "flush took lower time than slow_flush_threshold. No logs" do
+      test "flush took lower time than slow_flush_log_threshold. No logs" do
         d = create_slow_driver(%[
-          slow_flush_threshold 5.0
+          slow_flush_log_threshold 5.0
         ], 0)
         run_driver(d)
-        assert_equal 0, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_threshold/ }
+        assert_equal 0, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold/ }
       end
 
       def run_driver(d)
