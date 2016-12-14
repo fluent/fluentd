@@ -192,7 +192,7 @@ module Fluent
   module WorkerModule
     def spawn(process_manager)
       main_cmd = config[:main_cmd]
-      @pm = process_manager.spawn(main_cmd)
+      @pm = process_manager.spawn(*main_cmd)
     end
 
     def after_start
@@ -505,25 +505,13 @@ module Fluent
       $log.info "starting fluentd-#{Fluent::VERSION}"
 
       rubyopt = ENV["RUBYOPT"]
-      if Fluent.windows?
-        # Shellwords doesn't work on windows, then used gsub for adapting space char instead of Shellwords
-        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
-        fluentd_spawn_cmd << ' "' + rubyopt.gsub('"', '""') + '" ' if rubyopt
-        fluentd_spawn_cmd << ' "' + $0.gsub('"', '""') + '" '
-        $fluentdargv.each{|a|
-          fluentd_spawn_cmd << ('"' + a.gsub('"', '""') + '" ')
-        }
-      else
-        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
-        fluentd_spawn_cmd << ' ' + rubyopt + ' ' if rubyopt
-        fluentd_spawn_cmd << $0.shellescape + ' '
-        $fluentdargv.each{|a|
-          fluentd_spawn_cmd << (a.shellescape + " ")
-        }
-      end
+      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]
+      fluentd_spawn_cmd << rubyopt if rubyopt
+      fluentd_spawn_cmd << $0
+      fluentd_spawn_cmd += $fluentdargv
+      fluentd_spawn_cmd << "--under-supervisor"
 
-      fluentd_spawn_cmd << ("--under-supervisor")
-      $log.info "spawn command to main: " + fluentd_spawn_cmd
+      $log.info "spawn command to main: ", cmdline: fluentd_spawn_cmd
 
       params = {}
       params['main_cmd'] = fluentd_spawn_cmd
