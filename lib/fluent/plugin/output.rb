@@ -987,7 +987,7 @@ module Fluent
         end
 
         begin
-          chunk_write_start = Time.now
+          chunk_write_start = Process.clock_gettime(PROCESS_CLOCK_ID)
 
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
@@ -1029,7 +1029,7 @@ module Fluent
       end
 
       def check_slow_flush(start)
-        elapsed_time = Time.now - start
+        elapsed_time = Process.clock_gettime(PROCESS_CLOCK_ID) - start
         if elapsed_time > @slow_flush_log_threshold
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                    elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold
