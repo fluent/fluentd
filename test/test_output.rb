@@ -246,6 +246,9 @@ module FluentOutputTest
         d.instance.after_start
         d.instance.emit_events('test', OneEventStream.new(event_time("2016-11-08 17:44:30 +0900"), {"message" => "yay"}))
         d.instance.force_flush
+        waiting(10) do
+          sleep 0.1 until d.instance.written_chunk_keys.size == 1
+        end
         assert_equal [], d.instance.errors_in_write
         assert_equal ["2016110808"], d.instance.written_chunk_keys # default timezone is UTC
       end
