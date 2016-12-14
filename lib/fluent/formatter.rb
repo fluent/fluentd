@@ -196,16 +196,19 @@ module Fluent
         ['\t', 'TAB'].include?(val) ? "\t" : val
       end
       config_param :force_quotes, :bool, default: true
-      config_param :fields, default: [] do |val|
-        val.split(',').map do |f|
-          f.strip!
-          f.size > 0 ? f : nil
-        end.compact
-      end
+      config_param :fields, :array, value_type: :string
 
       def initialize
         super
         require 'csv'
+      end
+
+      def configure(conf)
+        super
+        @fields = fields.select { |f| !f.empty? }
+        raise ConfigError, "empty value is specified in fields parameter" if @fields.empty?
+
+        @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes}
       end
 
       def format(tag, time, record)
@@ -214,8 +217,7 @@ module Fluent
             memo << record[key]
             memo
         end
-        CSV.generate_line(row, col_sep: @delimiter,
-                          force_quotes: @force_quotes)
+        CSV.generate_line(row, @generate_opts)
       end
     end
 

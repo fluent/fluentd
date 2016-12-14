@@ -289,7 +289,15 @@ module FormatterTest
     def test_config_params
       assert_equal ',', @formatter.delimiter
       assert_equal true, @formatter.force_quotes
-      assert_equal [], @formatter.fields
+      assert_nil @formatter.fields
+    end
+
+    data('empty array' => [],
+         'array including empty string' => ['', ''])
+    def test_empty_fields(param)
+      assert_raise ConfigError do
+        @formatter.configure('fields' => param)
+      end
     end
 
     data(
@@ -298,7 +306,7 @@ module FormatterTest
       'pipe' => ['|', '|'])
     def test_config_params_with_customized_delimiters(data)
       expected, target = data
-      @formatter.configure('delimiter' => target)
+      @formatter.configure('fields' => 'f1', 'delimiter' => target)
       assert_equal expected, @formatter.delimiter
     end
 
