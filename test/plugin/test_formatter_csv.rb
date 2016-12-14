@@ -27,6 +27,14 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     assert_equal(['a', 'b', 'c'], d.instance.fields)
   end
 
+  data('empty array' => [],
+       'array including empty string' => ['', ''])
+  def test_empty_fields(param)
+    assert_raise Fluent::ConfigError do
+      create_driver('fields' => param)
+    end
+  end
+
   data(
     'tab_char' => ["\t", '\t'],
     'tab_string' => ["\t", 'TAB'],
