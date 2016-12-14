@@ -636,31 +636,31 @@ module Fluent
 
       begin
         block.call
-      rescue Fluent::ConfigError
+      rescue Fluent::ConfigError => e
         logging_with_console_output do |log|
-          log.error "config error", file: @config_path, error: $!
+          log.error "config error", file: @config_path, error: e
           log.debug_backtrace
         end
         unrecoverable_error = true
-      rescue Fluent::UnrecoverableError
+      rescue Fluent::UnrecoverableError => e
         logging_with_console_output do |log|
-          log.error $!.message, error: $!
+          log.error e.message, error: e
           log.error_backtrace
         end
         unrecoverable_error = true
-      rescue ScriptError # LoadError, NotImplementedError, SyntaxError
+      rescue ScriptError => e # LoadError, NotImplementedError, SyntaxError
         logging_with_console_output do |log|
-          if $!.respond_to?(:path)
-            log.error $!.message, path: $!.path, error: $!
+          if e.respond_to?(:path)
+            log.error e.message, path: e.path, error: e
           else
-            log.error $!.message, error: $!
+            log.error e.message, error: e
           end
           log.error_backtrace
         end
         unrecoverable_error = true
-      rescue
+      rescue => e
         logging_with_console_output do |log|
-          log.error "unexpected error", error: $!
+          log.error "unexpected error", error: e
           log.error_backtrace
         end
       end
