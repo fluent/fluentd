@@ -20,6 +20,7 @@ require 'fcntl'
 require 'fluent/config'
 require 'fluent/env'
 require 'fluent/engine'
+require 'fluent/error'
 require 'fluent/log'
 require 'fluent/plugin'
 require 'fluent/rpc'
@@ -191,7 +192,7 @@ module Fluent
   module WorkerModule
     def spawn(process_manager)
       main_cmd = config[:main_cmd]
-      @pm = process_manager.spawn(main_cmd)
+      @pm = process_manager.spawn(*main_cmd)
     end
 
     def after_start
@@ -444,7 +445,7 @@ module Fluent
 
       install_main_process_signal_handlers
 
-      $log.info "starting fluentd-#{Fluent::VERSION} without supervision"
+      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid
 
       main_process do
         create_socket_manager if @standalone_worker
@@ -501,28 +502,16 @@ module Fluent
     end
 
     def supervise
-      $log.info "starting fluentd-#{Fluent::VERSION}"
+      $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid
 
       rubyopt = ENV["RUBYOPT"]
-      if Fluent.windows?
-        # Shellwords doesn't work on windows, then used gsub for adapting space char instead of Shellwords
-        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
-        fluentd_spawn_cmd << ' "' + rubyopt.gsub('"', '""') + '" ' if rubyopt
-        fluentd_spawn_cmd << ' "' + $0.gsub('"', '""') + '" '
-        $fluentdargv.each{|a|
-          fluentd_spawn_cmd << ('"' + a.gsub('"', '""') + '" ')
-        }
-      else
-        fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
-        fluentd_spawn_cmd << ' ' + rubyopt + ' ' if rubyopt
-        fluentd_spawn_cmd << $0.shellescape + ' '
-        $fluentdargv.each{|a|
-          fluentd_spawn_cmd << (a.shellescape + " ")
-        }
-      end
+      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]
+      fluentd_spawn_cmd << rubyopt if rubyopt
+      fluentd_spawn_cmd << $0
+      fluentd_spawn_cmd += $fluentdargv
+      fluentd_spawn_cmd << "--under-supervisor"
 
-      fluentd_spawn_cmd << ("--under-supervisor")
-      $log.info "spawn command to main: " + fluentd_spawn_cmd
+      $log.info "spawn command to main: ", cmdline: fluentd_spawn_cmd
 
       params = {}
       params['main_cmd'] = fluentd_spawn_cmd
@@ -617,39 +606,54 @@ module Fluent
       }.run
     end
 
+    def logging_with_console_output
+      yield $log
+      unless @log.stdout?
+        logger = ServerEngine::DaemonLogger.new(STDOUT)
+        log = Fluent::Log.new(logger)
+        log.level = @log_level
+        console = log.enable_debug
+        yield console
+      end
+    end
+
     def main_process(&block)
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
-      configuration_error = false
+      unrecoverable_error = false
 
       begin
         block.call
-      rescue Fluent::ConfigError
-        $log.error "config error", file: @config_path, error: $!.to_s
-        $log.debug_backtrace
-        unless @log.stdout?
-          logger = ServerEngine::DaemonLogger.new(STDOUT)
-          log = Fluent::Log.new(logger)
-          log.level = @log_level
-          console = log.enable_debug
-          console.error "config error", file: @config_path, error: $!.to_s
-          console.debug_backtrace
+      rescue Fluent::ConfigError => e
+        logging_with_console_output do |log|
+          log.error "config error", file: @config_path, error: e
+          log.debug_backtrace
         end
-        configuration_error = true
-      rescue
-        $log.error "unexpected error", error: $!.to_s
-        $log.error_backtrace
-        unless @log.stdout?
-          logger = ServerEngine::DaemonLogger.new(STDOUT)
-          log = Fluent::Log.new(logger)
-          log.level = @log_level
-          console = log.enable_debug
-          console.error "unexpected error", error: $!.to_s
-          console.error_backtrace
+        unrecoverable_error = true
+      rescue Fluent::UnrecoverableError => e
+        logging_with_console_output do |log|
+          log.error e.message, error: e
+          log.error_backtrace
+        end
+        unrecoverable_error = true
+      rescue ScriptError => e # LoadError, NotImplementedError, SyntaxError
+        logging_with_console_output do |log|
+          if e.respond_to?(:path)
+            log.error e.message, path: e.path, error: e
+          else
+            log.error e.message, error: e
+          end
+          log.error_backtrace
+        end
+        unrecoverable_error = true
+      rescue => e
+        logging_with_console_output do |log|
+          log.error "unexpected error", error: e
+          log.error_backtrace
         end
       end
 
-      exit!(configuration_error ? 2 : 1)
+      exit!(unrecoverable_error ? 2 : 1)
     end
 
     def read_config
