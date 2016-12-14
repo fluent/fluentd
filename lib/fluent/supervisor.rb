@@ -445,7 +445,7 @@ module Fluent
 
       install_main_process_signal_handlers
 
-      $log.info "starting fluentd-#{Fluent::VERSION} without supervision"
+      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid
 
       main_process do
         create_socket_manager if @standalone_worker
@@ -502,7 +502,7 @@ module Fluent
     end
 
     def supervise
-      $log.info "starting fluentd-#{Fluent::VERSION}"
+      $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid
 
       rubyopt = ENV["RUBYOPT"]
       fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]
