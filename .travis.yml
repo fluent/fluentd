@@ -9,9 +9,9 @@ matrix:
   include:
     - rvm: 2.1.10
       os: linux
-    - rvm: 2.2.5
+    - rvm: 2.2.6
       os: linux
-    - rvm: 2.3.1
+    - rvm: 2.3.3
       os: linux
     - rvm: ruby-head
       os: linux
