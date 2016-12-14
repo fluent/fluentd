@@ -1,5 +1,16 @@
 # v0.12
 
+## Release 0.12.31 - 2016/12/14
+
+### New features / Enhancement
+
+* output: Add slow_flush_log_threshold parameter
+  https://github.com/fluent/fluentd/pull/1366
+* formatter_csv: Change fields parameter to required. Now accepts both a,b and ["a", "b"]
+  https://github.com/fluent/fluentd/pull/1361
+* in_syslog: Add "priority_key" and "facility_key" parameters
+  https://github.com/fluent/fluentd/pull/1351
+
 ## Release 0.12.30 - 2016/12/01
 
 ### New features / Enhancement
