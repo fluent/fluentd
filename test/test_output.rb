@@ -47,6 +47,7 @@ module FluentOutputTest
       assert_equal nil, d.instance.max_retry_wait
       assert_equal 1.0, d.instance.retry_wait
       assert_equal 1, d.instance.num_threads
+      assert_equal 20.0, d.instance.slow_flush_log_threshold
       assert_equal 1, d.instance.queued_chunk_flush_interval
 
       # max_retry_wait
@@ -199,6 +200,68 @@ module FluentOutputTest
         buffer.emit("test", 'test', NullOutputChain.instance)
         d.instance.force_flush
         10.times { sleep 0.05 }
+      end
+    end
+
+    sub_test_case "test slow_flush_log_threshold" do
+      def create_slow_driver(conf, sleep_time)
+        d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::BufferedOutput) do
+          attr_accessor :sleep_time
+
+          def initialize
+            super
+            @_written_check_mutex = Mutex.new
+            @_written_check = false
+          end
+
+          def written_check
+            @_written_check_mutex.synchronize { @_written_check }
+          end
+
+          def write(chunk)
+            sleep @sleep_time
+          end
+
+          def try_flush
+            super
+            @_written_check_mutex.synchronize { @_written_check = true }
+          end
+        end.configure(conf)
+        d.instance.sleep_time = sleep_time
+        d
+      end
+
+      def setup
+        # output#try_flush uses $log, so it should be replaced
+        @orig_log = $log
+        $log = Fluent::Test::TestLogger.new
+      end
+
+      def teardown
+        $log = @orig_log
+      end
+
+      test "flush took longer time than slow_flush_log_threshold" do
+        d = create_slow_driver(%[
+          slow_flush_log_threshold 0.5
+        ], 1.5)
+        run_driver(d)
+        assert_equal 1, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold:/ }
+      end
+
+      test "flush took lower time than slow_flush_log_threshold. No logs" do
+        d = create_slow_driver(%[
+          slow_flush_log_threshold 5.0
+        ], 0)
+        run_driver(d)
+        assert_equal 0, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold:/ }
+      end
+
+      def run_driver(d)
+        d.instance.start
+        d.instance.emit('test', OneEventStream.new(@time.to_i, {"message" => "foo"}), NullOutputChain.instance)
+        d.instance.force_flush
+        until d.instance.written_check; end
       end
     end
   end
