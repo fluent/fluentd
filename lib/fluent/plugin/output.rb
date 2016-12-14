@@ -43,6 +43,8 @@ module Fluent
       PROCESS_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
 
       config_param :time_as_integer, :bool, default: false
+      desc 'The threshold to show slow flush logs'
+      config_param :slow_flush_log_threshold, :float, default: 20.0
 
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
       config_section :buffer, param_name: :buffer_config, init: true, required: false, multi: false, final: true do
@@ -985,6 +987,8 @@ module Fluent
         end
 
         begin
+          chunk_write_start = Time.now
+
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
             @counters_monitor.synchronize{ @write_count += 1 }
@@ -992,14 +996,19 @@ module Fluent
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
             end
+
             output.try_write(chunk)
+            check_slow_flush(chunk_write_start)
           else # output plugin without delayed purge
             chunk_id = chunk.unique_id
             dump_chunk_id = dump_unique_id_hex(chunk_id)
             log.trace "adding write count", instance: self.object_id
             @counters_monitor.synchronize{ @write_count += 1 }
             log.trace "executing sync write", chunk: dump_chunk_id
+
             output.write(chunk)
+            check_slow_flush(chunk_write_start)
+
             log.trace "write operation done, committing", chunk: dump_chunk_id
             commit_write(chunk_id, delayed: false, secondary: using_secondary)
             log.trace "done to commit a chunk", chunk: dump_chunk_id
@@ -1016,6 +1025,14 @@ module Fluent
           update_retry_state(chunk.unique_id, using_secondary, e)
 
           raise if @under_plugin_development && !@retry_for_error_chunk
+        end
+      end
+
+      def check_slow_flush(start)
+        elapsed_time = Time.now - start
+        if elapsed_time > @slow_flush_log_threshold
+          log.warn "buffer flush took longer time than slow_flush_log_threshold:",
+                   elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold
         end
       end
 
