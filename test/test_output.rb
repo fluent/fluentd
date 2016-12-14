@@ -246,7 +246,7 @@ module FluentOutputTest
           slow_flush_log_threshold 0.5
         ], 1.5)
         run_driver(d)
-        assert_equal 1, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold/ }
+        assert_equal 1, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold:/ }
       end
 
       test "flush took lower time than slow_flush_log_threshold. No logs" do
@@ -254,7 +254,7 @@ module FluentOutputTest
           slow_flush_log_threshold 5.0
         ], 0)
         run_driver(d)
-        assert_equal 0, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold/ }
+        assert_equal 0, $log.logs.count { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold:/ }
       end
 
       def run_driver(d)

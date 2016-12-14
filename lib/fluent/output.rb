@@ -344,7 +344,7 @@ module Fluent
 
         elapsed_time = Time.now - chunk_write_start
         if elapsed_time > @slow_flush_log_threshold
-          $log.warn "buffer flush took longer time than slow_flush_log_threshold",
+          $log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                     plugin_id: plugin_id, elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold
         end
 
