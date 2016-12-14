@@ -29,7 +29,7 @@
 * TimeSlice output plugins (in v0.12 style) raise errors when "utc" parameter is specified
   https://github.com/fluent/fluentd/pull/1319
 * Parser plugins cannot use options for regular expressions
-  https://github.com/fluent/fluentd/pull/1326/files
+  https://github.com/fluent/fluentd/pull/1326
 * Fix bugs not to raise errors to use logger in v0.12 plugins
   https://github.com/fluent/fluentd/pull/1344
   https://github.com/fluent/fluentd/pull/1332
@@ -37,7 +37,7 @@
   https://github.com/fluent/fluentd/pull/1367
 * in_tail: Close files explicitly in tests
   https://github.com/fluent/fluentd/pull/1327
-* in_forward: Fix bug not to convert buffer configurations into v0.14 parameters
+* out_forward: Fix bug not to convert buffer configurations into v0.14 parameters
   https://github.com/fluent/fluentd/pull/1337
 * out_forward: Fix bug to raise error when "expire_dns_cache" is specified
   https://github.com/fluent/fluentd/pull/1346
