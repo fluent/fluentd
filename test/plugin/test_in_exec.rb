@@ -7,11 +7,6 @@ class ExecInputTest < Test::Unit::TestCase
     Fluent::Test.setup
     @test_time = Time.parse("2011-01-02 13:14:15").to_i
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
-    @count_file = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'count.txt'))
-  end
-
-  def teardown
-    FileUtils.rm_f(@count_file)
   end
 
   def create_driver(conf = tsv_config)
@@ -61,7 +56,7 @@ class ExecInputTest < Test::Unit::TestCase
   def invalid_json_config
     # For counting command execution, redirect stderr to file
     %[
-      command ruby #{@script} #{@test_time} 4 2>>#{@count_file}
+      command ruby #{@script} #{@test_time} 4
       format json
       tag_key tag
       time_key time
@@ -155,6 +150,7 @@ class ExecInputTest < Test::Unit::TestCase
     end
 
     assert_equal true, d.emits.empty?
-    assert_equal true, File.read(@count_file).length.between?(1, 4)
+    logs = d.instance.log.logs
+    assert_equal true, logs.count { |line| line =~ /exec failed to run or shutdown child process/ }.between?(1, 4)
   end
 end

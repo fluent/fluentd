@@ -18,7 +18,6 @@ def gen_raw_string(time)
 end
 
 def gen_invalid_json(time)
-  $stderr.print '*' # For counting command exections
   %({"tag": "tag1", "time": #{time}, "k1": "ok", })
 end
 
