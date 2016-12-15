@@ -14,10 +14,6 @@
 #    limitations under the License.
 #
 
-require 'socket'
-
-require 'cool.io'
-
 require 'fluent/config'
 require 'fluent/event'
 require 'fluent/event_router'
