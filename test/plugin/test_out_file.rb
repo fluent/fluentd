@@ -136,7 +136,6 @@ class FileOutputTest < Test::Unit::TestCase
 
     test 'configured as secondary with primary using chunk_key_tag and not using chunk_key_time' do
       require 'fluent/plugin/out_null'
-      port = unused_port
       conf = config_element('match', '**', {
         }, [
           config_element('buffer', 'tag', {
