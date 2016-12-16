@@ -53,6 +53,17 @@ class ExecInputTest < Test::Unit::TestCase
     ]
   end
 
+  def invalid_json_config
+    # For counting command execution, redirect stderr to file
+    %[
+      command ruby #{@script} #{@test_time} 4
+      format json
+      tag_key tag
+      time_key time
+      run_interval 0.5
+    ]
+  end
+
   def test_configure
     d = create_driver
     assert_equal 'tsv', d.instance.format
@@ -129,5 +140,17 @@ class ExecInputTest < Test::Unit::TestCase
     assert_equal true, emits.length > 0
     assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
     assert_equal @test_time, emits[0][1]
+  end
+
+  def test_emit_with_invalid_script
+    d = create_driver invalid_json_config
+
+    d.run do
+      sleep 2
+    end
+
+    assert_equal true, d.emits.empty?
+    logs = d.instance.log.logs
+    assert_equal true, logs.count { |line| line =~ /exec failed to run or shutdown child process/ }.between?(1, 4)
   end
 end

@@ -17,6 +17,10 @@ def gen_raw_string(time)
   "#{time} hello"
 end
 
+def gen_invalid_json(time)
+  %({"tag": "tag1", "time": #{time}, "k1": "ok", })
+end
+
 time = ARGV.first
 time = Integer(time) rescue time
 
@@ -29,4 +33,6 @@ when 2
   print gen_msgpack(time)
 when 3
   print gen_raw_string(time)
+when 4
+  print gen_invalid_json(time)
 end

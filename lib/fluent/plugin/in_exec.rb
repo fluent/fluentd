@@ -140,10 +140,11 @@ module Fluent
           io = IO.popen(@command, "r")
           @parser.call(io)
           Process.waitpid(io.pid)
-          sleep @run_interval
         rescue
           log.error "exec failed to run or shutdown child process", error: $!.to_s, error_class: $!.class.to_s
           log.warn_backtrace $!.backtrace
+        ensure
+          sleep @run_interval
         end
       end
     end
