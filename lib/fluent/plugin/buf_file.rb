@@ -42,10 +42,6 @@ module Fluent
       config_param :file_permission, :string, default: nil # '0644'
       config_param :dir_permission,  :string, default: nil # '0755'
 
-      ##TODO: Buffer plugin cannot handle symlinks because new API @stage has many writing buffer chunks
-      ##      re-implement this feature on out_file, w/ enqueue_chunk(or generate_chunk) hook + chunk.path
-      # attr_accessor :symlink_path
-
       @@buffer_paths = {}
 
       def initialize
