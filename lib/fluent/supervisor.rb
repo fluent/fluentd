@@ -502,6 +502,7 @@ module Fluent
     end
 
     def supervise
+      Process.setproctitle("supervisor:#{@process_name}") if @process_name
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid
 
       rubyopt = ENV["RUBYOPT"]
