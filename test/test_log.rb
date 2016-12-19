@@ -643,7 +643,7 @@ class PluginLoggerMixinTest < Test::Unit::TestCase
 
   def test_start
     plugin = DummyPlugin.new
-    mock(plugin.log).reset
+    mock(plugin.log).should_receive(:reset).never
     plugin.start
   end
 
