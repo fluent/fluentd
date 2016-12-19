@@ -299,8 +299,6 @@ module Fluent
       @out.reset if @out.respond_to?(:reset)
     end
 
-    private
-
     def dump_stacktrace(backtrace, level)
       return if @level > level
 
