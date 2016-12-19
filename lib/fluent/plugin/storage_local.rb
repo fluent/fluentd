@@ -29,9 +29,15 @@ module Fluent
       DEFAULT_FILE_MODE = 0644
 
       config_param :path, :string, default: nil
-      config_param :mode, :integer, default: DEFAULT_FILE_MODE
-      config_param :dir_mode, :integer, default: DEFAULT_DIR_MODE
+      config_param :mode, default: DEFAULT_FILE_MODE do |v|
+        v.to_i(8)
+      end
+      config_param :dir_mode, default: DEFAULT_DIR_MODE do |v|
+        v.to_i(8)
+      end
       config_param :pretty_print, :bool, default: false
+
+      attr_reader :store # for test
 
       def initialize
         super
@@ -42,9 +48,13 @@ module Fluent
         super
 
         @on_memory = false
-        if !@path && !@_plugin_id_configured
+        if @path
+          # use it
+        elsif root_dir = owner.plugin_root_dir
+          @path = File.join(root_dir, 'storage.json')
+        else
           if @persistent
-            raise Fluent::ConfigError, "Plugin @id or path for <storage> required to save data"
+            raise Fluent::ConfigError, "Plugin @id or path for <storage> required when 'persistent' is true"
           else
             if @autosave
               log.warn "both of Plugin @id and path for <storage> are not specified. Using on-memory store."
@@ -53,18 +63,11 @@ module Fluent
             end
             @on_memory = true
           end
-        elsif @path
-          # ok
-        else # @_plugin_id_configured is true
-          log.warn "path for <storage> is not specified. Using on-memory store temporarily, but will use file store after support global storage path"
-          @on_memory = true
-          ## TODO: get process-wide directory for plugin storage, and generate path for this plugin storage instance
-          # path = 
         end
 
         if !@on_memory
           dir = File.dirname(@path)
-          FileUtils.mkdir_p(dir, mode: @dir_mode) unless File.exist?(dir)
+          FileUtils.mkdir_p(dir, mode: @dir_mode) unless Dir.exist?(dir)
           if File.exist?(@path)
             raise Fluent::ConfigError, "Plugin storage path '#{@path}' is not readable/writable" unless File.readable?(@path) && File.writable?(@path)
             begin
@@ -75,7 +78,7 @@ module Fluent
               raise Fluent::ConfigError, "Unexpected error: failed to read data from plugin storage file: '#{@path}'"
             end
           else
-            raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{dir}'" unless File.writable?(dir)
+            raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{@path}'" unless File.stat(dir).writable?
           end
         end
       end
