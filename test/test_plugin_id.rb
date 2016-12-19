@@ -1,5 +1,6 @@
 require_relative 'helper'
 require 'fluent/plugin/base'
+require 'fluent/system_config'
 require 'fileutils'
 
 class PluginIdTest < Test::Unit::TestCase

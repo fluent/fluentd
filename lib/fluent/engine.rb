@@ -166,7 +166,8 @@ module Fluent
 
     def run
       begin
-        $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid # TODO: worker number
+        worker_id = ENV['SERVERENGINE_WORKER_ID']
+        $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
         if @event_router.match?($log.tag)

@@ -65,8 +65,9 @@ module Fluent
       return @_plugin_root_dir if @_plugin_root_dir
       return nil unless system_config.root_dir
       return nil unless plugin_id_configured?
-      worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
-      dir = File.join(system_config.root_dir, "worker#{worker_id}", plugin_id)
+
+      # Fluent::Plugin::Base#fluentd_worker_id
+      dir = File.join(system_config.root_dir, "worker#{fluentd_worker_id}", plugin_id)
       FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
       @_plugin_root_dir = dir.freeze
       dir

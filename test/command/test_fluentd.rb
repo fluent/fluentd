@@ -187,7 +187,60 @@ CONF
       conf_path = create_conf_file('valid.conf', conf)
       assert File.exist?(conf_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running")
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+    end
+  end
+
+  sub_test_case 'with system configuration about root directory' do
+    setup do
+      @root_path = File.join(TMP_DIR, "rootpath")
+      FileUtils.rm_rf(@root_path)
+      @conf = <<CONF
+<system>
+  root_dir #{@root_path}
+</system>
+<source>
+  @type dummy
+  @id dummy
+  @label @dummydata
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+    end
+
+    test 'use the specified existing directory as root' do
+      FileUtils.mkdir_p(@root_path)
+      conf_path = create_conf_file('existing_root_dir.conf', @conf)
+      assert Dir.exist?(@root_path)
+
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+    end
+
+    test 'creates the specified root directory if missing' do
+      conf_path = create_conf_file('missing_root_dir.conf', @conf)
+      assert_false Dir.exist?(@root_path)
+
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert Dir.exist?(@root_path)
+    end
+
+    test 'fails to launch fluentd if specified root path is invalid path for directory' do
+      File.open(@root_path, 'w') do |_|
+        # create file and close it
+      end
+      conf_path = create_conf_file('existing_root_dir.conf', @conf)
+
+      assert_fluentd_fails_to_start(
+        create_cmdline(conf_path),
+        "non directory entry exists:#{@root_path} (Fluent::InvalidRootDirectory)",
+      )
     end
   end
 
