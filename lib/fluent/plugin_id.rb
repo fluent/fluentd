@@ -30,6 +30,7 @@ module Fluent
         end
         @@configured_ids.add(@id)
       end
+      @_plugin_root_dir = nil
 
       super
     end
@@ -58,6 +59,17 @@ module Fluent
       else
         "object:#{object_id.to_s(16)}"
       end
+    end
+
+    def plugin_root_dir
+      return @_plugin_root_dir if @_plugin_root_dir
+      return nil unless system_config.root_dir
+      return nil unless plugin_id_configured?
+      worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
+      dir = File.join(system_config.root_dir, "worker#{worker_id}", plugin_id)
+      FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
+      @_plugin_root_dir = dir.freeze
+      dir
     end
   end
 end

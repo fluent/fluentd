@@ -56,6 +56,10 @@ class BaseTest < Test::Unit::TestCase
     assert !@p.has_router?
   end
 
+  test 'does not have root dir in default' do
+    assert_nil @p.plugin_root_dir
+  end
+
   test 'is configurable by config_param and config_section' do
     assert_nothing_raised do
       class FluentPluginBaseTest::DummyPlugin2 < Fluent::Plugin::TestBase

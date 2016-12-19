@@ -21,6 +21,14 @@ module Fluent
   class SystemConfig
     include Configurable
 
+    SYSTEM_CONFIG_PARAMETERS = [
+      :root_dir, :log_level,
+      :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
+      :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
+      :file_permission, :dir_permission,
+    ]
+
+    config_param :root_dir, :string, default: nil
     config_param :log_level, default: nil do |level|
       Log.str_to_level(level)
     end
@@ -68,33 +76,28 @@ module Fluent
 
     def dup
       s = SystemConfig.new
-      s.log_level = @log_level
-      s.suppress_repeated_stacktrace = @suppress_repeated_stacktrace
-      s.emit_error_log_interval = @emit_error_log_interval
-      s.suppress_config_dump = @suppress_config_dump
-      s.without_source = @without_source
-      s.rpc_endpoint = @rpc_endpoint
-      s.enable_get_dump = @enable_get_dump
-      s.process_name = @process_name
-      s.file_permission = @file_permission
-      s.dir_permission = @dir_permission
-
+      SYSTEM_CONFIG_PARAMETERS.each do |param|
+        s.__send__("#{param}=", instance_variable_get("@#{param}"))
+      end
       s
     end
 
     def apply(supervisor)
       system = self
       supervisor.instance_eval {
-        @log.level = @log_level = system.log_level unless system.log_level.nil?
-        @suppress_interval = system.emit_error_log_interval unless system.emit_error_log_interval.nil?
-        @suppress_config_dump = system.suppress_config_dump unless system.suppress_config_dump.nil?
-        @suppress_repeated_stacktrace = system.suppress_repeated_stacktrace unless system.suppress_repeated_stacktrace.nil?
-        @without_source = system.without_source unless system.without_source.nil?
-        @rpc_endpoint = system.rpc_endpoint unless system.rpc_endpoint.nil?
-        @enable_get_dump = system.enable_get_dump unless system.enable_get_dump.nil?
-        @process_name = system.process_name unless system.process_name.nil?
-        @file_permission = system.file_permission unless system.file_permission.nil?
-        @dir_permission = system.dir_permission unless system.dir_permission.nil?
+        SYSTEM_CONFIG_PARAMETERS.each do |param|
+          param_value = system.send(param)
+          next if param_value.nil?
+
+          case param
+          when :log_level
+            @log.level = @log_level = param_value
+          when :emit_error_log_interval
+            @suppress_interval = param_value
+          else
+            instance_variable_set("@#{param}", param_value)
+          end
+        end
       }
     end
 

@@ -39,6 +39,10 @@ module Fluent
         false
       end
 
+      def plugin_root_dir
+        nil # override this in plugin_id.rb
+      end
+
       def configure(conf)
         super
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
