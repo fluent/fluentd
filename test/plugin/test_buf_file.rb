@@ -10,6 +10,9 @@ require 'msgpack'
 module FluentPluginFileBufferTest
   class DummyOutputPlugin < Fluent::Plugin::Output
     Fluent::Plugin.register_output('buffer_file_test_output', self)
+    def write(chunk)
+      # drop
+    end
   end
 end
 
@@ -233,6 +236,43 @@ class FileBufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'configured with system root directory and plugin @id' do
+    setup do
+      @root_dir = File.expand_path('../../tmp/buffer_file_root', __FILE__)
+      FileUtils.rm_rf @root_dir
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @root_dir) do
+        @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}))
+        @p.configure(config_element('buffer', ''))
+      end
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+    end
+
+    test '#start creates directory for buffer chunks' do
+      expected_buffer_path = File.join(@root_dir, 'worker0', 'dummy_output_with_buf', 'buffer', 'buffer.*.log')
+      expected_buffer_dir = File.dirname(expected_buffer_path)
+      assert_equal expected_buffer_path, @p.path
+      assert_false Dir.exist?(expected_buffer_dir)
+
+      @p.start
+
+      assert Dir.exist?(expected_buffer_dir)
+    end
+  end
 
   sub_test_case 'there are no existing file chunks' do
     setup do

@@ -32,9 +32,8 @@ module Fluent
 
       DIR_PERMISSION = 0755
 
-      # TODO: buffer_path based on system config
       desc 'The path where buffer chunks are stored.'
-      config_param :path, :string
+      config_param :path, :string, default: nil
 
       config_set_default :chunk_limit_size, DEFAULT_CHUNK_LIMIT_SIZE
       config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
@@ -52,6 +51,14 @@ module Fluent
       def configure(conf)
         super
 
+        unless @path
+          if root_dir = owner.plugin_root_dir
+            @path = File.join(root_dir, 'buffer')
+          else
+            raise Fluent::ConfigError, "buffer path is not configured. specify 'path' in <buffer>"
+          end
+        end
+
         type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
         if @@buffer_paths.has_key?(@path) && !buffer_path_for_test?
           type_using_this_path = @@buffer_paths[@path]
@@ -60,7 +67,6 @@ module Fluent
 
         @@buffer_paths[@path] = type_of_owner
 
-        # TODO: create buffer path with plugin_id, under directory specified by system config
         if File.exist?(@path)
           if File.directory?(@path)
             @path = File.join(@path, 'buffer.*.log')
