@@ -18,6 +18,7 @@ require 'etc'
 require 'fcntl'
 
 require 'fluent/config'
+require 'fluent/counter'
 require 'fluent/env'
 require 'fluent/engine'
 require 'fluent/error'
@@ -56,6 +57,13 @@ module Fluent
         install_windows_event_handler
       end
 
+      if counter = config[:counter_server]
+        @counter_endpoint = counter.endpoint
+        @counter_scope = counter.scope
+        @counter_path = counter.path
+        run_counter_server
+      end
+
       socket_manager_path = ServerEngine::SocketManager::Server.generate_path
       ServerEngine::SocketManager::Server.open(socket_manager_path)
       ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
@@ -63,6 +71,7 @@ module Fluent
 
     def after_run
       stop_rpc_server if @rpc_endpoint
+      stop_counter_server if @counter_endpoint
     end
 
     def run_rpc_server
@@ -125,6 +134,19 @@ module Fluent
 
     def stop_rpc_server
       @rpc_server.shutdown
+    end
+
+    def run_counter_server
+      host, port = @counter_endpoint.split(':')
+      @counter = Fluent::Counter::Server.new(
+        @counter_scope,
+         { host: host, port: port, log: $log, path: @counter_path }
+      )
+      @counter.start
+    end
+
+    def stop_counter_server
+      @counter.stop
     end
 
     def install_supervisor_signal_handlers
@@ -235,6 +257,7 @@ module Fluent
       log_rotate_size = params['log_rotate_size']
       rpc_endpoint = system_config.rpc_endpoint
       enable_get_dump = system_config.enable_get_dump
+      counter_server = system_config.counter_server
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
       logger_initializer = Supervisor::LoggerInitializer.new(
@@ -275,6 +298,7 @@ module Fluent
           suppress_repeated_stacktrace: suppress_repeated_stacktrace,
           daemonize: daemonize,
           rpc_endpoint: rpc_endpoint,
+          counter_server: counter_server,
           enable_get_dump: enable_get_dump,
           windows_daemon_cmdline: [ServerEngine.ruby_bin_path,
                                    File.join(File.dirname(__FILE__), 'daemon.rb'),
