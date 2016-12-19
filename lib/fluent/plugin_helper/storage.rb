@@ -30,6 +30,10 @@ module Fluent
       StorageState = Struct.new(:storage, :running)
 
       def storage_create(usage: '', type: nil, conf: nil, default_type: nil)
+        if conf && !conf.arg.empty?
+          usage = conf.arg
+        end
+
         s = @_storages[usage]
         if s && s.running
           return s.storage
@@ -72,7 +76,7 @@ module Fluent
       module StorageParams
         include Fluent::Configurable
         # minimum section definition to instantiate storage plugin instances
-        config_section :storage, required: false, multi: true, param_name: :storage_configs do
+        config_section :storage, required: false, multi: true, param_name: :storage_configs, init: true do
           config_argument :usage, :string, default: ''
           config_param    :@type, :string, default: Fluent::Plugin::Storage::DEFAULT_TYPE
         end
@@ -194,6 +198,10 @@ module Fluent
         def_delegators :@storage, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate
         def_delegators :@storage, :started?, :stopped?, :before_shutdown?, :shutdown?, :after_shutdown?, :closed?, :terminated?
 
+        def method_missing(name, *args)
+          @monitor.synchronize{ @storage.__send__(name, *args) }
+        end
+
         def persistent_always?
           true
         end
@@ -274,13 +282,17 @@ module Fluent
 
         def initialize(storage)
           @storage = storage
-          @mutex = Mutex.new
+          @monitor = Monitor.new
         end
 
         def_delegators :@storage, :persistent, :autosave, :autosave_interval, :save_at_shutdown
         def_delegators :@storage, :persistent_always?
         def_delegators :@storage, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate
         def_delegators :@storage, :started?, :stopped?, :before_shutdown?, :shutdown?, :after_shutdown?, :closed?, :terminated?
+
+        def method_missing(name, *args)
+          @monitor.synchronize{ @storage.__send__(name, *args) }
+        end
 
         def synchronized?
           true
@@ -291,35 +303,35 @@ module Fluent
         end
 
         def load
-          @mutex.synchronize do
+          @monitor.synchronize do
             @storage.load
           end
         end
 
         def save
-          @mutex.synchronize do
+          @monitor.synchronize do
             @storage.save
           end
         end
 
         def get(key)
-          @mutex.synchronize{ @storage.get(key) }
+          @monitor.synchronize{ @storage.get(key) }
         end
 
         def fetch(key, defval)
-          @mutex.synchronize{ @storage.fetch(key, defval) }
+          @monitor.synchronize{ @storage.fetch(key, defval) }
         end
 
         def put(key, value)
-          @mutex.synchronize{ @storage.put(key, value) }
+          @monitor.synchronize{ @storage.put(key, value) }
         end
 
         def delete(key)
-          @mutex.synchronize{ @storage.delete(key) }
+          @monitor.synchronize{ @storage.delete(key) }
         end
 
         def update(key, &block)
-          @mutex.synchronize do
+          @monitor.synchronize do
             v = block.call(@storage.get(key))
             @storage.put(key, v)
             v
