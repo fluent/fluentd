@@ -20,6 +20,11 @@ module Fluent
   module PluginId
     @@configured_ids = Set.new
 
+    def initialize
+      super
+      @_plugin_root_dir = nil
+    end
+
     def configure(conf)
       @id = conf['@id']
       @_id_configured = !!@id # plugin id is explicitly configured by users (or not)
@@ -30,7 +35,6 @@ module Fluent
         end
         @@configured_ids.add(@id)
       end
-      @_plugin_root_dir = nil
 
       super
     end
