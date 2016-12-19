@@ -146,7 +146,8 @@ EOC
         "config_path" => "/etc/fluent/fluent.conf",
         "pid_file"    => nil,
         "plugin_dirs" => ["/etc/fluent/plugin"],
-        "log_path"    => nil
+        "log_path"    => nil,
+        "root_dir"    => nil,
       }
       assert_equal(expected_opts, d.instance.fluentd_opts)
     end
