@@ -34,7 +34,7 @@ class ForwardInputTest < Test::Unit::TestCase
     port #{PORT}
     bind 127.0.0.1
   ]
-  PEERADDR = ['?', '0000', '127.0.0.1', '127.0.0.1']
+  DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new("localhost", "127.0.0.1", 0)
   CONFIG_AUTH = %[
     port #{PORT}
     bind 127.0.0.1
@@ -452,7 +452,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          option = d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          option = d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
           assert_equal 'gzip', option['compressed']
         end
       end
@@ -482,7 +482,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          option = d.instance.send(:on_message, obj, chunk.size, PEERADDR)
+          option = d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
           assert_equal 'gzip', option['compressed']
         end
       end
@@ -506,7 +506,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          d.instance.send(:on_message, obj, chunk.size, '127.0.0.1')
+          d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
         end
       end
 
@@ -520,7 +520,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-        line =~ / tag="test.tag" host="127.0.0.1" limit=16777216 size=16777501/
+        line =~ / tag="test.tag" host="localhost" limit=16777216 size=16777501/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -538,7 +538,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          d.instance.send(:on_message, obj, chunk.size, '127.0.0.1')
+          d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
         end
       end
 
@@ -546,7 +546,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{ |line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-        line =~ / tag="test.tag" host="127.0.0.1" limit=16777216 size=16777501/
+        line =~ / tag="test.tag" host="localhost" limit=16777216 size=16777501/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -568,7 +568,7 @@ class ForwardInputTest < Test::Unit::TestCase
       # d.run => send_data
       d.run(shutdown: false) do
         Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
-          d.instance.send(:on_message, obj, chunk.size, '127.0.0.1')
+          d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
         end
       end
 
@@ -580,7 +580,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
-        line =~ / tag="test.tag" host="127.0.0.1" limit=33554432 size=33554989/
+        line =~ / tag="test.tag" host="localhost" limit=33554432 size=33554989/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -593,7 +593,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # d.run => send_data
       d.run(shutdown: false) do
-        d.instance.send(:on_message, data, 1000000000, '127.0.0.1')
+        d.instance.send(:on_message, data, 1000000000, DUMMY_SOCK)
       end
 
       # check emitted data
@@ -602,7 +602,7 @@ class ForwardInputTest < Test::Unit::TestCase
       # check log
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
-        line =~ / \[warn\]: incoming chunk is broken: host="127.0.0.1" msg=#{data.inspect}/
+        line =~ / \[warn\]: incoming chunk is broken: host="localhost" msg=#{data.inspect}/
       }.size, "should not accept broken chunk"
 
       d.instance_shutdown
@@ -1033,17 +1033,27 @@ class ForwardInputTest < Test::Unit::TestCase
     io.close rescue nil # SSL socket requires any writes to close sockets
   end
 
-  sub_test_case 'source_hostname_key feature' do
-    test 'message protocol with source_hostname_key' do
-      execute_test { |events|
+  sub_test_case 'source_hostname_key and source_address_key features' do
+    data(
+      both: [:hostname, :address],
+      hostname: [:hostname],
+      address: [:address],
+    )
+    test 'message protocol' do |keys|
+      execute_test_with_source_hostname_key(*keys) { |events|
         events.each { |tag, time, record|
           send_data [tag, time, record].to_msgpack
         }
       }
     end
 
-    test 'forward protocol with source_hostname_key' do
-      execute_test { |events|
+    data(
+      both: [:hostname, :address],
+      hostname: [:hostname],
+      address: [:address],
+    )
+    test 'forward protocol' do |keys|
+      execute_test_with_source_hostname_key(*keys) { |events|
         entries = []
         events.each {|tag,time,record|
           entries << [time, record]
@@ -1052,8 +1062,13 @@ class ForwardInputTest < Test::Unit::TestCase
       }
     end
 
-    test 'packed forward protocol with source_hostname_key' do
-      execute_test { |events|
+    data(
+      both: [:hostname, :address],
+      hostname: [:hostname],
+      address: [:address],
+    )
+    test 'packed forward protocol' do |keys|
+      execute_test_with_source_hostname_key(*keys) { |events|
         entries = ''
         events.each { |tag, time, record|
           Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
@@ -1063,8 +1078,19 @@ class ForwardInputTest < Test::Unit::TestCase
     end
   end
 
-  def execute_test(&block)
-    @d = d = create_driver(CONFIG + 'source_hostname_key source')
+  def execute_test_with_source_hostname_key(*keys, &block)
+    conf = CONFIG.dup
+    if keys.include?(:hostname)
+      conf << <<EOL
+source_hostname_key source_hostname
+EOL
+    end
+    if keys.include?(:address)
+      conf << <<EOL
+source_address_key source_address
+EOL
+    end
+    @d = d = create_driver(conf)
 
     time = event_time("2011-01-02 13:14:15 UTC")
     events = [
@@ -1077,7 +1103,14 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     d.events.each { |tag, _time, record|
-      assert_true record.has_key?('source')
+      if keys.include?(:hostname)
+        assert_true record.has_key?('source_hostname')
+        assert_equal DUMMY_SOCK.remote_host, record['source_hostname']
+      end
+      if keys.include?(:address)
+        assert_true record.has_key?('source_address')
+        assert_equal DUMMY_SOCK.remote_addr, record['source_address']
+      end
     }
   end
 
