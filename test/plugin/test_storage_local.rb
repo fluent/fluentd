@@ -240,6 +240,8 @@ class LocalStorageTest < Test::Unit::TestCase
 
   sub_test_case 'with various configurations' do
     test 'mode and dir_mode controls permissions of stored data' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       storage_path = File.join(TMP_DIR, 'dir', 'my_store.json')
       storage_conf = {
         'path' => storage_path,
