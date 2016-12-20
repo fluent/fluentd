@@ -34,7 +34,9 @@ class ForwardInputTest < Test::Unit::TestCase
     port #{PORT}
     bind 127.0.0.1
   ]
-  DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new("localhost", "127.0.0.1", 0)
+  LOCALHOST_HOSTNAME_GETTER = ->(){sock = UDPSocket.new(::Socket::AF_INET); sock.do_not_reverse_lookup = false; sock.connect("127.0.0.1", 2048); sock.peeraddr[2] }
+  LOCALHOST_HOSTNAME = LOCALHOST_HOSTNAME_GETTER.call
+  DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new(LOCALHOST_HOSTNAME_GETTER.call, "127.0.0.1", 0)
   CONFIG_AUTH = %[
     port #{PORT}
     bind 127.0.0.1
@@ -520,7 +522,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-        line =~ / tag="test.tag" host="localhost" limit=16777216 size=16777501/
+        line =~ / tag="test.tag" host="#{LOCALHOST_HOSTNAME}" limit=16777216 size=16777501/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -546,7 +548,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{ |line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_warn_limit':/ &&
-        line =~ / tag="test.tag" host="localhost" limit=16777216 size=16777501/
+        line =~ / tag="test.tag" host="#{LOCALHOST_HOSTNAME}" limit=16777216 size=16777501/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -580,7 +582,7 @@ class ForwardInputTest < Test::Unit::TestCase
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
         line =~ / \[warn\]: Input chunk size is larger than 'chunk_size_limit', dropped:/ &&
-        line =~ / tag="test.tag" host="localhost" limit=33554432 size=33554989/
+        line =~ / tag="test.tag" host="#{LOCALHOST_HOSTNAME}" limit=33554432 size=33554989/
       }.size, "large chunk warning is not logged"
 
       d.instance_shutdown
@@ -602,7 +604,7 @@ class ForwardInputTest < Test::Unit::TestCase
       # check log
       logs = d.instance.log.logs
       assert_equal 1, logs.select{|line|
-        line =~ / \[warn\]: incoming chunk is broken: host="localhost" msg=#{data.inspect}/
+        line =~ / \[warn\]: incoming chunk is broken: host="#{LOCALHOST_HOSTNAME}" msg=#{data.inspect}/
       }.size, "should not accept broken chunk"
 
       d.instance_shutdown
