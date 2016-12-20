@@ -3,21 +3,21 @@ require 'fluent/test/driver/input'
 require 'fluent/plugin/in_syslog'
 
 class SyslogInputTest < Test::Unit::TestCase
-  class << self
-    def startup
-      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
-      @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
-      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
-    end
+  # class << self
+  #   def startup
+  #     socket_manager_path = ServerEngine::SocketManager::Server.generate_path
+  #     @server = ServerEngine::SocketManager::Server.open(socket_manager_path)
+  #     ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+  #   end
 
-    def shutdown
-      @server.close
-    end
-  end
+  #   def shutdown
+  #     @server.close
+  #   end
+  # end
 
   def setup
     Fluent::Test.setup
-    require 'fluent/plugin/socket_util'
+    # require 'fluent/plugin/socket_util'
   end
 
   PORT = unused_port
@@ -37,41 +37,45 @@ class SyslogInputTest < Test::Unit::TestCase
     Fluent::Test::Driver::Input.new(Fluent::Plugin::SyslogInput).configure(conf)
   end
 
-  def test_configure
-    configs = {'127.0.0.1' => CONFIG}
-    configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
+  data(
+    ipv4: ['127.0.0.1', CONFIG, ::Socket::AF_INET],
+    ipv6: ['::1', IPv6_CONFIG, ::Socket::AF_INET6],
+  )
+  def test_configure(data)
+    bind_addr, config, family = data
+    omit "IPv6 unavailable" if family == ::Socket::AF_INET6 && !ipv6_enabled?
 
-    configs.each_pair { |k, v|
-      d = create_driver(v)
-      assert_equal PORT, d.instance.port
-      assert_equal k, d.instance.bind
-    }
+    d = create_driver(config)
+    assert_equal PORT, d.instance.port
+    assert_equal bind_addr, d.instance.bind
   end
 
-  def test_time_format
-    configs = {'127.0.0.1' => CONFIG}
-    configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
+  data(
+    ipv4: ['127.0.0.1', CONFIG, ::Socket::AF_INET],
+    ipv6: ['::1', IPv6_CONFIG, ::Socket::AF_INET6],
+  )
+  def test_time_format(data)
+    bind_addr, config, family = data
+    omit "IPv6 unavailable" if family == ::Socket::AF_INET6 && !ipv6_enabled?
 
-    configs.each_pair { |k, v|
-      d = create_driver(v)
+    d = create_driver(config)
 
-      tests = [
-        {'msg' => '<6>Dec 11 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec 11 00:00:00', '%b %d %H:%M:%S'))},
-        {'msg' => '<6>Dec  1 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec  1 00:00:00', '%b  %d %H:%M:%S'))},
-      ]
-      d.run(expect_emits: 2) do
-        u = Fluent::SocketUtil.create_udp_socket(k)
-        u.connect(k, PORT)
-        tests.each {|test|
-          u.send(test['msg'], 0)
-        }
-      end
-
-      events = d.events
-      assert(events.size > 0)
-      events.each_index {|i|
-        assert_equal_event_time(tests[i]['expected'], events[i][1])
+    tests = [
+      {'msg' => '<6>Dec 11 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec 11 00:00:00', '%b %d %H:%M:%S'))},
+      {'msg' => '<6>Dec  1 00:00:00 localhost logger: foo', 'expected' => Fluent::EventTime.from_time(Time.strptime('Dec  1 00:00:00', '%b  %d %H:%M:%S'))},
+    ]
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new(family)
+      u.connect(bind_addr, PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
       }
+    end
+
+    events = d.events
+    assert(events.size > 0)
+    events.each_index {|i|
+      assert_equal_event_time(tests[i]['expected'], events[i][1])
     }
   end
 
@@ -179,7 +183,7 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.events, tests, {host: host})
   end
 
-  def test_msg_size_with_include_priority
+  def test_msg_size_with_priority_key
     d = create_driver([CONFIG, 'priority_key priority'].join("\n"))
     tests = create_test_case
 
@@ -196,7 +200,7 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.events, tests, {priority: priority})
   end
 
-  def test_msg_size_with_include_facility
+  def test_msg_size_with_facility_key
     d = create_driver([CONFIG, 'facility_key facility'].join("\n"))
     tests = create_test_case
 
@@ -211,6 +215,43 @@ class SyslogInputTest < Test::Unit::TestCase
 
     assert(d.events.size > 0)
     compare_test_result(d.events, tests, {facility: facility})
+  end
+
+  def test_msg_size_with_source_address_key
+    d = create_driver([CONFIG, 'source_address_key source_address'].join("\n"))
+    tests = create_test_case
+
+    address = nil
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      address = u.peeraddr[3]
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size > 0)
+    compare_test_result(d.events, tests, {address: address})
+  end
+
+  def test_msg_size_with_source_hostname_key
+    d = create_driver([CONFIG, 'source_hostname_key source_hostname'].join("\n"))
+    tests = create_test_case
+
+    hostname = nil
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.do_not_reverse_lookup = false
+      u.connect('127.0.0.1', PORT)
+      hostname = u.peeraddr[2]
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size > 0)
+    compare_test_result(d.events, tests, {hostname: hostname})
   end
 
   def create_test_case(large_message: false)
@@ -234,6 +275,8 @@ class SyslogInputTest < Test::Unit::TestCase
       assert_equal('syslog.kern.info', events[i][0]) # <6> means kern.info
       assert_equal(tests[i]['expected'], events[i][2]['message'])
       assert_equal(options[:host], events[i][2]['source_host']) if options[:host]
+      assert_equal(options[:address], events[i][2]['source_address']) if options[:address]
+      assert_equal(options[:hostname], events[i][2]['source_hostname']) if options[:hostname]
       assert_equal(options[:priority], events[i][2]['priority']) if options[:priority]
       assert_equal(options[:facility], events[i][2]['facility']) if options[:facility]
     }
