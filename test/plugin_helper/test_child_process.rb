@@ -23,6 +23,7 @@ class ChildProcessTest < Test::Unit::TestCase
       @d.shutdown  unless @d.shutdown?
       @d.close     unless @d.closed?
       @d.terminate unless @d.terminated?
+      @d.log.reset
     end
   end
 
@@ -226,55 +227,55 @@ class ChildProcessTest < Test::Unit::TestCase
     end
   end
 
-  unless Fluent.windows?
-    # In windows environment, child_process try KILL at first (because there's no SIGTERM)
-    test 'can execute external command just once, and can terminate it forcedly when shutdown/terminate even if it ignore SIGTERM' do
-      m = Mutex.new
-      ary = []
-      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        ran = false
-        @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
-          m.lock
-          ran = true
-          begin
-            while line = io.readline
-              ary << line
-            end
-          rescue
-            # ignore
-          ensure
-            m.unlock
-          end
-        end
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
+  # In windows environment, child_process try KILL at first (because there's no SIGTERM)
+  test 'can execute external command just once, and can terminate it forcedly when shutdown/terminate even if it ignore SIGTERM' do
+    omit "SIGTERM is unavailable on Windows" if Fluent.windows?
 
-        assert_equal [], @d.log.out.logs
-
-        @d.stop # nothing occurs
-        sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
-        lines1 = ary.size
-        assert{ lines1 > 1 }
-
-        pid = @d._child_process_processes.keys.first
-
-        @d.shutdown
-        sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
-        lines2 = ary.size
-        assert{ lines2 > lines1 }
-
-        @d.close
-
-        assert_nil((Process.waitpid(pid, Process::WNOHANG) rescue nil))
-
-        @d.terminate
-        assert @d._child_process_processes.empty?
+    m = Mutex.new
+    ary = []
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      @d.child_process_execute(:t4, "ruby -e 'Signal.trap(:TERM, nil); while sleep #{TEST_WAIT_INTERVAL_FOR_LOOP}; puts 1; STDOUT.flush rescue nil; end'", mode: [:read]) do |io|
+        m.lock
+        ran = true
         begin
-          Process.waitpid(pid)
-        rescue Errno::ECHILD
+          while line = io.readline
+            ary << line
+          end
+        rescue
+          # ignore
+        ensure
+          m.unlock
         end
-        # Process successfully KILLed if test reaches here
-        assert true
       end
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
+
+      assert_equal [], @d.log.out.logs
+
+      @d.stop # nothing occurs
+      sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
+      lines1 = ary.size
+      assert{ lines1 > 1 }
+
+      pid = @d._child_process_processes.keys.first
+
+      @d.shutdown
+      sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
+      lines2 = ary.size
+      assert{ lines2 > lines1 }
+
+      @d.close
+
+      assert_nil((Process.waitpid(pid, Process::WNOHANG) rescue nil))
+
+      @d.terminate
+      assert @d._child_process_processes.empty?
+      begin
+        Process.waitpid(pid)
+      rescue Errno::ECHILD
+      end
+      # Process successfully KILLed if test reaches here
+      assert true
     end
   end
 

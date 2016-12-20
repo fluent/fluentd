@@ -15,6 +15,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   include WorkerModule
 
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/supervisor#{ENV['TEST_ENV_NUMBER']}")
+  TMP_ROOT_DIR = File.join(TMP_DIR, 'root')
 
   def setup
     FileUtils.rm_rf(TMP_DIR)
@@ -85,6 +86,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   enable_get_dump true
   process_name "process_name"
   log_level info
+  root_dir #{TMP_ROOT_DIR}
 </system>
     EOC
     conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
@@ -99,6 +101,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal true, sys_conf.enable_get_dump
     assert_equal "process_name", sys_conf.process_name
     assert_equal 2, sys_conf.log_level
+    assert_equal TMP_ROOT_DIR, sys_conf.root_dir
   end
 
   def test_main_process_signal_handlers

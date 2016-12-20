@@ -32,11 +32,22 @@ module Fluent
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil
+        @_fluentd_worker_id = nil
         @under_plugin_development = false
       end
 
       def has_router?
         false
+      end
+
+      def plugin_root_dir
+        nil # override this in plugin_id.rb
+      end
+
+      def fluentd_worker_id
+        return @_fluentd_worker_id if @_fluentd_worker_id
+        @_fluentd_worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
+        @_fluentd_worker_id
       end
 
       def configure(conf)

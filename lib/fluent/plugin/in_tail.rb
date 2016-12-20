@@ -97,6 +97,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
 
+      # TODO: Use plugin_root_dir and storage plugin to store positions if available
       unless @pos_file
         $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
         $log.warn "this parameter is highly recommended to save the position to resume tailing."

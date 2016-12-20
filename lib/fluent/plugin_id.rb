@@ -20,6 +20,11 @@ module Fluent
   module PluginId
     @@configured_ids = Set.new
 
+    def initialize
+      super
+      @_plugin_root_dir = nil
+    end
+
     def configure(conf)
       @id = conf['@id']
       @_id_configured = !!@id # plugin id is explicitly configured by users (or not)
@@ -58,6 +63,18 @@ module Fluent
       else
         "object:#{object_id.to_s(16)}"
       end
+    end
+
+    def plugin_root_dir
+      return @_plugin_root_dir if @_plugin_root_dir
+      return nil unless system_config.root_dir
+      return nil unless plugin_id_configured?
+
+      # Fluent::Plugin::Base#fluentd_worker_id
+      dir = File.join(system_config.root_dir, "worker#{fluentd_worker_id}", plugin_id)
+      FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
+      @_plugin_root_dir = dir.freeze
+      dir
     end
   end
 end

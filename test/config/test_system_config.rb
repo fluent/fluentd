@@ -14,6 +14,7 @@ module Fluent::Config
 
   class FakeSupervisor
     def initialize
+      @root_dir = nil
       @log = FakeLoggerInitializer.new
       @log_level = nil
       @suppress_interval = nil
@@ -27,6 +28,7 @@ module Fluent::Config
   end
 
   class TestSystemConfig < ::Test::Unit::TestCase
+    TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/system_config/#{ENV['TEST_ENV_NUMBER']}")
 
     def parse_text(text)
       basepath = File.expand_path(File.dirname(__FILE__) + '/../../')
@@ -41,11 +43,13 @@ module Fluent::Config
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
       sc.apply(s)
+      assert_nil(sc.root_dir)
       assert_nil(sc.log_level)
       assert_nil(sc.suppress_repeated_stacktrace)
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
+      assert_nil(s.instance_variable_get(:@root_dir))
       assert_nil(s.instance_variable_get(:@log_level))
       assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
       assert_nil(s.instance_variable_get(:@emit_error_log_interval))
@@ -55,41 +59,45 @@ module Fluent::Config
       assert_nil(s.instance_variable_get(:@dir_permission))
     end
 
-    {'log_level' => 'error',
-     'suppress_repeated_stacktrace' => true,
-     'emit_error_log_interval' => 60,
-     'suppress_config_dump' => true,
-     'without_source' => true,
-    }.each { |k, v|
-      test "accepts #{k} parameter" do
-        conf = parse_text(<<-EOS)
+    data(
+      'root_dir' => ['root_dir', File.join(TMP_DIR, 'root')],
+      'log_level' => ['log_level', 'error'],
+      'suppress_repeated_stacktrace' => ['suppress_repeated_stacktrace', true],
+      'emit_error_log_interval' => ['emit_error_log_interval', 60],
+      'suppress_config_dump' => ['suppress_config_dump', true],
+      'without_source' => ['without_source', true],
+    )
+    test "accepts parameters" do |(k, v)|
+      conf = parse_text(<<-EOS)
           <system>
             #{k} #{v}
           </system>
-        EOS
-        s = FakeSupervisor.new
-        sc = Fluent::SystemConfig.new(conf)
-        sc.apply(s)
-        assert_not_nil(sc.instance_variable_get("@#{k}"))
-        key = (k == 'emit_error_log_interval' ? 'suppress_interval' : k)
-        assert_not_nil(s.instance_variable_get("@#{key}"))
-      end
-    }
+      EOS
+      s = FakeSupervisor.new
+      sc = Fluent::SystemConfig.new(conf)
+      sc.apply(s)
+      assert_not_nil(sc.instance_variable_get("@#{k}"))
+      key = (k == 'emit_error_log_interval' ? 'suppress_interval' : k)
+      assert_not_nil(s.instance_variable_get("@#{key}"))
+    end
 
-    {'foo' => 'bar', 'hoge' => 'fuga'}.each { |k, v|
-      test "should not affect settable parameters with unknown #{k} parameter" do
-        s = FakeSupervisor.new
-        sc = Fluent::SystemConfig.new({k => v})
-        sc.apply(s)
-        assert_nil(s.instance_variable_get(:@log_level))
-        assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
-        assert_nil(s.instance_variable_get(:@emit_error_log_interval))
-        assert_nil(s.instance_variable_get(:@suppress_config_dump))
-        assert_nil(s.instance_variable_get(:@without_source))
-        assert_nil(s.instance_variable_get(:@file_permission))
-        assert_nil(s.instance_variable_get(:@dir_permission))
-      end
-    }
+    data(
+      'foo' => ['foo', 'bar'],
+      'hoge' => ['hoge', 'fuga'],
+    )
+    test "should not affect settable parameters with unknown parameters" do |(k, v)|
+      s = FakeSupervisor.new
+      sc = Fluent::SystemConfig.new({k => v})
+      sc.apply(s)
+      assert_nil(s.instance_variable_get(:@root_dir))
+      assert_nil(s.instance_variable_get(:@log_level))
+      assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
+      assert_nil(s.instance_variable_get(:@emit_error_log_interval))
+      assert_nil(s.instance_variable_get(:@suppress_config_dump))
+      assert_nil(s.instance_variable_get(:@without_source))
+      assert_nil(s.instance_variable_get(:@file_permission))
+      assert_nil(s.instance_variable_get(:@dir_permission))
+    end
 
     test 'log_level' do
       conf = parse_text(<<-EOS)

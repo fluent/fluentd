@@ -56,6 +56,26 @@ class BaseTest < Test::Unit::TestCase
     assert !@p.has_router?
   end
 
+  sub_test_case '#fluentd_worker_id' do
+    test 'returns 0 in default' do
+      assert_equal 0, @p.fluentd_worker_id
+    end
+
+    test 'returns the value specified via SERVERENGINE_WORKER_ID env variable' do
+      pre_value = ENV['SERVERENGINE_WORKER_ID']
+      begin
+        ENV['SERVERENGINE_WORKER_ID'] = 7.to_s
+        assert_equal 7, @p.fluentd_worker_id
+      ensure
+        ENV['SERVERENGINE_WORKER_ID'] = pre_value
+      end
+    end
+  end
+
+  test 'does not have root dir in default' do
+    assert_nil @p.plugin_root_dir
+  end
+
   test 'is configurable by config_param and config_section' do
     assert_nothing_raised do
       class FluentPluginBaseTest::DummyPlugin2 < Fluent::Plugin::TestBase

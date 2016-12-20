@@ -14,10 +14,6 @@
 #    limitations under the License.
 #
 
-require 'socket'
-
-require 'cool.io'
-
 require 'fluent/config'
 require 'fluent/event'
 require 'fluent/event_router'
@@ -57,8 +53,6 @@ module Fluent
 
     def init(system_config)
       @system_config = system_config
-
-      BasicSocket.do_not_reverse_lookup = true
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
@@ -172,7 +166,8 @@ module Fluent
 
     def run
       begin
-        $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid # TODO: worker number
+        worker_id = ENV['SERVERENGINE_WORKER_ID']
+        $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
         if @event_router.match?($log.tag)
