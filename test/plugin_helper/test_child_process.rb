@@ -23,6 +23,7 @@ class ChildProcessTest < Test::Unit::TestCase
       @d.shutdown  unless @d.shutdown?
       @d.close     unless @d.closed?
       @d.terminate unless @d.terminated?
+      @d.log.reset
     end
   end
 
