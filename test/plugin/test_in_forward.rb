@@ -36,7 +36,7 @@ class ForwardInputTest < Test::Unit::TestCase
   ]
   LOCALHOST_HOSTNAME_GETTER = ->(){sock = UDPSocket.new(::Socket::AF_INET); sock.do_not_reverse_lookup = false; sock.connect("127.0.0.1", 2048); sock.peeraddr[2] }
   LOCALHOST_HOSTNAME = LOCALHOST_HOSTNAME_GETTER.call
-  DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new(LOCALHOST_HOSTNAME_GETTER.call, "127.0.0.1", 0)
+  DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new(LOCALHOST_HOSTNAME, "127.0.0.1", 0)
   CONFIG_AUTH = %[
     port #{PORT}
     bind 127.0.0.1
