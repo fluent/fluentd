@@ -14,6 +14,7 @@ module Fluent::Config
 
   class FakeSupervisor
     def initialize
+      @workers = 1
       @root_dir = nil
       @log = FakeLoggerInitializer.new
       @log_level = nil
@@ -45,12 +46,14 @@ module Fluent::Config
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
       sc.apply(s)
+      assert_equal(1, sc.workers)
       assert_nil(sc.root_dir)
       assert_nil(sc.log_level)
       assert_nil(sc.suppress_repeated_stacktrace)
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
+      assert_equal(1, s.instance_variable_get(:@workers))
       assert_nil(s.instance_variable_get(:@root_dir))
       assert_nil(s.instance_variable_get(:@log_level))
       assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
@@ -63,6 +66,7 @@ module Fluent::Config
     end
 
     data(
+      'workers' => ['workers', 3],
       'root_dir' => ['root_dir', File.join(TMP_DIR, 'root')],
       'log_level' => ['log_level', 'error'],
       'suppress_repeated_stacktrace' => ['suppress_repeated_stacktrace', true],
@@ -93,6 +97,7 @@ module Fluent::Config
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new({k => v})
       sc.apply(s)
+      assert_equal(1, s.instance_variable_get(:@workers))
       assert_nil(s.instance_variable_get(:@root_dir))
       assert_nil(s.instance_variable_get(:@log_level))
       assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
