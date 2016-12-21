@@ -141,6 +141,10 @@ module Fluent
         true
       end
 
+      def multi_workers_ready?
+        false
+      end
+
       # Internal states
       FlushThreadState = Struct.new(:thread, :next_clock)
       DequeuedChunkInfo = Struct.new(:chunk_id, :time, :timeout) do

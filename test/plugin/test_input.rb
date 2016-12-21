@@ -85,6 +85,10 @@ class InputTest < Test::Unit::TestCase
     end
   end
 
+  test 'are not available with multi workers configuration in default' do
+    assert_false @p.multi_workers_ready?
+  end
+
   test 'has router and can emit into it' do
     assert @p.has_router?
 
