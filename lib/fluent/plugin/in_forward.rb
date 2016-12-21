@@ -287,7 +287,7 @@ module Fluent::Plugin
         es = es_class.new(entries, nil, size.to_i)
         es = check_and_skip_invalid_event(tag, es, conn.remote_host) if @skip_invalid_event
         if @enable_field_injection
-          es = add_source_host(es, conn)
+          es = add_source_info(es, conn)
         end
         router.emit_stream(tag, es)
 
@@ -307,7 +307,7 @@ module Fluent::Plugin
                es
              end
         if @enable_field_injection
-          es = add_source_host(es, conn)
+          es = add_source_info(es, conn)
         end
         router.emit_stream(tag, es)
         option = msg[2]
@@ -350,7 +350,7 @@ module Fluent::Plugin
       new_es
     end
 
-    def add_source_host(es, conn)
+    def add_source_info(es, conn)
       new_es = Fluent::MultiEventStream.new
       if @source_address_key && @source_hostname_key
         address = conn.remote_addr
