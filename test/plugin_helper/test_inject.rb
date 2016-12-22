@@ -59,6 +59,8 @@ class InjectHelperTest < Test::Unit::TestCase
     @d.start
     assert_nil @d.instance_eval{ @_inject_hostname_key }
     assert_nil @d.instance_eval{ @_inject_hostname }
+    assert_nil @d.instance_eval{ @_inject_worker_id_key }
+    assert_nil @d.instance_eval{ @_inject_worker_id }
     assert_nil @d.instance_eval{ @_inject_tag_key }
     assert_nil @d.instance_eval{ @_inject_time_key }
     assert_nil @d.instance_eval{ @_inject_time_formatter }
@@ -85,18 +87,23 @@ class InjectHelperTest < Test::Unit::TestCase
   end
 
   test 'can be configured as specified' do
-    @d.configure(config_inject_section(
-        "hostname_key" => "hostname",
-        "hostname" => "myhost.local",
-        "tag_key" => "tag",
-        "time_key" => "time",
-        "time_type" => "string",
-        "time_format" => "%Y-%m-%d %H:%M:%S.%N",
-        "timezone" => "-0700",
-    ))
+    with_worker_config(workers: 1, worker_id: 0) do
+      @d.configure(config_inject_section(
+          "hostname_key" => "hostname",
+          "hostname" => "myhost.local",
+          "worker_id_key" => "worker_id",
+          "tag_key" => "tag",
+          "time_key" => "time",
+          "time_type" => "string",
+          "time_format" => "%Y-%m-%d %H:%M:%S.%N",
+          "timezone" => "-0700",
+      ))
+    end
 
     assert_equal "hostname", @d.instance_eval{ @_inject_hostname_key }
     assert_equal "myhost.local", @d.instance_eval{ @_inject_hostname }
+    assert_equal "worker_id", @d.instance_eval{ @_inject_worker_id_key }
+    assert_equal 0, @d.instance_eval{ @_inject_worker_id }
     assert_equal "tag", @d.instance_eval{ @_inject_tag_key }
     assert_equal "time", @d.instance_eval{ @_inject_time_key }
     assert_equal :string, @d.instance_eval{ @inject_config.time_type }
@@ -134,6 +141,17 @@ class InjectHelperTest < Test::Unit::TestCase
       time = event_time()
       record = {"key1" => "value1", "key2" => 2}
       assert_equal record.merge({"host" => "myhost.yay.local"}), @d.inject_values_to_record('tag', time, record)
+    end
+
+    test 'injects worker id' do
+      with_worker_config(workers: 3, worker_id: 2) do
+        @d.configure(config_inject_section("worker_id_key" => "workerid"))
+      end
+      @d.start
+
+      time = event_time()
+      record = {"key1" => "value1", "key2" => 2}
+      assert_equal record.merge({"workerid" => 2}), @d.inject_values_to_record('tag', time, record)
     end
 
     test 'injects tag into specified key' do
