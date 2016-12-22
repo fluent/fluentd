@@ -46,14 +46,20 @@ module Fluent
       def initialize
         super
         @symlink_path = nil
+        @multi_workers_available = false
+        @additional_resume_path = nil
       end
 
       def configure(conf)
         super
 
+        multi_workers_configured = owner.system_config.workers > 1 ? true : false
+
+        using_plugin_root_dir = false
         unless @path
           if root_dir = owner.plugin_root_dir
             @path = File.join(root_dir, 'buffer')
+            using_plugin_root_dir = true # plugin_root_dir path contains worker id
           else
             raise Fluent::ConfigError, "buffer path is not configured. specify 'path' in <buffer>"
           end
@@ -67,31 +73,40 @@ module Fluent
 
         @@buffer_paths[@path] = type_of_owner
 
-        if File.exist?(@path)
-          if File.directory?(@path)
+        if File.exist?(@path) && File.directory?(@path) || !File.exist?(@path) && !@path.include?('.*') # directory
+          if using_plugin_root_dir || !multi_workers_configured
             @path = File.join(@path, 'buffer.*.log')
-          elsif File.basename(@path).include?('.*.')
-            # valid path (buffer.*.log will be ignored)
+          else
+            @path = File.join(@path, "worker#{fluentd_worker_id}", 'buffer.*.log')
+            if fluentd_worker_id == 0
+              # worker 0 always checks unflushed buffer chunks to be resumed (might be created while non-multi-worker configuration)
+              @additional_resume_path = File.join(File.expand_path("../../", @path), 'buffer.*.log')
+            end
+          end
+          @multi_workers_available = true
+        else # specified path is file path
+          if File.basename(@path).include?('.*.')
+            # valid file path
           elsif File.basename(@path).end_with?('.*')
             @path = @path + '.log'
           else
             # existing file will be ignored
             @path = @path + '.*.log'
           end
-        else # path doesn't exist
-          if File.basename(@path).include?('.*.')
-            # valid path
-          elsif File.basename(@path).end_with?('.*')
-            @path = @path + '.log'
-          else
-            # path is handled as directory, and it will be created at #start
-            @path = File.join(@path, 'buffer.*.log')
-          end
+          @multi_workers_available = false
         end
 
         unless @dir_permission
           @dir_permission = system_config.dir_permission || DIR_PERMISSION
         end
+      end
+
+      # This method is called only when multi worker is configured
+      def multi_workers_ready?
+        unless @multi_workers_available
+          log.error "file buffer with multi workers should be configured to use directory 'path', or system root_dir and plugin id"
+        end
+        @multi_workers_available
       end
 
       def buffer_path_for_test?
@@ -120,7 +135,11 @@ module Fluent
         stage = {}
         queue = []
 
-        Dir.glob(@path) do |path|
+        patterns = [@path]
+        patterns.unshift @additional_resume_path if @additional_resume_path
+        Dir.glob(patterns) do |path|
+          next unless File.file?(path)
+
           m = new_metadata() # this metadata will be overwritten by resuming .meta file content
                              # so it should not added into @metadata_list for now
           mode = Fluent::Plugin::Buffer::FileChunk.assume_chunk_state(path)

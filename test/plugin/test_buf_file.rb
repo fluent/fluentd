@@ -10,6 +10,12 @@ require 'msgpack'
 module FluentPluginFileBufferTest
   class DummyOutputPlugin < Fluent::Plugin::Output
     Fluent::Plugin.register_output('buffer_file_test_output', self)
+    config_section :buffer do
+      config_set_default :@type, 'file'
+    end
+    def multi_workers_ready?
+      true
+    end
     def write(chunk)
       # drop
     end
@@ -39,13 +45,8 @@ class FileBufferTest < Test::Unit::TestCase
       Fluent::Test.setup
 
       @dir = File.expand_path('../../tmp/buffer_file_dir', __FILE__)
-      unless File.exist?(@dir)
-        FileUtils.mkdir_p @dir
-      end
-      Dir.glob(File.join(@dir, '*')).each do |path|
-        next if ['.', '..'].include?(File.basename(path))
-        File.delete(path)
-      end
+      FileUtils.rm_rf @dir
+      FileUtils.mkdir_p @dir
     end
 
     test 'path should include * normally' do
@@ -70,6 +71,72 @@ class FileBufferTest < Test::Unit::TestCase
       p.owner = d
       p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer')}))
       assert_equal File.join(@dir, 'buffer', 'buffer.*.log'), p.path
+    end
+  end
+
+  sub_test_case 'buffer configurations and workers' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+      FileUtils.rm_rf @bufdir
+      Fluent::Test.setup
+
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+    end
+
+    test 'raise error if configured path is of existing file' do
+      @bufpath = File.join(@bufdir, 'buf')
+      FileUtils.mkdir_p @bufdir
+      File.open(@bufpath, 'w'){|f| } # create and close the file
+      assert File.exist?(@bufpath)
+      assert File.file?(@bufpath)
+
+      buf_conf = config_element('buffer', '', {'path' => @bufpath})
+      assert_raise Fluent::ConfigError.new("Plugin 'file' does not support multi workers configuration (Fluent::Plugin::FileBuffer)") do
+        Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
+          @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
+        end
+      end
+    end
+
+    test 'raise error if fluentd is configured to use file path pattern and multi workers' do
+      @bufpath = File.join(@bufdir, 'testbuf.*.log')
+      buf_conf = config_element('buffer', '', {'path' => @bufpath})
+      assert_raise Fluent::ConfigError.new("Plugin 'file' does not support multi workers configuration (Fluent::Plugin::FileBuffer)") do
+        Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
+          @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
+        end
+      end
+    end
+
+    test 'enables multi worker configuration with unexisting directory path' do
+      assert_false File.exist?(@bufdir)
+      buf_conf = config_element('buffer', '', {'path' => @bufdir})
+      assert_nothing_raised do
+        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+          @d.configure(config_element('ROOT', '', {}, [buf_conf]))
+        end
+      end
+    end
+
+    test 'enables multi worker configuration with existing directory path' do
+      FileUtils.mkdir_p @bufdir
+      buf_conf = config_element('buffer', '', {'path' => @bufdir})
+      assert_nothing_raised do
+        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+          @d.configure(config_element('ROOT', '', {}, [buf_conf]))
+        end
+      end
+    end
+
+    test 'enables multi worker configuration with root dir' do
+      buf_conf = config_element('buffer', '')
+      assert_nothing_raised do
+        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+          @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
+        end
+      end
     end
   end
 
@@ -438,6 +505,176 @@ class FileBufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'there are some existing file chunks, both in specified path and per-worker directory under specified path, configured as multi workers' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file/path', __FILE__)
+      @worker0_dir = File.join(@bufdir, "worker0")
+      @worker1_dir = File.join(@bufdir, "worker1")
+      FileUtils.rm_rf @bufdir
+      FileUtils.mkdir_p @worker0_dir
+      FileUtils.mkdir_p @worker1_dir
+
+      @bufdir_chunk_1 = Fluent::UniqueId.generate
+      bc1 = File.join(@bufdir, "buffer.q#{Fluent::UniqueId.hex(@bufdir_chunk_1)}.log")
+      File.open(bc1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        bc1 + '.meta', @bufdir_chunk_1, metadata(timekey: event_time('2016-04-17 13:58:00 -0700').to_i),
+        4, event_time('2016-04-17 13:58:00 -0700').to_i, event_time('2016-04-17 13:58:22 -0700').to_i
+      )
+
+      @bufdir_chunk_2 = Fluent::UniqueId.generate
+      bc2 = File.join(@bufdir, "buffer.q#{Fluent::UniqueId.hex(@bufdir_chunk_2)}.log")
+      File.open(bc2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        bc2 + '.meta', @bufdir_chunk_2, metadata(timekey: event_time('2016-04-17 13:58:00 -0700').to_i),
+        4, event_time('2016-04-17 13:58:00 -0700').to_i, event_time('2016-04-17 13:58:22 -0700').to_i
+      )
+
+      @worker_dir_chunk_1 = Fluent::UniqueId.generate
+      wc0_1 = File.join(@worker0_dir, "buffer.q#{Fluent::UniqueId.hex(@worker_dir_chunk_1)}.log")
+      wc1_1 = File.join(@worker1_dir, "buffer.q#{Fluent::UniqueId.hex(@worker_dir_chunk_1)}.log")
+      [wc0_1, wc1_1].each do |chunk_path|
+        File.open(chunk_path, 'wb') do |f|
+          f.write ["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        end
+        write_metadata(
+          chunk_path + '.meta', @worker_dir_chunk_1, metadata(timekey: event_time('2016-04-17 13:59:00 -0700').to_i),
+          3, event_time('2016-04-17 13:59:00 -0700').to_i, event_time('2016-04-17 13:59:23 -0700').to_i
+        )
+      end
+
+      @worker_dir_chunk_2 = Fluent::UniqueId.generate
+      wc0_2 = File.join(@worker0_dir, "buffer.b#{Fluent::UniqueId.hex(@worker_dir_chunk_2)}.log")
+      wc1_2 = File.join(@worker1_dir, "buffer.b#{Fluent::UniqueId.hex(@worker_dir_chunk_2)}.log")
+      [wc0_2, wc1_2].each do |chunk_path|
+        File.open(chunk_path, 'wb') do |f|
+          f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        end
+        write_metadata(
+          chunk_path + '.meta', @worker_dir_chunk_2, metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i),
+          4, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i
+        )
+      end
+
+      @worker_dir_chunk_3 = Fluent::UniqueId.generate
+      wc0_3 = File.join(@worker0_dir, "buffer.b#{Fluent::UniqueId.hex(@worker_dir_chunk_3)}.log")
+      wc1_3 = File.join(@worker1_dir, "buffer.b#{Fluent::UniqueId.hex(@worker_dir_chunk_3)}.log")
+      [wc0_3, wc1_3].each do |chunk_path|
+        File.open(chunk_path, 'wb') do |f|
+          f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+          f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        end
+        write_metadata(
+          chunk_path + '.meta', @worker_dir_chunk_3, metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i),
+          3, event_time('2016-04-17 14:01:00 -0700').to_i, event_time('2016-04-17 14:01:25 -0700').to_i
+        )
+      end
+
+      Fluent::Test.setup
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+    end
+
+    test 'worker(id=0) #resume returns staged/queued chunks with metadata, not only in worker dir, including the directory specified by path' do
+      ENV['SERVERENGINE_WORKER_ID'] = '0'
+
+      buf_conf = config_element('buffer', '', {'path' => @bufdir})
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      with_worker_config(workers: 2, worker_id: 0) do
+        @d.configure(config_element('output', '', {}, [buf_conf]))
+      end
+
+      @d.start
+      @p = @d.buffer
+
+      assert_equal 2, @p.stage.size
+      assert_equal 3, @p.queue.size
+
+      stage = @p.stage
+
+      m1 = metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i)
+      assert_equal @worker_dir_chunk_2, stage[m1].unique_id
+      assert_equal 4, stage[m1].size
+      assert_equal :staged, stage[m1].state
+
+      m2 = metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i)
+      assert_equal @worker_dir_chunk_3, stage[m2].unique_id
+      assert_equal 3, stage[m2].size
+      assert_equal :staged, stage[m2].state
+
+      queue = @p.queue
+
+      assert_equal @bufdir_chunk_1, queue[0].unique_id
+      assert_equal 4, queue[0].size
+      assert_equal :queued, queue[0].state
+
+      assert_equal @bufdir_chunk_2, queue[1].unique_id
+      assert_equal 4, queue[1].size
+      assert_equal :queued, queue[1].state
+
+      assert_equal @worker_dir_chunk_1, queue[2].unique_id
+      assert_equal 3, queue[2].size
+      assert_equal :queued, queue[2].state
+    end
+
+    test 'worker(id=1) #resume returns staged/queued chunks with metadata, only in worker dir' do
+      buf_conf = config_element('buffer', '', {'path' => @bufdir})
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      with_worker_config(workers: 2, worker_id: 1) do
+        @d.configure(config_element('output', '', {}, [buf_conf]))
+      end
+
+      @d.start
+      @p = @d.buffer
+
+      assert_equal 2, @p.stage.size
+      assert_equal 1, @p.queue.size
+
+      stage = @p.stage
+
+      m1 = metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i)
+      assert_equal @worker_dir_chunk_2, stage[m1].unique_id
+      assert_equal 4, stage[m1].size
+      assert_equal :staged, stage[m1].state
+
+      m2 = metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i)
+      assert_equal @worker_dir_chunk_3, stage[m2].unique_id
+      assert_equal 3, stage[m2].size
+      assert_equal :staged, stage[m2].state
+
+      queue = @p.queue
+
+      assert_equal @worker_dir_chunk_1, queue[0].unique_id
+      assert_equal 3, queue[0].size
+      assert_equal :queued, queue[0].state
+    end
+  end
+
   sub_test_case 'there are some existing file chunks without metadata file' do
     setup do
       @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
@@ -544,6 +781,9 @@ class FileBufferTest < Test::Unit::TestCase
   sub_test_case 'there are some non-buffer chunk files, with a path without buffer chunk ids' do
     setup do
       @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+
+      FileUtils.rm_rf @bufdir
+      FileUtils.mkdir_p @bufdir
 
       @c1id = Fluent::UniqueId.generate
       p1 = File.join(@bufdir, "etest.201604171358.q#{Fluent::UniqueId.hex(@c1id)}.log")
