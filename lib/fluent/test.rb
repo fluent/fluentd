@@ -36,6 +36,8 @@ module Fluent
     end
 
     def self.setup
+      ENV['SERVERENGINE_WORKER_ID'] = '0'
+
       $log = dummy_logger
 
       Fluent.__send__(:remove_const, :Engine)
