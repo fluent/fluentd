@@ -42,6 +42,7 @@ module Fluent
       def initialize
         super
         @store = {}
+        @multi_workers_available = nil
       end
 
       def configure(conf)
@@ -49,9 +50,22 @@ module Fluent
 
         @on_memory = false
         if @path
-          # use it
+          if File.exist?(@path) && File.file?(@path)
+            @multi_workers_available = false
+          elsif File.exist?(@path) && File.directory?(@path)
+            @path = File.join(@path, "worker#{fluentd_worker_id}", "storage.json")
+            @multi_workers_available = true
+          else # path file/directory doesn't exist
+            if @path.end_with?('.json') # file
+              @multi_workers_available = false
+            else # directory
+              @path = File.join(@path, "worker#{fluentd_worker_id}", "storage.json")
+              @multi_workers_available = true
+            end
+          end
         elsif root_dir = owner.plugin_root_dir
           @path = File.join(root_dir, 'storage.json')
+          @multi_workers_available = true
         else
           if @persistent
             raise Fluent::ConfigError, "Plugin @id or path for <storage> required when 'persistent' is true"
@@ -62,6 +76,7 @@ module Fluent
               log.info "both of Plugin @id and path for <storage> are not specified. Using on-memory store."
             end
             @on_memory = true
+            @multi_workers_available = true
           end
         end
 
@@ -81,6 +96,13 @@ module Fluent
             raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{@path}'" unless File.stat(dir).writable?
           end
         end
+      end
+
+      def multi_workers_ready?
+        unless @multi_workers_available
+          log.error "local plugin storage with multi workers should be configured to use directory 'path', or system root_dir and plugin id"
+        end
+        @multi_workers_available
       end
 
       def load
