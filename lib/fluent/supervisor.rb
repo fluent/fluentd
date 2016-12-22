@@ -14,8 +14,6 @@
 #    limitations under the License.
 #
 
-require 'etc'
-require 'fcntl'
 require 'fileutils'
 
 require 'fluent/config'
@@ -27,7 +25,6 @@ require 'fluent/plugin'
 require 'fluent/rpc'
 require 'fluent/system_config'
 require 'serverengine'
-require 'shellwords'
 
 if Fluent.windows?
   require 'windows/library'
@@ -230,6 +227,7 @@ module Fluent
       fluentd_conf = Fluent::Config.parse(config_data, config_fname, config_basedir, params['use_v1_config'])
       system_config = SystemConfig.create(fluentd_conf)
 
+      workers = system_config.workers || params['workers']
       root_dir = system_config.root_dir || params['root_dir']
       log_level = system_config.log_level || params['log_level']
       suppress_repeated_stacktrace = system_config.suppress_repeated_stacktrace || params['suppress_repeated_stacktrace']
@@ -261,7 +259,7 @@ module Fluent
 
       se_config = {
           worker_type: 'spawn',
-          workers: 1,
+          workers: workers,
           log_stdin: false,
           log_stdout: false,
           log_stderr: false,
@@ -400,6 +398,7 @@ module Fluent
       @rpc_server = nil
       @process_name = nil
 
+      @workers = opt[:workers]
       @root_dir = opt[:root_dir]
       @log_level = opt[:log_level]
       @log_rotate_age = opt[:log_rotate_age]
@@ -425,6 +424,10 @@ module Fluent
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
+
+      if @workers < 1
+        raise Fluent::ConfigError, "invalid number of workers:#{@workers}"
+      end
 
       if @root_dir
         if File.exist?(@root_dir)

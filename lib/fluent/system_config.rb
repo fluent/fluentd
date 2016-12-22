@@ -109,7 +109,7 @@ module Fluent
       system = self
       supervisor.instance_eval {
         SYSTEM_CONFIG_PARAMETERS.each do |param|
-          param_value = system.send(param)
+          param_value = system.__send__(param)
           next if param_value.nil?
 
           case param

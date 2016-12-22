@@ -201,7 +201,7 @@ module Fluent
 
     def run
       begin
-        worker_id = ENV['SERVERENGINE_WORKER_ID']
+        worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
