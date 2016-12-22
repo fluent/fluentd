@@ -57,6 +57,21 @@ EOT
         ENV['TZ'] = oldtz
       end
 
+      def with_worker_config(root_dir: nil, workers: nil, worker_id: nil, &block)
+        if workers && worker_id.nil?
+          worker_id = 0
+        end
+
+        opts = {}
+        opts['root_dir'] = root_dir if root_dir
+        opts['workers'] = workers if workers
+
+        ENV['SERVERENGINE_WORKER_ID'] = worker_id.to_s
+        Fluent::SystemConfig.overwrite_system_config(opts, &block)
+      ensure
+        ENV.delete('SERVERENGINE_WORKER_ID')
+      end
+
       def time2str(time, localtime: false, format: nil)
         if format
           if localtime
