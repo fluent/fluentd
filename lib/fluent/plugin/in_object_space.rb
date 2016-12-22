@@ -14,7 +14,6 @@
 #    limitations under the License.
 #
 
-require 'cool.io'
 require 'yajl'
 
 require 'fluent/plugin/input'
@@ -32,6 +31,10 @@ module Fluent::Plugin
     config_param :emit_interval, :time, default: 60
     config_param :tag, :string
     config_param :top, :integer, default: 15
+
+    def multi_workers_ready?
+      true
+    end
 
     def start
       super

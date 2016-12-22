@@ -25,6 +25,10 @@ module Fluent::Plugin
     desc 'If true, pass different record to each `store` plugin.'
     config_param :deep_copy, :bool, default: false
 
+    def multi_workers_ready?
+      true
+    end
+
     def process(tag, es)
       unless es.repeatable?
         m = Fluent::MultiEventStream.new

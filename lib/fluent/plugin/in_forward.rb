@@ -142,12 +142,16 @@ module Fluent::Plugin
       end
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     HEARTBEAT_UDP_PAYLOAD = "\0"
 
     def start
       super
 
-      shared_socket = false
+      shared_socket = false # TODO: turn it true if configured as multi workers
 
       server_create_connection(
         :in_forward_server, @port,

@@ -33,6 +33,10 @@ module Fluent::Plugin
       super
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
 

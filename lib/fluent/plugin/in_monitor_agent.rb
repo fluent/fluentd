@@ -226,6 +226,10 @@ module Fluent::Plugin
       @first_warn = false
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
 

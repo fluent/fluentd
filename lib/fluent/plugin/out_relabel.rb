@@ -21,6 +21,10 @@ module Fluent::Plugin
     Fluent::Plugin.register_output('relabel', self)
     helpers :event_emitter
 
+    def multi_workers_ready?
+      true
+    end
+
     def process(tag, es)
       router.emit_stream(tag, es)
     end

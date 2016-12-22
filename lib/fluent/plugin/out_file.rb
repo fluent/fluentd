@@ -161,6 +161,11 @@ module Fluent::Plugin
       @file_perm = system_config.file_permission || FILE_PERMISSION
     end
 
+    def multi_workers_ready?
+      ### TODO: add hack to synchronize for multi workers
+      true
+    end
+
     def format(tag, time, record)
       r = inject_values_to_record(tag, time, record)
       @formatter.format(tag, time, r)

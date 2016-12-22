@@ -51,6 +51,10 @@ module Fluent::Plugin
       @formatter = formatter_create
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     NEWLINE = "\n"
 
     def format(tag, time, record)

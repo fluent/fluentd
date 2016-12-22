@@ -120,6 +120,10 @@ module Fluent::Plugin
       @_event_loop_run_timeout = @blocking_timeout
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
 

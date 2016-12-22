@@ -42,6 +42,10 @@ module Fluent::Plugin
       @rand_seed = Random.new.seed
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
       rebuild_weight_array
