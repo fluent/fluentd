@@ -35,16 +35,25 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def create_driver(conf=CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
-      attr_reader :responses, :exceptions
+      attr_reader :response_chunk_ids, :exceptions, :sent_chunk_ids
 
       def initialize
         super
-        @responses = []
+        @sent_chunk_ids = []
+        @response_chunk_ids = []
         @exceptions = []
       end
 
+      def try_write(chunk)
+        retval = super
+        @sent_chunk_ids << chunk.unique_id
+        retval
+      end
+
       def read_ack_from_sock(sock, unpacker)
-        @responses << super
+        retval = super
+        @response_chunk_ids << retval
+        retval
       rescue => e
         @exceptions << e
         raise e
@@ -302,7 +311,7 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_empty d.instance.responses # not attempt to receive responses, so it's empty
+    assert_empty d.instance.response_chunk_ids # not attempt to receive responses, so it's empty
     assert_empty d.instance.exceptions
   end
 
@@ -329,7 +338,7 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_empty d.instance.responses # not attempt to receive responses, so it's empty
+    assert_empty d.instance.response_chunk_ids # not attempt to receive responses, so it's empty
     assert_empty d.instance.exceptions
   end
 
@@ -354,7 +363,7 @@ EOL
       {"a" => 2}
     ]
     target_input_driver.run(expect_records: 2) do
-      d.end_if{ d.instance.responses.length > 0 }
+      d.end_if{ d.instance.response_chunk_ids.length > 0 }
       d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         d.feed([[time, records[0]], [time,records[1]]])
       end
@@ -364,7 +373,8 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal 1, d.instance.responses.length
+    assert_equal 1, d.instance.response_chunk_ids.size
+    assert_equal d.instance.sent_chunk_ids.first, d.instance.response_chunk_ids.first
     assert_empty d.instance.exceptions
   end
 
@@ -400,7 +410,7 @@ EOL
       end
     end
 
-    assert_equal 1, delayed_commit_timeout_value
+    assert_equal (1 + 2), delayed_commit_timeout_value
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
@@ -409,7 +419,6 @@ EOL
     assert{ d.instance.rollback_count > 0 }
 
     logs = d.instance.log.logs
-    assert{ logs.any?{|log| log.include?("failed to flush the buffer chunk, timeout to commit.") } }
     assert{ logs.any?{|log| log.include?("no response from node. regard it as unavailable.") } }
   end
 
@@ -445,7 +454,7 @@ EOL
       end
     end
 
-    assert_equal 5, delayed_commit_timeout_value
+    assert_equal (5 + 2), delayed_commit_timeout_value
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
@@ -454,7 +463,6 @@ EOL
     assert{ d.instance.rollback_count > 0 }
 
     logs = d.instance.log.logs
-    assert{ logs.any?{|log| log.include?("failed to flush the buffer chunk, timeout to commit.") } }
     assert{ logs.any?{|log| log.include?("no response from node. regard it as unavailable.") } }
   end
 
