@@ -302,7 +302,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "retry"           => {}
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
@@ -338,7 +339,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "retry"           => {}
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}"))
