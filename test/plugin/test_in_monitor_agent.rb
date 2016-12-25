@@ -275,16 +275,16 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_test_filter_response, test_filter)
     end
 
-    data(:include_config_yes => [true, "include_config yes"],
-         :include_config_no => [false, "include_config no"])
-    test "/api/plugins.json" do |(with_config, include_conf)|
-
+    data(:include_config_and_retry_yes => [true, true, "include_config yes", "include_retry yes"],
+         :include_config_and_retry_no => [false, false, "include_config no", "include_retry no"],)
+    test "/api/plugins.json" do |(with_config, with_retry, include_conf, retry_conf)|
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
   port #{@port}
   tag monitor
   #{include_conf}
+  #{retry_conf}
 ")
       d.instance.start
       expected_test_in_response = {
@@ -305,6 +305,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "type"            => "null"
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
+      expected_null_response.merge!("retry" => {}) if with_retry
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
@@ -312,9 +313,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_null_response, null_response)
     end
 
-    data(:with_config_yes => [true, "?with_config=yes"],
-         :with_config_no => [false, "?with_config=no"])
-    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, query_param)|
+    data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
+         :with_config_and_retry_no => [false, false, "?with_config=no&with_retry=no"])
+    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, with_retry, query_param)|
 
       d = create_driver("
   @type monitor_agent
@@ -341,6 +342,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "type"            => "null"
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
+      expected_null_response.merge!("retry" => {}) if with_retry
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}"))
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
@@ -375,6 +377,75 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_nil(res["pid_file"])
       assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
       assert_nil(res["log_path"])
+    end
+  end
+
+  sub_test_case "check retry of buffered plugins" do
+    class FluentTestFailWriteOutput < ::Fluent::Plugin::Output
+      ::Fluent::Plugin.register_output('test_out_fail_write', self)
+
+      def write(chunk)
+        raise "chunk error!"
+      end
+    end
+
+    setup do
+      @port = unused_port
+      # check @type and type in one configuration
+      conf = <<-EOC
+<source>
+  @type monitor_agent
+  @id monitor_agent
+  bind "127.0.0.1"
+  port #{@port}
+</source>
+<match **>
+  @type test_out_fail_write
+  @id test_out_fail_write
+  <buffer>
+    flush_mode immediate
+  </buffer>
+</match>
+      EOC
+      @ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { @ra }
+      @ra = configure_ra(@ra, conf)
+    end
+
+    test "/api/plugins.json retry object should be filled if flush was failed" do
+
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  include_config no
+")
+      d.instance.start
+      expected_test_out_fail_write_response = {
+          "buffer_queue_length" => 1,
+          "buffer_total_queued_size" => 0,
+          "output_plugin" => true,
+          "plugin_category" => "output",
+          "plugin_id" => "test_out_fail_write",
+          "retry_count" => 2,
+          "type" => "test_out_fail_write",
+          "retry" => {
+              "steps" => 1
+          }
+      }
+      output = @ra.outputs[0]
+      output.start
+      output.after_start
+      output.emit_events('test.tag', Fluent::ArrayEventStream.new([[event_time, {"message" => "test failed flush 1"}]]))
+      # flush few times to check steps
+      2.times do
+        output.force_flush
+      end
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
+      test_out_fail_write_response = response["plugins"][1]
+      # remove dynamic keys
+      ["start", "next_time"].each { |key| test_out_fail_write_response["retry"].delete(key) }
+      assert_equal(expected_test_out_fail_write_response, test_out_fail_write_response)
     end
   end
 end
