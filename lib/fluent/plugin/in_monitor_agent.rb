@@ -34,6 +34,7 @@ module Fluent
     config_param :emit_interval, :time, default: 60
     config_param :emit_config, :bool, default: false
     config_param :include_config, :bool, default: true
+    config_param :include_retry, :bool, default: true
 
     class MonitorServlet < WEBrick::HTTPServlet::AbstractServlet
       def initialize(server, agent)
@@ -77,7 +78,7 @@ module Fluent
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
-        opts = {with_config: @agent.include_config}
+        opts = {with_config: @agent.include_config, with_retry: @agent.include_retry}
         if s = qs['debug'] and s[0]
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
@@ -89,6 +90,10 @@ module Fluent
 
         if with_config = get_search_parameter(qs, 'with_config'.freeze)
           opts[:with_config] = Fluent::Config.bool_value(with_config)
+        end
+
+        if with_retry = get_search_parameter(qs, 'with_retry'.freeze)
+          opts[:with_retry] = Fluent::Config.bool_value(with_retry)
         end
 
         if tag = get_search_parameter(qs, 'tag'.freeze)
@@ -263,7 +268,7 @@ module Fluent
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
         @loop = Coolio::Loop.new
-        opts = {with_config: @emit_config}
+        opts = {with_config: @emit_config, with_retry: false}
         timer = TimerWatcher.new(@emit_interval, log) {
           es = MultiEventStream.new
           now = Engine.now
@@ -408,6 +413,11 @@ module Fluent
         end
       }
 
+      if opts[:with_retry] && pe.instance_variable_defined?(:@num_errors) &&
+         (pe.instance_variable_get(:@num_errors) > 0)
+        obj['retry'] = get_retry_info(pe)
+      end
+
       # include all instance variables if :with_debug_info is set
       if opts[:with_debug_info]
         iv = {}
@@ -429,6 +439,21 @@ module Fluent
       end
 
       obj
+    end
+
+    RETRY_INFO = {
+      'steps' => '@num_errors',
+      'next_time' => '@next_retry_time',
+    }.freeze
+
+    def get_retry_info(pe)
+      retry_variables = {}
+
+      RETRY_INFO.each_pair { |key, param|
+        retry_variables[key] = pe.instance_variable_get(param)
+      }
+
+      retry_variables
     end
 
     def plugin_category(pe)
