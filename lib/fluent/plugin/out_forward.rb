@@ -178,7 +178,7 @@ module Fluent::Plugin
       # But it should be overwritten by ack_response_timeout to rollback chunks after timeout
       if @ack_response_timeout && @delayed_commit_timeout != @ack_response_timeout
         log.info "delayed_commit_timeout is overwritten by ack_response_timeout"
-        @delayed_commit_timeout = @ack_response_timeout
+        @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
       end
 
       @rand_seed = Random.new.seed
@@ -214,22 +214,23 @@ module Fluent::Plugin
       select_a_healthy_node{|node| node.send_data(tag, chunk) }
     end
 
-    ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :node, :time, :timeout) do
+    ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
       def expired?(now)
         time + timeout < now
       end
     end
 
     def try_write(chunk)
+      log.trace "writing a chunk to destination", chunk_id: dump_unique_id_hex(chunk.unique_id)
       if chunk.empty?
         commit_write(chunk.unique_id)
         return
       end
       tag = chunk.metadata.tag
       sock, node = select_a_healthy_node{|n| n.send_data(tag, chunk) }
-      chunk_id = Base64.encode64(chunk.unique_id)
+      chunk_id_base64 = Base64.encode64(chunk.unique_id)
       current_time = Process.clock_gettime(PROCESS_CLOCK_ID)
-      info = ACKWaitingSockInfo.new(sock, chunk_id, node, current_time, @ack_response_timeout)
+      info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting << info
       end
@@ -341,7 +342,7 @@ module Fluent::Plugin
       end
     end
 
-    # return chunk id when succeeded for tests
+    # return chunk id to be committed
     def read_ack_from_sock(sock, unpacker)
       begin
         raw_data = sock.recv(@read_length)
@@ -359,11 +360,14 @@ module Fluent::Plugin
       else
         unpacker.feed(raw_data)
         res = unpacker.read
-        if res['ack'] != info.chunk_id
+        log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
+        if res['ack'] != info.chunk_id_base64
           # Some errors may have occured when ack and chunk id is different, so send the chunk again.
-          log.warn "ack in response and chunk id in sent data are different", chunk_id: info.chunk_id, ack: res['ack']
+          log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
           rollback_write(info.chunk_id)
           return nil
+        else
+          log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
         end
         return info.chunk_id
       end
@@ -378,9 +382,9 @@ module Fluent::Plugin
 
     def ack_reader
       select_interval = if @delayed_commit_timeout > 3
-                          2
+                          1
                         else
-                          @delayed_commit_timeout / 2.0
+                          @delayed_commit_timeout / 3.0
                         end
 
       unpacker = Fluent::Engine.msgpack_unpacker
@@ -388,30 +392,36 @@ module Fluent::Plugin
       while thread_current_running?
         now = Process.clock_gettime(PROCESS_CLOCK_ID)
         sockets = []
-        @sock_ack_waiting_mutex.synchronize do
-          new_list = []
-          @sock_ack_waiting.each do |info|
-            if info.expired?(now)
-              # There are 2 types of cases when no response has been received from socket:
-              # (1) the node does not support sending responses
-              # (2) the node does support sending response but responses have not arrived for some reasons.
-              log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
-              info.node.disable!
-              info.sock.close rescue nil
-              rollback_write(info.chunk_id)
-            else
-              sockets << info.sock
-              new_list << info
+        begin
+          @sock_ack_waiting_mutex.synchronize do
+            new_list = []
+            @sock_ack_waiting.each do |info|
+              if info.expired?(now)
+                # There are 2 types of cases when no response has been received from socket:
+                # (1) the node does not support sending responses
+                # (2) the node does support sending response but responses have not arrived for some reasons.
+                log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
+                info.node.disable!
+                info.sock.close rescue nil
+                rollback_write(info.chunk_id)
+              else
+                sockets << info.sock
+                new_list << info
+              end
             end
+            @sock_ack_waiting = new_list
           end
-          @sock_ack_waiting = new_list
-        end
 
-        readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
-        next unless readable_sockets
+          readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
+          next unless readable_sockets
 
-        readable_sockets.each do |sock|
-          read_ack_from_sock(sock, unpacker)
+          readable_sockets.each do |sock|
+            chunk_id = read_ack_from_sock(sock, unpacker)
+            commit_write(chunk_id)
+          end
+        rescue => e
+          log.error "unexpected error while receiving ack", error: e
+          log.error_backtrace
         end
       end
     end
