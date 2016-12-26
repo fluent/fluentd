@@ -21,9 +21,9 @@
 
 ### Bug fixes
 * Fix to set process name of supervisor process
-https://github.com/fluent/fluentd/pull/1380
+  https://github.com/fluent/fluentd/pull/1380
 * in_forward: Fix a bug not to handle "require_ack_response" correctly
-https://github.com/fluent/fluentd/pull/1389
+  https://github.com/fluent/fluentd/pull/1389
 
 
 ## Release v0.14.10 - 2016/12/14
