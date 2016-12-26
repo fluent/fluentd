@@ -199,7 +199,7 @@ CONF
       conf_path = create_conf_file('valid.conf', conf)
       assert File.exist?(conf_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker=0')
     end
   end
 
@@ -232,14 +232,14 @@ CONF
       conf_path = create_conf_file('existing_root_dir.conf', @conf)
       assert Dir.exist?(@root_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker=0')
     end
 
     test 'creates the specified root directory if missing' do
       conf_path = create_conf_file('missing_root_dir.conf', @conf)
       assert_false Dir.exist?(@root_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker=0')
       assert Dir.exist?(@root_path)
     end
 
