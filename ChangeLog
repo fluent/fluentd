@@ -1,5 +1,31 @@
 # v0.14
 
+## Release v0.14.11 - 2016/12/26
+
+### New features / Enhancements
+* Add "root_dir" parameter in <system> directive to configure server root directory, used for buffer/storage paths
+  https://github.com/fluent/fluentd/pull/1374
+* Fix not to restart Fluentd processes when unrecoverable errors occur
+  https://github.com/fluent/fluentd/pull/1359
+* Show warnings in log when output flush operation takes longer time than threshold
+  https://github.com/fluent/fluentd/pull/1370
+* formatter_csv: Raise configuration error when no field names are specified
+  https://github.com/fluent/fluentd/pull/1369
+* in_syslog: Update implementation to use plugin helpers
+  https://github.com/fluent/fluentd/pull/1382
+* in_forward: Add a configuration parameter "source_address_key"
+  https://github.com/fluent/fluentd/pull/1382
+* in_monitor_agent: Add a parameter "include_retry" to get detail retry status
+  https://github.com/fluent/fluentd/pull/1387
+* Add Ruby 2.4 into supported ruby versions
+
+### Bug fixes
+* Fix to set process name of supervisor process
+https://github.com/fluent/fluentd/pull/1380
+* in_forward: Fix a bug not to handle "require_ack_response" correctly
+https://github.com/fluent/fluentd/pull/1389
+
+
 ## Release v0.14.10 - 2016/12/14
 
 ### New features / Enhancement
