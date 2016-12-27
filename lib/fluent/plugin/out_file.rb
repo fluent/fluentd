@@ -159,6 +159,7 @@ module Fluent::Plugin
 
       @dir_perm = system_config.dir_permission || DIR_PERMISSION
       @file_perm = system_config.file_permission || FILE_PERMISSION
+      @need_lock = system_config.workers > 1
     end
 
     def multi_workers_ready?
@@ -191,7 +192,7 @@ module Fluent::Plugin
       if @append
         writer.call(path, chunk)
       else
-        find_filepath_available(path) do |actual_path|
+        find_filepath_available(path, with_lock: @need_lock) do |actual_path|
           writer.call(actual_path, chunk)
           path = actual_path
         end
@@ -274,11 +275,28 @@ module Fluent::Plugin
     def find_filepath_available(path_with_placeholder, with_lock: false) # for non-append
       raise "BUG: index placeholder not found in path: #{path_with_placeholder}" unless path_with_placeholder.index('_**')
       i = 0
-      while path = path_with_placeholder.sub('_**', "_#{i}")
-        break unless File.exist?(path)
+      dir_path = locked = nil
+      while true
+        path = path_with_placeholder.sub('_**', "_#{i}")
         i += 1
+        next if File.exist?(path)
+
+        if with_lock
+          dir_path = path + '.lock'
+          locked = Dir.mkdir(dir_path) rescue false
+          next unless locked
+          # ensure that other worker doesn't create a file (and release lock)
+          # between previous File.exist? and Dir.mkdir
+          next if File.exist?(path)
+        end
+
+        break
       end
       yield path
+    ensure
+      if dir_path && locked && Dir.exist?(dir_path)
+        Dir.rmdir(dir_path) rescue nil
+      end
     end
   end
 end
