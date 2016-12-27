@@ -153,6 +153,7 @@ module Fluent::Plugin
 
       shared_socket = false # TODO: turn it true if configured as multi workers
 
+      log.info "listening a tcp port", port: @port, bind: @bind
       server_create_connection(
         :in_forward_server, @port,
         bind: @bind,
