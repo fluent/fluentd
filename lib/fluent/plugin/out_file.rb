@@ -175,32 +175,49 @@ module Fluent::Plugin
       path = extract_placeholders(@path_template, chunk.metadata)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
-      unless @append
-        path = find_filepath_available(path)
-      end
+      writer = case
+               when @compress_method.nil?
+                 method(:write_without_compression)
+               when @compress_method == :gzip
+                 if @buffer.compress != :gzip || @recompress
+                   method(:write_gzip_with_compression)
+                 else
+                   method(:write_gzip_from_gzipped_chunk)
+                 end
+               else
+                 raise "BUG: unknown compression method #{@compress_method}"
+               end
 
-      case @compress_method
-      when nil
-        File.open(path, "ab", @file_perm) do |f|
-          chunk.write_to(f)
-        end
-      when :gzip
-        if @buffer.compress != :gzip || @recompress
-          File.open(path, "ab", @file_perm) do |f|
-            gz = Zlib::GzipWriter.new(f)
-            chunk.write_to(gz, compressed: :text)
-            gz.close
-          end
-        else
-          File.open(path, "ab", @file_perm) do |f|
-            chunk.write_to(f, compressed: :gzip)
-          end
-        end
+      if @append
+        writer.call(path, chunk)
       else
-        raise "BUG: unknown compression method #{@compress_method}"
+        find_filepath_available(path) do |actual_path|
+          writer.call(actual_path, chunk)
+          path = actual_path
+        end
       end
 
       @last_written_path = path
+    end
+
+    def write_without_compression(path, chunk)
+      File.open(path, "ab", @file_perm) do |f|
+        chunk.write_to(f)
+      end
+    end
+
+    def write_gzip_with_compression(path, chunk)
+      File.open(path, "ab", @file_perm) do |f|
+        gz = Zlib::GzipWriter.new(f)
+        chunk.write_to(gz, compressed: :text)
+        gz.close
+      end
+    end
+
+    def write_gzip_from_gzipped_chunk(path, chunk)
+      File.open(path, "ab", @file_perm) do |f|
+        chunk.write_to(f, compressed: :gzip)
+      end
     end
 
     def timekey_to_timeformat(timekey)
@@ -254,14 +271,14 @@ module Fluent::Plugin
       end
     end
 
-    def find_filepath_available(path_with_placeholder) # for non-append
+    def find_filepath_available(path_with_placeholder, with_lock: false) # for non-append
       raise "BUG: index placeholder not found in path: #{path_with_placeholder}" unless path_with_placeholder.index('_**')
       i = 0
       while path = path_with_placeholder.sub('_**', "_#{i}")
         break unless File.exist?(path)
         i += 1
       end
-      path
+      yield path
     end
   end
 end

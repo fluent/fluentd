@@ -809,7 +809,9 @@ class FileOutputTest < Test::Unit::TestCase
 
     test 'raise error if argument path does not include index placeholder' do
       assert_raise "BUG: index placeholder not found in path: #{@tmp}/myfile" do
-        @i.find_filepath_available("#{@tmp}/myfile")
+        @i.find_filepath_available("#{@tmp}/myfile") do |path|
+          # ...
+        end
       end
     end
 
@@ -821,14 +823,18 @@ class FileOutputTest < Test::Unit::TestCase
     )
     test 'returns filepath with _0 at first' do |data|
       expected, argument = data
-      assert_equal File.join(@tmp, expected), @i.find_filepath_available(File.join(@tmp, argument))
+      @i.find_filepath_available(File.join(@tmp, argument)) do |path|
+        assert_equal File.join(@tmp, expected), path
+      end
     end
 
     test 'returns filepath with index which does not exist yet' do
       5.times do |i|
         File.open(File.join(@tmp, "exist_#{i}.log"), 'a')
       end
-      assert_equal File.join(@tmp, "exist_5.log"), @i.find_filepath_available(File.join(@tmp, "exist_**.log"))
+      @i.find_filepath_available(File.join(@tmp, "exist_**.log")) do |path|
+        assert_equal File.join(@tmp, "exist_5.log"), path
+      end
     end
   end
 end
