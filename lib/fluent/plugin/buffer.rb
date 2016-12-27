@@ -312,7 +312,7 @@ module Fluent
       end
 
       def enqueue_chunk(metadata)
-        log.debug "enqueueing chunk", instance: self.object_id, metadata: metadata
+        log.trace "enqueueing chunk", instance: self.object_id, metadata: metadata
         synchronize do
           chunk = @stage.delete(metadata)
           return nil unless chunk
@@ -334,7 +334,7 @@ module Fluent
       end
 
       def enqueue_unstaged_chunk(chunk)
-        log.debug "enqueueing unstaged chunk", instance: self.object_id, metadata: chunk.metadata
+        log.trace "enqueueing unstaged chunk", instance: self.object_id, metadata: chunk.metadata
         synchronize do
           chunk.synchronize do
             metadata = chunk.metadata
@@ -347,7 +347,7 @@ module Fluent
       end
 
       def enqueue_all
-        log.debug "enqueueing all chunks in buffer", instance: self.object_id
+        log.trace "enqueueing all chunks in buffer", instance: self.object_id
         synchronize do
           if block_given?
             @stage.keys.each do |metadata|
@@ -365,7 +365,7 @@ module Fluent
 
       def dequeue_chunk
         return nil if @queue.empty?
-        log.debug "dequeueing a chunk", instance: self.object_id
+        log.trace "dequeueing a chunk", instance: self.object_id
         synchronize do
           chunk = @queue.shift
 
@@ -374,18 +374,18 @@ module Fluent
 
           @dequeued[chunk.unique_id] = chunk
           @queued_num[chunk.metadata] -= 1 # BUG if nil, 0 or subzero
-          log.debug "chunk dequeued", instance: self.object_id, metadata: chunk.metadata
+          log.trace "chunk dequeued", instance: self.object_id, metadata: chunk.metadata
           chunk
         end
       end
 
       def takeback_chunk(chunk_id)
-        log.debug "taking back a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id)
+        log.trace "taking back a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id)
         synchronize do
           chunk = @dequeued.delete(chunk_id)
           return false unless chunk # already purged by other thread
           @queue.unshift(chunk)
-          log.debug "chunk taken back", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: chunk.metadata
+          log.trace "chunk taken back", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: chunk.metadata
           @queued_num[chunk.metadata] += 1 # BUG if nil
         end
         true
@@ -397,7 +397,7 @@ module Fluent
           return nil unless chunk # purged by other threads
 
           metadata = chunk.metadata
-          log.debug "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
+          log.trace "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
           begin
             bytesize = chunk.bytesize
             chunk.purge
@@ -410,18 +410,18 @@ module Fluent
           if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1)
             @metadata_list.delete(metadata)
           end
-          log.debug "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
+          log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
         end
         nil
       end
 
       def clear_queue!
-        log.debug "clearing queue", instance: self.object_id
+        log.trace "clearing queue", instance: self.object_id
         synchronize do
           until @queue.empty?
             begin
               q = @queue.shift
-              log.debug("purging a chunk in queue"){ {id: dump_unique_id_hex(chunk.unique_id), bytesize: chunk.bytesize, size: chunk.size} }
+              log.trace("purging a chunk in queue"){ {id: dump_unique_id_hex(chunk.unique_id), bytesize: chunk.bytesize, size: chunk.size} }
               q.purge
             rescue => e
               log.error "unexpected error while clearing buffer queue", error_class: e.class, error: e

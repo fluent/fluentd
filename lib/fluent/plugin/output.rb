@@ -983,7 +983,7 @@ module Fluent
         chunk = @buffer.dequeue_chunk
         return unless chunk
 
-        log.debug "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
+        log.trace "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
 
         output = self
         using_secondary = false
