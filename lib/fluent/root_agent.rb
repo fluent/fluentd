@@ -196,7 +196,11 @@ module Fluent
           t = Thread.new do
             Thread.current.abort_on_exception = true
             begin
-              log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+              if operation == :shutdown
+                log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+              else
+                log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+              end
               instance.send(method) unless instance.send(checker)
             rescue Exception => e
               log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
