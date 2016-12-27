@@ -196,7 +196,7 @@ module Fluent
           t = Thread.new do
             Thread.current.abort_on_exception = true
             begin
-              if operation == :shutdown
+              if method == :shutdown
                 log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
               else
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
