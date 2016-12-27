@@ -97,12 +97,12 @@ module Fluent
                     else
                       "section <#{e.name}> is not used in <#{parent_name}>"
                     end
-          $log.warn message
+          $log.warn :worker0, message
           next
         end
         unless e.name == 'system'
           unless @without_source && e.name == 'source'
-            $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
+            $log.warn :worker0, "parameter '#{key}' in #{e.to_s.strip} is not used."
           end
         end
       }
@@ -111,7 +111,7 @@ module Fluent
     def configure(conf)
       # plugins / configuration dumps
       Gem::Specification.find_all.select{|x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/}.each do |spec|
-        $log.info "gem '#{spec.name}' version '#{spec.version}'"
+        $log.info :worker0, "gem '#{spec.name}' version '#{spec.version}'"
       end
 
       @root_agent.configure(conf)
@@ -147,7 +147,7 @@ module Fluent
       $log.enable_event(true) if @log_event_router
 
       unless @suppress_config_dump
-        $log.info "using configuration file: #{conf.to_s.rstrip}"
+        $log.info :worker0, "using configuration file: #{conf.to_s.rstrip}"
       end
     end
 
@@ -200,8 +200,11 @@ module Fluent
     end
 
     def run
+      # if ENV doesn't have SERVERENGINE_WORKER_ID, it is a worker under --no-supervisor or in tests
+      # so it's (almost) a single worker, worker_id=0
+      worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
+
       begin
-        worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 

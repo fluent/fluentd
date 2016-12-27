@@ -44,6 +44,11 @@ module Fluent
 
     LOG_EVENT_TAG_PREFIX = 'fluent'
     LOG_EVENT_LABEL = '@FLUENT_LOG'
+    LOG_TYPE_SUPERVISOR = :supervisor # only in supervisor, or a worker with --no-supervisor
+    LOG_TYPE_WORKER0 = :worker0 # only in a worker with worker_id=0 (without showing worker id)
+    LOG_TYPE_DEFAULT = :default # show logs in all supervisor/workers, with worker id in workers (default)
+
+    LOG_TYPES = [LOG_TYPE_SUPERVISOR, LOG_TYPE_WORKER0, LOG_TYPE_DEFAULT].freeze
 
     def self.str_to_level(log_level_str)
       case log_level_str.downcase
@@ -103,13 +108,35 @@ module Fluent
       @optional_attrs = nil
 
       @suppress_repeated_stacktrace = opts[:suppress_repeated_stacktrace]
+
+      @process_type = opts[:process_type] # :supervisor, :worker0, :workers Or :standalone
+      @process_type ||= :standalone # to keep behavior of existing code
+      case @process_type
+      when :supervisor
+        @show_supervisor_log = true
+        @show_worker0_log = false
+      when :worker0
+        @show_supervisor_log = false
+        @show_worker0_log = true
+      when :workers
+        @show_supervisor_log = false
+        @show_worker0_log = false
+      when :standalone
+        @show_supervisor_log = true
+        @show_worker0_log = true
+      else
+        raise "BUG: unknown process type for logger:#{@process_type}"
+      end
+      @worker_id = opts[:worker_id]
+      @worker_id_part = "##{@worker_id} " # used only for :default log type in workers
     end
 
     def dup
       dl_opts = {}
       dl_opts[:log_level] = @level - 1
       logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
-      clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace)
+      clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace, process_type: @process_type, worker_id: @worker_id)
+      clone.tag = @tag
       clone.time_format = @time_format
       clone.log_event_enabled = @log_event_enabled
       # optional headers/attrs are not copied, because new PluginLogger should have another one of it
@@ -176,6 +203,34 @@ module Fluent
       self
     end
 
+    # If you want to suppress event emitting in specific thread, please use this method.
+    # Events in passed thread are never emitted.
+    def disable_events(thread)
+      @threads_exclude_events.push(thread) unless @threads_exclude_events.include?(thread)
+    end
+
+    def log_type(args)
+      if LOG_TYPES.include?(args.first)
+        args.shift
+      else
+        LOG_TYPE_DEFAULT
+      end
+    end
+
+    # TODO: skip :worker0 logs when Fluentd gracefully restarted
+    def skipped_type?(type)
+      case type
+      when LOG_TYPE_DEFAULT
+        false
+      when LOG_TYPE_WORKER0
+        !@show_worker0_log
+      when LOG_TYPE_SUPERVISOR
+        !@show_supervisor_log
+      else
+        raise "BUG: unknown log type:#{type}"
+      end
+    end
+
     def on_trace(&block)
       return if @level > LEVEL_TRACE
       block.call if block
@@ -183,16 +238,18 @@ module Fluent
 
     def trace(*args, &block)
       return if @level > LEVEL_TRACE
+      type = log_type(args)
+      return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:trace, args)
-      puts [@color_trace, caller_line(time, @depth_offset, LEVEL_TRACE), msg, @color_reset].join
+      puts [@color_trace, caller_line(type, time, @depth_offset, LEVEL_TRACE), msg, @color_reset].join
     rescue
       # logger should not raise an exception. This rescue prevents unexpected behaviour.
     end
     alias TRACE trace
 
-    def trace_backtrace(backtrace=$!.backtrace)
-      dump_stacktrace(backtrace, LEVEL_TRACE)
+    def trace_backtrace(backtrace=$!.backtrace, type: :default)
+      dump_stacktrace(type, backtrace, LEVEL_TRACE)
     end
 
     def on_debug(&block)
@@ -202,15 +259,17 @@ module Fluent
 
     def debug(*args, &block)
       return if @level > LEVEL_DEBUG
+      type = log_type(args)
+      return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:debug, args)
-      puts [@color_debug, caller_line(time, @depth_offset, LEVEL_DEBUG), msg, @color_reset].join
+      puts [@color_debug, caller_line(type, time, @depth_offset, LEVEL_DEBUG), msg, @color_reset].join
     rescue
     end
     alias DEBUG debug
 
-    def debug_backtrace(backtrace=$!.backtrace)
-      dump_stacktrace(backtrace, LEVEL_DEBUG)
+    def debug_backtrace(backtrace=$!.backtrace, type: :default)
+      dump_stacktrace(type, backtrace, LEVEL_DEBUG)
     end
 
     def on_info(&block)
@@ -220,15 +279,17 @@ module Fluent
 
     def info(*args, &block)
       return if @level > LEVEL_INFO
+      type = log_type(args)
+      return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:info, args)
-      puts [@color_info, caller_line(time, @depth_offset, LEVEL_INFO), msg, @color_reset].join
+      puts [@color_info, caller_line(type, time, @depth_offset, LEVEL_INFO), msg, @color_reset].join
     rescue
     end
     alias INFO info
 
-    def info_backtrace(backtrace=$!.backtrace)
-      dump_stacktrace(backtrace, LEVEL_INFO)
+    def info_backtrace(backtrace=$!.backtrace, type: :default)
+      dump_stacktrace(type, backtrace, LEVEL_INFO)
     end
 
     def on_warn(&block)
@@ -238,15 +299,17 @@ module Fluent
 
     def warn(*args, &block)
       return if @level > LEVEL_WARN
+      type = log_type(args)
+      return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:warn, args)
-      puts [@color_warn, caller_line(time, @depth_offset, LEVEL_WARN), msg, @color_reset].join
+      puts [@color_warn, caller_line(type, time, @depth_offset, LEVEL_WARN), msg, @color_reset].join
     rescue
     end
     alias WARN warn
 
-    def warn_backtrace(backtrace=$!.backtrace)
-      dump_stacktrace(backtrace, LEVEL_WARN)
+    def warn_backtrace(backtrace=$!.backtrace, type: :default)
+      dump_stacktrace(type, backtrace, LEVEL_WARN)
     end
 
     def on_error(&block)
@@ -256,15 +319,17 @@ module Fluent
 
     def error(*args, &block)
       return if @level > LEVEL_ERROR
+      type = log_type(args)
+      return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:error, args)
-      puts [@color_error, caller_line(time, @depth_offset, LEVEL_ERROR), msg, @color_reset].join
+      puts [@color_error, caller_line(type, time, @depth_offset, LEVEL_ERROR), msg, @color_reset].join
     rescue
     end
     alias ERROR error
 
-    def error_backtrace(backtrace=$!.backtrace)
-      dump_stacktrace(backtrace, LEVEL_ERROR)
+    def error_backtrace(backtrace=$!.backtrace, type: :default)
+      dump_stacktrace(type, backtrace, LEVEL_ERROR)
     end
 
     def on_fatal(&block)
@@ -274,15 +339,17 @@ module Fluent
 
     def fatal(*args, &block)
       return if @level > LEVEL_FATAL
+      type = log_type(args)
+      return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:fatal, args)
-      puts [@color_fatal, caller_line(time, @depth_offset, LEVEL_FATAL), msg, @color_reset].join
+      puts [@color_fatal, caller_line(type, time, @depth_offset, LEVEL_FATAL), msg, @color_reset].join
     rescue
     end
     alias FATAL fatal
 
-    def fatal_backtrace(backtrace=$!.backtrace)
-      dump_stacktrace(backtrace, LEVEL_FATAL)
+    def fatal_backtrace(backtrace=$!.backtrace, type: :default)
+      dump_stacktrace(type, backtrace, LEVEL_FATAL)
     end
 
     def puts(msg)
@@ -306,11 +373,11 @@ module Fluent
       @out.reset if @out.respond_to?(:reset)
     end
 
-    def dump_stacktrace(backtrace, level)
+    def dump_stacktrace(type, backtrace, level)
       return if @level > level
 
       time = Time.now
-      line = caller_line(time, 5, level)
+      line = caller_line(type, time, 5, level)
       if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
         puts ["  ", line, 'suppressed same stacktrace'].join
       else
@@ -357,8 +424,13 @@ module Fluent
       return time, message
     end
 
-    def caller_line(time, depth, level)
-      log_msg = "#{time.strftime(@time_format)}[#{LEVEL_TEXT[level]}]: "
+    def caller_line(type, time, depth, level)
+      worker_id_part = if type == :default && (@process_type == :worker0 || @process_type == :workers)
+                         @worker_id_part
+                       else
+                         ""
+                       end
+      log_msg = "#{time.strftime(@time_format)}[#{LEVEL_TEXT[level]}]: #{worker_id_part}"
       if @debug_mode
         line = caller(depth+1)[0]
         if match = /^(.+?):(\d+)(?::in `(.*)')?/.match(line)
@@ -428,13 +500,17 @@ module Fluent
     def configure(conf)
       super
 
-      if level = conf['@log_level']
-        unless @log.is_a?(PluginLogger)
-          @log = PluginLogger.new($log.dup)
-        end
-        @log.level = level
-        @log.optional_header = "[#{self.class.name}#{plugin_id_configured? ? "(" + @id + ")" : ""}] "
+      if plugin_id_configured? || conf['@log_level']
+        @log = PluginLogger.new($log.dup) unless @log.is_a?(PluginLogger)
         @log.optional_attrs = {}
+
+        if level = conf['@log_level']
+          @log.level = level
+        end
+
+        if plugin_id_configured?
+          @log.optional_header = "[#{@id}] "
+        end
       end
     end
 

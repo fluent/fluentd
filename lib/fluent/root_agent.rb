@@ -87,7 +87,7 @@ module Fluent
 
       # initialize <source> elements
       if @without_source
-        log.info "'--without-source' is applied. Ignore <source> sections"
+        log.info :worker0, "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements(name: 'source').each { |e|
           type = e['@type']
@@ -227,7 +227,7 @@ module Fluent
     end
 
     def add_source(type, conf)
-      log.info "adding source", type: type
+      log.info :worker0, "adding source", type: type
 
       input = Plugin.new_input(type)
       # <source> emits events to the top-level event router (RootAgent#event_router).

@@ -315,7 +315,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     opts = Fluent::Supervisor.default_options
     sv = Fluent::Supervisor.new(opts)
     log = sv.instance_variable_get(:@log)
-    log.init
+    log.init(:standalone, 0)
     logger = $log.instance_variable_get(:@logger)
 
     assert_equal Fluent::Log::LEVEL_INFO, $log.level
@@ -340,7 +340,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     )
     sv = Fluent::Supervisor.new(opts)
     log = sv.instance_variable_get(:@log)
-    log.init
+    log.init(:standalone, 0)
 
     assert_equal Fluent::LogDeviceIO, $log.out.class
     assert_equal rotate_age, $log.out.instance_variable_get(:@shift_age)

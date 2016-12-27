@@ -246,7 +246,7 @@ module Fluent
         log_rotate_size: log_rotate_size
       )
       # this #init sets initialized logger to $log
-      logger_initializer.init
+      logger_initializer.init(:supervisor, 0)
       logger = $log
 
       command_sender = Fluent.windows? ? "pipe" : "signal"
@@ -316,7 +316,10 @@ module Fluent
         @log_rotate_size = log_rotate_size
       end
 
-      def init
+      def init(process_type, worker_id)
+        @opts[:process_type] = process_type
+        @opts[:worker_id] = worker_id
+
         if @path && @path != "-"
           @logdev = if @log_rotate_age || @log_rotate_size
                      Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
@@ -420,7 +423,7 @@ module Fluent
     end
 
     def run_supervisor
-      @log.init
+      @log.init(:supervisor, 0)
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
@@ -463,7 +466,13 @@ module Fluent
       rescue Exception
         # ignore LoadError and others (related with signals): it may raise these errors in Windows
       end
-      @log.init
+      worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
+      process_type = case
+                     when @standalone_worker then :standalone
+                     when worker_id == 0 then :worker0
+                     else :workers
+                     end
+      @log.init(process_type, worker_id)
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
       show_plugin_config if @show_plugin_config
@@ -472,7 +481,8 @@ module Fluent
 
       install_main_process_signal_handlers
 
-      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid
+      # This is the only log messsage for @standalone_worker
+      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid if @standalone_worker
 
       main_process do
         create_socket_manager if @standalone_worker
@@ -685,7 +695,7 @@ module Fluent
     end
 
     def read_config
-      $log.info "reading config file", path: @config_path
+      $log.info :supervisor, "reading config file", path: @config_path
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
       @config_data = File.read(@config_path)

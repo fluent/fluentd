@@ -1,4 +1,5 @@
 require_relative 'helper'
+require 'fluent/test/driver/input'
 require 'fluent/engine'
 require 'fluent/log'
 require 'timecop'
@@ -532,6 +533,146 @@ class PluginLoggerTest < Test::Unit::TestCase
     assert_equal(true, @logger.enable_color?)
   end
 
+  def test_log_type_in_default
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_TRACE).once
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_DEBUG).once
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_INFO).once
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_WARN).once
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_ERROR).once
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_FATAL).once
+
+    @logger.trace "trace log 1"
+    @logger.debug "debug log 2"
+    @logger.info  "info log 3"
+    @logger.warn  "warn log 4"
+    @logger.error "error log 5"
+    @logger.fatal "fatal log 6"
+  end
+
+  def test_log_types
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_TRACE).once
+    mock(@logger).caller_line(:supervisor, Time.now, 1, Fluent::Log::LEVEL_DEBUG).once
+    mock(@logger).caller_line(:worker0, Time.now, 1, Fluent::Log::LEVEL_INFO).once
+    mock(@logger).caller_line(:default, Time.now, 1, Fluent::Log::LEVEL_WARN).once
+    mock(@logger).caller_line(:supervisor, Time.now, 1, Fluent::Log::LEVEL_ERROR).once
+    mock(@logger).caller_line(:worker0, Time.now, 1, Fluent::Log::LEVEL_FATAL).once
+
+    @logger.trace :default, "trace log 1"
+    @logger.debug :supervisor, "debug log 2"
+    @logger.info  :worker0, "info log 3"
+    @logger.warn  :default, "warn log 4"
+    @logger.error :supervisor, "error log 5"
+    @logger.fatal :worker0, "fatal log 6"
+  end
+
+  sub_test_case "supervisor process type" do
+    setup do
+      dl_opts = {}
+      dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      @logger = Fluent::Log.new(logger, process_type: :supervisor)
+    end
+
+    test 'default type logs are shown    w/o worker id' do
+      @logger.info "yaaay"
+      @logger.info :default, "booo"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: booo\n") }
+    end
+
+    test 'supervisor type logs are shown w/o worker id' do
+      @logger.info :supervisor, "yaaay"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+
+    test 'worker0 type logs are not shown' do
+      @logger.info :worker0, "yaaay"
+      assert{ !@log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+  end
+
+  sub_test_case "worker0 process type" do
+    setup do
+      dl_opts = {}
+      dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      @logger = Fluent::Log.new(logger, process_type: :worker0, worker_id: 10)
+    end
+
+    test 'default type logs are shown w/ worker id' do
+      @logger.info "yaaay"
+      @logger.info :default, "booo"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: #10 yaaay\n") }
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: #10 booo\n") }
+    end
+
+    test 'supervisor type logs are not shown' do
+      @logger.info :supervisor, "yaaay"
+      assert{ !@log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+
+    test 'worker0 type logs are shown w/o worker id' do
+      @logger.info :worker0, "yaaay"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+  end
+
+  sub_test_case "workers process type" do
+    setup do
+      dl_opts = {}
+      dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      @logger = Fluent::Log.new(logger, process_type: :workers, worker_id: 7)
+    end
+
+    test 'default type logs are shown w/ worker id' do
+      @logger.info "yaaay"
+      @logger.info :default, "booo"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: #7 yaaay\n") }
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: #7 booo\n") }
+    end
+
+    test 'supervisor type logs are not shown' do
+      @logger.info :supervisor, "yaaay"
+      assert{ !@log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+
+    test 'worker0 type logs are not shown' do
+      @logger.info :worker0, "yaaay"
+      assert{ !@log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+  end
+
+  sub_test_case "standalone process type" do
+    setup do
+      dl_opts = {}
+      dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
+      logdev = @log_device
+      logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
+      @logger = Fluent::Log.new(logger, process_type: :standalone, worker_id: 0)
+    end
+
+    test 'default type logs are shown w/o worker id' do
+      @logger.info "yaaay"
+      @logger.info :default, "booo"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: booo\n") }
+    end
+
+    test 'supervisor type logs are shown w/o worker id' do
+      @logger.info :supervisor, "yaaay"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+
+    test 'worker0 type logs are shown w/o worker id' do
+      @logger.info :worker0, "yaaay"
+      assert{ @log_device.logs.include?("#{@timestamp_str} [info]: yaaay\n") }
+    end
+  end
+
   sub_test_case "delegators" do
     def setup
       super
@@ -600,12 +741,11 @@ class PluginLoggerTest < Test::Unit::TestCase
 end
 
 class PluginLoggerMixinTest < Test::Unit::TestCase
-  class DummyPlugin < Fluent::Plugin::TestBase
-    include Fluent::PluginHelper::EventEmitter
+  class DummyPlugin < Fluent::Plugin::Input
   end
 
   def create_driver(conf)
-    Fluent::Test::TestDriver.new(DummyPlugin).configure(conf)
+    Fluent::Test::Driver::Input.new(DummyPlugin).configure(conf)
   end
 
   def setup
@@ -626,9 +766,9 @@ class PluginLoggerMixinTest < Test::Unit::TestCase
   end
 
   def test_optional_header
-    d = create_driver(%[log_level fatal])
+    d = create_driver(%[@id myplugin])
     log = d.instance.log
-    assert_equal("[PluginLoggerMixinTest::DummyPlugin] ", log.optional_header)
+    assert_equal("[myplugin] ", log.optional_header)
     assert_equal({}, log.optional_attrs)
   end
 
