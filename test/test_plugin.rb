@@ -220,7 +220,7 @@ class PluginTest < Test::Unit::TestCase
       filter: ['plugin_test_dummy', DummyFilter, :new_filter], # with DummyParser and DummyFormatter
       output2: ['plugin_test_dummy2', Dummy2Output, :new_output], # with Dummy1Buffer
     )
-    test '#configure does not raise any errors if plugins and its owned plugins are ready for multi workers' do |(type, klass, new_method)|
+    test '#configure does not raise any errors if plugins and its owned plugins are ready for multi workers' do |(type, _klass, new_method)|
       conf = config_element()
       instance = Fluent::Plugin.__send__(new_method, type)
       if instance.respond_to?(:context_router=)
@@ -236,7 +236,7 @@ class PluginTest < Test::Unit::TestCase
       input2: ['plugin_test_dummy2', Dummy2Input, :new_input, 'storage', 'plugin_test_dummy2', Dummy2Storage],
       output2: ['plugin_test_dummy2', Dummy2Output, :new_output, 'buffer', 'plugin_test_dummy2', Dummy2Buffer],
     )
-    test '#configure raise configuration error if configured owned plugins are not ready for multi workers' do |(type, klass, new_method, subsection, subsection_type, problematic)|
+    test '#configure raise configuration error if configured owned plugins are not ready for multi workers' do |(type, _klass, new_method, subsection, subsection_type, problematic)|
       conf = config_element('root', '', {}, [config_element(subsection, '', {'@type' => subsection_type})])
       instance = Fluent::Plugin.__send__(new_method, type)
       if instance.respond_to?(:context_router=)
