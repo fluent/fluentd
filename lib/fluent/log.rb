@@ -299,8 +299,6 @@ module Fluent
       @out.reset if @out.respond_to?(:reset)
     end
 
-    private
-
     def dump_stacktrace(backtrace, level)
       return if @level > level
 
@@ -431,11 +429,6 @@ module Fluent
         @log.optional_header = "[#{self.class.name}#{plugin_id_configured? ? "(" + @id + ")" : ""}] "
         @log.optional_attrs = {}
       end
-    end
-
-    def start
-      @log.reset
-      super
     end
 
     def terminate

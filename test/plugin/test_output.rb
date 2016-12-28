@@ -799,4 +799,48 @@ class OutputTest < Test::Unit::TestCase
       assert_equal Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, i.generate_format_proc
     end
   end
+
+  sub_test_case 'slow_flush_log_threshold' do
+    def invoke_slow_flush_log_threshold_test(i)
+      i.configure(config_element('ROOT', '', {'slow_flush_log_threshold' => 0.5}, [config_element('buffer', '', {"flush_mode" => "immediate"})]))
+      i.start
+      i.after_start
+
+      t = event_time()
+      i.emit_events('tag', Fluent::ArrayEventStream.new([ [t, {"key" => "value1"}], [t, {"key" => "value2"}] ]))
+      i.force_flush
+
+      waiting(4) { Thread.pass until i.test_finished? }
+
+      yield
+    ensure
+      i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
+    end
+
+    test '#write flush took longer time than slow_flush_log_threshold' do
+      i = create_output(:buffered)
+      write_called = false
+      i.register(:write) { |chunk| sleep 1 }
+      i.define_singleton_method(:test_finished?) { write_called }
+      i.define_singleton_method(:try_flush) { super(); write_called = true }
+
+      invoke_slow_flush_log_threshold_test(i) {
+        assert write_called
+        assert_equal 1, i.log.out.logs.select { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold: elapsed_time/ }.size
+      }
+    end
+
+    test '#try_write flush took longer time than slow_flush_log_threshold' do
+      i = create_output(:delayed)
+      try_write_called = false
+      i.register(:try_write){ |chunk| sleep 1 }
+      i.define_singleton_method(:test_finished?) { try_write_called }
+      i.define_singleton_method(:try_flush) { super(); try_write_called = true }
+
+      invoke_slow_flush_log_threshold_test(i) {
+        assert try_write_called
+        assert_equal 1, i.log.out.logs.select { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold: elapsed_time/ }.size
+      }
+    end
+  end
 end

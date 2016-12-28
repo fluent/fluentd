@@ -133,6 +133,22 @@ class FileOutputTest < Test::Unit::TestCase
         create_driver(conf)
       end
     end
+
+    test 'configured as secondary with primary using chunk_key_tag and not using chunk_key_time' do
+      require 'fluent/plugin/out_null'
+      conf = config_element('match', '**', {
+        }, [
+          config_element('buffer', 'tag', {
+          }),
+          config_element('secondary', '', {
+              '@type' => 'file',
+              'path' => "#{TMP_DIR}/testing_to_dump_by_out_file",
+          }),
+      ])
+      assert_nothing_raised do
+        Fluent::Test::Driver::Output.new(Fluent::Plugin::NullOutput).configure(conf)
+      end
+    end
   end
 
   sub_test_case 'fully configured output' do

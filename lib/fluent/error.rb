@@ -15,7 +15,16 @@
 #
 
 module Fluent
+  class UnrecoverableError < StandardError
+    def initialize(error_message = nil)
+      @message = error_message || "an unrecoverable error occurs in Fluentd process"
+    end
 
-  VERSION = '0.14.11'
+    def to_s
+      @message
+    end
+  end
 
+  class InvalidRootDirectory < UnrecoverableError
+  end
 end

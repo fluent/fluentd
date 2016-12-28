@@ -21,6 +21,7 @@ branches:
     - v0.12
     - v0.14
 
+# https://www.appveyor.com/docs/installed-software/#ruby
 environment:
   matrix:
     - ruby_version: "23-x64"

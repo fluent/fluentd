@@ -31,6 +31,7 @@ socket_path = Fluent::DEFAULT_SOCKET_PATH
 config_path = Fluent::DEFAULT_CONFIG_PATH
 format = 'json'
 message_key = 'message'
+time_as_integer = false
 
 op.on('-p', '--port PORT', "fluent tcp port (default: #{port})", Integer) {|i|
   port = i
@@ -66,6 +67,10 @@ op.on('--none', "same as: -f none", TrueClass) {|b|
 
 op.on('--message-key KEY', "key field for none format (default: #{message_key})") {|s|
   message_key = s
+}
+
+op.on('--time-as-integer', "Send time as integer for v0.12 or earlier", TrueClass) { |b|
+  time_as_integer = true
 }
 
 (class << self; self; end).module_eval do
@@ -123,7 +128,7 @@ class Writer
     end
   end
 
-  def initialize(tag, connector)
+  def initialize(tag, connector, time_as_integer: false)
     @tag = tag
     @connector = connector
     @socket = false
@@ -136,6 +141,7 @@ class Writer
     @pending_limit = 1024  # TODO
     @retry_wait = 1
     @retry_limit = 5  # TODO
+    @time_as_integer = time_as_integer
 
     super()
   end
@@ -145,7 +151,9 @@ class Writer
       raise ArgumentError, "Input must be a map (got #{record.class})"
     end
 
-    entry = [Fluent::EventTime.now, record]
+    time = Fluent::EventTime.now
+    time = time.to_i if @time_as_integer
+    entry = [time, record]
     synchronize {
       unless write_impl([entry])
         # write failed
@@ -275,7 +283,7 @@ else
   }
 end
 
-w = Writer.new(tag, connector)
+w = Writer.new(tag, connector, time_as_integer: time_as_integer)
 w.start
 
 case format

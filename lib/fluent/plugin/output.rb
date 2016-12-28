@@ -40,7 +40,11 @@ module Fluent
 
       CHUNKING_FIELD_WARN_NUM = 4
 
+      PROCESS_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
+
       config_param :time_as_integer, :bool, default: false
+      desc 'The threshold to show slow flush logs'
+      config_param :slow_flush_log_threshold, :float, default: 20.0
 
       # `<buffer>` and `<secondary>` sections are available only when '#format' and '#write' are implemented
       config_section :buffer, param_name: :buffer_config, init: true, required: false, multi: false, final: true do
@@ -138,7 +142,7 @@ module Fluent
       end
 
       # Internal states
-      FlushThreadState = Struct.new(:thread, :next_time)
+      FlushThreadState = Struct.new(:thread, :next_clock)
       DequeuedChunkInfo = Struct.new(:chunk_id, :time, :timeout) do
         def expired?
           time + timeout < Time.now
@@ -898,9 +902,9 @@ module Fluent
         @retry_mutex.synchronize do
           if @retry # success to flush chunks in retries
             if secondary
-              log.warn "retry succeeded by secondary.", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(chunk_id)
+              log.warn "retry succeeded by secondary.", chunk_id: dump_unique_id_hex(chunk_id)
             else
-              log.warn "retry succeeded.", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(chunk_id)
+              log.warn "retry succeeded.", chunk_id: dump_unique_id_hex(chunk_id)
             end
             @retry = nil
           end
@@ -918,6 +922,8 @@ module Fluent
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
           @counters_monitor.synchronize{ @rollback_count += 1 }
+          primary = @as_secondary ? @primary_instance : self
+          primary.update_retry_state(chunk_id, @as_secondary)
           true
         else
           false
@@ -930,7 +936,9 @@ module Fluent
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
               @counters_monitor.synchronize{ @rollback_count += 1 }
-              log.warn "failed to flush the buffer chunk, timeout to commit.", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
+              log.warn "failed to flush the buffer chunk, timeout to commit.", chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
+              primary = @as_secondary ? @primary_instance : self
+              primary.update_retry_state(info.chunk_id, @as_secondary)
             end
           end
         end
@@ -943,7 +951,9 @@ module Fluent
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
               @counters_monitor.synchronize{ @rollback_count += 1 }
-              log.info "delayed commit for buffer chunks was cancelled in shutdown", plugin_id: plugin_id, chunk_id: dump_unique_id_hex(info.chunk_id)
+              log.info "delayed commit for buffer chunks was cancelled in shutdown", chunk_id: dump_unique_id_hex(info.chunk_id)
+              primary = @as_secondary ? @primary_instance : self
+              primary.update_retry_state(info.chunk_id, @as_secondary)
             end
           end
         end
@@ -977,6 +987,8 @@ module Fluent
         end
 
         begin
+          chunk_write_start = Process.clock_gettime(PROCESS_CLOCK_ID)
+
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
             @counters_monitor.synchronize{ @write_count += 1 }
@@ -984,20 +996,25 @@ module Fluent
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
             end
+
             output.try_write(chunk)
+            check_slow_flush(chunk_write_start)
           else # output plugin without delayed purge
             chunk_id = chunk.unique_id
             dump_chunk_id = dump_unique_id_hex(chunk_id)
             log.trace "adding write count", instance: self.object_id
             @counters_monitor.synchronize{ @write_count += 1 }
             log.trace "executing sync write", chunk: dump_chunk_id
+
             output.write(chunk)
+            check_slow_flush(chunk_write_start)
+
             log.trace "write operation done, committing", chunk: dump_chunk_id
             commit_write(chunk_id, delayed: false, secondary: using_secondary)
             log.trace "done to commit a chunk", chunk: dump_chunk_id
           end
         rescue => e
-          log.debug "taking back chunk for errors.", plugin_id: plugin_id, chunk: dump_unique_id_hex(chunk.unique_id)
+          log.debug "taking back chunk for errors.", chunk: dump_unique_id_hex(chunk.unique_id)
           if output.delayed_commit
             @dequeued_chunks_mutex.synchronize do
               @dequeued_chunks.delete_if{|d| d.chunk_id == chunk.unique_id }
@@ -1005,35 +1022,60 @@ module Fluent
           end
           @buffer.takeback_chunk(chunk.unique_id)
 
-          @retry_mutex.synchronize do
-            if @retry
-              @counters_monitor.synchronize{ @num_errors += 1 }
-              if @retry.limit?
-                records = @buffer.queued_records
-                log.error "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue.", plugin_id: plugin_id, retry_times: @retry.steps, records: records, error: e
-                log.error_backtrace e.backtrace
-                @buffer.clear_queue!
-                log.debug "buffer queue cleared", plugin_id: plugin_id
-                @retry = nil
-              else
-                @retry.step
-                msg = if using_secondary
-                        "failed to flush the buffer with secondary output."
-                      else
-                        "failed to flush the buffer."
-                      end
-                log.warn msg, plugin_id: plugin_id, retry_time: @retry.steps, next_retry: @retry.next_time, chunk: dump_unique_id_hex(chunk.unique_id), error: e
-                log.warn_backtrace e.backtrace
-              end
+          update_retry_state(chunk.unique_id, using_secondary, e)
+
+          raise if @under_plugin_development && !@retry_for_error_chunk
+        end
+      end
+
+      def check_slow_flush(start)
+        elapsed_time = Process.clock_gettime(PROCESS_CLOCK_ID) - start
+        if elapsed_time > @slow_flush_log_threshold
+          log.warn "buffer flush took longer time than slow_flush_log_threshold:",
+                   elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold, plugin_id: self.plugin_id
+        end
+      end
+
+      def update_retry_state(chunk_id, using_secondary, error = nil)
+        @retry_mutex.synchronize do
+          @counters_monitor.synchronize{ @num_errors += 1 }
+          chunk_id_hex = dump_unique_id_hex(chunk_id)
+
+          unless @retry
+            @retry = retry_state(@buffer_config.retry_randomize)
+            if error
+              log.warn "failed to flush the buffer.", retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+              log.warn_backtrace error.backtrace
+            end
+            return
+          end
+
+          # @retry exists
+
+          if error
+            if @retry.limit?
+              records = @buffer.queued_records
+              msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
+              log.error msg, retry_times: @retry.steps, records: records, error: error
+              log.error_backtrace error.backtrace
+            elsif using_secondary
+              msg = "failed to flush the buffer with secondary output."
+              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+              log.warn_backtrace error.backtrace
             else
-              @retry = retry_state(@buffer_config.retry_randomize)
-              @counters_monitor.synchronize{ @num_errors += 1 }
-              log.warn "failed to flush the buffer.", plugin_id: plugin_id, retry_time: @retry.steps, next_retry: @retry.next_time, chunk: dump_unique_id_hex(chunk.unique_id), error: e
-              log.warn_backtrace e.backtrace
+              msg = "failed to flush the buffer."
+              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+              log.warn_backtrace error.backtrace
             end
           end
 
-          raise if @under_plugin_development && !@retry_for_error_chunk
+          if @retry.limit?
+            @buffer.clear_queue!
+            log.debug "buffer queue cleared"
+            @retry = nil
+          else
+            @retry.step
+          end
         end
       end
 
@@ -1060,7 +1102,7 @@ module Fluent
         # Without locks: it is rough but enough to select "next" writer selection
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
-        state.next_time = 0
+        state.next_clock = 0
         if state.thread && state.thread.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
           state.thread.run
         else
@@ -1102,7 +1144,7 @@ module Fluent
       # only for tests of output plugin
       def flush_thread_wakeup
         @output_flush_threads.each do |state|
-          state.next_time = 0
+          state.next_clock = 0
           state.thread.run
         end
       end
@@ -1156,7 +1198,7 @@ module Fluent
               end
             rescue => e
               raise if @under_plugin_development
-              log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error: e
+              log.error "unexpected error while checking flushed chunks. ignored.", error: e
               log.error_backtrace
             ensure
               @output_enqueue_thread_waiting = false
@@ -1166,7 +1208,7 @@ module Fluent
           end
         rescue => e
           # normal errors are rescued by inner begin-rescue clause.
-          log.error "error on enqueue thread", plugin_id: plugin_id, error: e
+          log.error "error on enqueue thread", error: e
           log.error_backtrace
           raise
         end
@@ -1175,9 +1217,7 @@ module Fluent
       def flush_thread_run(state)
         flush_thread_interval = @buffer_config.flush_thread_interval
 
-        # If the given clock_id is not supported, Errno::EINVAL is raised.
-        clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
-        state.next_time = Process.clock_gettime(clock_id) + flush_thread_interval
+        state.next_clock = Process.clock_gettime(PROCESS_CLOCK_ID) + flush_thread_interval
 
         while !self.after_started? && !self.stopped?
           sleep 0.5
@@ -1187,16 +1227,18 @@ module Fluent
         begin
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase
           while @output_flush_threads_running
-            time = Process.clock_gettime(clock_id)
-            interval = state.next_time - time
+            current_clock = Process.clock_gettime(PROCESS_CLOCK_ID)
+            interval = state.next_clock - current_clock
 
-            if state.next_time <= time
+            if state.next_clock <= current_clock && (!@retry || @retry_mutex.synchronize{ @retry.next_time } <= Time.now)
               try_flush
-              # next_flush_interval uses flush_thread_interval or flush_thread_burst_interval (or retrying)
+
+              # next_flush_time uses flush_thread_interval or flush_thread_burst_interval (or retrying)
               interval = next_flush_time.to_f - Time.now.to_f
-              # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected (because @retry still exists)
-              #   @retry should be cleared if delayed commit is enabled? Or any other solution?
-              state.next_time = Process.clock_gettime(clock_id) + interval
+              # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected
+              #       because @retry still exists (#commit_write is not called yet in #try_flush)
+              #       @retry should be cleared if delayed commit is enabled? Or any other solution?
+              state.next_clock = Process.clock_gettime(PROCESS_CLOCK_ID) + interval
             end
 
             if @dequeued_chunks_mutex.synchronize{ !@dequeued_chunks.empty? && @dequeued_chunks.first.expired? }
@@ -1210,7 +1252,7 @@ module Fluent
         rescue => e
           # normal errors are rescued by output plugins in #try_flush
           # so this rescue section is for critical & unrecoverable errors
-          log.error "error on output thread", plugin_id: plugin_id, error: e
+          log.error "error on output thread", error: e
           log.error_backtrace
           raise
         end

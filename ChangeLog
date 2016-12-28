@@ -1,5 +1,75 @@
 # v0.14
 
+## Release v0.14.11 - 2016/12/26
+
+### New features / Enhancements
+* Add "root_dir" parameter in <system> directive to configure server root directory, used for buffer/storage paths
+  https://github.com/fluent/fluentd/pull/1374
+* Fix not to restart Fluentd processes when unrecoverable errors occur
+  https://github.com/fluent/fluentd/pull/1359
+* Show warnings in log when output flush operation takes longer time than threshold
+  https://github.com/fluent/fluentd/pull/1370
+* formatter_csv: Raise configuration error when no field names are specified
+  https://github.com/fluent/fluentd/pull/1369
+* in_syslog: Update implementation to use plugin helpers
+  https://github.com/fluent/fluentd/pull/1382
+* in_forward: Add a configuration parameter "source_address_key"
+  https://github.com/fluent/fluentd/pull/1382
+* in_monitor_agent: Add a parameter "include_retry" to get detail retry status
+  https://github.com/fluent/fluentd/pull/1387
+* Add Ruby 2.4 into supported ruby versions
+
+### Bug fixes
+* Fix to set process name of supervisor process
+  https://github.com/fluent/fluentd/pull/1380
+* in_forward: Fix a bug not to handle "require_ack_response" correctly
+  https://github.com/fluent/fluentd/pull/1389
+
+
+## Release v0.14.10 - 2016/12/14
+
+### New features / Enhancement
+
+* Add socket/server plugin helper to write TCP/UDP clients/servers as Fluentd plugin
+  https://github.com/fluent/fluentd/pull/1312
+  https://github.com/fluent/fluentd/pull/1350
+  https://github.com/fluent/fluentd/pull/1356
+  https://github.com/fluent/fluentd/pull/1362
+* Fix to raise errors when injected hostname is also specified as chunk key
+  https://github.com/fluent/fluentd/pull/1357
+* in_tail: Optimize to read lines from file
+  https://github.com/fluent/fluentd/pull/1325
+* in_monitor_agent: Add new parameter "include_config"(default: true)
+  https://github.com/fluent/fluentd/pull/1317
+* in_syslog: Add "priority_key" and "facility_key" options
+  https://github.com/fluent/fluentd/pull/1351
+* filter_record_transformer: Remove obsoleted syntax like "${message}" and not to dump records in logs
+  https://github.com/fluent/fluentd/pull/1328
+* Add an option "--time-as-integer" to fluent-cat command to send events from v0.14 fluent-cat to v0.12 fluentd
+  https://github.com/fluent/fluentd/pull/1349
+
+### Bug fixes
+
+* Specify correct Oj options for newer versions (Oj 2.18.0 or later)
+  https://github.com/fluent/fluentd/pull/1331
+* TimeSlice output plugins (in v0.12 style) raise errors when "utc" parameter is specified
+  https://github.com/fluent/fluentd/pull/1319
+* Parser plugins cannot use options for regular expressions
+  https://github.com/fluent/fluentd/pull/1326
+* Fix bugs not to raise errors to use logger in v0.12 plugins
+  https://github.com/fluent/fluentd/pull/1344
+  https://github.com/fluent/fluentd/pull/1332
+* Fix bug about shutting down Fluentd in Windows
+  https://github.com/fluent/fluentd/pull/1367
+* in_tail: Close files explicitly in tests
+  https://github.com/fluent/fluentd/pull/1327
+* out_forward: Fix bug not to convert buffer configurations into v0.14 parameters
+  https://github.com/fluent/fluentd/pull/1337
+* out_forward: Fix bug to raise error when "expire_dns_cache" is specified
+  https://github.com/fluent/fluentd/pull/1346
+* out_file: Fix bug to raise error about buffer chunking when it's configured as secondary
+  https://github.com/fluent/fluentd/pull/1338
+
 ## Release v0.14.9 - 2016/11/15
 
 ### New features / Enhancement

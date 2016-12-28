@@ -102,7 +102,8 @@ class StorageHelperTest < Test::Unit::TestCase
   test 'can override default configuration parameters, but not overwrite whole definition' do
     d = Dummy.new
     d.configure(config_element())
-    assert_equal [], d.storage_configs
+    assert_equal 1, d.storage_configs.size
+    assert_equal 'local', d.storage_configs.first[:@type]
 
     d = Dummy2.new
     d.configure(config_element('ROOT', '', {}, [config_element('storage', '', {}, [])]))
@@ -130,7 +131,7 @@ class StorageHelperTest < Test::Unit::TestCase
     d = Dummy2.new
     d.configure(config_element())
     assert_raise Fluent::ConfigError.new("@type is required in <storage>") do
-      d.storage_create(conf: config_element('storage', '', {}), default_type: 'ex2')
+      d.storage_create(conf: config_element('storage', 'foo', {}), default_type: 'ex2')
     end
   end
 
@@ -139,7 +140,7 @@ class StorageHelperTest < Test::Unit::TestCase
     assert_nothing_raised do
       d.configure(config_element())
     end
-    assert_equal 0, d._storages.size
+    assert_equal 1, d._storages.size
   end
 
   test 'can be configured with a storage section' do

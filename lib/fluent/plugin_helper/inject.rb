@@ -97,9 +97,20 @@ module Fluent
         if @inject_config
           @_inject_hostname_key = @inject_config.hostname_key
           if @_inject_hostname_key
+            if self.respond_to?(:buffer_config)
+              # Output plugin cannot use "hostname"(specified by @hostname_key),
+              # injected by this plugin helper, in chunk keys.
+              # This plugin helper works in `#format` (in many cases), but modified record
+              # don't have any side effect in chunking of output plugin.
+              if self.buffer_config.chunk_keys.include?(@_inject_hostname_key)
+                log.error "Use filters to inject hostname to use it in buffer chunking."
+                raise Fluent::ConfigError, "the key specified by 'hostname_key' in <inject> cannot be used in buffering chunk key."
+              end
+            end
+
             @_inject_hostname =  @inject_config.hostname
             unless @_inject_hostname
-              @_inject_hostname = Socket.gethostname
+              @_inject_hostname = ::Socket.gethostname
               log.info "using hostname for specified field", host_key: @_inject_hostname_key, host_name: @_inject_hostname
             end
           end
