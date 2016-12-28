@@ -311,10 +311,10 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_null_response, null_response)
     end
 
-    data(:with_config_yes => [true, "?with_config=yes"],
-         :with_config_no => [false, "?with_config=no"])
-    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, query_param)|
-
+    data(:with_config_yes => [true, false, "?with_config=yes"],
+         :with_config_no => [false, false, "?with_config=no"],
+         :with_ivars => [false, true, "?with_config=no&with_ivars=id,num_errors"])
+    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, with_ivars, query_param)|
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
@@ -330,6 +330,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "type"            => "test_in"
       }
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
+      expected_test_in_response.merge!("instance_variables" => {"id" => "test_in" }) if with_ivars
       expected_null_response = {
         "buffer_queue_length" => 0,
         "buffer_total_queued_size" => 0,
@@ -340,6 +341,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "type"            => "null"
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
+      expected_null_response.merge!("instance_variables" => {"id" => "null", "num_errors" => 0 }) if with_ivars
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}"))
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
