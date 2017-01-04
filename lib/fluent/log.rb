@@ -428,7 +428,7 @@ module Fluent
       worker_id_part = if type == :default && (@process_type == :worker0 || @process_type == :workers)
                          @worker_id_part
                        else
-                         ""
+                         "".freeze
                        end
       log_msg = "#{time.strftime(@time_format)}[#{LEVEL_TEXT[level]}]: #{worker_id_part}"
       if @debug_mode
