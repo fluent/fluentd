@@ -429,7 +429,7 @@ module Fluent
       set_system_config
 
       if @workers < 1
-        raise Fluent::ConfigError, "invalid number of workers:#{@workers}"
+        raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@workers}"
       end
 
       if @root_dir
