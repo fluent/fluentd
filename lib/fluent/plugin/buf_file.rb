@@ -73,7 +73,10 @@ module Fluent
 
         @@buffer_paths[@path] = type_of_owner
 
-        if File.exist?(@path) && File.directory?(@path) || !File.exist?(@path) && !@path.include?('.*') # directory
+        specified_directory_exists = File.exist?(@path) && File.directory?(@path)
+        unexisting_path_for_directory = !File.exist?(@path) && !@path.include?('.*')
+
+        if specified_directory_exists || unexisting_path_for_directory # directory
           if using_plugin_root_dir || !multi_workers_configured
             @path = File.join(@path, 'buffer.*.log')
           else
