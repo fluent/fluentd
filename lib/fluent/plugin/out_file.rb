@@ -163,7 +163,6 @@ module Fluent::Plugin
     end
 
     def multi_workers_ready?
-      ### TODO: add hack to synchronize for multi workers
       true
     end
 
