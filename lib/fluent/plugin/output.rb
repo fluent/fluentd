@@ -782,13 +782,19 @@ module Fluent
         begin
           block.call
         rescue Fluent::Plugin::Buffer::BufferOverflowError
-          log.warn "failed to write data into buffer by buffer overflow"
+          log.warn "failed to write data into buffer by buffer overflow", action: @buffer_config.overflow_action
           case @buffer_config.overflow_action
           when :throw_exception
             raise
           when :block
             log.debug "buffer.write is now blocking"
             until @buffer.storable?
+              if self.stopped?
+                log.error "breaking block behavior to shutdown Fluentd"
+                # to break infinite loop to exit Fluentd process
+                raise
+              end
+              log.trace "sleeping until buffer can store more data"
               sleep 1
             end
             log.debug "retrying buffer.write after blocked operation"
