@@ -371,7 +371,7 @@ module Fluent::Plugin
       elsif ivars = opts[:ivars]
         iv = {}
         ivars.each {|name|
-          iname = :"@#{name}"
+          iname = "@#{name}"
           iv[name] = pe.instance_variable_get(iname) if pe.instance_variable_defined?(iname)
         }
         obj['instance_variables'] = iv
