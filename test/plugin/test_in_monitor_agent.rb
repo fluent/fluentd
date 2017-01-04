@@ -313,10 +313,10 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_null_response, null_response)
     end
 
-    data(:with_config_and_retry_yes => [true, true, false, "?with_config=yes&with_retry"],
-         :with_config_and_retry_no => [false, false, false, "?with_config=no&with_retry=no"],
-         :with_ivars_given => [false, false, true, "?with_config=no&with_retry=no&with_ivars=id,num_errors"])
-    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, with_retry, with_ivars, query_param)|
+    data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
+         :with_config_and_retry_no => [false, false, "?with_config=no&with_retry=no"])
+    test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, with_retry, query_param)|
+
       d = create_driver("
   @type monitor_agent
   bind '127.0.0.1'
@@ -332,7 +332,6 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "type"            => "test_in"
       }
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
-      expected_test_in_response.merge!("instance_variables" => {"id" => "test_in" }) if with_ivars
       expected_null_response = {
         "buffer_queue_length" => 0,
         "buffer_total_queued_size" => 0,
@@ -344,9 +343,40 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       expected_null_response.merge!("retry" => {}) if with_retry
-      expected_null_response.merge!("instance_variables" => {"id" => "null", "num_errors" => 0 }) if with_ivars
-
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json#{query_param}"))
+      test_in_response = response["plugins"][0]
+      null_response = response["plugins"][5]
+      assert_equal(expected_test_in_response, test_in_response)
+      assert_equal(expected_null_response, null_response)
+    end
+
+    test "/api/plugins.json with 'with_ivars'. response contains specified instance variables of each plugin" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      expected_test_in_response = {
+        "output_plugin"   => false,
+        "plugin_category" => "input",
+        "plugin_id"       => "test_in",
+        "retry_count"     => nil,
+        "type"            => "test_in",
+        "instance_variables" => {"id" => "test_in"}
+      }
+      expected_null_response = {
+        "buffer_queue_length" => 0,
+        "buffer_total_queued_size" => 0,
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "null",
+        "retry_count"     => 0,
+        "type"            => "null",
+        "instance_variables" => {"id" => "null", "num_errors" => 0}
+      }
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,num_errors"))
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
