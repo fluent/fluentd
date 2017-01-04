@@ -695,6 +695,7 @@ module Fluent
 
     def set_system_config
       @system_config = SystemConfig.create(@conf) # @conf is set in read_config
+      @system_config.attach(self)
       @system_config.apply(self)
     end
 

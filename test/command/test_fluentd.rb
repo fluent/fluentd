@@ -81,7 +81,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     null_stream.close rescue nil
   end
 
-  def assert_log_matches(cmdline, *pattern_list, timeout: 10)
+  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10)
     matched = false
     assert_error_msg = "matched correctly"
     stdio_buf = ""
@@ -118,6 +118,18 @@ class TestFluentdCommand < ::Test::Unit::TestCase
       assert_error_msg = "unexpected error in launching fluentd: #{e.inspect}\n" + stdio_buf
     end
     assert matched, assert_error_msg
+
+    unless patterns_not_match.empty?
+      lines = stdio_buf.split("\n")
+      patterns_not_match.each do |ptn|
+        matched_wrongly = if ptn.is_a? Regexp
+                            lines.any?{|line| ptn.match(line) }
+                          else
+                            lines.any?{|line| line.include?(ptn) }
+                          end
+        assert_false matched_wrongly, "pattern exists in logs wrongly:\n" + stdio_buf
+      end
+    end
   end
 
   def assert_fluentd_fails_to_start(cmdline, *pattern_list, timeout: 10)
@@ -241,6 +253,51 @@ CONF
         create_cmdline(conf_path),
         "non directory entry exists:#{@root_path} (Fluent::InvalidRootDirectory)",
       )
+    end
+  end
+
+  sub_test_case 'configured to suppress configration dump' do
+    setup do
+      @basic_conf = <<CONF
+<source>
+  @type dummy
+  @id dummy
+  @label @dummydata
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+    end
+
+    test 'configured by system config' do
+      conf = <<SYSTEM + @basic_conf
+<system>
+  suppress_config_dump
+</system>
+SYSTEM
+      conf_path = create_conf_file('suppress_conf_dump_1.conf', conf)
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", patterns_not_match: ["tag dummy"])
+    end
+
+    test 'configured by command line option' do
+      conf_path = create_conf_file('suppress_conf_dump_2.conf', @basic_conf)
+      assert_log_matches(create_cmdline(conf_path, '--suppress-config-dump'), "fluentd worker is now running", patterns_not_match: ["tag dummy"])
+    end
+
+    test 'configured as false by system config, but overridden as true by command line option' do
+      conf = <<SYSTEM + @basic_conf
+<system>
+  suppress_config_dump false
+</system>
+SYSTEM
+      conf_path = create_conf_file('suppress_conf_dump_3.conf', conf)
+      assert_log_matches(create_cmdline(conf_path, '--suppress-config-dump'), "fluentd worker is now running", patterns_not_match: ["tag dummy"])
     end
   end
 
