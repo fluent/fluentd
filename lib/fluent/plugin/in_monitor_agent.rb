@@ -216,6 +216,12 @@ module Fluent::Plugin
       end
     end
 
+    def initialize
+      super
+
+      @first_warn = false
+    end
+
     def start
       super
 
@@ -259,8 +265,8 @@ module Fluent::Plugin
 
     MONITOR_INFO = {
       'output_plugin' => ->(){ is_a?(::Fluent::Plugin::Output) },
-      'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer); @buffer.queue.size },
-      'buffer_total_queued_size' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer); @buffer.stage_size },
+      'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil?; @buffer.queue.size },
+      'buffer_total_queued_size' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil?; @buffer.stage_size },
       'retry_count' => ->(){ instance_variable_defined?(:@num_errors) ? @num_errors : nil },
     }
 
@@ -345,6 +351,12 @@ module Fluent::Plugin
         begin
           catch(:skip) do
             obj[key] = pe.instance_exec(&code)
+          end
+        rescue NoMethodError => e
+          unless @first_warn
+            log.error "NoMethodError in monitoring plugins", key: key, plugin: pe.class, error: e
+            log.error_backtrace
+            @first_warn = true
           end
         rescue => e
           log.warn "unexpected error in monitoring plugins", key: key, plugin: pe.class, error: e
