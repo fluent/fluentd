@@ -135,6 +135,24 @@ EOL
     end
   end
 
+  test 'configure with ignore_network_errors_at_startup' do
+    normal_conf = config_element('match', '**', {}, [
+        config_element('server', '', {'name' => 'test', 'host' => 'unexisting.yaaaaaaaaaaaaaay.host.example.com'})
+      ])
+    assert_raise SocketError.new("getaddrinfo: nodename nor servname provided, or not known") do
+      create_driver(normal_conf)
+    end
+
+    conf = config_element('match', '**', {'ignore_network_errors_at_startup' => 'true'}, [
+        config_element('server', '', {'name' => 'test', 'host' => 'unexisting.yaaaaaaaaaaaaaay.host.example.com'})
+      ])
+    @d = d = create_driver(conf)
+    expected_log = "failed to resolve node name when configured"
+    expected_detail = 'server="test" error_class=SocketError error="getaddrinfo: nodename nor servname provided, or not known"'
+    logs = d.logs
+    assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
+  end
+
   test 'compress_default_value' do
     @d = d = create_driver
     assert_equal :text, d.instance.compress
