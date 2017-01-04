@@ -374,7 +374,7 @@ module Fluent
         root_dir: nil,
         suppress_interval: 0,
         suppress_repeated_stacktrace: true,
-        without_source: false,
+        without_source: nil,
         use_v1_config: true,
         supervise: true,
         standalone_worker: false,
@@ -695,6 +695,7 @@ module Fluent
 
     def set_system_config
       @system_config = SystemConfig.create(@conf) # @conf is set in read_config
+      @system_config.attach(self)
       @system_config.apply(self)
     end
 
