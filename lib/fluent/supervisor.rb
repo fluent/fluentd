@@ -374,7 +374,7 @@ module Fluent
         root_dir: nil,
         suppress_interval: 0,
         suppress_repeated_stacktrace: true,
-        without_source: false,
+        without_source: nil,
         use_v1_config: true,
         supervise: true,
         standalone_worker: false,
