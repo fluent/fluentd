@@ -139,7 +139,7 @@ EOL
     normal_conf = config_element('match', '**', {}, [
         config_element('server', '', {'name' => 'test', 'host' => 'unexisting.yaaaaaaaaaaaaaay.host.example.com'})
       ])
-    assert_raise SocketError.new("getaddrinfo: nodename nor servname provided, or not known") do
+    assert_raise SocketError do
       create_driver(normal_conf)
     end
 
@@ -148,7 +148,7 @@ EOL
       ])
     @d = d = create_driver(conf)
     expected_log = "failed to resolve node name when configured"
-    expected_detail = 'server="test" error_class=SocketError error="getaddrinfo: nodename nor servname provided, or not known"'
+    expected_detail = 'server="test" error_class=SocketError'
     logs = d.logs
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
