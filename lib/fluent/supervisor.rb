@@ -227,10 +227,13 @@ module Fluent
       fluentd_conf = Fluent::Config.parse(config_data, config_fname, config_basedir, params['use_v1_config'])
       system_config = SystemConfig.create(fluentd_conf)
 
-      workers = system_config.workers || params['workers']
-      root_dir = system_config.root_dir || params['root_dir']
-      log_level = system_config.log_level || params['log_level']
-      suppress_repeated_stacktrace = system_config.suppress_repeated_stacktrace || params['suppress_repeated_stacktrace']
+      # these params must NOT be configured via system config here.
+      # these may be overridden by command line params.
+      workers = params['workers']
+      root_dir = params['root_dir']
+      log_level = params['log_level']
+      suppress_repeated_stacktrace = params['suppress_repeated_stacktrace']
+
       log_path = params['log_path']
       chuser = params['chuser']
       chgroup = params['chgroup']
@@ -556,12 +559,16 @@ module Fluent
       params['daemonize'] = @daemonize
       params['inline_config'] = @inline_config
       params['log_path'] = @log_path
-      params['log_level'] = @log_level
       params['log_rotate_age'] = @log_rotate_age
       params['log_rotate_size'] = @log_rotate_size
       params['chuser'] = @chuser
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
+
+      # system config parameters
+      params['workers'] = @workers
+      params['root_dir'] = @root_dir
+      params['log_level'] = @log_level
       params['suppress_repeated_stacktrace'] = @suppress_repeated_stacktrace
       params['signame'] = @signame
 
