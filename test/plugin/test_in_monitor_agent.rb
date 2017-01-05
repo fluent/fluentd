@@ -350,6 +350,39 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_null_response, null_response)
     end
 
+    test "/api/plugins.json with 'with_ivars'. response contains specified instance variables of each plugin" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      expected_test_in_response = {
+        "output_plugin"   => false,
+        "plugin_category" => "input",
+        "plugin_id"       => "test_in",
+        "retry_count"     => nil,
+        "type"            => "test_in",
+        "instance_variables" => {"id" => "test_in"}
+      }
+      expected_null_response = {
+        "buffer_queue_length" => 0,
+        "buffer_total_queued_size" => 0,
+        "output_plugin"   => true,
+        "plugin_category" => "output",
+        "plugin_id"       => "null",
+        "retry_count"     => 0,
+        "type"            => "null",
+        "instance_variables" => {"id" => "null", "num_errors" => 0}
+      }
+      response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,num_errors"))
+      test_in_response = response["plugins"][0]
+      null_response = response["plugins"][5]
+      assert_equal(expected_test_in_response, test_in_response)
+      assert_equal(expected_null_response, null_response)
+    end
+
     test "/api/config" do
       d = create_driver("
   @type monitor_agent

@@ -85,6 +85,10 @@ module Fluent::Plugin
           opts[:pretty_json] = true
         end
 
+        if ivars = (qs['with_ivars'] || []).first
+          opts[:ivars] = ivars.split(',')
+        end
+
         if with_config = get_search_parameter(qs, 'with_config'.freeze)
           opts[:with_config] = Fluent::Config.bool_value(with_config)
         end
@@ -375,6 +379,13 @@ module Fluent::Plugin
             iv[key] = instance_variable_get(sym)
           }
         end
+        obj['instance_variables'] = iv
+      elsif ivars = opts[:ivars]
+        iv = {}
+        ivars.each {|name|
+          iname = "@#{name}"
+          iv[name] = pe.instance_variable_get(iname) if pe.instance_variable_defined?(iname)
+        }
         obj['instance_variables'] = iv
       end
 
