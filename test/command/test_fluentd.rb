@@ -525,9 +525,6 @@ CONF
     end
 
     test 'success to start the number of workers specified by command line option' do
-      # https://github.com/fluent/fluentd/issues/1385
-      omit "some command line options do not work correctly now"
-
       conf = <<CONF
 <system>
   root_dir #{@root_path}

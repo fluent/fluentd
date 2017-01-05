@@ -14,7 +14,7 @@ module Fluent::Config
 
   class FakeSupervisor
     def initialize
-      @workers = 1
+      @workers = nil
       @root_dir = nil
       @log = FakeLoggerInitializer.new
       @log_level = nil
