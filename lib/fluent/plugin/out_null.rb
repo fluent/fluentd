@@ -21,6 +21,9 @@ module Fluent::Plugin
     # This plugin is for tests of non-buffered/buffered plugins
     Fluent::Plugin.register_output('null', self)
 
+    desc "The parameter for testing to simulate output plugin which never succeed to flush."
+    config_param :never_flush, :bool, default: false
+
     config_section :buffer do
       config_set_default :chunk_keys, ['tag']
       config_set_default :flush_at_shutdown, true
@@ -44,16 +47,19 @@ module Fluent::Plugin
     end
 
     def process(tag, es)
+      raise "failed to flush" if @never_flush
       # Do nothing
     end
 
     def write(chunk)
+      raise "failed to flush" if @never_flush
       if @feed_proc
         @feed_proc.call(chunk)
       end
     end
 
     def try_write(chunk)
+      raise "failed to flush" if @never_flush
       if @feed_proc
         @feed_proc.call(chunk)
       end
