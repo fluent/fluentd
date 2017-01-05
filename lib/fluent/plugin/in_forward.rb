@@ -147,17 +147,19 @@ module Fluent::Plugin
     def start
       super
 
+      shared_socket = false
+
       server_create_connection(
         :in_forward_server, @port,
         bind: @bind,
-        shared: false,
+        shared: shared_socket,
         resolve_name: @resolve_hostname,
         linger_timeout: @linger_timeout,
         backlog: @backlog,
         &method(:handle_connection)
       )
 
-      server_create(:in_forward_server_udp_heartbeat, @port, shared: false, proto: :udp, bind: @bind, resolve_name: @resolve_hostname, max_bytes: 128) do |data, sock|
+      server_create(:in_forward_server_udp_heartbeat, @port, shared: shared_socket, proto: :udp, bind: @bind, resolve_name: @resolve_hostname, max_bytes: 128) do |data, sock|
         log.trace "heartbeat udp data arrived", host: sock.remote_host, port: sock.remote_port, data: data
         begin
           sock.write HEARTBEAT_UDP_PAYLOAD
