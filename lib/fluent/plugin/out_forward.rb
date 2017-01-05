@@ -157,6 +157,7 @@ module Fluent::Plugin
           rescue => e
             raise unless @ignore_network_errors_at_startup
             log.warn "failed to resolve node name when configured", server: (server.name || server.host), error: e
+            node.disable!
           end
           @nodes << node
         end
@@ -463,6 +464,7 @@ module Fluent::Plugin
 
         @resolved_host = nil
         @resolved_time = 0
+        @resolved_once = false
       end
 
       attr_accessor :usock
@@ -563,9 +565,20 @@ module Fluent::Plugin
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
       def send_heartbeat
+        begin
+          dest_addr = resolved_host
+          @resolved_once = true
+        rescue ::SocketError => e
+          if !@resolved_once && @sender.ignore_network_errors_at_startup
+            @log.warn "failed to resolve node name in heartbeating", server: @name || @host, error: e
+            return
+          end
+          raise
+        end
+
         case @sender.heartbeat_type
         when :tcp
-          @sender.create_transfer_socket(resolved_host, port) do |sock|
+          @sender.create_transfer_socket(dest_addr, port) do |sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
