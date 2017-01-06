@@ -138,4 +138,34 @@ module Fluent
       @patterns.any? {|pattern| pattern.match(str) }
     end
   end
+
+  class NoMatchMatch
+    def initialize(log)
+      @log = log
+      @count = 0
+    end
+
+    def emit_events(tag, es)
+      # TODO use time instead of num of records
+      c = (@count += 1)
+      if c < 512
+        if Math.log(c) / Math.log(2) % 1.0 == 0
+          @log.warn "no patterns matched", tag: tag
+          return
+        end
+      else
+        if c % 512 == 0
+          @log.warn "no patterns matched", tag: tag
+          return
+        end
+      end
+      @log.on_trace { @log.trace "no patterns matched", tag: tag }
+    end
+
+    def start
+    end
+
+    def shutdown
+    end
+  end
 end
