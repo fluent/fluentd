@@ -205,28 +205,23 @@ module Fluent
         @_server_mutex = Mutex.new
       end
 
-      def shutdown
-        @_server_connections.each do |conn|
-          conn.close rescue nil
-        end
+      def stop
         @_server_mutex.synchronize do
           @_servers.each do |si|
             si.server.detach if si.server.attached?
+            # to refuse more connections: (connected sockets are still alive here)
+            si.server.close rescue nil
           end
         end
 
         super
       end
 
-      def close
+      def shutdown
         @_server_connections.each do |conn|
           conn.close rescue nil
         end
-        @_server_mutex.synchronize do
-          @_servers.each do |si|
-            si.server.close rescue nil
-          end
-        end
+
         super
       end
 

@@ -897,6 +897,84 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert_equal 0, @d.instance_eval{ @_server_connections.size }
     end
 
+    data(protocols)
+    test 'will refuse more connect requests after stop, but read data from sockets already connected, in non-shared server' do |(proto, kwargs)|
+      connected = false
+      begin
+        TCPSocket.open("127.0.0.1", PORT) do |sock|
+          # expected behavior is connection refused...
+          connected = true
+        end
+      rescue
+      end
+
+      assert_false connected
+
+      received = ""
+      @d.server_create_connection(:s, PORT, proto: proto, shared: false, **kwargs) do |conn|
+        conn.on(:data) do |data|
+          received << data
+          conn.write "ack\n"
+        end
+      end
+
+      th0 = Thread.new do
+        TCPSocket.open("127.0.0.1", PORT) do |sock|
+          sock.puts "yay"
+          sock.readline
+        end
+      end
+
+      value0 = waiting(5){ th0.value }
+      assert_equal "ack\n", value0
+
+      # TODO: change how to create clients by proto
+
+      stopped = false
+      sleeping = false
+      ending = false
+
+      th1 = Thread.new do
+        TCPSocket.open("127.0.0.1", PORT) do |sock|
+          sleeping = true
+          sleep 0.1 until stopped
+          sock.puts "yay"
+          res = sock.readline
+          ending = true
+          res
+        end
+      end
+
+      sleep 0.1 until sleeping
+
+      @d.stop
+      assert @d.stopped?
+      stopped = true
+
+      sleep 0.1 until ending
+
+      @d.before_shutdown
+      @d.shutdown
+
+      th2 = Thread.new do
+        begin
+          TCPSocket.open("127.0.0.1", PORT) do |sock|
+            sock.puts "foo"
+          end
+          false # failed
+        rescue => e
+          true # success
+        end
+      end
+
+      value1 = waiting(5){ th1.value }
+      value2 = waiting(5){ th2.value }
+
+      assert_equal "yay\nyay\n", received
+      assert_equal "ack\n", value1
+      assert value2, "should be truthy value to show connection was correctly refused"
+    end
+
     test 'can keep connections alive for tcp/tls if keepalive specified' do
       # pend "not implemented yet"
     end
