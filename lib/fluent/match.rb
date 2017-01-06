@@ -143,9 +143,16 @@ module Fluent
     def initialize(log)
       @log = log
       @count = 0
+      @warn_not_matched = true
+    end
+
+    def suppress_missing_match!
+      # for <label @FLUENT_LOG>
+      @warn_not_matched = false
     end
 
     def emit_events(tag, es)
+      return unless @warn_not_matched
       # TODO use time instead of num of records
       c = (@count += 1)
       if c < 512
