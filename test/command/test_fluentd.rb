@@ -289,7 +289,7 @@ CONF
 
     test 'by top level <match> section with warning for missing log levels (and warnings for each log event records)' do
       conf = @basic_conf + <<CONF
-<match fluent.info fluent.warn fluent.error fluent.fatal>
+<match fluent.warn fluent.error fluent.fatal>
   @type stdout
 </match>
 CONF
@@ -297,8 +297,8 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        'fluent.info: {"message":"fluentd worker is now running"}',
-        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug"]',
+        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
+        '[warn]: no patterns matched tag="fluent.info"',
       )
     end
 
@@ -325,7 +325,7 @@ CONF
   <match fluent.{trace,debug}>
     @type null
   </match>
-  <match fluent.info fluent.warn fluent.error>
+  <match fluent.warn fluent.error>
     @type stdout
   </match>
 </label>
@@ -334,8 +334,8 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        'fluent.info: {"message":"fluentd worker is now running"}',
-        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.fatal"]',
+        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.info", "fluent.fatal"]',
+        patterns_not_match: ['[warn]: no patterns matched tag="fluent.info"'],
       )
     end
   end
