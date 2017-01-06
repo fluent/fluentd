@@ -138,6 +138,13 @@ module Fluent
       self
     end
 
+    # If you want to suppress event emitting in specific thread, please use this method.
+    # Events in passed thread are never emitted.
+    def disable_events(thread)
+      # this method is not symmetric with #enable_event.
+      @threads_exclude_events.push(thread) unless @threads_exclude_events.include?(thread)
+    end
+
     def enable_color?
       !@color_reset.empty?
     end
@@ -161,12 +168,6 @@ module Fluent
         @color_reset = ''
       end
       self
-    end
-
-    # If you want to suppress event emitting in specific thread, please use this method.
-    # Events in passed thread are never emitted.
-    def disable_events(thread)
-      @threads_exclude_events.push(thread) unless @threads_exclude_events.include?(thread)
     end
 
     def on_trace(&block)
