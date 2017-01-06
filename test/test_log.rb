@@ -374,12 +374,8 @@ class LogTest < Test::Unit::TestCase
     log1 = Fluent::Log.new(logger)
     log2 = log1.dup
     log1.level = Fluent::Log::LEVEL_DEBUG
-    original_tag = log1.tag
-    log1.tag = "changed"
     assert_equal(Fluent::Log::LEVEL_DEBUG, log1.level)
     assert_equal(Fluent::Log::LEVEL_TRACE, log2.level)
-    assert_equal("changed", log1.tag)
-    assert_equal(original_tag, log2.tag)
   end
 
   def test_disable_events
@@ -388,6 +384,7 @@ class LogTest < Test::Unit::TestCase
     logdev = @log_device
     logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
     log = Fluent::Log.new(logger)
+    log.enable_event(true)
     engine = log.instance_variable_get("@engine")
     mock(engine).push_log_event(anything, anything, anything).once
     log.trace "trace log"
@@ -554,12 +551,6 @@ class PluginLoggerTest < Test::Unit::TestCase
     def test_disable_events
       mock(@logger).disable_events(Thread.current)
       @log.disable_events(Thread.current)
-    end
-
-    def test_tag
-      assert_equal(@log.tag, @logger.tag)
-      @log.tag = "dummy"
-      assert_equal(@log.tag, @logger.tag)
     end
 
     def test_time_format

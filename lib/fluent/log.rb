@@ -42,6 +42,9 @@ module Fluent
 
     LEVEL_TEXT = %w(trace debug info warn error fatal)
 
+    LOG_EVENT_TAG_PREFIX = 'fluent'
+    LOG_EVENT_LABEL = '@FLUENT_LOG'
+
     def self.str_to_level(log_level_str)
       case log_level_str.downcase
       when "trace" then LEVEL_TRACE
@@ -52,6 +55,10 @@ module Fluent
       when "fatal" then LEVEL_FATAL
       else raise "Unknown log level: level = #{log_level_str}"
       end
+    end
+
+    def self.event_tags
+      LEVEL_TEXT.map{|t| "#{LOG_EVENT_TAG_PREFIX}.#{t}" }
     end
 
     def initialize(logger, opts={})
@@ -83,8 +90,7 @@ module Fluent
       @out = logger.instance_variable_get(:@logdev)
       @level = logger.level + 1
       @debug_mode = false
-      @self_event = false
-      @tag = 'fluent'
+      @log_event_enabled = false
       @time_format = '%Y-%m-%d %H:%M:%S %z '
       @depth_offset = 1
       enable_color out.tty?
@@ -104,15 +110,15 @@ module Fluent
       dl_opts[:log_level] = @level - 1
       logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
       clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace)
-      clone.tag = @tag
       clone.time_format = @time_format
+      clone.log_event_enabled = @log_event_enabled
       # optional headers/attrs are not copied, because new PluginLogger should have another one of it
       clone
     end
 
+    attr_accessor :log_event_enabled
     attr_accessor :out
     attr_accessor :level
-    attr_accessor :tag
     attr_accessor :time_format
     attr_accessor :optional_header, :optional_attrs
 
@@ -134,7 +140,7 @@ module Fluent
     end
 
     def enable_event(b=true)
-      @self_event = b
+      @log_event_enabled = b
       self
     end
 
@@ -339,13 +345,13 @@ module Fluent
         end
       }
 
-      unless @threads_exclude_events.include?(Thread.current)
+      if @log_event_enabled && !@threads_exclude_events.include?(Thread.current)
         record = map.dup
         record.keys.each {|key|
           record[key] = record[key].inspect unless record[key].respond_to?(:to_msgpack)
         }
         record['message'] = message.dup
-        @engine.push_log_event("#{@tag}.#{level}", time.to_i, record)
+        @engine.push_log_event("#{LOG_EVENT_TAG_PREFIX}.#{level}", time.to_i, record)
       end
 
       return time, message
@@ -371,7 +377,7 @@ module Fluent
   # This class enables log_level option in each plugin.
   #
   # PluginLogger has same functionality as Log but some methods are forwarded to internal logger
-  # for keeping logging action consistency in the process, e.g. color, tag, event, etc.
+  # for keeping logging action consistency in the process, e.g. color, event, etc.
   class PluginLogger < Log
     def initialize(logger)
       @logger = logger
@@ -397,7 +403,7 @@ module Fluent
 
     extend Forwardable
     def_delegators '@logger', :enable_color?, :enable_debug, :enable_event,
-      :disable_events, :tag, :tag=, :time_format, :time_format=,
+      :disable_events, :log_event_enabled, :log_event_enamed=, :time_format, :time_format=,
       :event, :caller_line, :puts, :write, :flush, :reset, :out, :out=,
       :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
   end
