@@ -151,7 +151,7 @@ module Fluent::Plugin
     def start
       super
 
-      shared_socket = false # TODO: turn it true if configured as multi workers
+      shared_socket = system_config.workers > 1
 
       log.info "listening a tcp port", port: @port, bind: @bind
       server_create_connection(
