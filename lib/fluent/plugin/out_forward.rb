@@ -70,6 +70,9 @@ module Fluent::Plugin
     desc 'Enable client-side DNS round robin.'
     config_param :dns_round_robin, :bool, default: false # heartbeat_type 'udp' is not available for this
 
+    desc 'Ignore DNS resolution and errors at startup time.'
+    config_param :ignore_network_errors_at_startup, :bool, default: false
+
     desc 'Compress buffered data.'
     config_param :compress, :enum, list: [:text, :gzip], default: :text
 
@@ -148,7 +151,15 @@ module Fluent::Plugin
         if @heartbeat_type == :none
           @nodes << NoneHeartbeatNode.new(self, server, failure: failure)
         else
-          @nodes << Node.new(self, server, failure: failure)
+          node = Node.new(self, server, failure: failure)
+          begin
+            node.validate_host_resolution!
+          rescue => e
+            raise unless @ignore_network_errors_at_startup
+            log.warn "failed to resolve node name when configured", server: (server.name || server.host), error: e
+            node.disable!
+          end
+          @nodes << node
         end
       end
 
@@ -453,7 +464,7 @@ module Fluent::Plugin
 
         @resolved_host = nil
         @resolved_time = 0
-        resolved_host  # check dns
+        @resolved_once = false
       end
 
       attr_accessor :usock
@@ -461,6 +472,10 @@ module Fluent::Plugin
       attr_reader :name, :host, :port, :weight, :standby, :state
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
+
+      def validate_host_resolution!
+        resolved_host
+      end
 
       def available?
         @available
@@ -550,9 +565,20 @@ module Fluent::Plugin
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
       def send_heartbeat
+        begin
+          dest_addr = resolved_host
+          @resolved_once = true
+        rescue ::SocketError => e
+          if !@resolved_once && @sender.ignore_network_errors_at_startup
+            @log.warn "failed to resolve node name in heartbeating", server: @name || @host, error: e
+            return
+          end
+          raise
+        end
+
         case @sender.heartbeat_type
         when :tcp
-          @sender.create_transfer_socket(resolved_host, port) do |sock|
+          @sender.create_transfer_socket(dest_addr, port) do |sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
