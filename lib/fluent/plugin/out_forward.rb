@@ -532,16 +532,22 @@ module Fluent::Plugin
         option = { 'size' => chunk.size, 'compressed' => @compress }
         option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
 
-        # out_forward always uses Raw32 type for content.
-        # Raw16 can store only 64kbytes, and it should be much smaller than buffer chunk size.
+        # https://github.com/fluent/fluentd/wiki/Forward-Protocol-Specification-v1#packedforward-mode
+        # out_forward always uses str32 type for entries.
+        # str16 can store only 64kbytes, and it should be much smaller than buffer chunk size.
 
-        sock.write @sender.forward_header        # beginArray(3)
-        sock.write tag.to_msgpack                # 1. writeRaw(tag)
+        tag = tag.dup.force_encoding(Encoding::UTF_8)
+
+        sock.write @sender.forward_header                    # array, size=3
+        sock.write tag.to_msgpack                            # 1. tag: String (str)
         chunk.open(compressed: @compress) do |chunk_io|
-          sock.write [0xdb, chunk_io.size].pack('CN') # 2. beginRaw(size) raw32
-          IO.copy_stream(chunk_io, sock)              # writeRawBody(packed_es)
+          entries = [0xdb, chunk_io.size].pack('CN')
+          sock.write entries.force_encoding(Encoding::UTF_8) # 2. entries: String (str32)
+          IO.copy_stream(chunk_io, sock)                     #    writeRawBody(packed_es)
         end
-        sock.write option.to_msgpack             # 3. writeOption(option)
+        sock.write option.to_msgpack                         # 3. option: Hash(map)
+
+        # TODO: use bin32 for non-utf8 content(entries) when old msgpack-ruby (0.5.x or earlier) not supported
       end
 
       def send_data(tag, chunk)
