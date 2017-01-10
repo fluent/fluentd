@@ -71,6 +71,12 @@ module Fluent
       attr_reader :pattern_str
     end
 
+    def suppress_missing_match!
+      if @default_collector.respond_to?(:suppress_missing_match!)
+        @default_collector.suppress_missing_match!
+      end
+    end
+
     # called by Agent to add new match pattern and collector
     def add_rule(pattern, collector)
       @match_rules << Rule.new(pattern, collector)

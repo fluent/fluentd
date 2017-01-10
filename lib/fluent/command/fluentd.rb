@@ -98,6 +98,10 @@ op.on('--log-rotate-size BYTES', 'sets the byte size to rotate log files') {|s|
   opts[:log_rotate_size] = s.to_i
 }
 
+op.on('--log-event-verbose', 'enable log events during process startup/shutdown') {|b|
+  opts[:log_event_verbose] = b
+}
+
 op.on('-i', '--inline-config CONFIG_STRING', "inline config which is appended to the config file on-the-fly") {|s|
   opts[:inline_config] = s
 }

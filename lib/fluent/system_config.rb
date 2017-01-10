@@ -24,6 +24,7 @@ module Fluent
     SYSTEM_CONFIG_PARAMETERS = [
       :root_dir, :log_level,
       :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
+      :log_event_verbose,
       :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission,
     ]
@@ -35,6 +36,7 @@ module Fluent
     config_param :suppress_repeated_stacktrace, :bool, default: nil
     config_param :emit_error_log_interval, :time, default: nil
     config_param :suppress_config_dump, :bool, default: nil
+    config_param :log_event_verbose, :bool, default: nil
     config_param :without_source, :bool, default: nil
     config_param :rpc_endpoint, :string, default: nil
     config_param :enable_get_dump, :bool, default: nil

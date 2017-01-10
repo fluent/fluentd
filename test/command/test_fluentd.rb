@@ -256,6 +256,90 @@ CONF
     end
   end
 
+  sub_test_case 'configured to route log events to plugins' do
+    setup do
+      @basic_conf = <<CONF
+<source>
+  @type dummy
+  @id dummy
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<match dummy>
+  @type null
+  @id   blackhole
+</match>
+CONF
+    end
+
+    test 'by top level <match fluent.*> section' do
+      conf = @basic_conf + <<CONF
+<match fluent.**>
+  @type stdout
+</match>
+CONF
+      conf_path = create_conf_file('logevent_1.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "fluentd worker is now running",
+        'fluent.info: {"message":"fluentd worker is now running"}',
+        patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug"]'],
+      )
+    end
+
+    test 'by top level <match> section with warning for missing log levels (and warnings for each log event records)' do
+      conf = @basic_conf + <<CONF
+<match fluent.warn fluent.error fluent.fatal>
+  @type stdout
+</match>
+CONF
+      conf_path = create_conf_file('logevent_2.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "fluentd worker is now running",
+        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
+        '[warn]: no patterns matched tag="fluent.info"',
+      )
+    end
+
+    test 'by <label @FLUENT_LOG> section' do
+      conf = @basic_conf + <<CONF
+<label @FLUENT_LOG>
+  <match **>
+    @type stdout
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('logevent_3.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "fluentd worker is now running",
+        'fluent.info: {"message":"fluentd worker is now running"}',
+        patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored)'],
+      )
+    end
+
+    test 'by <label> section with warning for missing log levels' do
+      conf = @basic_conf + <<CONF
+<label @FLUENT_LOG>
+  <match fluent.{trace,debug}>
+    @type null
+  </match>
+  <match fluent.warn fluent.error>
+    @type stdout
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('logevent_4.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "fluentd worker is now running",
+        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.info", "fluent.fatal"]',
+        patterns_not_match: ['[warn]: no patterns matched tag="fluent.info"'],
+      )
+    end
+  end
+
   sub_test_case 'configured to suppress configration dump' do
     setup do
       @basic_conf = <<CONF

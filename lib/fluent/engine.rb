@@ -29,13 +29,15 @@ module Fluent
 
     def initialize
       @root_agent = nil
-      @event_router = nil
       @default_loop = nil
       @engine_stopped = false
 
+      @log_event_router = nil
       @log_emit_thread = nil
       @log_event_loop_stop = false
+      @log_event_loop_graceful_stop = false
       @log_event_queue = []
+      @log_event_verbose = false
 
       @suppress_config_dump = false
 
@@ -57,6 +59,8 @@ module Fluent
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
+
+      @log_event_verbose = system_config.log_event_verbose unless system_config.log_event_verbose.nil?
 
       @root_agent = RootAgent.new(log: log, system_config: @system_config)
 
@@ -111,7 +115,36 @@ module Fluent
       end
 
       @root_agent.configure(conf)
-      @event_router = @root_agent.event_router
+
+      begin
+        log_event_agent = @root_agent.find_label(Fluent::Log::LOG_EVENT_LABEL)
+        log_event_router = log_event_agent.event_router
+
+        # suppress mismatched tags only for <label @FLUENT_LOG> label.
+        # it's not suppressed in default event router for non-log-event events
+        log_event_router.suppress_missing_match!
+
+        @log_event_router = log_event_router
+
+        unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
+        unless unmatched_tags.empty?
+          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+        end
+      rescue ArgumentError # ArgumentError "#{label_name} label not found"
+        # use default event router if <label @FLUENT_LOG> is missing in configuration
+        log_event_router = @root_agent.event_router
+
+        if Fluent::Log.event_tags.any?{|t| log_event_router.match?(t) }
+          @log_event_router = log_event_router
+
+          unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
+          unless unmatched_tags.empty?
+            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          end
+        end
+      end
+
+      $log.enable_event(true) if @log_event_router
 
       unless @suppress_config_dump
         $log.info "using configuration file: #{conf.to_s.rstrip}"
@@ -148,6 +181,7 @@ module Fluent
 
       while sleep(LOG_EMIT_INTERVAL)
         break if @log_event_loop_stop
+        break if @log_event_loop_graceful_stop && @log_event_queue.empty?
         next if @log_event_queue.empty?
 
         # NOTE: thead-safe of slice! depends on GVL
@@ -156,8 +190,9 @@ module Fluent
 
         events.each {|tag,time,record|
           begin
-            @event_router.emit(tag, time, record)
+            @log_event_router.emit(tag, time, record)
           rescue => e
+            # This $log.error doesn't emit log events, because of `$log.disable_events(Thread.current)` above
             $log.error "failed to emit fluentd's log event", tag: tag, event: record, error: e
           end
         }
@@ -170,13 +205,14 @@ module Fluent
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
-        if @event_router.match?($log.tag)
-          $log.enable_event
+        if @log_event_router
+          $log.enable_event(true)
           @log_emit_thread = Thread.new(&method(:log_event_loop))
         end
 
         $log.info "fluentd worker is now running" # TODO: worker number
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
+        $log.info "fluentd worker is now stopping" # TODO: worker number
 
       rescue Exception => e
         $log.error "unexpected error", error: e
@@ -184,6 +220,15 @@ module Fluent
         raise
       end
 
+      unless @log_event_verbose
+        $log.enable_event(false)
+        if @log_emit_thread
+          # to make sure to emit all log events into router, before shutting down
+          @log_event_loop_graceful_stop = true
+          @log_emit_thread.join
+          @log_emit_thread = nil
+        end
+      end
       $log.info "shutting down fluentd worker" # TODO: worker number
       shutdown
       if @log_emit_thread

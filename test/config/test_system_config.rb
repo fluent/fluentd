@@ -20,6 +20,8 @@ module Fluent::Config
       @suppress_interval = nil
       @suppress_config_dump = nil
       @suppress_repeated_stacktrace = nil
+      @log_event_label = nil
+      @log_event_verbose = nil
       @without_source = nil
       @emit_error_log_interval = nil
       @file_permission = nil
@@ -54,6 +56,7 @@ module Fluent::Config
       assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
       assert_nil(s.instance_variable_get(:@emit_error_log_interval))
       assert_nil(s.instance_variable_get(:@suppress_config_dump))
+      assert_nil(s.instance_variable_get(:@log_event_verbose))
       assert_nil(s.instance_variable_get(:@without_source))
       assert_nil(s.instance_variable_get(:@file_permission))
       assert_nil(s.instance_variable_get(:@dir_permission))
@@ -64,6 +67,7 @@ module Fluent::Config
       'log_level' => ['log_level', 'error'],
       'suppress_repeated_stacktrace' => ['suppress_repeated_stacktrace', true],
       'emit_error_log_interval' => ['emit_error_log_interval', 60],
+      'log_event_verbose' => ['log_event_verbose', true],
       'suppress_config_dump' => ['suppress_config_dump', true],
       'without_source' => ['without_source', true],
     )
@@ -94,6 +98,7 @@ module Fluent::Config
       assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
       assert_nil(s.instance_variable_get(:@emit_error_log_interval))
       assert_nil(s.instance_variable_get(:@suppress_config_dump))
+      assert_nil(s.instance_variable_get(:@log_event_verbose))
       assert_nil(s.instance_variable_get(:@without_source))
       assert_nil(s.instance_variable_get(:@file_permission))
       assert_nil(s.instance_variable_get(:@dir_permission))

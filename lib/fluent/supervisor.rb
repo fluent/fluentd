@@ -406,6 +406,7 @@ module Fluent
       @log_rotate_size = opt[:log_rotate_size]
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
+      @log_event_verbose = opt[:log_event_verbose]
       @without_source = opt[:without_source]
       @signame = opt[:signame]
 
