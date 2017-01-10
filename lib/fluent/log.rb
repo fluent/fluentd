@@ -351,7 +351,7 @@ module Fluent
           record[key] = record[key].inspect unless record[key].respond_to?(:to_msgpack)
         }
         record['message'] = message.dup
-        @engine.push_log_event("#{LOG_EVENT_TAG_PREFIX}.#{level}", time.to_i, record)
+        @engine.push_log_event("#{LOG_EVENT_TAG_PREFIX}.#{level}", Fluent::EventTime.from_time(time), record)
       end
 
       return time, message
