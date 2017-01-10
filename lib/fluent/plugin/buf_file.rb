@@ -89,7 +89,9 @@ module Fluent
           end
         end
 
-        unless @dir_permission
+        if @dir_permission
+          @dir_permission = @dir_permission.to_i(8) if @dir_permission.is_a?(String)
+        else
           @dir_permission = system_config.dir_permission || DIR_PERMISSION
         end
       end

@@ -126,7 +126,7 @@ module Fluent
         merged.configured_in_section = self.configured_in_section || other.configured_in_section
 
         merged.argument = other.argument || self.argument
-        merged.params = other.params.merge(self.params)
+        merged.params = self.params.merge(other.params)
         merged.defaults = self.defaults.merge(other.defaults)
         merged.sections = {}
         (self.sections.keys + other.sections.keys).uniq.each do |section_key|

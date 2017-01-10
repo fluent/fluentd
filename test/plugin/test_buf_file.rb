@@ -141,7 +141,7 @@ class FileBufferTest < Test::Unit::TestCase
       FileUtils.rm_r bufdir if File.exist?(bufdir)
       assert !File.exist?(bufdir)
 
-      plugin.configure(config_element('buffer', '', {'path' => bufpath, 'dir_permission' => 0700}))
+      plugin.configure(config_element('buffer', '', {'path' => bufpath, 'dir_permission' => '0700'}))
       assert !File.exist?(bufdir)
 
       plugin.start
@@ -215,7 +215,7 @@ class FileBufferTest < Test::Unit::TestCase
       FileUtils.rm_r bufdir if File.exist?(bufdir)
       assert !File.exist?(bufdir)
 
-      plugin.configure(config_element('buffer', '', {'path' => bufpath, 'file_permission' => 0600}))
+      plugin.configure(config_element('buffer', '', {'path' => bufpath, 'file_permission' => '0600'}))
       assert !File.exist?(bufdir)
       plugin.start
 
