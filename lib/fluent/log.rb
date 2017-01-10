@@ -136,7 +136,6 @@ module Fluent
       dl_opts[:log_level] = @level - 1
       logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
       clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace, process_type: @process_type, worker_id: @worker_id)
-      clone.tag = @tag
       clone.time_format = @time_format
       clone.log_event_enabled = @log_event_enabled
       # optional headers/attrs are not copied, because new PluginLogger should have another one of it
@@ -201,12 +200,6 @@ module Fluent
         @color_reset = ''
       end
       self
-    end
-
-    # If you want to suppress event emitting in specific thread, please use this method.
-    # Events in passed thread are never emitted.
-    def disable_events(thread)
-      @threads_exclude_events.push(thread) unless @threads_exclude_events.include?(thread)
     end
 
     def log_type(args)
