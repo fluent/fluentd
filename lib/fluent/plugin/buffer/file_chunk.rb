@@ -42,12 +42,12 @@ module Fluent
 
         def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
           super(metadata, compress: compress)
-          @permission = perm
+          @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil
 
           case mode
-          when :create then create_new_chunk(path, perm)
+          when :create then create_new_chunk(path, @permission)
           when :staged then load_existing_staged_chunk(path)
           when :queued then load_existing_enqueued_chunk(path)
           else
