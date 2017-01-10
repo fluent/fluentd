@@ -93,6 +93,10 @@ class BaseTest < Test::Unit::TestCase
     assert_equal 99, p2.mysection.myparam2
   end
 
+  test 'plugins are available with multi worker configuration in default' do
+    assert @p.multi_workers_ready?
+  end
+
   test 'provides #string_safe_encoding to scrub invalid sequence string with info logging' do
     logger = Fluent::Test::TestLogger.new
     m = Module.new do

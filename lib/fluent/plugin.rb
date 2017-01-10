@@ -113,12 +113,12 @@ module Fluent
     end
 
     def self.new_parser(type, parent: nil)
-      require 'fluent/parser'
-
       if type[0] == '/' && type[-1] == '/'
         # This usage is not recommended for new API... create RegexpParser directly
         require 'fluent/parser'
-        Fluent::TextParser.lookup(type)
+        impl = Fluent::TextParser.lookup(type)
+        impl.extend FeatureAvailabilityChecker
+        impl
       else
         new_impl('parser', PARSER_REGISTRY, type, parent)
       end
@@ -155,7 +155,29 @@ module Fluent
       if parent && impl.respond_to?("owner=")
         impl.owner = parent
       end
+      impl.extend FeatureAvailabilityChecker
       impl
+    end
+
+    module FeatureAvailabilityChecker
+      def configure(conf)
+        super
+
+        # extend plugin instance by this module
+        # to run this check after all #configure methods of plugins and plugin helpers
+        sysconf = if self.respond_to?(:owner) && owner.respond_to?(:system_config)
+                    owner.system_config
+                  elsif self.respond_to?(:system_config)
+                    self.system_config
+                  else
+                    nil
+                  end
+
+        if sysconf && sysconf.workers > 1 && !self.multi_workers_ready?
+          type = Fluent::Plugin.lookup_type_from_class(self.class)
+          raise Fluent::ConfigError, "Plugin '#{type}' does not support multi workers configuration (#{self.class})"
+        end
+      end
     end
   end
 end

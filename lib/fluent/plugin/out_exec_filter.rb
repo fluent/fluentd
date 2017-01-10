@@ -172,6 +172,10 @@ module Fluent::Plugin
       @next_log_time = Time.now.to_i
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     ExecutedProcess = Struct.new(:mutex, :pid, :respawns, :readio, :writeio)
 
     def start

@@ -22,13 +22,14 @@ module Fluent
     include Configurable
 
     SYSTEM_CONFIG_PARAMETERS = [
-      :root_dir, :log_level,
+      :workers, :root_dir, :log_level,
       :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
       :log_event_verbose,
       :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission,
     ]
 
+    config_param :workers, :integer, default: 1
     config_param :root_dir, :string, default: nil
     config_param :log_level, default: nil do |level|
       Log.str_to_level(level)
@@ -108,7 +109,7 @@ module Fluent
       system = self
       supervisor.instance_eval {
         SYSTEM_CONFIG_PARAMETERS.each do |param|
-          param_value = system.send(param)
+          param_value = system.__send__(param)
           next if param_value.nil?
 
           case param

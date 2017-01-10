@@ -41,6 +41,10 @@ module Fluent::Plugin
       false
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     attr_accessor :formatter
 
     def configure(conf)
@@ -52,6 +56,7 @@ module Fluent::Plugin
     end
 
     def process(tag, es)
+      es = inject_values_to_event_stream(tag, es)
       es.each {|time,record|
         $log.write(format(tag, time, record))
       }

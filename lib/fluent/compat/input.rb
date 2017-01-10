@@ -17,7 +17,6 @@
 require 'fluent/plugin'
 require 'fluent/plugin/input'
 require 'fluent/compat/call_super_mixin'
-require 'fluent/process' # to load Fluent::DetachProcessMixin
 
 module Fluent
   module Compat
@@ -43,6 +42,16 @@ module Fluent
 
       def shutdown
         super
+      end
+
+      def detach_process(&block)
+        log.warn "detach_process is not supported in this version. ignored."
+        block.call
+      end
+
+      def detach_multi_process(&block)
+        log.warn "detach_process is not supported in this version. ignored."
+        block.call
       end
     end
   end

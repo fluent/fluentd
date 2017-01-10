@@ -14,8 +14,6 @@
 #    limitations under the License.
 #
 
-require 'etc'
-require 'fcntl'
 require 'fileutils'
 
 require 'fluent/config'
@@ -27,7 +25,6 @@ require 'fluent/plugin'
 require 'fluent/rpc'
 require 'fluent/system_config'
 require 'serverengine'
-require 'shellwords'
 
 if Fluent.windows?
   require 'windows/library'
@@ -230,9 +227,13 @@ module Fluent
       fluentd_conf = Fluent::Config.parse(config_data, config_fname, config_basedir, params['use_v1_config'])
       system_config = SystemConfig.create(fluentd_conf)
 
-      root_dir = system_config.root_dir || params['root_dir']
-      log_level = system_config.log_level || params['log_level']
-      suppress_repeated_stacktrace = system_config.suppress_repeated_stacktrace || params['suppress_repeated_stacktrace']
+      # these params must NOT be configured via system config here.
+      # these may be overridden by command line params.
+      workers = params['workers']
+      root_dir = params['root_dir']
+      log_level = params['log_level']
+      suppress_repeated_stacktrace = params['suppress_repeated_stacktrace']
+
       log_path = params['log_path']
       chuser = params['chuser']
       chgroup = params['chgroup']
@@ -248,7 +249,7 @@ module Fluent
         log_rotate_size: log_rotate_size
       )
       # this #init sets initialized logger to $log
-      logger_initializer.init
+      logger_initializer.init(:supervisor, 0)
       logger = $log
 
       command_sender = Fluent.windows? ? "pipe" : "signal"
@@ -261,7 +262,7 @@ module Fluent
 
       se_config = {
           worker_type: 'spawn',
-          workers: 1,
+          workers: workers,
           log_stdin: false,
           log_stdout: false,
           log_stderr: false,
@@ -318,7 +319,10 @@ module Fluent
         @log_rotate_size = log_rotate_size
       end
 
-      def init
+      def init(process_type, worker_id)
+        @opts[:process_type] = process_type
+        @opts[:worker_id] = worker_id
+
         if @path && @path != "-"
           @logdev = if @log_rotate_age || @log_rotate_size
                      Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
@@ -400,6 +404,7 @@ module Fluent
       @rpc_server = nil
       @process_name = nil
 
+      @workers = opt[:workers]
       @root_dir = opt[:root_dir]
       @log_level = opt[:log_level]
       @log_rotate_age = opt[:log_rotate_age]
@@ -421,10 +426,14 @@ module Fluent
     end
 
     def run_supervisor
-      @log.init
+      @log.init(:supervisor, 0)
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
+
+      if @workers < 1
+        raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@workers}"
+      end
 
       if @root_dir
         if File.exist?(@root_dir)
@@ -460,7 +469,13 @@ module Fluent
       rescue Exception
         # ignore LoadError and others (related with signals): it may raise these errors in Windows
       end
-      @log.init
+      worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
+      process_type = case
+                     when @standalone_worker then :standalone
+                     when worker_id == 0 then :worker0
+                     else :workers
+                     end
+      @log.init(process_type, worker_id)
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
       show_plugin_config if @show_plugin_config
@@ -469,7 +484,8 @@ module Fluent
 
       install_main_process_signal_handlers
 
-      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid
+      # This is the only log messsage for @standalone_worker
+      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid if @standalone_worker
 
       main_process do
         create_socket_manager if @standalone_worker
@@ -543,12 +559,16 @@ module Fluent
       params['daemonize'] = @daemonize
       params['inline_config'] = @inline_config
       params['log_path'] = @log_path
-      params['log_level'] = @log_level
       params['log_rotate_age'] = @log_rotate_age
       params['log_rotate_size'] = @log_rotate_size
       params['chuser'] = @chuser
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
+
+      # system config parameters
+      params['workers'] = @workers
+      params['root_dir'] = @root_dir
+      params['log_level'] = @log_level
       params['suppress_repeated_stacktrace'] = @suppress_repeated_stacktrace
       params['signame'] = @signame
 
@@ -682,7 +702,7 @@ module Fluent
     end
 
     def read_config
-      $log.info "reading config file", path: @config_path
+      $log.info :supervisor, "reading config file", path: @config_path
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
       @config_data = File.read(@config_path)

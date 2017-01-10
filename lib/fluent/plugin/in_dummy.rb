@@ -67,6 +67,10 @@ module Fluent::Plugin
       @storage = storage_create(usage: 'suspend', conf: config, default_type: DEFAULT_STORAGE_TYPE)
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
 

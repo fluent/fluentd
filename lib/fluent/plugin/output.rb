@@ -141,6 +141,10 @@ module Fluent
         true
       end
 
+      def multi_workers_ready?
+        false
+      end
+
       # Internal states
       FlushThreadState = Struct.new(:thread, :next_clock)
       DequeuedChunkInfo = Struct.new(:chunk_id, :time, :timeout) do
@@ -979,7 +983,7 @@ module Fluent
         chunk = @buffer.dequeue_chunk
         return unless chunk
 
-        log.debug "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
+        log.trace "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
 
         output = self
         using_secondary = false

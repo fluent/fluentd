@@ -48,6 +48,10 @@ module Fluent::Plugin
       @parser = parser_create
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
 

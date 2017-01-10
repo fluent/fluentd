@@ -97,12 +97,12 @@ module Fluent
                     else
                       "section <#{e.name}> is not used in <#{parent_name}>"
                     end
-          $log.warn message
+          $log.warn :worker0, message
           next
         end
         unless e.name == 'system'
           unless @without_source && e.name == 'source'
-            $log.warn "parameter '#{key}' in #{e.to_s.strip} is not used."
+            $log.warn :worker0, "parameter '#{key}' in #{e.to_s.strip} is not used."
           end
         end
       }
@@ -111,7 +111,7 @@ module Fluent
     def configure(conf)
       # plugins / configuration dumps
       Gem::Specification.find_all.select{|x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/}.each do |spec|
-        $log.info "gem '#{spec.name}' version '#{spec.version}'"
+        $log.info :worker0, "gem '#{spec.name}' version '#{spec.version}'"
       end
 
       @root_agent.configure(conf)
@@ -128,7 +128,7 @@ module Fluent
 
         unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
         unless unmatched_tags.empty?
-          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          $log.warn :worker0, "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
         end
       rescue ArgumentError # ArgumentError "#{label_name} label not found"
         # use default event router if <label @FLUENT_LOG> is missing in configuration
@@ -139,7 +139,7 @@ module Fluent
 
           unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
           unless unmatched_tags.empty?
-            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+            $log.warn :worker0, "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
           end
         end
       end
@@ -147,7 +147,7 @@ module Fluent
       $log.enable_event(true) if @log_event_router
 
       unless @suppress_config_dump
-        $log.info "using configuration file: #{conf.to_s.rstrip}"
+        $log.info :worker0, "using configuration file: #{conf.to_s.rstrip}"
       end
     end
 
@@ -200,8 +200,11 @@ module Fluent
     end
 
     def run
+      # if ENV doesn't have SERVERENGINE_WORKER_ID, it is a worker under --no-supervisor or in tests
+      # so it's (almost) a single worker, worker_id=0
+      worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
+
       begin
-        worker_id = ENV['SERVERENGINE_WORKER_ID']
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
@@ -210,9 +213,9 @@ module Fluent
           @log_emit_thread = Thread.new(&method(:log_event_loop))
         end
 
-        $log.info "fluentd worker is now running" # TODO: worker number
+        $log.info "fluentd worker is now running", worker: worker_id
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
-        $log.info "fluentd worker is now stopping" # TODO: worker number
+        $log.info "fluentd worker is now stopping", worker: worker_id
 
       rescue Exception => e
         $log.error "unexpected error", error: e
@@ -229,7 +232,7 @@ module Fluent
           @log_emit_thread = nil
         end
       end
-      $log.info "shutting down fluentd worker" # TODO: worker number
+      $log.info "shutting down fluentd worker", worker: worker_id
       shutdown
       if @log_emit_thread
         @log_event_loop_stop = true

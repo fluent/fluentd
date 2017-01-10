@@ -141,6 +141,10 @@ class OutputTest < Test::Unit::TestCase
       @i = create_output(:full)
     end
 
+    test 'are not available with multi workers configuration in default' do
+      assert_false @i.multi_workers_ready?
+    end
+
     test '#implement? can return features for plugin instances' do
       i1 = FluentPluginOutputTest::DummyBareOutput.new
       assert !i1.implement?(:synchronous)

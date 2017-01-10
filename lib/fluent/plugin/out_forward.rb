@@ -178,6 +178,10 @@ module Fluent::Plugin
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def prefer_delayed_commit
       @require_ack_response
     end

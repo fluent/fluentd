@@ -29,6 +29,9 @@ module Fluent
         if @_inject_hostname_key
           r[@_inject_hostname_key] = @_inject_hostname
         end
+        if @_inject_worker_id_key
+          r[@_inject_worker_id_key] = @_inject_worker_id
+        end
         if @_inject_tag_key
           r[@_inject_tag_key] = tag
         end
@@ -48,6 +51,9 @@ module Fluent
           if @_inject_hostname_key
             r[@_inject_hostname_key] = @_inject_hostname
           end
+          if @_inject_worker_id_key
+            r[@_inject_worker_id_key] = @_inject_worker_id
+          end
           if @_inject_tag_key
             r[@_inject_tag_key] = tag
           end
@@ -65,6 +71,7 @@ module Fluent
         config_section :inject, required: false, multi: false, param_name: :inject_config do
           config_param :hostname_key, :string, default: nil
           config_param :hostname, :string, default: nil
+          config_param :worker_id_key, :string, default: nil
           config_param :tag_key, :string, default: nil
           config_param :time_key, :string, default: nil
 
@@ -86,6 +93,8 @@ module Fluent
         @_inject_enabled = false
         @_inject_hostname_key = nil
         @_inject_hostname = nil
+        @_inject_worker_id_key = nil
+        @_inject_worker_id = nil
         @_inject_tag_key = nil
         @_inject_time_key = nil
         @_inject_time_formatter = nil
@@ -114,6 +123,10 @@ module Fluent
               log.info "using hostname for specified field", host_key: @_inject_hostname_key, host_name: @_inject_hostname
             end
           end
+          @_inject_worker_id_key = @inject_config.worker_id_key
+          if @_inject_worker_id_key
+            @_inject_worker_id = fluentd_worker_id # get id here, because #with_worker_config method may be used only for #configure in tests
+          end
           @_inject_tag_key = @inject_config.tag_key
           @_inject_time_key = @inject_config.time_key
           if @_inject_time_key
@@ -130,7 +143,7 @@ module Fluent
             end
           end
 
-          @_inject_enabled = @_inject_hostname_key || @_inject_tag_key || @_inject_time_key
+          @_inject_enabled = @_inject_hostname_key || @_inject_worker_id_key || @_inject_tag_key || @_inject_time_key
         end
       end
     end

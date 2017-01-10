@@ -84,7 +84,7 @@ class LocalStorageTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'configured with path' do
+  sub_test_case 'configured with file path' do
     test 'works as storage which stores data on disk' do
       storage_path = File.join(TMP_DIR, 'my_store.json')
       conf = config_element('ROOT', '', {}, [config_element('storage', '', {'path' => storage_path})])
@@ -126,6 +126,15 @@ class LocalStorageTest < Test::Unit::TestCase
 
       assert_equal '2', @p.get('key1')
       assert_equal 4, @p.get('key2')
+    end
+
+    test 'raise configuration error if a file specified with multi worker configuration' do
+      storage_path = File.join(TMP_DIR, 'my_store.json')
+      conf = config_element('ROOT', '', {}, [config_element('storage', '', {'path' => storage_path})])
+      @d.system_config_override('workers' => 3)
+      assert_raise Fluent::ConfigError.new("Plugin 'local' does not support multi workers configuration (Fluent::Plugin::LocalStorage)") do
+        @d.configure(conf)
+      end
     end
   end
 
@@ -176,6 +185,22 @@ class LocalStorageTest < Test::Unit::TestCase
 
       assert_equal '2', @p.get('key1')
       assert_equal 4, @p.get('key2')
+    end
+  end
+
+  sub_test_case 'configured with root-dir and plugin id, and multi workers' do
+    test 'works as storage which stores data under root dir, also in workers' do
+      root_dir = File.join(TMP_DIR, 'root')
+      expected_storage_path = File.join(root_dir, 'worker1', 'local_storage_test', 'storage.json')
+      conf = config_element('ROOT', '', {'@id' => 'local_storage_test'})
+      with_worker_config(root_dir: root_dir, workers: 2, worker_id: 1) do
+        @d.configure(conf)
+      end
+      @d.start
+      @p = @d.storage_create()
+
+      assert_equal expected_storage_path, @p.path
+      assert @p.store.empty?
     end
   end
 

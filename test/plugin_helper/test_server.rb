@@ -962,7 +962,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
             sock.puts "foo"
           end
           false # failed
-        rescue => e
+        rescue
           true # success
         end
       end

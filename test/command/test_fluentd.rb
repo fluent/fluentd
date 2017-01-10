@@ -199,7 +199,7 @@ CONF
       conf_path = create_conf_file('valid.conf', conf)
       assert File.exist?(conf_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker=0')
     end
   end
 
@@ -232,14 +232,14 @@ CONF
       conf_path = create_conf_file('existing_root_dir.conf', @conf)
       assert Dir.exist?(@root_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker=0')
     end
 
     test 'creates the specified root directory if missing' do
       conf_path = create_conf_file('missing_root_dir.conf', @conf)
       assert_false Dir.exist?(@root_path)
 
-      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker="0"')
+      assert_log_matches(create_cmdline(conf_path), "fluentd worker is now running", 'worker=0')
       assert Dir.exist?(@root_path)
     end
 
@@ -282,7 +282,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        'fluent.info: {"message":"fluentd worker is now running"}',
+        'fluent.info: {"worker":0,"message":"fluentd worker is now running worker=0"}',
         patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug"]'],
       )
     end
@@ -298,7 +298,7 @@ CONF
         create_cmdline(conf_path),
         "fluentd worker is now running",
         '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
-        '[warn]: no patterns matched tag="fluent.info"',
+        '[warn]: #0 no patterns matched tag="fluent.info"',
       )
     end
 
@@ -314,7 +314,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        'fluent.info: {"message":"fluentd worker is now running"}',
+        'fluent.info: {"worker":0,"message":"fluentd worker is now running worker=0"}',
         patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored)'],
       )
     end
@@ -483,6 +483,135 @@ CONF
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
         'unexpected error error_class=Fluent::UnrecoverableError error="an unrecoverable error occurs in Fluentd process"',
+      )
+    end
+  end
+
+  sub_test_case 'configured to run 2 workers' do
+    setup do
+      @root_path = File.join(TMP_DIR, "rootpath")
+      FileUtils.rm_rf(@root_path)
+      FileUtils.mkdir_p(@root_path)
+    end
+
+    test 'success to start the number of workers specified in configuration' do
+      conf = <<CONF
+<system>
+  workers 2
+  root_dir #{@root_path}
+</system>
+<source>
+  @type dummy
+  @id dummy
+  @label @dummydata
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('workers1.conf', conf)
+      assert Dir.exist?(@root_path)
+
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "#0 fluentd worker is now running worker=0",
+        "#1 fluentd worker is now running worker=1"
+      )
+    end
+
+    test 'success to start the number of workers specified by command line option' do
+      conf = <<CONF
+<system>
+  root_dir #{@root_path}
+</system>
+<source>
+  @type dummy
+  @id dummy
+  @label @dummydata
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('workers2.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path, '--workers', '2'),
+        "#0 fluentd worker is now running worker=0",
+        "#1 fluentd worker is now running worker=1"
+      )
+    end
+
+    test 'failed to start workers when configured plugins do not support multi worker configuration' do
+      script =  "require 'fluent/plugin/input'\n"
+      script << "module Fluent::Plugin\n"
+      script << "  class SingleInput < Input\n"
+      script << "    Fluent::Plugin.register_input('single', self)\n"
+      script << "    def multi_workers_ready?\n"
+      script << "      false\n"
+      script << "    end\n"
+      script << "  end\n"
+      script << "end\n"
+      plugin_path = create_plugin_file('in_single.rb', script)
+
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<source>
+  @type single
+  @id single
+  @label @dummydata
+</source>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('workers_invalid1.conf', conf)
+      assert_fluentd_fails_to_start(
+        create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
+        "Plugin 'single' does not support multi workers configuration (Fluent::Plugin::SingleInput)",
+      )
+    end
+
+    test 'failed to start workers when file buffer is configured in non-workers way' do
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<source>
+  @type single
+  @id single
+  @label @dummydata
+</source>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+    <buffer>
+      @type file
+      path #{File.join(@root_path, "buf", "file.*.log")}
+    </buffer>
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('workers_invalid2.conf', conf)
+      assert_fluentd_fails_to_start(
+        create_cmdline(conf_path),
+        "[blackhole] file buffer with multi workers should be configured to use directory 'path', or system root_dir and plugin id",
+        "config error file=\"#{conf_path}\" error_class=Fluent::ConfigError error=\"Plugin 'file' does not support multi workers configuration (Fluent::Plugin::FileBuffer)\"",
       )
     end
   end

@@ -28,6 +28,10 @@ module Fluent
       include PluginHelper::Mixin
 
       helpers :event_emitter
+
+      def multi_workers_ready?
+        false
+      end
     end
   end
 end

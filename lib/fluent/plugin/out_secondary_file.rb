@@ -65,6 +65,11 @@ module Fluent::Plugin
       @file_perm = system_config.file_permission || FILE_PERMISSION
     end
 
+    def multi_workers_ready?
+      ### TODO: add hack to synchronize for multi workers
+      true
+    end
+
     def write(chunk)
       path_without_suffix = extract_placeholders(@path_without_suffix, chunk.metadata)
       path = generate_path(path_without_suffix)

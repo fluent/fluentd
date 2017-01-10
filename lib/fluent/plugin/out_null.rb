@@ -46,6 +46,10 @@ module Fluent::Plugin
       @feed_proc = nil
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def process(tag, es)
       raise "failed to flush" if @never_flush
       # Do nothing

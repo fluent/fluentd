@@ -165,6 +165,10 @@ class FilterPluginTest < Test::Unit::TestCase
       end
     end
 
+    test 'are available with multi worker configuration in default' do
+      assert @p.multi_workers_ready?
+    end
+
     test 'filters events correctly' do
       test_es = [
         [event_time('2016-04-19 13:01:00 -0700'), {"num" => "1", "message" => "Hello filters!"}],
