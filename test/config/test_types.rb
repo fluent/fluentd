@@ -66,6 +66,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal 'test', Config::STRING_TYPE.call('test', {})
       assert_equal '1', Config::STRING_TYPE.call('1', {})
       assert_equal '   ', Config::STRING_TYPE.call('   ', {})
+      assert_equal Encoding::UTF_8, Config::STRING_TYPE.call('test', {}).encoding
     end
 
     test 'enum' do
