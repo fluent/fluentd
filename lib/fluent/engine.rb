@@ -128,7 +128,7 @@ module Fluent
 
         unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
         unless unmatched_tags.empty?
-          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          $log.warn :worker0, "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
         end
       rescue ArgumentError # ArgumentError "#{label_name} label not found"
         # use default event router if <label @FLUENT_LOG> is missing in configuration
@@ -139,7 +139,7 @@ module Fluent
 
           unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
           unless unmatched_tags.empty?
-            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+            $log.warn :worker0, "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
           end
         end
       end

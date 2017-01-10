@@ -282,7 +282,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        'fluent.info: {"message":"fluentd worker is now running"}',
+        'fluent.info: {"worker":0,"message":"fluentd worker is now running worker=0"}',
         patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug"]'],
       )
     end
@@ -298,7 +298,7 @@ CONF
         create_cmdline(conf_path),
         "fluentd worker is now running",
         '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
-        '[warn]: no patterns matched tag="fluent.info"',
+        '[warn]: #0 no patterns matched tag="fluent.info"',
       )
     end
 
@@ -314,7 +314,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        'fluent.info: {"message":"fluentd worker is now running"}',
+        'fluent.info: {"worker":0,"message":"fluentd worker is now running worker=0"}',
         patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored)'],
       )
     end
