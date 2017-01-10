@@ -19,13 +19,14 @@ require 'fluent/config/error'
 module Fluent
   class Registry
     DEFAULT_PLUGIN_PATH = File.expand_path('../plugin', __FILE__)
+    FLUENT_LIB_PATH = File.dirname(File.dirname(DEFAULT_PLUGIN_PATH))
 
     def initialize(kind, search_prefix, dir_search_prefix: nil)
       @kind = kind
       @search_prefix = search_prefix
       @dir_search_prefix = dir_search_prefix
       @map = {}
-      @paths = [DEFAULT_PLUGIN_PATH]
+      @paths = []
     end
 
     attr_reader :kind, :paths, :map, :dir_search_prefix
@@ -73,8 +74,12 @@ module Fluent
 
       # prefer LOAD_PATH than gems
       files = $LOAD_PATH.map { |lp|
-        lpath = File.expand_path(File.join(lp, "#{path}.rb"))
-        File.exist?(lpath) ? lpath : nil
+        if lp == FLUENT_LIB_PATH
+          nil
+        else
+          lpath = File.expand_path(File.join(lp, "#{path}.rb"))
+          File.exist?(lpath) ? lpath : nil
+        end
       }.compact
       unless files.empty?
         # prefer newer version
@@ -82,17 +87,29 @@ module Fluent
         return
       end
 
+      # Find from gems and prefer newer version
       specs = Gem::Specification.find_all { |spec|
-        spec.contains_requirable_file? path
-      }
-
-      # prefer newer version
-      specs = specs.sort_by { |spec| spec.version }
+        if spec.name == 'fluentd'.freeze
+          false
+        else
+          spec.contains_requirable_file? path
+        end
+      }.sort_by { |spec| spec.version }
       if spec = specs.last
         spec.require_paths.each { |lib|
           file = "#{spec.full_gem_path}/#{lib}/#{path}"
-          require file
+          if File.exist?("#{file}.rb")
+            require file
+            return
+          end
         }
+      end
+
+      # Lastly, load built-in plugin
+      lpath = File.expand_path(File.join(FLUENT_LIB_PATH, "#{@search_prefix}#{type}.rb"))
+      if File.exist?(lpath)
+        require lpath
+        return
       end
     end
   end
