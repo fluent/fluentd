@@ -36,7 +36,7 @@ module Fluent
         "retry_limit"         => "retry_max_times",
         "max_retry_wait"      => "retry_max_interval",
         "buffer_chunk_limit"  => "chunk_limit_size",
-        "buffer_queue_limit"  => "queue_length_limit",
+        "buffer_queue_limit"  => "queue_limit_length",
         "buffer_queue_full_action" => "overflow_action",
         "flush_at_shutdown" => "flush_at_shutdown",
       }

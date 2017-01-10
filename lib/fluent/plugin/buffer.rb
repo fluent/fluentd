@@ -47,10 +47,10 @@ module Fluent
 
       # If user specify this value and (chunk_size * queue_length) is smaller than total_size,
       # then total_size is automatically configured to that value
-      config_param :queue_length_limit, :integer, default: nil
+      config_param :queue_limit_length, :integer, default: nil
 
       # optional new limitations
-      config_param :chunk_records_limit, :integer, default: nil
+      config_param :chunk_limit_records, :integer, default: nil
 
       # if chunk size (or records) is 95% or more after #write, then that chunk will be enqueued
       config_param :chunk_full_threshold, :float, default: DEFAULT_CHUNK_FULL_THRESHOLD
@@ -73,8 +73,8 @@ module Fluent
 
         @chunk_limit_size = nil
         @total_limit_size = nil
-        @queue_length_limit = nil
-        @chunk_records_limit = nil
+        @queue_limit_length = nil
+        @chunk_limit_records = nil
 
         @stage = {}    #=> Hash (metadata -> chunk) : not flushed yet
         @queue = []    #=> Array (chunks)           : already flushed (not written)
@@ -92,8 +92,8 @@ module Fluent
       def configure(conf)
         super
 
-        unless @queue_length_limit.nil?
-          @total_limit_size = @chunk_limit_size * @queue_length_limit
+        unless @queue_limit_length.nil?
+          @total_limit_size = @chunk_limit_size * @queue_limit_length
         end
       end
 
@@ -142,7 +142,7 @@ module Fluent
 
       ## TODO: for back pressure feature
       # def used?(ratio)
-      #   @total_size_limit * ratio > @stage_size + @queue_size
+      #   @total_limit_size * ratio > @stage_size + @queue_size
       # end
 
       def resume
@@ -433,11 +433,11 @@ module Fluent
       end
 
       def chunk_size_over?(chunk)
-        chunk.bytesize > @chunk_limit_size || (@chunk_records_limit && chunk.size > @chunk_records_limit)
+        chunk.bytesize > @chunk_limit_size || (@chunk_limit_records && chunk.size > @chunk_limit_records)
       end
 
       def chunk_size_full?(chunk)
-        chunk.bytesize >= @chunk_limit_size * @chunk_full_threshold || (@chunk_records_limit && chunk.size >= @chunk_records_limit * @chunk_full_threshold)
+        chunk.bytesize >= @chunk_limit_size * @chunk_full_threshold || (@chunk_limit_records && chunk.size >= @chunk_limit_records * @chunk_full_threshold)
       end
 
       class ShouldRetry < StandardError; end

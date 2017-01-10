@@ -138,7 +138,7 @@ class BufferTest < Test::Unit::TestCase
     end
 
     test 'chunk records limit is ignored in default' do
-      assert_nil @p.chunk_records_limit
+      assert_nil @p.chunk_limit_records
     end
 
     test '#storable? checks total size of staged and enqueued(includes dequeued chunks) against total_limit_size' do
@@ -1113,9 +1113,9 @@ class BufferTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'with configuration includes chunk_records_limit' do
+  sub_test_case 'with configuration includes chunk_limit_records' do
     setup do
-      @p = create_buffer({"chunk_limit_size" => 1024, "total_limit_size" => 10240, "chunk_records_limit" => 6})
+      @p = create_buffer({"chunk_limit_size" => 1024, "total_limit_size" => 10240, "chunk_limit_records" => 6})
       @dm0 = dm0 = create_metadata(Time.parse('2016-04-11 16:00:00 +0000').to_i, nil, nil)
       @dm1 = dm1 = create_metadata(Time.parse('2016-04-11 16:10:00 +0000').to_i, nil, nil)
       @dm2 = dm2 = create_metadata(Time.parse('2016-04-11 16:20:00 +0000').to_i, nil, nil)
@@ -1139,7 +1139,7 @@ class BufferTest < Test::Unit::TestCase
     end
 
     test '#chunk_size_over? returns true if too many records exists in a chunk even if its bytes is less than limit' do
-      assert_equal 6, @p.chunk_records_limit
+      assert_equal 6, @p.chunk_limit_records
 
       m = create_metadata(Time.parse('2016-04-11 16:40:00 +0000').to_i)
 
@@ -1155,7 +1155,7 @@ class BufferTest < Test::Unit::TestCase
     end
 
     test '#chunk_size_full? returns true if enough many records exists in a chunk even if its bytes is less than limit' do
-      assert_equal 6, @p.chunk_records_limit
+      assert_equal 6, @p.chunk_limit_records
 
       m = create_metadata(Time.parse('2016-04-11 16:40:00 +0000').to_i)
 
@@ -1171,9 +1171,9 @@ class BufferTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'with configuration includes queue_length_limit' do
+  sub_test_case 'with configuration includes queue_limit_length' do
     setup do
-      @p = create_buffer({"chunk_limit_size" => 1024, "total_limit_size" => 10240, "queue_length_limit" => 5})
+      @p = create_buffer({"chunk_limit_size" => 1024, "total_limit_size" => 10240, "queue_limit_length" => 5})
       @dm0 = dm0 = create_metadata(Time.parse('2016-04-11 16:00:00 +0000').to_i, nil, nil)
       @dm1 = dm1 = create_metadata(Time.parse('2016-04-11 16:10:00 +0000').to_i, nil, nil)
       @dm2 = dm2 = create_metadata(Time.parse('2016-04-11 16:20:00 +0000').to_i, nil, nil)
@@ -1196,9 +1196,9 @@ class BufferTest < Test::Unit::TestCase
       @p.start
     end
 
-    test '#configure will overwrite standard configuration if queue_length_limit' do
+    test '#configure will overwrite standard configuration if queue_limit_length' do
       assert_equal 1024, @p.chunk_limit_size
-      assert_equal 5, @p.queue_length_limit
+      assert_equal 5, @p.queue_limit_length
       assert_equal (1024*5), @p.total_limit_size
     end
   end
