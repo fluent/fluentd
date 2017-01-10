@@ -124,17 +124,23 @@ module Fluent
         # it's not suppressed in default event router for non-log-event events
         log_event_router.suppress_missing_match!
 
-      rescue ArgumentError # ArgumentError "#{label_name} label not found"
-        # use default event router if <label @FLUENT_LOG> is missing in configuration
-        log_event_router = @root_agent.event_router
-      end
-
-      if Fluent::Log.event_tags.any?{|t| log_event_router.match?(t) }
         @log_event_router = log_event_router
 
         unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
         unless unmatched_tags.empty?
           $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+        end
+      rescue ArgumentError # ArgumentError "#{label_name} label not found"
+        # use default event router if <label @FLUENT_LOG> is missing in configuration
+        log_event_router = @root_agent.event_router
+
+        if Fluent::Log.event_tags.any?{|t| log_event_router.match?(t) }
+          @log_event_router = log_event_router
+
+          unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
+          unless unmatched_tags.empty?
+            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          end
         end
       end
 
