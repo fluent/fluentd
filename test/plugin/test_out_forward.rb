@@ -217,6 +217,40 @@ EOL
     assert_equal 2, d.instance.ack_response_timeout
   end
 
+  test 'send tags in str (utf-8 strings)' do
+    target_input_driver = create_target_input_driver
+
+    @d = d = create_driver(CONFIG + %[flush_interval 1s])
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+
+    tag_in_utf8 = "test.utf8".encode("utf-8")
+    tag_in_ascii = "test.ascii".encode("ascii-8bit")
+
+    emit_events = [
+      [tag_in_utf8, time, {"a" => 1}],
+      [tag_in_ascii, time, {"a" => 2}],
+    ]
+
+    target_input_driver.run(expect_records: 2) do
+      d.run do
+        emit_events.each do |tag, time, record|
+          d.feed(tag, time, record)
+        end
+      end
+    end
+
+    events = target_input_driver.events
+    assert_equal_event_time(time, events[0][1])
+    assert_equal ['test.utf8', time, emit_events[0][2]], events[0]
+    assert_equal Encoding::UTF_8, events[0][0].encoding
+    assert_equal_event_time(time, events[1][1])
+    assert_equal ['test.ascii', time, emit_events[1][2]], events[1]
+    assert_equal Encoding::UTF_8, events[1][0].encoding
+
+    assert_empty d.instance.exceptions
+  end
+
   test 'send_with_time_as_integer' do
     target_input_driver = create_target_input_driver
 
