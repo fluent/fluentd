@@ -93,14 +93,15 @@ module Fluent::Plugin
 
       configured_time_slice_format = conf['time_slice_format']
 
-      # v0.14 file buffer handles path as directory if '*' is missing
-      # 'dummy_path' is not to raise configuration error for 'path' in file buffer plugin,
-      # but raise it in this plugin.
       if conf.elements(name: 'buffer').empty?
         conf.add_element('buffer', 'time')
       end
       buffer_conf = conf.elements(name: 'buffer').first
-      unless buffer_conf.has_key?('path')
+      # Fluent::PluginId#configure is not called yet, so we can't use #plugin_root_dir here.
+      if !buffer_conf.has_key?('path') && !(conf['@id'] && system_config.root_dir)
+        # v0.14 file buffer handles path as directory if '*' is missing
+        # 'dummy_path' is not to raise configuration error for 'path' in file buffer plugin,
+        # but raise it in this plugin.
         buffer_conf['path'] = conf['path'] || '/tmp/dummy_path'
       end
 

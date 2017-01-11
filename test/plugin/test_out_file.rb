@@ -22,8 +22,8 @@ class FileOutputTest < Test::Unit::TestCase
     utc
   ]
 
-  def create_driver(conf = CONFIG)
-    Fluent::Test::Driver::Output.new(Fluent::Plugin::FileOutput).configure(conf)
+  def create_driver(conf = CONFIG, opts = {})
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::FileOutput, opts: opts).configure(conf)
   end
 
   sub_test_case 'configuration' do
@@ -37,7 +37,29 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal :gzip, d.instance.instance_eval{ @compress_method }
     end
 
+    test 'using root_dir for buffer path' do
+      system_conf_opts = {'root_dir' => File.join(TMP_DIR, 'testrootdir')}
+      buf_conf = config_element('buffer', '', {'flush_interval' => '1s'})
+      conf = config_element('match', '**', {'@id' => 'myout', 'path' => 'test_path', 'append' => 'true'}, [buf_conf])
+      d = create_driver(conf, system_conf_opts)
+
+      assert_equal 'test_path', d.instance.path
+      assert d.instance.append
+
+      assert d.instance.buffer.respond_to?(:path) # file buffer
+      assert_equal 1, d.instance.buffer_config.flush_interval
+
+      assert_equal File.join(TMP_DIR, 'testrootdir', 'worker0', 'myout'), d.instance.plugin_root_dir
+
+      buffer_path_under_root_dir = File.join(TMP_DIR, 'testrootdir', 'worker0', 'myout', 'buffer', 'buffer.*.log')
+      assert_equal buffer_path_under_root_dir, d.instance.buffer.path
+    end
+
     test 'path should be writable' do
+      assert_raise(Fluent::ConfigError.new("'path' parameter is required")) do
+        create_driver ""
+      end
+
       assert_nothing_raised do
         create_driver %[path #{TMP_DIR}/test_path]
       end
