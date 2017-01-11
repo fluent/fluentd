@@ -56,6 +56,10 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     test 'path should be writable' do
+      assert_raise(Fluent::ConfigError.new("'path' parameter is required")) do
+        create_driver ""
+      end
+
       assert_nothing_raised do
         create_driver %[path #{TMP_DIR}/test_path]
       end
