@@ -48,12 +48,8 @@ module Fluent
       end
     end
 
-    def configure(conf)
-      @config = conf
-
-      logger = self.respond_to?(:log) ? log : (defined?($log) ? $log : nil)
+    def configure_proxy_generate
       proxy = self.class.merged_configure_proxy
-      conf.corresponding_proxies << proxy
 
       if self.respond_to?(:owner) && self.owner
         owner_proxy = owner.class.merged_configure_proxy
@@ -62,6 +58,36 @@ module Fluent
         end
         proxy.overwrite_defaults(owner_proxy) if owner_proxy
       end
+
+      proxy
+    end
+
+    def configured_section_create(name, conf = nil)
+      conf ||= Fluent::Config::Element.new(name.to_s, '', {}, [])
+      root_proxy = configure_proxy_generate
+      proxy = if name.nil? # root
+                root_proxy
+              else
+                root_proxy.sections[name]
+              end
+      # take care to raise Fluent::ConfigError if conf mismatched to proxy
+      Fluent::Config::SectionGenerator.generate(proxy, conf, nil, nil)
+    end
+
+    def configure(conf)
+      @config = conf
+
+      logger = if self.respond_to?(:log)
+                 self.log
+               elsif self.respond_to?(:owner) && self.owner.respond_to?(:log)
+                 self.owner.log
+               elsif defined?($log)
+                 $log
+               else
+                 nil
+               end
+      proxy = configure_proxy_generate
+      conf.corresponding_proxies << proxy
 
       # In the nested section, can't get plugin class through proxies so get plugin class here
       plugin_class = Fluent::Plugin.lookup_type_from_class(proxy.name.to_s)
