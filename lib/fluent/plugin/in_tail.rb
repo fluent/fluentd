@@ -477,13 +477,15 @@ module Fluent::Plugin
             inode = stat.ino
 
             last_inode = @pe.read_inode
-            if inode == last_inode
+            last_pos = @pe.read_pos
+            if inode == last_inode && last_pos != PositionFile::UNWATCHED_POSITION
               # rotated file has the same inode number with the last file.
+              # However, it is a new file if it has unwatched position.
               # assuming following situation:
               #   a) file was once renamed and backed, or
               #   b) symlink or hardlink to the same file is recreated
               # in either case, seek to the saved position
-              pos = @pe.read_pos
+              pos = last_pos
             elsif last_inode != 0
               # this is FilePositionEntry and fluentd once started.
               # read data from the head of the rotated file.
