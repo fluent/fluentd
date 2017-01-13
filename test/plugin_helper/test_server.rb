@@ -141,11 +141,49 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert created_server.is_a?(Coolio::TCPServer)
     end
 
-    # tests about "proto: :udp" is in #server_create
+    data(methods)
+    test 'creates tls server in default if transport section and tcp protocol specified' do |m|
+      @d = d = Dummy.new
+      transport_conf = config_element('transport', 'tcp', {}, [])
+      d.configure(config_element('ROOT', '', {}, [transport_conf]))
+      d.start
+      d.after_start
+
+      d.__send__(m, :myserver, PORT){|x| x }
+
+      created_server_info = @d._servers.first
+      assert_equal :tcp, created_server_info.proto
+      created_server = created_server_info.server
+      assert created_server.is_a?(Coolio::TCPServer)
+    end
 
     data(methods)
     test 'creates tls server if specified in proto' do |m|
-      # pend "not implemented yet"
+      assert_raise(ArgumentError.new("BUG: TLS transport specified, but certification options are not specified")) do
+        @d.__send__(m, :myserver, PORT, proto: :tls){|x| x }
+      end
+      @d.__send__(m, :myserver, PORT, proto: :tls, tls_options: {insecure: true}){|x| x }
+
+      created_server_info = @d._servers.first
+      assert_equal :tls, created_server_info.proto
+      created_server = created_server_info.server
+      assert created_server.is_a?(Coolio::TCPServer) # yes, TCP here
+    end
+
+    data(methods)
+    test 'creates tls server in default if transport section and tls protocol specified' do |m|
+      @d = d = Dummy.new
+      transport_conf = config_element('transport', 'tls', {'insecure' => 'true'}, [])
+      d.configure(config_element('ROOT', '', {}, [transport_conf]))
+      d.start
+      d.after_start
+
+      d.__send__(m, :myserver, PORT){|x| x }
+
+      created_server_info = @d._servers.first
+      assert_equal :tls, created_server_info.proto
+      created_server = created_server_info.server
+      assert created_server.is_a?(Coolio::TCPServer) # OK, it's Coolio::TCPServer
     end
 
     data(methods)
@@ -162,10 +200,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(
       'server_create tcp' => [:server_create, :tcp],
-      # 'server_create tls' => [:server_create, :tls],
+      'server_create tls' => [:server_create, :tls],
       # 'server_create unix' => [:server_create, :unix],
       'server_create_connection tcp' => [:server_create_connection, :tcp],
-      # 'server_create_connection tcp' => [:server_create_connection, :tls],
+      'server_create_connection tls' => [:server_create_connection, :tls],
       # 'server_create_connection tcp' => [:server_create_connection, :unix],
     )
     test 'raise error if udp options specified for tcp/tls/unix' do |(m, proto)|
@@ -203,17 +241,17 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       # 'server_create_connection unix' => [:server_create_connection, :unix, {}],
     )
     test 'raise error if tls options specified for tcp/udp/unix' do |(m, proto, kwargs)|
-      assert_raise(ArgumentError.new("BUG: certopts is available only for tls")) do
-        @d.__send__(m, :myserver, PORT, proto: proto, certopts: {}, **kwargs){|x| x }
+      assert_raise(ArgumentError.new("BUG: tls_options is available only for tls")) do
+        @d.__send__(m, :myserver, PORT, proto: proto, tls_options: {}, **kwargs){|x| x }
       end
     end
 
     data(
       'server_create tcp' => [:server_create, :tcp, {}],
       'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
-      # 'server_create tls' => [:server_create, :tls, {}],
+      'server_create tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       'server_create_connection tcp' => [:server_create_connection, :tcp, {}],
-      # 'server_create_connection tls' => [:server_create_connection, :tls, {}],
+      'server_create_connection tls' => [:server_create_connection, :tls, {tls_options: {insecure: true}}],
     )
     test 'can bind specified IPv4 address' do |(m, proto, kwargs)|
       @d.__send__(m, :myserver, PORT, proto: proto, bind: "127.0.0.1", **kwargs){|x| x }
@@ -224,9 +262,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(
       'server_create tcp' => [:server_create, :tcp, {}],
       'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
-      # 'server_create tls' => [:server_create, :tls, {}],
+      'server_create tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       'server_create_connection tcp' => [:server_create_connection, :tcp, {}],
-      # 'server_create_connection tls' => [:server_create_connection, :tls, {}],
+      'server_create_connection tls' => [:server_create_connection, :tls, {tls_options: {insecure: true}}],
     )
     test 'can bind specified IPv6 address' do |(m, proto, kwargs)| # if available
       omit "IPv6 unavailable here" unless ipv6_enabled?
@@ -238,10 +276,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(
       'server_create tcp' => [:server_create, :tcp, {}],
       'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
-      # 'server_create tls' => [:server_create, :tls, {}],
+      'server_create tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       # 'server_create unix' => [:server_create, :unix, {}],
       'server_create_connection tcp' => [:server_create, :tcp, {}],
-      # 'server_create_connection tls' => [:server_create, :tls, {}],
+      'server_create_connection tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       # 'server_create_connection unix' => [:server_create, :unix, {}],
     )
     test 'can create 2 or more servers which share same bind address and port if shared option is true' do |(m, proto, kwargs)|
@@ -260,10 +298,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(
       'server_create tcp' => [:server_create, :tcp, {}],
       'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
-      # 'server_create tls' => [:server_create, :tls, {}],
+      'server_create tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       # 'server_create unix' => [:server_create, :unix, {}],
       'server_create_connection tcp' => [:server_create, :tcp, {}],
-      # 'server_create_connection tls' => [:server_create, :tls, {}],
+      'server_create_connection tls' => [:server_create, :tls, {tls_options: {insecure: true}}],
       # 'server_create_connection unix' => [:server_create, :unix, {}],
     )
     test 'cannot create 2 or more servers using same bind address and port if shared option is false' do |(m, proto, kwargs)|
@@ -286,7 +324,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(
       'tcp' => [:tcp, {}],
       'udp' => [:udp, {max_bytes: 128}],
-      # 'tls' => [:tls, {}],
+      'tls' => [:tls, {tls_options: {insecure: true}}],
       # 'unix' => [:unix, {}],
     )
     test 'raise error if block argument is not specified or too many' do |(proto, kwargs)|
@@ -696,25 +734,36 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
   end
 
+  def create_ca
+  end
+
+  def create_ca_chained
+  end
+
+  def create_server_pair_signed_by_ca
+  end
+
+  def create_server_pair_signed_by_self
+  end
+
   sub_test_case '#server_create_tls' do
-    # not implemented yet
+    test 'can accept all keyword arguments valid for tcp/tls server'
+    test 'creates a tls server just to read data'
+    test 'creates a tls server to read and write data'
+    test 'creates a tls server to read and write data using IPv6'
 
-    # test 'can accept all keyword arguments valid for tcp/tls server'
-    # test 'creates a tls server just to read data'
-    # test 'creates a tls server to read and write data'
-    # test 'creates a tls server to read and write data using IPv6'
+    # TODO: many tests about tls_options
+    # TODO: many tests about <transport> sections
 
-    # many tests about certops
-
-    # test 'does not resolve name of client address in default'
-    # test 'does resolve name of client address if resolve_name is true'
+    test 'does not resolve name of client address in default'
+    test 'does resolve name of client address if resolve_name is true'
     # test 'can keep connections alive for tls if keepalive specified' do
     #   pend "not implemented yet"
     # end
 
-    # test 'raises error if plugin registers data callback for connection object from #server_create'
-    # test 'can call write_complete callback if registered'
-    # test 'can call close callback if registered'
+    test 'raises error if plugin registers data callback for connection object from #server_create'
+    test 'can call write_complete callback if registered'
+    test 'can call close callback if registered'
   end
 
   sub_test_case '#server_create_unix' do
@@ -729,6 +778,22 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     # test 'can call close callback if registered'
   end
 
+  def open_client(proto, addr, port)
+    client = case proto
+             when :tcp
+               TCPSocket.open(addr, port)
+             when :tls
+               c = OpenSSL::SSL::SSLSocket.new(TCPSocket.open(addr, port))
+               c.sync_close = true
+               c.connect
+             else
+               raise ArgumentError, "unknown proto:#{proto}"
+             end
+    yield client
+  ensure
+    client.close rescue nil
+  end
+
   # run tests for tcp, tls and unix
   sub_test_case '#server_create_connection' do
     test 'raise error if udp is specified in proto' do
@@ -737,10 +802,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
     end
 
-    # def server_create_connection(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, certopts: nil, resolve_name: false, linger_timeout: 0, backlog: nil, &block)
+    # def server_create_connection(title, port, proto: :tcp, bind: '0.0.0.0', shared: true, tls_options: nil, resolve_name: false, linger_timeout: 0, backlog: nil, &block)
     protocols = {
       'tcp' => [:tcp, {}],
-      # 'tls' => [:tls, {certopts: {}}],
+      'tls' => [:tls, {tls_options: {insecure: true}}],
       # 'unix' => [:unix, {path: ""}],
     }
 
@@ -766,7 +831,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       3.times do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sock.puts "yay"
         end
       end
@@ -788,7 +853,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       3.times do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sock.puts "yay"
         end
       end
@@ -816,20 +881,26 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       replied = []
       disconnecteds = []
-      3.times do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+      3.times do |i|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sock.puts "yay"
           while line = sock.readline
             replied << line
             break
           end
           sock.write "x"
+          connection_closed = false
           begin
-            sock.read
+            data = sock.read
+            if data.empty?
+              connection_closed = true
+            end
           rescue => e
             if e.is_a?(Errno::ECONNRESET)
-              disconnecteds << e.class
+              connection_closed = true
             end
+          ensure
+            disconnecteds << connection_closed
           end
         end
       end
@@ -838,7 +909,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       waiting(10){ sleep 0.1 until disconnecteds.size == 3 }
       assert_equal ["yay\n", "yay\n", "yay\n"], lines
       assert_equal ["foo!\n", "foo!\n", "foo!\n"], replied
-      assert_equal [Errno::ECONNRESET, Errno::ECONNRESET, Errno::ECONNRESET], disconnecteds
+      assert_equal [true, true, true], disconnecteds
     end
 
     data(protocols)
@@ -860,7 +931,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       replied = []
       3.times do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sock.puts "yay"
           while line = sock.readline
             replied << line
@@ -888,7 +959,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       3.times do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sock.puts "yay"
         end
       end
@@ -901,7 +972,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     test 'will refuse more connect requests after stop, but read data from sockets already connected, in non-shared server' do |(proto, kwargs)|
       connected = false
       begin
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           # expected behavior is connection refused...
           connected = true
         end
@@ -919,7 +990,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
 
       th0 = Thread.new do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sock.puts "yay"
           sock.readline
         end
@@ -928,14 +999,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       value0 = waiting(5){ th0.value }
       assert_equal "ack\n", value0
 
-      # TODO: change how to create clients by proto
-
       stopped = false
       sleeping = false
       ending = false
 
       th1 = Thread.new do
-        TCPSocket.open("127.0.0.1", PORT) do |sock|
+        open_client(proto, "127.0.0.1", PORT) do |sock|
           sleeping = true
           sleep 0.1 until stopped
           sock.puts "yay"
@@ -958,7 +1027,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
       th2 = Thread.new do
         begin
-          TCPSocket.open("127.0.0.1", PORT) do |sock|
+          open_client(proto, "127.0.0.1", PORT) do |sock|
             sock.puts "foo"
           end
           false # failed
