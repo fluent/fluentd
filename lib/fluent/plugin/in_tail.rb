@@ -586,7 +586,7 @@ module Fluent::Plugin
           convert(@buffer.slice!(0, idx + 1)) unless idx.nil?
         end
 
-        def size
+        def bytesize
           @buffer.bytesize
         end
       end
@@ -626,7 +626,7 @@ module Fluent::Plugin
 
               unless @lines.empty?
                 if @receive_lines.call(@lines)
-                  @watcher.pe.update_pos(io.pos - @fifo.size)
+                  @watcher.pe.update_pos(io.pos - @fifo.bytesize)
                   @lines.clear
                 else
                   read_more = false
@@ -649,7 +649,7 @@ module Fluent::Plugin
 
         def open
           io = Fluent::FileWrapper.open(@watcher.path)
-          io.seek(@watcher.pe.read_pos + @fifo.size)
+          io.seek(@watcher.pe.read_pos + @fifo.bytesize)
           io
         rescue Errno::ENOENT
           nil
