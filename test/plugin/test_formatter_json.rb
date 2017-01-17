@@ -34,6 +34,14 @@ class JsonFormatterTest < ::Test::Unit::TestCase
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')
+  def test_format_without_nl(data)
+    d = create_driver('json_parser' => data, 'add_newline' => false)
+    formatted = d.instance.format(tag, @time, record)
+
+    assert_equal(JSON.generate(record), formatted)
+  end
+
+  data('oj' => 'oj', 'yajl' => 'yajl')
   def test_format_with_symbolic_record(data)
     d = create_driver('json_parser' => data)
     formatted = d.instance.format(tag, @time, symbolic_record)
