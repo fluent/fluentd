@@ -362,7 +362,7 @@ module Fluent::Plugin
             if @enable_catch_all
               record = {'parse_fail' => line}
               record[@path_key] ||= tail_watcher.path unless @path_key.nil?
-              es.add(Fluent::EventTime.now, record)
+              es.add(Time.now.to_i, record)
             end
             log.warn "pattern not match: #{line.inspect}"
           end
