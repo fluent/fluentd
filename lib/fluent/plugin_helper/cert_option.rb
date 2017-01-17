@@ -120,12 +120,14 @@ module Fluent
         ca_key = OpenSSL::PKey::RSA.new(File.read(ca_key_path), ca_key_passphrase)
         ca_cert = OpenSSL::X509::Certificate.new(File.read(ca_cert_path))
         cert, key = cert_option_generate_server_pair(generate_opts, ca_cert.issuer)
+        raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
         cert.sign(ca_key, generate_opts[:digest].to_s)
         return cert, key, nil
       end
 
       def cert_option_generate_server_pair_self_signed(generate_opts)
         cert, key = cert_option_generate_server_pair(generate_opts)
+        raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
         cert.sign(key, generate_opts[:digest].to_s)
         return cert, key, nil
       end
