@@ -606,6 +606,7 @@ module Fluent
 
             socket_option_setter.call(sock)
             @_handler_socket = OpenSSL::SSL::SSLSocket.new(sock, context)
+            @_handler_socket.sync_close = true
             @_handler_write_buffer = ''.force_encoding('ascii-8bit')
             @_handler_accepted = false
             super(@_handler_socket)
@@ -648,7 +649,7 @@ module Fluent
           end
 
           def try_tls_accept
-            return if @_handler_accepted
+            return true if @_handler_accepted
 
             begin
               @_handler_socket.accept_nonblock # this method call actually try to do handshake via TLS
@@ -659,12 +660,16 @@ module Fluent
               unless @data_callback
                 raise "connection callback must call #data to set data callback"
               end
+              return true
+
             rescue IO::WaitReadable, IO::WaitWritable
               # retry accept_nonblock: there aren't enough data in underlying socket buffer
             rescue OpenSSL::SSL::SSLError => e
               @log.trace "unexpected error before accepting TLS connection", error: e
               close rescue nil
             end
+
+            false
           end
 
           def on_connect
@@ -672,11 +677,11 @@ module Fluent
           end
 
           def on_readable
-            if @_handler_accepted
+            if try_tls_accept
               super
-            else
-              try_tls_accept
             end
+          rescue IO::WaitReadable, IO::WaitWritable
+            # ignore and return with doing nothing
           end
 
           def on_writable
