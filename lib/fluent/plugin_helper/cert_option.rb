@@ -22,7 +22,7 @@ module Fluent
   module PluginHelper
     module CertOption
       def cert_option_create_context(version, insecure, ciphers, conf)
-        cert, key, extra_chain_certs = cert_option_server_validate!(conf)
+        cert, key, extra = cert_option_server_validate!(conf)
 
         ctx = OpenSSL::SSL::SSLContext.new(version)
         unless insecure
@@ -35,8 +35,8 @@ module Fluent
 
         ctx.cert = cert
         ctx.key = key
-        if extra_chain_certs
-          ctx.extra_chain_cert = extra_chain_certs
+        if extra && !extra.empty?
+          ctx.extra_chain_cert = extra
         end
 
         ctx
@@ -56,7 +56,7 @@ module Fluent
           cert_option_generate_server_pair_by_ca(
             conf.ca_cert_path,
             conf.ca_private_key_path,
-            conf.private_key_passphrase,
+            conf.ca_private_key_passphrase,
             generate_opts
           )
 
@@ -74,8 +74,7 @@ module Fluent
         key = OpenSSL::PKey::RSA.new(File.read(private_key_path), private_key_passphrase)
         certs = cert_option_certificates_from_file(cert_path)
         cert = certs.shift
-        extra_chain_certs = certs
-        return cert, key, extra_chain_certs
+        return cert, key, certs
       end
 
       def cert_option_cert_generation_opts_from_conf(conf)
@@ -90,7 +89,7 @@ module Fluent
         }
       end
 
-      def cert_option_generate_server_pair(opts, issuer = nil)
+      def cert_option_generate_pair(opts, issuer = nil)
         key = OpenSSL::PKey::RSA.generate(opts[:private_key_length])
 
         subject = OpenSSL::X509::Name.new
@@ -109,25 +108,41 @@ module Fluent
         cert.issuer = issuer
         cert.subject  = subject
 
-        # basicConstraints: this cert is for CA or not
-        cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
-        cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+        return cert, key
+      end
 
+      def cert_option_generate_ca_pair_self_signed(generate_opts)
+        cert, key = cert_option_generate_pair(generate_opts)
+
+        # basicConstraints: this cert is for CA or not
+        cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(true)]))
+
+        cert.sign(key, generate_opts[:digest].to_s)
         return cert, key
       end
 
       def cert_option_generate_server_pair_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, generate_opts)
         ca_key = OpenSSL::PKey::RSA.new(File.read(ca_key_path), ca_key_passphrase)
         ca_cert = OpenSSL::X509::Certificate.new(File.read(ca_cert_path))
-        cert, key = cert_option_generate_server_pair(generate_opts, ca_cert.issuer)
+        cert, key = cert_option_generate_pair(generate_opts, ca_cert.subject)
         raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
+
+        # basicConstraints: this cert is for CA or not
+        cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
+        cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+
         cert.sign(ca_key, generate_opts[:digest].to_s)
         return cert, key, nil
       end
 
       def cert_option_generate_server_pair_self_signed(generate_opts)
-        cert, key = cert_option_generate_server_pair(generate_opts)
+        cert, key = cert_option_generate_pair(generate_opts)
         raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
+
+        # basicConstraints: this cert is for CA or not
+        cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
+        cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+
         cert.sign(key, generate_opts[:digest].to_s)
         return cert, key, nil
       end
