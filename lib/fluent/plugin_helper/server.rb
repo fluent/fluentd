@@ -35,6 +35,7 @@ module Fluent
 
       # This plugin helper doesn't support these things for now:
       # * TCP/TLS keepalive
+      # * TLS session cache/tickets
       # * unix domain sockets
 
       # stop     : [-]
