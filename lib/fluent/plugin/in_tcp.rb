@@ -56,7 +56,7 @@ module Fluent::Plugin
       super
 
       @buffer = ''
-      server_create(:in_tcp_server, @port, proto: :tcp, bind: @bind) do |data, conn|
+      server_create(:in_tcp_server, @port, bind: @bind) do |data, conn|
         @buffer << data
         begin
           pos = 0
