@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/plugin_helper/server'
+require 'fluent/plugin_helper/cert_option' # to create certs for tests
 require 'fluent/plugin/base'
 require 'timeout'
 
@@ -10,6 +11,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   class Dummy < Fluent::Plugin::TestBase
     helpers :server
   end
+
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/plugin_helper_server")
 
   PORT = unused_port
 
@@ -734,36 +737,658 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
   end
 
-  def create_ca
+  module CertUtil
+    extend Fluent::PluginHelper::CertOption
   end
 
-  def create_ca_chained
+  def create_ca_options
+    {
+      private_key_length: 2048,
+      country: 'US',
+      state: 'CA',
+      locality: 'Mountain View',
+      common_name: 'ca.testing.fluentd.org',
+      expiration: 30 * 86400,
+      digest: :sha256,
+    }
   end
 
-  def create_server_pair_signed_by_ca
+  def create_server_options
+    {
+      private_key_length: 2048,
+      country: 'US',
+      state: 'CA',
+      locality: 'Mountain View',
+      common_name: 'server.testing.fluentd.org',
+      expiration: 30 * 86400,
+      digest: :sha256,
+    }
   end
 
-  def create_server_pair_signed_by_self
+  def write_cert_and_key(cert_path, cert, key_path, key, passphrase)
+    File.open(cert_path, "w"){|f| f.write(cert.to_pem) }
+    # Encrypt secret key by AES256, and write it in PEM format
+    File.open(key_path, "w"){|f| f.write(key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase)) }
+    File.chmod(0600, cert_path, key_path)
+  end
+
+  def create_server_pair_signed_by_self(cert_path, private_key_path, passphrase)
+    cert, key, _ = CertUtil.cert_option_generate_server_pair_self_signed(create_server_options)
+    write_cert_and_key(cert_path, cert, private_key_path, key, passphrase)
+  end
+
+  def create_ca_pair_signed_by_self(cert_path, private_key_path, passphrase)
+    cert, key, _ = CertUtil.cert_option_generate_ca_pair_self_signed(create_ca_options)
+    write_cert_and_key(cert_path, cert, private_key_path, key, passphrase)
+  end
+
+  def create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, passphrase)
+    cert, key, _ = CertUtil.cert_option_generate_server_pair_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, create_server_options)
+    write_cert_and_key(cert_path, cert, private_key_path, key, passphrase)
+  end
+
+  def create_server_pair_chained_with_root_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, passphrase)
+    root_cert, root_key, _ = CertUtil.cert_option_generate_ca_pair_self_signed(create_ca_options)
+    write_cert_and_key(ca_cert_path, root_cert, ca_key_path, root_key, ca_key_passphrase)
+
+    intermediate_ca_options = create_ca_options
+    intermediate_ca_options[:common_name] = 'ca2.testing.fluentd.org'
+    chain_cert, chain_key = CertUtil.cert_option_generate_pair(intermediate_ca_options, root_cert.subject)
+    chain_cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(true)]))
+    chain_cert.sign(root_key, "sha256")
+
+    server_cert, server_key, _ = CertUtil.cert_option_generate_pair(create_server_options, chain_cert.subject)
+    server_cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
+    server_cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+    server_cert.sign(chain_key, "sha256")
+
+    # write chained cert
+    File.open(cert_path, "w") do |f|
+      f.write server_cert.to_pem
+      f.write chain_cert.to_pem
+    end
+    File.open(private_key_path, "w"){|f| f.write(server_key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase)) }
+    File.chmod(0600, cert_path, private_key_path)
+  end
+
+  def open_tls_session(addr, port, verify: true, cert_path: nil, selfsigned: true, hostname: nil)
+    context = OpenSSL::SSL::SSLContext.new
+    context.set_params({})
+    if verify
+      cert_store = OpenSSL::X509::Store.new
+      cert_store.set_default_paths
+      if selfsigned && OpenSSL::X509.const_defined?('V_FLAG_CHECK_SS_SIGNATURE')
+        cert_store.flags = OpenSSL::X509::V_FLAG_CHECK_SS_SIGNATURE
+      end
+      if cert_path
+        cert_store.add_file(cert_path)
+      end
+      context.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      context.cert_store = cert_store
+      if !hostname && context.respond_to?(:verify_hostname=)
+        context.verify_hostname = false # In test code, using hostname to be connected is very difficult
+      end
+    else
+      context.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
+
+    sock = OpenSSL::SSL::SSLSocket.new(TCPSocket.new(addr, port), context)
+    sock.hostname = hostname if hostname && sock.respond_to?(:hostname)
+    sock.connect
+    yield sock
+  ensure
+    sock.close rescue nil
+  end
+
+  sub_test_case '#server_create_tls with various certificate options' do
+    setup do
+      @d = Dummy.new # to get plugin not configured/started yet
+
+      @certs_dir = File.join(TMP_DIR, "tls_certs")
+      @server_cert_dir = File.join(@certs_dir, "server")
+      FileUtils.rm_rf @certs_dir
+      FileUtils.mkdir_p @server_cert_dir
+    end
+
+    sub_test_case 'using tls_options arguments to specify cert options' do
+      setup do
+        @d.configure(config_element()); @d.start; @d.after_start
+      end
+
+      test 'create dynamic self-signed cert/key pair (without any verification from clients)' do
+        # insecure
+        tls_options = {
+          protocol: :tls,
+          version: 'TLSv1_2',
+          ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
+          insecure: true,
+          generate_private_key_length: 2048,
+          generate_cert_country: 'US',
+          generate_cert_state: 'CA',
+          generate_cert_locality: 'Mountain View',
+          generate_cert_common_name: 'myserver.testing.fluentd.org',
+          generate_cert_expiration: 10 * 365 * 86400,
+          generate_cert_digest: :sha256,
+        }
+
+        received = ""
+        @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
+          received << data
+        end
+        assert_raise "" do
+          open_tls_session('127.0.0.1', PORT) do |sock|
+            sock.post_connection_check('myserver.testing.fluentd.org')
+            # cannot connect ....
+          end
+        end
+        open_tls_session('127.0.0.1', PORT, verify: false) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'load self-signed cert/key pair (files), verified from clients using cert files' do
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+        create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
+
+        tls_options = {
+          protocol: :tls,
+          version: 'TLSv1_2',
+          ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
+          insecure: false,
+          cert_path: cert_path,
+          private_key_path: private_key_path,
+          private_key_passphrase: private_key_passphrase,
+        }
+        received = ""
+        @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
+          received << data
+        end
+        assert_raise "" do
+          open_tls_session('127.0.0.1', PORT) do |sock|
+            sock.post_connection_check('server.testing.fluentd.org')
+            # cannot connect by failing verification without server cert
+          end
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'create dynamic server cert by private CA cert file, verified from clients using CA cert file' do
+        ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
+        ca_key_path = File.join(@certs_dir, "ca.key.pem")
+        ca_key_passphrase = "fooooooooooooooooooooooooo"
+        create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
+
+        tls_options = {
+          protocol: :tls,
+          version: 'TLSv1_2',
+          ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
+          insecure: false,
+          ca_cert_path: ca_cert_path,
+          ca_private_key_path: ca_key_path,
+          ca_private_key_passphrase: ca_key_passphrase,
+          generate_private_key_length: 2048,
+        }
+        received = ""
+        @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
+          received << data
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: ca_cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'load static server cert by private CA cert file, verified from clients using CA cert file' do
+        ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
+        ca_key_path = File.join(@certs_dir, "ca.key.pem")
+        ca_key_passphrase = "foooooooo"
+        create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
+
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+        create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
+
+        tls_options = {
+          protocol: :tls,
+          version: 'TLSv1_2',
+          ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
+          insecure: false,
+          cert_path: cert_path,
+          private_key_path: private_key_path,
+          private_key_passphrase: private_key_passphrase,
+        }
+        received = ""
+        @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
+          received << data
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: ca_cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'load chained server cert by private CA cert file, verified from clients using CA cert file as root' do
+        ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
+        ca_key_path = File.join(@certs_dir, "ca.key.pem")
+        ca_key_passphrase = "foooooooo"
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+        create_server_pair_chained_with_root_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
+
+        tls_options = {
+          protocol: :tls,
+          version: 'TLSv1_2',
+          ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
+          insecure: false,
+          cert_path: cert_path,
+          private_key_path: private_key_path,
+          private_key_passphrase: private_key_passphrase,
+        }
+        received = ""
+        @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
+          received << data
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: ca_cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+    end
+
+    sub_test_case 'using configurations to specify cert options' do
+      test 'create dynamic self-signed cert/key pair (without any verification from clients)' do
+        # insecure
+        transport_opts = {
+          'insecure' => 'true',
+        }
+        transport_conf = config_element('transport', 'tls', transport_opts)
+        conf = config_element('match', 'tag.*', {}, [transport_conf])
+
+        @d.configure(conf); @d.start; @d.after_start
+
+        received = ""
+        @d.server_create_tls(:s, PORT) do |data, conn|
+          received << data
+        end
+        assert_raise "" do
+          open_tls_session('127.0.0.1', PORT) do |sock|
+            sock.post_connection_check('myserver.testing.fluentd.org')
+            # cannot connect ....
+          end
+        end
+        open_tls_session('127.0.0.1', PORT, verify: false) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'load self-signed cert/key pair (files), verified from clients using cert files' do
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+        create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
+
+        transport_opts = {
+          'cert_path' => cert_path,
+          'private_key_path' => private_key_path,
+          'private_key_passphrase' => private_key_passphrase,
+        }
+        transport_conf = config_element('transport', 'tls', transport_opts)
+        conf = config_element('match', 'tag.*', {}, [transport_conf])
+
+        @d.configure(conf); @d.start; @d.after_start
+
+        received = ""
+        @d.server_create_tls(:s, PORT) do |data, conn|
+          received << data
+        end
+        assert_raise "" do
+          open_tls_session('127.0.0.1', PORT) do |sock|
+            sock.post_connection_check('server.testing.fluentd.org')
+            # cannot connect by failing verification without server cert
+          end
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'create dynamic server cert by private CA cert file, verified from clients using CA cert file' do
+        ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
+        ca_key_path = File.join(@certs_dir, "ca.key.pem")
+        ca_key_passphrase = "fooooooooooooooooooooooooo"
+        create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
+
+        transport_opts = {
+          'ca_cert_path' => ca_cert_path,
+          'ca_private_key_path' => ca_key_path,
+          'ca_private_key_passphrase' => ca_key_passphrase,
+        }
+        transport_conf = config_element('transport', 'tls', transport_opts)
+        conf = config_element('match', 'tag.*', {}, [transport_conf])
+
+        @d.configure(conf); @d.start; @d.after_start
+
+        received = ""
+        @d.server_create_tls(:s, PORT) do |data, conn|
+          received << data
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: ca_cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'load static server cert by private CA cert file, verified from clients using CA cert file' do
+        ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
+        ca_key_path = File.join(@certs_dir, "ca.key.pem")
+        ca_key_passphrase = "foooooooo"
+        create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
+
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+        create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
+
+        transport_opts = {
+          'cert_path' => cert_path,
+          'private_key_path' => private_key_path,
+          'private_key_passphrase' => private_key_passphrase,
+        }
+        transport_conf = config_element('transport', 'tls', transport_opts)
+        conf = config_element('match', 'tag.*', {}, [transport_conf])
+
+        @d.configure(conf); @d.start; @d.after_start
+
+        received = ""
+        @d.server_create_tls(:s, PORT) do |data, conn|
+          received << data
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: ca_cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+
+      test 'load chained server cert by private CA cert file, verified from clients using CA cert file as root' do
+        ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
+        ca_key_path = File.join(@certs_dir, "ca.key.pem")
+        ca_key_passphrase = "foooooooo"
+        cert_path = File.join(@server_cert_dir, "cert.pem")
+        private_key_path = File.join(@certs_dir, "server.key.pem")
+        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+        create_server_pair_chained_with_root_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
+
+        transport_opts = {
+          'cert_path' => cert_path,
+          'private_key_path' => private_key_path,
+          'private_key_passphrase' => private_key_passphrase,
+        }
+        transport_conf = config_element('transport', 'tls', transport_opts)
+        conf = config_element('match', 'tag.*', {}, [transport_conf])
+
+        @d.configure(conf); @d.start; @d.after_start
+
+        received = ""
+        @d.server_create_tls(:s, PORT) do |data, conn|
+          received << data
+        end
+        open_tls_session('127.0.0.1', PORT, cert_path: ca_cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+        waiting(10){ sleep 0.1 until received.bytesize == 8 }
+        assert_equal "yay\nfoo\n", received
+      end
+    end
   end
 
   sub_test_case '#server_create_tls' do
-    test 'can accept all keyword arguments valid for tcp/tls server'
-    test 'creates a tls server just to read data'
-    test 'creates a tls server to read and write data'
-    test 'creates a tls server to read and write data using IPv6'
+    setup do
+      @certs_dir = File.join(TMP_DIR, "tls_certs")
+      FileUtils.rm_rf @certs_dir
+      FileUtils.mkdir_p @certs_dir
 
-    # TODO: many tests about tls_options
-    # TODO: many tests about <transport> sections
+      @server_cert_dir = File.join(@certs_dir, "server")
+      FileUtils.mkdir_p @server_cert_dir
 
-    test 'does not resolve name of client address in default'
-    test 'does resolve name of client address if resolve_name is true'
-    # test 'can keep connections alive for tls if keepalive specified' do
-    #   pend "not implemented yet"
-    # end
+      @cert_path = File.join(@server_cert_dir, "cert.pem")
+      private_key_path = File.join(@certs_dir, "server.key.pem")
+      private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
+      create_server_pair_signed_by_self(@cert_path, private_key_path, private_key_passphrase)
 
-    test 'raises error if plugin registers data callback for connection object from #server_create'
-    test 'can call write_complete callback if registered'
-    test 'can call close callback if registered'
+      @default_hostname = ::Socket.gethostname
+
+      @tls_options = {
+        protocol: :tls,
+        version: 'TLSv1_2',
+        ciphers: 'ALL:!aNULL:!eNULL:!SSLv2',
+        insecure: false,
+        cert_path: @cert_path,
+        private_key_path: private_key_path,
+        private_key_passphrase: private_key_passphrase,
+      }
+    end
+
+    test 'can accept all keyword arguments valid for tcp/tls server' do
+      assert_nothing_raised do
+        @d.server_create_tls(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500, tls_options: @tls_options) do |data, conn|
+          # ...
+        end
+      end
+    end
+
+    test 'creates a tls server just to read data' do
+      received = ""
+      @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        received << data
+      end
+      3.times do
+        open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+        end
+      end
+      waiting(10){ sleep 0.1 until received.bytesize == 24 }
+      assert_equal "yay\nfoo\nyay\nfoo\nyay\nfoo\n", received
+    end
+
+    test 'creates a tls server to read and write data' do
+      received = ""
+      responses = []
+      @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        received << data
+        conn.write "ack\n"
+      end
+      3.times do
+        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+        open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+          responses << sock.readline
+        end
+      end
+      waiting(10){ sleep 0.1 until received.bytesize == 24 }
+      assert_equal "yay\nfoo\nyay\nfoo\nyay\nfoo\n", received
+      assert_equal ["ack\n","ack\n","ack\n"], responses
+    end
+
+    test 'creates a tls server to read and write data using IPv6' do
+      omit "IPv6 unavailable here" unless ipv6_enabled?
+
+      received = ""
+      responses = []
+      @d.server_create_tls(:s, PORT, bind: "::1",  tls_options: @tls_options) do |data, conn|
+        received << data
+        conn.write "ack\n"
+      end
+      3.times do
+        # open_tls_session('::1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+        open_tls_session('::1', PORT, cert_path: @cert_path) do |sock|
+          sock.puts "yay"
+          sock.puts "foo"
+          responses << sock.readline
+        end
+      end
+      waiting(10){ sleep 0.1 until received.bytesize == 24 }
+      assert_equal "yay\nfoo\nyay\nfoo\nyay\nfoo\n", received
+      assert_equal ["ack\n","ack\n","ack\n"], responses
+    end
+
+    test 'does not resolve name of client address in default' do
+      received = ""
+      sources = []
+      @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        received << data
+        sources << conn.remote_host
+      end
+      3.times do
+        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+        open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+          sock.puts "yay"
+        end
+      end
+      waiting(10){ sleep 0.1 until received.bytesize == 12 }
+      assert_equal "yay\nyay\nyay\n", received
+      assert{ sources.all?{|s| s == "127.0.0.1" } }
+    end
+
+    test 'does resolve name of client address if resolve_name is true' do
+      hostname = Socket.getnameinfo([nil, nil, nil, "127.0.0.1"])[0]
+
+      received = ""
+      sources = []
+      @d.server_create_tls(:s, PORT, resolve_name: true, tls_options: @tls_options) do |data, conn|
+        received << data
+        sources << conn.remote_host
+      end
+      3.times do
+        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+        open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+          sock.puts "yay"
+        end
+      end
+      waiting(10){ sleep 0.1 until received.bytesize == 12 }
+      assert_equal "yay\nyay\nyay\n", received
+      assert{ sources.all?{|s| s == hostname } }
+    end
+
+    test 'can keep connections alive for tls if keepalive specified' do
+      # pend "not implemented yet"
+    end
+
+    test 'raises error if plugin registers data callback for connection object from #server_create' do
+      received = ""
+      errors = []
+      @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        received << data
+        begin
+          conn.data{|d| received << d.upcase }
+        rescue => e
+          errors << e
+        end
+      end
+      # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+      open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+        sock.puts "foo"
+      end
+      waiting(10){ sleep 0.1 until received.bytesize == 4 || errors.size == 1 }
+      assert_equal "foo\n", received
+      assert_equal 1, errors.size
+      assert_equal "data callback can be registered just once, but registered twice", errors.first.message
+    end
+
+    test 'can call write_complete callback if registered' do
+      buffer = ""
+      lines = []
+      responses = []
+      response_completes = []
+      @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        conn.on(:write_complete){|c| response_completes << true }
+        buffer << data
+        if idx = buffer.index("\n")
+          lines << buffer.slice!(0,idx+1)
+          conn.write "ack\n"
+        end
+      end
+      3.times do
+        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+        open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+          sock.write "yay"
+          sock.write "foo\n"
+          begin
+            responses << sock.readline
+          rescue EOFError, IOError, Errno::ECONNRESET
+            # ignore
+          end
+          sock.close
+        end
+      end
+      waiting(10){ sleep 0.1 until lines.size == 3 && response_completes.size == 3 }
+      assert_equal ["yayfoo\n", "yayfoo\n", "yayfoo\n"], lines
+      assert_equal ["ack\n","ack\n","ack\n"], responses
+      assert_equal [true, true, true], response_completes
+    end
+
+    test 'can call close callback if registered' do
+      buffer = ""
+      lines = []
+      callback_results = []
+      @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
+        conn.on(:close){|c| callback_results << "closed" }
+        buffer << data
+        if idx = buffer.index("\n")
+          lines << buffer.slice!(0,idx+1)
+          conn.write "ack\n"
+        end
+      end
+      3.times do
+        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
+        open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
+          sock.write "yay"
+          sock.write "foo\n"
+          begin
+            while line = sock.readline
+              if line == "ack\n"
+                sock.close
+              end
+            end
+          rescue EOFError, IOError, Errno::ECONNRESET
+            # ignore
+          end
+        end
+      end
+      waiting(10){ sleep 0.1 until lines.size == 3 && callback_results.size == 3 }
+      assert_equal ["yayfoo\n", "yayfoo\n", "yayfoo\n"], lines
+      assert_equal ["closed", "closed", "closed"], callback_results
+    end
   end
 
   sub_test_case '#server_create_unix' do
