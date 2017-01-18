@@ -89,7 +89,7 @@ module Fluent
       def socket_create_tls(
           host, port,
           version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
-          enable_system_cert_store: true, allow_self_signed_cert: false, cert_path: nil, **kwargs, &block)
+          enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil, **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
@@ -112,13 +112,17 @@ module Fluent
           rescue OpenSSL::X509::StoreError
             log.warn "failed to load system default certificate store", error: e
           end
-          if ca_cert_path
-            log.trace "adding CA cert", path: ca_cert_path
-            cert_store.add_file(ca_cert_path)
-          end
-          if server_cert_dir
-            log.trace "adding server cert directory", path: server_cert_dir
-            cert_store.add_path(server_cert_dir)
+          if cert_paths
+            if cert_paths.respond_to?(:each)
+              cert_paths.each do |cert_path|
+                log.trace "adding CA cert", path: cert_path
+                cert_store.add_file(cert_path)
+              end
+            else
+              cert_path = cert_paths
+              log.trace "adding CA cert", path: cert_path
+              cert_store.add_file(cert_path)
+            end
           end
 
           log.trace "setting TLS context", mode: "peer", ciphers: ciphers
