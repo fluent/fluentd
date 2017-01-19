@@ -25,6 +25,7 @@ module Fluent
 
       config_param :delimiter, :string, default: "\t"
       config_param :label_delimiter, :string, default: ":"
+      config_param :add_newline, :bool, default: true
 
       # TODO: escaping for \t in values
       def format(tag, time, record)
@@ -33,7 +34,7 @@ module Fluent
           formatted << @delimiter if formatted.length.nonzero?
           formatted << "#{label}#{@label_delimiter}#{value}"
         end
-        formatted << "\n"
+        formatted << "\n" if @add_newline
         formatted
       end
     end
