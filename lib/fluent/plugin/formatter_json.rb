@@ -37,6 +37,7 @@ module Fluent
           @dump_proc = Yajl.method(:dump)
         end
 
+        # format json is used on various highload environment, so re-define method to skip if check
         unless @add_newline
           define_singleton_method(:format, method(:format_without_nl))
         end
