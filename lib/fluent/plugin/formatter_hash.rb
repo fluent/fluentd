@@ -25,7 +25,7 @@ module Fluent
 
       def format(tag, time, record)
         line = record.to_s
-        line << "\n" if @add_newline
+        line << "\n".freeze if @add_newline
         line
       end
     end

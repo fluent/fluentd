@@ -34,7 +34,7 @@ module Fluent
           formatted << @delimiter if formatted.length.nonzero?
           formatted << "#{label}#{@label_delimiter}#{value}"
         end
-        formatted << "\n" if @add_newline
+        formatted << "\n".freeze if @add_newline
         formatted
       end
     end
