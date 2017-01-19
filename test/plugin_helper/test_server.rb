@@ -1217,7 +1217,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       waiting(10){ sleep 0.1 until received.bytesize == 24 }
-      assert_equal "yay\nfoo\nyay\nfoo\nyay\nfoo\n", received
+      assert_equal 3, received.scan("yay\n").size
+      assert_equal 3, received.scan("foo\n").size
     end
 
     test 'creates a tls server to read and write data' do
@@ -1236,7 +1237,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       waiting(10){ sleep 0.1 until received.bytesize == 24 }
-      assert_equal "yay\nfoo\nyay\nfoo\nyay\nfoo\n", received
+      assert_equal 3, received.scan("yay\n").size
+      assert_equal 3, received.scan("foo\n").size
       assert_equal ["ack\n","ack\n","ack\n"], responses
     end
 
@@ -1258,7 +1260,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       waiting(10){ sleep 0.1 until received.bytesize == 24 }
-      assert_equal "yay\nfoo\nyay\nfoo\nyay\nfoo\n", received
+      assert_equal 3, received.scan("yay\n").size
+      assert_equal 3, received.scan("foo\n").size
       assert_equal ["ack\n","ack\n","ack\n"], responses
     end
 
@@ -1276,7 +1279,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
-      assert_equal "yay\nyay\nyay\n", received
+      assert_equal 3, received.scan("yay\n").size
       assert{ sources.all?{|s| s == "127.0.0.1" } }
     end
 
@@ -1296,7 +1299,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       waiting(10){ sleep 0.1 until received.bytesize == 12 }
-      assert_equal "yay\nyay\nyay\n", received
+      assert_equal 3, received.scan("yay\n").size
       assert{ sources.all?{|s| s == hostname } }
     end
 
@@ -1315,7 +1318,6 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           errors << e
         end
       end
-      # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
       open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
         sock.puts "foo"
       end
@@ -1339,7 +1341,6 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       3.times do
-        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
         open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
           sock.write "yay"
           sock.write "foo\n"
@@ -1370,7 +1371,6 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         end
       end
       3.times do
-        # open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, hostname: @default_hostname) do |sock|
         open_tls_session('127.0.0.1', PORT, cert_path: @cert_path) do |sock|
           sock.write "yay"
           sock.write "foo\n"
