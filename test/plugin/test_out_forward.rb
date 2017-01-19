@@ -72,7 +72,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     ])
     nodes = d.instance.nodes
     assert_equal 60, d.instance.send_timeout
-    assert_equal :tcp, d.instance.heartbeat_type
+    assert_equal :transport, d.instance.heartbeat_type
     assert_equal 1, nodes.length
     node = nodes.first
     assert_equal "test", node.name
@@ -119,8 +119,8 @@ EOL
     end
   end
 
-  test 'configure_dns_round_robin tcp' do
-    @d = d = create_driver(CONFIG + "\nheartbeat_type tcp\ndns_round_robin true")
+  test 'configure_dns_round_robin transport' do
+    @d = d = create_driver(CONFIG + "\nheartbeat_type transport\ndns_round_robin true")
     assert_equal true, d.instance.dns_round_robin
   end
 
@@ -655,7 +655,8 @@ EOL
     usock = d.instance.instance_variable_get(:@usock)
     servers = d.instance.instance_variable_get(:@_servers)
     timers = d.instance.instance_variable_get(:@_timers)
-    assert_equal UDPSocket, usock.class
+    assert_equal Fluent::PluginHelper::Socket::WrappedSocket::UDP, usock.class
+    assert_kind_of UDPSocket, usock
     assert servers.find{|s| s.title == :out_forward_heartbeat_receiver }
     assert timers.include?(:out_forward_heartbeat_request)
 

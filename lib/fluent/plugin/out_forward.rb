@@ -43,7 +43,7 @@ module Fluent::Plugin
     # TODO: add linger_timeout, recv_timeout
 
     desc 'The protocol to use for heartbeats (default is the same with "transport").'
-    config_param :heartbeat_type, :enum, list: [:transport, :udp, :none], default: :transport
+    config_param :heartbeat_type, :enum, list: [:transport, :tcp, :udp, :none], default: :transport
     desc 'The interval of the heartbeat packer.'
     config_param :heartbeat_interval, :time, default: 1
     desc 'The wait time before accepting a server fault recovery.'
@@ -153,6 +153,11 @@ module Fluent::Plugin
 
       @read_interval = @read_interval_msec / 1000.0
       @recover_sample_size = @recover_wait / @heartbeat_interval
+
+      if @heartbeat_type == :tcp
+        log.warn "'heartbeat_type tcp' is deprecated. use 'transport' instead."
+        @heartbeat_type = :transport
+      end
 
       if @dns_round_robin
         if @heartbeat_type == :udp
