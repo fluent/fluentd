@@ -16,6 +16,7 @@
 
 require 'fluent/output'
 require 'fluent/config/error'
+require 'fluent/clock'
 require 'base64'
 
 require 'fluent/compat/socket_util'
@@ -31,8 +32,6 @@ module Fluent::Plugin
     helpers :socket, :server, :timer, :thread, :compat_parameters
 
     LISTEN_PORT = 24224
-
-    PROCESS_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
 
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, default: 60
@@ -244,7 +243,7 @@ module Fluent::Plugin
       tag = chunk.metadata.tag
       sock, node = select_a_healthy_node{|n| n.send_data(tag, chunk) }
       chunk_id_base64 = Base64.encode64(chunk.unique_id)
-      current_time = Process.clock_gettime(PROCESS_CLOCK_ID)
+      current_time = Fluent::Clock.now
       info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting << info
@@ -405,7 +404,7 @@ module Fluent::Plugin
       unpacker = Fluent::Engine.msgpack_unpacker
 
       while thread_current_running?
-        now = Process.clock_gettime(PROCESS_CLOCK_ID)
+        now = Fluent::Clock.now
         sockets = []
         begin
           @sock_ack_waiting_mutex.synchronize do

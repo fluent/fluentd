@@ -20,6 +20,7 @@ require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
 require 'fluent/timezone'
 require 'fluent/unique_id'
+require 'fluent/clock'
 
 require 'time'
 require 'monitor'
@@ -39,8 +40,6 @@ module Fluent
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
-
-      PROCESS_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
 
       config_param :time_as_integer, :bool, default: false
       desc 'The threshold to show slow flush logs'
@@ -997,7 +996,7 @@ module Fluent
         end
 
         begin
-          chunk_write_start = Process.clock_gettime(PROCESS_CLOCK_ID)
+          chunk_write_start = Fluent::Clock.now
 
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
@@ -1039,7 +1038,7 @@ module Fluent
       end
 
       def check_slow_flush(start)
-        elapsed_time = Process.clock_gettime(PROCESS_CLOCK_ID) - start
+        elapsed_time = Fluent::Clock.now - start
         if elapsed_time > @slow_flush_log_threshold
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                    elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold, plugin_id: self.plugin_id
@@ -1227,7 +1226,7 @@ module Fluent
       def flush_thread_run(state)
         flush_thread_interval = @buffer_config.flush_thread_interval
 
-        state.next_clock = Process.clock_gettime(PROCESS_CLOCK_ID) + flush_thread_interval
+        state.next_clock = Fluent::Clock.now + flush_thread_interval
 
         while !self.after_started? && !self.stopped?
           sleep 0.5
@@ -1237,7 +1236,7 @@ module Fluent
         begin
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase
           while @output_flush_threads_running
-            current_clock = Process.clock_gettime(PROCESS_CLOCK_ID)
+            current_clock = Fluent::Clock.now
             interval = state.next_clock - current_clock
 
             if state.next_clock <= current_clock && (!@retry || @retry_mutex.synchronize{ @retry.next_time } <= Time.now)
@@ -1248,7 +1247,7 @@ module Fluent
               # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected
               #       because @retry still exists (#commit_write is not called yet in #try_flush)
               #       @retry should be cleared if delayed commit is enabled? Or any other solution?
-              state.next_clock = Process.clock_gettime(PROCESS_CLOCK_ID) + interval
+              state.next_clock = Fluent::Clock.now + interval
             end
 
             if @dequeued_chunks_mutex.synchronize{ !@dequeued_chunks.empty? && @dequeued_chunks.first.expired? }

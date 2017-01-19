@@ -16,6 +16,7 @@
 
 require 'fluent/plugin_helper/thread'
 require 'fluent/plugin_helper/timer'
+require 'fluent/clock'
 
 require 'open3'
 require 'timeout'
@@ -125,7 +126,6 @@ module Fluent
         @_child_process_kill_timeout = CHILD_PROCESS_DEFAULT_KILL_TIMEOUT
         @_child_process_mutex = Mutex.new
         @_child_process_processes = {} # pid => ProcessInfo
-        @_child_process_clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
       end
 
       def stop
@@ -154,8 +154,8 @@ module Fluent
           child_process_kill(process_info)
         end
 
-        exit_wait_timeout = Process.clock_gettime(@_child_process_clock_id) + @_child_process_exit_timeout
-        while Process.clock_gettime(@_child_process_clock_id) < exit_wait_timeout
+        exit_wait_timeout = Fluent::Clock.now + @_child_process_exit_timeout
+        while Fluent::Clock.now < exit_wait_timeout
           process_exists = false
           @_child_process_mutex.synchronize{ @_child_process_processes.keys }.each do |pid|
             unless @_child_process_processes[pid].exit_status
@@ -183,9 +183,9 @@ module Fluent
 
             living_process_exist = true
 
-            process_info.killed_at ||= Process.clock_gettime(@_child_process_clock_id) # for illegular case (e.g., created after shutdown)
+            process_info.killed_at ||= Fluent::Clock.now # for illegular case (e.g., created after shutdown)
             timeout_at = process_info.killed_at + @_child_process_kill_timeout
-            now = Process.clock_gettime(@_child_process_clock_id)
+            now = Fluent::Clock.now
             next if now < timeout_at
 
             child_process_kill(process_info, force: true)
@@ -207,7 +207,7 @@ module Fluent
 
       def child_process_kill(pinfo, force: false)
         return if !pinfo
-        pinfo.killed_at = Process.clock_gettime(@_child_process_clock_id) unless force
+        pinfo.killed_at = Fluent::Clock.now unless force
 
         pid = pinfo.pid
         begin
