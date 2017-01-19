@@ -40,6 +40,13 @@ class LabeledTSVFormatterTest < ::Test::Unit::TestCase
     assert_equal("message:awesome\tgreeting:hello\n", formatted)
   end
 
+  def test_format_without_newline
+    d = create_driver('add_newline' => false)
+    formatted = d.instance.format(tag, @time, record)
+
+    assert_equal("message:awesome\tgreeting:hello", formatted)
+  end
+
   def test_format_with_customized_delimiters
     d = create_driver(
       'delimiter'       => ',',

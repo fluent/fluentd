@@ -21,8 +21,12 @@ module Fluent
     class HashFormatter < Formatter
       Plugin.register_formatter('hash', self)
 
+      config_param :add_newline, :bool, default: true
+
       def format(tag, time, record)
-        "#{record.to_s}\n"
+        line = record.to_s
+        line << "\n".freeze if @add_newline
+        line
       end
     end
   end

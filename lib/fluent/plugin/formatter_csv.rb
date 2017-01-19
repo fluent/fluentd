@@ -29,6 +29,7 @@ module Fluent
       # "array" looks good for type of :fields, but this implementation removes tailing comma
       # TODO: Is it needed to support tailing comma?
       config_param :fields, :array, value_type: :string
+      config_param :add_newline, :bool, default: true
 
       def configure(conf)
         super
@@ -42,7 +43,9 @@ module Fluent
         row = @fields.map do |key|
           record[key]
         end
-        CSV.generate_line(row, @generate_opts)
+        line = CSV.generate_line(row, @generate_opts)
+        line.chomp! unless @add_newline
+        line
       end
     end
   end

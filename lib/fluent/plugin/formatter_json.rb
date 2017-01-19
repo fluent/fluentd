@@ -23,6 +23,7 @@ module Fluent
       Plugin.register_formatter('json', self)
 
       config_param :json_parser, :string, default: 'oj'
+      config_param :add_newline, :bool, default: true
 
       def configure(conf)
         super
@@ -35,10 +36,19 @@ module Fluent
         rescue LoadError
           @dump_proc = Yajl.method(:dump)
         end
+
+        # format json is used on various highload environment, so re-define method to skip if check
+        unless @add_newline
+          define_singleton_method(:format, method(:format_without_nl))
+        end
       end
 
       def format(tag, time, record)
         "#{@dump_proc.call(record)}\n"
+      end
+
+      def format_without_nl(tag, time, record)
+        @dump_proc.call(record)
       end
     end
   end
