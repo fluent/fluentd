@@ -28,6 +28,15 @@ module Fluent
 
       attr_accessor :under_plugin_development
 
+      def self.plugin_helpers
+        modules = ancestors.select do |klass|
+          /PluginHelper/ =~ klass.name &&
+            klass != Fluent::PluginHelper::Mixin &&
+            klass.name.split(/::/).size == 3
+        end
+        modules.uniq
+      end
+
       def initialize
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
