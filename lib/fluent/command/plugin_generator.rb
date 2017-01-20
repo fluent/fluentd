@@ -43,15 +43,15 @@ class FluentPluginGenerator
         next if path.directory?
         next if path.fnmatch?("*/preambles/*")
         next if path.fnmatch?("*/licenses/*")
+        dest_dir = path.dirname.sub(/\A#{Regexp.quote(template_directory.to_s)}\/?/, "")
+        dest_file = dest_filename(path)
         if path.extname == ".erb"
-          dest_dir = path.dirname.sub(/\A#{Regexp.quote(template_directory.to_s)}\//, "")
-          dest_file = dest_filename(path)
           if path.fnmatch?("*/plugin/*")
             next unless path.basename.fnmatch?("*#{type}*")
           end
           template(path, dest_dir + dest_file)
         else
-          FileUtils.cp(path, ".")
+          file(path, dest_dir + dest_file)
         end
       end
       spawn("git", "init", ".")
@@ -70,8 +70,22 @@ class FluentPluginGenerator
 
   def template(source, dest)
     dest.dirname.mkpath
-    puts "#{gem_name}/" + dest.to_s.sub(/\A#{Regexp.quote(template_directory.to_s)}\//, "")
-    File.write(dest, ERB.new(source.read, nil, "-").result(binding))
+    contents = ERB.new(source.read, nil, "-").result(binding)
+    label = create_label(dest, contents)
+    puts "\t#{label} #{dest}"
+    if label == "conflict"
+      return unless overwrite?(dest)
+    end
+    File.write(dest, contents)
+  end
+
+  def file(source, dest)
+    label = create_label(dest, source.read)
+    puts "\t#{label} #{dest}"
+    if label == "conflict"
+      return unless overwrite?(dest)
+    end
+    FileUtils.cp(source, dest)
   end
 
   def prepare_parser
