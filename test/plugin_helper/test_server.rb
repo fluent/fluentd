@@ -469,7 +469,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       end
       waiting(10){ sleep 0.1 until received.bytesize == 4 || errors.size == 1 }
       assert_equal "foo\n", received
-      assert_equal 1, errors.size
+      assert{ errors.size > 0 } # it might be called twice (or more) when connection was accepted, and then data arrived (or more)
       assert_equal "data callback can be registered just once, but registered twice", errors.first.message
     end
 
