@@ -165,4 +165,25 @@ BANNER
     puts "License: #{license}"
     FileUtils.cp(template_file("licenses/#{license}.txt"), "LICENSE")
   end
+
+  def create_label(dest, contents)
+    if dest.exist?
+      if dest.read == contents
+        "identical"
+      else
+        "conflict"
+      end
+    else
+      "create"
+    end
+  end
+
+  def overwrite?(dest)
+    loop do
+      print "Overwrite #{dest}? [Yn]"
+      answer = $stdin.gets.chomp
+      return true if /\Ay\z/i =~ answer || answer.empty?
+      return false if /\An\z/ =~ answer
+    end
+  end
 end
