@@ -1,0 +1,11 @@
+<%= preamble %>
+
+require "fluent/plugin/output"
+
+module Fluent
+  module Plugin
+    class <%= class_name %> < Fluent::Plugin::Output
+      Fluent::Plugin.register_output("<%= name %>", self)
+    end
+  end
+end

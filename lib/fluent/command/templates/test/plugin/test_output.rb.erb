@@ -1,0 +1,16 @@
+require "helper"
+require "fluent/plugin/<%= plugin_filename %>"
+
+class <%= class_name %>Test < Test::Unit::TestCase
+  def setup
+    Fluent::Test.setup
+  end
+
+  def create_driver(conf)
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::<%= class_name %>).configure(conf)
+  end
+
+  def test_failure
+    flunk
+  end
+end

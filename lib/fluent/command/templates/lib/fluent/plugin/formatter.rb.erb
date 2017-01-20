@@ -1,0 +1,14 @@
+<%= preamble %>
+
+require "fluent/plugin/formatter"
+
+module Fluent
+  module Plugin
+    class <%= class_name %> < Fluent::Plugin::Formatter
+      Fluent::Plugin.register_formatter("<%= name %>", self)
+
+      def format(tag, time, record)
+      end
+    end
+  end
+end

@@ -1,0 +1,15 @@
+<%= preamble %>
+
+require "fluent/plugin/parser"
+
+module Fluent
+  module Plugin
+    class <%= class_name %> < Fluent::Plugin::Parser
+      Fluent::Plugin.register_parser("<%= name %>", self)
+    end
+
+    def parse(text)
+      yield time, record
+    end
+  end
+end
