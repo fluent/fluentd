@@ -167,6 +167,7 @@ BANNER
   end
 
   def preamble
+    return "" unless license
     src = template_file("preambles/#{license}.erb").read
     ERB.new(src, nil, "-").result(binding).lines.map {|line| "# #{line}" }.join
   end
@@ -177,6 +178,7 @@ BANNER
 
   def copy_license
     # in gem_name directory
+    return unless license
     puts "License: #{license}"
     FileUtils.cp(template_file("licenses/#{license}.txt"), "LICENSE")
   end
