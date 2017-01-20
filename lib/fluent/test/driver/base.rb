@@ -17,6 +17,7 @@
 require 'fluent/config'
 require 'fluent/config/element'
 require 'fluent/log'
+require 'fluent/clock'
 
 require 'serverengine/socket_manager'
 require 'fileutils'
@@ -48,8 +49,6 @@ module Fluent
 
           @logs = []
 
-          @test_clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
-
           @run_post_conditions = []
           @run_breaking_conditions = []
           @broken = false
@@ -77,8 +76,8 @@ module Fluent
           instance_start if start
 
           timeout ||= DEFAULT_TIMEOUT
-          stop_at = Process.clock_gettime(@test_clock_id) + timeout
-          @run_breaking_conditions << ->(){ Process.clock_gettime(@test_clock_id) >= stop_at }
+          stop_at = Fluent::Clock.now + timeout
+          @run_breaking_conditions << ->(){ Fluent::Clock.now >= stop_at }
 
           if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
             raise ArgumentError, "no stop conditions nor block specified"

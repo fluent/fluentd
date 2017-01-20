@@ -16,6 +16,7 @@
 
 require 'cool.io'
 require 'fluent/plugin_helper/thread'
+require 'fluent/clock'
 
 module Fluent
   module PluginHelper
@@ -31,7 +32,6 @@ module Fluent
 
       EVENT_LOOP_RUN_DEFAULT_TIMEOUT = 0.5
       EVENT_LOOP_SHUTDOWN_TIMEOUT = 5
-      EVENT_LOOP_CLOCK_ID = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
 
       attr_reader :_event_loop # for tests
 
@@ -89,9 +89,9 @@ module Fluent
             end
           end
         end
-        timeout_at = Process.clock_gettime(EVENT_LOOP_CLOCK_ID) + EVENT_LOOP_SHUTDOWN_TIMEOUT
+        timeout_at = Fluent::Clock.now + EVENT_LOOP_SHUTDOWN_TIMEOUT
         while @_event_loop_running
-          if Process.clock_gettime(EVENT_LOOP_CLOCK_ID) >= timeout_at
+          if Fluent::Clock.now >= timeout_at
             log.warn "event loop does NOT exit until hard timeout."
             raise "event loop does NOT exit until hard timeout." if @under_plugin_development
             break
