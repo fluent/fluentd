@@ -23,6 +23,10 @@ class FluentPluginGenerator
   attr_reader :type, :name
   attr_reader :license
 
+  LICENSES_MAP = {
+    "Apache-2.0" => "Apache License, Version 2.0"
+  }
+
   def initialize(argv = ARGV)
     @argv = argv
     @parser = prepare_parser
@@ -34,6 +38,7 @@ class FluentPluginGenerator
     parse_options!
     FileUtils.mkdir_p(gem_name, verbose: true)
     Dir.chdir(gem_name) do
+      copy_license
       template_directory.find do |path|
         next if path.directory?
         next if path.fnmatch?("*/preambles/*")
@@ -49,7 +54,6 @@ class FluentPluginGenerator
           FileUtils.cp(path, ".")
         end
       end
-      copy_license
       spawn("git", "init", ".")
     end
   end
@@ -153,7 +157,7 @@ BANNER
   end
 
   def license_full_name
-    ""
+    LICENSES_MAP[license]
   end
 
   def copy_license
