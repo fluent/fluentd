@@ -32,6 +32,7 @@ class FluentPluginGenerator
     @parser = prepare_parser
 
     @license = "Apache-2.0"
+    @overwrite_all = false
   end
 
   def call
@@ -193,11 +194,29 @@ BANNER
   end
 
   def overwrite?(dest)
+    return true if @overwrite_all
     loop do
-      print "Overwrite #{dest}? [Yn]"
+      print "Overwrite #{dest}? (enter \"h\" for help) [Ynaqh]"
       answer = $stdin.gets.chomp
       return true if /\Ay\z/i =~ answer || answer.empty?
-      return false if /\An\z/ =~ answer
+      case answer
+      when "n"
+        return false
+      when "a"
+        @overwrite_all = true
+        return true
+      when "q"
+        exit
+      when "h"
+        puts <<HELP
+\tY - yes, overwrite
+\tn - no, do not overwrite
+\ta - all, overwrite this and all others
+\tq - quite, abort
+\th - help, show this help
+HELP
+      end
+      puts "Retrying..."
     end
   end
 end
