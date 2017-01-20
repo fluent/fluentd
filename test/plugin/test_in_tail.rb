@@ -149,6 +149,29 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(1, d.emit_count)
     end
 
+    data(flat: config_element("", "", { "format" => "/^(?<message>test.*)/", "emit_unmatched_lines" => true }),
+         parse: config_element("", "", { "format" => "/^(?<message>test.*)/", "emit_unmatched_lines" => true }))
+    def test_emit_with_emit_unmatched_lines_true(data)
+      config = data
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+      d = create_driver(config)
+
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+          f.puts "test line 1"
+          f.puts "test line 2"
+          f.puts "bad line 1"
+        }
+      end
+
+      events = d.events
+      assert_equal(3, events.length)
+      assert_equal({"message" => "test line 1"}, events[0][2])
+      assert_equal({"message" => "test line 2"}, events[1][2])
+      assert_equal({"unmatched_line" => "bad line 1"}, events[2][2])
+    end
+
     data('flat 1' => [:flat, 1, 2],
          'flat 10' => [:flat, 10, 1],
          'parse 1' => [:parse, 1, 2],
@@ -514,6 +537,34 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message1" => "test5"}, events[1][2])
       assert_equal({"message1" => "test6", "message2" => "test7"}, events[2][2])
       assert_equal({"message1" => "test8"}, events[3][2])
+    end
+
+    data(flat: MULTILINE_CONFIG + config_element("", "", { "emit_unmatched_lines" => true }),
+         parse: PARSE_MULTILINE_CONFIG + config_element("", "", { "emit_unmatched_lines" => true }),)
+    def test_multiline_with_emit_unmatched_lines_true(data)
+      config = data
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+      d = create_driver(config)
+      d.run(expect_emits: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+          f.puts "f test1"
+          f.puts "s test2"
+          f.puts "f test3"
+          f.puts "f test4"
+          f.puts "s test5"
+          f.puts "s test6"
+          f.puts "f test7"
+          f.puts "s test8"
+        }
+      end
+
+      events = d.events
+      assert_equal(5, events.length)
+      assert_equal({"unmatched_line" => "f test1"}, events[0][2])
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[1][2])
+      assert_equal({"message1" => "test5"}, events[2][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[3][2])
+      assert_equal({"message1" => "test8"}, events[4][2])
     end
 
     data(flat: MULTILINE_CONFIG,
