@@ -168,7 +168,9 @@ BANNER
 
   def preamble
     return "" unless license
-    src = template_file("preambles/#{license}.erb").read
+    preamble_file = template_file("preambles/#{license}.erb")
+    return "" unless preamble_file.exist?
+    src = preamble_file.read
     ERB.new(src, nil, "-").result(binding).lines.map {|line| "# #{line}" }.join
   end
 
@@ -180,7 +182,9 @@ BANNER
     # in gem_name directory
     return unless license
     puts "License: #{license}"
-    file(template_file("licenses/#{license}.txt"), Pathname("LICENSE"))
+    license_file = template_file("licenses/#{license}.txt")
+    return unless license_file.exist?
+    file(license_file, Pathname("LICENSE"))
   end
 
   def create_label(dest, contents)
