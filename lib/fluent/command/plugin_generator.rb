@@ -180,7 +180,7 @@ BANNER
     # in gem_name directory
     return unless license
     puts "License: #{license}"
-    FileUtils.cp(template_file("licenses/#{license}.txt"), "LICENSE")
+    file(template_file("licenses/#{license}.txt"), Pathname("LICENSE"))
   end
 
   def create_label(dest, contents)
