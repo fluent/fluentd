@@ -162,6 +162,7 @@ BANNER
 
   def copy_license
     # in gem_name directory
+    puts "License: #{license}"
     FileUtils.cp(template_file("licenses/#{license}.txt"), "LICENSE")
   end
 end
