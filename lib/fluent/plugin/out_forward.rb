@@ -169,7 +169,7 @@ module Fluent::Plugin
         if @tls_cert_path && !@tls_cert_path.empty?
           @tls_cert_path.each do |path|
             raise Fluent::ConfigError, "specified cert path does not exist:#{path}" unless File.exist?(path)
-            raise Fluent::ConfigError, "specified cert path is not readable:#{path}" unless File.exist?(path)
+            raise Fluent::ConfigError, "specified cert path is not readable:#{path}" unless File.readable?(path)
           end
         end
 
