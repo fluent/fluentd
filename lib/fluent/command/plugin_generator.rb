@@ -102,7 +102,7 @@ BANNER
   end
 
   def parse_options!
-    @parser.parse!
+    @parser.parse!(@argv)
     unless @argv.size == 2
       raise ArgumentError, "Missing arguments"
     end
