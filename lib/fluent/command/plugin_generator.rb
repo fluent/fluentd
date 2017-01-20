@@ -55,7 +55,8 @@ class FluentPluginGenerator
           file(path, dest_dir + dest_file)
         end
       end
-      spawn("git", "init", ".")
+      pid = spawn("git", "init", ".")
+      Process.wait(pid)
     end
   end
 
