@@ -36,7 +36,7 @@ class FluentPluginGenerator
 
   def call
     parse_options!
-    FileUtils.mkdir_p(gem_name, verbose: true)
+    FileUtils.mkdir_p(gem_name)
     Dir.chdir(gem_name) do
       copy_license
       template_directory.find do |path|
