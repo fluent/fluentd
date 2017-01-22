@@ -587,8 +587,7 @@ module Fluent::Plugin
           if @from_encoding == @encoding
             s
           else
-            c = Encoding::Converter.new(@from_encoding, @encoding)
-            c.convert(s) + c.finish()
+            s.encode(@encoding, @from_encoding)
           end
         end
 
