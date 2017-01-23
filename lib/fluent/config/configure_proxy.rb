@@ -345,11 +345,11 @@ module Fluent
         name
       end
 
-      def dump(level = 0, format = :txt)
-        __send__("dump_#{format}", level)
+      def dump(level = 0, options = {})
+        __send__("dump_#{options[:format]}", level, options)
       end
 
-      def dump_txt(level = 0)
+      def dump_txt(level = 0, options = {})
         dumped_config = ""
         indent = " " * level
         @params.each do |name, config|
@@ -365,14 +365,15 @@ module Fluent
         dumped_config
       end
 
-      def dump_markdown(level = 0)
+      def dump_markdown(level = 0, options = {})
         dumped_config = ""
         if @root_section
           root_section_header = "#" * (2 + level)
           dumped_config << "#{root_section_header} #{name} section\n\n"
         end
         @params.each do |name, config|
-          dumped_config << ERB.new(File.read(template_file("param.md.erb")), nil, "-").result(binding)
+          template_name = options[:compact] ? "param.md-compact.erb" : "param.md.erb"
+          dumped_config << ERB.new(File.read(template_file(template_name)), nil, "-").result(binding)
         end
         dumped_config << "\n"
         @sections.each do |section_name, sub_proxy|

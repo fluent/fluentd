@@ -29,9 +29,12 @@ class FluentPluginConfigFormatter
   def initialize(argv = ARGV)
     @argv = argv
 
+    @compact = false
     @format = :markdown
+    @verbose = false
     @libs = []
     @plugin_dirs = []
+    @options = {}
 
     prepare_option_parser
   end
@@ -54,7 +57,7 @@ class FluentPluginConfigFormatter
         next if plugin_class.name =~ /::PluginHelper::/
       end
       puts plugin_class.name if @verbose
-      puts plugin_class.dump(0, @format)
+      puts plugin_class.dump(0, @options)
     end
   end
 
@@ -74,6 +77,9 @@ BANNER
     @parser.on("--verbose", "Be verbose") do
       @verbose = true
     end
+    @parser.on("-c", "--compact", "Compact output") do
+      @compact = true
+    end
     @parser.on("-f", "--format=FORMAT", "Specify format") do |s|
       @format = s.to_sym
     end
@@ -91,6 +97,11 @@ BANNER
     raise "Must specify plugin type and name" unless @argv.size == 2
 
     @plugin_type, @plugin_name = @argv
+    @options = {
+      compact: @compact,
+      format: @format,
+      verbose: @verbose,
+    }
   rescue => e
     usage(e)
   end
