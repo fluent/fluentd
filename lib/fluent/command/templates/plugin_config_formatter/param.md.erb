@@ -4,8 +4,9 @@ required_label = required ? "required" : "optional"
 default = @defaults[:name]
 deprecated = config[1][:deprecated]
 obsoleted = config[1][:obsoleted]
+param_header = "#" * (3 + level)
 -%>
-### <%= name %> (<%= type %>) (<%= required_label %>)
+<%= param_header %> <%= name %> (<%= type %>) (<%= required_label %>)
 
 <%= @descriptions[name] %>
 <%- if type == :enum -%>

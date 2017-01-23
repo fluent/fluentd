@@ -1,3 +1,4 @@
-### \<<%= section_name %>\> section
+<%- section_header = "#" * (3 + level) -%>
+<%= section_header %> \<<%= section_name %>\> section
 
 <%= sub_proxy.dump_markdown(level + 1) %>
