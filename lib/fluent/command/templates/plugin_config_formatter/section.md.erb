@@ -1,4 +1,12 @@
-<%- section_header = "#" * (3 + level) -%>
-<%= section_header %> \<<%= section_name %>\> section
+<%-
+section_header = "#" * (3 + level)
+required_label = required ? "required" : "optional"
+multiple_label = multi ? "multiple" : "single"
+-%>
+<%= section_header %> \<<%= section_name %>\> section (<%= required_label %>) (<%= multiple_label %>)
+<%- if @alias -%>
+
+Alias: <%= @alias %>
+<%- end -%>
 
 <%= sub_proxy.dump_markdown(level + 1) %>
