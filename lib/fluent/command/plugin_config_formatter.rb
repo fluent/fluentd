@@ -53,6 +53,7 @@ class FluentPluginConfigFormatter
       unless @verbose
         next if plugin_class.name =~ /::PluginHelper::/
       end
+      puts plugin_class.name if @verbose
       puts plugin_class.dump(0, @format)
     end
   end
