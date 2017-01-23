@@ -345,7 +345,11 @@ module Fluent
         name
       end
 
-      def dump(level = 0)
+      def dump(level = 0, format = :txt)
+        __send__("dump_#{format}", level)
+      end
+
+      def dump_txt(level = 0)
         dumped_config = ""
         indent = " " * level
         @params.each do |name, config|
@@ -354,7 +358,18 @@ module Fluent
           dumped_config << "\n"
         end
         @sections.each do |section_name, sub_proxy|
-          dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump(level + 1)}"
+          dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump_txt(level + 1)}"
+        end
+        dumped_config
+      end
+
+      def dump_markdown(level = 0)
+        dumped_config = ""
+        @params.each do |name, config|
+          dumped_config << ERB.new(File.read(template_file("param.md.erb")), nil, "-").result(binding)
+        end
+        @sections.each do |section_name, sub_proxy|
+          dumped_config << ERB.new(File.read(template_file("section.md.erb")), nil, "-").result(binding)
         end
         dumped_config
       end
@@ -366,7 +381,10 @@ module Fluent
         other_value = other.__send__(attribute_name)
         !value.nil? && !other_value.nil? && value != other_value
       end
+
+      def template_file(name)
+        File.expand_path(File.join(__dir__, "../command/templates/plugin_config_formatter/#{name}"))
+      end
     end
   end
 end
-
