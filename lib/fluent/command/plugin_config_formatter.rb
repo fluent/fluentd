@@ -29,7 +29,6 @@ class FluentPluginConfigFormatter
   def initialize(argv = ARGV)
     @argv = argv
 
-    @all = false
     @format = :markdown
     @libs = []
     @plugin_dirs = []
@@ -83,9 +82,6 @@ BANNER
     end
     @parser.on("-p", "--plugin=DIR", "Add plugin directory") do |s|
       @plugin_dirs << s
-    end
-    @parser.on("-a", "--all", "Show all") do
-      @all = true
     end
   end
 
