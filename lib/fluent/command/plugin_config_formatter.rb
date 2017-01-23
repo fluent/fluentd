@@ -46,7 +46,7 @@ class FluentPluginConfigFormatter
       plugin.class.plugin_helpers.each do |helper|
         helpers << "* #{helper}\n"
       end
-      puts helpers
+      puts "#{helpers}\n"
     end
     plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump)
