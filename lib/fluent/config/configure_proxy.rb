@@ -358,7 +358,9 @@ module Fluent
           dumped_config << "\n"
         end
         @sections.each do |section_name, sub_proxy|
-          dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump_txt(level + 1)}"
+          unless sub_proxy.params.empty?
+            dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump_txt(level + 1)}"
+          end
         end
         dumped_config
       end
@@ -369,7 +371,9 @@ module Fluent
           dumped_config << ERB.new(File.read(template_file("param.md.erb")), nil, "-").result(binding)
         end
         @sections.each do |section_name, sub_proxy|
-          dumped_config << ERB.new(File.read(template_file("section.md.erb")), nil, "-").result(binding)
+          unless sub_proxy.params.empty?
+            dumped_config << ERB.new(File.read(template_file("section.md.erb")), nil, "-").result(binding)
+          end
         end
         dumped_config
       end
