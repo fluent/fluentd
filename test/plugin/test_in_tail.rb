@@ -37,6 +37,7 @@ class TailInputTest < Test::Unit::TestCase
   COMMON_CONFIG = CONFIG + config_element("", "", { "pos_file" => "#{TMP_DIR}/tail.pos" })
   CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
   CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
+  CONFIG_OPEN_ON_EVERY_UPDATE = config_element("", "", { "open_on_every_update" => true })
   SINGLE_LINE_CONFIG = config_element("", "", { "format" => "/(?<message>.*)/" })
   PARSE_SINGLE_LINE_CONFIG = config_element("", "", {}, [config_element("parse", "", { "@type" => "/(?<message>.*)/" })])
   MULTILINE_CONFIG = config_element(
@@ -315,6 +316,20 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message" => "test6"}, events[5][2])
     end
 
+    data(flat: CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
+         parse: CONFIG_OPEN_ON_EVERY_UPDATE + CONFIG_READ_FROM_HEAD + PARSE_SINGLE_LINE_CONFIG)
+    def test_rotate_file_with_open_on_every_update(data)
+      config = data
+      events = sub_test_rotate_file(config, expect_records: 6)
+      assert_equal(6, events.length)
+      assert_equal({"message" => "test1"}, events[0][2])
+      assert_equal({"message" => "test2"}, events[1][2])
+      assert_equal({"message" => "test3"}, events[2][2])
+      assert_equal({"message" => "test4"}, events[3][2])
+      assert_equal({"message" => "test5"}, events[4][2])
+      assert_equal({"message" => "test6"}, events[5][2])
+    end
+
     data(flat: SINGLE_LINE_CONFIG,
          parse: PARSE_SINGLE_LINE_CONFIG)
     def test_rotate_file_with_write_old(data)
@@ -486,6 +501,30 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(utf8_message, events[0][2]['message'])
     assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
+
+  def test_from_encoding_utf16
+    conf = config_element(
+      "", "", {
+        "format" => "/(?<message>.*)/",
+        "read_from_head" => "true",
+        "from_encoding" => "utf-16le",
+        "encoding" => "utf-8"
+      })
+    d = create_driver(conf)
+    utf16_message = "\u306F\u308D\u30FC\u308F\u30FC\u308B\u3069\n".encode(Encoding::UTF_16LE)
+    utf8_message = utf16_message.encode(Encoding::UTF_8).strip
+
+    d.run(expect_emits: 1) do
+      File.open("#{TMP_DIR}/tail.txt", "w:utf-16le") { |f|
+        f.write utf16_message
+      }
+    end
+
+    events = d.events
+    assert_equal(utf8_message, events[0][2]['message'])
+    assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
+  end
+
 
   sub_test_case "multiline" do
     data(flat: MULTILINE_CONFIG,
@@ -769,7 +808,7 @@ class TailInputTest < Test::Unit::TestCase
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any, any, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:unwatched=).zero_or_more_times
@@ -787,7 +826,7 @@ class TailInputTest < Test::Unit::TestCase
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any).once.and_return do
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_RORATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any, any, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
             watcher.should_receive(:unwatched=).zero_or_more_times
