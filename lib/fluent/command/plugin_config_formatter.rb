@@ -50,6 +50,7 @@ class FluentPluginConfigFormatter
     end
     plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump)
+      next if plugin_class == Fluent::Plugin::Base
       unless @verbose
         next if plugin_class.name =~ /::PluginHelper::/
       end
