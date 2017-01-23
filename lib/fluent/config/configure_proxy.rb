@@ -367,6 +367,10 @@ module Fluent
 
       def dump_markdown(level = 0)
         dumped_config = ""
+        if @root_section
+          root_section_header = "#" * (2 + level)
+          dumped_config << "#{root_section_header} #{name} section\n\n"
+        end
         @params.each do |name, config|
           dumped_config << ERB.new(File.read(template_file("param.md.erb")), nil, "-").result(binding)
         end
