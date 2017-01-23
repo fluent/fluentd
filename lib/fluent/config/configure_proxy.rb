@@ -370,6 +370,7 @@ module Fluent
         @params.each do |name, config|
           dumped_config << ERB.new(File.read(template_file("param.md.erb")), nil, "-").result(binding)
         end
+        dumped_config << "\n"
         @sections.each do |section_name, sub_proxy|
           unless sub_proxy.params.empty?
             dumped_config << ERB.new(File.read(template_file("section.md.erb")), nil, "-").result(binding)
