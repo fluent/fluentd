@@ -34,7 +34,9 @@ module Fluent
             klass != Fluent::PluginHelper::Mixin &&
             klass.name.split(/::/).size == 3
         end
-        modules.uniq
+        modules.uniq.map do |klass|
+          klass.name.sub(/\AFluent::PluginHelper::/, "").split(/(?=[[:upper:]])/).map(&:downcase).join("_")
+        end.sort
       end
 
       def initialize
