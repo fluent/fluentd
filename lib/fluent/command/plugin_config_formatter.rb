@@ -24,7 +24,7 @@ require "fluent/config/element"
 
 class FluentPluginConfigFormatter
 
-  AVAILABLE_FORMATS = [:txt, :markdown]
+  AVAILABLE_FORMATS = [:txt, :markdown, :json]
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -42,15 +42,29 @@ class FluentPluginConfigFormatter
   def call
     parse_options!
     init_engine
-    plugin = Fluent::Plugin.__send__("new_#{@plugin_type}", @plugin_name)
-    if @format == :markdown
-      helpers = "### Plugin_helpers\n\n"
-      plugin.class.plugin_helpers.each do |helper|
-        helpers << "* #{helper}\n"
-      end
-      puts "#{helpers}\n"
+    @plugin = Fluent::Plugin.__send__("new_#{@plugin_type}", @plugin_name)
+    @plugin_helpers = @plugin.class.plugin_helpers
+    __send__("dump_#{@format}")
+  end
+
+  private
+
+  def dump_txt
+    puts "helpers: #{@plugin_helpers.join(',')}"
+    dump_body
+  end
+
+  def dump_markdown
+    helpers = "### Plugin_helpers\n\n"
+    @plugin_helpers.each do |helper|
+      helpers << "* #{helper}\n"
     end
-    plugin.class.ancestors.reverse_each do |plugin_class|
+    puts "#{helpers}\n"
+    dump_body
+  end
+
+  def dump_body
+    @plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump)
       next if plugin_class == Fluent::Plugin::Base
       unless @verbose
@@ -61,7 +75,19 @@ class FluentPluginConfigFormatter
     end
   end
 
-  private
+  def dump_json
+    dumped_config = {}
+    dumped_config[:plugin_helpers] = @plugin_helpers
+    @plugin.class.ancestors.reverse_each do |plugin_class|
+      next unless plugin_class.respond_to?(:dump)
+      next if plugin_class == Fluent::Plugin::Base
+      unless @verbose
+        next if plugin_class.name =~ /::PluginHelper::/
+      end
+      dumped_config[plugin_class.name] = plugin_class.dump(0, @options)
+    end
+    puts dumped_config.to_json
+  end
 
   def usage(message = nil)
     puts @paser.to_s

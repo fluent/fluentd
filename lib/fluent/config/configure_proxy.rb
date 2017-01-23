@@ -384,6 +384,30 @@ module Fluent
         dumped_config
       end
 
+      def dump_json(level = 0, options = {})
+        dumped_config = {}
+        @params.each do |name, config|
+          dumped_config[name] = {
+            type: config[1][:type],
+            required: required,
+            default: @defaults[name],
+            deprecated: config[1][:deprecated],
+            obsoleted: config[1][:obsoleted]
+          }
+          if config[1][:type] == :enum
+            dumped_config[name][:list] = config[1][:list]
+          end
+        end
+        @sections.each do |section_name, sub_proxy|
+          if dumped_config.key?(section_name)
+            dumped_config[section_name].merge(sub_proxy.dump(level + 1, options))
+          else
+            dumped_config[section_name] = sub_proxy.dump(level + 1, options)
+          end
+        end
+        dumped_config
+      end
+
       private
 
       def overwrite?(other, attribute_name)
