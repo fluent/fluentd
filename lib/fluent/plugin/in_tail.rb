@@ -65,6 +65,8 @@ module Fluent::Plugin
     config_param :read_lines_limit, :integer, default: 1000
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
+    desc 'Enable the option to capture unmatched multiline events.'
+    config_param :enable_multiline_catch_all, :bool, default: false
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
     desc 'The encoding after conversion of the input.'
@@ -375,6 +377,9 @@ module Fluent::Plugin
             lb = line
           else
             if lb.nil?
+              if @enable_multiline_catch_all
+                lb = line
+              end
               log.warn "got incomplete line before first line from #{tail_watcher.path}: #{line.inspect}"
             else
               lb << line
