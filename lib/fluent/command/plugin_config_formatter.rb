@@ -16,6 +16,7 @@
 
 require "erb"
 require "optparse"
+require "pathname"
 require "fluent/plugin"
 require "fluent/env"
 require "fluent/engine"
@@ -43,50 +44,123 @@ class FluentPluginConfigFormatter
     parse_options!
     init_engine
     @plugin = Fluent::Plugin.__send__("new_#{@plugin_type}", @plugin_name)
-    @plugin_helpers = @plugin.class.plugin_helpers
-    __send__("dump_#{@format}")
+    dumped_config = {}
+    dumped_config[:plugin_helpers] = @plugin.class.plugin_helpers
+    @plugin.class.ancestors.reverse_each do |plugin_class|
+      next unless plugin_class.respond_to?(:dump)
+      next if plugin_class == Fluent::Plugin::Base
+      unless @verbose
+        next if plugin_class.name =~ /::PluginHelper::/
+      end
+      dumped_config[plugin_class.name] = plugin_class.dump
+    end
+    puts __send__("dump_#{@format}", dumped_config)
   end
 
   private
 
-  def dump_txt
-    puts "helpers: #{@plugin_helpers.join(',')}"
-    dump_body
-  end
-
-  def dump_markdown
-    helpers = "### Plugin_helpers\n\n"
-    @plugin_helpers.each do |helper|
-      helpers << "* #{helper}\n"
-    end
-    puts "#{helpers}\n"
-    dump_body
-  end
-
-  def dump_body
-    @plugin.class.ancestors.reverse_each do |plugin_class|
-      next unless plugin_class.respond_to?(:dump)
-      next if plugin_class == Fluent::Plugin::Base
-      unless @verbose
-        next if plugin_class.name =~ /::PluginHelper::/
+  def dump_txt(dumped_config)
+    dumped = ""
+    plugin_helpers = dumped_config.delete(:plugin_helpers)
+    dumped << "helpers: #{plugin_helpers.join(',')}\n" if plugin_helpers
+    if @verbose
+      dumped_config.each do |name, config|
+        dumped << "#{name}\n"
+        dumped << dump_section_txt(config)
       end
-      puts plugin_class.name if @verbose
-      puts plugin_class.dump(0, @options)
+    else
+      configs = dumped_config.values
+      root_section = configs.shift
+      configs.each do |config|
+        root_section.update(config)
+      end
+      dumped << dump_section_txt(root_section)
     end
+    dumped
   end
 
-  def dump_json
-    dumped_config = {}
-    dumped_config[:plugin_helpers] = @plugin_helpers
-    @plugin.class.ancestors.reverse_each do |plugin_class|
-      next unless plugin_class.respond_to?(:dump)
-      next if plugin_class == Fluent::Plugin::Base
-      unless @verbose
-        next if plugin_class.name =~ /::PluginHelper::/
-      end
-      dumped_config[plugin_class.name] = plugin_class.dump(0, @options)
+  def dump_section_txt(base_section, level = 0)
+    dumped = ""
+    indent = " " * level
+    if base_section[:section]
+      sections = []
+      params = base_section
+    else
+      sections, params = base_section.partition {|_name, value| value[:section] }
     end
-    puts dumped_config.to_json
+    params.each do |name, config|
+      next if name == :section
+      dumped << "#{indent}#{name}: #{config[:type]}: (#{config[:default].inspect})"
+      dumped << " # #{config[:description]}" if config.key?(:description)
+      dumped << "\n"
+    end
+    sections.each do |section_name, sub_section|
+      required = sub_section.delete(:required)
+      multi = sub_section.delete(:multi)
+      alias_name = sub_section.delete(:alias)
+      required_label = required ? "required" : "optional"
+      multi_label = multi ? "multiple" : "single"
+      alias_label = "alias: #{alias_name}"
+      dumped << "#{indent}<#{section_name}>: #{required_label}, #{multi_label}"
+      if alias_name
+        dumped << ", #{alias_label}\n"
+      else
+        dumped << "\n"
+      end
+      dumped << "#{dump_section_txt(sub_section, level + 1)}"
+    end
+    dumped
+  end
+
+  def dump_markdown(dumped_config)
+    dumped = ""
+    plugin_helpers = dumped_config.delete(:plugin_helpers)
+    if plugin_helpers
+      dumped = "## Plugin helpers\n\n"
+      plugin_helpers.each do |plugin_helper|
+        dumped << "* #{plugin_helper}\n"
+      end
+      dumped << "\n"
+    end
+    configs = dumped_config.values
+    root_section = configs.shift
+    dumped << "## #{@plugin.class.name}\n\n"
+    configs.each do |config|
+      root_section.update(config)
+    end
+    dumped << dump_section_markdown(root_section)
+    dumped
+  end
+
+  def dump_section_markdown(base_section, level = 0)
+    dumped = ""
+    if base_section[:section]
+      sections = []
+      params = base_section
+    else
+      sections, params = base_section.partition {|_name, value| value[:section] }
+    end
+    params.each do |name, config|
+      next if name == :section
+      template_name = @compact ? "param.md-compact.erb" : "param.md.erb"
+      dumped << ERB.new(template_path(template_name).read, nil, "-").result(binding)
+    end
+    dumped << "\n"
+    sections.each do |section_name, sub_section|
+      required = sub_section.delete(:required)
+      multi = sub_section.delete(:multi)
+      alias_name = sub_section.delete(:alias)
+      dumped << ERB.new(template_path("section.md.erb").read, nil, "-").result(binding)
+    end
+    dumped
+  end
+
+  def dump_json(dumped_config)
+    if @verbose
+      JSON.pretty_generate(dumped_config)
+    else
+      JSON.generate(dumped_config)
+    end
   end
 
   def usage(message = nil)
@@ -146,5 +220,9 @@ BANNER
         Fluent::Engine.add_plugin_dir(dir)
       end
     end
+  end
+
+  def template_path(name)
+    Pathname(__dir__) + "./templates/plugin_config_formatter/#{name}"
   end
 end

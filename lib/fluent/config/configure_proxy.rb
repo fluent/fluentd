@@ -345,64 +345,30 @@ module Fluent
         name
       end
 
-      def dump(level = 0, options = {})
-        __send__("dump_#{options[:format]}", level, options)
-      end
-
-      def dump_txt(level = 0, options = {})
-        dumped_config = ""
-        indent = " " * level
-        @params.each do |name, config|
-          dumped_config << "#{indent}#{name}: #{config[1][:type]}: <#{@defaults[name].inspect}>"
-          dumped_config << " # #{@descriptions[name]}" if @descriptions[name]
-          dumped_config << "\n"
-        end
-        @sections.each do |section_name, sub_proxy|
-          unless sub_proxy.params.empty?
-            dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump_txt(level + 1)}"
-          end
-        end
-        dumped_config
-      end
-
-      def dump_markdown(level = 0, options = {})
-        dumped_config = ""
-        if @root_section
-          root_section_header = "#" * (2 + level)
-          dumped_config << "#{root_section_header} #{name} section\n\n"
-        end
-        @params.each do |name, config|
-          template_name = options[:compact] ? "param.md-compact.erb" : "param.md.erb"
-          dumped_config << ERB.new(File.read(template_file(template_name)), nil, "-").result(binding)
-        end
-        dumped_config << "\n"
-        @sections.each do |section_name, sub_proxy|
-          unless sub_proxy.params.empty?
-            dumped_config << ERB.new(File.read(template_file("section.md.erb")), nil, "-").result(binding)
-          end
-        end
-        dumped_config
-      end
-
-      def dump_json(level = 0, options = {})
+      def dump
         dumped_config = {}
         @params.each do |name, config|
-          dumped_config[name] = {
-            type: config[1][:type],
-            required: required,
-            default: @defaults[name],
-            deprecated: config[1][:deprecated],
-            obsoleted: config[1][:obsoleted]
-          }
-          if config[1][:type] == :enum
-            dumped_config[name][:list] = config[1][:list]
+          dumped_config[name] = config[1]
+          dumped_config[name][:default] = @defaults[name] if @defaults.key?(name)
+          dumped_config[name][:description] = @descriptions[name] if @descriptions.key?(name)
+        end
+        # Overwrite by config_set_default
+        @defaults.each do |name, value|
+          if @params.key?(name)
+            dumped_config[name][:default] = value
+          else
+            dumped_config[name] = { default: value }
           end
         end
         @sections.each do |section_name, sub_proxy|
           if dumped_config.key?(section_name)
-            dumped_config[section_name].merge(sub_proxy.dump(level + 1, options))
+            dumped_config[section_name].update(sub_proxy.dump)
           else
-            dumped_config[section_name] = sub_proxy.dump(level + 1, options)
+            dumped_config[section_name] = sub_proxy.dump
+            dumped_config[section_name][:required] = sub_proxy.required?
+            dumped_config[section_name][:multi] = sub_proxy.multi?
+            dumped_config[section_name][:alias] = sub_proxy.alias
+            dumped_config[section_name][:section] = true
           end
         end
         dumped_config
@@ -414,10 +380,6 @@ module Fluent
         value = instance_variable_get("@#{attribute_name}")
         other_value = other.__send__(attribute_name)
         !value.nil? && !other_value.nil? && value != other_value
-      end
-
-      def template_file(name)
-        File.expand_path(File.join(__dir__, "../command/templates/plugin_config_formatter/#{name}"))
       end
     end
   end
