@@ -156,10 +156,10 @@ class FluentPluginConfigFormatter
   end
 
   def dump_json(dumped_config)
-    if @verbose
-      JSON.pretty_generate(dumped_config)
-    else
+    if @compact
       JSON.generate(dumped_config)
+    else
+      JSON.pretty_generate(dumped_config)
     end
   end
 
