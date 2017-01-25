@@ -362,7 +362,7 @@ module Fluent::Plugin
             if @emit_unmatched_lines
               record = {'unmatched_line' => line}
               record[@path_key] ||= tail_watcher.path unless @path_key.nil?
-              es.add(Time.now.to_i, record)
+              es.add(Fluent::EventTime.now, record)
             end
             log.warn "pattern not match: #{line.inspect}"
           end
