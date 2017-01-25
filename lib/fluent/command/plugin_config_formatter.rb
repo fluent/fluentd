@@ -164,7 +164,7 @@ class FluentPluginConfigFormatter
   end
 
   def usage(message = nil)
-    puts @paser.to_s
+    puts @parser.to_s
     puts "Error: #{message}" if message
     exit(false)
   end
