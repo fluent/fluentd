@@ -172,7 +172,7 @@ BANNER
     preamble_file = template_file("preambles/#{license}.erb")
     return "" unless preamble_file.exist?
     src = preamble_file.read
-    ERB.new(src, nil, "-").result(binding).lines.map {|line| "# #{line}" }.join
+    ERB.new(src, nil, "-").result(binding).lines.map {|line| "# #{line}".gsub(/ +$/, "") }.join
   end
 
   def license_full_name
