@@ -350,7 +350,7 @@ module Fluent
         @params.each do |name, config|
           dumped_config[name] = config[1]
           dumped_config[name][:default] = @defaults[name] if @defaults.key?(name)
-          dumped_config[name][:description] = @descriptions[name] if @descriptions.key?(name)
+          dumped_config[name][:desc] = @descriptions[name] if @descriptions.key?(name)
         end
         # Overwrite by config_set_default
         @defaults.each do |name, value|
@@ -358,6 +358,14 @@ module Fluent
             dumped_config[name][:default] = value
           else
             dumped_config[name] = { default: value }
+          end
+        end
+        # Overwrite by config_set_desc
+        @descriptions.each do |name, value|
+          if @params.key?(name)
+            dumped_config[name][:desc] = value
+          else
+            dumped_config[name] = { desc: value }
           end
         end
         @sections.each do |section_name, sub_proxy|
