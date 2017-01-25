@@ -97,7 +97,6 @@ class TailInputTest < Test::Unit::TestCase
     }
 
     d = create_driver
-
     d.run do
       sleep 1
 
@@ -113,6 +112,34 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal({"message" => "test3"}, emits[0][2])
     assert_equal({"message" => "test4"}, emits[1][2])
     assert_equal(1, d.emit_streams.size)
+  end
+
+  def test_emit_with_emit_unmatched_lines_true
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+    d = create_driver(%[
+      format /^(?<message>test.*)/
+      emit_unmatched_lines true
+    ])
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+        f.puts "test line 1"
+        f.puts "test line 2"
+        f.puts "bad line 1"
+        f.puts "test line 3"
+      }
+
+      sleep 1
+    end
+
+    events = d.emits
+    assert_equal(4, events.length)
+    assert_equal({"message" => "test line 1"}, events[0][2])
+    assert_equal({"message" => "test line 2"}, events[1][2])
+    assert_equal({"unmatched_line" => "bad line 1"}, events[2][2])
+    assert_equal({"message" => "test line 3"}, events[3][2])
   end
 
   data('1' => [1, 2], '10' => [10, 1])
@@ -417,6 +444,44 @@ class TailInputTest < Test::Unit::TestCase
     emits = d.emits
     assert(emits.length == 4)
     assert_equal({"message1" => "test8"}, emits[3][2])
+  end
+
+  def test_multiline_with_emit_unmatched_lines_true
+    File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+    d = create_driver %[
+      format multiline
+      format1 /^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/
+      format_firstline /^[s]/
+      emit_unmatched_lines true
+    ]
+    d.run do
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+        f.puts "f test1"
+        f.puts "s test2"
+        f.puts "f test3"
+        f.puts "f test4"
+        f.puts "s test5"
+        f.puts "s test6"
+        f.puts "f test7"
+        f.puts "s test8"
+      }
+      sleep 1
+
+      events = d.emits
+      assert_equal(4, events.length)
+      assert_equal({"unmatched_line" => "f test1"}, events[0][2])
+      assert_equal({"message1" => "test2", "message2" => "test3", "message3" => "test4"}, events[1][2])
+      assert_equal({"message1" => "test5"}, events[2][2])
+      assert_equal({"message1" => "test6", "message2" => "test7"}, events[3][2])
+
+      sleep 3
+      assert_equal(4, d.emits.length)
+    end
+
+    emits = d.emits
+    assert_equal(5, emits.length)
+    assert_equal({"message1" => "test8"}, emits[4][2])
   end
 
   def test_multiline_with_flush_interval

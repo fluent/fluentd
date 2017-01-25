@@ -48,6 +48,8 @@ module Fluent
     config_param :read_lines_limit, :integer, default: 1000
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
+    desc 'Enable the option to emit unmatched lines.'
+    config_param :emit_unmatched_lines, :bool, default: false
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
     desc 'The encoding after conversion of the input.'
@@ -315,6 +317,11 @@ module Fluent
             record[@path_key] ||= tail_watcher.path unless @path_key.nil?
             es.add(time, record)
           else
+            if @emit_unmatched_lines
+              record = {'unmatched_line' => line}
+              record[@path_key] ||= tail_watcher.path unless @path_key.nil?
+              es.add(::Fluent::Engine.now, record)
+            end
             log.warn "pattern not match: #{line.inspect}"
           end
         }
@@ -345,6 +352,9 @@ module Fluent
             lb = line
           else
             if lb.nil?
+              if @emit_unmatched_lines
+                convert_line_to_event(line, es, tail_watcher)
+              end
               log.warn "got incomplete line before first line from #{tail_watcher.path}: #{line.inspect}"
             else
               lb << line
