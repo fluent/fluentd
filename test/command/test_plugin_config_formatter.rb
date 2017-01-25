@@ -16,7 +16,7 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
   class FakeOutput < ::Fluent::Plugin::Output
     ::Fluent::Plugin.register_output("fake", self)
 
-    def process(tag, time, record)
+    def process(tag, es)
     end
   end
 
@@ -29,7 +29,7 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
 
   class FakeParser < ::Fluent::Plugin::Parser
     ::Fluent::Plugin.register_parser("fake", self)
-    def parse(tag, time, record)
+    def parse(text)
     end
   end
 
