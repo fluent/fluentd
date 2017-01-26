@@ -101,6 +101,8 @@ module Fluent::Plugin
           if @renew_time_key && new_record.has_key?(@renew_time_key)
             time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
           end
+          @remove_keys.each {|k| new_record.delete(k) } if @remove_keys
+
           new_es.add(time, new_record)
         rescue => e
           router.emit_error_event(tag, time, record, e)
@@ -129,7 +131,6 @@ module Fluent::Plugin
       new_record = @renew_record ? {} : record.dup
       @keep_keys.each {|k| new_record[k] = record[k]} if @keep_keys and @renew_record
       new_record.merge!(expand_placeholders(@map, placeholders))
-      @remove_keys.each {|k| new_record.delete(k) } if @remove_keys
 
       new_record
     end
