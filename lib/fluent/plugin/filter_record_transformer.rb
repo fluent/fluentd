@@ -95,14 +95,13 @@ module Fluent
       last_record = nil
       es.each do |time, record|
         last_record = record # for debug log
-        placeholder_values.merge!({
-          'time'     => @placeholder_expander.time_value(time),
-          'record'   => record,
-        })
+        placeholder_values['time'] = @placeholder_expander.time_value(time)
+        placeholder_values['record'] = record
         new_record = reform(record, placeholder_values)
         if @renew_time_key && new_record.has_key?(@renew_time_key)
           time = new_record[@renew_time_key].to_i
         end
+        @remove_keys.each { |k| new_record.delete(k) } if @remove_keys
         new_es.add(time, new_record)
       end
       new_es
@@ -131,7 +130,6 @@ module Fluent
       new_record = @renew_record ? {} : record.dup
       @keep_keys.each {|k| new_record[k] = record[k]} if @keep_keys and @renew_record
       new_record.merge!(expand_placeholders(@map, placeholders))
-      @remove_keys.each {|k| new_record.delete(k) } if @remove_keys
 
       new_record
     end

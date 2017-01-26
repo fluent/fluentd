@@ -99,6 +99,25 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       es = emit(config, msgs)
       es.each_with_index do |(time, record), i|
         assert_equal(times[i].to_i, time)
+        assert_true(record.has_key?('message'))
+      end
+    end
+
+    test 'renew_time_key and remove_keys' do
+      config = %[
+                 renew_time_key event_time_key
+                 remove_keys event_time_key
+                 auto_typecast true
+                 <record>
+                   event_time_key ${record["message"]}
+                 </record>
+               ]
+      times = [Time.local(2, 2, 3, 4, 5, 2010, nil, nil, nil, nil), Time.local(3, 2, 3, 4, 5, 2010, nil, nil, nil, nil)]
+      msgs = times.map { |t| t.to_f.to_s }
+      filtered = emit(config, msgs)
+      filtered.each_with_index do |(time, _record), i|
+        assert_equal(times[i].to_i, time)
+        assert_false(_record.has_key?('event_time_key'))
       end
     end
 
