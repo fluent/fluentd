@@ -345,7 +345,7 @@ module Fluent
         name
       end
 
-      def dump
+      def dump_config_definition
         dumped_config = {}
         @params.each do |name, config|
           dumped_config[name] = config[1]
@@ -371,9 +371,9 @@ module Fluent
         end
         @sections.each do |section_name, sub_proxy|
           if dumped_config.key?(section_name)
-            dumped_config[section_name].update(sub_proxy.dump)
+            dumped_config[section_name].update(sub_proxy.dump_config_definition)
           else
-            dumped_config[section_name] = sub_proxy.dump
+            dumped_config[section_name] = sub_proxy.dump_config_definition
             dumped_config[section_name][:required] = sub_proxy.required?
             dumped_config[section_name][:multi] = sub_proxy.multi?
             dumped_config[section_name][:alias] = sub_proxy.alias

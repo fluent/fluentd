@@ -47,12 +47,12 @@ class FluentPluginConfigFormatter
     dumped_config = {}
     dumped_config[:plugin_helpers] = @plugin.class.plugin_helpers
     @plugin.class.ancestors.reverse_each do |plugin_class|
-      next unless plugin_class.respond_to?(:dump)
+      next unless plugin_class.respond_to?(:dump_config_definition)
       next if plugin_class == Fluent::Plugin::Base
       unless @verbose
         next if plugin_class.name =~ /::PluginHelper::/
       end
-      dumped_config[plugin_class.name] = plugin_class.dump
+      dumped_config[plugin_class.name] = plugin_class.dump_config_definition
     end
     puts __send__("dump_#{@format}", dumped_config)
   end

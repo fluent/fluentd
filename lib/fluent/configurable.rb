@@ -166,7 +166,7 @@ module Fluent
         configurables.map{ |a| a.configure_proxy(a.name || a.object_id.to_s) }.reduce(:merge)
       end
 
-      def dump
+      def dump_config_definition
         configure_proxy_map[self.to_s].dump
       end
     end

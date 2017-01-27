@@ -221,13 +221,13 @@ module Fluent::Config
         end
       end
 
-      sub_test_case '#dump' do
+      sub_test_case '#dump_config_definition' do
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
         end
 
         test 'empty proxy' do
-          assert_equal({}, @proxy.dump)
+          assert_equal({}, @proxy.dump_config_definition)
         end
 
         test 'plain proxy w/o default value' do
@@ -235,7 +235,7 @@ module Fluent::Config
           expected = {
             name: { type: :string, required: true }
           }
-          assert_equal(expected, @proxy.dump)
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'plain proxy w/ default value' do
@@ -243,7 +243,7 @@ module Fluent::Config
           expected = {
             name: { type: :string, default: "name1", required: false }
           }
-          assert_equal(expected, @proxy.dump)
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'plain proxy w/ default value using config_set_default' do
@@ -252,7 +252,7 @@ module Fluent::Config
           expected = {
             name: { type: :string, default: "name1", required: false }
           }
-          assert_equal(expected, @proxy.dump)
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'single sub proxy' do
@@ -268,7 +268,7 @@ module Fluent::Config
               name: { type: :string, default: "name1", required: false }
             }
           }
-          assert_equal(expected, @proxy.dump)
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'nested sub proxy' do
@@ -298,7 +298,7 @@ module Fluent::Config
               }
             }
           }
-          assert_equal(expected, @proxy.dump)
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         sub_test_case 'w/ description' do
@@ -307,7 +307,7 @@ module Fluent::Config
             expected = {
               name: { type: :string, desc: "description for name", required: true }
             }
-            assert_equal(expected, @proxy.dump)
+            assert_equal(expected, @proxy.dump_config_definition)
           end
 
           test 'single proxy using config_set_desc' do
@@ -316,7 +316,7 @@ module Fluent::Config
             expected = {
               name: { type: :string, desc: "description for name", required: true }
             }
-            assert_equal(expected, @proxy.dump)
+            assert_equal(expected, @proxy.dump_config_definition)
           end
 
           test 'sub proxy' do
@@ -346,7 +346,7 @@ module Fluent::Config
                 }
               }
             }
-            assert_equal(expected, @proxy.dump)
+            assert_equal(expected, @proxy.dump_config_definition)
           end
 
           test 'sub proxy w/ desc method' do
@@ -378,7 +378,7 @@ module Fluent::Config
                 }
               }
             }
-            assert_equal(expected, @proxy.dump)
+            assert_equal(expected, @proxy.dump_config_definition)
           end
         end
       end
