@@ -26,6 +26,10 @@ require "fluent/config/element"
 class FluentPluginConfigFormatter
 
   AVAILABLE_FORMATS = [:markdown, :txt, :json]
+  SUPPORTED_TYPES = [
+    "input", "output", "filter",
+    "buffer", "parser", "formatter", "storage"
+  ]
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -180,6 +184,14 @@ class FluentPluginConfigFormatter
     @parser = OptionParser.new
     @parser.banner = <<BANNER
 Usage: #{$0} [options] <type> <name>
+
+Output plugin config definitions
+
+Arguments:
+\ttype: #{SUPPORTED_TYPES.join(",")}
+\tname: registered plugin name
+
+Options:
 BANNER
     @parser.on("--verbose", "Be verbose") do
       @verbose = true
@@ -192,7 +204,7 @@ BANNER
       usage("Unsupported format: #{s}") unless AVAILABLE_FORMATS.include?(format)
       @format = format
     end
-    @parser.on("-r NAME", "Add library path") do |s|
+    @parser.on("-r NAME", "Load library") do |s|
       @libs << s
     end
     @parser.on("-p", "--plugin=DIR", "Add plugin directory") do |s|
