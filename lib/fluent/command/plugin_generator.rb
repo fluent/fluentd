@@ -63,7 +63,7 @@ class FluentPluginGenerator
   private
 
   def template_directory
-    (Pathname(__dir__) + "templates/new_gem").realpath
+    (Pathname(__dir__) + "../../../templates/new_gem").realpath
   end
 
   def template_file(filename)

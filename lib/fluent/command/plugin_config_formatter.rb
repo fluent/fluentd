@@ -229,6 +229,6 @@ BANNER
   end
 
   def template_path(name)
-    Pathname(__dir__) + "./templates/plugin_config_formatter/#{name}"
+    (Pathname(__dir__) + "../../../templates/plugin_config_formatter/#{name}").realpath
   end
 end
