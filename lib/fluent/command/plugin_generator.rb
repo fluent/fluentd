@@ -26,6 +26,8 @@ class FluentPluginGenerator
   attr_reader :type, :name
   attr_reader :license_name
 
+  SUPPORTED_TYPES = ["input", "output", "filter", "parser", "formatter"]
+
   def initialize(argv = ARGV)
     @argv = argv
     @parser = prepare_parser
@@ -91,9 +93,17 @@ class FluentPluginGenerator
     @parser = OptionParser.new
     @parser.banner = <<BANNER
 Usage: fluent-plugin-generate [options] <type> <name>
+
+Generate a project skeleton for creating a Fluentd plugin
+
+Arguments:
+\ttype: #{SUPPORTED_TYPES.join(",")}
+\tname: Your plugin name
+
+Options:
 BANNER
 
-    @parser.on("--[no-]license=NAME", "Specify license name") do |v|
+    @parser.on("--[no-]license=NAME", "Specify license name (default: Apache-2.0)") do |v|
       @license_name = v || "no-license"
     end
     @parser
