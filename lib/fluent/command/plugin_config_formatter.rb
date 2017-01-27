@@ -42,7 +42,7 @@ class FluentPluginConfigFormatter
 
   def call
     parse_options!
-    init_engine
+    init_libraries
     @plugin = Fluent::Plugin.__send__("new_#{@plugin_type}", @plugin_name)
     dumped_config = {}
     dumped_config[:plugin_helpers] = @plugin.class.plugin_helpers
@@ -206,10 +206,7 @@ BANNER
     usage(e)
   end
 
-  def init_engine
-    system_config = Fluent::SystemConfig.new
-    Fluent::Engine.init(system_config)
-
+  def init_libraries
     @libs.each do |lib|
       require lib
     end
@@ -217,7 +214,7 @@ BANNER
     @plugin_dirs.each do |dir|
       if Dir.exist?(dir)
         dir = File.expand_path(dir)
-        Fluent::Engine.add_plugin_dir(dir)
+        Fluent::Plugin.add_plugin_dir(dir)
       end
     end
   end
