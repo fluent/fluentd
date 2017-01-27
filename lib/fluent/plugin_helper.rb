@@ -54,5 +54,9 @@ module Fluent
       @_plugin_helpers_list.concat(snake_case_symbols)
       helpers_internal(*snake_case_symbols)
     end
+
+    def plugin_helpers
+      @_plugin_helpers_list || []
+    end
   end
 end
