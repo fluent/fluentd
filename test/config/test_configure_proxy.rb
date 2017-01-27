@@ -378,7 +378,6 @@ module Fluent::Config
                 }
               }
             }
-            p @proxy.dump
             assert_equal(expected, @proxy.dump)
           end
         end
