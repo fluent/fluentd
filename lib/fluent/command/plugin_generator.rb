@@ -20,13 +20,11 @@ require "fileutils"
 require "erb"
 require "open-uri"
 
+require "fluent/registry"
+
 class FluentPluginGenerator
   attr_reader :type, :name
   attr_reader :license_name
-
-  LICENSES_MAP = {
-    "Apache-2.0" => ApacheLicense
-  }
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -181,11 +179,13 @@ BANNER
     # in gem_name directory
     return unless license_name
     puts "License: #{license_name}"
-    @license = LICENSE_MAP[license_name].new
-    unless @license
-      usage("Unknown license: #{license_name}")
-    end
+    license_class = self.class.lookup_license(license_name)
+    @license = license_class.new
     Pathname("LICENSE").write(@license.license)
+  rescue Fluent::ConfigError
+    usage("Unknown license: #{license_name}")
+  rescue => ex
+    usage("#{ex.class}: #{ex.message}")
   end
 
   def create_label(dest, contents)
@@ -242,6 +242,10 @@ HELP
       @preamble_source = @license[/^(\s*Copyright.+)/m, 1]
     end
 
+    def name
+      "Apache-2.0"
+    end
+
     def full_name
       "Apache License, Version 2.0"
     end
@@ -249,5 +253,21 @@ HELP
     def preamble(name)
       @preamble ||= @preamble_source.gsub(/\[yyyy\]/, "#{Date.today.year}-").gsub(/\[name of copyright owner\]/, name)
     end
+  end
+
+  LICENSE_REGISTRY = Fluent::Registry.new(:license, "")
+
+  def self.register_license(license, klass)
+    LICENSE_REGISTRY.register(license, klass)
+  end
+
+  def self.lookup_license(license)
+    LICENSE_REGISTRY.lookup(license)
+  end
+
+  {
+    "Apache-2.0" => ApacheLicense
+  }.each do |license, klass|
+    register_license(license, klass)
   end
 end
