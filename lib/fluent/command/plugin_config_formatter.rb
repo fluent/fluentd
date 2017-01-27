@@ -54,7 +54,14 @@ class FluentPluginConfigFormatter
       end
       dumped_config[plugin_class.name] = plugin_class.dump_config_definition
     end
-    puts __send__("dump_#{@format}", dumped_config)
+    case @format
+    when :txt
+      puts dump_txt(dumped_config)
+    when :markdown
+      puts dump_markdown(dumped_config)
+    when :json
+      puts dump_json(dumped_json)
+    end
   end
 
   private
