@@ -113,7 +113,7 @@ class FluentPluginConfigFormatter
       else
         dumped << "\n"
       end
-      dumped << "#{dump_section_txt(sub_section, level + 1)}"
+      dumped << dump_section_txt(sub_section, level + 1)
     end
     dumped
   end
