@@ -94,7 +94,7 @@ Usage: fluent-plugin-generate [options] <type> <name>
 BANNER
 
     @parser.on("--[no-]license=NAME", "Specify license name") do |v|
-      @license_name = v
+      @license_name = v || "no-license"
     end
     @parser
   end
@@ -227,6 +227,17 @@ HELP
     end
   end
 
+  class NoLicense
+    attr_reader :name, :full_name, :preamble, :text
+
+    def initialize
+      @name = ""
+      @full_name = ""
+      @preamble = ""
+      @text = ""
+    end
+  end
+
   class ApacheLicense
     LICENSE_URL = "http://www.apache.org/licenses/LICENSE-2.0.txt"
 
@@ -266,6 +277,7 @@ HELP
   end
 
   {
+    "no-license" => NoLicense,
     "Apache-2.0" => ApacheLicense
   }.each do |license, klass|
     register_license(license, klass)
