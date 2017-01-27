@@ -25,7 +25,7 @@ require "fluent/config/element"
 
 class FluentPluginConfigFormatter
 
-  AVAILABLE_FORMATS = [:txt, :markdown, :json]
+  AVAILABLE_FORMATS = [:markdown, :txt, :json]
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -172,6 +172,7 @@ class FluentPluginConfigFormatter
 
   def usage(message = nil)
     puts @parser.to_s
+    puts
     puts "Error: #{message}" if message
     exit(false)
   end
@@ -187,8 +188,10 @@ BANNER
     @parser.on("-c", "--compact", "Compact output") do
       @compact = true
     end
-    @parser.on("-f", "--format=FORMAT", "Specify format") do |s|
-      @format = s.to_sym
+    @parser.on("-f", "--format=FORMAT", "Specify format. (#{AVAILABLE_FORMATS.join(',')})") do |s|
+      format = s.to_sym
+      usage("Unsupported format: #{s}") unless AVAILABLE_FORMATS.include?(format)
+      @format = format
     end
     @parser.on("-r NAME", "Add library path") do |s|
       @libs << s
