@@ -170,9 +170,7 @@ BANNER
   end
 
   def preamble
-    return "" unless license_name
-    return "" unless @license
-    @license.preamble(user_name).lines.map {|line| "# #{line}".gsub(/ +$/, "") }.join
+    @license.preamble(user_name)
   end
 
   def copy_license
@@ -261,8 +259,13 @@ HELP
       "Apache License, Version 2.0"
     end
 
-    def preamble(name)
-      @preamble ||= @preamble_source.gsub(/\[yyyy\]/, "#{Date.today.year}-").gsub(/\[name of copyright owner\]/, name)
+    def preamble(user_name)
+      @preamble ||= @preamble_source.dup.tap do |source|
+        source.gsub!(/\[yyyy\]/, "#{Date.today.year}-")
+        source.gsub!(/\[name of copyright owner\]/, user_name)
+        source.gsub!(/^ {2}|^$/, "#")
+        source.chomp!
+      end
     end
   end
 
