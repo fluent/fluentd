@@ -233,7 +233,7 @@ module Fluent::Config
         test 'plain proxy w/o default value' do
           @proxy.config_param(:name, :string)
           expected = {
-            name: { type: :string }
+            name: { type: :string, required: true }
           }
           assert_equal(expected, @proxy.dump)
         end
@@ -241,7 +241,7 @@ module Fluent::Config
         test 'plain proxy w/ default value' do
           @proxy.config_param(:name, :string, default: "name1")
           expected = {
-            name: { type: :string, default: "name1" }
+            name: { type: :string, default: "name1", required: false }
           }
           assert_equal(expected, @proxy.dump)
         end
@@ -250,7 +250,7 @@ module Fluent::Config
           @proxy.config_param(:name, :string)
           @proxy.config_set_default(:name, "name1")
           expected = {
-            name: { type: :string, default: "name1" }
+            name: { type: :string, default: "name1", required: false }
           }
           assert_equal(expected, @proxy.dump)
         end
@@ -265,7 +265,7 @@ module Fluent::Config
               multi: true,
               required: false,
               section: true,
-              name: { type: :string, default: "name1" }
+              name: { type: :string, default: "name1", required: false }
             }
           }
           assert_equal(expected, @proxy.dump)
@@ -286,15 +286,15 @@ module Fluent::Config
               multi: true,
               required: false,
               section: true,
-              name1: { type: :string, default: "name1" },
-              name2: { type: :string, default: "name2" },
+              name1: { type: :string, default: "name1", required: false },
+              name2: { type: :string, default: "name2", required: false },
               sub2: {
                 alias: nil,
                 multi: true,
                 required: false,
                 section: true,
-                name3: { type: :string, default: "name3" },
-                name4: { type: :string, default: "name4" },
+                name3: { type: :string, default: "name3", required: false },
+                name4: { type: :string, default: "name4", required: false },
               }
             }
           }
@@ -305,7 +305,7 @@ module Fluent::Config
           test 'single proxy' do
             @proxy.config_param(:name, :string, desc: "description for name")
             expected = {
-              name: { type: :string, desc: "description for name" }
+              name: { type: :string, desc: "description for name", required: true }
             }
             assert_equal(expected, @proxy.dump)
           end
@@ -314,7 +314,7 @@ module Fluent::Config
             @proxy.config_param(:name, :string)
             @proxy.config_set_desc(:name, "description for name")
             expected = {
-              name: { type: :string, desc: "description for name" }
+              name: { type: :string, desc: "description for name", required: true }
             }
             assert_equal(expected, @proxy.dump)
           end
@@ -334,15 +334,15 @@ module Fluent::Config
                 multi: true,
                 required: false,
                 section: true,
-                name1: { type: :string, default: "name1", desc: "desc1" },
-                name2: { type: :string, default: "name2", desc: "desc2" },
+                name1: { type: :string, default: "name1", desc: "desc1", required: false },
+                name2: { type: :string, default: "name2", desc: "desc2", required: false },
                 sub2: {
                   alias: nil,
                   multi: true,
                   required: false,
                   section: true,
-                  name3: { type: :string, default: "name3" },
-                  name4: { type: :string, default: "name4", desc: "desc4" },
+                  name3: { type: :string, default: "name3", required: false },
+                  name4: { type: :string, default: "name4", desc: "desc4", required: false },
                 }
               }
             }
@@ -366,18 +366,19 @@ module Fluent::Config
                 multi: true,
                 required: false,
                 section: true,
-                name1: { type: :string, default: "name1", desc: "desc1" },
-                name2: { type: :string, default: "name2", desc: "desc2" },
+                name1: { type: :string, default: "name1", desc: "desc1", required: false },
+                name2: { type: :string, default: "name2", desc: "desc2", required: false },
                 sub2: {
                   alias: nil,
                   multi: true,
                   required: false,
                   section: true,
-                  name3: { type: :string, default: "name3" },
-                  name4: { type: :string, default: "name4", desc: "desc4" },
+                  name3: { type: :string, default: "name3", required: false },
+                  name4: { type: :string, default: "name4", desc: "desc4", required: false },
                 }
               }
             }
+            p @proxy.dump
             assert_equal(expected, @proxy.dump)
           end
         end

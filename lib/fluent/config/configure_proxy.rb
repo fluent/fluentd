@@ -349,6 +349,7 @@ module Fluent
         dumped_config = {}
         @params.each do |name, config|
           dumped_config[name] = config[1]
+          dumped_config[name][:required] = !@defaults.key?(name)
           dumped_config[name][:default] = @defaults[name] if @defaults.key?(name)
           dumped_config[name][:desc] = @descriptions[name] if @descriptions.key?(name)
         end
