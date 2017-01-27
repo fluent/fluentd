@@ -62,7 +62,7 @@ class FluentPluginConfigFormatter
   def dump_txt(dumped_config)
     dumped = ""
     plugin_helpers = dumped_config.delete(:plugin_helpers)
-    dumped << "helpers: #{plugin_helpers.join(',')}\n" if plugin_helpers
+    dumped << "helpers: #{plugin_helpers.join(',')}\n" unless plugin_helpers.empty?
     if @verbose
       dumped_config.each do |name, config|
         dumped << "#{name}\n"
