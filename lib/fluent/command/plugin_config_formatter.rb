@@ -48,11 +48,11 @@ class FluentPluginConfigFormatter
     dumped_config[:plugin_helpers] = @plugin.class.plugin_helpers
     @plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump_config_definition)
-      next if plugin_class == Fluent::Plugin::Base
       unless @verbose
         next if plugin_class.name =~ /::PluginHelper::/
       end
-      dumped_config[plugin_class.name] = plugin_class.dump_config_definition
+      dumped_config_definition = plugin_class.dumped_config_definition
+      dumped_config[plugin_class.name] = dump_config_definition unless dumped_config_definition.empty?
     end
     case @format
     when :txt
