@@ -109,7 +109,12 @@ BANNER
     end
     @type, @name = @argv
   rescue => e
-    puts "#{e.class}:#{e.message}"
+    usage("#{e.class}:#{e.message}")
+  end
+
+  def usage(message = "")
+    puts message
+    puts
     puts @parser.help
     exit(false)
   end
