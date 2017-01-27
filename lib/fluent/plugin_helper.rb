@@ -37,7 +37,7 @@ module Fluent
       end
     end
 
-    def helpers(*snake_case_symbols)
+    def helpers_internal(*snake_case_symbols)
       helper_modules = []
       snake_case_symbols.each do |name|
         begin
@@ -47,6 +47,12 @@ module Fluent
         end
       end
       include(*helper_modules)
+    end
+
+    def helpers(*snake_case_symbols)
+      @_plugin_helpers_list ||= []
+      @_plugin_helpers_list.concat(snake_case_symbols)
+      helpers_internal(*snake_case_symbols)
     end
   end
 end

@@ -27,7 +27,7 @@ module Fluent
       include PluginLoggerMixin
       include PluginHelper::Mixin
 
-      helpers :event_emitter
+      helpers_internal :event_emitter
 
       def multi_workers_ready?
         false

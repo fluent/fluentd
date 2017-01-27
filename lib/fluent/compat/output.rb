@@ -146,7 +146,7 @@ module Fluent
     class Output < Fluent::Plugin::Output
       # TODO: warn when deprecated
 
-      helpers :event_emitter, :inject
+      helpers_internal :event_emitter, :inject
 
       def support_in_v12_style?(feature)
         case feature
@@ -202,7 +202,7 @@ module Fluent
     class MultiOutput < Fluent::Plugin::BareOutput
       # TODO: warn when deprecated
 
-      helpers :event_emitter
+      helpers_internal :event_emitter
 
       def process(tag, es)
         emit(tag, es, NULL_OUTPUT_CHAIN)
@@ -212,7 +212,7 @@ module Fluent
     class BufferedOutput < Fluent::Plugin::Output
       # TODO: warn when deprecated
 
-      helpers :event_emitter, :inject
+      helpers_internal :event_emitter, :inject
 
       def support_in_v12_style?(feature)
         case feature
@@ -422,7 +422,7 @@ module Fluent
     class ObjectBufferedOutput < Fluent::Plugin::Output
       # TODO: warn when deprecated
 
-      helpers :event_emitter, :inject
+      helpers_internal :event_emitter, :inject
 
       # This plugin cannot inherit BufferedOutput because #configure sets chunk_key 'tag'
       # to flush chunks per tags, but BufferedOutput#configure doesn't allow setting chunk_key
@@ -559,7 +559,7 @@ module Fluent
     class TimeSlicedOutput < Fluent::Plugin::Output
       # TODO: warn when deprecated
 
-      helpers :event_emitter, :inject
+      helpers_internal :event_emitter, :inject
 
       def support_in_v12_style?(feature)
         case feature

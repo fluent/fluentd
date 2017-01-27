@@ -25,7 +25,7 @@ module Fluent
     class Filter < Fluent::Plugin::Filter
       # TODO: warn when deprecated
 
-      helpers :inject
+      helpers_internal :inject
 
       def initialize
         super
