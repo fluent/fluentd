@@ -44,8 +44,7 @@ class FluentPluginConfigFormatter
     parse_options!
     init_libraries
     @plugin = Fluent::Plugin.__send__("new_#{@plugin_type}", @plugin_name)
-    dumped_config = {}
-    dumped_config[:plugin_helpers] = @plugin.class.plugin_helpers
+    dumped_config = { plugin_helpers: @plugin.class.plugin_helpers }
     @plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump_config_definition)
       unless @verbose
