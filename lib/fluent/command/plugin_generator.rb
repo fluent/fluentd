@@ -181,7 +181,7 @@ BANNER
     puts "License: #{license_name}"
     license_class = self.class.lookup_license(license_name)
     @license = license_class.new
-    Pathname("LICENSE").write(@license.license)
+    Pathname("LICENSE").write(@license.text)
   rescue Fluent::ConfigError
     usage("Unknown license: #{license_name}")
   rescue => ex
@@ -230,16 +230,16 @@ HELP
   class ApacheLicense
     LICENSE_URL = "http://www.apache.org/licenses/LICENSE-2.0.txt"
 
-    attr_reader :license
+    attr_reader :text
 
     def initialize
-      @license = ""
+      @text = ""
       @preamble_source = ""
       @preamble = nil
       open(LICENSE_URL) do |io|
-        @license = io.read
+        @text = io.read
       end
-      @preamble_source = @license[/^(\s*Copyright.+)/m, 1]
+      @preamble_source = @text[/^(\s*Copyright.+)/m, 1]
     end
 
     def name
