@@ -167,7 +167,7 @@ module Fluent
       end
 
       def dump_config_definition
-        configure_proxy_map[self.to_s].dump
+        configure_proxy_map[self.to_s].dump_config_definition
       end
     end
   end

@@ -49,7 +49,7 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
       dumped_config = capture_stdout do
         FluentPluginConfigFormatter.new(["--format=json", type, "fake"]).call
       end
-      assert_equal(klass.dump, JSON.parse(dumped_config)[klass.name])
+      assert_equal(klass.dump_config_definition, JSON.parse(dumped_config)[klass.name])
     end
   end
 
