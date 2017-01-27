@@ -204,6 +204,9 @@ BANNER
       usage("Unsupported format: #{s}") unless AVAILABLE_FORMATS.include?(format)
       @format = format
     end
+    @parser.on("-I PATH", "Add PATH to $LOAD_PATH") do |s|
+      $LOAD_PATH.unshift(s)
+    end
     @parser.on("-r NAME", "Load library") do |s|
       @libs << s
     end
