@@ -2,15 +2,17 @@ require "helper"
 require "fluent/plugin/<%= plugin_filename %>"
 
 class <%= class_name %>Test < Test::Unit::TestCase
-  def setup
+  setup do
     Fluent::Test.setup
   end
 
-  def create_driver(conf)
-    Fluent::Test::Driver::Parser.new(Fluent::Plugin::<%= class_name %>).configure(conf)
+  test "failure" do
+    flunk
   end
 
-  def test_failure
-    flunk
+  private
+
+  def create_driver(conf)
+    Fluent::Test::Driver::Parser.new(Fluent::Plugin::<%= class_name %>).configure(conf)
   end
 end
