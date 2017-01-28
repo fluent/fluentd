@@ -146,15 +146,6 @@ def ipv6_enabled?
   end
 end
 
-def capture_stdout
-  out = StringIO.new
-  $stdout = out
-  yield
-  out.string.force_encoding('utf-8')
-ensure
-  $stdout = STDOUT
-end
-
 dl_opts = {}
 dl_opts[:log_level] = ServerEngine::DaemonLogger::WARN
 logdev = Fluent::Test::DummyLogDevice.new
