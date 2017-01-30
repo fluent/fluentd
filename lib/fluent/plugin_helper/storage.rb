@@ -59,7 +59,7 @@ module Fluent
                      conf = Hash[conf.map{|k,v| [k.to_s, v]}]
                      Fluent::Config::Element.new('storage', usage, conf, [])
                    when nil
-                     Fluent::Config::Element.new('storage', usage, {}, [])
+                     Fluent::Config::Element.new('storage', usage, {'@type' => type}, [])
                    else
                      raise ArgumentError, "BUG: conf must be a Element, Hash (or unspecified), but '#{conf.class}'"
                    end

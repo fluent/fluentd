@@ -64,7 +64,8 @@ module Fluent
             end
           end
         elsif root_dir = owner.plugin_root_dir
-          @path = File.join(root_dir, 'storage.json')
+          basename = (conf.arg && !conf.arg.empty?) ? "storage.#{conf.arg}.json" : "storage.json"
+          @path = File.join(root_dir, basename)
           @multi_workers_available = true
         else
           if @persistent
