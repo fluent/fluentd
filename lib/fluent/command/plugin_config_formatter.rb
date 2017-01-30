@@ -54,8 +54,8 @@ class FluentPluginConfigFormatter
       unless @verbose
         next if plugin_class.name =~ /::PluginHelper::/
       end
-      dumped_config_definition = plugin_class.dumped_config_definition
-      dumped_config[plugin_class.name] = dump_config_definition unless dumped_config_definition.empty?
+      dumped_config_definition = plugin_class.dump_config_definition
+      dumped_config[plugin_class.name] = dumped_config_definition unless dumped_config_definition.empty?
     end
     case @format
     when :txt
@@ -63,7 +63,7 @@ class FluentPluginConfigFormatter
     when :markdown
       puts dump_markdown(dumped_config)
     when :json
-      puts dump_json(dumped_json)
+      puts dump_json(dumped_config)
     end
   end
 
