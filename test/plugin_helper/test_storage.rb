@@ -135,6 +135,17 @@ class StorageHelperTest < Test::Unit::TestCase
     end
   end
 
+  test 'raises config error if config argument has invalid characters' do
+    d = Dummy.new
+    assert_raise Fluent::ConfigError.new("Argument in <storage ARG> uses invalid characters: 'yaa y'") do
+      d.configure(config_element('root', '', {}, [config_element('storage', 'yaa y', {'@type' => 'local'})]))
+    end
+    d.configure(config_element())
+    assert_raise Fluent::ConfigError.new("Argument in <storage ARG> uses invalid characters: 'a,b'") do
+      d.storage_create(usage: 'a,b', type: 'local')
+    end
+  end
+
   test 'can be configured without storage sections' do
     d = Dummy.new
     assert_nothing_raised do
