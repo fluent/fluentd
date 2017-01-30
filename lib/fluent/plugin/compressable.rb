@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'stringio'
 require 'zlib'
 
 module Fluent
