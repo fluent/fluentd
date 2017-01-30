@@ -226,19 +226,41 @@ module Fluent
         end
       end
 
+      def config_parameter_option_validate!(name, type, **kwargs, &block)
+        if type.nil? && !block
+          type = :string
+        end
+        kwargs.each_key do |key|
+          case key
+          when :default, :alias, :secret, :skip_accessor, :deprecated, :obsoleted, :desc
+            # valid for all types
+          when :list
+            raise ArgumentError, ":list is valid only for :enum type, but #{type}: #{name}" if type != :enum
+          when :value_type
+            raise ArgumentError, ":value_type is valid only for :hash and :array, but #{type}: #{name}" if type != :hash && type != :array
+          when :symbolize_keys
+            raise ArgumentError, ":symbolize_keys is valid only for :hash, but #{type}: #{name}" if type != :hash
+          else
+            raise ArgumentError, "unknown option '#{key}' for configuration parameter: #{name}"
+          end
+        end
+      end
+
       def parameter_configuration(name, type = nil, **kwargs, &block)
+        config_parameter_option_validate!(name, type, **kwargs, &block)
+
         name = name.to_sym
 
+        if block && type
+          raise ArgumentError, "#{name}: both of block and type cannot be specified"
+        elsif !block && !type
+          type = :string
+        end
         opts = {}
         opts[:type] = type
         opts.merge!(kwargs)
 
-        if block && type
-          raise ArgumentError, "#{name}: both of block and type cannot be specified"
-        end
-
         begin
-          type = :string if type.nil?
           block ||= @type_lookup.call(type)
         rescue ConfigError
           # override error message
@@ -252,10 +274,11 @@ module Fluent
         option_value_type!(name, opts, :deprecated, String)
         option_value_type!(name, opts, :obsoleted, String)
         if type == :enum
-          if !opts.has_key?(:list) || !opts[:list].all?{|v| v.is_a?(Symbol) }
+          if !opts.has_key?(:list) || !opts[:list].is_a?(Array) || opts[:list].empty? || !opts[:list].all?{|v| v.is_a?(Symbol) }
             raise ArgumentError, "#{name}: enum parameter requires :list of Symbols"
           end
         end
+        option_value_type!(name, opts, :symbolize_keys, type: :boolean)
         option_value_type!(name, opts, :value_type, Symbol) # hash, array
         option_value_type!(name, opts, :skip_accessor, type: :boolean)
 

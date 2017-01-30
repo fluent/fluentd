@@ -29,19 +29,17 @@ module Fluent
       :file_permission, :dir_permission,
     ]
 
-    config_param :workers, :integer, default: 1
-    config_param :root_dir, :string, default: nil
-    config_param :log_level, default: nil do |level|
-      Log.str_to_level(level)
-    end
+    config_param :workers,   :integer, default: 1
+    config_param :root_dir,  :string, default: nil
+    config_param :log_level, :enum, list: [:trace, :debug, :info, :warn, :error, :fatal], default: nil
     config_param :suppress_repeated_stacktrace, :bool, default: nil
-    config_param :emit_error_log_interval, :time, default: nil
+    config_param :emit_error_log_interval,      :time, default: nil
     config_param :suppress_config_dump, :bool, default: nil
-    config_param :log_event_verbose, :bool, default: nil
-    config_param :without_source, :bool, default: nil
-    config_param :rpc_endpoint, :string, default: nil
+    config_param :log_event_verbose,    :bool, default: nil
+    config_param :without_source,  :bool, default: nil
+    config_param :rpc_endpoint,    :string, default: nil
     config_param :enable_get_dump, :bool, default: nil
-    config_param :process_name, default: nil
+    config_param :process_name,    :string, default: nil
     config_param :file_permission, default: nil do |v|
       v.to_i(8)
     end
@@ -75,6 +73,12 @@ module Fluent
       super()
       conf ||= SystemConfig.blank_system_config
       configure(conf)
+    end
+
+    def configure(conf)
+      super
+
+      @log_level = Log.str_to_level(@log_level.to_s) if @log_level
     end
 
     def dup

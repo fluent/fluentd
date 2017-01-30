@@ -45,7 +45,7 @@ module Fluent::Config
           assert_false(proxy.multi?)
         end
         test 'raise error if both of init and required are true' do
-          assert_raise "init and required are exclusive" do
+          assert_raise RuntimeError.new("init and required are exclusive") do
             Fluent::Config::ConfigureProxy.new(:section, init: true, required: true, type_lookup: @type_lookup)
           end
         end
@@ -162,6 +162,185 @@ module Fluent::Config
       sub_test_case '#config_param / #config_set_default / #config_argument' do
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
+        end
+
+        test 'handles configuration parameters without type as string' do
+          @proxy.config_argument(:label)
+          @proxy.config_param(:name)
+          assert_equal :label, @proxy.argument[0]
+          assert_equal :string, @proxy.argument[2][:type]
+          assert_equal :string, @proxy.params[:name][1][:type]
+        end
+
+        data(
+          default: [:default, nil],
+          alias: [:alias, :alias_name_in_config],
+          secret: [:secret, true],
+          skip_accessor: [:skip_accessor, true],
+          deprecated: [:deprecated, 'it is deprecated'],
+          obsoleted: [:obsoleted, 'it is obsoleted'],
+          desc: [:desc, "description"],
+        )
+        test 'always allow options for all types' do |(option, value)|
+          opt = {option => value}
+          assert_nothing_raised{ @proxy.config_argument(:param0, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p1, :string, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p2, :enum, list: [:a, :b, :c], **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p3, :integer, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p4, :float, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p5, :size, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p6, :bool, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p7, :time, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p8, :hash, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:p9, :array, **opt) }
+        end
+
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, hash: :hash, array: :array)
+        test 'deny list for non-enum types' do |type|
+          assert_raise ArgumentError.new(":list is valid only for :enum type, but #{type}: arg") do
+            @proxy.config_argument(:arg, type, list: [:a, :b])
+          end
+          assert_raise ArgumentError.new(":list is valid only for :enum type, but #{type}: p1") do
+            @proxy.config_param(:p1, type, list: [:a, :b])
+          end
+        end
+
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time)
+        test 'deny value_type for non-hash/array types' do |type|
+          assert_raise ArgumentError.new(":value_type is valid only for :hash and :array, but #{type}: arg") do
+            @proxy.config_argument(:arg, type, value_type: :string)
+          end
+          assert_raise ArgumentError.new(":value_type is valid only for :hash and :array, but #{type}: p1") do
+            @proxy.config_param(:p1, type, value_type: :integer)
+          end
+        end
+
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, array: :array)
+        test 'deny symbolize_keys for non-hash types' do |type|
+          assert_raise ArgumentError.new(":symbolize_keys is valid only for :hash, but #{type}: arg") do
+            @proxy.config_argument(:arg, type, symbolize_keys: true)
+          end
+          assert_raise ArgumentError.new(":symbolize_keys is valid only for :hash, but #{type}: p1") do
+            @proxy.config_param(:p1, type, symbolize_keys: true)
+          end
+        end
+
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, hash: :hash, array: :array)
+        test 'deny unknown options' do |type|
+          assert_raise ArgumentError.new("unknown option 'required' for configuration parameter: arg") do
+            @proxy.config_argument(:arg, type, required: true)
+          end
+          assert_raise ArgumentError.new("unknown option 'param_name' for configuration parameter: p1") do
+            @proxy.config_argument(:p1, type, param_name: :yay)
+          end
+        end
+
+        test 'desc gets string' do
+          assert_nothing_raised do
+            @proxy.config_param(:name, :string, desc: "it is description")
+          end
+          assert_raise ArgumentError.new("name1: desc must be a String, but Symbol") do
+            @proxy.config_param(:name1, :string, desc: :yaaaaaaaay)
+          end
+        end
+
+        test 'alias gets symbol' do
+          assert_nothing_raised do
+            @proxy.config_param(:name, :string, alias: :label)
+          end
+          assert_raise ArgumentError.new("name1: alias must be a Symbol, but String") do
+            @proxy.config_param(:name1, :string, alias: 'label1')
+          end
+        end
+
+        test 'secret gets true/false' do
+          assert_nothing_raised do
+            @proxy.config_param(:name1, :string, secret: false)
+          end
+          assert_nothing_raised do
+            @proxy.config_param(:name2, :string, secret: true)
+          end
+          assert_raise ArgumentError.new("name3: secret must be true or false, but String") do
+            @proxy.config_param(:name3, :string, secret: 'yes')
+          end
+          assert_raise ArgumentError.new("name4: secret must be true or false, but NilClass") do
+            @proxy.config_param(:name4, :string, secret: nil)
+          end
+        end
+
+        test 'symbolize_keys gets true/false' do
+          assert_nothing_raised do
+            @proxy.config_param(:data1, :hash, symbolize_keys: false)
+          end
+          assert_nothing_raised do
+            @proxy.config_param(:data2, :hash, symbolize_keys: true)
+          end
+          assert_raise ArgumentError.new("data3: symbolize_keys must be true or false, but NilClass") do
+            @proxy.config_param(:data3, :hash, symbolize_keys: nil)
+          end
+        end
+
+        test 'value_type gets symbol' do
+          assert_nothing_raised do
+            @proxy.config_param(:data1, :array, value_type: :integer)
+          end
+          assert_raise ArgumentError.new("data2: value_type must be a Symbol, but Class") do
+            @proxy.config_param(:data2, :array, value_type: Integer)
+          end
+        end
+
+        test 'list gets an array of symbols' do
+          assert_nothing_raised do
+            @proxy.config_param(:proto1, :enum, list: [:a, :b])
+          end
+          assert_raise ArgumentError.new("proto2: enum parameter requires :list of Symbols") do
+            @proxy.config_param(:proto2, :enum, list: nil)
+          end
+          assert_raise ArgumentError.new("proto3: enum parameter requires :list of Symbols") do
+            @proxy.config_param(:proto3, :enum, list: ['a', 'b'])
+          end
+          assert_raise ArgumentError.new("proto4: enum parameter requires :list of Symbols") do
+            @proxy.config_param(:proto4, :enum, list: [])
+          end
+        end
+
+        test 'deprecated gets string' do
+          assert_nothing_raised do
+            @proxy.config_param(:name1, :string, deprecated: "use name2 instead")
+          end
+          assert_raise ArgumentError.new("name2: deprecated must be a String, but TrueClass") do
+            @proxy.config_param(:name2, :string, deprecated: true)
+          end
+        end
+
+        test 'obsoleted gets string' do
+          assert_nothing_raised do
+            @proxy.config_param(:name1, :string, obsoleted: "use name2 instead")
+          end
+          assert_raise ArgumentError.new("name2: obsoleted must be a String, but TrueClass") do
+            @proxy.config_param(:name2, :string, obsoleted: true)
+          end
+        end
+
+        test 'skip_accessor gets true/false' do
+          assert_nothing_raised do
+            @proxy.config_param(:format1, :string, skip_accessor: false)
+          end
+          assert_nothing_raised do
+            @proxy.config_param(:format2, :string, skip_accessor: true)
+          end
+          assert_raise ArgumentError.new("format2: skip_accessor must be true or false, but String") do
+            @proxy.config_param(:format2, :string, skip_accessor: 'yes')
+          end
+        end
+
+        test 'list is required for :enum' do
+          assert_nothing_raised do
+            @proxy.config_param(:proto1, :enum, list: [:a, :b])
+          end
+          assert_raise ArgumentError.new("proto1: enum parameter requires :list of Symbols") do
+            @proxy.config_param(:proto1, :enum, default: :a)
+          end
         end
 
         test 'does not permit config_set_default for param w/ :default option' do
