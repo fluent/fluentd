@@ -1,5 +1,57 @@
 # v0.14
 
+## Release v0.14.12 - 2017/01/30
+
+### New features / Enhancements
+* Support multi process workers by `workers` option
+  https://github.com/fluent/fluentd/pull/1386
+* Support TLS transport security layer by server plugin helper, and forward input/output plugins
+  https://github.com/fluent/fluentd/pull/1423
+* Update internal log event handling to route log events to `@FLUENT_LOG` label if configured, suppress log events in startup/shutdown in default
+  https://github.com/fluent/fluentd/pull/1405
+* Rename buffer plugin chunk limit parameters for consistency
+  https://github.com/fluent/fluentd/pull/1412
+* Encode string values from configuration files in UTF8
+  https://github.com/fluent/fluentd/pull/1411
+* Reorder plugin load paths to load rubygem plugins earlier than built-in plugins to overwrite them
+  https://github.com/fluent/fluentd/pull/1410
+* Clock API to control internal thread control
+  https://github.com/fluent/fluentd/pull/1425
+* Validate `config_param` options to restrict unexpected specifications
+  https://github.com/fluent/fluentd/pull/1437
+* formatter: Add `add_newline` option to get formatted lines without newlines
+  https://github.com/fluent/fluentd/pull/1420
+* in_forward: Add `ignore_network_errors_at_startup` option for automated cluster deployment
+  https://github.com/fluent/fluentd/pull/1399
+* in_forward: Close listening socket in #stop, not to accept new connection request in early stage of shutdown
+  https://github.com/fluent/fluentd/pull/1401
+* out_forward: Ensure to pack values in `str` type of msgpack
+  https://github.com/fluent/fluentd/pull/1413
+* in_tail: Add `emit_unmatched_lines` to capture lines which unmatch configured regular expressions
+  https://github.com/fluent/fluentd/pull/1421
+* in_tail: Add `open_on_every_update` to read lines from files opened in exclusive mode on Windows platform
+  https://github.com/fluent/fluentd/pull/1409
+* in_monitor_agent: Add `with_ivars` query parameter to get instance variables only for specified instance variables
+  https://github.com/fluent/fluentd/pull/1393
+* storage_local: Generate file store path using `usage`, with `root_dir` configuration
+  https://github.com/fluent/fluentd/pull/1438
+* Improve test stability
+  https://github.com/fluent/fluentd/pull/1426
+
+### Bug fixes
+* Fix bug to ignore command line options: `--rpc-endpoint`, `--suppress-config-dump`, etc
+  https://github.com/fluent/fluentd/pull/1398
+* Fix bug to block infinitely in shutdown when buffer is full and `overflow_action` is `block`
+  https://github.com/fluent/fluentd/pull/1396
+* buf_file: Fix bug not to use `root_dir` even if configured correctly
+  https://github.com/fluent/fluentd/pull/1417
+* filter_record_transformer: Fix to use BasicObject for clean room
+  https://github.com/fluent/fluentd/pull/1415
+* filter_record_transformer: Fix bug that `remove_keys` doesn't work with `renew_time_key`
+  https://github.com/fluent/fluentd/pull/1433
+* in_monitor_agent: Fix bug to crash with NoMethodError for some output plugins
+  https://github.com/fluent/fluentd/pull/1365
+
 ## Release v0.14.11 - 2016/12/26
 
 ### New features / Enhancements
