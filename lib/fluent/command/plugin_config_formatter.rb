@@ -48,7 +48,10 @@ class FluentPluginConfigFormatter
     parse_options!
     init_libraries
     @plugin = Fluent::Plugin.__send__("new_#{@plugin_type}", @plugin_name)
-    dumped_config = { plugin_helpers: @plugin.class.plugin_helpers }
+    dumped_config = {}
+    if @plugin.class.respond_to?(:plugin_helpers)
+      dumped_config[:plugin_helpers] = @plugin.class.plugin_helpers
+    end
     @plugin.class.ancestors.reverse_each do |plugin_class|
       next unless plugin_class.respond_to?(:dump_config_definition)
       unless @verbose
@@ -72,7 +75,9 @@ class FluentPluginConfigFormatter
   def dump_txt(dumped_config)
     dumped = ""
     plugin_helpers = dumped_config.delete(:plugin_helpers)
-    dumped << "helpers: #{plugin_helpers.join(',')}\n" unless plugin_helpers.empty?
+    if plugin_helpers && !plugin_helpers.empty?
+      dumped << "helpers: #{plugin_helpers.join(',')}\n"
+    end
     if @verbose
       dumped_config.each do |name, config|
         dumped << "#{name}\n"
@@ -125,7 +130,7 @@ class FluentPluginConfigFormatter
   def dump_markdown(dumped_config)
     dumped = ""
     plugin_helpers = dumped_config.delete(:plugin_helpers)
-    if plugin_helpers
+    if plugin_helpers && !plugin_helpers.empty?
       dumped = "## Plugin helpers\n\n"
       plugin_helpers.each do |plugin_helper|
         dumped << "* #{plugin_helper}\n"
