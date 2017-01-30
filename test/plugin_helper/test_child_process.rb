@@ -630,17 +630,15 @@ class ChildProcessTest < Test::Unit::TestCase
 
       str = nil
 
-      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        pid = nil
-        @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
-          pid = @d.instance_eval{ child_process_id }
-          str = readio.read.chomp
-          block_exits = true
-        end
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING while @d.child_process_exist?(pid) # to get exit status
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until block_exits
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      pid = nil
+      @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
+        pid = @d.instance_eval{ child_process_id }
+        str = readio.read.chomp
+        block_exits = true
       end
+      waiting(TEST_DEADLOCK_TIMEOUT){ sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING while @d.child_process_exist?(pid) } # to get exit status
+      waiting(TEST_DEADLOCK_TIMEOUT){ sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until block_exits }
+      waiting(TEST_DEADLOCK_TIMEOUT){ sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called }
 
       assert callback_called
       assert exit_status
@@ -658,32 +656,35 @@ class ChildProcessTest < Test::Unit::TestCase
       block_exits = false
       callback_called = false
       exit_status = nil
-      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '25', @temp_path]
+      args = ['-e', 'sleep ARGV[0].to_i; puts "yay"; File.unlink ARGV[1]', '100', @temp_path]
       cb = ->(status){ exit_status = status; callback_called = true }
 
       str = nil
 
-      Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
-        pid = nil
-        @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
-          pid = @d.instance_eval{ child_process_id }
-          Process.kill(:QUIT, pid)
-          Process.kill(:QUIT, pid) rescue nil # once more to kill certainly
-          str = readio.read.chomp rescue nil # empty string before EOF
-          block_exits = true
-        end
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING while @d.child_process_exist?(pid) # to get exit status
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until block_exits
-        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called
+      pid = nil
+      @d.child_process_execute(:st1, "ruby", arguments: args, mode: [:read], on_exit_callback: cb) do |readio|
+        pid = @d.instance_eval{ child_process_id }
+        sleep 10 # to run child process correctly
+        Process.kill(:QUIT, pid)
+        sleep 1
+        Process.kill(:QUIT, pid) rescue nil # once more to send kill
+        sleep 1
+        Process.kill(:QUIT, pid) rescue nil # just like sync
+        str = readio.read.chomp rescue nil # empty string before EOF
+        block_exits = true
       end
+      waiting(TEST_DEADLOCK_TIMEOUT){ sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING while @d.child_process_exist?(pid) } # to get exit status
+      waiting(TEST_DEADLOCK_TIMEOUT){ sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until block_exits }
+      waiting(TEST_DEADLOCK_TIMEOUT){ sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until callback_called }
 
       assert callback_called
       assert exit_status
 
-      assert_equal [nil, 3], [exit_status.exitstatus, exit_status.termsig] # SIGQUIT
-
-      assert File.exist?(@temp_path)
-      assert_equal "", str
+      # This test sometimes fails on TravisCI
+      #    with [nil, 11] # SIGSEGV
+      # or with [1, nil]  # ???
+      assert_equal [nil, 3, true, ""], [exit_status.exitstatus, exit_status.termsig, File.exist?(@temp_path), str] # SIGQUIT
+      # SIGSEGV looks a kind of BUG of ruby...
     end
 
     test 'calls on_exit_callback for each process exits for interval call using on_exit_callback' do

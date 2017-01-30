@@ -234,8 +234,8 @@ EOL
 
     target_input_driver.run(expect_records: 2) do
       d.run do
-        emit_events.each do |tag, time, record|
-          d.feed(tag, time, record)
+        emit_events.each do |tag, t, record|
+          d.feed(tag, t, record)
         end
       end
     end
@@ -639,7 +639,7 @@ EOL
     node = d.instance.nodes.first
     assert_equal Fluent::Plugin::ForwardOutput::NoneHeartbeatNode, node.class
 
-    d.instance.start
+    d.instance_start
     assert_nil d.instance.instance_variable_get(:@loop)   # no HeartbeatHandler, or HeartbeatRequestTimer
     assert_nil d.instance.instance_variable_get(:@thread) # no HeartbeatHandler, or HeartbeatRequestTimer
 
@@ -651,7 +651,7 @@ EOL
   test 'heartbeat_type_udp' do
     @d = d = create_driver(CONFIG + "\nheartbeat_type udp")
 
-    d.instance.start
+    d.instance_start
     usock = d.instance.instance_variable_get(:@usock)
     servers = d.instance.instance_variable_get(:@_servers)
     timers = d.instance.instance_variable_get(:@_timers)
@@ -660,7 +660,6 @@ EOL
     assert timers.include?(:out_forward_heartbeat_request)
 
     mock(usock).send("\0", 0, Socket.pack_sockaddr_in(TARGET_PORT, '127.0.0.1')).once
-    # timer.disable # call send_heartbeat at just once
     d.instance.send(:on_timer)
   end
 

@@ -631,7 +631,7 @@ class BufferTest < Test::Unit::TestCase
         define_method(:commit){ raise "yay" }
       end
 
-      assert_raise "yay" do
+      assert_raise RuntimeError.new("yay") do
         @p.write({m => [row]})
       end
 
@@ -810,7 +810,7 @@ class BufferTest < Test::Unit::TestCase
           [event_time('2016-04-11 16:40:04 +0000'), {"message" => "z" * 1024 * 128}],
         ]
       )
-      assert_raise "yay" do
+      assert_raise RuntimeError.new("yay") do
         @p.write({m => es2}, format: ->(e){e.to_msgpack_stream})
       end
 

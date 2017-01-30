@@ -18,6 +18,7 @@ class CompressableTest < Test::Unit::TestCase
     test 'write compressed data to IO with output_io option' do
       io = StringIO.new
       compress(@src, output_io: io)
+      waiting(10){ sleep 0.1 until @gzipped_src == io.string }
       assert_equal @gzipped_src, io.string
     end
   end
@@ -35,6 +36,7 @@ class CompressableTest < Test::Unit::TestCase
     test 'write decompressed data to IO with output_io option' do
       io = StringIO.new
       decompress(@gzipped_src, output_io: io)
+      waiting(10){ sleep 0.1 until @src == io.string }
       assert_equal @src, io.string
     end
 
@@ -56,6 +58,7 @@ class CompressableTest < Test::Unit::TestCase
       output_io = StringIO.new
 
       decompress(input_io: input_io, output_io: output_io)
+      waiting(10){ sleep 0.1 until @src == output_io.string }
       assert_equal @src, output_io.string
     end
 

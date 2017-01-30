@@ -112,10 +112,12 @@ class DummyTest < Test::Unit::TestCase
         d1.instance.emit(4)
       end
 
-      first_id1 = d1.events.first[2]['id']
+      events = d1.events.sort{|a,b| a[2]['id'] <=> b[2]['id'] }
+
+      first_id1 = events.first[2]['id']
       assert_equal 0, first_id1
 
-      last_id1 = d1.events.last[2]['id']
+      last_id1 = events.last[2]['id']
       assert { last_id1 > 0 }
 
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
@@ -125,7 +127,9 @@ class DummyTest < Test::Unit::TestCase
         d2.instance.emit(4)
       end
 
-      first_id2 = d2.events.first[2]['id']
+      events = d2.events.sort{|a,b| a[2]['id'] <=> b[2]['id'] }
+
+      first_id2 = events.first[2]['id']
       assert_equal 0, first_id2
 
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))

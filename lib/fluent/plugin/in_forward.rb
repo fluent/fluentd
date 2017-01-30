@@ -19,6 +19,7 @@ require 'fluent/plugin/input'
 require 'fluent/msgpack_factory'
 require 'yajl'
 require 'digest'
+require 'securerandom'
 
 module Fluent::Plugin
   class ForwardInput < Input
@@ -394,7 +395,7 @@ module Fluent::Plugin
     end
 
     def generate_salt
-      OpenSSL::Random.random_bytes(16)
+      ::SecureRandom.random_bytes(16)
     end
 
     def generate_helo(nonce, user_auth_salt)

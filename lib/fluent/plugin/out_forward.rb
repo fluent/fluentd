@@ -218,7 +218,10 @@ module Fluent::Plugin
     end
 
     def close
-      @usock.close if @usock
+      if @usock
+        # close socket and ignore errors: this socket will not be used anyway.
+        @usock.close rescue nil
+      end
       super
     end
 

@@ -230,7 +230,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -244,16 +244,30 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       first_failure = @i.retry.start
 
       # retry_timeout == 60(sec), retry_secondary_threshold == 0.8
-
-      now = first_failure + 60 * 0.8 + 1
-
+      now = first_failure + 60 * 0.8 + 1 # to step from primary to secondary
       Timecop.freeze( now )
+
+      unless @i.retry.secondary?
+        @i.enqueue_thread_wait
+        @i.flush_thread_wakeup
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
+
+        prev_write_count = @i.write_count
+        prev_num_errors = @i.num_errors
+
+        # next step is on secondary
+        now = first_failure + 60 * 0.8 + 10
+        Timecop.freeze( now )
+      end
+
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+      waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
-      assert{ @i.write_count > prev_write_count }
-      assert{ @i.num_errors == prev_num_errors }
+      current_write_count = @i.write_count
+      current_num_errors = @i.num_errors
+      assert{ current_write_count > prev_write_count }
+      assert{ current_num_errors == prev_num_errors }
 
       assert_nil @i.retry
 
@@ -261,7 +275,9 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert_equal [ 'test.tag.1', event_time('2016-04-13 18:33:13').to_i, {"name" => "moris", "age" => 36, "message" => "data2"} ], written[1]
       assert_equal [ 'test.tag.1', event_time('2016-04-13 18:33:32').to_i, {"name" => "moris", "age" => 36, "message" => "data3"} ], written[2]
 
-      assert{ @i.log.out.logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      logs = @i.log.out.logs
+      waiting(4){ sleep 0.1 until logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
     test 'secondary can do non-delayed commit even if primary do delayed commit' do
@@ -295,7 +311,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -309,13 +325,25 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       first_failure = @i.retry.start
 
       # retry_timeout == 60(sec), retry_secondary_threshold == 0.8
-
-      now = first_failure + 60 * 0.8 + 1
-
+      now = first_failure + 60 * 0.8 + 1 # to step from primary to secondary
       Timecop.freeze( now )
+
+      unless @i.retry.secondary?
+        @i.enqueue_thread_wait
+        @i.flush_thread_wakeup
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
+
+        prev_write_count = @i.write_count
+        prev_num_errors = @i.num_errors
+
+        # next step is on secondary
+        now = first_failure + 60 * 0.8 + 10
+        Timecop.freeze( now )
+      end
+
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+      waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
       assert{ @i.write_count > prev_write_count }
       assert{ @i.num_errors == prev_num_errors }
@@ -326,7 +354,9 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert_equal [ 'test.tag.1', event_time('2016-04-13 18:33:13').to_i, {"name" => "moris", "age" => 36, "message" => "data2"} ], written[1]
       assert_equal [ 'test.tag.1', event_time('2016-04-13 18:33:32').to_i, {"name" => "moris", "age" => 36, "message" => "data3"} ], written[2]
 
-      assert{ @i.log.out.logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      logs = @i.log.out.logs
+      waiting(4){ sleep 0.1 until logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
     test 'secondary plugin can do delayed commit if primary do it' do
@@ -361,7 +391,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -375,13 +405,25 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       first_failure = @i.retry.start
 
       # retry_timeout == 60(sec), retry_secondary_threshold == 0.8
-
-      now = first_failure + 60 * 0.8 + 1
-
+      now = first_failure + 60 * 0.8 + 1 # to step from primary to secondary
       Timecop.freeze( now )
+
+      unless @i.retry.secondary?
+        @i.enqueue_thread_wait
+        @i.flush_thread_wakeup
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
+
+        prev_write_count = @i.write_count
+        prev_num_errors = @i.num_errors
+
+        # next step is on secondary
+        now = first_failure + 60 * 0.8 + 10
+        Timecop.freeze( now )
+      end
+
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+      waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
       assert{ @i.write_count > prev_write_count }
       assert{ @i.num_errors == prev_num_errors }
@@ -403,7 +445,9 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert_nil @i.retry
 
-      assert{ @i.log.out.logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      logs = @i.log.out.logs
+      waiting(4){ sleep 0.1 until logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
     test 'secondary plugin can do delayed commit even if primary does not do it' do
@@ -438,7 +482,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -452,13 +496,25 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       first_failure = @i.retry.start
 
       # retry_timeout == 60(sec), retry_secondary_threshold == 0.8
-
-      now = first_failure + 60 * 0.8 + 1
-
+      now = first_failure + 60 * 0.8 + 1 # to step from primary to secondary
       Timecop.freeze( now )
+
+      unless @i.retry.secondary?
+        @i.enqueue_thread_wait
+        @i.flush_thread_wakeup
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
+
+        prev_write_count = @i.write_count
+        prev_num_errors = @i.num_errors
+
+        # next step is on secondary
+        now = first_failure + 60 * 0.8 + 10
+        Timecop.freeze( now )
+      end
+
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+      waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
       assert{ @i.write_count > prev_write_count }
       assert{ @i.num_errors == prev_num_errors }
@@ -480,7 +536,9 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert_nil @i.retry
 
-      assert{ @i.log.out.logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      logs = @i.log.out.logs
+      waiting(4){ sleep 0.1 until logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
+      assert{ logs.any?{|l| l.include?("[warn]: retry succeeded by secondary.") } }
     end
 
     test 'secondary plugin can do delayed commit even if primary does not do it, and non-committed chunks will be rollbacked by primary' do
@@ -515,7 +573,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size == 2 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -539,7 +597,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
 
-      waiting(4){ Thread.pass until chunks.size == 2 }
+      waiting(4){ sleep 0.1 until chunks.size == 2 }
 
       assert{ @i.write_count > prev_write_count }
       assert{ @i.num_errors == prev_num_errors }
@@ -568,6 +626,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       assert @i.retry
       logs = @i.log.out.logs
+      waiting(4){ sleep 0.1 until logs.select{|l| l.include?("[warn]: failed to flush the buffer chunk, timeout to commit.") }.size == 2 }
       assert{ logs.select{|l| l.include?("[warn]: failed to flush the buffer chunk, timeout to commit.") }.size == 2 }
     end
 
@@ -601,7 +660,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -621,7 +680,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       Timecop.freeze( now )
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+      waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
       assert{ @i.write_count > prev_write_count }
       assert{ @i.num_errors > prev_num_errors }
@@ -631,6 +690,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert_equal 3, (@i.next_flush_time - Time.now)
 
       logs = @i.log.out.logs
+      waiting(4){ sleep 0.1 until logs.any?{|l| l.include?("[warn]: failed to flush the buffer with secondary output.") } }
       assert{ logs.any?{|l| l.include?("[warn]: failed to flush the buffer with secondary output.") } }
     end
   end
@@ -672,7 +732,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -690,7 +750,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
         Timecop.freeze( now )
         @i.enqueue_thread_wait
         @i.flush_thread_wakeup
-        waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
         assert{ @i.write_count > prev_write_count }
 
@@ -743,7 +803,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -768,7 +828,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
         Timecop.freeze( now )
         @i.enqueue_thread_wait
         @i.flush_thread_wakeup
-        waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
         assert{ @i.write_count > prev_write_count }
         assert{ @i.num_errors > prev_num_errors }
@@ -800,7 +860,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
         Timecop.freeze( now )
         @i.enqueue_thread_wait
         @i.flush_thread_wakeup
-        waiting(4){ Thread.pass until @i.write_count > prev_write_count }
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count }
 
         assert{ @i.write_count > prev_write_count }
         assert{ @i.num_errors > prev_num_errors }

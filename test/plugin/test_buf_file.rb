@@ -629,17 +629,9 @@ class FileBufferTest < Test::Unit::TestCase
 
       queue = @p.queue
 
-      assert_equal @bufdir_chunk_1, queue[0].unique_id
-      assert_equal 4, queue[0].size
-      assert_equal :queued, queue[0].state
-
-      assert_equal @bufdir_chunk_2, queue[1].unique_id
-      assert_equal 4, queue[1].size
-      assert_equal :queued, queue[1].state
-
-      assert_equal @worker_dir_chunk_1, queue[2].unique_id
-      assert_equal 3, queue[2].size
-      assert_equal :queued, queue[2].state
+      assert_equal [@bufdir_chunk_1, @bufdir_chunk_2, @worker_dir_chunk_1].sort, queue.map(&:unique_id).sort
+      assert_equal [3, 4, 4], queue.map(&:size).sort
+      assert_equal [:queued, :queued, :queued], queue.map(&:state)
     end
 
     test 'worker(id=1) #resume returns staged/queued chunks with metadata, only in worker dir' do

@@ -138,38 +138,37 @@ module Fluent
         def instance_shutdown
           instance_hook_before_stopped
 
-          unless @instance.stopped?
-            @instance.stop rescue nil
-          end
-          unless @instance.before_shutdown?
-            @instance.before_shutdown rescue nil
-          end
-          unless @instance.shutdown?
-            @instance.shutdown rescue nil
+          show_errors_if_exists = ->(label, block){
+            begin
+              block.call
+            rescue => e
+              puts "unexpected error while #{label}, #{e.class}:#{e.message}"
+              e.backtrace.each do |bt|
+                puts "\t#{bt}"
+              end
+            end
+          }
+
+          show_errors_if_exists.call(:stop,            ->(){ @instance.stop unless @instance.stopped? })
+          show_errors_if_exists.call(:before_shutdown, ->(){ @instance.before_shutdown unless @instance.before_shutdown? })
+          show_errors_if_exists.call(:shutdown,        ->(){ @instance.shutdown unless @instance.shutdown? })
+          show_errors_if_exists.call(:after_shutdown,  ->(){ @instance.after_shutdown unless @instance.after_shutdown? })
+
+          if @instance.respond_to?(:server_wait_until_stop)
+            @instance.server_wait_until_stop
           end
 
           if @instance.respond_to?(:event_loop_wait_until_stop)
             @instance.event_loop_wait_until_stop
           end
 
-          unless @instance.after_shutdown?
-            @instance.after_shutdown rescue nil
-          end
-          unless @instance.closed?
-            @instance.close rescue nil
-          end
+          show_errors_if_exists.call(:close, ->(){ @instance.close unless @instance.closed? })
 
           if @instance.respond_to?(:thread_wait_until_stop)
             @instance.thread_wait_until_stop
           end
 
-          if @instance.respond_to?(:server_wait_until_stop)
-            @instance.server_wait_until_stop
-          end
-
-          unless @instance.terminated?
-            @instance.terminate rescue nil
-          end
+          show_errors_if_exists.call(:terminate, ->(){ @instance.terminate unless @instance.terminated? })
 
           if @socket_manager_server
             @socket_manager_server.close
@@ -194,7 +193,7 @@ module Fluent
 
           return_value = nil
           begin
-            Timeout.timeout(timeout * 1.1) do |sec|
+            Timeout.timeout(timeout * 2) do |sec|
               return_value = block.call if block_given?
             end
           rescue Timeout::Error

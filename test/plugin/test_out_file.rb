@@ -740,7 +740,7 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     test 'raise error to show it is a bug when path including * specified without timekey' do
-      assert_raise "BUG: configuration error must be raised for path including '*' without timekey" do
+      assert_raise RuntimeError.new("BUG: configuration error must be raised for path including '*' without timekey") do
         @i.generate_path_template('/path/to/file.*.log', nil, false, nil)
       end
     end
@@ -830,7 +830,7 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     test 'raise error if argument path does not include index placeholder' do
-      assert_raise "BUG: index placeholder not found in path: #{@tmp}/myfile" do
+      assert_raise RuntimeError.new("BUG: index placeholder not found in path: #{@tmp}/myfile") do
         @i.find_filepath_available("#{@tmp}/myfile") do |path|
           # ...
         end
