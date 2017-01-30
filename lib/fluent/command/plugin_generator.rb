@@ -189,7 +189,7 @@ BANNER
     puts "License: #{license_name}"
     license_class = self.class.lookup_license(license_name)
     @license = license_class.new
-    Pathname("LICENSE").write(@license.text)
+    Pathname("LICENSE").write(@license.text) unless @license.text.empty?
   rescue Fluent::ConfigError
     usage("Unknown license: #{license_name}")
   rescue => ex
