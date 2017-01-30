@@ -122,6 +122,7 @@ class TimerTest < Test::Unit::TestCase
     sleep(0.1) while waiting_timer
 
     assert_equal(1, counter)
+    waiting(4){ sleep 0.1 while watchers.first.attached? }
     assert_false(watchers.first.attached?)
     watchers = d1._event_loop.watchers.reject {|w| w.is_a?(Fluent::PluginHelper::EventLoop::DefaultWatcher) }
     assert_equal(0, watchers.size)

@@ -157,7 +157,7 @@ class BufferedOutputCompressTest < Test::Unit::TestCase
     @i.emit_events('tag', es)
     @i.enqueue_thread_wait
     @i.flush_thread_wakeup
-    waiting(4) { Thread.pass until io.size > 0 }
+    waiting(4) { sleep 0.1 until io.size > 0 }
 
     assert_equal expected, decompress(compressed_data)
     assert_equal expected, io.string

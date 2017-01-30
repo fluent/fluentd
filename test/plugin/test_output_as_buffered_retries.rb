@@ -687,7 +687,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -703,10 +703,10 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       15.times do |i|
         now = @i.next_flush_time
 
-        Timecop.freeze( now )
+        Timecop.freeze( now + 1 )
         @i.enqueue_thread_wait
         @i.flush_thread_wakeup
-        waiting(4){ Thread.pass until @i.write_count > prev_write_count && @i.num_errors > prev_num_errors }
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count && @i.num_errors > prev_num_errors }
 
         assert{ @i.write_count > prev_write_count }
         assert{ @i.num_errors > prev_num_errors }
@@ -758,7 +758,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
 
       @i.enqueue_thread_wait
       @i.flush_thread_wakeup
-      waiting(4){ Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+      waiting(4){ sleep 0.1 until @i.write_count > 0 && @i.num_errors > 0 }
 
       assert{ @i.buffer.queue.size > 0 }
       assert{ @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
@@ -774,10 +774,10 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       15.times do |i|
         now = @i.next_flush_time
 
-        Timecop.freeze( now )
+        Timecop.freeze( now + 1 )
         @i.enqueue_thread_wait
         @i.flush_thread_wakeup
-        waiting(4){ Thread.pass until @i.write_count > prev_write_count && @i.num_errors > prev_num_errors }
+        waiting(4){ sleep 0.1 until @i.write_count > prev_write_count && @i.num_errors > prev_num_errors }
 
         assert{ @i.write_count > prev_write_count }
         assert{ @i.num_errors > prev_num_errors }

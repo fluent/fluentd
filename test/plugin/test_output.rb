@@ -824,26 +824,28 @@ class OutputTest < Test::Unit::TestCase
     test '#write flush took longer time than slow_flush_log_threshold' do
       i = create_output(:buffered)
       write_called = false
-      i.register(:write) { |chunk| sleep 1 }
+      i.register(:write) { |chunk| sleep 3 }
       i.define_singleton_method(:test_finished?) { write_called }
       i.define_singleton_method(:try_flush) { super(); write_called = true }
 
       invoke_slow_flush_log_threshold_test(i) {
         assert write_called
-        assert_equal 1, i.log.out.logs.select { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold: elapsed_time/ }.size
+        logs = i.log.out.logs
+        assert{ logs.any?{|log| log.include?("buffer flush took longer time than slow_flush_log_threshold: elapsed_time") } }
       }
     end
 
     test '#try_write flush took longer time than slow_flush_log_threshold' do
       i = create_output(:delayed)
       try_write_called = false
-      i.register(:try_write){ |chunk| sleep 1 }
+      i.register(:try_write){ |chunk| sleep 3 }
       i.define_singleton_method(:test_finished?) { try_write_called }
       i.define_singleton_method(:try_flush) { super(); try_write_called = true }
 
       invoke_slow_flush_log_threshold_test(i) {
         assert try_write_called
-        assert_equal 1, i.log.out.logs.select { |line| line =~ /buffer flush took longer time than slow_flush_log_threshold: elapsed_time/ }.size
+        logs = i.log.out.logs
+        assert{ logs.any?{|log| log.include?("buffer flush took longer time than slow_flush_log_threshold: elapsed_time") } }
       }
     end
   end
