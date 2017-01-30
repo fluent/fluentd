@@ -9,10 +9,13 @@ require 'uri'
 require 'fileutils'
 
 class SupervisorTest < ::Test::Unit::TestCase
-  include Fluent
-  include FluentTest
-  include ServerModule
-  include WorkerModule
+  class DummyServer
+    include Fluent::ServerModule
+    attr_accessor :rpc_endpoint, :enable_get_dump
+    def config
+      {}
+    end
+  end
 
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/supervisor#{ENV['TEST_ENV_NUMBER']}")
   TMP_ROOT_DIR = File.join(TMP_DIR, 'root')
@@ -105,80 +108,83 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_main_process_signal_handlers
+    omit "Windows cannot handle signals" if Fluent.windows?
+
     create_info_dummy_logger
 
-    unless Fluent.windows?
-      opts = Fluent::Supervisor.default_options
-      sv = Fluent::Supervisor.new(opts)
-      sv.send(:install_main_process_signal_handlers)
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    sv.send(:install_main_process_signal_handlers)
 
-      begin
-        Process.kill :USR1, $$
-      rescue
-      end
-
-      sleep 1
-
-      info_msg = '[info]: force flushing buffered events' + "\n"
-      assert{ $log.out.logs.first.end_with?(info_msg) }
+    begin
+      Process.kill :USR1, $$
+    rescue
     end
 
-    $log.out.reset
+    sleep 1
+
+    info_msg = '[info]: force flushing buffered events' + "\n"
+    assert{ $log.out.logs.first.end_with?(info_msg) }
+  ensure
+    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
   def test_supervisor_signal_handler
+    omit "Windows cannot handle signals" if Fluent.windows?
+
     create_debug_dummy_logger
 
-    unless Fluent.windows?
-
-      install_supervisor_signal_handlers
-      begin
-        Process.kill :USR1, $$
-      rescue
-      end
-
-      sleep 1
-
-      debug_msg = '[debug]: fluentd supervisor process get SIGUSR1' + "\n"
-      assert{ $log.out.logs.first.end_with?(debug_msg) }
+    server = DummyServer.new
+    server.install_supervisor_signal_handlers
+    begin
+      Process.kill :USR1, $$
+    rescue
     end
 
-    $log.out.reset
+    sleep 1
+
+    debug_msg = '[debug]: fluentd supervisor process get SIGUSR1'
+    logs = $log.out.logs
+    assert{ logs.any?{|log| log.include?(debug_msg) } }
+  ensure
+    $log.out.reset if $log && $log.out && $log.out.respond_to?(:reset)
   end
 
   def test_rpc_server
+    omit "Windows cannot handle signals" if Fluent.windows?
+
     create_info_dummy_logger
 
-    unless Fluent.windows?
-      opts = Fluent::Supervisor.default_options
-      sv = Fluent::Supervisor.new(opts)
-      conf_data = <<-EOC
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+    conf_data = <<-EOC
   <system>
     rpc_endpoint 0.0.0.0:24447
   </system>
-      EOC
-      conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
-      sv.instance_variable_set(:@conf, conf)
-      sv.send(:set_system_config)
-      sys_conf = sv.instance_variable_get(:@system_config)
-      @rpc_endpoint = sys_conf.rpc_endpoint
-      @enable_get_dump = sys_conf.enable_get_dump
+    EOC
+    conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
+    sv.instance_variable_set(:@conf, conf)
+    sv.send(:set_system_config)
+    sys_conf = sv.instance_variable_get(:@system_config)
 
-      run_rpc_server
+    server = DummyServer.new
+    server.rpc_endpoint = sys_conf.rpc_endpoint
+    server.enable_get_dump = sys_conf.enable_get_dump
 
-      sv.send(:install_main_process_signal_handlers)
-      Net::HTTP.get URI.parse('http://0.0.0.0:24447/api/plugins.flushBuffers')
-      info_msg = '[info]: force flushing buffered events' + "\n"
+    server.run_rpc_server
 
-      stop_rpc_server
+    sv.send(:install_main_process_signal_handlers)
+    Net::HTTP.get URI.parse('http://0.0.0.0:24447/api/plugins.flushBuffers')
+    info_msg = '[info]: force flushing buffered events' + "\n"
 
-      # In TravisCI with OSX(Xcode), it seems that can't use rpc server.
-      # This test will be passed in such environment.
-      pend unless $log.out.logs.first
+    server.stop_rpc_server
 
-      assert{ $log.out.logs.first.end_with?(info_msg) }
-    end
+    # In TravisCI with OSX(Xcode), it seems that can't use rpc server.
+    # This test will be passed in such environment.
+    pend unless $log.out.logs.first
 
+    assert{ $log.out.logs.first.end_with?(info_msg) }
+  ensure
     $log.out.reset
   end
 
