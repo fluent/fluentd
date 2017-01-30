@@ -63,13 +63,13 @@ class BufferFileChunkTest < Test::Unit::TestCase
 
     test '.generate_stage_chunk_path generates path with staged mark & chunk unique_id' do
       assert_equal gen_path("mychunk.b52fde6425d7406bdb19b936e1a1ba98c.log"), @klass.generate_stage_chunk_path(gen_path("mychunk.*.log"), gen_test_chunk_id)
-      assert_raise "BUG: buffer chunk path on stage MUST have '.*.'" do
+      assert_raise RuntimeError.new("BUG: buffer chunk path on stage MUST have '.*.'") do
         @klass.generate_stage_chunk_path(gen_path("mychunk.log"), gen_test_chunk_id)
       end
-      assert_raise "BUG: buffer chunk path on stage MUST have '.*.'" do
+      assert_raise RuntimeError.new("BUG: buffer chunk path on stage MUST have '.*.'") do
         @klass.generate_stage_chunk_path(gen_path("mychunk.*"), gen_test_chunk_id)
       end
-      assert_raise "BUG: buffer chunk path on stage MUST have '.*.'" do
+      assert_raise RuntimeError.new("BUG: buffer chunk path on stage MUST have '.*.'") do
         @klass.generate_stage_chunk_path(gen_path("*.log"), gen_test_chunk_id)
       end
     end
@@ -679,7 +679,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal @d.bytesize, @c.bytesize
       assert_equal @d, @c.read
 
-      assert_raise "BUG: appending to non-staged chunk, now 'queued'" do
+      assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
       assert_raise IOError do
@@ -721,7 +721,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal 0, @c.size
       assert_equal @d, @c.read
 
-      assert_raise "BUG: appending to non-staged chunk, now 'queued'" do
+      assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
       assert_raise IOError do
@@ -763,7 +763,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal 0, @c.size
       assert_equal @d, @c.read
 
-      assert_raise "BUG: appending to non-staged chunk, now 'queued'" do
+      assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
       assert_raise IOError do
