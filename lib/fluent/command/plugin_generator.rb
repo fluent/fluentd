@@ -236,13 +236,16 @@ HELP
   end
 
   class NoLicense
-    attr_reader :name, :full_name, :preamble, :text
+    attr_reader :name, :full_name, :text
 
     def initialize
       @name = ""
       @full_name = ""
-      @preamble = ""
       @text = ""
+    end
+
+    def preamble(usename)
+      ""
     end
   end
 
