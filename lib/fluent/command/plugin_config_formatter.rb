@@ -122,6 +122,7 @@ class FluentPluginConfigFormatter
       else
         dumped << "\n"
       end
+      sub_section.delete(:section)
       dumped << dump_section_txt(sub_section, level + 1)
     end
     dumped
@@ -165,6 +166,7 @@ class FluentPluginConfigFormatter
       required = sub_section.delete(:required)
       multi = sub_section.delete(:multi)
       alias_name = sub_section.delete(:alias)
+      sub_section.delete(:section)
       dumped << ERB.new(template_path("section.md.erb").read, nil, "-").result(binding)
     end
     dumped
