@@ -115,15 +115,15 @@ EOT
       ensure
         driver.instance.log.out = tmp
       end
-    end
 
-    def capture_stdout
-      out = StringIO.new
-      $stdout = out
-      yield
-      out.string.force_encoding('utf-8')
-    ensure
-      $stdout = STDOUT
+      def capture_stdout
+        out = StringIO.new
+        $stdout = out
+        yield
+        out.string.force_encoding('utf-8')
+      ensure
+        $stdout = STDOUT
+      end
     end
   end
 end
