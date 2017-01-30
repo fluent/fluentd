@@ -167,6 +167,7 @@ class FluentPluginConfigFormatter
       required = sub_section.delete(:required)
       multi = sub_section.delete(:multi)
       alias_name = sub_section.delete(:alias)
+      $log.trace(name: section_name, required: required, multi: multi, alias_name: alias_name)
       sub_section.delete(:section)
       dumped << ERB.new(template_path("section.md.erb").read, nil, "-").result(binding)
     end
