@@ -27,12 +27,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   end
 
   teardown do
-    @d.stopped? || @d.stop
-    @d.before_shutdown? || @d.before_shutdown
-    @d.shutdown? || @d.shutdown
-    @d.after_shutdown? || @d.after_shutdown
-    @d.closed? || @d.close
-    @d.terminated? || @d.terminate
+    (@d.stopped? || @d.stop) rescue nil
+    (@d.before_shutdown? || @d.before_shutdown) rescue nil
+    (@d.shutdown? || @d.shutdown) rescue nil
+    (@d.after_shutdown? || @d.after_shutdown) rescue nil
+    (@d.closed? || @d.close) rescue nil
+    (@d.terminated? || @d.terminate) rescue nil
 
     @socket_manager_server.close
     if @socket_manager_server.is_a?(String) && File.exist?(@socket_manager_path)
@@ -645,7 +645,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       sock.write "foo\n"
       sock.close
 
-      waiting(10){ sleep 0.1 until received.bytesize == 4 || errors.size == 1 }
+      waiting(10){ sleep 0.1 until received.bytesize == 4 && errors.size == 1 }
       assert_equal "foo\n", received
       assert_equal 1, errors.size
       assert_equal "BUG: this event is disabled for udp: data", errors.first.message
@@ -667,7 +667,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       sock.write "foo\n"
       sock.close
 
-      waiting(10){ sleep 0.1 until received.bytesize == 4 || errors.size == 1 }
+      waiting(10){ sleep 0.1 until received.bytesize == 4 && errors.size == 1 }
       assert_equal "foo\n", received
       assert_equal 1, errors.size
       assert_equal "BUG: this event is disabled for udp: write_complete", errors.first.message
@@ -689,7 +689,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       sock.write "foo\n"
       sock.close
 
-      waiting(10){ sleep 0.1 until received.bytesize == 4 || errors.size == 1 }
+      waiting(10){ sleep 0.1 until received.bytesize == 4 && errors.size == 1 }
       assert_equal "foo\n", received
       assert_equal 1, errors.size
       assert_equal "BUG: this event is disabled for udp: close", errors.first.message
