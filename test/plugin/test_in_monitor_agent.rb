@@ -460,11 +460,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
           "output_plugin" => true,
           "plugin_category" => "output",
           "plugin_id" => "test_out_fail_write",
-          "retry_count" => 2,
           "type" => "test_out_fail_write",
-          "retry" => {
-              "steps" => 1
-          }
       }
       output = @ra.outputs[0]
       output.start
@@ -473,12 +469,21 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       # flush few times to check steps
       2.times do
         output.force_flush
+        # output.force_flush calls #submit_flush_all, but #submit_flush_all skips to call #submit_flush_once when @retry exists.
+        # So that forced flush in retry state should be done by calling #submit_flush_once directly.
+        output.submit_flush_once
+        sleep 0.1 until output.buffer.queued?
       end
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json"))
       test_out_fail_write_response = response["plugins"][1]
       # remove dynamic keys
-      ["start", "next_time"].each { |key| test_out_fail_write_response["retry"].delete(key) }
+      response_retry_count = test_out_fail_write_response.delete("retry_count")
+      response_retry = test_out_fail_write_response.delete("retry")
       assert_equal(expected_test_out_fail_write_response, test_out_fail_write_response)
+      assert{ response_retry.has_key?("steps") }
+      # it's very hard to check exact retry count (because retries are called by output flush thread scheduling)
+      assert{ response_retry_count >= 1 && response_retry["steps"] >= 0 }
+      assert{ response_retry_count == response_retry["steps"] + 1 }
     end
   end
 end
