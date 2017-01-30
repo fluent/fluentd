@@ -186,6 +186,20 @@ class LocalStorageTest < Test::Unit::TestCase
       assert_equal '2', @p.get('key1')
       assert_equal 4, @p.get('key2')
     end
+
+    test 'works with customized path by specified usage' do
+      root_dir = File.join(TMP_DIR, 'root')
+      expected_storage_path = File.join(root_dir, 'worker0', 'local_storage_test', 'storage.usage.json')
+      conf = config_element('ROOT', 'usage', {'@id' => 'local_storage_test'})
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => root_dir) do
+        @d.configure(conf)
+      end
+      @d.start
+      @p = @d.storage_create(usage: 'usage', type: 'local')
+
+      assert_equal expected_storage_path, @p.path
+      assert @p.store.empty?
+    end
   end
 
   sub_test_case 'configured with root-dir and plugin id, and multi workers' do

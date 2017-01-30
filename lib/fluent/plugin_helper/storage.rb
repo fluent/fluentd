@@ -33,6 +33,9 @@ module Fluent
         if conf && !conf.arg.empty?
           usage = conf.arg
         end
+        if !usage.empty? && usage !~ /^[a-zA-Z][-_.a-zA-Z0-9]*$/
+          raise Fluent::ConfigError, "Argument in <storage ARG> uses invalid characters: '#{usage}'"
+        end
 
         s = @_storages[usage]
         if s && s.running
@@ -59,7 +62,7 @@ module Fluent
                      conf = Hash[conf.map{|k,v| [k.to_s, v]}]
                      Fluent::Config::Element.new('storage', usage, conf, [])
                    when nil
-                     Fluent::Config::Element.new('storage', usage, {}, [])
+                     Fluent::Config::Element.new('storage', usage, {'@type' => type}, [])
                    else
                      raise ArgumentError, "BUG: conf must be a Element, Hash (or unspecified), but '#{conf.class}'"
                    end
@@ -98,6 +101,9 @@ module Fluent
         super
 
         @storage_configs.each do |section|
+          if !section.usage.empty? && section.usage !~ /^[a-zA-Z][-_.a-zA-Z0-9]*$/
+            raise Fluent::ConfigError, "Argument in <storage ARG> uses invalid characters: '#{section.usage}'"
+          end
           if @_storages[section.usage]
             raise Fluent::ConfigError, "duplicated storages configured: #{section.usage}"
           end
