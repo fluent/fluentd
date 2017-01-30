@@ -24,6 +24,12 @@ module ConfigurableSpec
     end
   end
 
+  class Base1Safe < Base1
+    config_set_default :name1, "basex1"
+    config_set_default :name2, "basex2"
+    config_set_default :opt1, :baz
+  end
+
   class Base2 < Base1
     config_set_default :name2, "base2"
     config_set_default :name4, "base2"
@@ -86,6 +92,40 @@ module ConfigurableSpec
     def get_all
       ary = super
       ary + [@nodes, @description1, @description2, @description3]
+    end
+  end
+
+  class Base4Safe < Base4
+    # config_section :node, param_name: :nodes do
+    #   config_argument :num, :integer
+    #   config_param :name, :string, default: "node"
+    #   config_param :type, :string, default: "b4"
+    # end
+    # config_section :description1, required: false, multi: false do
+    #   config_argument :note, :string, default: "desc1"
+    #   config_param :text, :string
+    # end
+    # config_section :description2, required: true, multi: false do
+    #   config_argument :note, :string, default: "desc2"
+    #   config_param :text, :string
+    # end
+    # config_section :description3, required: true, multi: true do
+    #   config_argument :note, default: "desc3" do |val|
+    #     "desc3: #{val}"
+    #   end
+    #   config_param :text, :string
+    # end
+    config_section :node do
+      config_set_default :num, 0
+    end
+    config_section :description1 do
+      config_set_default :text, "teeeext"
+    end
+    config_section :description2 do
+      config_set_default :text, nil
+    end
+    config_section :description3 do
+      config_set_default :text, "yay"
     end
   end
 
@@ -407,6 +447,61 @@ module Fluent::Config
         end
       end
 
+      sub_test_case '#configured_section_create' do
+        test 'raises configuration error if required param exists but no configuration element is specified' do
+          obj = ConfigurableSpec::Base1.new
+          assert_raise(Fluent::ConfigError.new("'name1' parameter is required")) do
+            obj.configured_section_create(nil)
+          end
+        end
+
+        test 'creates root section with default values if name and config are specified with nil' do
+          obj = ConfigurableSpec::Base1Safe.new
+          root = obj.configured_section_create(nil)
+
+          assert_equal "node", root.node
+          assert_false root.flag1
+          assert_true  root.flag2
+          assert_equal "basex1", root.name1
+          assert_equal "basex2", root.name2
+          assert_equal "base1", root.name3
+          assert_equal "base1", root.name4
+          assert_equal :baz, root.opt1
+          assert_equal :foo, root.opt2
+        end
+
+        test 'creates root section with default values if name is nil and config is empty element' do
+          obj = ConfigurableSpec::Base1Safe.new
+          root = obj.configured_section_create(nil, config_element())
+
+          assert_equal "node", root.node
+          assert_false root.flag1
+          assert_true  root.flag2
+          assert_equal "basex1", root.name1
+          assert_equal "basex2", root.name2
+          assert_equal "base1", root.name3
+          assert_equal "base1", root.name4
+          assert_equal :baz, root.opt1
+          assert_equal :foo, root.opt2
+        end
+
+        test 'creates root section with specified value if name is nil and configuration element is specified' do
+          obj = ConfigurableSpec::Base1Safe.new
+          root = obj.configured_section_create(nil, config_element('match', '', {'node' => "nodename", 'flag1' => 'true', 'name1' => 'fixed1', 'opt1' => 'foo'}))
+
+          assert_equal "nodename", root.node
+          assert_equal "fixed1", root.name1
+          assert_true root.flag1
+          assert_equal :foo, root.opt1
+
+          assert_true  root.flag2
+          assert_equal "basex2", root.name2
+          assert_equal "base1", root.name3
+          assert_equal "base1", root.name4
+          assert_equal :foo, root.opt2
+        end
+      end
+
       sub_test_case '#configure' do
         test 'returns configurable object itself' do
           b2 = ConfigurableSpec::Base2.new
@@ -523,6 +618,65 @@ module Fluent::Config
           b3 = ConfigurableSpec::Base3.new
           assert_false(b3.class.merged_configure_proxy.sections[:node].required?)
           assert_true(b3.class.merged_configure_proxy.sections[:node].multi?)
+        end
+      end
+
+      sub_test_case '#configured_section_create' do
+        test 'raises configuration error if required param exists but no configuration element is specified' do
+          obj = ConfigurableSpec::Base4.new
+          assert_raise(Fluent::ConfigError.new("'<node ARG>' section requires argument")) do
+            obj.configured_section_create(:node)
+          end
+          assert_raise(Fluent::ConfigError.new("'text' parameter is required")) do
+            obj.configured_section_create(:description1)
+          end
+        end
+
+        test 'creates any defined section with default values if name is nil and config is not specified' do
+          obj = ConfigurableSpec::Base4Safe.new
+          node = obj.configured_section_create(:node)
+          assert_equal 0, node.num
+          assert_equal "node", node.name
+          assert_equal "b4", node.type
+
+          desc1 = obj.configured_section_create(:description1)
+          assert_equal "desc1", desc1.note
+          assert_equal "teeeext", desc1.text
+        end
+
+        test 'creates any defined section with default values if name is nil and config is empty element' do
+          obj = ConfigurableSpec::Base4Safe.new
+          node = obj.configured_section_create(:node, config_element())
+          assert_equal 0, node.num
+          assert_equal "node", node.name
+          assert_equal "b4", node.type
+
+          desc1 = obj.configured_section_create(:description1, config_element())
+          assert_equal "desc1", desc1.note
+          assert_equal "teeeext", desc1.text
+        end
+
+        test 'creates any defined section with specified value if name is nil and configuration element is specified' do
+          obj = ConfigurableSpec::Base4Safe.new
+          node = obj.configured_section_create(:node, config_element('node', '1', {'name' => 'node1', 'type' => 'b1'}))
+          assert_equal 1, node.num
+          assert_equal "node1", node.name
+          assert_equal "b1", node.type
+
+          desc1 = obj.configured_section_create(:description1, config_element('description1', 'desc one', {'text' => 't'}))
+          assert_equal "desc one", desc1.note
+          assert_equal "t", desc1.text
+        end
+
+        test 'creates a defined section instance even if it is defined as multi:true' do
+          obj = ConfigurableSpec::Base4Safe.new
+          desc3 = obj.configured_section_create(:description3)
+          assert_equal "desc3", desc3.note
+          assert_equal "yay", desc3.text
+
+          desc3 = obj.configured_section_create(:description3, config_element('description3', 'foo'))
+          assert_equal "desc3: foo", desc3.note
+          assert_equal "yay", desc3.text
         end
       end
 

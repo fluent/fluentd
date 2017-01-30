@@ -75,6 +75,10 @@ module Fluent
         @params[key.to_sym]
       end
 
+      def []=(key, value)
+        @params[key.to_sym] = value
+      end
+
       def respond_to?(symbol, include_all=false)
         case symbol
         when :inspect, :nil?, :to_h, :+, :instance_of?, :kind_of?, :[], :respond_to?, :respond_to_missing?

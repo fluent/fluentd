@@ -154,7 +154,7 @@ module Fluent::Plugin
 
       shared_socket = system_config.workers > 1
 
-      log.info "listening a tcp port", port: @port, bind: @bind
+      log.info "listening port", port: @port, bind: @bind
       server_create_connection(
         :in_forward_server, @port,
         bind: @bind,

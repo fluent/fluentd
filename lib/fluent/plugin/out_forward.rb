@@ -33,12 +33,17 @@ module Fluent::Plugin
 
     LISTEN_PORT = 24224
 
+    desc 'The transport protocol.'
+    config_param :transport, :enum, list: [:tcp, :tls], default: :tcp
+    # TODO: TLS session cache/tickets
+    # TODO: Connection keepalive
+
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, default: 60
     # TODO: add linger_timeout, recv_timeout
 
-    desc 'The transport protocol to use for heartbeats.(udp,tcp,none)'
-    config_param :heartbeat_type, :enum, list: [:tcp, :udp, :none], default: :tcp
+    desc 'The protocol to use for heartbeats (default is the same with "transport").'
+    config_param :heartbeat_type, :enum, list: [:transport, :tcp, :udp, :none], default: :transport
     desc 'The interval of the heartbeat packer.'
     config_param :heartbeat_interval, :time, default: 1
     desc 'The wait time before accepting a server fault recovery.'
@@ -75,6 +80,19 @@ module Fluent::Plugin
     desc 'Compress buffered data.'
     config_param :compress, :enum, list: [:text, :gzip], default: :text
 
+    desc 'The default version of TLS transport.'
+    config_param :tls_version, :enum, list: Fluent::PluginHelper::Socket::TLS_SUPPORTED_VERSIONS, default: Fluent::PluginHelper::Socket::TLS_DEFAULT_VERSION
+    desc 'The cipher configuration of TLS transport.'
+    config_param :tls_ciphers, :string, default: Fluent::PluginHelper::Socket::CIPHERS_DEFAULT
+    desc 'Skip all verification of certificates or not.'
+    config_param :tls_insecure_mode, :bool, default: false
+    desc 'Allow self signed certificates or not.'
+    config_param :tls_allow_self_signed_cert, :bool, default: false
+    desc 'Verify hostname of servers and certificates or not in TLS transport.'
+    config_param :tls_verify_hostname, :bool, default: true
+    desc 'The additional CA certificate path for TLS.'
+    config_param :tls_cert_path, :array, value_type: :string, default: nil
+
     config_section :security, required: false, multi: false do
       desc 'The hostname'
       config_param :self_hostname, :string
@@ -85,7 +103,7 @@ module Fluent::Plugin
     config_section :server, param_name: :servers do
       desc "The IP address or host name of the server."
       config_param :host, :string
-      desc "The name of the server. Used in log messages."
+      desc "The name of the server. Used for logging and certificate verification in TLS transport (when host is address)."
       config_param :name, :string, default: nil
       desc "The port number of the host."
       config_param :port, :integer, default: LISTEN_PORT
@@ -136,9 +154,29 @@ module Fluent::Plugin
       @read_interval = @read_interval_msec / 1000.0
       @recover_sample_size = @recover_wait / @heartbeat_interval
 
+      if @heartbeat_type == :tcp
+        log.warn "'heartbeat_type tcp' is deprecated. use 'transport' instead."
+        @heartbeat_type = :transport
+      end
+
       if @dns_round_robin
         if @heartbeat_type == :udp
-          raise Fluent::ConfigError, "forward output heartbeat type must be 'tcp' or 'none' to use dns_round_robin option"
+          raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
+        end
+      end
+
+      if @transport == :tls
+        if @tls_cert_path && !@tls_cert_path.empty?
+          @tls_cert_path.each do |path|
+            raise Fluent::ConfigError, "specified cert path does not exist:#{path}" unless File.exist?(path)
+            raise Fluent::ConfigError, "specified cert path is not readable:#{path}" unless File.readable?(path)
+          end
+        end
+
+        if @tls_insecure_mode
+          log.warn "TLS transport is configured in insecure way"
+          @tls_verify_hostname = false
+          @tls_allow_self_signed_cert = true
         end
       end
 
@@ -275,14 +313,34 @@ module Fluent::Plugin
       raise NoNodesAvailable, "no nodes are available"
     end
 
-    def create_transfer_socket(host, port, &block)
-      socket_create_tcp(
-        host, port,
-        linger_timeout: @send_timeout,
-        send_timeout: @send_timeout,
-        recv_timeout: @ack_response_timeout,
-        &block
-      )
+    def create_transfer_socket(host, port, hostname, &block)
+      case @transport
+      when :tls
+        socket_create_tls(
+          host, port,
+          version: @tls_version,
+          ciphers: @tls_ciphers,
+          insecure: @tls_insecure_mode,
+          verify_fqdn: @tls_verify_hostname,
+          fqdn: hostname,
+          allow_self_signed_cert: @tls_allow_self_signed_cert,
+          cert_paths: @tls_cert_path,
+          linger_timeout: @send_timeout,
+          send_timeout: @send_timeout,
+          recv_timeout: @ack_response_timeout,
+          &block
+        )
+      when :tcp
+        socket_create_tcp(
+          host, port,
+          linger_timeout: @send_timeout,
+          send_timeout: @send_timeout,
+          recv_timeout: @ack_response_timeout,
+          &block
+        )
+      else
+        raise "BUG: unknown transport protocol #{@transport}"
+      end
     end
 
     # MessagePack FixArray length is 3
@@ -458,6 +516,14 @@ module Fluent::Plugin
         @available = true
         @state = nil
 
+        # @hostname is used for certificate verification & TLS SNI
+        host_is_hostname = !(IPAddr.new(@host) rescue false)
+        @hostname = case
+                    when host_is_hostname then @host
+                    when @name then @name
+                    else nil
+                    end
+
         @usock = nil
 
         @username = server.username
@@ -557,7 +623,7 @@ module Fluent::Plugin
       end
 
       def send_data(tag, chunk)
-        sock = @sender.create_transfer_socket(resolved_host, port)
+        sock = @sender.create_transfer_socket(resolved_host, port, @hostname)
         begin
           send_data_actual(sock, tag, chunk)
         rescue
@@ -589,8 +655,8 @@ module Fluent::Plugin
         end
 
         case @sender.heartbeat_type
-        when :tcp
-          @sender.create_transfer_socket(dest_addr, port) do |sock|
+        when :transport
+          @sender.create_transfer_socket(dest_addr, port, @hostname) do |sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
