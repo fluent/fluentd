@@ -35,11 +35,6 @@ matrix:
   allow_failures:
     - rvm: ruby-head
 
-# no valid version/env for ruby 2.3 right now
-# - rvm: 2.3.0
-#   os: osx
-#   osx_image: ....
-
 branches:
   only:
     - master
