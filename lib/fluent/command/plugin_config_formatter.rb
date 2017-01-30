@@ -138,13 +138,14 @@ class FluentPluginConfigFormatter
       end
       dumped << "\n"
     end
-    configs = dumped_config.values
-    root_section = configs.shift
-    dumped << "## #{@plugin.class.name}\n\n"
-    configs.each do |config|
-      root_section.update(config)
+    dumped_config.each do |name, config|
+      if name == @plugin.class.name
+        dumped << "## #{name}\n\n"
+        dumped << dump_section_markdown(config)
+      else
+        dumped << "* See also: #{name}\n\n"
+      end
     end
-    dumped << dump_section_markdown(root_section)
     dumped
   end
 
