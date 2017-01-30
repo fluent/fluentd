@@ -39,7 +39,7 @@ class ClockTest < ::Test::Unit::TestCase
     end
 
     test 'Clock.return raises an error if it is called in block' do
-      assert_raise "invalid return while running code in blocks" do
+      assert_raise RuntimeError.new("invalid return while running code in blocks") do
         Fluent::Clock.freeze do
           Fluent::Clock.return
         end
@@ -148,14 +148,16 @@ class ClockTest < ::Test::Unit::TestCase
       t2 = t0 + 30
       assert_kind_of Time, t2
 
+      # 31 is for error of floating point value
       Fluent::Clock.freeze(t1) do
         c1 = Fluent::Clock.now
-        assert{ c1 >= c0 - 30 && c1 <= c0 - 30 + 10 } # +10 is for threading schedule error
+        assert{ c1 >= c0 - 31 && c1 <= c0 - 31 + 10 } # +10 is for threading schedule error
       end
 
+      # 29 is for error of floating point value
       Fluent::Clock.freeze(t2) do
         c2 = Fluent::Clock.now
-        assert{ c2 >= c0 + 30 && c2 <= c0 + 30 + 10 } # +10 is for threading schedule error
+        assert{ c2 >= c0 + 29 && c2 <= c0 + 29 + 10 } # +10 is for threading schedule error
       end
     end
   end
