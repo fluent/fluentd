@@ -706,6 +706,11 @@ class OutputTest < Test::Unit::TestCase
       i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
     end
 
+    test 'flush_interval is ignored when flush_mode is not interval' do
+      mock(@i.log).warn("'flush_interval' is ignored because 'flush_mode' is not 'interval': 'lazy'")
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => 60*30, 'flush_interval' => 10})]))
+    end
+
     test "Warn if primary type is different from secondary type and either primary or secondary has custom_format" do
       o = create_output(:buffered)
       mock(o.log).warn("secondary type should be same with primary one",

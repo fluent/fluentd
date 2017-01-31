@@ -310,6 +310,10 @@ module Fluent
             log.warn "'flush_at_shutdown' is false, and buffer plugin '#{buf_type}' is not persistent buffer."
             log.warn "your configuration will lose buffered data at shutdown. please confirm your configuration again."
           end
+
+          if @flush_mode != :interval && buffer_conf.has_key?('flush_interval')
+            log.warn "'flush_interval' is ignored because 'flush_mode' is not 'interval': '#{@flush_mode}'"
+          end
         end
 
         if @secondary_config
