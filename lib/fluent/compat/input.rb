@@ -16,6 +16,7 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/input'
+require 'fluent/process'
 require 'fluent/compat/call_super_mixin'
 
 module Fluent
