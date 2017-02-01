@@ -107,6 +107,11 @@ EOT
         end
       end
 
+      #
+      # Use this method with v0.12 compatibility layer.
+      #
+      # For v0.14 API, use `driver.logs` instead.
+      #
       def capture_log(driver)
         tmp = driver.instance.log.out
         driver.instance.log.out = StringIO.new
