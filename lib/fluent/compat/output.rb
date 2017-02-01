@@ -26,6 +26,7 @@ require 'fluent/compat/record_filter_mixin'
 require 'fluent/compat/output_chain'
 require 'fluent/timezone'
 require 'fluent/mixin'
+require 'fluent/process'
 require 'fluent/event'
 
 require 'fluent/plugin_helper/compat_parameters'
