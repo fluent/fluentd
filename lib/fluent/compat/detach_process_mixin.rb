@@ -16,6 +16,9 @@
 
 module Fluent
   module Compat
+    module DetachProcessMixin
+    end
+
     module DetachMultiProcessMixin
     end
   end

@@ -14,8 +14,9 @@
 #    limitations under the License.
 #
 
-require 'fluent/compat/detach_multi_process_mixin'
+require 'fluent/compat/detach_process_mixin'
 
 module Fluent
+  DetachProcessMixin = Fluent::Compat::DetachProcessMixin
   DetachMultiProcessMixin = Fluent::Compat::DetachMultiProcessMixin
 end
