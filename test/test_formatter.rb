@@ -143,6 +143,14 @@ module FormatterTest
     end
 
     data('oj' => 'oj', 'yajl' => 'yajl')
+    def test_format_without_nl(data)
+      @formatter.configure('json_parser' => data, 'add_newline' => false)
+      formatted = @formatter.format(tag, @time, record)
+
+      assert_equal(Yajl.dump(record), formatted)
+    end
+
+    data('oj' => 'oj', 'yajl' => 'yajl')
     def test_format_with_symbolic_record(data)
       @formatter.configure('json_parser' => data)
       formatted = @formatter.format(tag, @time, symbolic_record)
@@ -252,6 +260,13 @@ module FormatterTest
       assert_equal("message:awesome\n", formatted)
     end
 
+    def test_format_without_nl
+      @formatter.configure('add_newline' => false)
+      formatted = @formatter.format(tag, @time, record)
+
+      assert_equal("message:awesome", formatted)
+    end
+
     def test_format_with_tag
       @formatter.configure('include_tag_key' => 'true')
       formatted = @formatter.format(tag, @time, record)
@@ -317,6 +332,15 @@ module FormatterTest
         'message2' => 'awesome2'
       })
       assert_equal("\"awesome\",\"awesome2\"\n", formatted)
+    end
+
+    def test_format_without_nl
+      @formatter.configure('fields' => 'message,message2', 'add_newline' => false)
+      formatted = @formatter.format(tag, @time, {
+        'message' => 'awesome',
+        'message2' => 'awesome2'
+      })
+      assert_equal("\"awesome\",\"awesome2\"", formatted)
     end
 
     def test_format_with_tag

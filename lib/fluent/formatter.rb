@@ -135,6 +135,7 @@ module Fluent
       include StructuredFormatMixin
 
       config_param :json_parser, :string, default: 'oj'
+      config_param :add_newline, :bool, default: true
 
       def configure(conf)
         super
@@ -147,10 +148,19 @@ module Fluent
         rescue LoadError
           @dump_proc = Yajl.method(:dump)
         end
+
+        # format json is used on various highload environment, so re-define method to skip if check
+        unless @add_newline
+          define_singleton_method(:format, method(:format_without_nl))
+        end
       end
 
       def format_record(record)
         "#{@dump_proc.call(record)}\n"
+      end
+
+      def format_without_nl(tag, time, record)
+        @dump_proc.call(record)
       end
     end
 
@@ -158,8 +168,14 @@ module Fluent
       include HandleTagAndTimeMixin
       include StructuredFormatMixin
 
+      config_param :add_newline, :bool, default: true
+
       def format_record(record)
-        "#{record.to_s}\n"
+        if @add_newline
+          "#{record.to_s}\n"
+        else
+          record.to_s
+        end
       end
     end
 
@@ -177,6 +193,7 @@ module Fluent
 
       config_param :delimiter, :string, default: "\t"
       config_param :label_delimiter, :string, default: ":"
+      config_param :add_newline, :bool, default: true
 
       def format(tag, time, record)
         filter_record(tag, time, record)
@@ -184,7 +201,7 @@ module Fluent
           result << @delimiter if result.length.nonzero?
           result << "#{pair.first}#{@label_delimiter}#{pair.last}"
         }
-        formatted << "\n"
+        formatted << "\n".freeze if @add_newline
         formatted
       end
     end
@@ -197,6 +214,7 @@ module Fluent
       end
       config_param :force_quotes, :bool, default: true
       config_param :fields, :array, value_type: :string
+      config_param :add_newline, :bool, default: true
 
       def initialize
         super
@@ -217,7 +235,9 @@ module Fluent
             memo << record[key]
             memo
         end
-        CSV.generate_line(row, @generate_opts)
+        line = CSV.generate_line(row, @generate_opts)
+        line.chomp! unless @add_newline
+        line
       end
     end
 
