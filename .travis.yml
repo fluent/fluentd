@@ -3,10 +3,10 @@ language: ruby
 rvm:
   - 2.0.0
   - 2.1
-  - 2.2.3
-  - 2.3.0
+  - 2.2.6
+  - 2.3.3
+  - 2.4.0
   - ruby-head
-  - rbx-2
 
 os:
   - linux
@@ -15,7 +15,6 @@ os:
 branches:
   only:
     - master
-    - v0.10
     - v0.12
     - v0.14
 
@@ -29,6 +28,3 @@ sudo: false
 matrix:
   allow_failures:
     - rvm: ruby-head
-    - rvm: rbx-2
-    - rvm: 2.3.0
-    - rvm: 1.9.3
