@@ -394,6 +394,7 @@ module Fluent
 
     # TODO: use %i() after drop ruby v1.9.3 support.
     IGNORE_ATTRIBUTES = %W(@config_root_section @config @masked_config).map(&:to_sym)
+    EMPTY_RESULT = {}
 
     # get monitor info from the plugin `pe` and return a hash object
     def get_monitor_info(pe, opts={})
@@ -413,9 +414,11 @@ module Fluent
         end
       }
 
-      if opts[:with_retry] && pe.instance_variable_defined?(:@num_errors) &&
-         (pe.instance_variable_get(:@num_errors) > 0)
-        obj['retry'] = get_retry_info(pe)
+      if opts[:with_retry]
+        num_errors = pe.instance_variable_get(:@num_errors)
+        if num_errors
+          obj['retry'] = num_errors.zero? ? EMPTY_RESULT : get_retry_info(pe, num_errors)
+        end
       end
 
       # include all instance variables if :with_debug_info is set
@@ -441,18 +444,10 @@ module Fluent
       obj
     end
 
-    RETRY_INFO = {
-      'steps' => '@num_errors',
-      'next_time' => '@next_retry_time',
-    }.freeze
-
-    def get_retry_info(pe)
+    def get_retry_info(pe, num_errors)
       retry_variables = {}
-
-      RETRY_INFO.each_pair { |key, param|
-        retry_variables[key] = pe.instance_variable_get(param)
-      }
-
+      retry_variables['steps'] = num_errors
+      retry_variables['next_time'] = Time.at(pe.instance_variable_get('@next_retry_time'.freeze))
       retry_variables
     end
 
