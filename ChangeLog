@@ -1,5 +1,26 @@
 # v0.12
 
+## Release 0.12.32 - 2017/02/02
+
+### New features / Enhancement
+
+* formatter: Port add_newline parameter to v012
+  https://github.com/fluent/fluentd/pull/1447
+* record_transformer: remove_keys processing should be last
+  https://github.com/fluent/fluentd/pull/1433
+* in_tail: Capture unmatched lines
+  https://github.com/fluent/fluentd/pull/1421
+* in_monitor_agent: Port #1393 to v0.12 for with_ivars query paretemer
+  https://github.com/fluent/fluentd/pull/1402
+* in_monitor_agent: Port #1387 to v0.12 for retry field
+  https://github.com/fluent/fluentd/pull/1387
+* Allow msgpack-ruby v1
+
+### Bug fixes
+
+* in_exec: Ensure to sleep for prevending fork bomb
+  https://github.com/fluent/fluentd/pull/1348
+
 ## Release 0.12.31 - 2016/12/14
 
 ### New features / Enhancement
