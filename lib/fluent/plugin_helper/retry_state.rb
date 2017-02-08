@@ -64,7 +64,12 @@ module Fluent
           @secondary_threshold = secondary_threshold
           if @secondary
             raise "BUG: secondary_transition_threshold MUST be between 0 and 1" if @secondary_threshold <= 0 || @secondary_threshold >= 1
-            @secondary_transition_at = @start + timeout * @secondary_threshold
+            max_retry_timeout = timeout
+            if max_steps
+              timeout_by_max_steps = calc_max_retry_timeout(max_steps)
+              max_retry_timeout = timeout_by_max_steps if timeout_by_max_steps < max_retry_timeout
+            end
+            @secondary_transition_at = @start + max_retry_timeout * @secondary_threshold
             @secondary_transition_steps = nil
           end
         end
@@ -137,39 +142,58 @@ module Fluent
 
       class ExponentialBackOffRetry < RetryStateMachine
         def initialize(title, wait, timeout, forever, max_steps, randomize, randomize_width, backoff_base, max_interval, secondary, secondary_threathold)
-          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
           @constant_factor = wait
           @backoff_base = backoff_base
           @max_interval = max_interval
+
+          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
 
           @next_time = @start + @constant_factor
         end
 
         def naive_next_time(retry_next_times)
-          # make it infinite if calculated "interval" is too big
-          interval = @constant_factor.to_f * ( @backoff_base ** ( retry_next_times - 1 ) )
-          intr = if interval.finite?
-                   if @max_interval && interval > @max_interval
-                     @max_interval
-                   else
-                     interval
-                   end
-                 else
-                   interval
-                 end
+          intr = calc_interval(retry_next_times)
           current_time + randomize(intr)
+        end
+
+        def calc_max_retry_timeout(max_steps)
+          result = 0
+          max_steps.times { |i|
+            result += calc_interval(i)
+          }
+          result
+        end
+
+        def calc_interval(num)
+          # make it infinite if calculated "interval" is too big
+          interval = @constant_factor.to_f * (@backoff_base ** (num - 1))
+          if interval.finite?
+            if @max_interval && interval > @max_interval
+              @max_interval
+            else
+              interval
+            end
+          else
+            interval
+          end
         end
       end
 
       class PeriodicRetry < RetryStateMachine
         def initialize(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
-          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
           @retry_wait = wait
+
+          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
+
           @next_time = @start + @retry_wait
         end
 
         def naive_next_time(retry_next_times)
           current_time + randomize(@retry_wait)
+        end
+
+        def calc_max_retry_timeout(max_steps)
+          @retry_wait * max_steps
         end
       end
     end
