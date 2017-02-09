@@ -141,12 +141,12 @@ module Fluent
       end
 
       class ExponentialBackOffRetry < RetryStateMachine
-        def initialize(title, wait, timeout, forever, max_steps, randomize, randomize_width, backoff_base, max_interval, secondary, secondary_threathold)
+        def initialize(title, wait, timeout, forever, max_steps, randomize, randomize_width, backoff_base, max_interval, secondary, secondary_threshold)
           @constant_factor = wait
           @backoff_base = backoff_base
           @max_interval = max_interval
 
-          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
+          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threshold)
 
           @next_time = @start + @constant_factor
         end
@@ -180,10 +180,10 @@ module Fluent
       end
 
       class PeriodicRetry < RetryStateMachine
-        def initialize(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
+        def initialize(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threshold)
           @retry_wait = wait
 
-          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threathold)
+          super(title, wait, timeout, forever, max_steps, randomize, randomize_width, secondary, secondary_threshold)
 
           @next_time = @start + @retry_wait
         end
