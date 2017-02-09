@@ -16,6 +16,8 @@ Don't use Github issue for asking questions. Here are examples:
 We may close such questions to keep clear repository for developers and users.
 Github issue is mainly for submitting a bug report or feature request. See below.
 
+If you can't judge your case is a bug or not, use mailing list or slack first.
+
 ## Found a bug?
 
 If you find a bug of Fluentd or a mistake in the documentation, you can help us by
