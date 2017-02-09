@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/parser'
+require 'fluent/plugin/parser_regexp'
 
 module Fluent
   module Plugin
