@@ -614,7 +614,4 @@ module Fluent
       end
     end
   end
-
-  # Some input plugins refer BufferQueueLimitError for throttling
-  BufferQueueLimitError = ::Fluent::Plugin::Buffer::BufferOverflowError
 end
