@@ -23,4 +23,7 @@ module Fluent
   ObjectBufferedOutput = Fluent::Compat::ObjectBufferedOutput
   TimeSlicedOutput     = Fluent::Compat::TimeSlicedOutput
   MultiOutput          = Fluent::Compat::MultiOutput
+
+  # Some input plugins refer BufferQueueLimitError for throttling
+  BufferQueueLimitError = Fluent::Compat::BufferQueueLimitError
 end

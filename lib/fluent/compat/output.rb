@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin'
+require 'fluent/plugin/buffer'
 require 'fluent/plugin/output'
 require 'fluent/plugin/bare_output'
 require 'fluent/compat/call_super_mixin'
@@ -36,6 +37,7 @@ require 'time'
 module Fluent
   module Compat
     NULL_OUTPUT_CHAIN = NullOutputChain.instance
+    BufferQueueLimitError = ::Fluent::Plugin::Buffer::BufferOverflowError
 
     module CompatOutputUtils
       def self.buffer_section(conf)

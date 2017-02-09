@@ -2,6 +2,7 @@ require_relative 'helper'
 require 'fluent/test'
 require 'fluent/output'
 require 'fluent/output_chain'
+require 'fluent/plugin/buffer'
 require 'timecop'
 require 'flexmock/test_unit'
 
@@ -141,6 +142,10 @@ module FluentOutputTest
       ])
 
       assert_not_nil d.instance.instance_variable_get(:@secondary).router
+    end
+
+    test 'BufferQueueLimitError compatibility' do
+      assert_equal Fluent::Plugin::Buffer::BufferOverflowError, Fluent::BufferQueueLimitError
     end
   end
 
