@@ -1217,4 +1217,8 @@ class BufferTest < Test::Unit::TestCase
       assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
     end
   end
+
+  test 'BufferQueueLimitError compatibility' do
+    assert_equal Fluent::Plugin::Buffer::BufferOverflowError, Fluent::BufferQueueLimitError
+  end
 end
