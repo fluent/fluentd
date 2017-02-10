@@ -184,7 +184,7 @@ module Fluent::Plugin
         path = date.strftime(path)
         if path.include?('*')
           paths += Dir.glob(path).select { |p|
-            if File.readable?(p)
+            if File.readable?(p) && !File.directory?(p)
               true
             else
               log.warn "#{p} unreadable. It is excluded and would be examined next time."
