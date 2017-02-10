@@ -847,6 +847,25 @@ class TailInputTest < Test::Unit::TestCase
       plugin = create_driver(exclude_config, false).instance
       assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
     end
+
+    def test_log_file_without_extension
+      expected_files = [
+        'test/plugin/data/log/bar',
+        'test/plugin/data/log/foo/bar.log',
+        'test/plugin/data/log/foo/bar2',
+        'test/plugin/data/log/test.log'
+      ]
+
+      config = config_element("", "", {
+        "tag" => "tail",
+        "path" => "test/plugin/data/log/**/*",
+        "format" => "none",
+        "pos_file" => "#{TMP_DIR}/tail.pos"
+      })
+
+      plugin = create_driver(config, false).instance
+      assert_equal expected_files, plugin.expand_paths.sort
+    end
   end
 
   def test_z_refresh_watchers
