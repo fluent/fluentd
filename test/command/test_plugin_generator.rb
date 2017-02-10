@@ -57,7 +57,9 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
 
   test "unknown license" do
     out = capture_stdout do
-      FluentPluginGenerator.new(["--license=unknown", "filter", "fake"]).call
+      assert_raise(SystemExit) do
+        FluentPluginGenerator.new(["--license=unknown", "filter", "fake"]).call
+      end
     end
     assert { out.lines.include?("License: unknown\n") }
   end
