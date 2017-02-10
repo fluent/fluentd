@@ -308,9 +308,13 @@ module Fluent::Plugin
         raise "failed to expand `#{str}` : error = #{e}"
       end
 
-      class CleanroomExpander < BasicObject
+      class CleanroomExpander
         def expand(__str_to_eval__, tag, time, record, tag_parts, tag_prefix, tag_suffix, hostname)
           instance_eval(__str_to_eval__)
+        end
+
+        (Object.instance_methods).each do |m|
+          undef_method m unless m.to_s =~ /^__|respond_to_missing\?|object_id|public_methods|instance_eval|method_missing|define_singleton_method|respond_to\?|new_ostruct_member/
         end
       end
     end
