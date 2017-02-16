@@ -163,7 +163,8 @@ module Fluent::Plugin
     end
 
     def shutdown
-      stop_watchers(@tails.keys, true)
+      # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
+      stop_watchers(@tails.keys, immediate: true, remove_watcher: false)
       @pf_file.close if @pf_file
 
       super
@@ -211,7 +212,7 @@ module Fluent::Plugin
       unwatched = existence_paths - target_paths
       added = target_paths - existence_paths
 
-      stop_watchers(unwatched, false, true) unless unwatched.empty?
+      stop_watchers(unwatched, immediate: false, unwatched: true) unless unwatched.empty?
       start_watchers(added) unless added.empty?
     end
 
@@ -243,9 +244,9 @@ module Fluent::Plugin
       }
     end
 
-    def stop_watchers(paths, immediate = false, unwatched = false)
+    def stop_watchers(paths, immediate: false, unwatched: false, remove_watcher: true)
       paths.each { |path|
-        tw = @tails[path]
+        tw = remove_watcher ? @tails.delete(path) : @tails[path]
         if tw
           tw.unwatched = unwatched
           if immediate
