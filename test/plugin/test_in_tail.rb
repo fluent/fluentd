@@ -12,19 +12,23 @@ class TailInputTest < Test::Unit::TestCase
 
   def setup
     Fluent::Test.setup
-    FileUtils.rm_rf(TMP_DIR, secure: true)
-    if File.exist?(TMP_DIR)
-      # ensure files are closed for Windows, on which deleted files
-      # are still visible from filesystem
-      GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
-      FileUtils.remove_entry_secure(TMP_DIR, true)
-    end
-    FileUtils.mkdir_p(TMP_DIR)
+    cleanup_directory(TMP_DIR)
   end
 
   def teardown
     super
     Fluent::Engine.stop
+  end
+
+  def cleanup_directory(path)
+    FileUtils.rm_rf(path, secure: true)
+    if File.exist?(path)
+      # ensure files are closed for Windows, on which deleted files
+      # are still visible from filesystem
+      GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
+      FileUtils.remove_entry_secure(path, true)
+    end
+    FileUtils.mkdir_p(path)
   end
 
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
@@ -885,7 +889,8 @@ class TailInputTest < Test::Unit::TestCase
       end
 
       assert_equal 1, d.instance.instance_variable_get(:@tails).keys.size
-      File.unlink("#{TMP_DIR}/tail.txt")
+      cleanup_directory(TMP_DIR)
+      waiting(20) { sleep 0.1 until Dir.glob("#{TMP_DIR}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
 
       # Previous implementaion has an infinite watcher creation bug.
