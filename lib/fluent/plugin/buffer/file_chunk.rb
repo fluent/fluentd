@@ -106,10 +106,37 @@ module Fluent
 
           write_metadata(update: false) # re-write metadata w/ finalized records
 
-          file_rename(@chunk, @path, new_chunk_path, ->(new_io){ @chunk = new_io })
-          @path = new_chunk_path
+          begin
+            file_rename(@chunk, @path, new_chunk_path, ->(new_io) { @chunk = new_io })
+          rescue => e
+            begin
+              file_rename(@chunk, new_chunk_path, @path, ->(new_io) { @chunk = new_io }) if File.exist?(new_chunk_path)
+            rescue => re
+              # In this point, restore buffer state is hard because previous `file_rename` failed by resource problem.
+              # Retry is one possible approach but it may cause livelock under limited resources or high load environment.
+              # So we ignore such errors for now and log better message instead.
+              # "Too many open files" should be fixed by proper buffer configuration and system setting.
+              raise "can't enqueue buffer file and failed to restore. This may causes inconsistent state: path = #{@path}, error = '#{e}', retry error = '#{re}'"
+            else
+              raise "can't enqueue buffer file: path = #{@path}, error = '#{e}'"
+            end
+          end
 
-          file_rename(@meta, @meta_path, new_meta_path, ->(new_io){ @meta = new_io })
+          begin
+            file_rename(@meta, @meta_path, new_meta_path, ->(new_io) { @meta = new_io })
+          rescue => e
+            begin
+              file_rename(@chunk, new_chunk_path, @path, ->(new_io) { @chunk = new_io }) if File.exist?(new_chunk_path)
+              file_rename(@meta, new_meta_path, @meta_path, ->(new_io) { @meta = new_io }) if File.exist?(new_meta_path)
+            rescue => re
+              # See above
+              raise "can't enqueue buffer metadata and failed to restore. This may causes inconsistent state: path = #{@meta_path}, error = '#{e}', retry error = '#{re}'"
+            else
+              raise "can't enqueue buffer metadata: path = #{@meta_path}, error = '#{e}'"
+            end
+          end
+
+          @path = new_chunk_path
           @meta_path = new_meta_path
 
           super
@@ -242,14 +269,28 @@ module Fluent
         def create_new_chunk(path, perm)
           @path = self.class.generate_stage_chunk_path(path, @unique_id)
           @meta_path = @path + '.meta'
-          @chunk = File.open(@path, 'wb+', perm)
-          @chunk.set_encoding(Encoding::ASCII_8BIT)
-          @chunk.sync = true
-          @chunk.binmode
-          @meta = File.open(@meta_path, 'wb', perm)
-          @meta.set_encoding(Encoding::ASCII_8BIT)
-          @meta.sync = true
-          @meta.binmode
+          begin
+            @chunk = File.open(@path, 'wb+', perm)
+            @chunk.set_encoding(Encoding::ASCII_8BIT)
+            @chunk.sync = true
+            @chunk.binmode
+          rescue => e
+            # Here assumes "Too many open files" like recoverable error so raising BufferOverflowError.
+            # If other cases are possible, we will change erorr handling with proper classes.
+            raise BufferOverflowError, "can't create buffer file for #{path}. Stop creating buffer files: error = #{e}"
+          end
+          begin
+            @meta = File.open(@meta_path, 'wb', perm)
+            @meta.set_encoding(Encoding::ASCII_8BIT)
+            @meta.sync = true
+            @meta.binmode
+          rescue => e
+            # This case is easier than enqueued!. Just removing pre-create buffer file
+            @chunk.close rescue nil
+            File.unlink(@path) rescue nil
+            # Same as @chunk case. See above
+            raise BufferOverflowError, "can't create buffer metadata for #{path}. Stop creating buffer files: error = #{e}"
+          end
 
           @state = :unstaged
           @bytesize = 0
