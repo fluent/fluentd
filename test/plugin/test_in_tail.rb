@@ -886,9 +886,10 @@ class TailInputTest < Test::Unit::TestCase
 
       assert_equal 1, d.instance.instance_variable_get(:@tails).keys.size
       File.unlink("#{TMP_DIR}/tail.txt")
-      sleep 2
-      assert_equal 0, d.instance.instance_variable_get(:@tails).keys.size
+      waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
 
+      # Previous implementaion has an infinite watcher creation bug.
+      # Following code checks such unexpected bug by couting  actual object allocation.
       base_num = count_timer_object
       2.times {
         sleep 1
