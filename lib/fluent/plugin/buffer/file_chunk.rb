@@ -116,9 +116,7 @@ module Fluent
               # Retry is one possible approach but it may cause livelock under limited resources or high load environment.
               # So we ignore such errors for now and log better message instead.
               # "Too many open files" should be fixed by proper buffer configuration and system setting.
-            end
-            if re
-              raise "can't enqueue buffer file. This may causes inconsistent state: path = #{@path}, error = '#{e}', retry error = '#{re}'"
+              raise "can't enqueue buffer file and failed to restore. This may causes inconsistent state: path = #{@path}, error = '#{e}', retry error = '#{re}'"
             else
               raise "can't enqueue buffer file: path = #{@path}, error = '#{e}'"
             end
@@ -132,9 +130,7 @@ module Fluent
               file_rename(@meta, new_meta_path, @meta_path, ->(new_io) { @meta = new_io }) if File.exist?(new_meta_path)
             rescue => re
               # See above
-            end
-            if re
-              raise "can't enqueue buffer metadata. This may causes inconsistent state: path = #{@meta_path}, error = '#{e}', retry error = '#{re}'"
+              raise "can't enqueue buffer metadata and failed to restore. This may causes inconsistent state: path = #{@meta_path}, error = '#{e}', retry error = '#{re}'"
             else
               raise "can't enqueue buffer metadata: path = #{@meta_path}, error = '#{e}'"
             end
@@ -279,6 +275,8 @@ module Fluent
             @chunk.sync = true
             @chunk.binmode
           rescue => e
+            # Here assumes "Too many open files" like recoverable error so raising BufferOverflowError.
+            # If other cases are possible, we will change erorr handling with proper classes.
             raise BufferOverflowError, "can't create buffer file for #{path}. Stop creating buffer files: error = #{e}"
           end
           begin
@@ -287,8 +285,10 @@ module Fluent
             @meta.sync = true
             @meta.binmode
           rescue => e
-            @chunk.close
-            File.unlink(@path)
+            # This case is easier than enqueued!. Just removing pre-create buffer file
+            @chunk.close rescue nil
+            File.unlink(@path) rescue nil
+            # Same as @chunk case. See above
             raise BufferOverflowError, "can't create buffer metadata for #{path}. Stop creating buffer files: error = #{e}"
           end
 
