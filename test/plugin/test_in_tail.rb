@@ -866,6 +866,46 @@ class TailInputTest < Test::Unit::TestCase
       plugin = create_driver(config, false).instance
       assert_equal expected_files, plugin.expand_paths.sort
     end
+
+    # For https://github.com/fluent/fluentd/issues/1455
+    # This test is fragile because test content depends on internal implementaion.
+    # So if you modify in_tail internal, this test may break.
+    def test_unwatched_files_should_be_removed
+      config = config_element("", "", {
+                                "tag" => "tail",
+                                "path" => "#{TMP_DIR}/*.txt",
+                                "format" => "none",
+                                "pos_file" => "#{TMP_DIR}/tail.pos",
+                                "read_from_head" => true,
+                                "refresh_interval" => 1,
+                              })
+      d = create_driver(config, false)
+      d.run(expect_emits: 1, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f| f.puts "test3\n" }
+      end
+
+      assert_equal 1, d.instance.instance_variable_get(:@tails).keys.size
+      File.unlink("#{TMP_DIR}/tail.txt")
+      sleep 2
+      assert_equal 0, d.instance.instance_variable_get(:@tails).keys.size
+
+      base_num = count_timer_object
+      2.times {
+        sleep 1
+        num = count_timer_object
+        assert_equal base_num, num
+      }
+
+      d.instance_shutdown
+    end
+
+    def count_timer_object
+      num = 0
+      ObjectSpace.each_object(Fluent::PluginHelper::Timer::TimerWatcher) { |obj|
+        num += 1
+      }
+      num
+    end
   end
 
   def test_z_refresh_watchers
