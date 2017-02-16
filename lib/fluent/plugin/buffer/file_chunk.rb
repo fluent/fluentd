@@ -112,6 +112,10 @@ module Fluent
             begin
               file_rename(@chunk, new_chunk_path, @path, ->(new_io) { @chunk = new_io }) if File.exist?(new_chunk_path)
             rescue => re
+              # In this point, restore buffer state is hard because previous `file_rename` failed by resource problem.
+              # Retry is one possible approach but it may cause livelock under limited resources or high load environment.
+              # So we ignore such errors for now and log better message instead.
+              # "Too many open files" should be fixed by proper buffer configuration and system setting.
             end
             if re
               raise "can't enqueue buffer file. This may causes inconsistent state: path = #{@path}, error = '#{e}', retry error = '#{re}'"
@@ -127,6 +131,7 @@ module Fluent
               file_rename(@chunk, new_chunk_path, @path, ->(new_io) { @chunk = new_io }) if File.exist?(new_chunk_path)
               file_rename(@meta, new_meta_path, @meta_path, ->(new_io) { @meta = new_io }) if File.exist?(new_meta_path)
             rescue => re
+              # See above
             end
             if re
               raise "can't enqueue buffer metadata. This may causes inconsistent state: path = #{@meta_path}, error = '#{e}', retry error = '#{re}'"
