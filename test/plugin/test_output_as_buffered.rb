@@ -339,6 +339,41 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
     end
 
+    data(:handle_stream_simple => '',
+         :handle_stream_with_custom_format => 'tag,message')
+    test 'plugin using custom format can skip record chunk when format return nil' do |chunk_keys|
+      events_from_chunk = []
+      @i = create_output(:custom)
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', chunk_keys, @hash)]))
+      @i.register(:prefer_delayed_commit) { false }
+      @i.register(:format) { |tag, time, record|
+        if record['message'] == 'test1'
+          nil
+        else
+          [tag,time,record].to_msgpack
+        end
+      }
+      @i.register(:format_type_is_msgpack) { true }
+      @i.register(:write){ |chunk| e = []; chunk.each { |ta, t, r| e << [ta, t, r] }; events_from_chunk << [:write, e] }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "test1"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "test2"}],
+      ]
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5) { sleep 0.1 until events_from_chunk.size == 1 }
+
+      assert_equal 1, events_from_chunk.size
+      assert_equal :write, events_from_chunk[0][0]
+      each_pushed = events_from_chunk[0][1]
+      assert_equal 1, each_pushed.size
+      assert_equal 'test.tag', each_pushed[0][0]
+      assert_equal "test2", each_pushed[0][2]['message']
+    end
+
     test 'plugin using custom format can iterate chunk in #try_write if #format returns msgpack' do
       events_from_chunk = []
       @i = create_output(:custom)

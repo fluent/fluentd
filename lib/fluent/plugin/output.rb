@@ -850,8 +850,11 @@ module Fluent
         es.each do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= []
-          meta_and_data[meta] << format(tag, time, record)
-          records += 1
+          res = format(tag, time, record)
+          if res
+            meta_and_data[meta] << res
+            records += 1
+          end
         end
         write_guard do
           @buffer.write(meta_and_data, enqueue: enqueue)
@@ -885,8 +888,11 @@ module Fluent
           records = 0
           data = []
           es.each do |time, record|
-            data << format(tag, time, record)
-            records += 1
+            res = format(tag, time, record)
+            if res
+              data << res
+              records += 1
+            end
           end
         else
           format_proc = generate_format_proc
