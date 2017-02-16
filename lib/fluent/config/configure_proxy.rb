@@ -368,16 +368,40 @@ module Fluent
         name
       end
 
-      def dump(level = 0)
-        dumped_config = ""
-        indent = " " * level
+      def dump_config_definition
+        dumped_config = {}
         @params.each do |name, config|
-          dumped_config << "#{indent}#{name}: #{config[1][:type]}: <#{@defaults[name].inspect}>"
-          dumped_config << " # #{@descriptions[name]}" if @descriptions[name]
-          dumped_config << "\n"
+          dumped_config[name] = config[1]
+          dumped_config[name][:required] = !@defaults.key?(name)
+          dumped_config[name][:default] = @defaults[name] if @defaults.key?(name)
+          dumped_config[name][:desc] = @descriptions[name] if @descriptions.key?(name)
+        end
+        # Overwrite by config_set_default
+        @defaults.each do |name, value|
+          if @params.key?(name)
+            dumped_config[name][:default] = value
+          else
+            dumped_config[name] = { default: value }
+          end
+        end
+        # Overwrite by config_set_desc
+        @descriptions.each do |name, value|
+          if @params.key?(name)
+            dumped_config[name][:desc] = value
+          else
+            dumped_config[name] = { desc: value }
+          end
         end
         @sections.each do |section_name, sub_proxy|
-          dumped_config << "#{indent}#{section_name}\n#{sub_proxy.dump(level + 1)}"
+          if dumped_config.key?(section_name)
+            dumped_config[section_name].update(sub_proxy.dump_config_definition)
+          else
+            dumped_config[section_name] = sub_proxy.dump_config_definition
+            dumped_config[section_name][:required] = sub_proxy.required?
+            dumped_config[section_name][:multi] = sub_proxy.multi?
+            dumped_config[section_name][:alias] = sub_proxy.alias
+            dumped_config[section_name][:section] = true
+          end
         end
         dumped_config
       end
@@ -392,4 +416,3 @@ module Fluent
     end
   end
 end
-

@@ -37,7 +37,15 @@ module Fluent
       end
     end
 
-    def helpers(*snake_case_symbols)
+    def self.extended(mod)
+      def mod.inherited(subclass)
+        subclass.module_eval do
+          @_plugin_helpers_list = []
+        end
+      end
+    end
+
+    def helpers_internal(*snake_case_symbols)
       helper_modules = []
       snake_case_symbols.each do |name|
         begin
@@ -47,6 +55,16 @@ module Fluent
         end
       end
       include(*helper_modules)
+    end
+
+    def helpers(*snake_case_symbols)
+      @_plugin_helpers_list ||= []
+      @_plugin_helpers_list.concat(snake_case_symbols)
+      helpers_internal(*snake_case_symbols)
+    end
+
+    def plugin_helpers
+      @_plugin_helpers_list || []
     end
   end
 end

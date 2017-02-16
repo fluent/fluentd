@@ -400,45 +400,54 @@ module Fluent::Config
         end
       end
 
-      sub_test_case '#dump' do
+      sub_test_case '#dump_config_definition' do
         setup do
           @proxy = Fluent::Config::ConfigureProxy.new(:section, type_lookup: @type_lookup)
         end
 
         test 'empty proxy' do
-          assert_equal("", @proxy.dump)
+          assert_equal({}, @proxy.dump_config_definition)
         end
 
         test 'plain proxy w/o default value' do
           @proxy.config_param(:name, :string)
-          assert_equal(<<CONFIG, @proxy.dump)
-name: string: <nil>
-CONFIG
+          expected = {
+            name: { type: :string, required: true }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'plain proxy w/ default value' do
           @proxy.config_param(:name, :string, default: "name1")
-          assert_equal(<<CONFIG, @proxy.dump)
-name: string: <"name1">
-CONFIG
+          expected = {
+            name: { type: :string, default: "name1", required: false }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'plain proxy w/ default value using config_set_default' do
           @proxy.config_param(:name, :string)
           @proxy.config_set_default(:name, "name1")
-          assert_equal(<<CONFIG, @proxy.dump)
-name: string: <"name1">
-CONFIG
+          expected = {
+            name: { type: :string, default: "name1", required: false }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'single sub proxy' do
           @proxy.config_section(:sub) do
             config_param(:name, :string, default: "name1")
           end
-          assert_equal(<<CONFIG, @proxy.dump)
-sub
- name: string: <"name1">
-CONFIG
+          expected = {
+            sub: {
+              alias: nil,
+              multi: true,
+              required: false,
+              section: true,
+              name: { type: :string, default: "name1", required: false }
+            }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         test 'nested sub proxy' do
@@ -450,30 +459,43 @@ CONFIG
               config_param(:name4, :string, default: "name4")
             end
           end
-          assert_equal(<<CONFIG, @proxy.dump)
-sub
- name1: string: <"name1">
- name2: string: <"name2">
- sub2
-  name3: string: <"name3">
-  name4: string: <"name4">
-CONFIG
+          expected = {
+            sub: {
+              alias: nil,
+              multi: true,
+              required: false,
+              section: true,
+              name1: { type: :string, default: "name1", required: false },
+              name2: { type: :string, default: "name2", required: false },
+              sub2: {
+                alias: nil,
+                multi: true,
+                required: false,
+                section: true,
+                name3: { type: :string, default: "name3", required: false },
+                name4: { type: :string, default: "name4", required: false },
+              }
+            }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
         end
 
         sub_test_case 'w/ description' do
           test 'single proxy' do
             @proxy.config_param(:name, :string, desc: "description for name")
-          assert_equal(<<CONFIG, @proxy.dump)
-name: string: <nil> # description for name
-CONFIG
+            expected = {
+              name: { type: :string, desc: "description for name", required: true }
+            }
+            assert_equal(expected, @proxy.dump_config_definition)
           end
 
           test 'single proxy using config_set_desc' do
             @proxy.config_param(:name, :string)
             @proxy.config_set_desc(:name, "description for name")
-          assert_equal(<<CONFIG, @proxy.dump)
-name: string: <nil> # description for name
-CONFIG
+            expected = {
+              name: { type: :string, desc: "description for name", required: true }
+            }
+            assert_equal(expected, @proxy.dump_config_definition)
           end
 
           test 'sub proxy' do
@@ -485,14 +507,25 @@ CONFIG
                 config_param(:name4, :string, default: "name4", desc: "desc4")
               end
             end
-            assert_equal(<<CONFIG, @proxy.dump)
-sub
- name1: string: <"name1"> # desc1
- name2: string: <"name2"> # desc2
- sub2
-  name3: string: <"name3">
-  name4: string: <"name4"> # desc4
-CONFIG
+            expected = {
+              sub: {
+                alias: nil,
+                multi: true,
+                required: false,
+                section: true,
+                name1: { type: :string, default: "name1", desc: "desc1", required: false },
+                name2: { type: :string, default: "name2", desc: "desc2", required: false },
+                sub2: {
+                  alias: nil,
+                  multi: true,
+                  required: false,
+                  section: true,
+                  name3: { type: :string, default: "name3", required: false },
+                  name4: { type: :string, default: "name4", desc: "desc4", required: false },
+                }
+              }
+            }
+            assert_equal(expected, @proxy.dump_config_definition)
           end
 
           test 'sub proxy w/ desc method' do
@@ -506,14 +539,25 @@ CONFIG
                 config_param(:name4, :string, default: "name4")
               end
             end
-            assert_equal(<<CONFIG, @proxy.dump)
-sub
- name1: string: <"name1"> # desc1
- name2: string: <"name2"> # desc2
- sub2
-  name3: string: <"name3">
-  name4: string: <"name4"> # desc4
-CONFIG
+            expected = {
+              sub: {
+                alias: nil,
+                multi: true,
+                required: false,
+                section: true,
+                name1: { type: :string, default: "name1", desc: "desc1", required: false },
+                name2: { type: :string, default: "name2", desc: "desc2", required: false },
+                sub2: {
+                  alias: nil,
+                  multi: true,
+                  required: false,
+                  section: true,
+                  name3: { type: :string, default: "name3", required: false },
+                  name4: { type: :string, default: "name4", desc: "desc4", required: false },
+                }
+              }
+            }
+            assert_equal(expected, @proxy.dump_config_definition)
           end
         end
       end

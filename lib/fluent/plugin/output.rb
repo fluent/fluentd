@@ -33,7 +33,7 @@ module Fluent
       include PluginHelper::Mixin
       include UniqueId::Mixin
 
-      helpers :thread, :retry_state
+      helpers_internal :thread, :retry_state
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/

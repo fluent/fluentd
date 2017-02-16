@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+$LOAD_PATH.unshift(File.join(__dir__, 'lib'))
+require 'fluent/command/plugin_config_formatter'
+
+FluentPluginConfigFormatter.new.call

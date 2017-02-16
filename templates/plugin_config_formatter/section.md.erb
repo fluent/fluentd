@@ -1,0 +1,12 @@
+<%-
+section_header = "#" * (3 + level)
+required_label = required ? "required" : "optional"
+multiple_label = multi ? "multiple" : "single"
+-%>
+<%= section_header %> \<<%= section_name %>\> section (<%= required_label %>) (<%= multiple_label %>)
+<%- if alias_name -%>
+
+Alias: <%= alias_name %>
+<%- end -%>
+
+<%= dump_section_markdown(sub_section, level + 1) %>

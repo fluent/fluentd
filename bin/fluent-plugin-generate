@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+$LOAD_PATH << File.expand_path(File.join(__dir__, '..', 'lib'))
+require 'fluent/command/plugin_generator'
+
+FluentPluginGenerator.new.call

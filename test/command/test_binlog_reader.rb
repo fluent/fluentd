@@ -79,15 +79,6 @@ class TestBaseCommand < ::Test::Unit::TestCase
   ensure
     ENV['TZ'] = old
   end
-
-  def capture_stdout
-    out = StringIO.new
-    $stdout = out
-    yield
-    out.string.force_encoding('utf-8')
-  ensure
-    $stdout = STDOUT
-  end
 end
 
 class TestHead < TestBaseCommand

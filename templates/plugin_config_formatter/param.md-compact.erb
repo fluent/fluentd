@@ -1,0 +1,25 @@
+<%-
+type = config[:type]
+required_label = config[:required] ? "required" : "optional"
+default = config[:default]
+alias_name = config[:alias]
+deprecated = config[:deprecated]
+obsoleted = config[:obsoleted]
+description = config[:desc]
+-%>
+* **<%= name %>** (<%= type %>) (<%= required_label %>): <%= description %>
+<%- if type == :enum -%>
+  * Available values: <%= config[:list].join(", ") %>
+<%- end -%>
+<%- if default -%>
+  * Default value: `<%= default %>`.
+<%- end -%>
+<%- if alias_name -%>
+  * Alias: <%= alias_name %>
+<%- end -%>
+<%- if deprecated -%>
+  * Deprecated: <%= deprecated %>
+<%- end -%>
+<%- if obsoleted -%>
+  * Obsoleted: <%= :obsoleted %>
+<%- end -%>
