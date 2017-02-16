@@ -196,7 +196,11 @@ module Fluent::Plugin
           paths << path
         end
       }
-      paths - excluded
+      remove_directories(paths - excluded)
+    end
+
+    def remove_directories(paths)
+      paths.select { |p| !File.directory?(p) }
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
