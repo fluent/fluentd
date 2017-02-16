@@ -106,7 +106,7 @@ class CompatParameterTest < Test::Unit::TestCase
       assert_equal [], @i.buffer_config.chunk_keys
       assert_equal 8, @i.buffer_config.flush_thread_count
       assert_equal 10, @i.buffer_config.flush_interval
-      assert_equal :interval, @i.buffer_config.flush_mode
+      assert_equal :default, @i.buffer_config.flush_mode
       assert @i.buffer_config.flush_at_shutdown
 
       assert_equal 8*1024*1024, @i.buffer.chunk_limit_size

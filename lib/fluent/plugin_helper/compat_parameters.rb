@@ -169,9 +169,6 @@ module Fluent
             hash['timekey'] = 86400 # TimeSliceOutput.time_slice_format default value is '%Y%m%d'
           end
         end
-        if conf.has_key?('flush_interval')
-          hash['flush_mode'] = 'interval'
-        end
 
         e = Fluent::Config::Element.new('buffer', chunk_key, hash, [])
         conf.elements << e
