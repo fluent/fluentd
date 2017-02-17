@@ -1,5 +1,38 @@
 # v0.14
 
+## Release v0.14.13 - 2017/02/17
+
+### New features / Enhancements
+
+* in_tail: Add 'limit_recently_modified' to limit watch files.
+  https://github.com/fluent/fluentd/pull/1474
+* configuration: Improve 'flush_interval' handling for better message and backward compatibility
+  https://github.com/fluent/fluentd/pull/1442
+* command: Add 'fluent-plugin-generate' command
+  https://github.com/fluent/fluentd/pull/1427
+* output: Skip record when 'Output#format' returns nil
+  https://github.com/fluent/fluentd/pull/1469
+
+### Bug fixes
+
+* output: Secondary calculation should consider 'retry_max_times'
+  https://github.com/fluent/fluentd/pull/1452
+* Fix regression of deprecatd 'process' module
+  https://github.com/fluent/fluentd/pull/1443
+* Fix missing parser_regex require
+  https://github.com/fluent/fluentd/issues/1458
+  https://github.com/fluent/fluentd/pull/1453
+* Keep 'Fluent::BufferQueueLimitError' for exsting plugins
+  https://github.com/fluent/fluentd/pull/1456
+* in_tail: Untracked files should be removed from watching list to avoid memory bloat
+  https://github.com/fluent/fluentd/pull/1467
+* in_tail: directories should be skipped when the ** pattern is used
+  https://github.com/fluent/fluentd/pull/1464
+* record_transformer: Revert "Use BasicObject for cleanroom" for `enable_ruby` regression.
+  https://github.com/fluent/fluentd/pull/1461
+* buf_file: handle "Too many open files" error to keep buffer and metadata pair
+  https://github.com/fluent/fluentd/pull/1468
+
 ## Release v0.14.12 - 2017/01/30
 
 ### New features / Enhancements
