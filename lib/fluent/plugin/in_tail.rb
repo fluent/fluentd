@@ -58,6 +58,8 @@ module Fluent
     config_param :from_encoding, :string, default: nil
     desc 'Add the log path being tailed to records. Specify the field name to be used.'
     config_param :path_key, :string, default: nil
+    desc 'Limit the watching files that the modification time is within the specified time range (when use \'*\' in path).'
+    config_param :limit_recently_modified, :time, default: nil
 
     attr_reader :paths
 
@@ -154,7 +156,11 @@ module Fluent
         if path.include?('*')
           paths += Dir.glob(path).select { |p|
             if File.readable?(p) && !File.directory?(p)
-              true
+              if @limit_recently_modified && File.mtime(p) < (date - @limit_recently_modified)
+                false
+              else
+                true
+              end
             else
               log.warn "#{p} unreadable. It is excluded and would be examined next time."
               false
