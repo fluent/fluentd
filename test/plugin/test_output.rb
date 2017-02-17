@@ -706,6 +706,24 @@ class OutputTest < Test::Unit::TestCase
       i.stop; i.before_shutdown; i.shutdown; i.after_shutdown; i.close; i.terminate
     end
 
+    test 'flush_interval is ignored when flush_mode is not interval' do
+      mock(@i.log).warn("'flush_interval' is ignored because default 'flush_mode' is not 'interval': 'lazy'")
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => 60*30, 'flush_interval' => 10})]))
+    end
+
+    data(:lazy => 'lazy', :immediate => 'immediate')
+    test 'flush_interval and non-interval flush_mode is exclusive ' do |mode|
+      assert_raise Fluent::ConfigError.new("'flush_interval' can't be specified when 'flush_mode' is not 'interval' explicitly: '#{mode}'") do
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', {'flush_mode' => mode, 'flush_interval' => 10})]))
+      end
+    end
+
+    test 'flush_mode is set to interval when flush_interval with v0.12 configuration is given' do
+      mock(@i.log).info("'flush_interval' is configured at out side of <buffer>. 'flush_mode' is set to 'interval' to keep existing behaviour")
+      @i.configure(config_element('ROOT', '', {'flush_interval' => 60}, []))
+      assert_equal :interval, @i.instance_variable_get(:@flush_mode)
+    end
+
     test "Warn if primary type is different from secondary type and either primary or secondary has custom_format" do
       o = create_output(:buffered)
       mock(o.log).warn("secondary type should be same with primary one",

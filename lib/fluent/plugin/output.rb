@@ -229,6 +229,7 @@ module Fluent
         end
 
         has_buffer_section = (conf.elements(name: 'buffer').size > 0)
+        has_flush_interval = conf.has_key?('flush_interval')
 
         super
 
@@ -290,7 +291,12 @@ module Fluent
 
           @flush_mode = @buffer_config.flush_mode
           if @flush_mode == :default
-            @flush_mode = (@chunk_key_time ? :lazy : :interval)
+            if has_flush_interval
+              log.info "'flush_interval' is configured at out side of <buffer>. 'flush_mode' is set to 'interval' to keep existing behaviour"
+              @flush_mode = :interval
+            else
+              @flush_mode = (@chunk_key_time ? :lazy : :interval)
+            end
           end
 
           buffer_type = @buffer_config[:@type]
@@ -309,6 +315,14 @@ module Fluent
             buf_type = Plugin.lookup_type_from_class(@buffer.class)
             log.warn "'flush_at_shutdown' is false, and buffer plugin '#{buf_type}' is not persistent buffer."
             log.warn "your configuration will lose buffered data at shutdown. please confirm your configuration again."
+          end
+
+          if (@flush_mode != :interval) && buffer_conf.has_key?('flush_interval')
+            if buffer_conf.has_key?('flush_mode')
+              raise Fluent::ConfigError, "'flush_interval' can't be specified when 'flush_mode' is not 'interval' explicitly: '#{@flush_mode}'"
+            else
+              log.warn "'flush_interval' is ignored because default 'flush_mode' is not 'interval': '#{@flush_mode}'"
+            end
           end
         end
 
