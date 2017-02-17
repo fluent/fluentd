@@ -1174,4 +1174,28 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(files, [events[2][2]["path"], events[3][2]["path"]].sort)
     end
   end
+
+  def test_limit_recently_modified
+    now = Time.new(2010, 1, 2, 3, 4, 5)
+    FileUtils.touch("#{TMP_DIR}/tail_unwatch.txt", mtime: (now - 3601))
+    FileUtils.touch("#{TMP_DIR}/tail_watch1.txt", mtime: (now - 3600))
+    FileUtils.touch("#{TMP_DIR}/tail_watch2.txt", mtime: now)
+
+    config = config_element('', '', {
+      'tag' => 'tail',
+      'path' => "#{TMP_DIR}/*.txt",
+      'format' => 'none',
+      'limit_recently_modified' => '3600s'
+    })
+
+    expected_files = [
+      "#{TMP_DIR}/tail_watch1.txt",
+      "#{TMP_DIR}/tail_watch2.txt"
+    ]
+
+    Timecop.freeze(now) do
+      plugin = create_driver(config, false).instance
+      assert_equal expected_files, plugin.expand_paths.sort
+    end
+  end
 end
