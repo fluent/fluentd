@@ -721,7 +721,7 @@ class PluginLoggerTest < Test::Unit::TestCase
     end
 
     def test_write_alias
-      assert { @log.respond_to?(:<<) }
+      assert(@log.respond_to?(:<<))
     end
 
     def test_out
