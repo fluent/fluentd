@@ -720,6 +720,10 @@ class PluginLoggerTest < Test::Unit::TestCase
       @log.write("log")
     end
 
+    def test_write_alias
+      assert(@log.respond_to?(:<<))
+    end
+
     def test_out
       assert_equal(@log.out, @logger.out)
       @log.out = Object.new
