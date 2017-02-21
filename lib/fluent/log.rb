@@ -240,6 +240,9 @@ module Fluent
     def write(data)
       @out.write(data)
     end
+    # We need `#<<` method to use this logger class with other
+    # libraries such as aws-sdk
+    alias << write
 
     def flush
       @out.flush
