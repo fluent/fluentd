@@ -357,6 +357,7 @@ module Fluent
     def write(data)
       @out.write(data)
     end
+    alias << write
 
     def flush
       @out.flush
