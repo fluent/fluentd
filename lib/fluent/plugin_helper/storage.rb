@@ -30,7 +30,7 @@ module Fluent
       StorageState = Struct.new(:storage, :running)
 
       def storage_create(usage: '', type: nil, conf: nil, default_type: nil)
-        if conf && !conf.arg.empty?
+        if conf && conf.respond_to?(:arg) && !conf.arg.empty?
           usage = conf.arg
         end
         if !usage.empty? && usage !~ /^[a-zA-Z][-_.a-zA-Z0-9]*$/
