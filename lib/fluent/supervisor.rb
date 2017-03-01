@@ -502,7 +502,7 @@ module Fluent
         init_engine
         run_configure
         run_engine
-        self.class.cleanup_resources
+        self.class.cleanup_resources if @standalone_worker
         exit 0
       end
     end
