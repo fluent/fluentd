@@ -61,6 +61,7 @@ module Fluent
 
     def after_run
       stop_rpc_server if @rpc_endpoint
+      Fluent::Supervisor.cleanup_resources
     end
 
     def run_rpc_server
@@ -387,6 +388,14 @@ module Fluent
       }
     end
 
+    def self.cleanup_resources
+      unless Fluent.windows?
+        if ENV.has_key?('SERVERENGINE_SOCKETMANAGER_PATH')
+          FileUtils.rm_f(ENV['SERVERENGINE_SOCKETMANAGER_PATH'])
+        end
+      end
+    end
+
     def initialize(opt)
       @daemonize = opt[:daemonize]
       @supervise = opt[:supervise]
@@ -493,6 +502,7 @@ module Fluent
         init_engine
         run_configure
         run_engine
+        self.class.cleanup_resources
         exit 0
       end
     end
