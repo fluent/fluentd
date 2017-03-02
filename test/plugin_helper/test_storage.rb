@@ -99,6 +99,15 @@ class StorageHelperTest < Test::Unit::TestCase
     assert_equal 0, d._storages.size
   end
 
+  test 'can be configured with hash' do
+    d = Dummy.new
+    d.configure(config_element())
+    conf = { '@type' => 'example' }
+    assert_nothing_raised do
+      d.storage_create(conf: conf)
+    end
+  end
+
   test 'can override default configuration parameters, but not overwrite whole definition' do
     d = Dummy.new
     d.configure(config_element())
