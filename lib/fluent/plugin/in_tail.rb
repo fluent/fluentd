@@ -79,6 +79,8 @@ module Fluent::Plugin
     config_param :open_on_every_update, :bool, default: false
     desc 'Limit the watching files that the modification time is within the specified time range (when use \'*\' in path).'
     config_param :limit_recently_modified, :time, default: nil
+    desc 'Enable the option to skip the refresh of watching list on startup.'
+    config_param :skip_refresh_on_startup, :bool, default: false
 
     attr_reader :paths
 
@@ -160,7 +162,7 @@ module Fluent::Plugin
         @pf = PositionFile.parse(@pf_file)
       end
 
-      refresh_watchers
+      refresh_watchers unless @skip_refresh_on_startup
       timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
     end
 

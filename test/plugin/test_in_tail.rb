@@ -1198,4 +1198,19 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal expected_files, plugin.expand_paths.sort
     end
   end
+
+  def test_skip_refresh_on_startup
+    FileUtils.touch("#{TMP_DIR}/tail.txt")
+    config = config_element('', '', {
+                              'format' => 'none',
+                              'refresh_interval' => 1,
+                              'skip_refresh_on_startup' => true
+                            })
+    d = create_driver(config)
+    d.run(shutdown: false) {}
+    assert_equal 0, d.instance.instance_variable_get(:@tails).keys.size
+    # detect a file at first execution of in_tail_refresh_watchers timer
+    waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 1 }
+    d.instance_shutdown
+  end
 end
