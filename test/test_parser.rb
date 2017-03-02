@@ -292,6 +292,14 @@ module ParserTest
         assert_equal(@expected, record)
       }
     end
+
+    def test_parse_with_escape_sequence
+      @parser.parse('192.168.0.1 - - [28/Feb/2013:12:00:00 +0900] "GET /\" HTTP/1.1" 200 777 "referer \\\ \"" "user agent \\\ \""') { |_, record|
+        assert_equal('/\"', record['path'])
+        assert_equal('referer \\\ \"', record['referer'])
+        assert_equal('user agent \\\ \"', record['agent'])
+      }
+    end
   end
 
   class SyslogParserTest < ::Test::Unit::TestCase
