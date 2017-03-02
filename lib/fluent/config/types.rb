@@ -64,7 +64,7 @@ module Fluent
       end
     end
 
-    STRING_TYPE = Proc.new { |val, opts| val.to_s.encode(Encoding::UTF_8) }
+    STRING_TYPE = Proc.new { |val, opts| val.to_s.force_encoding(Encoding::UTF_8) }
     ENUM_TYPE = Proc.new { |val, opts|
       s = val.to_sym
       list = opts[:list]
@@ -85,7 +85,7 @@ module Fluent
         value
       else
         case type
-        when :string  then value.to_s.encode(Encoding::UTF_8)
+        when :string  then value.to_s.force_encoding(Encoding::UTF_8)
         when :integer then value.to_i
         when :float   then value.to_f
         when :size then Config.size_value(value)
