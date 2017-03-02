@@ -68,6 +68,17 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal '   ', Config::STRING_TYPE.call('   ', {})
     end
 
+    data('latin' => 'Märch',
+         'ascii' => 'ascii',
+         'space' => '     ',
+         'number' => '1',
+         'Hiragana' => 'あいうえお')
+    test 'string w/ binary' do |str|
+      actual = Config::STRING_TYPE.call(str.b, {})
+      assert_equal str, actual
+      assert_equal Encoding::UTF_8, actual.encoding
+    end
+
     test 'enum' do
       assert_equal :val, Config::ENUM_TYPE.call('val', {list: [:val, :value, :v]})
       assert_equal :v, Config::ENUM_TYPE.call('v', {list: [:val, :value, :v]})
@@ -140,6 +151,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('x:1s,y:1m,z:1h',               {value_type: :time}))
 
       assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::HASH_TYPE.call("x:1,y:2", {value_type: :foo}) }
+    end
+
+    data('latin' => ['3:Märch', {"3"=>"Märch"}],
+         'ascii' => ['ascii:ascii', {"ascii"=>"ascii"}],
+         'number' => ['number:1', {"number"=>"1"}],
+         'Hiragana' => ['hiragana:あいうえお', {"hiragana"=>"あいうえお"}])
+    test 'hash w/ binary' do |(target, expected)|
+      assert_equal(expected, Config::HASH_TYPE.call(target.b, { value_type: :string }))
     end
 
     test 'array' do
