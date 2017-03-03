@@ -580,11 +580,10 @@ module ParserTest
     end
 
     data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
-    def test_parse_with_null_value_pattern
+    def test_parse_with_null_value_pattern(param)
       parser = TextParser::TSVParser.new
       parser.configure(
         'keys'=>param,
-        'time_key'=>'time',
         'null_value_pattern'=>'^(-|null|NULL)$'
       )
       parser.parse("-\tnull\tNULL\t\t--\tnuLL") do |time, record|
@@ -598,11 +597,10 @@ module ParserTest
     end
 
     data('array param' => '["a","b"]', 'string param' => 'a,b')
-    def test_parse_with_null_empty_string
+    def test_parse_with_null_empty_string(param)
       parser = TextParser::TSVParser.new
       parser.configure(
         'keys'=>param,
-        'time_key'=>'time',
         'null_empty_string'=>true
       )
       parser.parse("\t ") do |time, record|
