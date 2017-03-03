@@ -47,11 +47,24 @@ module Fluent
     config_param :chunk_size_limit, :size, default: nil
     desc 'Skip an event if incoming event is invalid.'
     config_param :skip_invalid_event, :bool, default: false
+    desc 'Try to resolve hostname from IP addresses or not.'
+    config_param :resolve_hostname, :bool, default: nil
+    desc "The field name of the client's source address."
+    config_param :source_address_key, :string, default: nil
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
 
     def configure(conf)
       super
+
+      if @source_hostname_key
+        if @resolve_hostname.nil?
+          @resolve_hostname = true
+        elsif !@resolve_hostname # user specifies "false" in configure
+          raise Fluent::ConfigError, "resolve_hostname must be true with source_hostname_key"
+        end
+      end
+      @enable_field_injection = @source_address_key || @source_hostname_key
     end
 
     def start
@@ -88,7 +101,7 @@ module Fluent
 
     def listen
       log.info "listening fluent socket on #{@bind}:#{@port}"
-      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, method(:on_message))
+      s = Coolio::TCPServer.new(@bind, @port, Handler, @linger_timeout, log, @resolve_hostname, method(:on_message))
       s.listen(@backlog) unless @backlog.nil?
       s
     end
@@ -161,7 +174,7 @@ module Fluent
         # PackedForward
         es = MessagePackEventStream.new(entries)
         es = check_and_skip_invalid_event(tag, es, peeraddr) if @skip_invalid_event
-        es = add_source_host(es, peeraddr[2]) if @source_hostname_key
+        es = add_source_host(es, peeraddr) if @enable_field_injection
         router.emit_stream(tag, es)
         option = msg[2]
 
@@ -180,7 +193,7 @@ module Fluent
                }
                es
              end
-        es = add_source_host(es, peeraddr[2]) if @source_hostname_key
+        es = add_source_host(es, peeraddr) if @enable_field_injection
         router.emit_stream(tag, es)
         option = msg[2]
 
@@ -194,7 +207,10 @@ module Fluent
         end
         return if record.nil?
         time = Engine.now if time == 0
-        record[@source_hostname_key] = peeraddr[2] if @source_hostname_key
+        if @enable_field_injection
+          record[@source_hostname_key] = peeraddr[2] if @source_hostname_key
+          record[@source_address_key] = peeraddr[3] if @source_address_key
+        end
         router.emit(tag, time, record)
         option = msg[3]
       end
@@ -219,12 +235,31 @@ module Fluent
       new_es
     end
 
-    def add_source_host(es, host)
+    def add_source_host(es, peeraddr)
       new_es = MultiEventStream.new
-      es.each { |time, record|
-        record[@source_hostname_key] = host
-        new_es.add(time, record)
-      }
+      if @source_address_key && @source_hostname_key
+        address = peeraddr[3]
+        hostname = peeraddr[2]
+        es.each { |time, record|
+          record[@source_address_key] = address
+          record[@source_hostname_key] = hostname
+          new_es.add(time, record)
+        }
+      elsif @source_address_key
+        address = peeraddr[3]
+        es.each { |time, record|
+          record[@source_address_key] = address
+          new_es.add(time, record)
+        }
+      elsif @source_hostname_key
+        hostname = peeraddr[2]
+        es.each { |time, record|
+          record[@source_hostname_key] = hostname
+          new_es.add(time, record)
+        }
+      else
+        raise "BUG: don't call this method in this case"
+      end
       new_es
     end
 
@@ -236,11 +271,13 @@ module Fluent
     class Handler < Coolio::Socket
       PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
-      def initialize(io, linger_timeout, log, on_message)
+      def initialize(io, linger_timeout, log, resolve_hostname, on_message)
         super(io)
 
         @peeraddr = nil
         if io.is_a?(TCPSocket) # for unix domain socket support in the future
+          io.do_not_reverse_lookup = !resolve_hostname unless resolve_hostname.nil?
+
           @peeraddr = (io.peeraddr rescue PEERADDR_FAILED)
           opt = [1, linger_timeout].pack('I!I!')  # { int l_onoff; int l_linger; }
           io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)

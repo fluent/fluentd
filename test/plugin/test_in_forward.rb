@@ -498,52 +498,104 @@ class ForwardInputTest < Test::Unit::TestCase
     @responses << res if try_to_receive_response
   end
 
-  # TODO: Use sub_test_case. Currently Errno::EADDRINUSE happens inside sub_test_case
-  test 'message protocol with source_hostname_key' do
-    execute_test { |events|
-      events.each { |tag, time, record|
-        send_data [tag, time, record].to_msgpack
+  LOCALHOST_HOSTNAME_GETTER = ->(){sock = UDPSocket.new(::Socket::AF_INET); sock.do_not_reverse_lookup = false; sock.connect("127.0.0.1", 2048); sock.peeraddr[2] }
+  LOCALHOST_HOSTNAME = LOCALHOST_HOSTNAME_GETTER.call
+  DUMMY_SOCK = Struct.new(:remote_host, :remote_addr, :remote_port).new(LOCALHOST_HOSTNAME, "127.0.0.1", 0)
+
+  sub_test_case 'source_hostname_key and source_address_key features' do
+    test 'resolve_hostname must be true with source_hostname_key' do
+      assert_raise(Fluent::ConfigError) {
+        create_driver(CONFIG + <<EOS)
+resolve_hostname false
+source_hostname_key hostname
+EOS
       }
-    }
-  end
-
-  test 'forward protocol with source_hostname_key' do
-    execute_test { |events|
-      entries = []
-      events.each {|tag,time,record|
-        entries << [time, record]
+    end
+    data(
+      both: [:hostname, :address],
+      hostname: [:hostname],
+      address: [:address],
+    )
+    test 'message protocol' do |keys|
+      execute_test(*keys) { |events|
+        events.each { |tag, time, record|
+          send_data [tag, time, record].to_msgpack
+        }
       }
-      send_data ['tag1', entries].to_msgpack
-    }
-  end
-
-  test 'packed forward protocol with source_hostname_key' do
-    execute_test { |events|
-      entries = ''
-      events.each { |tag, time, record|
-        Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
-      }
-      send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
-    }
-  end
-
-  def execute_test(&block)
-    d = create_driver(CONFIG + 'source_hostname_key source')
-
-    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
-    events = [
-      ["tag1", time, {"a"=>1}],
-      ["tag1", time, {"a"=>2}]
-    ]
-    d.expected_emits_length = events.length
-
-    d.run do
-      block.call(events)
     end
 
-    d.emits.each { |tag, _time, record|
-      assert_true record.has_key?('source')
-    }
+    data(
+      both: [:hostname, :address],
+      hostname: [:hostname],
+      address: [:address],
+    )
+    test 'forward protocol' do |keys|
+      execute_test(*keys) { |events|
+        entries = []
+        events.each {|tag,time,record|
+          entries << [time, record]
+        }
+        send_data ['tag1', entries].to_msgpack
+      }
+    end
+
+    data(
+      both: [:hostname, :address],
+      hostname: [:hostname],
+      address: [:address],
+    )
+    test 'packed forward protocol' do |keys|
+      execute_test(*keys) { |events|
+        entries = ''
+        events.each { |tag, time, record|
+          Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
+        }
+        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+      }
+    end
+
+    def execute_test(*keys, &block)
+      conf = CONFIG.dup
+      if keys.include?(:hostname)
+        conf << <<EOL
+source_hostname_key source_hostname
+EOL
+      end
+      if keys.include?(:address)
+        conf << <<EOL
+source_address_key source_address
+EOL
+      end
+      d = create_driver(conf)
+
+      time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+      events = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}]
+      ]
+      d.expected_emits_length = events.length
+
+      d.run do
+        block.call(events)
+      end
+
+      d.emits.each { |tag, _time, record|
+        if keys.include?(:hostname)
+          assert_true record.has_key?('source_hostname')
+          assert_equal DUMMY_SOCK.remote_host, record['source_hostname']
+          unless keys.include?(:address)
+            assert_false record.has_key?('source_address')
+          end
+        end
+        if keys.include?(:address)
+          assert_true record.has_key?('source_address')
+          assert_equal DUMMY_SOCK.remote_addr, record['source_address']
+          unless keys.include?(:hostname)
+            assert_false record.has_key?('source_hostname')
+          end
+        end
+      }
+    end
   end
 
   # TODO heartbeat
