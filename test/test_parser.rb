@@ -667,29 +667,27 @@ module ParserTest
     end
 
     data('array param' => '["a","b","c","d","e","f"]', 'string param' => 'a,b,c,d,e,f')
-    def test_parse_with_null_value_pattern
+    def test_parse_with_null_value_pattern(param)
       parser = TextParser::CSVParser.new
       parser.configure(
         'keys'=>param,
-        'time_key'=>'time',
         'null_value_pattern'=>'^(-|null|NULL)$'
       )
       parser.parse("-,null,NULL,,--,nuLL") do |time, record|
         assert_nil record['a']
         assert_nil record['b']
         assert_nil record['c']
-        assert_equal record['d'], ''
+        assert_nil record['d']
         assert_equal record['e'], '--'
         assert_equal record['f'], 'nuLL'
       end
     end
 
     data('array param' => '["a","b"]', 'string param' => 'a,b')
-    def test_parse_with_null_empty_string
+    def test_parse_with_null_empty_string(param)
       parser = TextParser::CSVParser.new
       parser.configure(
         'keys'=>param,
-        'time_key'=>'time',
         'null_empty_string'=>true
       )
       parser.parse(", ") do |time, record|
