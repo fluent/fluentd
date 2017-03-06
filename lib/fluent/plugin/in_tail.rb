@@ -60,6 +60,8 @@ module Fluent
     config_param :path_key, :string, default: nil
     desc 'Limit the watching files that the modification time is within the specified time range (when use \'*\' in path).'
     config_param :limit_recently_modified, :time, default: nil
+    desc 'Enable the option to skip the refresh of watching list on startup.'
+    config_param :skip_refresh_on_startup, :bool, default: false
 
     attr_reader :paths
 
@@ -130,7 +132,7 @@ module Fluent
       end
 
       @loop = Coolio::Loop.new
-      refresh_watchers
+      refresh_watchers unless @skip_refresh_on_startup
 
       @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, log, &method(:refresh_watchers))
       @refresh_trigger.attach(@loop)
