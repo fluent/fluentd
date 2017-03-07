@@ -27,9 +27,11 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+      REGEXP_RFC5424 = /\A^\<(?<pri>[0-9]{1,5})\>1 (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|-)) (?<message>.+)$\z/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
       config_param :with_priority, :bool, default: false
+      config_param :message_format, :enum, list: [:rfc3164, :rfc5424], default: :rfc3164
 
       def initialize
         super
@@ -39,7 +41,12 @@ module Fluent
       def configure(conf)
         super
 
-        @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+        @regexp = case @message_format
+                  when :rfc3164
+                    @with_priority ? REGEXP_WITH_PRI : REGEXP
+                  when :rfc5424
+                    REGEXP_RFC5424
+                  end
         @time_parser = time_parser_create
       end
 

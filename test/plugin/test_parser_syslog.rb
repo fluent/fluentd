@@ -63,4 +63,39 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal "Feb 28 00:00:12", record['time']
     end
   end
+
+  class TestRFC5424Regexp < self
+    def test_parse_with_rfc5424_message
+      @parser.configure(
+                        'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
+                        'keep_time_key'=>'true',
+                        'message_format' => 'rfc5424',
+                        )
+      text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
+      @parser.instance.parse(text) do |time, record|
+        assert_equal "2017-02-06T13:14:15.003Z", record['time']
+        assert_equal "-", record["pid"]
+        assert_equal "-", record["msgid"]
+        assert_equal "-", record["extradata"]
+        assert_equal "Hi, from Fluentd!", record["message"]
+      end
+    end
+
+    def test_parse_with_rfc5424_structured_message
+      @parser.configure(
+                        'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
+                        'keep_time_key'=>'true',
+                        'message_format' => 'rfc5424',
+                        )
+      text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
+      @parser.instance.parse(text) do |time, record|
+        assert_equal "2017-02-06T13:14:15.003Z", record['time']
+        assert_equal "11111", record["pid"]
+        assert_equal "ID24224", record["msgid"]
+        assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"]",
+                     record["extradata"]
+        assert_equal "Hi, from Fluentd!", record["message"]
+      end
+    end
+  end
 end
