@@ -31,7 +31,7 @@ module Fluent
 
       config_set_default :time_format, "%b %d %H:%M:%S"
       config_param :with_priority, :bool, default: false
-      config_param :message_format, :enum, list: [:rfc3164, :rfc5424], default: :rfc3164
+      config_param :message_format, :enum, list: [:rfc3164, :rfc5424, :auto], default: :rfc3164
 
       def initialize
         super
@@ -46,6 +46,8 @@ module Fluent
                     @with_priority ? REGEXP_WITH_PRI : REGEXP
                   when :rfc5424
                     REGEXP_RFC5424
+                  when :auto
+                    nil
                   end
         @time_parser = time_parser_create
       end
@@ -55,6 +57,14 @@ module Fluent
       end
 
       def parse(text)
+        if @regexp.nil? and (@message_format == :auto)
+          if REGEXP_RFC5424.match(text)
+            @regexp = REGEXP_RFC5424
+          else
+            @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+          end
+        end
+
         m = @regexp.match(text)
         unless m
           yield nil, nil
