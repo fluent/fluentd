@@ -173,7 +173,7 @@ module Fluent
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
             instance.send(method) unless instance.send(checker)
           rescue Exception => e
-            log.warn "unexpected error while calling #{method} on #{kind} plugin", pluguin: instance.class, plugin_id: instance.plugin_id, error: e
+            log.warn "unexpected error while calling #{method} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
           end
         end
