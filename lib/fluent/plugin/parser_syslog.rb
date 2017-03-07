@@ -28,6 +28,7 @@ module Fluent
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       REGEXP_RFC5424 = /\A^\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ])) (?<message>.+)$\z/
+      REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
       config_param :with_priority, :bool, default: false
@@ -57,8 +58,8 @@ module Fluent
       end
 
       def parse(text)
-        if @regexp.nil? and (@message_format == :auto)
-          if REGEXP_RFC5424.match(text)
+        if @message_format == :auto
+          if REGEXP_DETECT_RFC5424.match(text)
             @regexp = REGEXP_RFC5424
           else
             @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
