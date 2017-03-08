@@ -33,6 +33,7 @@ module Fluent
       config_set_default :time_format, "%b %d %H:%M:%S"
       config_param :with_priority, :bool, default: false
       config_param :message_format, :enum, list: [:rfc3164, :rfc5424, :auto], default: :rfc3164
+      config_param :rfc5424_time_format, :string, default: "%Y-%m-%dT%H:%M:%S.%L%z"
 
       def initialize
         super
@@ -61,8 +62,10 @@ module Fluent
         if @message_format == :auto
           if REGEXP_DETECT_RFC5424.match(text)
             @regexp = REGEXP_RFC5424
+            @time_parser = time_parser_create(format: @rfc5424_time_format)
           else
             @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+            @time_parser = time_parser_create(format: @time_format)
           end
         end
 

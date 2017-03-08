@@ -156,16 +156,19 @@ assert_equal "11111", record["pid"]
 
     def test_parse_with_both_message_type
       @parser.configure(
-                        'time_format' => nil,
+                        'time_format' => '%b %d %M:%S:%H',
+                        'rfc5424_time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
                         'with_priority' => true,
                         'message_format' => 'auto',
                         )
       text = '<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test'
       @parser.instance.parse(text) do |time, record|
+        assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected.merge('pri' => 6), record)
       end
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
+        assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
         assert_equal "11111", record["pid"]
         assert_equal "ID24224", record["msgid"]
         assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"]",
