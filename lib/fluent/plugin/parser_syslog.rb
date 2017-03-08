@@ -45,10 +45,19 @@ module Fluent
 
         @regexp = case @message_format
                   when :rfc3164
+                    class << self
+                      alias_method :parse, :parse_plain
+                    end
                     @with_priority ? REGEXP_WITH_PRI : REGEXP
                   when :rfc5424
+                    class << self
+                      alias_method :parse, :parse_plain
+                    end
                     REGEXP_RFC5424
                   when :auto
+                    class << self
+                      alias_method :parse, :parse_auto
+                    end
                     nil
                   end
         @time_parser = time_parser_create
@@ -58,7 +67,7 @@ module Fluent
         {'format' => @regexp, 'time_format' => @time_format}
       end
 
-      def parse(text)
+      def parse_auto(text, &block)
         if @message_format == :auto
           if REGEXP_DETECT_RFC5424.match(text)
             @regexp = REGEXP_RFC5424
@@ -68,7 +77,10 @@ module Fluent
             @time_parser = time_parser_create(format: @time_format)
           end
         end
+        parse_plain(text, &block)
+      end
 
+      def parse_plain(text, &block)
         m = @regexp.match(text)
         unless m
           yield nil, nil
