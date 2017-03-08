@@ -70,6 +70,10 @@ module Fluent
         {'format' => @regexp, 'time_format' => @time_format}
       end
 
+      def parse(text)
+        # This is overwritten in configure
+      end
+
       def parse_auto(text, &block)
         if @message_format == :auto
           if REGEXP_DETECT_RFC5424.match(text)
