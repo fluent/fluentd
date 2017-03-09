@@ -1,5 +1,29 @@
 # v0.12
 
+## Release 0.12.33 - 2017/03/09
+
+### New features / Enhancement
+
+* in_syslog: Backport 'Support rfc5424 syslog format'
+  https://github.com/fluent/fluentd/pull/1495
+* in_forward: Add source_address_key and fix source_hostname_key parameters
+  https://github.com/fluent/fluentd/pull/1490
+* in_tail: Skip directories when use **/* in path
+  https://github.com/fluent/fluentd/pull/1464
+* in_tail: Add limit_recently_modified parameter to limit watching files
+  https://github.com/fluent/fluentd/pull/1474
+* in_tail: Skip the refresh of watching list on startup
+  https://github.com/fluent/fluentd/pull/1487
+* parser: Allow escape sequence in Apache access log
+  https://github.com/fluent/fluentd/pull/1479
+* log: Add Fluent::Log#<< to support some SDKs
+  https://github.com/fluent/fluentd/pull/1478
+
+### Bug fixes
+
+* config: Set encoding forcefully to avoid UndefinedConversionError
+  https://github.com/fluent/fluentd/pull/1477
+
 ## Release 0.12.32 - 2017/02/02
 
 ### New features / Enhancement
