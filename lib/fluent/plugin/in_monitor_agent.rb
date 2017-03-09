@@ -226,6 +226,11 @@ module Fluent::Plugin
       @first_warn = false
     end
 
+    def configure(conf)
+      super
+      @port += fluentd_worker_id
+    end
+
     def multi_workers_ready?
       true
     end
@@ -233,7 +238,7 @@ module Fluent::Plugin
     def start
       super
 
-      log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins"
+      log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins for worker#{fluentd_worker_id}"
       @srv = WEBrick::HTTPServer.new({
           BindAddress: @bind,
           Port: @port,
