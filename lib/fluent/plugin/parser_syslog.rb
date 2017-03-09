@@ -54,6 +54,7 @@ module Fluent
                     class << self
                       alias_method :parse, :parse_plain
                     end
+                    @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
                     REGEXP_RFC5424
                   when :auto
                     class << self
