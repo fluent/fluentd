@@ -80,6 +80,20 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
+    def test_parse_with_rfc5424_message_without_time_format
+      @parser.configure(
+                        'message_format' => 'rfc5424',
+                        )
+      text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
+      @parser.instance.parse(text) do |time, record|
+        assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
+        assert_equal "-", record["pid"]
+        assert_equal "-", record["msgid"]
+        assert_equal "-", record["extradata"]
+        assert_equal "Hi, from Fluentd!", record["message"]
+      end
+    end
+
     def test_parse_with_rfc5424_structured_message
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',

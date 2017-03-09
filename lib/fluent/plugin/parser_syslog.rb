@@ -54,6 +54,7 @@ module Fluent
                     class << self
                       alias_method :parse, :parse_plain
                     end
+                    @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
                     REGEXP_RFC5424
                   when :auto
                     class << self
@@ -75,14 +76,12 @@ module Fluent
       end
 
       def parse_auto(text, &block)
-        if @message_format == :auto
-          if REGEXP_DETECT_RFC5424.match(text)
-            @regexp = REGEXP_RFC5424
-            @time_parser = @time_parser_rfc5424
-          else
-            @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
-            @time_parser = @time_parser_rfc3164
-          end
+        if REGEXP_DETECT_RFC5424.match(text)
+          @regexp = REGEXP_RFC5424
+          @time_parser = @time_parser_rfc5424
+        else
+          @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+          @time_parser = @time_parser_rfc3164
         end
         parse_plain(text, &block)
       end
