@@ -26,6 +26,31 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
     $ fluentd -c conf/fluent.conf &
     $ echo '{"json":"message"}' | fluent-cat debug.test
 
+## Development
+
+### Prerequisites
+
+- Ruby 2.1 or later
+- git
+
+`git` should be in `PATH`. On Windows, you can use `Github for Windows` and `GitShell` for easy setup.
+
+### Install dependent gems
+
+Use bundler:
+
+    $ gem install bundler
+    $ bundle install --path vendor/bundle
+
+### Run test
+
+    $ bundle exec rake test
+
+You can run specified test via `TEST` environment variable:
+
+    $ bundle exec rake test TEST=test/test_specified_path.rb
+    $ bundle exec rake test TEST=test/test_*.rb
+
 ## Fluentd UI: Admin GUI
 
 [Fluentd UI](https://github.com/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
