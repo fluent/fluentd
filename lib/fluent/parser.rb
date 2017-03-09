@@ -552,7 +552,6 @@ module Fluent
       def configure(conf)
         super
 
-        @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
         @time_parser_rfc3164 = @time_parser_rfc5424 = nil
         @regexp = case @message_format
                   when :rfc3164
