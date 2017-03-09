@@ -536,9 +536,13 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+      REGEXP_RFC5424 = /\A^\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ])) (?<message>.+)$\z/
+      REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_param :time_format, :string, default: "%b %d %H:%M:%S"
       config_param :with_priority, :bool, default: false
+      config_param :message_format, :enum, list: [:rfc3164, :rfc5424, :auto], default: :rfc3164
+      config_param :rfc5424_time_format, :string, default: "%Y-%m-%dT%H:%M:%S.%L%z"
 
       def initialize
         super
@@ -548,7 +552,27 @@ module Fluent
       def configure(conf)
         super
 
-        @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+        @time_parser_rfc3164 = @time_parser_rfc5424 = nil
+        @regexp = case @message_format
+                  when :rfc3164
+                    class << self
+                      alias_method :parse, :parse_plain
+                    end
+                    @with_priority ? REGEXP_WITH_PRI : REGEXP
+                  when :rfc5424
+                    class << self
+                      alias_method :parse, :parse_plain
+                    end
+                    @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
+                    REGEXP_RFC5424
+                  when :auto
+                    class << self
+                      alias_method :parse, :parse_auto
+                    end
+                    @time_parser_rfc3164 = TextParser::TimeParser.new(@time_format)
+                    @time_parser_rfc5424 = TextParser::TimeParser.new(@rfc5424_time_format)
+                    nil
+                  end
         @time_parser = TextParser::TimeParser.new(@time_format)
       end
 
@@ -557,6 +581,21 @@ module Fluent
       end
 
       def parse(text)
+        # This is overwritten in configure
+      end
+
+      def parse_auto(text, &block)
+        if REGEXP_DETECT_RFC5424.match(text)
+          @regexp = REGEXP_RFC5424
+          @time_parser = @time_parser_rfc5424
+        else
+          @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+          @time_parser = @time_parser_rfc3164
+        end
+        parse_plain(text, &block)
+      end
+
+      def parse_plain(text, &block)
         m = @regexp.match(text)
         unless m
           if block_given?
