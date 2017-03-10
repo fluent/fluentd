@@ -4,7 +4,7 @@
 
 ### New features / Enhancement
 
-* in_syslog: Backport 'Support rfc5424 syslog format'
+* parser_syslog: Backport 'Support rfc5424 syslog format'
   https://github.com/fluent/fluentd/pull/1495
 * in_forward: Add source_address_key and fix source_hostname_key parameters
   https://github.com/fluent/fluentd/pull/1490
