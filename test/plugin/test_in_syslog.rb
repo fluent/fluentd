@@ -235,4 +235,49 @@ class SyslogInputTest < Test::Unit::TestCase
       assert_equal(options[:facility], events[i][2]['facility']) if options[:facility]
     }
   end
+
+  class SyslogMessageFormatTest < self
+    def test_syslog_rfc5424_format
+      d = create_driver(CONFIG + 'message_format rfc5424')
+      tests = [
+        '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!',
+        '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
+      ]
+
+      run_tests(d, tests)
+      compare_test_result(d)
+    end
+
+    def test_syslog_auto_format
+      d = create_driver(CONFIG + 'message_format auto')
+      tests = [
+        '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!',
+        '<6>Sep 11 00:00:00 localhost fluentd: Hi, from Fluentd!'
+      ]
+
+      run_tests(d, tests)
+      compare_test_result(d)
+    end
+
+    def run_tests(d, tests)
+      d.run do
+        u = Fluent::SocketUtil.create_udp_socket('127.0.0.1')
+        u.connect('127.0.0.1', PORT)
+        tests.each {|test|
+          u.send(test, 0)
+        }
+        sleep 1
+      end
+    end
+
+    def compare_test_result(d)
+      emits = d.emits
+      assert_equal 2, emits.size
+      emits.each_index {|i|
+        record =  emits[i][2]
+        assert_equal('fluentd', record['ident'])
+        assert_equal('Hi, from Fluentd!', record['message'])
+      }
+    end
+  end
 end
