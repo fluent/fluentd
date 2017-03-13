@@ -315,7 +315,7 @@ class OutputTest < Test::Unit::TestCase
         validators = @i.placeholder_validators(:path, "/my/path/file.%Y-%m-%d.log")
         assert_equal 1, validators.size
         assert_equal 1, validators.select(&:time?).size
-        assert_raise Fluent::ConfigError.new("Parameter 'path' has timestamp placeholders, but chunk key 'time' is not configured") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.%Y-%m-%d.log' has timestamp placeholders, but chunk key 'time' is not configured") do
           validators.first.validate!
         end
       end
@@ -325,7 +325,7 @@ class OutputTest < Test::Unit::TestCase
         validators = @i.placeholder_validators(:path, "/my/path/to/file.log")
         assert_equal 1, validators.size
         assert_equal 1, validators.select(&:time?).size
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have timestamp placeholders for timekey 30") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/to/file.log' doesn't have timestamp placeholders for timekey 30") do
           validators.first.validate!
         end
       end
@@ -335,7 +335,7 @@ class OutputTest < Test::Unit::TestCase
         validators = @i.placeholder_validators(:path, "/my/path/${tag}/file.log")
         assert_equal 1, validators.size
         assert_equal 1, validators.select(&:tag?).size
-        assert_raise Fluent::ConfigError.new("Parameter 'path' has tag placeholders, but chunk key 'tag' is not configured") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${tag}/file.log' has tag placeholders, but chunk key 'tag' is not configured") do
           validators.first.validate!
         end
       end
@@ -345,7 +345,7 @@ class OutputTest < Test::Unit::TestCase
         validators = @i.placeholder_validators(:path, "/my/path/file.log")
         assert_equal 1, validators.size
         assert_equal 1, validators.select(&:tag?).size
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have tag placeholder") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have tag placeholder") do
           validators.first.validate!
         end
       end
@@ -355,7 +355,7 @@ class OutputTest < Test::Unit::TestCase
         validators = @i.placeholder_validators(:path, "/my/path/${username}/file.${group}.log")
         assert_equal 1, validators.size
         assert_equal 1, validators.select(&:keys?).size
-        assert_raise Fluent::ConfigError.new("Parameter 'path' has placeholders, but chunk keys doesn't have keys group,username") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${username}/file.${group}.log' has placeholders, but chunk keys doesn't have keys group,username") do
           validators.first.validate!
         end
       end
@@ -365,7 +365,7 @@ class OutputTest < Test::Unit::TestCase
         validators = @i.placeholder_validators(:path, "/my/path/file.log")
         assert_equal 1, validators.size
         assert_equal 1, validators.select(&:keys?).size
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys group,username") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have enough placeholders for keys group,username") do
           validators.first.validate!
         end
       end
@@ -374,14 +374,14 @@ class OutputTest < Test::Unit::TestCase
     sub_test_case '#placeholder_validate!' do
       test 'raises configuration error for a templace when timestamp placeholders exist but time key is missing' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' has timestamp placeholders, but chunk key 'time' is not configured") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /path/without/timestamp/file.%Y%m%d-%H%M.log' has timestamp placeholders, but chunk key 'time' is not configured") do
           @i.placeholder_validate!(:path, "/path/without/timestamp/file.%Y%m%d-%H%M.log")
         end
       end
 
       test 'raises configuration error for a template without timestamp placeholders when timekey is configured' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {"timekey" => 180})]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have timestamp placeholders for timekey 180") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have timestamp placeholders for timekey 180") do
           @i.placeholder_validate!(:path, "/my/path/file.log")
         end
         assert_nothing_raised do
@@ -391,7 +391,7 @@ class OutputTest < Test::Unit::TestCase
 
       test 'raises configuration error for a template with timestamp placeholders when plugin is configured more fine timekey' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {"timekey" => 180})]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have timestamp placeholder for hour('%H') for timekey 180") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.%Y%m%d_%H.log' doesn't have timestamp placeholder for hour('%H') for timekey 180") do
           @i.placeholder_validate!(:path, "/my/path/file.%Y%m%d_%H.log")
         end
         assert_nothing_raised do
@@ -401,14 +401,14 @@ class OutputTest < Test::Unit::TestCase
 
       test 'raises configuration error for a template when tag placeholders exist but tag key is missing' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' has tag placeholders, but chunk key 'tag' is not configured") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${tag}/file.${tag[2]}.log' has tag placeholders, but chunk key 'tag' is not configured") do
           @i.placeholder_validate!(:path, "/my/path/${tag}/file.${tag[2]}.log")
         end
       end
 
       test 'raises configuration error for a template without tag placeholders when tagkey is configured' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag')]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have tag placeholder") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have tag placeholder") do
           @i.placeholder_validate!(:path, "/my/path/file.log")
         end
         assert_nothing_raised do
@@ -418,14 +418,14 @@ class OutputTest < Test::Unit::TestCase
 
       test 'raises configuration error for a template when variable key placeholders exist but chunk keys are missing' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' has placeholders, but chunk keys doesn't have keys service,username") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${service}/file.${username}.log' has placeholders, but chunk keys doesn't have keys service,username") do
           @i.placeholder_validate!(:path, "/my/path/${service}/file.${username}.log")
         end
       end
 
       test 'raises configuration error for a template without variable key placeholders when chunk keys are configured' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'username,service')]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys service,username") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.log' doesn't have enough placeholders for keys service,username") do
           @i.placeholder_validate!(:path, "/my/path/file.log")
         end
         assert_nothing_raised do
@@ -435,10 +435,10 @@ class OutputTest < Test::Unit::TestCase
 
       test 'raise configuration error for a template and configuration with keys mismatch' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'username,service')]))
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys service") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/file.${username}.log' doesn't have enough placeholders for keys service") do
           @i.placeholder_validate!(:path, "/my/path/file.${username}.log")
         end
-        assert_raise Fluent::ConfigError.new("Parameter 'path' doesn't have enough placeholders for keys username") do
+        assert_raise Fluent::ConfigError.new("Parameter 'path: /my/path/${service}/file.log' doesn't have enough placeholders for keys username") do
           @i.placeholder_validate!(:path, "/my/path/${service}/file.log")
         end
         assert_nothing_raised do
