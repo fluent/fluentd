@@ -589,13 +589,13 @@ module Fluent
           example = @argument[:example]
           timekey = @argument[:timekey]
           if !sec && timekey
-            raise Fluent::ConfigError, "Parameter '#{name}' doesn't have timestamp placeholders for timekey #{timekey.to_i}"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' doesn't have timestamp placeholders for timekey #{timekey.to_i}"
           end
           if sec && !timekey
-            raise Fluent::ConfigError, "Parameter '#{name}' has timestamp placeholders, but chunk key 'time' is not configured"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' has timestamp placeholders, but chunk key 'time' is not configured"
           end
           if sec && timekey && timekey < sec
-            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have timestamp placeholder for #{title}('#{example}') for timekey #{timekey.to_i}"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' doesn't have timestamp placeholder for #{title}('#{example}') for timekey #{timekey.to_i}"
           end
         end
 
@@ -603,10 +603,10 @@ module Fluent
           parts = @argument[:parts]
           tagkey = @argument[:tagkey]
           if tagkey && parts.empty?
-            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have tag placeholder"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' doesn't have tag placeholder"
           end
           if !tagkey && !parts.empty?
-            raise Fluent::ConfigError, "Parameter '#{@name}' has tag placeholders, but chunk key 'tag' is not configured"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' has tag placeholders, but chunk key 'tag' is not configured"
           end
         end
 
@@ -615,11 +615,11 @@ module Fluent
           chunk_keys = @argument[:chunkkeys]
           if (chunk_keys - keys).size > 0
             not_specified = (chunk_keys - keys).sort
-            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have enough placeholders for keys #{not_specified.join(',')}"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' doesn't have enough placeholders for keys #{not_specified.join(',')}"
           end
           if (keys - chunk_keys).size > 0
             not_satisfied = (keys - chunk_keys).sort
-            raise Fluent::ConfigError, "Parameter '#{@name}' has placeholders, but chunk keys doesn't have keys #{not_satisfied.join(',')}"
+            raise Fluent::ConfigError, "Parameter '#{name}: #{string}' has placeholders, but chunk keys doesn't have keys #{not_satisfied.join(',')}"
           end
         end
       end
