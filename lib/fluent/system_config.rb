@@ -103,7 +103,7 @@ module Fluent
             # info level can't be specified via command line option.
             # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
             if ll_value != Fluent::Log::LEVEL_INFO
-              system.send("log_level=", ll_value)
+              system.log_level = ll_value
             end
           else
             next unless instance_variable_defined?("@#{param}")
