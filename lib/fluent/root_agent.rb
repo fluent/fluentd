@@ -136,8 +136,9 @@ module Fluent
     def start
       lifecycle(desc: true) do |i| # instance
         i.start unless i.started?
-      end
-      lifecycle(desc: true) do |i|
+        # Input#start emits lots of evetns with in_tail/`read_from_head true` case and
+        # it causes deadlock for small buffer/queue output. To avoid such problem,
+        # buffer related output threads should be run before `Input#start`.
         i.after_start unless i.after_started?
       end
     end

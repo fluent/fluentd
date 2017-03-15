@@ -174,10 +174,15 @@ EOC
   end
 
   sub_test_case 'start/shutdown' do
-    setup do
-      @ra = RootAgent.new(log: $log)
-      stub(Engine).root_agent { @ra }
-      @ra.configure(Config.parse(<<-EOC, "(test)", "(test_dir)", true))
+    def setup_root_agent(conf)
+      ra = RootAgent.new(log: $log)
+      stub(Engine).root_agent { ra }
+      ra.configure(Config.parse(conf, "(test)", "(test_dir)", true))
+      ra
+    end
+
+    test 'plugin status' do
+      ra = setup_root_agent(<<-EOC)
 <source>
   @type test_in
   @id test_in
@@ -191,19 +196,41 @@ EOC
   @id test_out
 </match>
 EOC
-      @ra
+      ra.start
+      assert_true ra.inputs.first.started
+      assert_true ra.filters.first.started
+      assert_true ra.outputs.first.started
+
+      ra.shutdown
+      assert_false ra.inputs.first.started
+      assert_false ra.filters.first.started
+      assert_false ra.outputs.first.started
     end
 
-    test 'plugin status' do
-      @ra.start
-      assert_true @ra.inputs.first.started
-      assert_true @ra.filters.first.started
-      assert_true @ra.outputs.first.started
+    test 'output plugin threads should run before input plugin is blocked with buffer full' do
+      ra = setup_root_agent(<<-EOC)
+<source>
+  @type test_in_gen
+  @id test_in_gen
+</source>
+<match **>
+  @type test_out_buffered
+  @id test_out_buffered
+  <buffer>
+    chunk_limit_size 1k
+    queue_limit_length 2
+    flush_thread_count 2
+    overflow_action block
+  </buffer>
+</match>
+EOC
+      ra.start
+      assert_true ra.inputs.first.started
+      assert_true ra.outputs.first.started
 
-      @ra.shutdown
-      assert_false @ra.inputs.first.started
-      assert_false @ra.filters.first.started
-      assert_false @ra.outputs.first.started
+      ra.shutdown
+      assert_false ra.inputs.first.started
+      assert_false ra.outputs.first.started
     end
   end
 
