@@ -98,6 +98,13 @@ module Fluent
             next # doesn't exist in command line options
           when :emit_error_log_interval
             system.emit_error_log_interval = @suppress_interval if @suppress_interval
+          when :log_level
+            ll_value = instance_variable_get("@log_level")
+            # info level can't be specified via command line option.
+            # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
+            if ll_value != Fluent::Log::LEVEL_INFO
+              system.log_level = ll_value
+            end
           else
             next unless instance_variable_defined?("@#{param}")
             supervisor_value = instance_variable_get("@#{param}")
