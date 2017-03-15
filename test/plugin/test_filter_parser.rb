@@ -662,4 +662,39 @@ class ParserFilterTest < Test::Unit::TestCase
       end
     end
   end
+
+  class EmitInvalidRecordToErrorTest < self
+    def test_pattern_is_mismached_with_emit_invalid_record_to_error
+      d = create_driver(CONFIG_UNMATCHED_PATTERN_LOG + "emit_invalid_record_to_error false")
+      flexmock(d.instance.router).should_receive(:emit_error_event).never
+      assert_nothing_raised {
+        d.run do
+          d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
+        end
+      }
+      assert_equal 0, d.filtered.length
+    end
+
+    def test_parser_error_with_emit_invalid_record_to_error
+      d = create_driver(CONFIG_INVALID_TIME_VALUE + "emit_invalid_record_to_error false")
+      flexmock(d.instance.router).should_receive(:emit_error_event).never
+      assert_nothing_raised {
+        d.run do
+          d.feed(@tag, Fluent::EventTime.now.to_i, {'data' => '{"time":[], "f1":"v1"}'})
+        end
+      }
+      assert_equal 0, d.filtered.length
+    end
+
+    def test_key_not_exist_with_emit_invalid_record_to_error
+      d = create_driver(CONFIG_NOT_IGNORE + "emit_invalid_record_to_error false")
+      flexmock(d.instance.router).should_receive(:emit_error_event).never
+      assert_nothing_raised {
+        d.run do
+          d.feed(@tag, Fluent::EventTime.now.to_i, {'foo' => 'bar'})
+        end
+      }
+      assert_equal 0, d.filtered.length
+    end
+  end
 end

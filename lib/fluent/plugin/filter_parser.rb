@@ -32,6 +32,7 @@ module Fluent::Plugin
     config_param :inject_key_prefix, :string, default: nil
     config_param :replace_invalid_sequence, :bool, default: false
     config_param :hash_value_field, :string, default: nil
+    config_param :emit_invalid_record_to_error, :bool, default: true
 
     attr_reader :parser
 
@@ -49,7 +50,9 @@ module Fluent::Plugin
     def filter_with_time(tag, time, record)
       raw_value = record[@key_name]
       if raw_value.nil?
-        router.emit_error_event(tag, time, record, ArgumentError.new("#{@key_name} does not exist"))
+        if @emit_invalid_record_to_error
+          router.emit_error_event(tag, time, record, ArgumentError.new("#{@key_name} does not exist"))
+        end
         if @reserve_data
           return time, handle_parsed(tag, record, time, {})
         else
@@ -67,7 +70,9 @@ module Fluent::Plugin
             r = handle_parsed(tag, record, t, values)
             return t, r
           else
-            router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("pattern not match with data '#{raw_value}'"))
+            if @emit_invalid_record_to_error
+              router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("pattern not match with data '#{raw_value}'"))
+            end
             if @reserve_data
               t = time
               r = handle_parsed(tag, record, time, {})
@@ -78,8 +83,11 @@ module Fluent::Plugin
           end
         end
       rescue Fluent::Plugin::Parser::ParserError => e
-        router.emit_error_event(tag, time, record, e)
-        return FAILED_RESULT
+        if @emit_invalid_record_to_error
+          raise e
+        else
+          return FAILED_RESULT
+        end
       rescue ArgumentError => e
         raise unless @replace_invalid_sequence
         raise unless e.message.index("invalid byte sequence in") == 0
@@ -87,8 +95,11 @@ module Fluent::Plugin
         raw_value = raw_value.scrub(REPLACE_CHAR)
         retry
       rescue => e
-        router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("parse failed #{e.message}"))
-        return FAILED_RESULT
+        if @emit_invalid_record_to_error
+          raise Fluent::Plugin::Parser::ParserError, "parse failed #{e.message}"
+        else
+          return FAILED_RESULT
+        end
       end
     end
 
