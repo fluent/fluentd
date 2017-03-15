@@ -224,7 +224,7 @@ EOC
   </buffer>
 </match>
 EOC
-      ra.start
+      waiting(5) { ra.start }
       assert_true ra.inputs.first.started
       assert_true ra.outputs.first.started
 
