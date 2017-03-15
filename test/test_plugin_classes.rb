@@ -21,6 +21,28 @@ module FluentTest
     end
   end
 
+  class FluentTestGenInput < ::Fluent::Plugin::Input
+    ::Fluent::Plugin.register_input('test_in_gen', self)
+
+    attr_reader :started
+
+    config_param :num, :integer, default: 10000
+
+    def start
+      super
+      @started = true
+
+      @num.times { |i|
+        router.emit("test.evet", Fluent::EventTime.now, {'message' => 'Hello!', 'key' => "value#{i}", 'num' => i})
+      }
+    end
+
+    def shutdown
+      @started = false
+      super
+    end
+  end
+
   class FluentTestOutput < ::Fluent::Plugin::Output
     ::Fluent::Plugin.register_output('test_out', self)
 
@@ -112,6 +134,19 @@ module FluentTest
 
   class FluentTestBufferedOutput < ::Fluent::Plugin::Output
     ::Fluent::Plugin.register_output('test_out_buffered', self)
+
+    attr_reader :started
+
+    def start
+      super
+      @started = true
+    end
+
+    def shutdown
+      @started = false
+      super
+    end
+
     def write(chunk)
       # drop everything
     end
