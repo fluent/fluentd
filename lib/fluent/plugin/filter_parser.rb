@@ -84,9 +84,10 @@ module Fluent::Plugin
         end
       rescue Fluent::Plugin::Parser::ParserError => e
         if @emit_invalid_record_to_error
-          router.emit_error_event(tag, time, record, e)
+          raise e
+        else
+          return FAILED_RESULT
         end
-        return FAILED_RESULT
       rescue ArgumentError => e
         raise unless @replace_invalid_sequence
         raise unless e.message.index("invalid byte sequence in") == 0
@@ -94,10 +95,11 @@ module Fluent::Plugin
         raw_value = raw_value.scrub(REPLACE_CHAR)
         retry
       rescue => e
-        if @emit_invalid_record_to_error        
-          router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("parse failed #{e.message}"))
+        if @emit_invalid_record_to_error
+          raise Fluent::Plugin::Parser::ParserError, "parse failed #{e.message}"
+        else
+          return FAILED_RESULT
         end
-        return FAILED_RESULT
       end
     end
 
