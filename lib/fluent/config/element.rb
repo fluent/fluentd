@@ -35,10 +35,13 @@ module Fluent
 
         # it's global logger, not plugin logger: deprecated message should be global warning, not plugin level.
         @logger = defined?($log) ? $log : nil
+
+        @target_worker_id = nil
       end
 
       attr_accessor :name, :arg, :unused, :v1_config, :corresponding_proxies, :unused_in
       attr_writer :elements
+      attr_reader :target_worker_id
 
       RESERVED_PARAMETERS_COMPAT = {
         '@type' => 'type',
@@ -212,6 +215,17 @@ module Fluent
         result = ''
         v.each_char { |c| result << LiteralParser.unescape_char(c) }
         result
+      end
+
+      def set_target_worker_id(worker_id)
+        @target_worker_id = worker_id
+        @elements.each { |e|
+          e.set_target_worker_id(worker_id)
+        }
+      end
+
+      def has_target?
+        !!@target_worker_id
       end
     end
   end

@@ -235,6 +235,21 @@ module FluentTest
     end
   end
 
+  class FluentTestBuffer < Fluent::Plugin::Buffer
+    ::Fluent::Plugin.register_buffer('test_buffer', self)
+
+    def resume
+      return {}, []
+    end
+
+    def generate_chunk(metadata)
+    end
+
+    def multi_workers_ready?
+      false
+    end
+  end
+
   class TestEmitErrorHandler
     def initialize
       @events = Hash.new { |h, k| h[k] = [] }

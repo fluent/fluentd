@@ -31,6 +31,7 @@ module Fluent
       @root_agent = nil
       @default_loop = nil
       @engine_stopped = false
+      @_worker_id = nil
 
       @log_event_router = nil
       @log_emit_thread = nil
@@ -97,12 +98,21 @@ module Fluent
                     else
                       "section <#{e.name}> is not used in <#{parent_name}>"
                     end
-          $log.warn :worker0, message
+          if !e.has_target?
+            $log.warn :worker0, message
+          elsif e.target_worker_id == worker_id
+            $log.warn message
+          end
           next
         end
         unless e.name == 'system'
           unless @without_source && e.name == 'source'
-            $log.warn :worker0, "parameter '#{key}' in #{e.to_s.strip} is not used."
+            message = "parameter '#{key}' in #{e.to_s.strip} is not used."
+            if !e.has_target?
+              $log.warn :worker0, message
+            elsif e.target_worker_id == worker_id
+              $log.warn message
+            end
           end
         end
       }
@@ -128,7 +138,7 @@ module Fluent
 
         unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
         unless unmatched_tags.empty?
-          $log.warn :worker0, "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
         end
       rescue ArgumentError # ArgumentError "#{label_name} label not found"
         # use default event router if <label @FLUENT_LOG> is missing in configuration
@@ -139,7 +149,7 @@ module Fluent
 
           unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
           unless unmatched_tags.empty?
-            $log.warn :worker0, "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
           end
         end
       end
@@ -200,10 +210,6 @@ module Fluent
     end
 
     def run
-      # if ENV doesn't have SERVERENGINE_WORKER_ID, it is a worker under --no-supervisor or in tests
-      # so it's (almost) a single worker, worker_id=0
-      worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
-
       begin
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
@@ -251,8 +257,13 @@ module Fluent
       @log_event_queue.push([tag, time, record])
     end
 
-    private
+    def worker_id
+      return @_worker_id if @_worker_id
+      @_worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
+      @_worker_id
+    end
 
+    private
     def start
       @root_agent.start
     end

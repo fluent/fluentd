@@ -62,6 +62,7 @@ module Fluent
 
       # initialize <match> and <filter> elements
       conf.elements('filter', 'match').each { |e|
+        next if e.has_target? && e.target_worker_id != Fluent::Engine.worker_id
         pattern = e.arg.empty? ? '**' : e.arg
         type = e['@type']
         raise ConfigError, "Missing '@type' parameter on <#{e.name}> directive" unless type
@@ -121,7 +122,8 @@ module Fluent
     end
 
     def add_match(type, pattern, conf)
-      log.info :worker0, "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
+      log_type = conf.target_worker_id == Fluent::Engine.worker_id ? :default : :worker0
+      log.info log_type, "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       output = Plugin.new_output(type)
       output.context_router = @event_router
@@ -142,7 +144,8 @@ module Fluent
     end
 
     def add_filter(type, pattern, conf)
-      log.info :worker0, "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
+      log_type = conf.target_worker_id == Fluent::Engine.worker_id ? :default : :worker0
+      log.info log_type, "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       filter = Plugin.new_filter(type)
       filter.context_router = @event_router

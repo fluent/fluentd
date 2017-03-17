@@ -64,11 +64,34 @@ module Fluent
     attr_reader :labels
 
     def configure(conf)
+      # initialize <worker> elements
+      conf.elements(name: 'worker').each do |e|
+        target_worker_id_str = e.arg
+        if target_worker_id_str.empty?
+          raise ConfigError, "Missing worker id on <worker> directive"
+        end
+
+        target_worker_id = target_worker_id_str.to_i
+        if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
+          raise ConfigError, "worker#{target_worker_id} specified by <worker> directive doesn't exist. Specify id between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+        end
+
+        e.elements.each do |elem|
+          unless ['source', 'match', 'filter', 'label'].include?(elem.name)
+            raise ConfigError, "<worker> section cannot have <#{elem.name}> directive"
+          end
+          elem.set_target_worker_id(target_worker_id)
+        end
+        conf += e
+      end
+      conf.elements.delete_if{|e| e.name == 'worker'}
+
       error_label_config = nil
 
       # initialize <label> elements before configuring all plugins to avoid 'label not found' in input, filter and output.
       label_configs = {}
       conf.elements(name: 'label').each { |e|
+        next if e.has_target? && e.target_worker_id != Fluent::Engine.worker_id
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
 
@@ -90,6 +113,7 @@ module Fluent
         log.info :worker0, "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements(name: 'source').each { |e|
+          next if e.has_target? && e.target_worker_id != Fluent::Engine.worker_id
           type = e['@type']
           raise ConfigError, "Missing '@type' parameter on <source> directive" unless type
           add_source(type, e)
@@ -235,7 +259,8 @@ module Fluent
     end
 
     def add_source(type, conf)
-      log.info :worker0, "adding source", type: type
+      log_type = conf.target_worker_id == Fluent::Engine.worker_id ? :default : :worker0
+      log.info log_type, "adding source", type: type
 
       input = Plugin.new_input(type)
       # <source> emits events to the top-level event router (RootAgent#event_router).
