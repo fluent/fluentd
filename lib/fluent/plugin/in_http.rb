@@ -355,6 +355,8 @@ module Fluent
           params.update WEBrick::HTTPUtils.parse_form_data(@body, boundary)
         elsif @content_type =~ /^application\/json/
           params['json'] = @body
+        elsif @content_type =~ /^application\/msgpack/
+          params['msgpack'] = @body
         end
         path_info = uri.path
 
