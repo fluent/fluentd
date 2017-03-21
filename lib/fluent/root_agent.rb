@@ -138,6 +138,11 @@ module Fluent
       super
     end
 
+    def flush!
+      super
+      @labels.each{ |name, label| label.flush! }
+    end
+
     def suppress_interval(interval_time)
       @suppress_emit_error_log_interval = interval_time
       @next_emit_error_log_time = Time.now.to_i
