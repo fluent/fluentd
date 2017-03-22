@@ -54,7 +54,7 @@ class UdpInputTest < Test::Unit::TestCase
     d = create_driver(conf)
     assert_equal PORT, d.instance.port
     assert_equal bind, d.instance.bind
-    assert_equal 4096, d.instance.body_size_limit
+    assert_equal 4096, d.instance.message_length_limit
   end
 
   data(
@@ -84,6 +84,16 @@ class UdpInputTest < Test::Unit::TestCase
     tests.each_with_index do |t, i|
       assert_equal_event_time(t['expected'], events[i][1])
     end
+  end
+
+  data(
+    'message_length_limit' => 'message_length_limit 2048',
+    'body_size_limit' => 'body_size_limit 2048'
+  )
+  test 'message_length_limit/body_size_limit compatibility' do |param|
+
+    d = create_driver(CONFIG + param)
+    assert_equal 2048, d.instance.message_length_limit
   end
 
   data(
