@@ -413,16 +413,16 @@ CONF
     end
   end
 
-  sub_test_case '#has_target?' do
+  sub_test_case '#has_target_worker_id?' do
     test 'has target_worker_id' do
       e = element()
       e.set_target_worker_id(1)
-      assert e.has_target?
+      assert e.has_target_worker_id?
     end
 
     test "don't have target_worker_id" do
       e = element()
-      refute e.has_target?
+      refute e.has_target_worker_id?
     end
   end
 end

@@ -224,7 +224,7 @@ module Fluent
         }
       end
 
-      def has_target?
+      def has_target_worker_id?
         !!@target_worker_id
       end
     end
