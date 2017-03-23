@@ -34,7 +34,10 @@ module Fluent::Plugin
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
 
-    config_param :body_size_limit, :size, default: 4096
+    desc "Deprecated parameter. Use message_length_limit instead"
+    config_param :body_size_limit, :size, default: nil, deprecated: "use message_length_limit instead."
+    desc "The max bytes of message"
+    config_param :message_length_limit, :size, default: 4096
 
     config_param :blocking_timeout, :time, default: 0.5
 
@@ -43,6 +46,7 @@ module Fluent::Plugin
       super
       @_event_loop_blocking_timeout = @blocking_timeout
       @source_hostname_key ||= @source_host_key if @source_host_key
+      @message_length_limit = @body_size_limit if @body_size_limit
 
       @parser = parser_create
     end
@@ -55,7 +59,7 @@ module Fluent::Plugin
       super
 
       log.info "listening udp socket", bind: @bind, port: @port
-      server_create(:in_udp_server, @port, proto: :udp, bind: @bind, max_bytes: @body_size_limit) do |data, sock|
+      server_create(:in_udp_server, @port, proto: :udp, bind: @bind, max_bytes: @message_length_limit) do |data, sock|
         data.chomp!
         begin
           @parser.parse(data) do |time, record|
