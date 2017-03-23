@@ -95,8 +95,9 @@ module Fluent
     config_param :priority_key, :string, default: nil
     desc 'The field name of the facility.'
     config_param :facility_key, :string, default: nil
-    config_param :blocking_timeout, :time, default: 0.5
+    desc "The max bytes of message"
     config_param :message_length_limit, :size, default: 2048
+    config_param :blocking_timeout, :time, default: 0.5
 
     def configure(conf)
       super
