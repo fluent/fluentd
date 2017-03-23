@@ -1,5 +1,43 @@
 # v0.14
 
+## Release v0.14.14 - 2017/03/23
+
+### New features / Enhancements
+
+* in_http: Support 'application/msgpack` header
+  https://github.com/fluent/fluentd/pull/1498
+* in_udp: Add message_length_limit parameter for parameter name consistency with in_syslog
+  https://github.com/fluent/fluentd/pull/1515
+* in_monitor_agent: Start one HTTP server per worker on sequential port numbers
+  https://github.com/fluent/fluentd/pull/1493
+* in_tail: Skip the refresh of watching list on startup
+  https://github.com/fluent/fluentd/pull/1487
+* filter_parser: filter_parser: Add emit_invalid_record_to_error parameter
+  https://github.com/fluent/fluentd/pull/1494
+* parser_syslog: Support RFC5424 syslog format
+  https://github.com/fluent/fluentd/pull/1492
+* parser: Allow escape sequence in Apache access log
+  https://github.com/fluent/fluentd/pull/1479
+* config: Add actual value in the placholder error message
+  https://github.com/fluent/fluentd/pull/1497
+* log: Add Fluent::Log#<< to support some SDKs
+  https://github.com/fluent/fluentd/pull/1478
+
+### Bug fixes
+
+* Fix cleanup resource
+  https://github.com/fluent/fluentd/pull/1483
+* config: Set encoding forcefully to avoid UndefinedConversionError
+  https://github.com/fluent/fluentd/pull/1477
+* Fix Input and Output deadlock when buffer is full during startup
+  https://github.com/fluent/fluentd/pull/1502
+* config: Fix log_level handling in <system>
+  https://github.com/fluent/fluentd/pull/1501
+* Fix typo in root agent error log
+  https://github.com/fluent/fluentd/pull/1491
+* storage: Fix a bug storage_create cannot accept hash as `conf` keyword argument
+  https://github.com/fluent/fluentd/pull/1482
+
 ## Release v0.14.13 - 2017/02/17
 
 ### New features / Enhancements
