@@ -88,9 +88,11 @@ module Fluent
       end
     end
     desc 'If true, add source host to event record.'
-    config_param :include_source_host, :bool, default: false
+    config_param :include_source_host, :bool, default: false, deprecated: "use source_hostname_key instead"
     desc 'Specify key of source host when include_source_host is true.'
-    config_param :source_host_key, :string, default: 'source_host'.freeze
+    config_param :source_host_key, :string, default: 'source_host'.freeze, deprecated: "use source_hostname_key instead"
+    desc "The field name of the client's hostname."
+    config_param :source_hostname_key, :string, default: nil
     desc 'The field name of the priority.'
     config_param :priority_key, :string, default: nil
     desc 'The field name of the facility.'
@@ -110,6 +112,10 @@ module Fluent
         @parser = TextParser::SyslogParser.new
         @parser.configure(conf)
         @use_default = true
+      end
+
+      if @source_hostname_key.nil? && @include_source_host
+        @source_hostname_key = @source_host_key
       end
     end
 
@@ -163,7 +169,7 @@ module Fluent
 
         record[@priority_key] = priority if @priority_key
         record[@facility_key] = facility if @facility_key
-        record[@source_host_key] = addr[2] if @include_source_host
+        record[@source_hostname_key] = addr[2] if @source_hostname_key
 
         tag = "#{@tag}.#{facility}.#{priority}"
         emit(tag, time, record)
@@ -186,7 +192,7 @@ module Fluent
 
         record[@priority_key] = priority if @priority_key
         record[@facility_key] = facility if @facility_key
-        record[@source_host_key] = addr[2] if @include_source_host
+        record[@source_hostname_key] = addr[2] if @source_hostname_key
 
         tag = "#{@tag}.#{facility}.#{priority}"
         emit(tag, time, record)
@@ -203,10 +209,10 @@ module Fluent
       if @protocol_type == :udp
         @usock = SocketUtil.create_udp_socket(@bind)
         @usock.bind(@bind, @port)
-        SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback)
+        SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback, !!@source_hostname_key)
       else
         # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
-        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback)
+        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback, !!@source_hostname_key)
       end
     end
 

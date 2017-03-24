@@ -28,7 +28,7 @@ module Fluent
 
     def listen(callback)
       log.info "listening tcp socket on #{@bind}:#{@port}"
-      Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, @delimiter, callback)
+      Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, @delimiter, callback, !!@source_hostname_key)
     end
   end
 end

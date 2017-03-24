@@ -37,7 +37,7 @@ module Fluent
       log.info "listening udp socket on #{@bind}:#{@port}"
       @usock = SocketUtil.create_udp_socket(@bind)
       @usock.bind(@bind, @port)
-      SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback)
+      SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback, !!@source_hostname_key)
     end
   end
 end
