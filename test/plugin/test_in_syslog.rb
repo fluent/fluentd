@@ -155,15 +155,18 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests)
   end
 
-  def test_msg_size_with_include_source_host
-    d = create_driver([CONFIG, 'include_source_host'].join("\n"))
+  LOCALHOST_HOSTNAME_GETTER = ->(){sock = UDPSocket.new(::Socket::AF_INET); sock.do_not_reverse_lookup = false; sock.connect("127.0.0.1", 2048); sock.peeraddr[2] }
+  LOCALHOST_HOSTNAME = LOCALHOST_HOSTNAME_GETTER.call
+
+  data('old parameter' => 'include_source_host',
+       'new parameter' => 'source_hostname_key source_host')
+  def test_msg_size_with_include_source_host(param)
+    d = create_driver([CONFIG, param].join("\n"))
     tests = create_test_case
 
-    host = nil
     d.run do
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
-      host = u.peeraddr[2]
       tests.each {|test|
         u.send(test['msg'], 0)
       }
@@ -171,7 +174,7 @@ class SyslogInputTest < Test::Unit::TestCase
     end
 
     assert_equal 2, d.emits.size
-    compare_test_result(d.emits, tests, {host: host})
+    compare_test_result(d.emits, tests, {host: LOCALHOST_HOSTNAME})
   end
 
   def test_msg_size_with_include_priority

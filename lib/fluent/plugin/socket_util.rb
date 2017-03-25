@@ -32,9 +32,10 @@ module Fluent
     module_function :create_udp_socket
 
     class UdpHandler < Coolio::IO
-      def initialize(io, log, body_size_limit, callback)
+      def initialize(io, log, body_size_limit, callback, resolve_hostname = false)
         super(io)
         @io = io
+        @io.do_not_reverse_lookup = !resolve_hostname
         @log = log
         @body_size_limit = body_size_limit
         @callback = callback
@@ -52,9 +53,10 @@ module Fluent
     class TcpHandler < Coolio::Socket
       PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
-      def initialize(io, log, delimiter, callback)
+      def initialize(io, log, delimiter, callback, resolve_hostname = false)
         super(io)
         if io.is_a?(TCPSocket)
+          io.do_not_reverse_lookup = resolve_hostname
           @addr = (io.peeraddr rescue PEERADDR_FAILED)
 
           opt = [1, @timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -104,13 +106,16 @@ module Fluent
       config_param :port, :integer, default: 5150
       desc 'The bind address to listen to.'
       config_param :bind, :string, default: '0.0.0.0'
+      desc "Deprecated parameter. Use source_hostname_key instead"
+      config_param :source_host_key, :string, default: nil, deprecated: "Use source_hostname_key instead"
       desc "The field name of the client's hostname."
-      config_param :source_host_key, :string, default: nil
+      config_param :source_hostname_key, :string, default: nil
       config_param :blocking_timeout, :time, default: 0.5
 
       def configure(conf)
         super
 
+        @source_hostname_key = @source_host_key if @source_host_key
         @parser = Plugin.new_parser(@format)
         @parser.configure(conf)
       end
@@ -145,7 +150,7 @@ module Fluent
             return
           end
 
-          record[@source_host_key] = addr[3] if @source_host_key
+          record[@source_hostname_key] = addr[2] if @source_hostname_key
           router.emit(@tag, time, record)
         }
       rescue => e
