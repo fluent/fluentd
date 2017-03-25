@@ -1,5 +1,19 @@
 # v0.12
 
+## Release 0.12.34 - 2017/03/25
+
+### New features / Enhancement
+
+* in_syslog/in_udp/in_tcp: Fix hostname lookup and unify parameter name to source_hostname_key
+  https://github.com/fluent/fluentd/pull/1515
+* in_http: Support application/msgpack header
+  https://github.com/fluent/fluentd/pull/1506
+
+### Bug fixes
+
+* engine: Label's plugins should be flushed when receive signal
+  https://github.com/fluent/fluentd/pull/1508
+
 ## Release 0.12.33 - 2017/03/09
 
 ### New features / Enhancement
