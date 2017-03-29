@@ -227,7 +227,7 @@ BANNER
 \tY - yes, overwrite
 \tn - no, do not overwrite
 \ta - all, overwrite this and all others
-\tq - quite, abort
+\tq - quit, abort
 \th - help, show this help
 HELP
       end
