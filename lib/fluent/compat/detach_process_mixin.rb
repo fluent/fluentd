@@ -17,9 +17,17 @@
 module Fluent
   module Compat
     module DetachProcessMixin
+      def detach_process
+        log.warn "#{__method__} is not supported in this version. ignored."
+        yield
+      end
     end
 
     module DetachMultiProcessMixin
+      def detach_multi_process
+        log.warn "#{__method__} is not supported in this version. ignored."
+        yield
+      end
     end
   end
 end
