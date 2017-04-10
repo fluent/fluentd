@@ -259,6 +259,8 @@ module Fluent
 
     def worker_id
       return @_worker_id if @_worker_id
+      # if ENV doesn't have SERVERENGINE_WORKER_ID, it is a worker under --no-supervisor or in tests
+      # so it's (almost) a single worker, worker_id=0
       @_worker_id = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
       @_worker_id
     end
