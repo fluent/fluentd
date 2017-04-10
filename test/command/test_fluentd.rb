@@ -616,17 +616,19 @@ CONF
     end
 
     test 'failed to start workers when configured plugins as chidren of MultiOutput do not support multi worker configuration' do
-      script =  "require 'fluent/plugin/output'\n"
-      script << "module Fluent::Plugin\n"
-      script << "  class SingleOutput < Output\n"
-      script << "    Fluent::Plugin.register_output('single', self)\n"
-      script << "    def multi_workers_ready?\n"
-      script << "      false\n"
-      script << "    end\n"
-      script << "    def write(chunk)\n"
-      script << "    end\n"
-      script << "  end\n"
-      script << "end\n"
+      script = <<-EOC
+require 'fluent/plugin/output'
+module Fluent::Plugin
+  class SingleOutput < Output
+    Fluent::Plugin.register_output('single', self)
+    def multi_workers_ready?
+      false
+    end
+    def write(chunk)
+    end
+  end
+end
+EOC
       plugin_path = create_plugin_file('out_single.rb', script)
 
       conf = <<CONF
@@ -699,15 +701,17 @@ CONF
     end
 
     test 'success to start workers when configured plugins only for specific worker do not support multi worker configuration' do
-      script =  "require 'fluent/plugin/input'\n"
-      script << "module Fluent::Plugin\n"
-      script << "  class SingleInput < Input\n"
-      script << "    Fluent::Plugin.register_input('single', self)\n"
-      script << "    def multi_workers_ready?\n"
-      script << "      false\n"
-      script << "    end\n"
-      script << "  end\n"
-      script << "end\n"
+      script =  <<-EOC
+require 'fluent/plugin/input'
+module Fluent::Plugin
+  class SingleInput < Input
+    Fluent::Plugin.register_input('single', self)
+    def multi_workers_ready?
+      false
+    end
+  end
+end
+EOC
       plugin_path = create_plugin_file('in_single.rb', script)
 
       conf = <<CONF
@@ -771,17 +775,19 @@ CONF
     end
 
     test 'success to start workers when configured plugins as a chidren of MultiOutput only for specific worker do not support multi worker configuration' do
-      script =  "require 'fluent/plugin/output'\n"
-      script << "module Fluent::Plugin\n"
-      script << "  class SingleOutput < Output\n"
-      script << "    Fluent::Plugin.register_output('single', self)\n"
-      script << "    def multi_workers_ready?\n"
-      script << "      false\n"
-      script << "    end\n"
-      script << "    def write(chunk)\n"
-      script << "    end\n"
-      script << "  end\n"
-      script << "end\n"
+      script = <<-EOC
+require 'fluent/plugin/output'
+module Fluent::Plugin
+  class SingleOutput < Output
+    Fluent::Plugin.register_output('single', self)
+    def multi_workers_ready?
+      false
+    end
+    def write(chunk)
+    end
+  end
+end
+EOC
       plugin_path = create_plugin_file('out_single.rb', script)
 
       conf = <<CONF
