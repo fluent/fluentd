@@ -73,7 +73,7 @@ module Fluent
 
         target_worker_id = target_worker_id_str.to_i
         if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
-          raise ConfigError, "worker#{target_worker_id} specified by <worker> directive doesn't exist. Specify id between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+          raise ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
         end
 
         e.elements.each do |elem|

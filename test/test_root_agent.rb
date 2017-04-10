@@ -643,7 +643,7 @@ EOC
     end
 
     test 'raises configuration error for too big worker id' do
-      errmsg = "worker4 specified by <worker> directive doesn't exist. Specify id between 0 and 3"
+      errmsg = "worker id 4 specified by <worker> directive is not allowed. Available worker id is between 0 and 3"
       assert_raise Fluent::ConfigError.new(errmsg) do
         conf = <<-EOC
 <worker 4>
