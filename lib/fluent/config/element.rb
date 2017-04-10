@@ -224,8 +224,16 @@ module Fluent
         }
       end
 
-      def has_target_worker_id?
-        !!@target_worker_id
+      def for_every_workers?
+        @target_worker_id == nil
+      end
+
+      def for_this_worker?
+        @target_worker_id == Fluent::Engine.worker_id
+      end
+
+      def for_another_worker?
+        @target_worker_id != nil && @target_worker_id != Fluent::Engine.worker_id
       end
     end
   end

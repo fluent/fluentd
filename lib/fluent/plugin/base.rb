@@ -51,7 +51,7 @@ module Fluent
       end
 
       def configure(conf)
-        if conf.respond_to?(:target_worker_id) && conf.target_worker_id == Fluent::Engine.worker_id
+        if conf.respond_to?(:for_this_worker?) && conf.for_this_worker?
           system_config_override(workers: 1)
         end
         super

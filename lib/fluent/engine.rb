@@ -98,9 +98,9 @@ module Fluent
                     else
                       "section <#{e.name}> is not used in <#{parent_name}>"
                     end
-          if !e.has_target_worker_id?
+          if e.for_every_workers?
             $log.warn :worker0, message
-          elsif e.target_worker_id == worker_id
+          elsif e.for_this_worker?
             $log.warn message
           end
           next
@@ -108,9 +108,9 @@ module Fluent
         unless e.name == 'system'
           unless @without_source && e.name == 'source'
             message = "parameter '#{key}' in #{e.to_s.strip} is not used."
-            if !e.has_target_worker_id?
+            if e.for_every_workers?
               $log.warn :worker0, message
-            elsif e.target_worker_id == worker_id
+            elsif e.for_this_worker?
               $log.warn message
             end
           end

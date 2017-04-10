@@ -91,7 +91,7 @@ module Fluent
       # initialize <label> elements before configuring all plugins to avoid 'label not found' in input, filter and output.
       label_configs = {}
       conf.elements(name: 'label').each { |e|
-        next if e.has_target_worker_id? && e.target_worker_id != Fluent::Engine.worker_id
+        next if e.for_another_worker?
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
 
@@ -113,7 +113,7 @@ module Fluent
         log.info :worker0, "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements(name: 'source').each { |e|
-          next if e.has_target_worker_id? && e.target_worker_id != Fluent::Engine.worker_id
+          next if e.for_another_worker?
           type = e['@type']
           raise ConfigError, "Missing '@type' parameter on <source> directive" unless type
           add_source(type, e)
@@ -259,7 +259,7 @@ module Fluent
     end
 
     def add_source(type, conf)
-      log_type = conf.target_worker_id == Fluent::Engine.worker_id ? :default : :worker0
+      log_type = conf.for_this_worker? ? :default : :worker0
       log.info log_type, "adding source", type: type
 
       input = Plugin.new_input(type)

@@ -62,7 +62,7 @@ module Fluent
 
       # initialize <match> and <filter> elements
       conf.elements('filter', 'match').each { |e|
-        next if e.has_target_worker_id? && e.target_worker_id != Fluent::Engine.worker_id
+        next if e.for_another_worker?
         pattern = e.arg.empty? ? '**' : e.arg
         type = e['@type']
         raise ConfigError, "Missing '@type' parameter on <#{e.name}> directive" unless type
@@ -122,7 +122,7 @@ module Fluent
     end
 
     def add_match(type, pattern, conf)
-      log_type = conf.target_worker_id == Fluent::Engine.worker_id ? :default : :worker0
+      log_type = conf.for_this_worker? ? :default : :worker0
       log.info log_type, "adding match#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       output = Plugin.new_output(type)
@@ -144,7 +144,7 @@ module Fluent
     end
 
     def add_filter(type, pattern, conf)
-      log_type = conf.target_worker_id == Fluent::Engine.worker_id ? :default : :worker0
+      log_type = conf.for_this_worker? ? :default : :worker0
       log.info log_type, "adding filter#{@context.nil? ? '' : " in #{@context}"}", pattern: pattern, type: type
 
       filter = Plugin.new_filter(type)
