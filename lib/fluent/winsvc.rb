@@ -40,7 +40,7 @@ begin
     ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
     rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
     opt = read_fluentdopt
-    Process.spawn(rubybin_dir + "/ruby.exe " + rubybin_dir + "/fluentd " + opt + " -x " + INTEVENTOBJ_NAME)
+    Process.spawn("\"#{rubybin_dir}/ruby.exe\" \"#{rubybin_dir}/fluentd\" #{opt} -x #{INTEVENTOBJ_NAME}")
   end
 
   class FluentdService < Daemon
