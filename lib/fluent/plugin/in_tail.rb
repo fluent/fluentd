@@ -189,15 +189,15 @@ module Fluent::Plugin
         path = date.strftime(path)
         if path.include?('*')
           paths += Dir.glob(path).select { |p|
-            is_directory = File.directory?(p)
-            if File.readable?(p) && !is_directory
+            is_file = !File.directory?(p)
+            if File.readable?(p) && is_file
               if @limit_recently_modified && File.mtime(p) < (date - @limit_recently_modified)
                 false
               else
                 true
               end
             else
-              if !is_directory
+              if is_file
                 log.warn "#{p} unreadable. It is excluded and would be examined next time."
               end
               false
