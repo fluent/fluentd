@@ -152,6 +152,33 @@ class HttpInputTest < Test::Unit::TestCase
 
   end
 
+  def test_add_remote_addr_given_multi_x_forwarded_for
+    d = create_driver(CONFIG + "add_remote_addr true")
+
+    tag = "tag1"
+    time = event_time("2011-01-02 13:14:15 UTC").to_i
+    record = {"a" => 1}
+
+    d.expect_emit tag, time, {"REMOTE_ADDR"=>"129.78.138.66", "a" => 1}
+
+    d.run do
+      res = post("/#{tag}", {"json" => record.to_json, "time" => time.to_s}) { |http, req|
+        # net/http can't send multiple headers so overwrite it.
+        def req.each_capitalized
+          block_given? or return enum_for(__method__) { @header.size }
+          @header.each do |k, vs|
+            vs.each { |v|
+              yield capitalize(k), v
+            }
+          end
+        end
+        req.add_field("X-Forwarded-For", "129.78.138.66, 127.0.0.1")
+        req.add_field("X-Forwarded-For", "8.8.8.8")
+      }
+      assert_equal "200", res.code
+    end
+  end
+
   def test_multi_json_with_add_http_headers
     d = create_driver(CONFIG + "add_http_headers true")
 
@@ -431,9 +458,10 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
-  def post(path, params, header = {})
+  def post(path, params, header = {}, &block)
     http = Net::HTTP.new("127.0.0.1", PORT)
     req = Net::HTTP::Post.new(path, header)
+    block.call(http, req) if block
     if params.is_a?(String)
       req.body = params
     else
