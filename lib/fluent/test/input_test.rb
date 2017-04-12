@@ -17,10 +17,13 @@
 require 'fluent/engine'
 require 'fluent/time'
 require 'fluent/test/base'
+require 'fluent/test/helpers'
 
 module Fluent
   module Test
     class InputTestDriver < TestDriver
+      include Fluent::Test::Helpers
+
       def initialize(klass, &block)
         super(klass, &block)
         @emit_streams = []
