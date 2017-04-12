@@ -44,16 +44,6 @@ module Fluent
       def shutdown
         super
       end
-
-      def detach_process(&block)
-        log.warn "detach_process is not supported in this version. ignored."
-        block.call
-      end
-
-      def detach_multi_process(&block)
-        log.warn "detach_multi_process is not supported in this version. ignored."
-        block.call
-      end
     end
   end
 end
