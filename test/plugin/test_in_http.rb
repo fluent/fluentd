@@ -215,14 +215,14 @@ class HttpInputTest < Test::Unit::TestCase
   def test_multi_json_with_add_remote_addr_given_x_forwarded_for
     d = create_driver(CONFIG + "add_remote_addr true")
 
+    tag = "tag1"
     time = event_time("2011-01-02 13:14:15 UTC")
     time_i = time.to_i
     records = [{"a"=>1},{"a"=>2}]
     events = [
-      ["tag1", time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>1}],
-      ["tag1", time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>2}],
+      [tag, time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>1}],
+      [tag, time, {"REMOTE_ADDR"=>"129.78.138.66", "a"=>2}],
     ]
-    tag = "tag1"
     res_codes = []
 
     d.run(expect_records: 2, timeout: 5) do
@@ -233,6 +233,37 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal events, d.events
     assert_equal_event_time time, d.events[0][1]
     assert_equal_event_time time, d.events[1][1]
+  end
+
+  def test_add_remote_addr_given_multi_x_forwarded_for
+    d = create_driver(CONFIG + "add_remote_addr true")
+
+    tag = "tag1"
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+    record = {"a" => 1}
+    event = ["tag1", time, {"REMOTE_ADDR" => "129.78.138.66", "a" => 1}]
+    res_code = nil
+
+    d.run(expect_records: 1, timeout: 5) do
+      res = post("/#{tag}", {"json" => record.to_json, "time" => time_i.to_s}) { |http, req|
+        # net/http can't send multiple headers so overwrite it.
+        def req.each_capitalized
+          block_given? or return enum_for(__method__) { @header.size }
+          @header.each do |k, vs|
+            vs.each { |v|
+              yield capitalize(k), v
+            }
+          end
+        end
+        req.add_field("X-Forwarded-For", "129.78.138.66, 127.0.0.1")
+        req.add_field("X-Forwarded-For", "8.8.8.8")
+      }
+      res_code = res.code
+    end
+    assert_equal "200", res_code
+    assert_equal event, d.events.first
+    assert_equal_event_time time, d.events.first[1]
   end
 
   def test_multi_json_with_add_http_headers
@@ -565,9 +596,10 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal $test_in_http_connection_object_ids[0], $test_in_http_connection_object_ids[1]
   end
 
-  def post(path, params, header = {})
+  def post(path, params, header = {}, &block)
     http = Net::HTTP.new("127.0.0.1", PORT)
     req = Net::HTTP::Post.new(path, header)
+    block.call(http, req) if block
     if params.is_a?(String)
       unless header.has_key?('Content-Type')
         header['Content-Type'] = 'application/octet-stream'

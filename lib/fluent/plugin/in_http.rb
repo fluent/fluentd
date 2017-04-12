@@ -319,6 +319,8 @@ module Fluent::Plugin
           when /Origin/i
             @origin  = v
           when /X-Forwarded-For/i
+            # For multiple X-Forwarded-For headers. Use first header value.
+            v = v.first if v.is_a?(Array)
             @remote_addr = v.split(",").first
           end
         }
