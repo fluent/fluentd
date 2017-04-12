@@ -100,7 +100,7 @@ module Fluent::Plugin
 
       super
 
-      @paths = @path.split(',').map {|path| path.strip }
+      @paths = @path.split(',').map {|path| path.strip.gsub('\\', '/') }
       if @paths.empty?
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
