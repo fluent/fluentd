@@ -608,4 +608,208 @@ EOC
       assert_equal [true, true], dyn_out.child.outputs.map{|i| i.terminated? }
     end
   end
+
+  sub_test_case 'configured at worker2 with 4 workers environment' do
+    setup do
+      ENV['SERVERENGINE_WORKER_ID'] = '2'
+      @ra = RootAgent.new(log: $log)
+      system_config = SystemConfig.new
+      system_config.workers = 4
+      stub(Engine).worker_id { 2 }
+      stub(Engine).root_agent { @ra }
+      stub(Engine).system_config { system_config }
+      @ra
+    end
+
+    teardown '' do
+      ENV.delete('SERVERENGINE_WORKER_ID')
+    end
+
+    def configure_ra(conf_str)
+      conf = Config.parse(conf_str, "(test)", "(test_dir)", true)
+      @ra.configure(conf)
+      @ra
+    end
+
+    test 'raises configuration error for missing worker id' do
+      errmsg = 'Missing worker id on <worker> directive'
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for too big worker id' do
+      errmsg = "worker id 4 specified by <worker> directive is not allowed. Available worker id is between 0 and 3"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 4>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for invalid elements as a child of worker section' do
+      errmsg = '<worker> section cannot have <system> directive'
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 2>
+<system>
+</system>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error when configured plugins do not have support multi worker configuration' do
+      errmsg = "Plugin 'test_out' does not support multi workers configuration (FluentTest::FluentTestOutput)"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<match **>
+@type test_out
+</match>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'does not raise configuration error when configured plugins in worker section do not have support multi worker configuration' do
+      assert_nothing_raised do
+        conf = <<-EOC
+<worker 2>
+<match **>
+  @type test_out
+</match>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'does not raise configuration error when configured plugins as a children of MultiOutput in worker section do not have support multi worker configuration' do
+      assert_nothing_raised do
+        conf = <<-EOC
+<worker 2>
+<match **>
+  @type copy
+  <store>
+    @type test_out
+  </store>
+  <store>
+    @type test_out
+  </store>
+</match>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'does not raise configuration error when configured plugins owned by plugin do not have support multi worker configuration' do
+      assert_nothing_raised do
+        conf = <<-EOC
+<worker 2>
+<match **>
+  @type test_out_buffered
+  <buffer>
+    @type test_buffer
+  </buffer>
+</match>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'with plugins' do
+      conf = <<-EOC
+<worker 2>
+<source>
+  @type test_in
+  @id test_in
+</source>
+<filter>
+  type test_filter
+  id test_filter
+</filter>
+<match **>
+  @type relabel
+  @id test_relabel
+  @label @test
+</match>
+<label @test>
+  <match **>
+    type test_out
+    id test_out
+  </match>
+</label>
+<label @ERROR>
+  <match>
+    @type null
+  </match>
+</label>
+</worker>
+EOC
+      ra = configure_ra(conf)
+      assert_kind_of FluentTestInput, ra.inputs.first
+      assert_kind_of Plugin::RelabelOutput, ra.outputs.first
+      assert_kind_of FluentTestFilter, ra.filters.first
+      assert ra.error_collector
+
+      %W(@test @ERROR).each { |label_symbol|
+        assert_include ra.labels, label_symbol
+        assert_kind_of Label, ra.labels[label_symbol]
+      }
+
+      test_label = ra.labels['@test']
+      assert_kind_of FluentTestOutput, test_label.outputs.first
+      assert_equal ra, test_label.root_agent
+
+      error_label = ra.labels['@ERROR']
+      assert_kind_of Fluent::Plugin::NullOutput, error_label.outputs.first
+      assert_kind_of RootAgent::RootAgentProxyWithoutErrorCollector, error_label.root_agent
+    end
+
+    test 'with plugins but for another worker' do
+      conf = <<-EOC
+<worker 0>
+<source>
+  @type test_in
+  @id test_in
+</source>
+<filter>
+  type test_filter
+  id test_filter
+</filter>
+<match **>
+  @type relabel
+  @id test_relabel
+  @label @test
+</match>
+<label @test>
+  <match **>
+    type test_out
+    id test_out
+  </match>
+</label>
+<label @ERROR>
+  <match>
+    @type null
+  </match>
+</label>
+</worker>
+EOC
+      ra = configure_ra(conf)
+      assert_equal 0, ra.inputs.size
+      assert_equal 0, ra.outputs.size
+      assert_equal 0, ra.filters.size
+      assert_equal 0, ra.labels.size
+      refute ra.error_collector
+    end
+  end
 end

@@ -51,6 +51,9 @@ module Fluent
       end
 
       def configure(conf)
+        if conf.respond_to?(:for_this_worker?) && conf.for_this_worker?
+          system_config_override(workers: 1)
+        end
         super
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
         @_state.configure = true

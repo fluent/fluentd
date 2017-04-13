@@ -400,4 +400,67 @@ CONF
       end
     end
   end
+
+  sub_test_case '#set_target_worker' do
+    test 'set target_worker_id recursively' do
+      e = element('label', '@mytest', {}, [ element('filter', '**'), element('match', '**', {}, [ element('store'), element('store') ]) ])
+      e.set_target_worker_id(1)
+      assert_equal 1, e.target_worker_id
+      assert_equal 1, e.elements[0].target_worker_id
+      assert_equal 1, e.elements[1].target_worker_id
+      assert_equal 1, e.elements[1].elements[0].target_worker_id
+      assert_equal 1, e.elements[1].elements[1].target_worker_id
+    end
+  end
+
+  sub_test_case '#for_every_workers?' do
+    test 'has target_worker_id' do
+      e = element()
+      e.set_target_worker_id(1)
+      assert_false e.for_every_workers?
+    end
+
+    test "doesn't have target_worker_id" do
+      e = element()
+      assert e.for_every_workers?
+    end
+  end
+
+  sub_test_case '#for_this_workers?' do
+    test 'target_worker_id == current worker_id' do
+      e = element()
+      e.set_target_worker_id(0)
+      assert e.for_this_worker?
+    end
+
+    test 'target_worker_id != current worker_id' do
+      e = element()
+      e.set_target_worker_id(1)
+      assert_false e.for_this_worker?
+    end
+
+    test "doesn't have target_worker_id" do
+      e = element()
+      assert_false e.for_this_worker?
+    end
+  end
+
+  sub_test_case '#for_another_worker?' do
+    test 'target_worker_id == current worker_id' do
+      e = element()
+      e.set_target_worker_id(0)
+      assert_false e.for_another_worker?
+    end
+
+    test 'target_worker_id != current worker_id' do
+      e = element()
+      e.set_target_worker_id(1)
+      assert e.for_another_worker?
+    end
+
+    test "doesn't have target_worker_id" do
+      e = element()
+      assert_false e.for_another_worker?
+    end
+  end
 end

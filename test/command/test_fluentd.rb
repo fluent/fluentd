@@ -297,7 +297,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
+        '[warn]: #0 match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
         '[warn]: #0 no patterns matched tag="fluent.info"',
       )
     end
@@ -334,7 +334,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        '[warn]: match for some tags of log events are not defined (to be ignored) tags=["fluent.info", "fluent.fatal"]',
+        '[warn]: #0 match for some tags of log events are not defined (to be ignored) tags=["fluent.info", "fluent.fatal"]',
         patterns_not_match: ['[warn]: no patterns matched tag="fluent.info"'],
       )
     end
@@ -612,6 +612,212 @@ CONF
         create_cmdline(conf_path),
         "[blackhole] file buffer with multi workers should be configured to use directory 'path', or system root_dir and plugin id",
         "config error file=\"#{conf_path}\" error_class=Fluent::ConfigError error=\"Plugin 'file' does not support multi workers configuration (Fluent::Plugin::FileBuffer)\"",
+      )
+    end
+
+    test 'failed to start workers when configured plugins as chidren of MultiOutput do not support multi worker configuration' do
+      script = <<-EOC
+require 'fluent/plugin/output'
+module Fluent::Plugin
+  class SingleOutput < Output
+    Fluent::Plugin.register_output('single', self)
+    def multi_workers_ready?
+      false
+    end
+    def write(chunk)
+    end
+  end
+end
+EOC
+      plugin_path = create_plugin_file('out_single.rb', script)
+
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<source>
+  @type single
+  @id single
+  @label @dummydata
+</source>
+<label @dummydata>
+  <match dummy>
+    @type copy
+    <store>
+      @type single
+    </store>
+    <store>
+      @type single
+    </store>
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('workers_invalid3.conf', conf)
+      assert_fluentd_fails_to_start(
+        create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
+        "Plugin 'single' does not support multi workers configuration (Fluent::Plugin::SingleOutput)",
+      )
+    end
+
+    test 'success to start a worker with worker specific configuration' do
+      conf = <<CONF
+<system>
+  workers 2
+  root_dir #{@root_path}
+</system>
+<source>
+  @type dummy
+  @id dummy
+  @label @dummydata
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<worker 1>
+  <source>
+    @type dummy
+    @id dummy_in_worker
+    @label @dummydata
+    tag dummy
+    dummy {"message": "yay!"}
+  </source>
+</worker>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('worker_section0.conf', conf)
+      assert Dir.exist?(@root_path)
+
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "#0 fluentd worker is now running worker=0",
+        "#1 fluentd worker is now running worker=1",
+        /(?!#\d) adding source type="dummy"/,
+        '#1 adding source type="dummy"'
+      )
+    end
+
+    test 'success to start workers when configured plugins only for specific worker do not support multi worker configuration' do
+      script =  <<-EOC
+require 'fluent/plugin/input'
+module Fluent::Plugin
+  class SingleInput < Input
+    Fluent::Plugin.register_input('single', self)
+    def multi_workers_ready?
+      false
+    end
+  end
+end
+EOC
+      plugin_path = create_plugin_file('in_single.rb', script)
+
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<worker 1>
+  <source>
+    @type single
+    @id single
+    @label @dummydata
+  </source>
+</worker>
+<label @dummydata>
+  <match dummy>
+    @type null
+    @id   blackhole
+  </match>
+</label>
+CONF
+      conf_path = create_conf_file('worker_section1.conf', conf)
+      assert Dir.exist?(@root_path)
+
+      assert_log_matches(
+        create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
+        "#0 fluentd worker is now running worker=0",
+        "#1 fluentd worker is now running worker=1",
+        '#1 adding source type="single"'
+      )
+    end
+
+    test 'success to start workers when file buffer is configured in non-workers way only for specific worker' do
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<source>
+  @type dummy
+  @id dummy
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<worker 1>
+  <match dummy>
+    @type null
+    @id   blackhole
+    <buffer>
+      @type file
+      path #{File.join(@root_path, "buf", "file.*.log")}
+    </buffer>
+  </match>
+</worker>
+CONF
+      conf_path = create_conf_file('worker_section2.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        "#0 fluentd worker is now running worker=0",
+        "#1 fluentd worker is now running worker=1",
+        '#1 adding match pattern="dummy" type="null"'
+      )
+    end
+
+    test 'success to start workers when configured plugins as a chidren of MultiOutput only for specific worker do not support multi worker configuration' do
+      script = <<-EOC
+require 'fluent/plugin/output'
+module Fluent::Plugin
+  class SingleOutput < Output
+    Fluent::Plugin.register_output('single', self)
+    def multi_workers_ready?
+      false
+    end
+    def write(chunk)
+    end
+  end
+end
+EOC
+      plugin_path = create_plugin_file('out_single.rb', script)
+
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<source>
+  @type dummy
+  @id dummy
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<worker 1>
+  <match dummy>
+    @type copy
+    <store>
+      @type single
+    </store>
+    <store>
+      @type single
+    </store>
+  </match>
+</worker>
+CONF
+      conf_path = create_conf_file('worker_section3.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
+        "#0 fluentd worker is now running worker=0",
+        "#1 fluentd worker is now running worker=1",
+        '#1 adding match pattern="dummy" type="copy"'
       )
     end
   end
