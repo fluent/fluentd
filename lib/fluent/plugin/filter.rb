@@ -79,13 +79,13 @@ module Fluent
         return nil if implmented_methods.include?(:filter_stream)
         case
         when [:filter, :filter_with_time].all? { |e| implmented_methods.include?(e) }
-          raise "BUG: Filter plugins MUST be implemented either `filter` or `filter_with_time`"
+          raise "BUG: Filter plugins MUST implement either `filter` or `filter_with_time`"
         when implmented_methods.include?(:filter)
           false
         when implmented_methods.include?(:filter_with_time)
           true
         else
-          raise NotImplementedError, "BUG: Filter plugins MUST be implmented either `filter` or `filter_with_time`"
+          raise NotImplementedError, "BUG: Filter plugins MUST implement either `filter` or `filter_with_time`"
         end
       end
     end
