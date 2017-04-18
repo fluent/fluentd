@@ -119,13 +119,21 @@ module Fluent
       @thread = Thread.new(&method(:run))
     end
 
-    def shutdown
+    def signal
       @finish = true
       @mutex.synchronize {
         @cond.signal
       }
       Thread.pass
+    end
+
+    def shutdown
+      signal
       @thread.join
+    end
+
+    def terminated?
+      !@thread.status
     end
 
     def submit_flush
@@ -259,7 +267,20 @@ module Fluent
     end
 
     def shutdown
-      @writers.each {|writer| writer.shutdown }
+      @writers.each {|writer| writer.signal }
+      running_writers = @writers.dup
+      loop do
+        finished = []
+        running_writers.each do |writer|
+          finished << writer if writer.terminated?
+        end
+        running_writers -= finished
+        if running_writers.empty?
+          break
+        end
+        sleep(0.5)
+      end
+
       @secondary.shutdown if @secondary
       @buffer.shutdown
     end
