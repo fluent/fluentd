@@ -122,10 +122,15 @@ module Fluent
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
 
-      def formatted_to_msgpack_binary
+      def formatted_to_msgpack_binary?
         # To indicate custom format method (#format) returns msgpack binary or not.
         # If #format returns msgpack binary, override this method to return true.
         false
+      end
+
+      # Compatibility for existing plugins
+      def formatted_to_msgpack_binary
+        formatted_to_msgpack_binary?
       end
 
       def prefer_buffered_processing
