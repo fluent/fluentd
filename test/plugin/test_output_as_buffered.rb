@@ -288,12 +288,9 @@ class BufferedOutputTest < Test::Unit::TestCase
       end
     end
 
-    data('formatted_to_msgpack_binary?' => :custom,
-         'formatted_to_msgpack_binary' => :old_custom)
-    test 'plugin using custom format cannot iterate chunk in #write' do |out_type|
-
+    test 'plugin using custom format cannot iterate chunk in #write' do
       events_from_chunk = []
-      @i = create_output(out_type)
+      @i = create_output(:custom)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
       @i.register(:prefer_delayed_commit){ false }
       @i.register(:format){ |tag, time, record| [tag,time,record].to_json }
@@ -335,9 +332,11 @@ class BufferedOutputTest < Test::Unit::TestCase
       assert_equal 0, events_from_chunk.size
     end
 
-    test 'plugin using custom format can iterate chunk in #write if #format returns msgpack' do
+    data('formatted_to_msgpack_binary?' => :custom,
+         'formatted_to_msgpack_binary' => :old_custom)
+    test 'plugin using custom format can iterate chunk in #write if #format returns msgpack' do |out_type|
       events_from_chunk = []
-      @i = create_output(:custom)
+      @i = create_output(out_type)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
       @i.register(:prefer_delayed_commit){ false }
       @i.register(:format){ |tag, time, record| [tag,time,record].to_msgpack }
