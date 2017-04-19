@@ -20,6 +20,9 @@ class FileOutputTest < Test::Unit::TestCase
     path #{TMP_DIR}/out_file_test
     compress gz
     utc
+    <buffer>
+      timekey_use_utc true
+    </buffer>
   ]
 
   def create_driver(conf = CONFIG, opts = {})
@@ -405,6 +408,9 @@ class FileOutputTest < Test::Unit::TestCase
       path #{TMP_DIR_WITH_SYSTEM}/out_file_test
       compress gz
       utc
+      <buffer>
+        timekey_use_utc true
+      </buffer>
       <system>
         file_permission #{OVERRIDE_FILE_PERMISSION}
         dir_permission #{OVERRIDE_DIR_PERMISSION}
@@ -527,6 +533,9 @@ class FileOutputTest < Test::Unit::TestCase
         compress gz
         utc
         append true
+        <buffer>
+          timekey_use_utc true
+        </buffer>
       ]
       d.run(default_tag: 'test'){
         d.feed(time, {"a"=>1})
