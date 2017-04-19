@@ -354,8 +354,8 @@ module Fluent
       $log.info "process finished", code: ecode
 
       if !@finished && Time.now - start_time < 1
-        $log.warn "process died within 1 second. exit."
-        exit ecode
+        $log.warn "process died within 1 second unexpectedly. restarting after 5 seconds."
+        sleep 5
       end
     end
 
