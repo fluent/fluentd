@@ -174,6 +174,18 @@ if Fluent.windows?
   op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
     opts[:fluentdopt] = s
   }
+  
+  op.on('--winsvc-name NAME', "The Windows Service name to run as (Windows only)") {|s|
+    opts[:winsvc_name] = s
+  }
+  
+  op.on('--winsvc-display-name DISPLAY_NAME', "The Windows Service display name (Windows only)") {|s|
+    opts[:winsvc_display_name] = s
+  }
+  
+  op.on('--winsvc-desc DESC', "The Windows Service description (Windows only)") {|s|
+    opts[:winsvc_desc] = s
+  }
 end
 
 
@@ -229,9 +241,6 @@ end
 early_exit = false
 start_service = false
 if winsvcinstmode = opts[:regwinsvc]
-  FLUENTD_WINSVC_NAME="fluentdwinsvc"
-  FLUENTD_WINSVC_DISPLAYNAME="Fluentd Windows Service"
-  FLUENTD_WINSVC_DESC="Fluentd is an event collector system."
   require 'fileutils'
   require "win32/service"
   require "win32/registry"
@@ -249,27 +258,28 @@ if winsvcinstmode = opts[:regwinsvc]
       start_service = true
     end
 
+    
     Service.create(
-      service_name: FLUENTD_WINSVC_NAME,
+      service_name: opts[:winsvc_name],
       host: nil,
       service_type: Service::WIN32_OWN_PROCESS,
-      description: FLUENTD_WINSVC_DESC,
+      description: opts[:winsvc_desc],
       start_type: start_type,
       error_control: Service::ERROR_NORMAL,
-      binary_path_name: "\"#{ruby_path}\" -C \"#{binary_path}\"  winsvc.rb",
+      binary_path_name: "\"#{ruby_path}\" -C \"#{binary_path}\"  winsvc.rb --service-name #{opts[:winsvc_name]}",
       load_order_group: "",
       dependencies: [""],
-      display_name: FLUENTD_WINSVC_DISPLAYNAME
+      display_name: opts[:winsvc_display_name]
     )
   when 'u'
-    if Service.status(FLUENTD_WINSVC_NAME).current_state != 'stopped'
+    if Service.status(opts[:winsvc_name]).current_state != 'stopped'
       begin
-        Service.stop(FLUENTD_WINSVC_NAME)
+        Service.stop(opts[:winsvc_name])
       rescue => ex
         puts "Warning: Failed to stop service: ", ex
       end
     end
-    Service.delete(FLUENTD_WINSVC_NAME)
+    Service.delete(opts[:winsvc_name])
   else
     # none
   end
@@ -277,14 +287,14 @@ if winsvcinstmode = opts[:regwinsvc]
 end
 
 if fluentdopt = opts[:fluentdopt]
-  Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc", Win32::Registry::KEY_ALL_ACCESS) do |reg|
+  Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\#{opts[:winsvc_name]}", Win32::Registry::KEY_ALL_ACCESS) do |reg|
     reg['fluentdopt', Win32::Registry::REG_SZ] = fluentdopt
   end
   early_exit = true
 end
 
 if start_service
-  Service.start(FLUENTD_WINSVC_NAME)
+  Service.start(opts[:winsvc_name])
 end
 
 exit 0 if early_exit

@@ -14,10 +14,9 @@
 #    limitations under the License.
 #
 
-INTEVENTOBJ_NAME = "fluentdwinsvc"
-
 begin
 
+  require 'optparse'
   require 'windows/debug'
   require 'Windows/Library'
   require 'win32/daemon'
@@ -27,34 +26,50 @@ begin
   include Windows::Library
   include Windows::Debug
 
-  def read_fluentdopt
+  op = OptionParser.new
+  opts = {service_name: nil}
+  op.on('--service-name NAME', "The name of the Windows Service") {|name|
+    opts[:service_name] = name
+  }
+  op.parse(ARGV)
+  if opts[:service_name] == nil
+    raise "Error: No Windows Service name set. Use '--service-name'"
+  end 
+
+  def read_fluentdopt(service_name)
     require 'win32/Registry'
-    Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\fluentdwinsvc") do |reg|
+    Win32::Registry::HKEY_LOCAL_MACHINE.open("SYSTEM\\CurrentControlSet\\Services\\#{service_name}") do |reg|
       reg.read("fluentdopt")[1] rescue ""
     end
   end
 
-  def service_main_start
+  def service_main_start(service_name)
     ruby_path = 0.chr * 260
     GetModuleFileName.call(0, ruby_path,260)
     ruby_path = ruby_path.rstrip.gsub(/\\/, '/')
     rubybin_dir = ruby_path[0, ruby_path.rindex("/")]
-    opt = read_fluentdopt
-    Process.spawn("\"#{rubybin_dir}/ruby.exe\" \"#{rubybin_dir}/fluentd\" #{opt} -x #{INTEVENTOBJ_NAME}")
+    opt = read_fluentdopt(service_name)
+    Process.spawn("\"#{rubybin_dir}/ruby.exe\" \"#{rubybin_dir}/fluentd\" #{opt} -x #{service_name}")
   end
 
   class FluentdService < Daemon
     @pid = 0
+    @service_name = ''
 
+    def initialize(service_name)
+      @service_name = service_name
+    end
+    
     def service_main
-      @pid = service_main_start
+    
+      @pid = service_main_start(@service_name)
       while running?
         sleep 10
       end
     end
 
     def service_stop
-      ev = Win32::Event.open(INTEVENTOBJ_NAME)
+      ev = Win32::Event.open(@service_name)
       ev.set
       ev.close
       if @pid > 0
@@ -63,9 +78,8 @@ begin
     end
   end
 
-  FluentdService.mainloop
+  FluentdService.new(opts[:service_name]).mainloop
 
 rescue Exception => err
   raise
 end
-

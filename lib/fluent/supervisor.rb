@@ -385,6 +385,9 @@ module Fluent
         standalone_worker: false,
         signame: nil,
         winsvcreg: nil,
+        winsvc_name: 'fluentdwinsvc',
+        winsvc_display_name: 'Fluentd Windows Service',
+        winsvc_desc: 'Fluentd is an event collector system.',
       }
     end
 
