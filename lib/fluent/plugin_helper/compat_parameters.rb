@@ -55,7 +55,7 @@ module Fluent
         "keys" => "keys", # CSVParser, TSVParser (old ValuesParser)
         "time_key"    => "time_key",
         "time_format" => "time_format",
-        "localtim" => nil,
+        "localtime" => nil,
         "utc" => nil,
         "delimiter"   => "delimiter",
         "keep_time_key" => "keep_time_key",
