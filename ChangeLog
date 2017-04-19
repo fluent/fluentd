@@ -1,5 +1,14 @@
 # v0.12
 
+## Release 0.12.35 - 2017/04/19
+
+### Bug fixes
+
+* in_http: Fix X-Forwarded-For header handling. Accpet multiple headers
+  https://github.com/fluent/fluentd/pull/1535
+* in_tail: Do not warn that directories are unreadable
+  https://github.com/fluent/fluentd/pull/1540
+
 ## Release 0.12.34 - 2017/03/25
 
 ### New features / Enhancement
