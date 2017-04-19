@@ -256,7 +256,7 @@ if winsvcinstmode = opts[:regwinsvc]
       description: FLUENTD_WINSVC_DESC,
       start_type: start_type,
       error_control: Service::ERROR_NORMAL,
-      binary_path_name: ruby_path+" -C "+binary_path+" winsvc.rb",
+      binary_path_name: "\"#{ruby_path}\" -C \"#{binary_path}\"  winsvc.rb",
       load_order_group: "",
       dependencies: [""],
       display_name: FLUENTD_WINSVC_DISPLAYNAME
