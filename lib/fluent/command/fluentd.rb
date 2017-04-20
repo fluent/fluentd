@@ -158,6 +158,12 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
 if Fluent.windows?
   require 'windows/library'
   include Windows::Library
+  
+  opts.merge!(
+    :winsvc_name => 'fluentdwinsvc',
+    :winsvc_display_name => 'Fluentd Windows Service',
+    :winsvc_desc => 'Fluentd is an event collector system.',
+  )
 
   op.on('-x', '--signame INTSIGNAME', "an object name which is used for Windows Service signal (Windows only)") {|s|
     opts[:signame] = s
