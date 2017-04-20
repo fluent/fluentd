@@ -96,7 +96,7 @@ module Fluent
       end
 
       config_section :secondary, param_name: :secondary_config, required: false, multi: false, final: true do
-        config_param :@type, :string, default: nil, alias: :type
+        config_param :@type, :string, alias: :type
         config_section :buffer, required: false, multi: false do
           # dummy to detect invalid specification for here
         end
