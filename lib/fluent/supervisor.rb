@@ -384,7 +384,6 @@ module Fluent
         supervise: true,
         standalone_worker: false,
         signame: nil,
-        winsvcreg: nil,
       }
     end
 
