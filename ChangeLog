@@ -1,5 +1,33 @@
 # v0.14
 
+## Release v0.14.15 - 2017/04/23
+
+### New features / Enhancements
+
+* Add <worker N> directive
+  https://github.com/fluent/fluentd/pull/1507
+* in_tail: Do not warn that directories are unreadable in the in_tail plugin
+  https://github.com/fluent/fluentd/pull/1540
+* output: Add formatted_to_msgpack_binary? to Output plugin API
+  https://github.com/fluent/fluentd/pull/1547
+* windows: Allow the Windows Service name Fluentd runs as to be configurable
+  https://github.com/fluent/fluentd/pull/1548
+
+### Bug fixes
+
+* in_http: Fix X-Forwarded-For header handling. Accpet multiple headers
+  https://github.com/fluent/fluentd/pull/1535
+* Fix backward compatibility with Fluent::DetachProcess and Fluent::DetachMultiProcess
+  https://github.com/fluent/fluentd/pull/1522
+* fix typo
+  https://github.com/fluent/fluentd/pull/1521
+  https://github.com/fluent/fluentd/pull/1523
+  https://github.com/fluent/fluentd/pull/1544
+* test: Fix out_file test with timezone
+  https://github.com/fluent/fluentd/pull/1546
+* windows: Quote the file path to the Ruby bin directory when starting fluentd as a windows service
+  https://github.com/fluent/fluentd/pull/1536
+
 ## Release v0.14.14 - 2017/03/23
 
 ### New features / Enhancements
