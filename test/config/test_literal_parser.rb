@@ -105,8 +105,8 @@ module Fluent::Config
       test('"\\.t"') { assert_text_parsed_as(".t", '"\\.t"') }
       test('"\\$t"') { assert_text_parsed_as("$t", '"\\$t"') }
       test('"\\"') { assert_text_parsed_as("#t", '"\\#t"') }
+      test('"\\0"') { assert_text_parsed_as("\0", '"\\0"') }
       test('"\\z"') { assert_parse_error('"\\z"') }  # unknown escaped character
-      test('"\\0"') { assert_parse_error('"\\0"') }  # unknown escaped character
       test('"\\1"') { assert_parse_error('"\\1"') }  # unknown escaped character
       test('"t') { assert_parse_error('"t') }  # non-terminated quoted character
       test("\"t\nt\"") { assert_text_parsed_as("t\nt", "\"t\nt\"" ) } # multiline string
