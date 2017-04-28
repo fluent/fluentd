@@ -181,6 +181,8 @@ module Fluent
           "\f"
         when "b"
           "\b"
+        when "0"
+          "\0"
         when /[a-zA-Z0-9]/
           parse_error! "unexpected back-slash escape character '#{c}'"
         else  # symbols
