@@ -95,6 +95,14 @@ module Fluent
         end
         nil
       }
+      @rpc_server.mount_proc('/api/plugins.flushBuffersAndKillWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/plugins.flushBuffersAndKillWorkers request"
+        unless Fluent.windows?
+          Process.kill :USR1, $$
+          Process.kill :TERM, $$
+        end
+        nil
+      }
       @rpc_server.mount_proc('/api/config.reload') { |req, res|
         $log.debug "fluentd RPC got /api/config.reload request"
         if Fluent.windows?
