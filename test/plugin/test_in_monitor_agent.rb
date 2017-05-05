@@ -513,4 +513,58 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal("200", get("http://127.0.0.1:#{port}/api/plugins").code)
     end
   end
+
+  sub_test_case "check NoMethodError does not happen" do
+    class FluentTestBufferVariableOutput < ::Fluent::Plugin::Output
+      ::Fluent::Plugin.register_output('test_out_buffer_variable', self)
+      def configure(conf)
+        super
+        @buffer = []
+      end
+
+      def write(chunk)
+      end
+    end
+    class FluentTestBufferVariableFilter < ::Fluent::Plugin::Filter
+      ::Fluent::Plugin.register_filter("test_filter_buffer_variable", self)
+      def initialize
+        super
+        @buffer = {}
+      end
+      def filter(tag, time, record)
+        record
+      end
+    end
+
+    setup do
+      conf = <<-EOC
+<match **>
+  @type test_out_buffer_variable
+  @id test_out_buffer_variable
+</match>
+<filter **>
+  @type test_filter_buffer_variable
+  @id test_filter_buffer_variable
+</filter>
+EOC
+      @ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { @ra }
+      @ra = configure_ra(@ra, conf)
+    end
+
+    test "plugins have a variable named buffer does not throws NoMethodError" do
+      port = unused_port
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{port}
+  include_config no
+")
+      d.instance.start
+
+      assert_equal("200", get("http://127.0.0.1:#{port}/api/plugins.json").code)
+      assert{ d.logs.none?{|log| log.include?("NoMethodError") } }
+      assert_equal(false, d.instance.instance_variable_get(:@first_warn))
+    end
+  end
 end
