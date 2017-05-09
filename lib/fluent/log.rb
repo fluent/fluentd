@@ -472,7 +472,7 @@ module Fluent
     extend Forwardable
     def_delegators '@logger', :enable_color?, :enable_debug, :enable_event,
       :disable_events, :log_event_enabled, :log_event_enamed=, :time_format, :time_format=,
-      :event, :caller_line, :puts, :write, :flush, :reset, :out, :out=,
+      :event, :caller_line, :puts, :write, :<<, :flush, :reset, :out, :out=,
       :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
   end
 
