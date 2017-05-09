@@ -208,6 +208,7 @@ module Fluent
       @parse = case
                when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
                when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
+               when format == '%iso8601'             then ->(v){ Fluent::EventTime.from_time(Time.iso8601(v)) }
                when strptime then ->(v){ t = strptime.exec(v);         Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
                when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
                else ->(v){ Fluent::EventTime.parse(v) }

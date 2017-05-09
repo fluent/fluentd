@@ -34,6 +34,18 @@ class TimeParserTest < ::Test::Unit::TestCase
     assert_equal_event_time(time, parser.parse('28/Feb/2013:12:00:00:123456789 +0900'))
   end
 
+  def test_parse_iso8601
+    parser = Fluent::TimeParser.new('%iso8601')
+
+    assert(parser.parse('2017-01-01T12:00:00+09:00').is_a?(Fluent::EventTime))
+
+    time = event_time('2017-01-01T12:00:00+09:00')
+    assert_equal(time, parser.parse('2017-01-01T12:00:00+09:00'))
+
+    time_with_msec = event_time('2017-01-01T12:00:00.123+09:00')
+    assert_equal(time_with_msec, parser.parse('2017-01-01T12:00:00.123+09:00'))
+  end
+
   def test_parse_with_invalid_argument
     parser = Fluent::TimeParser.new
 
