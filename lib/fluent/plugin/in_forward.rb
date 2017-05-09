@@ -211,7 +211,7 @@ module Fluent::Plugin
           options = on_message(msg, chunk_size, conn)
           if options && r = response(options)
             log.trace "sent response to fluent socket", address: conn.remote_addr, response: r
-            conn.on_write_complete{ conn.close } if @deny_keepalive
+            conn.on(:write_complete) { |c| c.close } if @deny_keepalive
             send_data.call(serializer, r)
           else
             if @deny_keepalive
