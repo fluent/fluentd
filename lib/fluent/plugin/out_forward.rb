@@ -420,7 +420,7 @@ module Fluent::Plugin
     # return chunk id to be committed
     def read_ack_from_sock(sock, unpacker)
       begin
-        raw_data = sock.recv(@read_length)
+        raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.read(@read_length) : sock.recv(@read_length)
       rescue Errno::ECONNRESET
         raw_data = ""
       end
