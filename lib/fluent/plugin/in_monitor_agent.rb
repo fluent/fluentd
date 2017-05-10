@@ -379,7 +379,7 @@ module Fluent
     # multiple plugins could have the same type
     def plugins_info_by_type(type, opts={})
       array = all_plugins.select {|pe|
-        (pe.config['@type'] == type || pe.config['type'] == type) rescue nil
+        (pe.config['@type'] == type || pe.config['type'] == type || Fluent::Plugin.lookup_name_from_class(pe.class)) rescue nil
       }
       array.map {|pe|
         get_monitor_info(pe, opts)
@@ -403,7 +403,7 @@ module Fluent
       # Common plugin information
       obj['plugin_id'] = pe.plugin_id
       obj['plugin_category'] = plugin_category(pe)
-      obj['type'] = pe.config['@type'] || pe.config['type']
+      obj['type'] = pe.config['@type'] || pe.config['type'] || Fluent::Plugin.lookup_name_from_class(pe.class)
       obj['config'] = pe.config if opts[:with_config]
 
       # run MONITOR_INFO in plugins' instance context and store the info to obj
