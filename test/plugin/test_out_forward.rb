@@ -72,7 +72,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     output_conf = %[
       send_timeout 5
       require_ack_response true
-      ack_response_timeout 1s
+      #ack_response_timeout 1s
       #transport tls
       #tls_insecure_mode true
       <server>
@@ -114,7 +114,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     output_conf = %[
       send_timeout 5
       require_ack_response true
-      ack_response_timeout 1s
+      #ack_response_timeout 1s
       #transport tls
       #tls_insecure_mode true
       <server>
