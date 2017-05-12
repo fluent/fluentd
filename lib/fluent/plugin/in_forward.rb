@@ -231,6 +231,7 @@ module Fluent::Plugin
       serializer = nil
       bytes = 0
       conn.data do |data|
+        p data
         # only for first call of callback
         unless feeder
           first = data[0]
