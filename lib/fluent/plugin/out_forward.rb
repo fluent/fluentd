@@ -420,10 +420,12 @@ module Fluent::Plugin
     # return chunk id to be committed
     def read_ack_from_sock(sock, unpacker)
       begin
+        p sock
         raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
       rescue Errno::ECONNRESET
         raw_data = ""
       end
+      p raw_data
       info = @sock_ack_waiting_mutex.synchronize{ @sock_ack_waiting.find{|i| i.sock == sock } }
 
       # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
