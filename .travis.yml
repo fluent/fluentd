@@ -13,7 +13,7 @@ matrix:
       os: linux
     - rvm: 2.3.3
       os: linux
-    - rvm: 2.4.0
+    - rvm: 2.4.1
       os: linux
     - rvm: ruby-head
       os: linux
@@ -26,7 +26,7 @@ matrix:
     # - rvm: 2.3.3
     #   os: osx
     #   osx_image: xcode8.2 # OSX 10.12
-    - rvm: 2.4.0
+    - rvm: 2.4.1
       os: osx
       osx_image: xcode8.3 # OSX 10.12
     - rvm: ruby-head

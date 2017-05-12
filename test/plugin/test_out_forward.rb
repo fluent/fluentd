@@ -61,20 +61,22 @@ class ForwardOutputTest < Test::Unit::TestCase
     }.configure(conf)
   end
 
-  def test_tls1
+  data('ack true' => true,
+       'ack false' => false)
+  test 'TLS transport and ack parameter combination' do |ack|
     input_conf = TARGET_CONFIG + %[
-                   #<transport tls>
-                   #  insecure true
-                   #</transport>
+                   <transport tls>
+                     insecure true
+                   </transport>
                  ]
     target_input_driver = create_target_input_driver(conf: input_conf)
 
     output_conf = %[
       send_timeout 5
-      require_ack_response true
-      #ack_response_timeout 1s
-      #transport tls
-      #tls_insecure_mode true
+      require_ack_response #{ack}
+      ack_response_timeout 1s
+      transport tls
+      tls_insecure_mode true
       <server>
         host #{TARGET_HOST}
         port #{TARGET_PORT}
@@ -90,49 +92,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     time = event_time("2011-01-02 13:14:15 UTC")
     records = [{"a" => 1}, {"a" => 2}]
     target_input_driver.run(expect_records: 2, timeout: 3) do
+      #d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
       d.run(default_tag: 'test') do
-        records.each do |record|
-          d.feed(time, record)
-        end
-      end
-    end
-
-    events = target_input_driver.events
-    assert{ events != [] }
-    assert_equal(['test', time, records[0]], events[0])
-    assert_equal(['test', time, records[1]], events[1])
-  end
-
-  def test_tls2
-    input_conf = TARGET_CONFIG + %[
-                   #<transport tls>
-                   #  insecure true
-                   #</transport>
-                 ]
-    target_input_driver = create_target_input_driver(conf: input_conf)
-
-    output_conf = %[
-      send_timeout 5
-      require_ack_response true
-      #ack_response_timeout 1s
-      #transport tls
-      #tls_insecure_mode true
-      <server>
-        host #{TARGET_HOST}
-        port #{TARGET_PORT}
-      </server>
-      <buffer>
-        #flush_mode immediate
-        flush_interval 0s
-        flush_at_shutdown false # suppress errors in d.instance_shutdown
-      </buffer>
-    ]
-    @d = d = create_driver(output_conf)
-
-    time = event_time("2011-01-02 13:14:15 UTC")
-    records = [{"a" => 1}, {"a" => 2}]
-    target_input_driver.run(expect_records: 2, timeout: 3) do
-      d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         records.each do |record|
           d.feed(time, record)
         end
