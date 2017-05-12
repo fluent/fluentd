@@ -195,6 +195,7 @@ module Fluent::Plugin
       log.trace "accepted fluent socket", addr: conn.remote_addr, port: conn.remote_port
 
       read_messages(conn) do |msg, chunk_size, serializer|
+        p msg
         case state
         when :pingpong
           success, reason_or_salt, shared_key = check_ping(msg, conn.remote_addr, user_auth_salt, nonce)

@@ -63,17 +63,18 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_tls1
     input_conf = TARGET_CONFIG + %[
-                   <transport tls>
-                     insecure true
-                   </transport>
+                   #<transport tls>
+                   #  insecure true
+                   #</transport>
                  ]
     target_input_driver = create_target_input_driver(conf: input_conf)
 
     output_conf = %[
       send_timeout 5
       require_ack_response true
-      transport tls
-      tls_insecure_mode true
+      ack_response_timeout 1s
+      #transport tls
+      #tls_insecure_mode true
       <server>
         host #{TARGET_HOST}
         port #{TARGET_PORT}
@@ -104,17 +105,18 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def test_tls2
     input_conf = TARGET_CONFIG + %[
-                   <transport tls>
-                     insecure true
-                   </transport>
+                   #<transport tls>
+                   #  insecure true
+                   #</transport>
                  ]
     target_input_driver = create_target_input_driver(conf: input_conf)
 
     output_conf = %[
       send_timeout 5
       require_ack_response true
-      transport tls
-      tls_insecure_mode true
+      ack_response_timeout 1s
+      #transport tls
+      #tls_insecure_mode true
       <server>
         host #{TARGET_HOST}
         port #{TARGET_PORT}
