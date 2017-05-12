@@ -21,6 +21,7 @@ require 'fluent/msgpack_factory'
 require 'fluent/formatter'
 require 'fluent/plugin'
 require 'fluent/config/element'
+require 'fluent/engine'
 
 class FluentBinlogReader
   SUBCOMMAND = %w(cat head formats)
