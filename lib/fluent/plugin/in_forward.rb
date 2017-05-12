@@ -193,7 +193,7 @@ module Fluent::Plugin
       end
 
       log.trace "accepted fluent socket", addr: conn.remote_addr, port: conn.remote_port
-      p conn
+      p conn.object_id
 
       read_messages(conn) do |msg, chunk_size, serializer|
         p msg
