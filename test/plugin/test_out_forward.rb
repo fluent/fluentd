@@ -61,8 +61,9 @@ class ForwardOutputTest < Test::Unit::TestCase
     }.configure(conf)
   end
 
-  data('ack true' => true,
-       'ack false' => false)
+  data('ack false' => false)
+  #data('ack true' => true,
+  #     'ack false' => false)
   test 'TLS transport and ack parameter combination' do |ack|
     input_conf = TARGET_CONFIG + %[
                    <transport tls>
@@ -74,7 +75,6 @@ class ForwardOutputTest < Test::Unit::TestCase
     output_conf = %[
       send_timeout 5
       require_ack_response #{ack}
-      ack_response_timeout 1s
       transport tls
       tls_insecure_mode true
       <server>
@@ -92,8 +92,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     time = event_time("2011-01-02 13:14:15 UTC")
     records = [{"a" => 1}, {"a" => 2}]
     target_input_driver.run(expect_records: 2, timeout: 3) do
-      #d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
-      d.run(default_tag: 'test') do
+      d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
+      #d.run(default_tag: 'test') do
         records.each do |record|
           d.feed(time, record)
         end
