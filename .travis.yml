@@ -13,13 +13,13 @@ matrix:
       os: linux
     - rvm: 2.3.3
       os: linux
-    - rvm: 2.4.0
+    - rvm: 2.4.1
       os: linux
     - rvm: ruby-head
       os: linux
     - rvm: 2.1.10
       os: osx
-      osx_image: xcode8.2 # OSX 10.12
+      osx_image: xcode8.3 # OSX 10.12
     # - rvm: 2.2.6
     #   os: osx
     #   osx_image: xcode8.2 # OSX 10.12
@@ -28,17 +28,16 @@ matrix:
     #   osx_image: xcode8.2 # OSX 10.12
     - rvm: 2.4.0
       os: osx
-      osx_image: xcode8.2 # OSX 10.12
+      osx_image: xcode8.3 # OSX 10.12
     - rvm: ruby-head
       os: osx
-      osx_image: xcode 8.2 # OSX 10.12
+      osx_image: xcode 8.3 # OSX 10.12
   allow_failures:
     - rvm: ruby-head
 
 branches:
   only:
     - master
-    - v0.10
     - v0.12
     - v0.14
 
