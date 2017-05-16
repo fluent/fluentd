@@ -46,12 +46,12 @@ module Fluent
         case
         when conf.cert_path
           raise Fluent::ConfigError, "private_key_path is required when cert_path is specified" unless conf.private_key_path
-          raise Fluent::ConfigError, "private_key_passphrase is required when cert_path is specified" unless conf.private_key_passphrase
+          log.warn "For security reason, setting private_key_passphrase is recommended when cert_path is specified" unless conf.private_key_passphrase
           cert_option_load(conf.cert_path, conf.private_key_path, conf.private_key_passphrase)
 
         when conf.ca_cert_path
           raise Fluent::ConfigError, "ca_private_key_path is required when ca_cert_path is specified" unless conf.ca_private_key_path
-          raise Fluent::ConfigError, "ca_private_key_passphrase is required when ca_cert_path is specified" unless conf.ca_private_key_passphrase
+          log.warn "For security reason, setting ca_private_key_passphrase is recommended when ca_cert_path is specified" unless conf.ca_private_key_passphrase
           generate_opts = cert_option_cert_generation_opts_from_conf(conf)
           cert_option_generate_server_pair_by_ca(
             conf.ca_cert_path,

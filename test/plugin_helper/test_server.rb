@@ -767,8 +767,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
   def write_cert_and_key(cert_path, cert, key_path, key, passphrase)
     File.open(cert_path, "w"){|f| f.write(cert.to_pem) }
-    # Encrypt secret key by AES256, and write it in PEM format
-    File.open(key_path, "w"){|f| f.write(key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase)) }
+    # Write the secret key (raw or ecnrypted by AES256) in PEM format
+    key_str = passphrase ? key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase) : key.export
+    File.open(key_path, "w"){|f| f.write(key_str) }
     File.chmod(0600, cert_path, key_path)
   end
 
@@ -807,7 +808,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       f.write server_cert.to_pem
       f.write chain_cert.to_pem
     end
-    File.open(private_key_path, "w"){|f| f.write(server_key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase)) }
+    key_str = passphrase ? server_key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase) : server_key.export
+    File.open(private_key_path, "w"){|f| f.write(key_str) }
     File.chmod(0600, cert_path, private_key_path)
   end
 
@@ -889,10 +891,11 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'load self-signed cert/key pair (files), verified from clients using cert files' do
+      data('with passphrase' => 'yaaaaaaaaaaaaaaaaaaay',
+           'without passphrase'  => nil)
+      test 'load self-signed cert/key pair (files), verified from clients using cert files' do |private_key_passphrase|
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
         create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
 
         tls_options = {
@@ -902,8 +905,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           insecure: false,
           cert_path: cert_path,
           private_key_path: private_key_path,
-          private_key_passphrase: private_key_passphrase,
         }
+        tls_options[:private_key_passphrase] = private_key_passphrase if private_key_passphrase
         received = ""
         @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
           received << data
@@ -922,10 +925,11 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'create dynamic server cert by private CA cert file, verified from clients using CA cert file' do
+      data('with passphrase' => "fooooooooooooooooooooooooo",
+           'without passphrase'  => nil)
+      test 'create dynamic server cert by private CA cert file, verified from clients using CA cert file' do |ca_key_passphrase|
         ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
         ca_key_path = File.join(@certs_dir, "ca.key.pem")
-        ca_key_passphrase = "fooooooooooooooooooooooooo"
         create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
 
         tls_options = {
@@ -935,9 +939,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           insecure: false,
           ca_cert_path: ca_cert_path,
           ca_private_key_path: ca_key_path,
-          ca_private_key_passphrase: ca_key_passphrase,
           generate_private_key_length: 2048,
         }
+        tls_options[:ca_private_key_passphrase] = ca_key_passphrase if ca_key_passphrase
         received = ""
         @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
           received << data
@@ -950,15 +954,15 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'load static server cert by private CA cert file, verified from clients using CA cert file' do
+      data('with passphrase' => ["foooooooo", "yaaaaaaaaaaaaaaaaaaay"],
+           'without passphrase'  => [nil, nil])
+      test 'load static server cert by private CA cert file, verified from clients using CA cert file' do |(ca_key_passphrase, private_key_passphrase)|
         ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
         ca_key_path = File.join(@certs_dir, "ca.key.pem")
-        ca_key_passphrase = "foooooooo"
         create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
 
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
         create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
 
         tls_options = {
@@ -968,8 +972,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           insecure: false,
           cert_path: cert_path,
           private_key_path: private_key_path,
-          private_key_passphrase: private_key_passphrase,
         }
+        tls_options[:private_key_passphrase] = private_key_passphrase if private_key_passphrase
         received = ""
         @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
           received << data
@@ -982,13 +986,13 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'load chained server cert by private CA cert file, verified from clients using CA cert file as root' do
+      data('with passphrase' => ["foooooooo", "yaaaaaaaaaaaaaaaaaaay"],
+           'without passphrase'  => [nil, nil])
+      test 'load chained server cert by private CA cert file, verified from clients using CA cert file as root' do |(ca_key_passphrase, private_key_passphrase)|
         ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
         ca_key_path = File.join(@certs_dir, "ca.key.pem")
-        ca_key_passphrase = "foooooooo"
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
         create_server_pair_chained_with_root_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
 
         tls_options = {
@@ -998,8 +1002,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           insecure: false,
           cert_path: cert_path,
           private_key_path: private_key_path,
-          private_key_passphrase: private_key_passphrase,
         }
+        tls_options[:private_key_passphrase] = private_key_passphrase if private_key_passphrase
         received = ""
         @d.server_create_tls(:s, PORT, tls_options: tls_options) do |data, conn|
           received << data
@@ -1042,17 +1046,18 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'load self-signed cert/key pair (files), verified from clients using cert files' do
+      data('with passphrase' => "yaaaaaaaaaaaaaaaaaaay",
+           'without passphrase'  => nil)
+      test 'load self-signed cert/key pair (files), verified from clients using cert files' do |private_key_passphrase|
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
         create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
 
         transport_opts = {
           'cert_path' => cert_path,
           'private_key_path' => private_key_path,
-          'private_key_passphrase' => private_key_passphrase,
         }
+        transport_opts['private_key_passphrase'] = private_key_passphrase if private_key_passphrase
         transport_conf = config_element('transport', 'tls', transport_opts)
         conf = config_element('match', 'tag.*', {}, [transport_conf])
 
@@ -1076,17 +1081,18 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'create dynamic server cert by private CA cert file, verified from clients using CA cert file' do
+      data('with passphrase' => "fooooooooooooooooooooooooo",
+           'without passphrase'  => nil)
+      test 'create dynamic server cert by private CA cert file, verified from clients using CA cert file' do |ca_key_passphrase|
         ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
         ca_key_path = File.join(@certs_dir, "ca.key.pem")
-        ca_key_passphrase = "fooooooooooooooooooooooooo"
         create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
 
         transport_opts = {
           'ca_cert_path' => ca_cert_path,
           'ca_private_key_path' => ca_key_path,
-          'ca_private_key_passphrase' => ca_key_passphrase,
         }
+        transport_opts['ca_private_key_passphrase'] = ca_key_passphrase if ca_key_passphrase
         transport_conf = config_element('transport', 'tls', transport_opts)
         conf = config_element('match', 'tag.*', {}, [transport_conf])
 
@@ -1104,22 +1110,22 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'load static server cert by private CA cert file, verified from clients using CA cert file' do
+      data('with passphrase' => ["foooooooo", "yaaaaaaaaaaaaaaaaaaay"],
+           'without passphrase'  => [nil, nil])
+      test 'load static server cert by private CA cert file, verified from clients using CA cert file' do |(ca_key_passphrase, private_key_passphrase)|
         ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
         ca_key_path = File.join(@certs_dir, "ca.key.pem")
-        ca_key_passphrase = "foooooooo"
         create_ca_pair_signed_by_self(ca_cert_path, ca_key_path, ca_key_passphrase)
 
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
         create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
 
         transport_opts = {
           'cert_path' => cert_path,
           'private_key_path' => private_key_path,
-          'private_key_passphrase' => private_key_passphrase,
         }
+        transport_opts['private_key_passphrase'] = private_key_passphrase if private_key_passphrase
         transport_conf = config_element('transport', 'tls', transport_opts)
         conf = config_element('match', 'tag.*', {}, [transport_conf])
 
@@ -1137,20 +1143,20 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal "yay\nfoo\n", received
       end
 
-      test 'load chained server cert by private CA cert file, verified from clients using CA cert file as root' do
+      data('with passphrase' => ["foooooooo", "yaaaaaaaaaaaaaaaaaaay"],
+           'without passphrase'  => [nil, nil])
+      test 'load chained server cert by private CA cert file, verified from clients using CA cert file as root' do |(ca_key_passphrase, private_key_passphrase)|
         ca_cert_path = File.join(@certs_dir, "ca_cert.pem")
         ca_key_path = File.join(@certs_dir, "ca.key.pem")
-        ca_key_passphrase = "foooooooo"
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        private_key_passphrase = "yaaaaaaaaaaaaaaaaaaay"
         create_server_pair_chained_with_root_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
 
         transport_opts = {
           'cert_path' => cert_path,
           'private_key_path' => private_key_path,
-          'private_key_passphrase' => private_key_passphrase,
         }
+        transport_opts['private_key_passphrase'] = private_key_passphrase if private_key_passphrase
         transport_conf = config_element('transport', 'tls', transport_opts)
         conf = config_element('match', 'tag.*', {}, [transport_conf])
 
