@@ -248,25 +248,6 @@ module Fluent
       @out.flush
     end
 
-    private
-
-    def dump_stacktrace(backtrace, level)
-      return if @level > level
-
-      time = Time.now
-      line = caller_line(time, 5, level)
-      if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
-        puts ["  ", line, 'suppressed same stacktrace'].join
-      else
-        backtrace.each { |msg|
-          puts ["  ", line, msg].join
-        }
-        Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
-      end
-
-      nil
-    end
-
     def event(level, args)
       time = Time.now
       message = ''
@@ -309,6 +290,25 @@ module Fluent
         end
       end
       return log_msg
+    end
+
+    private
+
+    def dump_stacktrace(backtrace, level)
+      return if @level > level
+
+      time = Time.now
+      line = caller_line(time, 5, level)
+      if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+        puts ["  ", line, 'suppressed same stacktrace'].join
+      else
+        backtrace.each { |msg|
+          puts ["  ", line, msg].join
+        }
+        Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
+      end
+
+      nil
     end
   end
 
