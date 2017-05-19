@@ -43,6 +43,8 @@ module Fluent
       @suppress_config_dump = false
 
       @system_config = SystemConfig.new
+
+      @dry_run_mode = false
     end
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
@@ -53,6 +55,8 @@ module Fluent
     attr_reader :root_agent
     attr_reader :matches, :sources
     attr_reader :system_config
+
+    attr_accessor :dry_run_mode
 
     def init(system_config)
       @system_config = system_config
@@ -157,7 +161,7 @@ module Fluent
       $log.enable_event(true) if @log_event_router
 
       unless @suppress_config_dump
-        $log.info :worker0, "using configuration file: #{conf.to_s.rstrip}"
+        $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
       end
     end
 

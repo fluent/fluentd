@@ -457,7 +457,7 @@ module Fluent
         end
       end
 
-      dry_run if @dry_run
+      dry_run_cmd if @dry_run
       supervise
     end
 
@@ -514,15 +514,28 @@ module Fluent
       ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
     end
 
-    def dry_run
+    def dry_run_cmd
       $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode"
-      change_privilege
-      init_engine
-      run_configure
+      @system_config.suppress_config_dump = true
+      dry_run
       exit 0
     rescue => e
       $log.error "dry run failed: #{e}"
       exit 1
+    end
+
+    ## Set Engine's dry_run_mode true to override all target_id of worker sections
+    def dry_run
+      begin
+        Fluent::Engine.dry_run_mode = true
+        change_privilege
+        init_engine
+        run_configure
+        Fluent::Engine.dry_run_mode = false
+      rescue Fluent::ConfigError => e
+        $log.error "config error", file: @config_path, error: e
+        $log.debug_backtrace
+      end
     end
 
     def show_plugin_config
@@ -532,6 +545,9 @@ module Fluent
     end
 
     def supervise
+      # Make dumpable conf, which is set corresponding_proxies for all elements in all worker sections
+      dry_run
+
       Process.setproctitle("supervisor:#{@process_name}") if @process_name
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid
 

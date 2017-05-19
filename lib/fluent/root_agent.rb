@@ -76,6 +76,9 @@ module Fluent
           raise ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
         end
 
+        ## On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
+        target_worker_id = 0 if Fluent::Engine.dry_run_mode
+
         e.elements.each do |elem|
           unless ['source', 'match', 'filter', 'label'].include?(elem.name)
             raise ConfigError, "<worker> section cannot have <#{elem.name}> directive"
