@@ -491,7 +491,7 @@ module Fluent
       set_system_config
 
       if @standalone_worker && @workers != 1
-        raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) on standalone mode"
+        raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@workers}"
       end
 
       install_main_process_signal_handlers
