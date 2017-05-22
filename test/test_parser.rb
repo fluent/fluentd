@@ -74,6 +74,15 @@ module ParserTest
       assert_equal_event_time(time, parser.parse('28/Feb/2013:12:00:00 +0900'))
     end
 
+    data('with sec' => '2017-01-01T12:00:00+09:00',
+         'with msec' => '2017-01-01T12:00:00.123+09:00')
+    def test_parse_with_iso8601(data)
+      parser = TextParser::TimeParser.new('%iso8601')
+
+      time = event_time(data)
+      assert_equal_event_time(time, parser.parse(data))
+    end
+
     def test_parse_with_invalid_argument
       parser = TextParser::TimeParser.new(nil)
 

@@ -71,7 +71,11 @@ module Fluent
         @cache2_time = nil
         @parser =
           if time_format
-            Proc.new { |value| Time.strptime(value, time_format) }
+            if time_format == '%iso8601'
+              Proc.new { |value| Time.iso8601(value) }
+            else
+              Proc.new { |value| Time.strptime(value, time_format) }
+            end
           else
             Time.method(:parse)
           end
