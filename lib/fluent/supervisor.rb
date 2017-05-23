@@ -531,10 +531,11 @@ module Fluent
         change_privilege
         init_engine
         run_configure
-        Fluent::Engine.dry_run_mode = false
       rescue Fluent::ConfigError => e
         $log.error "config error", file: @config_path, error: e
         $log.debug_backtrace
+      ensure
+        Fluent::Engine.dry_run_mode = false
       end
     end
 
