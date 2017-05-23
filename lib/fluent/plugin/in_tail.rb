@@ -28,6 +28,7 @@ module Fluent
       super
       @paths = []
       @tails = {}
+      @ignore_list = []
     end
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
@@ -62,6 +63,8 @@ module Fluent
     config_param :limit_recently_modified, :time, default: nil
     desc 'Enable the option to skip the refresh of watching list on startup.'
     config_param :skip_refresh_on_startup, :bool, default: false
+    desc 'Ignore repeated permission error logs'
+    config_param :ignore_repeated_permission_error, :bool, default: false
 
     attr_reader :paths
 
@@ -166,7 +169,10 @@ module Fluent
               end
             else
               if is_file
-                log.warn "#{p} unreadable. It is excluded and would be examined next time."
+                unless @ignore_list.include?(path)
+                  log.warn "#{p} unreadable. It is excluded and would be examined next time."
+                  @ignore_list << path if @ignore_repeated_permission_error
+                end
               end
               false
             end

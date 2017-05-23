@@ -50,6 +50,7 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal 2, d.instance.rotate_wait
     assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
     assert_equal 1000, d.instance.read_lines_limit
+    assert_equal false, d.instance.ignore_repeated_permission_error
   end
 
   def test_configure_encoding
