@@ -450,6 +450,8 @@ module Fluent::Plugin
       log.error "unexpected error while receiving ack message", error: e
       log.error_backtrace
     ensure
+      info.sock.close_write rescue nil
+      info.sock.close rescue nil
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting.delete(info)
       end
