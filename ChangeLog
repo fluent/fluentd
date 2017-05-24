@@ -1,5 +1,25 @@
 # v0.12
 
+## Release 0.12.36 - 2017/05/24
+
+### New features / Enhancement
+
+* config: Allow null byte in double-quoted string
+  https://github.com/fluent/fluentd/pull/1552
+* parser: Support %iso8601 special case for time_format
+  https://github.com/fluent/fluentd/pull/1562
+* in_tail: Add ignore_repeated_permission_error parameter
+  https://github.com/fluent/fluentd/pull/1574
+
+### Bug fixes
+
+* in_monitor_agent: Enable in_monitor_agent to find plugin type from its class
+  https://github.com/fluent/fluentd/pull/1564
+* Ruby 2.4 warns to forward private methods
+  https://github.com/fluent/fluentd/pull/1579
+* log: Add missing '<<' method to delegators
+  https://github.com/fluent/fluentd/pull/1558
+
 ## Release 0.12.35 - 2017/04/19
 
 ### Bug fixes
