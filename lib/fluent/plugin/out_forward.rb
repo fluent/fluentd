@@ -495,7 +495,7 @@ module Fluent::Plugin
 
           readable_sockets.each do |sock|
             chunk_id = read_ack_from_sock(sock, unpacker)
-            commit_write(chunk_id)
+            commit_write(chunk_id) if chunk_id
           end
         rescue => e
           log.error "unexpected error while receiving ack", error: e
