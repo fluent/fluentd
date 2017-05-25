@@ -257,10 +257,8 @@ module Fluent
       def configure(conf)
         super
 
-        unless @time_format.nil?
-          @time_parser = TimeParser.new(@time_format)
-          @mutex = Mutex.new
-        end
+        @time_parser = TimeParser.new(@time_format)
+        @mutex = Mutex.new
 
         begin
           raise LoadError unless @json_parser == 'oj'
@@ -279,15 +277,7 @@ module Fluent
 
         value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
         if value
-          if @time_format
-            time = @mutex.synchronize { @time_parser.parse(value) }
-          else
-            begin
-              time = value.to_i
-            rescue => e
-              raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
-            end
-          end
+          time = @mutex.synchronize { @time_parser.parse(value) }
         else
           if @estimate_current_event
             time = Engine.now
