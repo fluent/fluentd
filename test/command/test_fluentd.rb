@@ -442,8 +442,7 @@ CONF
 
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
-        "error_class=SyntaxError",
-        "in_buggy.rb:5: syntax error, unexpected end-of-input, expecting keyword_end",
+        "in_buggy.rb:5: syntax error, unexpected end-of-input, expecting keyword_end (SyntaxError)"
       )
     end
   end
@@ -819,6 +818,50 @@ CONF
         "#1 fluentd worker is now running worker=1",
         '#1 adding match pattern="dummy" type="copy"'
       )
+    end
+  end
+
+  sub_test_case 'config dump' do
+    test 'all secret parameters in worker section is sealed' do
+      script =  <<-EOC
+require 'fluent/plugin/input'
+module Fluent::Plugin
+  class FakeInput < Input
+    Fluent::Plugin.register_input('fake', self)
+    config_param :secret, :string, secret: true
+  end
+end
+EOC
+      plugin_path = create_plugin_file('in_fake.rb', script)
+
+      conf = <<CONF
+<system>
+  workers 2
+</system>
+<worker 0>
+  <source>
+    @type fake
+    secret secret0
+  </source>
+  <match>
+    @type null
+  </match>
+</worker>
+<worker 1>
+  <source>
+    @type fake
+    secret secret1
+  </source>
+  <match>
+    @type null
+  </match>
+</worker>
+CONF
+      conf_path = create_conf_file('secret_in_worker.conf', conf)
+      assert File.exist?(conf_path)
+
+      assert_log_matches(create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
+                         "secret xxxxxx", patterns_not_match: ["secret secret0", "secret secret1"])
     end
   end
 end
