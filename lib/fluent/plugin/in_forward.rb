@@ -193,8 +193,10 @@ module Fluent::Plugin
       end
 
       log.trace "accepted fluent socket", addr: conn.remote_addr, port: conn.remote_port
+      p conn.object_id
 
       read_messages(conn) do |msg, chunk_size, serializer|
+        p msg
         case state
         when :pingpong
           success, reason_or_salt, shared_key = check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
@@ -229,6 +231,7 @@ module Fluent::Plugin
       serializer = nil
       bytes = 0
       conn.data do |data|
+        p data
         # only for first call of callback
         unless feeder
           first = data[0]

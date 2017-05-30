@@ -34,7 +34,7 @@ Rake::TestTask.new(:base_test) do |t|
   t.test_files = if ENV["WIN_RAPID"]
                    ["test/test_event.rb", "test/test_supervisor.rb", "test/plugin_helper/test_event_loop.rb"]
                  else
-                   Dir["test/**/test_*.rb"].sort
+                   Dir["test/plugin/test_out_forward.rb"].sort
                  end
   t.verbose = true
   t.warning = true
