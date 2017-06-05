@@ -293,7 +293,7 @@ module Fluent
     #end
 
     def enqueue_buffer(force = false)
-      @buffer.keys.each {|key|
+      @buffer.keys.each { |key|
         @buffer.push(key)
       }
     end
@@ -414,7 +414,9 @@ module Fluent
       @num_errors_lock.synchronize do
         @next_retry_time = Time.now.to_f - 1
       end
-      enqueue_buffer(true)
+      @buffer.synchronize {
+        enqueue_buffer(true)
+      }
       submit_flush
     end
 
@@ -598,7 +600,7 @@ module Fluent
 
     def enqueue_buffer(force = false)
       if force
-        @buffer.keys.each {|key|
+        @buffer.keys.each { |key|
           @buffer.push(key)
         }
       else
