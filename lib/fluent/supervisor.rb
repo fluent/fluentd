@@ -218,7 +218,8 @@ module Fluent
 
       config_fname = File.basename(path)
       config_basedir = File.dirname(path)
-      config_data = File.read(path)
+      # Assume fluent.conf encoding is UTF-8
+      config_data = File.open(path, "r:utf-8:utf-8") {|f| f.read }
       inline_config = params['inline_config']
       if inline_config == '-'
         config_data << "\n" << STDIN.read
@@ -717,7 +718,7 @@ module Fluent
       $log.info :supervisor, "reading config file", path: @config_path
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
-      @config_data = File.read(@config_path)
+      @config_data = File.open(@config_path, "r:utf-8:utf-8") {|f| f.read }
       if @inline_config == '-'
         @config_data << "\n" << STDIN.read
       elsif @inline_config
