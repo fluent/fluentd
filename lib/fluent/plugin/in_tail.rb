@@ -191,6 +191,12 @@ module Fluent::Plugin
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
+          
+          #fix fetch files list issue on windows
+          if(path =~ /^\s*[C-Z]:\\/)
+            path.gsub!("\\","/")
+          end
+
           paths += Dir.glob(path).select { |p|
             is_file = !File.directory?(p)
             if File.readable?(p) && is_file
