@@ -77,6 +77,46 @@ class SupervisorTest < ::Test::Unit::TestCase
     $log.out.reset
   end
 
+  def test_read_config_with_multibyte_string
+    tmp_path = "#{TMP_DIR}/dir/test_multibyte_config.conf"
+    conf_str = %[
+<source>
+  @type forward
+  @id forward_input
+  @label @INPUT
+</source>
+<label @INPUT>
+  <filter>
+    @type record_transformer
+    <record>
+      message こんにちは. ${record["name"]} has made a order of ${record["item"]} just now.
+    </record>
+  </filter>
+  <match>
+    @type stdout
+  </match>
+</label>
+]
+    FileUtils.mkdir_p(File.dirname(tmp_path))
+    File.open(tmp_path, "w:utf-8") {|file| file.write(conf_str) }
+
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+
+    use_v1_config = {}
+    use_v1_config['use_v1_config'] = true
+
+    sv.instance_variable_set(:@config_path, tmp_path)
+    sv.instance_variable_set(:@use_v1_config, use_v1_config)
+    sv.send(:read_config)
+
+    conf = sv.instance_variable_get(:@conf)
+    label = conf.elements.detect {|e| e.name == "label" }
+    filter = label.elements.detect {|e| e.name == "filter" }
+    record_transformer = filter.elements.detect {|e| e.name = "record_transformer" }
+    assert_equal(Encoding::UTF_8, record_transformer["message"].encoding)
+  end
+
   def test_system_config
     opts = Fluent::Supervisor.default_options
     sv = Fluent::Supervisor.new(opts)
@@ -317,6 +357,45 @@ class SupervisorTest < ::Test::Unit::TestCase
     # fifth call after changed conf file(don't reuse config)
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
+  end
+
+  def test_load_config_with_multibyte_string
+    tmp_path = "#{TMP_DIR}/dir/test_multibyte_config.conf"
+    conf_str = %[
+<source>
+  @type forward
+  @id forward_input
+  @label @INPUT
+</source>
+<label @INPUT>
+  <filter>
+    @type record_transformer
+    <record>
+      message こんにちは. ${record["name"]} has made a order of ${record["item"]} just now.
+    </record>
+  </filter>
+  <match>
+    @type stdout
+  </match>
+</label>
+]
+    FileUtils.mkdir_p(File.dirname(tmp_path))
+    File.open(tmp_path, "w:utf-8") {|file| file.write(conf_str) }
+
+    params = {}
+    params['workers'] = 1
+    params['use_v1_config'] = true
+    params['log_path'] = 'test/tmp/supervisor/log'
+    params['suppress_repeated_stacktrace'] = true
+    params['log_level'] = Fluent::Log::LEVEL_INFO
+    load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_path, params) }
+
+    se_config = load_config_proc.call
+    conf = se_config[:fluentd_conf]
+    label = conf.elements.detect {|e| e.name == "label" }
+    filter = label.elements.detect {|e| e.name == "filter" }
+    record_transformer = filter.elements.detect {|e| e.name = "record_transformer" }
+    assert_equal(Encoding::UTF_8, record_transformer["message"].encoding)
   end
 
   def test_logger
