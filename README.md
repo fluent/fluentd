@@ -51,6 +51,11 @@ You can run specified test via `TEST` environment variable:
     $ bundle exec rake test TEST=test/test_specified_path.rb
     $ bundle exec rake test TEST=test/test_*.rb
 
+## Running in Production
+
+Many enterprises run Fluentd in production to handle all of their logging needs. For enterprises requiring Security tested binaries, SLA-based support, architectural guidance, and enhanced plugin connectors see [Fluentd Enterprise](https://www.fluentd.org/enterprise).
+
+
 ## Fluentd UI: Admin GUI
 
 [Fluentd UI](https://github.com/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
@@ -68,7 +73,6 @@ You can run specified test via `TEST` environment variable:
 - Author: Sadayuki Furuhashi
 - Copyright: (c) 2011 FURUHASHI Sadayuki
 - License: Apache License, Version 2.0
-
 ## Contributors:
 
 Patches contributed by [great developers](https://github.com/fluent/fluentd/contributors).
