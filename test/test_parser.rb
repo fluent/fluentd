@@ -379,6 +379,7 @@ module ParserTest
         @parser.configure(
           'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
           'message_format' => 'rfc5424',
+          'with_priority' => true,
         )
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
@@ -388,11 +389,32 @@ module ParserTest
           assert_equal "-", record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
+      end
+
+      def test_parse_with_rfc5424_message_and_without_priority
+        @parser.configure(
+           'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
+           'message_format' => 'rfc5424',
+        )
+        text = '2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
+        @parser.instance.parse(text) do |time, record|
+          assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
+          assert_equal "-", record["pid"]
+          assert_equal "-", record["msgid"]
+          assert_equal "-", record["extradata"]
+          assert_equal "Hi, from Fluentd!", record["message"]
+        end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424,
+                     @parser.instance.patterns['format'])
       end
 
       def test_parse_with_rfc5424_message_without_time_format
         @parser.configure(
           'message_format' => 'rfc5424',
+          'with_priority' => true,
         )
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
         @parser.instance.parse(text) do |time, record|
@@ -408,6 +430,7 @@ module ParserTest
         @parser.configure(
           'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
           'message_format' => 'rfc5424',
+          'with_priority' => true,
         )
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
@@ -445,12 +468,15 @@ module ParserTest
           assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
           assert_equal(@expected.merge('pri' => 6), record)
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI,
+                     @parser.instance.patterns['format'])
       end
 
       def test_parse_with_rfc5424_message
         @parser.configure(
           'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
           'message_format' => 'auto',
+          'with_priority' => true,
         )
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
@@ -460,12 +486,15 @@ module ParserTest
           assert_equal "-", record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                     @parser.instance.patterns['format'])
       end
 
       def test_parse_with_rfc5424_structured_message
         @parser.configure(
           'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
           'message_format' => 'auto',
+          'with_priority' => true,
         )
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
@@ -476,6 +505,8 @@ module ParserTest
                        record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                     @parser.instance.patterns['format'])
       end
 
       def test_parse_with_both_message_type
@@ -483,12 +514,16 @@ module ParserTest
           'time_format' => '%b %d %M:%S:%H',
           'rfc5424_time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
           'message_format' => 'auto',
+          'with_priority' => true,
         )
-        text = 'Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test'
+        text = '<1>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
-          assert_equal(@expected, record)
+          assert_equal(@expected.merge('pri' => 1), record)
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
@@ -498,11 +533,17 @@ module ParserTest
                        record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
-        text = 'Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test'
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                   @parser.instance.patterns['format'])
+
+        text = '<1>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
-          assert_equal(@expected, record)
+          assert_equal(@expected.merge('pri' => 1), record)
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI,
+                   @parser.instance.patterns['format'])
+
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
@@ -511,6 +552,9 @@ module ParserTest
           assert_equal "-", record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
       end
 
       def test_parse_with_both_message_type_and_priority
@@ -525,6 +569,9 @@ module ParserTest
           assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
           assert_equal(@expected.merge('pri' => 6), record)
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
@@ -534,11 +581,17 @@ module ParserTest
                        record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
         text = '<16>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
           assert_equal(@expected.merge('pri' => 16), record)
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
         text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
         @parser.parse(text) do |time, record|
           assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
@@ -547,6 +600,9 @@ module ParserTest
           assert_equal "-", record["extradata"]
           assert_equal "Hi, from Fluentd!", record["message"]
         end
+        assert_equal(TextParser::SyslogParser::REGEXP_RFC5424_WITH_PRI,
+                     @parser.instance.patterns['format'])
+
       end
     end
   end
