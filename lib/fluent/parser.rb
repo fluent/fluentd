@@ -540,7 +540,8 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
-      REGEXP_RFC5424 = /\A^\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ])) (?<message>.+)$\z/
+       REGEXP_RFC5424 = /\A^(?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ])) (?<message>.+)$\z/
+      REGEXP_RFC5424_WITH_PRI = /\A^\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ])) (?<message>.+)$\z/
       REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_param :time_format, :string, default: "%b %d %H:%M:%S"
@@ -568,7 +569,7 @@ module Fluent
                       alias_method :parse, :parse_plain
                     end
                     @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
-                    REGEXP_RFC5424
+                    @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424
                   when :auto
                     class << self
                       alias_method :parse, :parse_auto
@@ -590,7 +591,7 @@ module Fluent
 
       def parse_auto(text, &block)
         if REGEXP_DETECT_RFC5424.match(text)
-          @regexp = REGEXP_RFC5424
+          @regexp = @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424
           @time_parser = @time_parser_rfc5424
         else
           @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
