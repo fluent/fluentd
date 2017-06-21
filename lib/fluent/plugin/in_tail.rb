@@ -155,7 +155,6 @@ module Fluent
       date = Time.now
       paths = []
 
-      excluded = @exclude_path.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
       @paths.each { |path|
         path = date.strftime(path)
         if path.include?('*')
@@ -182,6 +181,7 @@ module Fluent
           paths << path
         end
       }
+      excluded = @exclude_path.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
       paths - excluded
     end
 
