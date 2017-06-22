@@ -1,5 +1,19 @@
 # v0.12
 
+## Release 0.12.37 - 2017/06/21
+
+### New features / Enhancement
+
+* parser: Add rfc5424 regex without priority
+  https://github.com/fluent/fluentd/pull/1601
+
+### Bug fixes
+
+* in_tail: fix timing issue that the excluded_path doesn't apply.
+  https://github.com/fluent/fluentd/pull/1597
+* in_tail: Detach watchers before updating watcher to avoid broken pos file
+  https://github.com/fluent/fluentd/pull/1598
+
 ## Release 0.12.36 - 2017/05/24
 
 ### New features / Enhancement
