@@ -213,6 +213,77 @@ class SyslogInputTest < Test::Unit::TestCase
     compare_test_result(d.emits, tests, {facility: facility})
   end
 
+  def test_allow_without_priority_with_default_format
+    d = create_driver([CONFIG, 'allow_without_priority true'].join("\n"))
+
+    tests = [
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
+      {'msg' => 'Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024, 'tag' => 'syslog.user.notice'},
+    ]
+
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    assert_equal 2, d.emits.size
+    compare_test_result(d.emits, tests)
+  end
+
+  def test_allow_without_priority_with_json_format
+    d = create_driver([CONFIG, %[
+      allow_without_priority true
+      format json
+    ]].join("\n"))
+
+    message = 'foo'
+    tests = [
+      {'msg' => '<6>' + {'message' => message}.to_json + "\n", 'expected' => message},
+      {'msg' => {'message' => message}.to_json + "\n", 'expected' => message, 'tag' => 'syslog.user.notice'},
+    ]
+
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    assert_equal 2, d.emits.size
+    compare_test_result(d.emits, tests)
+  end
+
+  def test_default_priority
+    d = create_driver([CONFIG, %[
+      allow_without_priority true
+      default_priority 100
+    ]].join("\n"))
+
+    tests = [
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100 + "\n", 'expected' => 'x' * 100},
+      {'msg' => 'Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024, 'tag' => 'syslog.ntp.warn'},
+    ]
+
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    assert_equal 2, d.emits.size
+    compare_test_result(d.emits, tests)
+
+  end
+
   def create_test_case(large_message = false)
     # actual syslog message has "\n"
     if large_message
@@ -231,7 +302,7 @@ class SyslogInputTest < Test::Unit::TestCase
 
   def compare_test_result(events, tests, options = {})
     events.each_index { |i|
-      assert_equal('syslog.kern.info', events[i][0]) # <6> means kern.info
+      assert_equal((tests[i]['tag'] || 'syslog.kern.info'), events[i][0]) # <6> means kern.info
       assert_equal(tests[i]['expected'], events[i][2]['message'])
       assert_equal(options[:host], events[i][2]['source_host']) if options[:host]
       assert_equal(options[:priority], events[i][2]['priority']) if options[:priority]

@@ -101,14 +101,28 @@ module Fluent
     config_param :message_length_limit, :size, default: 2048
     config_param :blocking_timeout, :time, default: 0.5
 
+    desc 'If true, accept syslog message without PRI part'
+    config_param :allow_without_priority, :bool, default: false
+    # 13 is the default value of rsyslog and syslog-ng
+    desc 'The default PRI value'
+    config_param :default_priority, :integer, default: 13
+
     def configure(conf)
       super
 
+      if @default_priority < 0 && @default_priority > 191
+        raise ConfigError, "default_priority must be 0 ~ 191"
+      end
+
+      if @allow_without_priority && conf['message_format'] == 'auto'
+        raise ConfigError, "message_format auto isn't allowed when allow_without_priority is true"
+      end
+
+      conf['with_priority'] = !@allow_without_priority
       if conf.has_key?('format')
         @parser = Plugin.new_parser(conf['format'])
         @parser.configure(conf)
       else
-        conf['with_priority'] = true
         @parser = TextParser::SyslogParser.new
         @parser.configure(conf)
         @use_default = true
@@ -120,12 +134,15 @@ module Fluent
     end
 
     def start
-      callback = if @use_default
-                   method(:receive_data)
+      callback = if @allow_without_priority
+                   method(:receive_data_allow_without_priority)
                  else
-                   method(:receive_data_parser)
+                   if @use_default
+                     method(:receive_data_default)
+                   else
+                     method(:receive_data_with_format)
+                   end
                  end
-
       @loop = Coolio::Loop.new
       @handler = listen(callback)
       @loop.attach(@handler)
@@ -149,7 +166,16 @@ module Fluent
 
     private
 
-    def receive_data_parser(data, addr)
+    ## SyslogParser with PRI part
+    def receive_data_default(data, addr)
+      parse_text(data, addr)
+    rescue => e
+      log.error data.dump, error: e.to_s
+      log.error_backtrace
+    end
+
+    ## PRI part parser + custom parser without PRI part
+    def receive_data_with_format(data, addr)
       m = SYSLOG_REGEXP.match(data)
       unless m
         log.warn "invalid syslog message: #{data.dump}"
@@ -158,12 +184,39 @@ module Fluent
       pri = m[1].to_i
       text = m[2]
 
+      parse_text(text, addr, pri)
+    rescue => e
+      log.error data.dump, error: e.to_s
+      log.error_backtrace
+    end
+
+    ## PRI part parser + SyslogParser without PRI part | custom parser without PRI part
+    def receive_data_allow_without_priority(data, addr)
+      m = SYSLOG_REGEXP.match(data)
+      if m
+        pri = m[1].to_i
+        text = m[2]
+      else
+        pri = @default_priority
+        text = data
+      end
+
+      parse_text(text, addr, pri)
+    rescue => e
+      log.error data.dump, error: e.to_s
+      log.error_backtrace
+    end
+
+    def parse_text(text, addr, pri = nil)
       @parser.parse(text) { |time, record|
         unless time && record
           log.warn "pattern not match: #{text.inspect}"
           return
         end
 
+        ## from receive_data_default
+        pri = record.delete('pri'.freeze) unless pri
+
         facility = FACILITY_MAP[pri >> 3]
         priority = PRIORITY_MAP[pri & 0b111]
 
@@ -174,32 +227,6 @@ module Fluent
         tag = "#{@tag}.#{facility}.#{priority}"
         emit(tag, time, record)
       }
-    rescue => e
-      log.error data.dump, error: e.to_s
-      log.error_backtrace
-    end
-
-    def receive_data(data, addr)
-      @parser.parse(data) { |time, record|
-        unless time && record
-          log.warn "invalid syslog message", data: data
-          return
-        end
-
-        pri = record.delete('pri'.freeze)
-        facility = FACILITY_MAP[pri >> 3]
-        priority = PRIORITY_MAP[pri & 0b111]
-
-        record[@priority_key] = priority if @priority_key
-        record[@facility_key] = facility if @facility_key
-        record[@source_hostname_key] = addr[2] if @source_hostname_key
-
-        tag = "#{@tag}.#{facility}.#{priority}"
-        emit(tag, time, record)
-      }
-    rescue => e
-      log.error data.dump, error: e.to_s
-      log.error_backtrace
     end
 
     private
