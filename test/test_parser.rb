@@ -374,6 +374,24 @@ module ParserTest
       end
     end
 
+    def test_parse_various_characters_for_tag
+      ident = '~!@#$%^&*()_+=-`]{};"\'/?\\,.<>'
+      @parser.configure({})
+      @parser.parse("Feb 28 12:00:00 192.168.0.1 #{ident}[11111]: [error] Syslog test") { |time, record|
+        assert_equal_event_time(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
+        assert_equal(@expected.merge('ident' => ident), record)
+      }
+    end
+
+    def test_parse_various_characters_for_tag_with_priority
+      ident = '~!@#$%^&*()_+=-`]{};"\'/?\\,.<>'
+      @parser.configure({'with_priority' => true})
+      @parser.parse("<6>Feb 28 12:00:00 192.168.0.1 #{ident}[11111]: [error] Syslog test") { |time, record|
+        assert_equal_event_time(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
+        assert_equal(@expected.merge('pri' => 6, 'ident' => ident), record)
+      }
+    end
+
     class TestRFC5424Regexp < self
       def test_parse_with_rfc5424_message
         @parser.configure(
