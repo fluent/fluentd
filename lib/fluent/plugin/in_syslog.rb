@@ -104,7 +104,7 @@ module Fluent
     desc 'If true, accept syslog message without PRI part'
     config_param :allow_without_priority, :bool, default: false
     # 13 is the default value of rsyslog and syslog-ng
-    desc 'The default PRI value'
+    desc 'The default PRI value (0 - 191 are available)'
     config_param :default_priority, :integer, default: 13
 
     def configure(conf)
