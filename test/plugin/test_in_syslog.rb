@@ -35,6 +35,24 @@ class SyslogInputTest < Test::Unit::TestCase
     }
   end
 
+  sub_test_case 'source_hostname_key and source_address_key features' do
+    test 'resolve_hostname must be true with source_hostname_key' do
+      assert_raise(Fluent::ConfigError) {
+        create_driver(CONFIG + <<EOS)
+resolve_hostname false
+source_hostname_key hostname
+EOS
+      }
+    end
+
+    data('resolve_hostname' => 'resolve_hostname true',
+         'source_hostname_key' => 'source_hostname_key source_host')
+    def test_configure_reslove_hostname(param)
+      d = create_driver([CONFIG, param].join("\n"))
+      assert_true d.instance.resolve_hostname
+    end
+  end
+
   def test_time_format
     configs = {'127.0.0.1' => CONFIG}
     configs.merge!('::1' => IPv6_CONFIG) if ipv6_enabled?
