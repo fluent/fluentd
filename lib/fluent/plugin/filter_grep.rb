@@ -69,18 +69,21 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @_excludes[key]
         @_excludes[key] = Regexp.compile(exclude)
       end
+
+      @regexps.each do |e|
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_regexps.key?(e.key)
+        @_regexps[e.key] = e.pattern
+      end
+      @excludes.each do |e|
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_excludes.key?(e.key)
+        @_excludes[e.key] = e.pattern
+      end
     end
 
     def filter(tag, time, record)
       result = nil
       begin
         catch(:break_loop) do
-          @regexps.each do |e|
-            throw :break_loop unless ::Fluent::StringUtil.match_regexp(e.pattern, record[e.key].to_s)
-          end
-          @excludes.each do |e|
-            throw :break_loop if ::Fluent::StringUtil.match_regexp(e.pattern, record[e.key].to_s)
-          end
           @_regexps.each do |key, regexp|
             throw :break_loop unless ::Fluent::StringUtil.match_regexp(regexp, record[key].to_s)
           end
