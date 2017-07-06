@@ -165,7 +165,6 @@ module Fluent
       $log.disable_events(Thread.current)
 
       while sleep(LOG_EMIT_INTERVAL)
-        break if @log_event_loop_stop
         next if @log_event_queue.empty?
 
         # NOTE: thead-safe of slice! depends on GVL
@@ -179,6 +178,7 @@ module Fluent
             $log.error "failed to emit fluentd's log event", tag: tag, event: record, error_class: e.class, error: e
           end
         }
+        break if @log_event_loop_stop
       end
     end
 
@@ -209,11 +209,11 @@ module Fluent
         $log.error_backtrace
       ensure
         $log.info "shutting down fluentd"
-        shutdown
         if @log_emit_thread
           @log_event_loop_stop = true
           @log_emit_thread.join
         end
+        shutdown
       end
     end
 
