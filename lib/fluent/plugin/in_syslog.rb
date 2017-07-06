@@ -83,6 +83,8 @@ module Fluent::Plugin
 
     desc 'The field name of hostname of sender.'
     config_param :source_hostname_key, :string, default: nil
+    config_param :resolve_hostname, :bool, default: nil
+    desc 'Connections will be disconnected right after receiving first message if this value is true.'
     desc 'The field name of source address of sender.'
     config_param :source_address_key, :string, default: nil
     desc 'The field name of the priority.'
@@ -116,7 +118,13 @@ module Fluent::Plugin
         end
         @source_address_key = @source_host_key
       end
-      @resolve_name = !!@source_hostname_key
+      if @source_hostname_key
+        if @resolve_hostname.nil?
+          @resolve_hostname = true
+        elsif !@resolve_hostname # user specifies "false" in config
+          raise Fluent::ConfigError, "resolve_hostname must be true with source_hostname_key"
+        end
+      end
 
       @_event_loop_run_timeout = @blocking_timeout
     end
@@ -138,7 +146,7 @@ module Fluent::Plugin
     end
 
     def start_udp_server
-      server_create_udp(:in_syslog_udp_server, @port, bind: @bind, max_bytes: @message_length_limit, resolve_name: @resolve_name) do |data, sock|
+      server_create_udp(:in_syslog_udp_server, @port, bind: @bind, max_bytes: @message_length_limit, resolve_name: @resolve_hostname) do |data, sock|
         message_handler(data.chomp, sock)
       end
     end
@@ -147,7 +155,7 @@ module Fluent::Plugin
       # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
       delimiter = "\n"
       delimiter_size = delimiter.size
-      server_create_connection(:in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_name) do |conn|
+      server_create_connection(:in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_hostname) do |conn|
         buffer = ""
         conn.data do |data|
           buffer << data

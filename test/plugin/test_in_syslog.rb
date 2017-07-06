@@ -37,6 +37,24 @@ class SyslogInputTest < Test::Unit::TestCase
     assert_equal bind_addr, d.instance.bind
   end
 
+  sub_test_case 'source_hostname_key and source_address_key features' do
+    test 'resolve_hostname must be true with source_hostname_key' do
+      assert_raise(Fluent::ConfigError) {
+        create_driver(CONFIG + <<EOS)
+resolve_hostname false
+source_hostname_key hostname
+EOS
+      }
+    end
+
+    data('resolve_hostname' => 'resolve_hostname true',
+         'source_hostname_key' => 'source_hostname_key source_host')
+    def test_configure_reslove_hostname(param)
+      d = create_driver([CONFIG, param].join("\n"))
+      assert_true d.instance.resolve_hostname
+    end
+  end
+
   data(
     ipv4: ['127.0.0.1', CONFIG, ::Socket::AF_INET],
     ipv6: ['::1', IPv6_CONFIG, ::Socket::AF_INET6],
