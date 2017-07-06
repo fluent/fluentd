@@ -93,6 +93,10 @@ module Fluent
     config_param :source_host_key, :string, default: 'source_host'.freeze, deprecated: "use source_hostname_key instead"
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
+    desc "The field name of the client's source address."
+    config_param :source_address_key, :string, default: nil
+    desc 'Try to resolve hostname from IP addresses or not.'
+    config_param :resolve_hostname, :bool, default: nil
     desc 'The field name of the priority.'
     config_param :priority_key, :string, default: nil
     desc 'The field name of the facility.'
@@ -130,6 +134,13 @@ module Fluent
 
       if @source_hostname_key.nil? && @include_source_host
         @source_hostname_key = @source_host_key
+      end
+      if @source_hostname_key
+        if @resolve_hostname.nil?
+          @resolve_hostname = true
+        elsif !@resolve_hostname # user specifies "false" in configure
+          raise Fluent::ConfigError, "resolve_hostname must be true with source_hostname_key"
+        end
       end
     end
 
@@ -223,6 +234,7 @@ module Fluent
         record[@priority_key] = priority if @priority_key
         record[@facility_key] = facility if @facility_key
         record[@source_hostname_key] = addr[2] if @source_hostname_key
+        record[@source_address_key] = addr[3] if @source_address_key
 
         tag = "#{@tag}.#{facility}.#{priority}"
         emit(tag, time, record)
@@ -236,10 +248,10 @@ module Fluent
       if @protocol_type == :udp
         @usock = SocketUtil.create_udp_socket(@bind)
         @usock.bind(@bind, @port)
-        SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback, !!@source_hostname_key)
+        SocketUtil::UdpHandler.new(@usock, log, @message_length_limit, callback, @resolve_hostname)
       else
         # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
-        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback, !!@source_hostname_key)
+        Coolio::TCPServer.new(@bind, @port, SocketUtil::TcpHandler, log, "\n", callback, @resolve_hostname)
       end
     end
 
