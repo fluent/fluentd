@@ -93,6 +93,8 @@ module Fluent
     config_param :source_host_key, :string, default: 'source_host'.freeze, deprecated: "use source_hostname_key instead"
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
+    desc "The field name of the client's source address."
+    config_param :source_address_key, :string, default: nil
     desc 'Try to resolve hostname from IP addresses or not.'
     config_param :resolve_hostname, :bool, default: nil
     desc 'The field name of the priority.'
@@ -232,6 +234,7 @@ module Fluent
         record[@priority_key] = priority if @priority_key
         record[@facility_key] = facility if @facility_key
         record[@source_hostname_key] = addr[2] if @source_hostname_key
+        record[@source_address_key] = addr[3] if @source_address_key
 
         tag = "#{@tag}.#{facility}.#{priority}"
         emit(tag, time, record)
