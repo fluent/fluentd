@@ -30,6 +30,45 @@ class GrepFilterTest < Test::Unit::TestCase
       d = create_driver(%[exclude1 message  foo])
       assert_equal(Regexp.compile(/ foo/), d.instance._excludes['message'])
     end
+
+    sub_test_case "duplicate key" do
+      test "flat" do
+        conf = %[
+          regexp1 message test
+          regexp2 message test2
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+      test "section" do
+        conf = %[
+          <regexp>
+            key message
+            pattern test
+          </regexp>
+          <regexp>
+            key message
+            pattern test2
+          </regexp>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+      test "mix" do
+        conf = %[
+          regexp1 message test
+          <regexp>
+            key message
+            pattern test
+          </regexp>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+    end
   end
 
   sub_test_case 'filter_stream' do
