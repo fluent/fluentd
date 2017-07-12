@@ -210,10 +210,13 @@ module Fluent
       ensure
         $log.info "shutting down fluentd"
         if @log_emit_thread
-          @log_event_loop_stop = true
-          @log_emit_thread.join
+          shutdown do
+            @log_event_loop_stop = true
+            @log_emit_thread.join
+          end
+        else
+          shutdown
         end
-        shutdown
       end
     end
 
@@ -237,8 +240,8 @@ module Fluent
       @root_agent.start
     end
 
-    def shutdown
-      @root_agent.shutdown
+    def shutdown(&block)
+      @root_agent.shutdown(&block)
     end
   end
 
