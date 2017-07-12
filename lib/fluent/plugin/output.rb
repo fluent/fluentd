@@ -1264,7 +1264,7 @@ module Fluent
             current_clock = Fluent::Clock.now
             interval = state.next_clock - current_clock
 
-            if state.next_clock <= current_clock && (!@retry || @retry_mutex.synchronize{ @retry.next_time } <= Time.now)
+            if state.next_clock <= current_clock && @retry_mutex.synchronize { @retry ? @retry.next_time <= Time.now : true }
               try_flush
 
               # next_flush_time uses flush_thread_interval or flush_thread_burst_interval (or retrying)
