@@ -1,5 +1,23 @@
 # v0.14
 
+## Release v0.14.19 - 2017/07/12
+
+### New features / Enhancements
+
+* in_syslog: More characters are available in tag part of syslog format
+  https://github.com/fluent/fluentd/pull/1610
+* in_syslog: Add resolve_hostname parameter
+  https://github.com/fluent/fluentd/pull/1616
+* filter_grep: Support new configuration format by config_section
+  https://github.com/fluent/fluentd/pull/1611
+
+### Bug fixes
+
+* output: Fix race condition of retry state in flush thread
+  https://github.com/fluent/fluentd/pull/1623
+* test: Fix typo in test_in_tail.rb
+  https://github.com/fluent/fluentd/pull/1622
+
 ## Release v0.14.18 - 2017/06/21
 
 ### New features / Enhancements
