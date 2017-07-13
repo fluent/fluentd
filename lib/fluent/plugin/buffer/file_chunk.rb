@@ -285,6 +285,7 @@ module Fluent
             @meta.set_encoding(Encoding::ASCII_8BIT)
             @meta.sync = true
             @meta.binmode
+            write_metadata(update: false)
           rescue => e
             # This case is easier than enqueued!. Just removing pre-create buffer file
             @chunk.close rescue nil
