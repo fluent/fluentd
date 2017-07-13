@@ -1,5 +1,24 @@
 # v0.12
 
+## Release 0.12.38 - 2017/07/13
+
+### New features / Enhancement
+
+* in_syslog: Add Add allow_without_priority and default_priority parameters
+  https://github.com/fluent/fluentd/pull/1608
+* in_syslog: More characters are available in tag part of syslog format
+  https://github.com/fluent/fluentd/pull/1609
+* in_syslog: Add resolve_hostname and source_address_key parameters
+  https://github.com/fluent/fluentd/pull/1615
+* filter_grep: Support new configuration format by config_section
+  https://github.com/fluent/fluentd/pull/1627
+
+### Bug fixes
+
+* log: Capture more fluentd log events during shutdown
+  https://github.com/fluent/fluentd/pull/1618
+  https://github.com/fluent/fluentd/pull/1625
+
 ## Release 0.12.37 - 2017/06/21
 
 ### New features / Enhancement
