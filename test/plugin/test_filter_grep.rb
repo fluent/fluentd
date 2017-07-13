@@ -22,12 +22,51 @@ class GrepFilterTest < Test::Unit::TestCase
 
     test "regexpN can contain a space" do
       d = create_driver(%[regexp1 message  foo])
-      assert_equal(Regexp.compile(/ foo/), d.instance.regexps['message'])
+      assert_equal(Regexp.compile(/ foo/), d.instance._regexps['message'])
     end
 
     test "excludeN can contain a space" do
       d = create_driver(%[exclude1 message  foo])
-      assert_equal(Regexp.compile(/ foo/), d.instance.excludes['message'])
+      assert_equal(Regexp.compile(/ foo/), d.instance._excludes['message'])
+    end
+
+    sub_test_case "duplicate key" do
+      test "flat" do
+        conf = %[
+          regexp1 message test
+          regexp2 message test2
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+      test "section" do
+        conf = %[
+          <regexp>
+            key message
+            pattern test
+          </regexp>
+          <regexp>
+            key message
+            pattern test2
+          </regexp>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+      test "mix" do
+        conf = %[
+          regexp1 message test
+          <regexp>
+            key message
+            pattern test
+          </regexp>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
     end
   end
 
@@ -67,6 +106,38 @@ class GrepFilterTest < Test::Unit::TestCase
 
     test 'excludeN' do
       es = emit('exclude1 message favicon', messages)
+      assert_equal(3, es.instance_variable_get(:@record_array).size)
+      assert_block('remove favicon logs') do
+        es.all? { |t, r|
+          !r['message'].include?('favicon')
+        }
+      end
+    end
+
+    test 'regexps' do
+      conf = %[
+        <regexp>
+          key message
+          pattern WARN
+        </regexp>
+      ]
+      es = emit(conf, messages)
+      assert_equal(3, es.instance_variable_get(:@record_array).size)
+      assert_block('only WARN logs') do
+        es.all? { |t, r|
+          !r['message'].include?('INFO')
+        }
+      end
+    end
+
+    test 'excludes' do
+      conf = %[
+        <exclude>
+          key message
+          pattern favicon
+        </exclude>
+      ]
+      es = emit(conf, messages)
       assert_equal(3, es.instance_variable_get(:@record_array).size)
       assert_block('remove favicon logs') do
         es.all? { |t, r|
