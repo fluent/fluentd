@@ -28,32 +28,59 @@ module Fluent
 
     REGEXP_MAX_NUM = 20
 
-    (1..REGEXP_MAX_NUM).each {|i| config_param :"regexp#{i}",  :string, default: nil }
-    (1..REGEXP_MAX_NUM).each {|i| config_param :"exclude#{i}", :string, default: nil }
+    (1..REGEXP_MAX_NUM).each {|i| config_param :"regexp#{i}",  :string, default: nil, deprecated: "Use <regexp> section" }
+    (1..REGEXP_MAX_NUM).each {|i| config_param :"exclude#{i}", :string, default: nil, deprecated: "Use <exclude> section" }
+
+    config_section :regexp, param_name: :regexps, multi: true do
+      desc "The field name to which the regular expression is applied."
+      config_param :key, :string
+      desc "The regular expression."
+      config_param :pattern do |value|
+        Regexp.compile(value)
+      end
+    end
+
+    config_section :exclude, param_name: :excludes, multi: true do
+      desc "The field name to which the regular expression is applied."
+      config_param :key, :string
+      desc "The regular expression."
+      config_param :pattern do |value|
+        Regexp.compile(value)
+      end
+    end
 
     # for test
-    attr_reader :regexps
-    attr_reader :excludes
+    attr_reader :_regexps
+    attr_reader :_excludes
 
     def configure(conf)
       super
 
-      @regexps = {}
+      @_regexps = {}
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["regexp#{i}"]
         key, regexp = conf["regexp#{i}"].split(/ /, 2)
         raise ConfigError, "regexp#{i} does not contain 2 parameters" unless regexp
-        raise ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @regexps[key]
-        @regexps[key] = Regexp.compile(regexp)
+        raise ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @_regexps[key]
+        @_regexps[key] = Regexp.compile(regexp)
       end
 
-      @excludes = {}
+      @_excludes = {}
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["exclude#{i}"]
         key, exclude = conf["exclude#{i}"].split(/ /, 2)
         raise ConfigError, "exclude#{i} does not contain 2 parameters" unless exclude
-        raise ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @excludes[key]
-        @excludes[key] = Regexp.compile(exclude)
+        raise ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @_excludes[key]
+        @_excludes[key] = Regexp.compile(exclude)
+      end
+
+      @regexps.each do |e|
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_regexps.key?(e.key)
+        @_regexps[e.key] = e.pattern
+      end
+      @excludes.each do |e|
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_excludes.key?(e.key)
+        @_excludes[e.key] = e.pattern
       end
     end
 
@@ -61,10 +88,10 @@ module Fluent
       result = nil
       begin
         catch(:break_loop) do
-          @regexps.each do |key, regexp|
+          @_regexps.each do |key, regexp|
             throw :break_loop unless ::Fluent::StringUtil.match_regexp(regexp, record[key].to_s)
           end
-          @excludes.each do |key, exclude|
+          @_excludes.each do |key, exclude|
             throw :break_loop if ::Fluent::StringUtil.match_regexp(exclude, record[key].to_s)
           end
           result = record
