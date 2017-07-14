@@ -38,11 +38,6 @@ module Fluent
       @started_outputs = []
       @started_filters = []
 
-      @outputs_for_log_event = []
-      @filters_for_log_event = []
-      @started_outputs_for_log_event = []
-      @started_filters_for_log_event = []
-
       @log = Engine.log
       @event_router = EventRouter.new(NoMatchMatch.new(log), self)
       @error_collector = nil
@@ -75,18 +70,16 @@ module Fluent
       @outputs.each { |o|
         o.start
         @started_outputs << o
-        @started_outputs_for_log_event << o if @outputs_for_log_event.include?(o)
       }
 
       @filters.each { |f|
         f.start
         @started_filters << f
-        @started_filters_for_log_event << f if @filters_for_log_event.include?(f)
       }
     end
 
     def shutdown
-      (@started_filters - @started_filters_for_log_event).map { |f|
+      @started_filters.map { |f|
         Thread.new do
           begin
             log.info "shutting down filter#{@context.nil? ? '' : " in #{@context}"}", type: Plugin.lookup_name_from_class(f.class), plugin_id: f.plugin_id
@@ -100,36 +93,7 @@ module Fluent
 
       # Output plugin as filter emits records at shutdown so emit problem still exist.
       # This problem will be resolved after actual filter mechanizm.
-      (@started_outputs - @started_outputs_for_log_event).map { |o|
-        Thread.new do
-          begin
-            log.info "shutting down output#{@context.nil? ? '' : " in #{@context}"}", type: Plugin.lookup_name_from_class(o.class), plugin_id: o.plugin_id
-            o.shutdown
-          rescue => e
-            log.warn "unexpected error while shutting down output plugins", plugin: o.class, plugin_id: o.plugin_id, error_class: e.class, error: e
-            log.warn_backtrace
-          end
-        end
-      }.each { |t| t.join }
-
-      ## execute callback from Engine to flush log event queue before shutting down corresponding filters and outputs
-      yield if block_given?
-
-      @started_filters_for_log_event.map { |f|
-        Thread.new do
-          begin
-            log.info "shutting down filter#{@context.nil? ? '' : " in #{@context}"}", type: Plugin.lookup_name_from_class(f.class), plugin_id: f.plugin_id
-            f.shutdown
-          rescue => e
-            log.warn "unexpected error while shutting down filter plugins", plugin: f.class, plugin_id: f.plugin_id, error_class: e.class, error: e
-            log.warn_backtrace
-          end
-        end
-      }.each { |t| t.join }
-
-      # Output plugin as filter emits records at shutdown so emit problem still exist.
-      # This problem will be resolved after actual filter mechanizm.
-      @started_outputs_for_log_event.map { |o|
+      @started_outputs.map { |o|
         Thread.new do
           begin
             log.info "shutting down output#{@context.nil? ? '' : " in #{@context}"}", type: Plugin.lookup_name_from_class(o.class), plugin_id: o.plugin_id
@@ -170,10 +134,6 @@ module Fluent
       @outputs << output
       @event_router.add_rule(pattern, output)
 
-      if match_event_log_tag?(pattern)
-        @outputs_for_log_event << output
-      end
-
       output
     end
 
@@ -186,15 +146,7 @@ module Fluent
       @filters << filter
       @event_router.add_rule(pattern, filter)
 
-      if match_event_log_tag?(pattern)
-        @filters_for_log_event << filter
-      end
-
       filter
-    end
-
-    def match_event_log_tag?(pattern)
-      EventRouter::Rule.new(pattern, nil).match?($log.tag)
     end
 
     # For handling invalid record
