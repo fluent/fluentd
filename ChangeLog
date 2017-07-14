@@ -1,5 +1,13 @@
 # v0.12
 
+## Release 0.12.39 - 2017/07/14
+
+### Bug fixes
+
+* log: Revert 0.12.38 changes to avoid shutdown stuck
+  https://github.com/fluent/fluentd/pull/1631
+  https://github.com/fluent/fluentd/pull/1632
+
 ## Release 0.12.38 - 2017/07/13
 
 ### New features / Enhancement
