@@ -23,7 +23,7 @@ If you can't judge your case is a bug or not, use mailing list or slack first.
 If you find a bug of Fluentd or a mistake in the documentation, you can help us by
 submitting an issue to Fluentd. Even better you can submit a Pull Request with a fix.
 
-* **Fluentd**: Use [fluentd](https://github.com/fluent/fluentd) repository.
+* **Fluentd**: Use [fluentd](https://github.com/fluent/fluentd) repository. Fill issue template.
 * **Documentation**: Use [fluentd-docs](https://github.com/fluent/fluentd-docs) repository.
 
 If you find a bug of 3rd party plugins, please submit an issue to each plugin repository.
