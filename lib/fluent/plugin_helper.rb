@@ -27,6 +27,7 @@ require 'fluent/plugin_helper/extract'
 require 'fluent/plugin_helper/socket'
 require 'fluent/plugin_helper/server'
 require 'fluent/plugin_helper/retry_state'
+require 'fluent/plugin_helper/record_accessor'
 require 'fluent/plugin_helper/compat_parameters'
 
 module Fluent

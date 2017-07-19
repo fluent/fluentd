@@ -1,0 +1,97 @@
+require_relative '../helper'
+require 'fluent/plugin_helper/record_accessor'
+require 'fluent/plugin/base'
+
+require 'time'
+
+class RecordAccessorHelperTest < Test::Unit::TestCase
+  class Dummy < Fluent::Plugin::TestBase
+    helpers :record_accessor
+  end
+
+  sub_test_case 'parse nested key expression' do
+    data('normal' => 'key1',
+         'space' => 'ke y2',
+         'dot key' => 'this.is.key3')
+    test 'parse single key' do |param|
+      result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
+      assert_equal param, result
+    end
+
+    test "nested bracket keys with dot" do
+      result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter("$['key1']['this.is.key3']")
+      assert_equal ['key1', 'this.is.key3'], result
+    end
+
+    data('dot' => '$.key1.key2[0]',
+         'bracket' => "$['key1']['key2'][0]")
+    test "nested keys ['key1', 'key2', 0]" do |param|
+      result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
+      assert_equal ['key1', 'key2', 0], result
+    end
+
+    data('dot' => '$.key1[0].ke y2',
+         'bracket' => "$['key1'][0]['ke y2']")
+    test "nested keys ['key1', 0, 'ke y2']" do |param|
+      result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
+      assert_equal ['key1', 0, 'ke y2'], result
+    end
+
+    data("missing ']'" => "$['key1'",
+         "more chars" => "$.key1[0]foo",
+         "empty keys with dot" => "$.",
+         "empty keys with bracket" => "$[")
+    test 'invalid syntax' do |param|
+      assert_raise Fluent::ConfigError do
+        Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
+      end
+    end
+  end
+
+  sub_test_case Fluent::PluginHelper::RecordAccessor::Accessor do
+    setup do
+      @d = Dummy.new
+    end
+
+    data('normal' => 'key1',
+         'space' => 'ke y2',
+         'dot key' => 'this.is.key3')
+    test 'access single key' do |param|
+      r = {'key1' => 'v1', 'ke y2' => 'v2', 'this.is.key3' => 'v3'}
+      accessor = @d.record_accessor_create(param)
+      assert_equal r[param], accessor.call(r)
+    end
+
+    test "nested bracket keys with dot" do
+      r = {'key1' => {'this.is.key3' => 'value'}}
+      accessor = @d.record_accessor_create("$['key1']['this.is.key3']")
+      assert_equal 'value', accessor.call(r)
+    end
+
+    data('dot' => '$.key1.key2[0]',
+         'bracket' => "$['key1']['key2'][0]")
+    test "nested keys ['key1', 'key2', 0]" do |param|
+      r = {'key1' => {'key2' => [1, 2, 3]}}
+      accessor = @d.record_accessor_create(param)
+      assert_equal 1, accessor.call(r)
+    end
+
+    data('dot' => '$.key1[0].ke y2',
+         'bracket' => "$['key1'][0]['ke y2']")
+    test "nested keys ['key1', 0, 'ke y2']" do |param|
+      r = {'key1' => [{'ke y2' => "value"}]}
+      accessor = @d.record_accessor_create(param)
+      assert_equal 'value', accessor.call(r)
+    end
+
+    data("missing ']'" => "$['key1'",
+         "more chars" => "$.key1[0]foo",
+         "empty keys with dot" => "$.",
+         "empty keys with bracket" => "$[")
+    test 'invalid syntax' do |param|
+      assert_raise Fluent::ConfigError do
+        @d.record_accessor_create(param)
+      end
+    end
+  end
+end
