@@ -15,6 +15,14 @@
 #
 
 require 'fluent/config/error'
+unless {}.respond_to?(:dig)
+  begin
+    # backport_dig is faster than ruby_dig so prefer backport_dig.
+    require 'backport_dig'
+  rescue LoadError
+    require 'ruby_dig'
+  end
+end
 
 module Fluent
   module PluginHelper
@@ -102,7 +110,7 @@ module Fluent
                   param = param[i + 2..-1]
                   in_bracket = false
                 else
-                  raise Fluent::ConfigError, "Incomplete bracket. Invalid syntax: #{param}"
+                  raise Fluent::ConfigError, "Incomplete bracket. Invalid syntax: #{orig_param}"
                 end
               else
                 if i = param.index(']')
@@ -110,7 +118,7 @@ module Fluent
                   param = param[i + 1..-1]
                   in_bracket = false
                 else
-                  raise Fluent::ConfigError, "'[' found but ']' not found. Invalid syntax: #{param}"
+                  raise Fluent::ConfigError, "'[' found but ']' not found. Invalid syntax: #{orig_param}"
                 end
               end
             else
@@ -118,7 +126,7 @@ module Fluent
                 param = param[i + 1..-1]
                 in_bracket = true
               else
-                raise Fluent::ConfigError, "found more characters after ']'. Invalid syntax: #{param}"
+                raise Fluent::ConfigError, "found more characters after ']'. Invalid syntax: #{orig_param}"
               end
             end
           end
