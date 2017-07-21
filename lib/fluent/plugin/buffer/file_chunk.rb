@@ -244,9 +244,10 @@ module Fluent
               c: @created_at.to_i,
               m: (update ? Time.now : @modified_at).to_i,
           })
+          bin = msgpack_packer.pack(data).to_s
           @meta.seek(0, IO::SEEK_SET)
-          @meta.truncate(0)
-          @meta.write(msgpack_packer.pack(data))
+          @meta.write(bin)
+          @meta.truncate(bin.bytesize)
         end
 
         def file_rename(file, old_path, new_path, callback=nil)
@@ -284,6 +285,7 @@ module Fluent
             @meta.set_encoding(Encoding::ASCII_8BIT)
             @meta.sync = true
             @meta.binmode
+            write_metadata(update: false)
           rescue => e
             # This case is easier than enqueued!. Just removing pre-create buffer file
             @chunk.close rescue nil
