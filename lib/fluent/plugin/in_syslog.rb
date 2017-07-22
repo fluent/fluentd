@@ -83,8 +83,8 @@ module Fluent::Plugin
 
     desc 'The field name of hostname of sender.'
     config_param :source_hostname_key, :string, default: nil
+    desc 'Try to resolve hostname from IP addresses or not.'
     config_param :resolve_hostname, :bool, default: nil
-    desc 'Connections will be disconnected right after receiving first message if this value is true.'
     desc 'The field name of source address of sender.'
     config_param :source_address_key, :string, default: nil
     desc 'The field name of the priority.'
