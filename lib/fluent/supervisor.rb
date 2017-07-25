@@ -163,18 +163,22 @@ module Fluent
         log.reopen!
       end
 
-      if pid = config[:worker_pid]
-        Process.kill(:USR1, pid)
-        # don't rescue Erro::ESRSH here (invalid status)
+      if config[:worker_pid]
+        config[:worker_pid].each do |pid|
+          Process.kill(:USR1, pid)
+          # don't rescue Erro::ESRSH here (invalid status)
+        end
       end
     end
 
     def kill_worker
-      if pid = config[:worker_pid]
-        if Fluent.windows?
-          Process.kill :KILL, pid
-        else
-          Process.kill :TERM, pid
+      if config[:worker_pid]
+        config[:worker_pid].each do |pid|
+          if Fluent.windows?
+            Process.kill :KILL, pid
+          else
+            Process.kill :TERM, pid
+          end
         end
       end
     end
@@ -198,7 +202,7 @@ module Fluent
     end
 
     def after_start
-      config[:worker_pid] = @pm.pid
+      (config[:worker_pid] ||= []).push(@pm.pid)
     end
   end
 
