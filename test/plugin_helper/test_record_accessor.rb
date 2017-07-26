@@ -30,8 +30,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_equal ['key1', 'key2', 0], result
     end
 
-    data('dot' => '$.key1[0].ke y2',
-         'bracket' => "$['key1'][0]['ke y2']")
+    data('bracket' => "$['key1'][0]['ke y2']")
     test "nested keys ['key1', 0, 'ke y2']" do |param|
       result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
       assert_equal ['key1', 0, 'ke y2'], result
@@ -48,6 +47,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
          "missing array index with dot" => "$.hello[]",
          "missing array index with braket" => "$[]",
          "more chars" => "$.key1[0]foo",
+         "whitespace char included key in dot notation" => "$.key[0].ke y",
          "empty keys with dot" => "$.",
          "empty keys with bracket" => "$[")
     test 'invalid syntax' do |param|
@@ -85,8 +85,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_equal 1, accessor.call(r)
     end
 
-    data('dot' => '$.key1[0].ke y2',
-         'bracket' => "$['key1'][0]['ke y2']")
+    data('bracket' => "$['key1'][0]['ke y2']")
     test "nested keys ['key1', 0, 'ke y2']" do |param|
       r = {'key1' => [{'ke y2' => "value"}]}
       accessor = @d.record_accessor_create(param)
@@ -94,6 +93,9 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
     end
 
     data("missing ']'" => "$['key1'",
+         "missing array index with dot" => "$.hello[]",
+         "missing array index with braket" => "$['hello'][]",
+         "whitespace char included key in dot notation" => "$.key[0].ke y",
          "more chars" => "$.key1[0]foo",
          "empty keys with dot" => "$.",
          "empty keys with bracket" => "$[")

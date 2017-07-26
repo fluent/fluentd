@@ -77,8 +77,18 @@ module Fluent
           }
 
           raise Fluent::ConfigError, "empty keys in dot notation" if result.empty?
+          validate_dot_keys(result)
 
           result
+        end
+
+        def self.validate_dot_keys(keys)
+          keys.each { |key|
+            next unless key.is_a?(String)
+            if /\s+/.match(key)
+              raise Fluent::ConfigError, "whitespace character is not allowed in dot notation. Use bracket notation: #{key}"
+            end
+          }
         end
 
         def self.parse_dot_array_op(key, param)
