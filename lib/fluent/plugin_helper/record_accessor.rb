@@ -34,12 +34,25 @@ module Fluent
       class Accessor
         def initialize(param)
           @keys = Accessor.parse_parameter(param)
+
+          # Call [] for single key to reduce dig overhead
+          m = method(@keys.is_a?(Array) ? :call_dig : :call_index)
+          (class << self; self; end).module_eval do
+            define_method(:call, m)
+          end
+        end
+
+        def call(r)
         end
 
         # To optimize the performance, use class_eval with pre-expanding @keys
         # See https://gist.github.com/repeatedly/ab553ed260cd080bd01ec71da9427312
-        def call(r)
+        def call_dig(r)
           r.dig(*@keys)
+        end
+
+        def call_index(r)
+          r[@keys]
         end
 
         def self.parse_parameter(param)
