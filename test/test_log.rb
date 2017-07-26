@@ -379,6 +379,32 @@ class LogTest < Test::Unit::TestCase
     assert_equal(Fluent::Log::LEVEL_TRACE, log2.level)
   end
 
+  def test_format_json
+    logdev = @log_device
+    logger = ServerEngine::DaemonLogger.new(logdev)
+    log = Fluent::Log.new(logger)
+    log.format = :json
+    log.level = Fluent::Log::LEVEL_TRACE
+    log.trace "trace log"
+    log.debug "debug log"
+    log.info "info log"
+    log.warn "warn log"
+    log.error "error log"
+    log.fatal "fatal log"
+    expected = [
+      "#{@timestamp_str} [trace]: trace log\n",
+      "#{@timestamp_str} [debug]: debug log\n",
+      "#{@timestamp_str} [info]: info log\n",
+      "#{@timestamp_str} [warn]: warn log\n",
+      "#{@timestamp_str} [error]: error log\n",
+      "#{@timestamp_str} [fatal]: fatal log\n"
+    ]
+    assert_equal(expected, log.out.logs.map { |l|
+                   r = JSON.parse(l)
+                   "#{r['time']} [#{r['level']}]: #{r['message']}\n"
+                 })
+  end
+
   def test_disable_events
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE

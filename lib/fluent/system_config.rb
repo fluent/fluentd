@@ -46,6 +46,9 @@ module Fluent
     config_param :dir_permission, default: nil do |v|
       v.to_i(8)
     end
+    config_section :log, required: false, init: true, multi: false do
+      config_param :format, :enum, list: [:text, :json], default: :text
+    end
 
     def self.create(conf)
       systems = conf.elements(name: 'system')

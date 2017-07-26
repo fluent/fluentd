@@ -360,6 +360,10 @@ module Fluent
         self
       end
 
+      def apply_options(opts)
+        $log.format = opts[:format] if opts[:format]
+      end
+
       def level=(level)
         @level = level
         $log.level = level
@@ -439,6 +443,9 @@ module Fluent
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
+      @log.apply_options(format: @system_config.log.format)
+
+      $log.info :supervisor, "parsing config file is succeeded", path: @config_path
 
       if @workers < 1
         raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@workers}"
@@ -485,11 +492,12 @@ module Fluent
                      else :workers
                      end
       @log.init(process_type, worker_id)
-      Process.setproctitle("worker:#{@process_name}") if @process_name
-
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
+      @log.apply_options(format: @system_config.log.format)
+
+      Process.setproctitle("worker:#{@process_name}") if @process_name
 
       if @standalone_worker && @workers != 1
         raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@workers}"
@@ -715,7 +723,6 @@ module Fluent
     end
 
     def read_config
-      $log.info :supervisor, "reading config file", path: @config_path
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
       @config_data = File.open(@config_path, "r:utf-8:utf-8") {|f| f.read }
