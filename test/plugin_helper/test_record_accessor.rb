@@ -45,6 +45,8 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
     end
 
     data("missing ']'" => "$['key1'",
+         "missing array index with dot" => "$.hello[]",
+         "missing array index with braket" => "$[]",
          "more chars" => "$.key1[0]foo",
          "empty keys with dot" => "$.",
          "empty keys with bracket" => "$[")

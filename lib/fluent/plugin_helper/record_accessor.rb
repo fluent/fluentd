@@ -81,7 +81,9 @@ module Fluent
           until key.empty?
             if in_bracket
               if i = key.index(']')
-                result << Integer(key[0..i - 1])
+                index_value = key[0..i - 1]
+                raise Fluent::ConfigError, "missing array index in '[]'. Invalid syntax: #{param}" if index_value == ']'
+                result << Integer(index_value)
                 key = key[i + 1..-1]
                 in_bracket = false
               else
@@ -118,7 +120,9 @@ module Fluent
                 end
               else
                 if i = param.index(']')
-                  result << Integer(param[0..i - 1])
+                  index_value = param[0..i - 1]
+                  raise Fluent::ConfigError, "missing array index in '[]'. Invalid syntax: #{param}" if index_value == ']'
+                  result << Integer(index_value)
                   param = param[i + 1..-1]
                   in_bracket = false
                 else
