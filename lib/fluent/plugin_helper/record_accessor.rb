@@ -70,7 +70,11 @@ module Fluent
 
         def self.parse_dot_array_op(key, param)
           start = key.index('[')
-          result = [key[0..start - 1]]
+          result = if start.zero?
+                     []
+                   else
+                     [key[0..start - 1]]
+                   end
           key = key[start + 1..-1]
           in_bracket = true
 

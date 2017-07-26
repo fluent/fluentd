@@ -37,6 +37,13 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_equal ['key1', 0, 'ke y2'], result
     end
 
+    data('dot' => '$.[0].key1.[1].key2',
+         'bracket' => "$[0]['key1'][1]['key2']")
+    test "nested keys [0, 'key1', 1, 'key2']" do |param|
+      result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
+      assert_equal [0, 'key1', 1, 'key2'], result
+    end
+
     data("missing ']'" => "$['key1'",
          "more chars" => "$.key1[0]foo",
          "empty keys with dot" => "$.",
