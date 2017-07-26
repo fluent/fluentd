@@ -372,7 +372,7 @@ class OutputTest < Test::Unit::TestCase
     end
 
     sub_test_case '#placeholder_validate!' do
-      test 'raises configuration error for a templace when timestamp placeholders exist but time key is missing' do
+      test 'raises configuration error for a template when timestamp placeholders exist but time key is missing' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
         assert_raise Fluent::ConfigError.new("Parameter 'path: /path/without/timestamp/file.%Y%m%d-%H%M.log' has timestamp placeholders, but chunk key 'time' is not configured") do
           @i.placeholder_validate!(:path, "/path/without/timestamp/file.%Y%m%d-%H%M.log")
