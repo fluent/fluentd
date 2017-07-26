@@ -405,6 +405,30 @@ class LogTest < Test::Unit::TestCase
                  })
   end
 
+  def test_time_format
+    logdev = @log_device
+    logger = ServerEngine::DaemonLogger.new(logdev)
+    log = Fluent::Log.new(logger)
+    log.time_format = "%Y"
+    log.level = Fluent::Log::LEVEL_TRACE
+    log.trace "trace log"
+    log.debug "debug log"
+    log.info "info log"
+    log.warn "warn log"
+    log.error "error log"
+    log.fatal "fatal log"
+    timestamp_str = @timestamp.strftime("%Y")
+    expected = [
+      "#{timestamp_str} [trace]: trace log\n",
+      "#{timestamp_str} [debug]: debug log\n",
+      "#{timestamp_str} [info]: info log\n",
+      "#{timestamp_str} [warn]: warn log\n",
+      "#{timestamp_str} [error]: error log\n",
+      "#{timestamp_str} [fatal]: fatal log\n"
+    ]
+    assert_equal(expected, log.out.logs)
+  end
+
   def test_disable_events
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE

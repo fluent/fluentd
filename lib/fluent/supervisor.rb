@@ -362,6 +362,7 @@ module Fluent
 
       def apply_options(opts)
         $log.format = opts[:format] if opts[:format]
+        $log.time_format = opts[:time_format] if opts[:time_format]
       end
 
       def level=(level)
@@ -443,7 +444,7 @@ module Fluent
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
-      @log.apply_options(format: @system_config.log.format)
+      @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
 
       $log.info :supervisor, "parsing config file is succeeded", path: @config_path
 
@@ -495,7 +496,7 @@ module Fluent
       show_plugin_config if @show_plugin_config
       read_config
       set_system_config
-      @log.apply_options(format: @system_config.log.format)
+      @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
 
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
