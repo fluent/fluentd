@@ -76,7 +76,7 @@ module Fluent
             end
           }
 
-          raise Fluent::ConfigError, "empty keys" if result.empty?
+          raise Fluent::ConfigError, "empty keys in dot notation" if result.empty?
 
           result
         end
@@ -152,7 +152,7 @@ module Fluent
             end
           end
 
-          raise Fluent::ConfigError, "empty keys" if result.empty?
+          raise Fluent::ConfigError, "empty keys in bracket notation" if result.empty?
 
           result
         end
