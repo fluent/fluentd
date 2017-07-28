@@ -55,6 +55,8 @@ module Fluent::Config
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)
       assert_nil(sc.without_source)
+      assert_equal(:text, sc.log.format)
+      assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
       assert_equal(1, s.instance_variable_get(:@workers))
       assert_nil(s.instance_variable_get(:@root_dir))
       assert_equal(Fluent::Log::LEVEL_INFO, s.instance_variable_get(:@log_level))
@@ -89,6 +91,22 @@ module Fluent::Config
       assert_not_nil(sc.instance_variable_get("@#{k}"))
       key = (k == 'emit_error_log_interval' ? 'suppress_interval' : k)
       assert_not_nil(s.instance_variable_get("@#{key}"))
+    end
+
+    test "log parameters" do
+      conf = parse_text(<<-EOS)
+          <system>
+            <log>
+              format json
+              time_format %Y
+            </log>
+          </system>
+      EOS
+      s = FakeSupervisor.new
+      sc = Fluent::SystemConfig.new(conf)
+      sc.apply(s)
+      assert_equal(:json, sc.log.format)
+      assert_equal('%Y', sc.log.time_format)
     end
 
     data(

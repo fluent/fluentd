@@ -96,8 +96,12 @@ module Fluent
       @level = logger.level + 1
       @debug_mode = false
       @log_event_enabled = false
-      @time_format = '%Y-%m-%d %H:%M:%S %z '
       @depth_offset = 1
+      @format = nil
+      @time_format = nil
+      @formatter = nil
+
+      self.format = :text
       enable_color out.tty?
       # TODO: This variable name is unclear so we should change to better name.
       @threads_exclude_events = []
@@ -136,12 +140,14 @@ module Fluent
       dl_opts[:log_level] = @level - 1
       logger = ServerEngine::DaemonLogger.new(@out, dl_opts)
       clone = self.class.new(logger, suppress_repeated_stacktrace: @suppress_repeated_stacktrace, process_type: @process_type, worker_id: @worker_id)
+      clone.format = @format
       clone.time_format = @time_format
       clone.log_event_enabled = @log_event_enabled
       # optional headers/attrs are not copied, because new PluginLogger should have another one of it
       clone
     end
 
+    attr_reader :format
     attr_accessor :log_event_enabled
     attr_accessor :out
     attr_accessor :level
@@ -151,6 +157,37 @@ module Fluent
     def logdev=(logdev)
       @out = logdev
       @logger.instance_variable_set(:@logdev, logdev)
+      nil
+    end
+
+    def format=(fmt)
+      return if @format == fmt
+
+      case fmt
+      when :text
+        @format = :text
+        @time_format = '%Y-%m-%d %H:%M:%S %z'
+        @formatter = Proc.new { |type, time, level, msg|
+          r = caller_line(type, time, @depth_offset, level)
+          r << msg
+          r
+        }
+      when :json
+        @format = :json
+        @time_format = '%Y-%m-%d %H:%M:%S %z'
+        @formatter = Proc.new { |type, time, level, msg|
+          r = {
+            'time' => time.strftime(@time_format),
+            'level' => LEVEL_TEXT[level],
+            'message' => msg
+          }
+          if wid = get_worker_id(type)
+            r['worker_id'] = wid
+          end
+          Yajl.dump(r)
+        }
+      end
+
       nil
     end
 
@@ -235,7 +272,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:trace, args)
-      puts [@color_trace, caller_line(type, time, @depth_offset, LEVEL_TRACE), msg, @color_reset].join
+      puts [@color_trace, @formatter.call(type, time, LEVEL_TRACE, msg), @color_reset].join
     rescue
       # logger should not raise an exception. This rescue prevents unexpected behaviour.
     end
@@ -256,7 +293,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:debug, args)
-      puts [@color_debug, caller_line(type, time, @depth_offset, LEVEL_DEBUG), msg, @color_reset].join
+      puts [@color_debug, @formatter.call(type, time, LEVEL_DEBUG, msg), @color_reset].join
     rescue
     end
     alias DEBUG debug
@@ -276,7 +313,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:info, args)
-      puts [@color_info, caller_line(type, time, @depth_offset, LEVEL_INFO), msg, @color_reset].join
+      puts [@color_info, @formatter.call(type, time, LEVEL_INFO, msg), @color_reset].join
     rescue
     end
     alias INFO info
@@ -296,7 +333,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:warn, args)
-      puts [@color_warn, caller_line(type, time, @depth_offset, LEVEL_WARN), msg, @color_reset].join
+      puts [@color_warn, @formatter.call(type, time, LEVEL_WARN, msg), @color_reset].join
     rescue
     end
     alias WARN warn
@@ -316,7 +353,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:error, args)
-      puts [@color_error, caller_line(type, time, @depth_offset, LEVEL_ERROR), msg, @color_reset].join
+      puts [@color_error, @formatter.call(type, time, LEVEL_ERROR, msg), @color_reset].join
     rescue
     end
     alias ERROR error
@@ -336,7 +373,7 @@ module Fluent
       return if skipped_type?(type)
       args << block.call if block
       time, msg = event(:fatal, args)
-      puts [@color_fatal, caller_line(type, time, @depth_offset, LEVEL_FATAL), msg, @color_reset].join
+      puts [@color_fatal, @formatter.call(type, time, LEVEL_FATAL, msg), @color_reset].join
     rescue
     end
     alias FATAL fatal
@@ -373,17 +410,45 @@ module Fluent
       return if @level > level
 
       time = Time.now
-      line = caller_line(type, time, 5, level)
-      if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
-        puts ["  ", line, 'suppressed same stacktrace'].join
+
+      if @format == :text
+        line = caller_line(type, time, 5, level)
+        if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+          puts ["  ", line, 'suppressed same stacktrace'].join
+        else
+          backtrace.each { |msg|
+            puts ["  ", line, msg].join
+          }
+          Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
+        end
       else
-        backtrace.each { |msg|
-          puts ["  ", line, msg].join
+        r = {
+          'time' => time.strftime(@time_format),
+          'level' => LEVEL_TEXT[level],
         }
-        Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
+        if wid = get_worker_id(type)
+          r['worker_id'] = wid
+        end
+
+        if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+          r['message'] = 'suppressed same stacktrace'
+        else
+          r['message'] = backtrace.join("\n")
+          Thread.current[:last_repeated_stacktrace] = backtrace if @suppress_repeated_stacktrace
+        end
+
+        puts Yajl.dump(r)
       end
 
       nil
+    end
+
+    def get_worker_id(type)
+      if type == :default && (@process_type == :worker0 || @process_type == :workers)
+        @worker_id
+      else
+        nil
+      end
     end
 
     def event(level, args)
@@ -426,7 +491,7 @@ module Fluent
                        else
                          "".freeze
                        end
-      log_msg = "#{time.strftime(@time_format)}[#{LEVEL_TEXT[level]}]: #{worker_id_part}"
+      log_msg = "#{time.strftime(@time_format)} [#{LEVEL_TEXT[level]}]: #{worker_id_part}"
       if @debug_mode
         line = caller(depth+1)[0]
         if match = /^(.+?):(\d+)(?::in `(.*)')?/.match(line)
@@ -450,11 +515,13 @@ module Fluent
     def initialize(logger)
       @logger = logger
       @level = @logger.level
+      @format = nil
       @depth_offset = 2
       if logger.instance_variable_defined?(:@suppress_repeated_stacktrace)
         @suppress_repeated_stacktrace = logger.instance_variable_get(:@suppress_repeated_stacktrace)
       end
 
+      self.format = @logger.format
       enable_color @logger.enable_color?
     end
 
@@ -462,7 +529,13 @@ module Fluent
       @level = Log.str_to_level(log_level_str)
     end
 
+    alias orig_format= format=
     alias orig_enable_color enable_color
+
+    def format=(fmt)
+      self.orig_format = fmt
+      @logger.format = fmt
+    end
 
     def enable_color(b = true)
       orig_enable_color b
@@ -470,7 +543,7 @@ module Fluent
     end
 
     extend Forwardable
-    def_delegators '@logger', :enable_color?, :enable_debug, :enable_event,
+    def_delegators '@logger', :get_worker_id, :enable_color?, :enable_debug, :enable_event,
       :disable_events, :log_event_enabled, :log_event_enamed=, :time_format, :time_format=,
       :event, :caller_line, :puts, :write, :<<, :flush, :reset, :out, :out=,
       :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
