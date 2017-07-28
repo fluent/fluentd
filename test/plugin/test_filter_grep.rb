@@ -23,12 +23,16 @@ class GrepFilterTest < Test::Unit::TestCase
 
     test "regexpN can contain a space" do
       d = create_driver(%[regexp1 message  foo])
-      assert_equal(Regexp.compile(/ foo/), d.instance._regexps['message'])
+      d.instance._regexps.each_pair { |key, value|
+        assert_equal(Regexp.compile(/ foo/), value)
+      }
     end
 
     test "excludeN can contain a space" do
       d = create_driver(%[exclude1 message  foo])
-      assert_equal(Regexp.compile(/ foo/), d.instance._excludes['message'])
+      d.instance._excludes.each_pair { |key, value|
+        assert_equal(Regexp.compile(/ foo/), value)
+      }
     end
 
     sub_test_case "duplicate key" do
@@ -158,6 +162,58 @@ class GrepFilterTest < Test::Unit::TestCase
       test "don't raise an exception" do
         assert_nothing_raised { 
           filter(%[regexp1 message WARN], ["\xff".force_encoding('UTF-8')])
+        }
+      end
+    end
+  end
+
+  sub_test_case 'nested keys' do
+    def messages
+      [
+        {"nest1" => {"nest2" => "INFO"}},
+        {"nest1" => {"nest2" => "WARN"}},
+        {"nest1" => {"nest2" => "WARN"}}
+      ]
+    end
+
+    def filter(config, msgs)
+      d = create_driver(config)
+      d.run {
+        msgs.each { |msg|
+          d.feed("filter.test", @time, {'foo' => 'bar', 'message' => msg})
+        }
+      }
+      d.filtered_records
+    end
+
+    test 'regexps' do
+      conf = %[
+        <regexp>
+          key $.message.nest1.nest2
+          pattern WARN
+        </regexp>
+      ]
+      filtered_records = filter(conf, messages)
+      assert_equal(2, filtered_records.size)
+      assert_block('only 2 nested logs') do
+        filtered_records.all? { |r|
+          r['message']['nest1']['nest2'] == 'WARN'
+        }
+      end
+    end
+
+    test 'excludes' do
+      conf = %[
+        <exclude>
+          key $.message.nest1.nest2
+          pattern WARN
+        </exclude>
+      ]
+      filtered_records = filter(conf, messages)
+      assert_equal(1, filtered_records.size)
+      assert_block('only 2 nested logs') do
+        filtered_records.all? { |r|
+          r['message']['nest1']['nest2'] == 'INFO'
         }
       end
     end
