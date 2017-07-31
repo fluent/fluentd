@@ -1,5 +1,25 @@
 # v0.14
 
+## Release v0.14.20 - 2017/07/31
+
+### New features / Enhancements
+
+* plugin: Add record_accessor plugin helper
+  https://github.com/fluent/fluentd/pull/1637
+* log: Add format and time_format parameters to <system> setting
+  https://github.com/fluent/fluentd/pull/1644
+
+### Bug fixes
+
+* buf_file: Improve file handling to mitigate broken meta file
+  https://github.com/fluent/fluentd/pull/1628
+* in_syslog: Fix the description of resolve_hostname parameter
+  https://github.com/fluent/fluentd/pull/1633
+* process: Fix signal handling. Send signal to all workers
+  https://github.com/fluent/fluentd/pull/1642
+* output: Fix error message typo
+  https://github.com/fluent/fluentd/pull/1643
+
 ## Release v0.14.19 - 2017/07/12
 
 ### New features / Enhancements
