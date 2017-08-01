@@ -65,7 +65,9 @@ module Fluent
         "label_delimiter"  => "label_delimiter", # LabeledTSVParser
         "format_firstline" => "format_firstline", # MultilineParser
         "message_key"      => "message_key", # NoneParser
-        "with_priority"    => "with_priority", # SyslogParser
+        "with_priority"       => "with_priority", # SyslogParser
+        "message_format"      => "message_format", # SyslogParser
+        "rfc5424_time_format" => "rfc5424_time_format", # SyslogParser
         # There has been no parsers which can handle timezone in v0.12
       }
 

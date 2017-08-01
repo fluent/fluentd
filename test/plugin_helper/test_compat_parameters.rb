@@ -328,4 +328,26 @@ class CompatParameterTest < Test::Unit::TestCase
       # TODO:
     end
   end
+
+  sub_test_case 'parser plugins' do
+    test 'syslog parser parameters' do
+      hash = {
+        'format' => 'syslog',
+        'message_format' => 'rfc5424',
+        'with_priority' => 'true',
+        'rfc5424_time_format' => '%Y'
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyI0.new
+      @i.configure(conf)
+      @i.start
+      @i.after_start
+
+      parser = @i.parser
+      assert_kind_of(Fluent::Plugin::SyslogParser, parser)
+      assert_equal :rfc5424, parser.message_format
+      assert_equal true, parser.with_priority
+      assert_equal '%Y', parser.rfc5424_time_format
+    end
+  end
 end
