@@ -390,6 +390,29 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal 'value"ThreeYes!', first[1]['key3']
   end
 
+  def test_filter_with_nested_record
+    d = create_driver(%[
+      key_name $.data.log
+      <parse>
+        @type csv
+        keys key1,key2,key3
+      </parse>
+    ])
+    time = @default_time.to_i
+    d.run do
+      d.feed(@tag, time, {'data' => {'log' => 'value1,"value2","value""ThreeYes!"'}, 'xxx' => 'x', 'yyy' => 'y'})
+    end
+    filtered = d.filtered
+    assert_equal 1, filtered.length
+
+    first = filtered[0]
+    assert_equal time, first[0]
+    assert_nil first[1]['data']
+    assert_equal 'value1', first[1]['key1']
+    assert_equal 'value2', first[1]['key2']
+    assert_equal 'value"ThreeYes!', first[1]['key3']
+  end
+
   CONFIG_HASH_VALUE_FIELD = %[
     key_name data
     hash_value_field parsed
