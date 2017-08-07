@@ -494,7 +494,7 @@ module Fluent
         super
 
         if config_style == :v1
-          if @buffer_config.chunk_keys == ['tag']
+          if @buffer_config.chunk_keys != ['tag']
             raise Fluent::ConfigError, "this plugin '#{self.class}' allows <buffer tag> only"
           end
         end
