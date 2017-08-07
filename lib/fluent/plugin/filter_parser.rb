@@ -24,7 +24,7 @@ module Fluent::Plugin
   class ParserFilter < Filter
     Fluent::Plugin.register_filter('parser', self)
 
-    helpers :parser, :compat_parameters
+    helpers :parser, :record_accessor, :compat_parameters
 
     config_param :key_name, :string
     config_param :reserve_data, :bool, default: false
@@ -41,6 +41,7 @@ module Fluent::Plugin
 
       super
 
+      @accessor = record_accessor_create(@key_name)
       @parser = parser_create
     end
 
@@ -48,7 +49,7 @@ module Fluent::Plugin
     REPLACE_CHAR = '?'.freeze
 
     def filter_with_time(tag, time, record)
-      raw_value = record[@key_name]
+      raw_value = @accessor.call(record)
       if raw_value.nil?
         if @emit_invalid_record_to_error
           router.emit_error_event(tag, time, record, ArgumentError.new("#{@key_name} does not exist"))
