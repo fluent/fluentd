@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/base'
+require 'fluent/plugin_helper/record_accessor'
 require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
@@ -36,7 +37,7 @@ module Fluent
       helpers_internal :thread, :retry_state
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
-      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
+      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[$-_.@a-zA-Z0-9]+\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
@@ -161,7 +162,7 @@ module Fluent
       attr_reader :num_errors, :emit_count, :emit_records, :write_count, :rollback_count
 
       # for tests
-      attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_time, :chunk_key_tag
+      attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_accessors, :chunk_key_time, :chunk_key_tag
       attr_accessor :output_enqueue_thread_waiting, :dequeued_chunks, :dequeued_chunks_mutex
       # output_enqueue_thread_waiting: for test of output.rb itself
       attr_accessor :retry_for_error_chunk # if true, error flush will be retried even if under_plugin_development is true
@@ -203,7 +204,7 @@ module Fluent
         @output_flush_threads = nil
 
         @simple_chunking = nil
-        @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
+        @chunk_keys = @chunk_key_accessors = @chunk_key_time = @chunk_key_tag = nil
         @flush_mode = nil
         @timekey_zone = nil
 
@@ -276,8 +277,21 @@ module Fluent
           @chunk_keys = @buffer_config.chunk_keys.dup
           @chunk_key_time = !!@chunk_keys.delete('time')
           @chunk_key_tag = !!@chunk_keys.delete('tag')
-          if @chunk_keys.any?{ |key| key !~ CHUNK_KEY_PATTERN }
+          if @chunk_keys.any? { |key|
+              begin
+                k = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(key)
+                if k.is_a?(String)
+                  k !~ CHUNK_KEY_PATTERN
+                else
+                  false
+                end
+              rescue => e
+                raise Fluent::ConfigError, "in chunk_keys: #{e.message}"
+              end
+            }
             raise Fluent::ConfigError, "chunk_keys specification includes invalid char"
+          else
+            @chunk_key_accessors = Hash[@chunk_keys.map { |key| [key.to_sym, Fluent::PluginHelper::RecordAccessor::Accessor.new(key)] }]
           end
 
           if @chunk_key_time
@@ -778,7 +792,7 @@ module Fluent
                     else
                       nil
                     end
-          pairs = Hash[@chunk_keys.map{|k| [k.to_sym, record[k]]}]
+          pairs = Hash[@chunk_key_accessors.map { |k, a| [k, a.call(record)] }]
           @buffer.metadata(timekey: timekey, tag: (@chunk_key_tag ? tag : nil), variables: pairs)
         end
       end
