@@ -37,7 +37,7 @@ module Fluent
       helpers_internal :thread, :retry_state
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
-      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[$-_.@a-zA-Z0-9]+\}/
+      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@$a-zA-Z0-9]+\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
@@ -283,7 +283,11 @@ module Fluent
                 if k.is_a?(String)
                   k !~ CHUNK_KEY_PATTERN
                 else
-                  false
+                  if key.start_with?('$[')
+                    raise Fluent::ConfigError, "in chunk_keys: bracket notation is not allowed"
+                  else
+                    false
+                  end
                 end
               rescue => e
                 raise Fluent::ConfigError, "in chunk_keys: #{e.message}"

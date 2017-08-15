@@ -267,6 +267,18 @@ class OutputTest < Test::Unit::TestCase
       assert_equal "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/value1/value2/tail", @i.extract_placeholders(tmpl, m)
     end
 
+    test '#extract_placeholders can extract nested variables if variables are configured with dot notation' do
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'key,$.nest.key', {})]))
+      assert !@i.chunk_key_time
+      assert !@i.chunk_key_tag
+      assert_equal ['key','$.nest.key'], @i.chunk_keys
+      tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/${key}/${$.nest.key}/tail"
+      t = event_time('2016-04-11 20:30:00 +0900')
+      v = {:key => "value1", :"$.nest.key" => "value2"}
+      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+      assert_equal "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/value1/value2/tail", @i.extract_placeholders(tmpl, m)
+    end
+
     test '#extract_placeholders can extract all chunk keys if configured' do
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
@@ -493,11 +505,21 @@ class OutputTest < Test::Unit::TestCase
       assert_equal ['.hidden', '0001', '@timestamp', 'a_key', 'my-domain'], @i.get_placeholders_keys("http://${my-domain}/${.hidden}/${0001}/${a_key}?timestamp=${@timestamp}")
     end
 
+    data('include space' => 'ke y',
+         'bracket notation' => "$['key']",
+         'invalid notation' => "$.ke y")
+    test 'configure checks invalid chunk keys' do |chunk_keys|
+      i = create_output(:buffered)
+      assert_raise Fluent::ConfigError do
+        i.configure(config_element('ROOT' , '', {}, [config_element('buffer', chunk_keys)]))
+      end
+    end
+
     test '#metadata returns object which contains tag/timekey/variables from records as specified in configuration' do
       tag = 'test.output'
       time = event_time('2016-04-12 15:31:23 -0700')
       timekey = event_time('2016-04-12 15:00:00 -0700')
-      record = {"key1" => "value1", "num1" => 1, "message" => "my message"}
+      record = {"key1" => "value1", "num1" => 1, "message" => "my message", "nest" => {"key" => "nested value"}}
 
       i1 = create_output(:buffered)
       i1.configure(config_element('ROOT','',{},[config_element('buffer', '')]))
@@ -530,6 +552,10 @@ class OutputTest < Test::Unit::TestCase
       i8 = create_output(:buffered)
       i8.configure(config_element('ROOT','',{},[config_element('buffer', 'time,tag,key1', {"timekey" => 3600, "timekey_zone" => "-0700"})]))
       assert_equal create_metadata(timekey: timekey, tag: tag, variables: {key1: "value1"}), i8.metadata(tag, time, record)
+
+      i9 = create_output(:buffered)
+      i9.configure(config_element('ROOT','',{},[config_element('buffer', 'key1,$.nest.key', {})]))
+      assert_equal create_metadata(variables: {:key1 => "value1", :"$.nest.key" => 'nested value'}), i9.metadata(tag, time, record)
     end
 
     test '#emit calls #process via #emit_sync for non-buffered output' do
