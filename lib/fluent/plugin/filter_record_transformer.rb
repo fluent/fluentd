@@ -28,9 +28,9 @@ module Fluent::Plugin
     Fluent::Plugin.register_filter('record_transformer', self)
 
     desc 'A comma-delimited list of keys to delete.'
-    config_param :remove_keys, :string, default: nil
+    config_param :remove_keys, :array, default: nil
     desc 'A comma-delimited list of keys to keep.'
-    config_param :keep_keys, :string, default: nil
+    config_param :keep_keys, :array, default: nil
     desc 'Create new Hash to transform incoming data'
     config_param :renew_record, :bool, default: false
     desc 'Specify field name of the record to overwrite the time of events. Its value must be unix time.'
@@ -52,13 +52,8 @@ module Fluent::Plugin
         end
       end
 
-      if @remove_keys
-        @remove_keys = @remove_keys.split(',')
-      end
-
       if @keep_keys
         raise Fluent::ConfigError, "`renew_record` must be true to use `keep_keys`" unless @renew_record
-        @keep_keys = @keep_keys.split(',')
       end
 
       placeholder_expander_params = {
@@ -129,7 +124,9 @@ module Fluent::Plugin
       placeholders = @placeholder_expander.prepare_placeholders(placeholder_values)
 
       new_record = @renew_record ? {} : record.dup
-      @keep_keys.each {|k| new_record[k] = record[k]} if @keep_keys and @renew_record
+      @keep_keys.each do |k|
+        new_record[k] = record[k] if record.has_key?(k)
+      end if @keep_keys and @renew_record
       new_record.merge!(expand_placeholders(@map, placeholders))
 
       new_record
