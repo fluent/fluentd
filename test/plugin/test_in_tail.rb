@@ -972,6 +972,20 @@ class TailInputTest < Test::Unit::TestCase
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
 
+    def test_tag_with_only_star
+      config = config_element("", "", {
+                                "tag" => "*",
+                                "path" => "test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log",
+                                "format" => "none",
+                                "read_from_head" => true
+                              })
+      d = create_driver(config, false)
+      d.run {}
+      plugin = d.instance
+      mock(plugin.router).emit_stream('foo.bar.log', anything).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
+
     def test_tag_prefix
       config = config_element("", "", {
                                 "tag" => "pre.*",
