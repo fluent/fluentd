@@ -101,6 +101,7 @@ module Fluent
     def configure_tag
       if @tag.index('*')
         @tag_prefix, @tag_suffix = @tag.split('*')
+        @tag_prefix ||= ''
         @tag_suffix ||= ''
       else
         @tag_prefix = nil

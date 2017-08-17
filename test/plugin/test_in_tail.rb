@@ -820,6 +820,18 @@ class TailInputTest < Test::Unit::TestCase
       engineclass.should_receive(:emit_stream).with('pre.foo.bar.log.post', any).once
       plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
     end
+
+    config = %[
+      tag *
+      path test/plugin/*/%Y/%m/%Y%m%d-%H%M%S.log,test/plugin/data/log/**/*.log
+      format none
+      read_from_head true
+    ]
+    plugin = create_driver(config, false).instance
+    flexstub(plugin.router) do |engineclass|
+      engineclass.should_receive(:emit_stream).with('foo.bar.log', any).once
+      plugin.receive_lines(['foo', 'bar'], DummyWatcher.new('foo.bar.log'))
+    end
   end
 
   # Ensure that no fatal exception is raised when a file is missing and that
