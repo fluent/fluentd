@@ -131,6 +131,18 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
 
+    test 'keep_keys that are not present in the original record should not be included in the result record' do
+      config = %[renew_record true\nkeep_keys foo, bar, baz, message]
+      msgs = ['1', '2', nil]
+      es = emit(config, msgs)
+      es.each_with_index do |(t, r), i|
+        assert_equal('bar', r['foo'])
+        assert_equal(msgs[i], r['message'])
+        assert_equal(false, r.has_key?('bar'))
+        assert_equal(false, r.has_key?('baz'))
+      end
+    end
+
     test 'enable_ruby' do
       config = %[
         enable_ruby yes
