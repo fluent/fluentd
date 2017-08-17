@@ -83,6 +83,24 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       end
     end
 
+    test 'remove_json_key' do
+      msgs = ['{"k1":"v1","k2":{"k2-1":"v2-1","k2-2":"v2-2"},"k3":[{"k3-1":"v3-1"},{"k3-2":"v3-2"}],"k4":"v4"}']
+      config = CONFIG + %[remove_json_keys {"message":{"k1":0,"k2":{"k2-1":0},"k3":[0]}}]
+      filterd = filter(config, msgs)
+      filterd.each_with_index do |(_t, r), i|
+        messages = r['message'].split(" ")
+        record = JSON.parse(messages[-1])
+        assert_not_include(record, "k1")
+        assert_not_include(record["k2"], "k2-1")
+        assert_include(record["k2"], "k2-2")
+        record["k3"].each { |obj|
+          assert_not_include(obj, "k3-1")
+          assert_include(obj, "k3-2")
+        }
+        assert_equal(record["k4"], "v4")
+      end
+    end
+
     test 'renew_record' do
       config = CONFIG + %[renew_record true]
       msgs = ['1', '2']

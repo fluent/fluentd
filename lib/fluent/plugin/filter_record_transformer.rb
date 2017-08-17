@@ -29,6 +29,8 @@ module Fluent::Plugin
 
     desc 'A comma-delimited list of keys to delete.'
     config_param :remove_keys, :string, default: nil
+    desc 'A list of json keys to delete.'
+    config_param :remove_json_keys, :string, default: nil
     desc 'A comma-delimited list of keys to keep.'
     config_param :keep_keys, :string, default: nil
     desc 'Create new Hash to transform incoming data'
@@ -54,6 +56,10 @@ module Fluent::Plugin
 
       if @remove_keys
         @remove_keys = @remove_keys.split(',')
+      end
+
+      if @remove_json_keys
+        @remove_json_keys = parse_value(@remove_json_keys)
       end
 
       if @keep_keys
@@ -125,7 +131,49 @@ module Fluent::Plugin
       value_str # emit as string
     end
 
+    def remove_hash_key(record, key, json_keys, depth)
+      if json_keys == 0
+        if record.instance_of?(Array)
+          record.delete_at(key)
+        elsif record.instance_of?(Hash)
+          record.delete(key)
+        end
+      else
+        if json_keys.instance_of?(Array) and record[key].instance_of?(Array)
+          json_keys.each { |v|
+            record[key].each_with_index { |obj, i|
+              record[key] = remove_hash_key(record[key], i, v, depth+1)
+            }
+          }
+        elsif json_keys.instance_of?(Hash) and record[key].instance_of?(Hash)
+          json_keys.each {|k, v|
+            if record[key][k]
+              record[key] = remove_hash_key(record[key], k, v, depth+1)
+            end
+          }
+        end
+      end
+      record
+    end
+
+    def remove_json_key(record, key, json_keys)
+      record_hash = JSON.parse(record[key])
+      json_keys.each {|k, v|
+        record_hash = remove_hash_key(record_hash, k, v, 0)
+      }
+      record[key] = JSON.generate(record_hash)
+    rescue => e
+      log.warn "failed to parse #{record[key]} as json. Assuming #{record[key]} is a string", error: e
+    end
+
     def reform(record, placeholder_values)
+      if @remove_json_keys
+        # only for message
+        msg_key = "message"
+        if placeholder_values["record"][msg_key] && @remove_json_keys[msg_key]
+          remove_json_key(placeholder_values["record"], msg_key, @remove_json_keys[msg_key])
+        end
+      end
       placeholders = @placeholder_expander.prepare_placeholders(placeholder_values)
 
       new_record = @renew_record ? {} : record.dup
