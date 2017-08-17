@@ -126,7 +126,7 @@ module Fluent::Plugin
       new_record = @renew_record ? {} : record.dup
       @keep_keys.each do |k|
         new_record[k] = record[k] if record.has_key?(k)
-      end if @keep_keys and @renew_record
+      end if @keep_keys && @renew_record
       new_record.merge!(expand_placeholders(@map, placeholders))
 
       new_record
@@ -215,7 +215,7 @@ module Fluent::Plugin
       # @param [String] str
       # @param [Boolean] force_stringify the value must be string, used for hash key
       def expand(str, placeholders, force_stringify = false)
-        if @auto_typecast and !force_stringify
+        if @auto_typecast && !force_stringify
           single_placeholder_matched = str.match(/\A(\${[^}]+}|__[A-Z_]+__)\z/)
           if single_placeholder_matched
             log_if_unknown_placeholder($1, placeholders)
@@ -258,9 +258,9 @@ module Fluent::Plugin
       def preprocess_map(value, force_stringify = false)
         new_value = nil
         if value.is_a?(String)
-          if @auto_typecast and !force_stringify
+          if @auto_typecast && !force_stringify
             num_placeholders = value.scan('${').size
-            if num_placeholders == 1 and value.start_with?('${') && value.end_with?('}')
+            if num_placeholders == 1 && value.start_with?('${') && value.end_with?('}')
               new_value = value[2..-2] # ${..} => ..
             end
           end
