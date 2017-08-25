@@ -1,5 +1,16 @@
 # v0.12
 
+## Release 0.12.40 - 2017/08/25
+
+### Bug fixes
+
+* record_transformer: Don't create new keys if the original record doesn't have `keep_keys` keys
+  https://github.com/fluent/fluentd/pull/1663
+* in_tail: Fix the error when 'tag *' is configured.
+  https://github.com/fluent/fluentd/pull/1664
+* plugin: Fix load order to avoid file not found when plugins have own native extension
+  https://github.com/fluent/fluentd/pull/1670
+
 ## Release 0.12.39 - 2017/07/14
 
 ### Bug fixes
