@@ -2,6 +2,7 @@ require_relative '../helper'
 require 'fluent/config/element'
 require 'fluent/config/configure_proxy'
 require 'fluent/configurable'
+require 'pp'
 
 class TestConfigElement < ::Test::Unit::TestCase
   def element(name = 'ROOT', arg = '', attrs = {}, elements = [], unused = nil)
@@ -461,6 +462,15 @@ CONF
     test "doesn't have target_worker_id" do
       e = element()
       assert_false e.for_another_worker?
+    end
+  end
+
+  sub_test_case '#pretty_print' do
+    test 'prints inspect to pp object' do
+      q = PP.new
+      e = element()
+      e.pretty_print(q)
+      assert_equal e.inspect, q.output
     end
   end
 end
