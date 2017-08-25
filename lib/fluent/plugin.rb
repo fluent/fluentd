@@ -169,7 +169,10 @@ module Fluent
       if spec = specs.last
         spec.require_paths.each { |lib|
           file = "#{spec.full_gem_path}/#{lib}/#{path}"
-          require file
+          if File.exist?("#{file}.rb")
+            require file
+            return
+          end
         }
       end
     end
