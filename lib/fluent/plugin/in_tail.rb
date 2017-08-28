@@ -168,7 +168,7 @@ module Fluent::Plugin
       if @pos_file
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.parse(@pf_file, @follow_inodes)
+        @pf = PositionFile.parse(@pf_file, @follow_inodes, expand_paths)
       end
 
       refresh_watchers unless @skip_refresh_on_startup
@@ -881,8 +881,8 @@ module Fluent::Plugin
         end
       end
 
-      def self.parse(file, follow_inodes)
-        compact(file, follow_inodes)
+      def self.parse(file, follow_inodes, existing_paths)
+        compact(file, follow_inodes, existing_paths)
 
         map = {}
         file.pos = 0
@@ -902,7 +902,7 @@ module Fluent::Plugin
       end
 
       # Clean up unwatched file entries
-      def self.compact(file, follow_inodes)
+      def self.compact(file, follow_inodes, existing_paths)
         file.pos = 0
         existent_entries = file.each_line.map {|line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
@@ -914,20 +914,18 @@ module Fluent::Plugin
           pos == UNWATCHED_POSITION ? nil : ("%s\t%016x\t%016x\n" % [path, pos, ino])
         }.compact
 
-        # check follow_inodes for backward compatibility
-        existent_entries = remove_deleted_files_entries(existent_entries) if follow_inodes
+        existent_entries = remove_deleted_files_entries(existent_entries, existing_paths) if follow_inodes
 
         file.pos = 0
         file.truncate(0)
         file.write(existent_entries.join)
       end
 
-      def self.remove_deleted_files_entries(existent_entries)
+      def self.remove_deleted_files_entries(existent_entries, existing_paths)
         filtered_entries = existent_entries.select {|file_entry|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(file_entry)
-          path = m[1]
           ino = m[3].to_i(16)
-          Pathname.new(path).exist? && Fluent::FileWrapper.stat(path).ino == ino
+          existing_paths.key?(ino)
         }
         filtered_entries
       end
