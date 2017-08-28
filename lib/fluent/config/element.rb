@@ -76,6 +76,11 @@ module Fluent
         "name:#{@name}, arg:#{@arg}, " + attrs + ", " + @elements.inspect
       end
 
+      # Used by PP and Pry
+      def pretty_print(q)
+        q.text(inspect)
+      end
+
       # This method assumes _o_ is an Element object. Should return false for nil or other object
       def ==(o)
         self.name == o.name && self.arg == o.arg &&
