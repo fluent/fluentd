@@ -21,7 +21,6 @@ require 'fluent/config/error'
 require 'fluent/event'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/parser_multiline'
-require 'pathname'
 
 if Fluent.windows?
   require_relative 'file_wrapper'
@@ -219,30 +218,32 @@ module Fluent::Plugin
           paths << path
         end
       }
-      excluded = @exclude_path.map {|path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path}.flatten.uniq
-      to_return = paths - excluded
+      excluded = @exclude_path.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path}.flatten.uniq
       # filter out non existing files, so in case pattern is without '*' we don't do unnecessary work
-      to_return = to_return.select {|path|
-        Pathname.new(path).exist?
-      }
-      Hash[to_return.map {|path|
+      hash = {}
+      (paths - excluded).select { |path|
+        FileTest.exist?(path)
+      }.each { |path|
         tuple = PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
         if @follow_inodes
-          [tuple.ino, tuple]
+          hash[tuple.ino] = tuple
         else
-          [tuple.path, tuple]
+          hash[tuple.path] = tuple
         end
-      }]
+      }
+      hash
     end
 
     def existence_path
-      Hash[@tails.keys.map {|path_ino|
+      hash = {}
+      @tails.keys.each {|path_ino|
         if @follow_inodes
-          [path_ino.ino, path_ino]
+          hash[path_ino.ino] = path_ino
         else
-          [path_ino.path, path_ino]
+          hash[path_ino.path] = path_ino
         end
-      }]
+      }
+      hash
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
@@ -997,25 +998,6 @@ module Fluent::Plugin
       end
     end
 
-    class PathInodeTuple
-      def initialize(path, ino)
-        @path = path
-        @ino = ino
-      end
-
-      attr_accessor :path, :ino
-
-      def eql?(other)
-        path == other.path && ino == other.ino
-      end
-
-      def ==(other)
-        self.eql?(other)
-      end
-
-      def hash
-        [path, ino].hash
-      end
-    end
+    PathInodeTuple = Struct.new(:path, :ino)
   end
 end

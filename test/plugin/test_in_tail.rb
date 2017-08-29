@@ -1285,7 +1285,7 @@ class TailInputTest < Test::Unit::TestCase
 
       d.run(expect_emits: 2, shutdown: false) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
-        FileUtils.rm("#{TMP_DIR}/tail.txt")
+        FileUtils.remove_entry_secure("#{TMP_DIR}/tail.txt")
         File.open("#{TMP_DIR}/tail.txt", "wb") {|f| f.puts "test4\n"}
       end
 
@@ -1350,7 +1350,7 @@ class TailInputTest < Test::Unit::TestCase
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
       end
 
-      FileUtils.rm("#{TMP_DIR}/tail.txt")
+      FileUtils.remove_entry_secure("#{TMP_DIR}/tail.txt")
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test3"
         f.puts "test4"
