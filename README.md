@@ -81,3 +81,7 @@ Many enterprises run Fluentd in production to handle all of their logging needs.
 Patches contributed by [great developers](https://github.com/fluent/fluentd/contributors).
 
 [<img src="https://ga-beacon.appspot.com/UA-24890265-6/fluent/fluentd" />](https://github.com/fluent/fluentd)
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd.svg?type=large)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd?ref=badge_large)
