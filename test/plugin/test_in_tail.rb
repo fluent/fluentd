@@ -1285,6 +1285,7 @@ class TailInputTest < Test::Unit::TestCase
 
       d.run(expect_emits: 2, shutdown: false) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
         FileUtils.remove_entry_secure("#{TMP_DIR}/tail.txt")
         File.open("#{TMP_DIR}/tail.txt", "wb") {|f| f.puts "test4\n"}
       end
@@ -1350,6 +1351,7 @@ class TailInputTest < Test::Unit::TestCase
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
       end
 
+      GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
       FileUtils.remove_entry_secure("#{TMP_DIR}/tail.txt")
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
         f.puts "test3"
