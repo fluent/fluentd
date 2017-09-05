@@ -173,7 +173,9 @@ module Fluent
 
     def kill_worker
       if config[:worker_pid]
-        config[:worker_pid].each do |pid|
+        pids = config[:worker_pid].clone
+        config[:worker_pid].clear
+        pids.each do |pid|
           if Fluent.windows?
             Process.kill :KILL, pid
           else
