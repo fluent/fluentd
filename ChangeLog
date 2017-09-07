@@ -1,5 +1,25 @@
 # v0.14
 
+## Release v0.14.21 - 2017/09/07
+
+### New features / Enhancements
+
+* filter_parser: Support record_accessor in key_name
+  https://github.com/fluent/fluentd/pull/1654
+* buffer: Support record_accessor in chunk keys
+  https://github.com/fluent/fluentd/pull/1662
+
+### Bug fixes
+
+* compat_parameters: Support all syslog parser parameters
+  https://github.com/fluent/fluentd/pull/1650
+* filter_record_transformer: Don't create new keys if the original record doesn't have `keep_keys` keys
+  https://github.com/fluent/fluentd/pull/1663
+* in_tail: Fix the error when 'tag *' is configured
+  https://github.com/fluent/fluentd/pull/1664
+* supervisor: Clear previous worker pids when receive kill signals.
+  https://github.com/fluent/fluentd/pull/1683
+
 ## Release v0.14.20 - 2017/07/31
 
 ### New features / Enhancements

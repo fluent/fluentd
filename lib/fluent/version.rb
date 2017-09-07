@@ -16,6 +16,6 @@
 
 module Fluent
 
-  VERSION = '0.14.20'
+  VERSION = '0.14.21'
 
 end
