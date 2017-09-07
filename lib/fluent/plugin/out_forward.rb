@@ -493,7 +493,10 @@ module Fluent::Plugin
           end
 
           readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
-          next unless readable_sockets
+          unless readable_sockets
+            sleep 0.01
+            next
+          end
 
           readable_sockets.each do |sock|
             chunk_id = read_ack_from_sock(sock, unpacker)
