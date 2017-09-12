@@ -25,13 +25,16 @@ class TSVFormatterTest < ::Test::Unit::TestCase
     )
     assert_equal ["message", "greeting"], d.instance.keys
     assert_equal "\t", d.instance.delimiter
+    assert_equal true, d.instance.add_newline
 
     d = create_driver(
       'keys' => 'message,greeting',
-      'delimiter'       => ',',
+      'delimiter' => ',',
+      'add_newline' => false,
     )
     assert_equal ["message", "greeting"], d.instance.keys
     assert_equal ",", d.instance.delimiter
+    assert_equal false, d.instance.add_newline
   end
 
   def test_format
@@ -41,6 +44,16 @@ class TSVFormatterTest < ::Test::Unit::TestCase
     formatted = d.instance.format(tag, @time, record)
 
     assert_equal("awesome\thello\n", formatted)
+  end
+
+  def test_format_without_newline
+    d = create_driver(
+      'keys' => 'message,greeting',
+      'add_newline' => false,
+    )
+    formatted = d.instance.format(tag, @time, record)
+
+    assert_equal("awesome\thello", formatted)
   end
 
   def test_format_with_customized_delimiters
