@@ -25,9 +25,14 @@ module Fluent
       config_param :keys, :array, value_type: :string
       desc 'The delimiter character (or string) of TSV values'
       config_param :delimiter, :string, default: "\t"
+      desc 'The parameter to enable writing to new lines'
+      config_param :add_newline, :bool, default: true
 
       def format(tag, time, record)
-        @keys.map{|k| record[k].to_s }.join(@delimiter) << "\n".freeze
+        formatted = ""
+        formatted << @keys.map{|k| record[k].to_s }.join(@delimiter)
+        formatted << "\n".freeze if @add_newline
+        formatted
       end
     end
   end
