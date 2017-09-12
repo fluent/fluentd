@@ -26,8 +26,12 @@ module Fluent
 
       def initialize
         super
-        @time_parser = time_parser_create(format: TIME_FORMAT)
         @mutex = Mutex.new
+      end
+
+      def configure(conf)
+        super
+        @time_parser = time_parser_create(format: TIME_FORMAT)
       end
 
       def patterns
