@@ -27,7 +27,7 @@ module Fluent
       config_param :delimiter, :string, default: "\t"
 
       def format(tag, time, record)
-        @keys.map{|k| record[k].to_s }.join(@delimiter)
+        @keys.map{|k| record[k].to_s }.join(@delimiter) << "\n".freeze
       end
     end
   end
