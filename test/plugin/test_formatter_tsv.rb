@@ -59,7 +59,7 @@ class TSVFormatterTest < ::Test::Unit::TestCase
   def test_format_with_customized_delimiters
     d = create_driver(
       'keys' => 'message,greeting',
-      'delimiter'       => ',',
+      'delimiter' => ',',
     )
     formatted = d.instance.format(tag, @time, record)
 
