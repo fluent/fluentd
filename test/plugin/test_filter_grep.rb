@@ -21,17 +21,45 @@ class GrepFilterTest < Test::Unit::TestCase
       assert_empty(d.instance.excludes)
     end
 
-    test "regexpN can contain a space" do
-      d = create_driver(%[regexp1 message  foo])
+    test "regexpN is stripped before being compiled" do
+      d = create_driver(%[regexp1 message  foo ])
       d.instance._regexps.each_pair { |key, value|
-        assert_equal(Regexp.compile(/ foo/), value)
+        assert_equal(Regexp.compile(/foo/), value)
+      }
+    end
+
+    test "excludeN is stripped before being compiled" do
+      d = create_driver(%[exclude1 message  foo ])
+      d.instance._excludes.each_pair { |key, value|
+        assert_equal(Regexp.compile(/foo/), value)
+      }
+    end
+
+    test "regexpN can contain a space" do
+      d = create_driver(%[regexp1 message  foo  bar])
+      d.instance._regexps.each_pair { |key, value|
+        assert_equal(Regexp.compile(/foo  bar/), value)
+      }
+    end
+
+    test "regexpN can contain leading \\s" do
+      d = create_driver(%[regexp1 message \\sfoo])
+      d.instance._regexps.each_pair { |key, value|
+        assert_equal(Regexp.compile(/\sfoo/), value)
       }
     end
 
     test "excludeN can contain a space" do
-      d = create_driver(%[exclude1 message  foo])
+      d = create_driver(%[exclude1 message  foo  bar])
       d.instance._excludes.each_pair { |key, value|
-        assert_equal(Regexp.compile(/ foo/), value)
+        assert_equal(Regexp.compile(/foo  bar/), value)
+      }
+    end
+
+    test "excludeN can contain leading \\s" do
+      d = create_driver(%[exclude1 message \\sfoo])
+      d.instance._excludes.each_pair { |key, value|
+        assert_equal(Regexp.compile(/\sfoo/), value)
       }
     end
 
@@ -160,7 +188,7 @@ class GrepFilterTest < Test::Unit::TestCase
       end
 
       test "don't raise an exception" do
-        assert_nothing_raised { 
+        assert_nothing_raised {
           filter(%[regexp1 message WARN], ["\xff".force_encoding('UTF-8')])
         }
       end
