@@ -43,9 +43,9 @@ class GrepFilterTest < Test::Unit::TestCase
     end
 
     test "regexpN can contain leading \\s" do
-      d = create_driver(%[regexp1 message \sfoo])
+      d = create_driver(%[regexp1 message \\sfoo])
       d.instance._regexps.each_pair { |key, value|
-        assert_equal(Regexp.compile(/ foo/), value)
+        assert_equal(Regexp.compile(/\sfoo/), value)
       }
     end
 
@@ -57,9 +57,9 @@ class GrepFilterTest < Test::Unit::TestCase
     end
 
     test "excludeN can contain leading \\s" do
-      d = create_driver(%[exclude1 message \sfoo])
+      d = create_driver(%[exclude1 message \\sfoo])
       d.instance._excludes.each_pair { |key, value|
-        assert_equal(Regexp.compile(/ foo/), value)
+        assert_equal(Regexp.compile(/\sfoo/), value)
       }
     end
 
