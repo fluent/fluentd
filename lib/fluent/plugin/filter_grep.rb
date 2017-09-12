@@ -67,7 +67,7 @@ module Fluent::Plugin
         key, regexp = conf["regexp#{i}"].split(/ /, 2)
         raise Fluent::ConfigError, "regexp#{i} does not contain 2 parameters" unless regexp
         raise Fluent::ConfigError, "regexp#{i} contains a duplicated key, #{key}" if rs[key]
-        rs[key] = Regexp.compile(regexp)
+        rs[key] = Regexp.compile(regexp.strip)
       end
 
       es = {}
@@ -76,7 +76,7 @@ module Fluent::Plugin
         key, exclude = conf["exclude#{i}"].split(/ /, 2)
         raise Fluent::ConfigError, "exclude#{i} does not contain 2 parameters" unless exclude
         raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if es[key]
-        es[key] = Regexp.compile(exclude)
+        es[key] = Regexp.compile(exclude.strip)
       end
 
       @regexps.each do |e|
