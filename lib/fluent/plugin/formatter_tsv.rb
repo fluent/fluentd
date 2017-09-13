@@ -29,8 +29,7 @@ module Fluent
       config_param :add_newline, :bool, default: true
 
       def format(tag, time, record)
-        formatted = ""
-        formatted << @keys.map{|k| record[k].to_s }.join(@delimiter)
+        formatted = @keys.map{|k| record[k].to_s }.join(@delimiter)
         formatted << "\n".freeze if @add_newline
         formatted
       end
