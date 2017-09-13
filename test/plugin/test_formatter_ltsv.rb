@@ -23,14 +23,17 @@ class LabeledTSVFormatterTest < ::Test::Unit::TestCase
     d = create_driver
     assert_equal "\t", d.instance.delimiter
     assert_equal  ":", d.instance.label_delimiter
+    assert_equal  true, d.instance.add_newline
 
     d = create_driver(
       'delimiter'       => ',',
       'label_delimiter' => '=',
+      'add_newline' => false,
     )
 
     assert_equal ",", d.instance.delimiter
     assert_equal "=", d.instance.label_delimiter
+    assert_equal  false, d.instance.add_newline
   end
 
   def test_format
