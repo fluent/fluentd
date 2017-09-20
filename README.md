@@ -71,7 +71,7 @@ Many enterprises run Fluentd in production to handle all of their logging needs.
 - Project repository: http://github.com/fluent
 - Discussion: http://groups.google.com/group/fluentd
 - Slack / Community: http://slack.fluentd.org
-- Newsletters: http://get.treasuredata.com/Fluentd_education
+- Newsletters: https://www.fluentd.org/newsletter_signup
 - Author: Sadayuki Furuhashi
 - Copyright: (c) 2011 FURUHASHI Sadayuki
 - License: Apache License, Version 2.0
