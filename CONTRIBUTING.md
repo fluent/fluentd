@@ -4,7 +4,7 @@ We'd love your contribution. Here are the guidelines!
 
 ## Got a question or problem?
 
-RESOURCES of [Official site](http://www.fluentd.org/) and [Fluentd documentation](http://docs.fluentd.org/) may help you.
+RESOURCES of [Official site](https://www.fluentd.org/) and [Fluentd documentation](https://docs.fluentd.org/) may help you.
 
 If you have further questions about Fluentd and plugins, please direct these to [Mailing List](https://groups.google.com/forum/#!forum/fluentd).
 Don't use Github issue for asking questions. Here are examples:
