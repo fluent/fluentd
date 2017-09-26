@@ -93,7 +93,7 @@ module Fluent
     def initialize
       super
       $log.warn "'tcp' output is obsoleted and will be removed. Use 'forward' instead."
-      $log.warn "see 'forward' section in http://docs.fluentd.org/ for the high-availability configuration."
+      $log.warn "see 'forward' section in https://docs.fluentd.org/ for the high-availability configuration."
     end
 
     config_param :port, :integer, default: LISTEN_PORT
