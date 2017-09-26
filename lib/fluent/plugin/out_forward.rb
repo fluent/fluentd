@@ -582,7 +582,7 @@ module Fluent::Plugin
           rescue IO::WaitReadable
             # If the exception is Errno::EWOULDBLOCK or Errno::EAGAIN, it is extended by IO::WaitReadable.
             # So IO::WaitReadable can be used to rescue the exceptions for retrying read_nonblock.
-            # http://docs.ruby-lang.org/en/2.3.0/IO.html#method-i-read_nonblock
+            # https//docs.ruby-lang.org/en/2.3.0/IO.html#method-i-read_nonblock
             sleep @sender.read_interval unless @state == :established
           rescue SystemCallError => e
             @log.warn "disconnected by error", host: @host, port: @port, error: e
