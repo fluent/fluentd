@@ -39,6 +39,7 @@ module Fluent
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@$a-zA-Z0-9]+\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
+      CHUNK_ID_PLACEHOLDER_PATTERN = /\$\{chunk_id\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
 
@@ -679,7 +680,7 @@ module Fluent
       end
 
       def get_placeholders_keys(str)
-        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| s == "tag"}.sort
+        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| (s == "tag") || (s == 'chunk_id') }.sort
       end
 
       # TODO: optimize this code

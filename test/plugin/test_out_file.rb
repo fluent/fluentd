@@ -557,6 +557,35 @@ class FileOutputTest < Test::Unit::TestCase
     check_gzipped_result(path, formatted_lines * 3)
   end
 
+  test '${chunk_id}' do
+    time = event_time("2011-01-02 13:14:15 UTC")
+    formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
+
+    write_once = ->(){
+      d = create_driver %[
+        path #{TMP_DIR}/out_file_chunk_id_${chunk_id}
+        utc
+        append true
+        <buffer>
+          timekey_use_utc true
+        </buffer>
+      ]
+      d.run(default_tag: 'test'){
+        d.feed(time, {"a"=>1})
+        d.feed(time, {"a"=>2})
+      }
+      d.instance.last_written_path
+    }
+
+    path = write_once.call
+    if File.basename(path) =~ /out_file_chunk_id_([-_.@a-zA-Z0-9].*).20110102.log/
+      unique_id = Fluent::UniqueId.hex(Fluent::UniqueId.generate)
+      assert_equal unique_id.size, $1.size, "chunk_id size is mismatched"
+    else
+      flunk "chunk_id is not included in the path"
+    end
+  end
+
   test 'symlink' do
     omit "Windows doesn't support symlink" if Fluent.windows?
     conf = CONFIG + %[
