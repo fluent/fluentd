@@ -21,7 +21,7 @@ require 'fluent/time'
 module Fluent
   module Test
     module Helpers
-      # See "Example Custom Assertion: http://test-unit.github.io/test-unit/en/Test/Unit/Assertions.html
+      # See "Example Custom Assertion: https://test-unit.github.io/test-unit/en/Test/Unit/Assertions.html
       def assert_equal_event_time(expected, actual, message = nil)
         expected_s = "#{Time.at(expected.sec)} (nsec #{expected.nsec})"
         actual_s   = "#{Time.at(actual.sec)  } (nsec #{actual.nsec})"

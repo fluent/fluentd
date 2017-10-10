@@ -1,6 +1,6 @@
 # Fluentd Enterprise Providers
 
-[Fluentd](http://www.fluentd.org) is widely adopted in the enterprise and in most of scenarios, production environments requires special support and services. The following document describe the certified  service providers and further guidelines to apply to become one.
+[Fluentd](https://www.fluentd.org) is widely adopted in the enterprise and in most of scenarios, production environments requires special support and services. The following document describe the certified  service providers and further guidelines to apply to become one.
 
 ## Fluentd Providers
 
@@ -10,7 +10,7 @@ The following section lists the companies that provides Support, Consulting Serv
 
 ### Treasure Data
 
-[Treasure Data](https://www.treasuredata.com) is one of the principal sponsors of Fluentd, it provides technical support, consulting services and [Fluentd Enterprise](https://fluentd.treasuredata.com/), a Fluentd-on steroids with enhanced security and connectors for enterprise backends such as [Apache Kafka](http://kafka.apache.org) and [Splunk](http://www.splunk.com) within others.
+[Treasure Data](https://www.treasuredata.com) is one of the principal sponsors of Fluentd, it provides technical support, consulting services and [Fluentd Enterprise](https://fluentd.treasuredata.com/), a Fluentd-on steroids with enhanced security and connectors for enterprise backends such as [Apache Kafka](https://kafka.apache.org) and [Splunk](https://www.splunk.com) within others.
 
 For more details about Fluentd Enterprise provided by Treasure Data, click [here](https://fluentd.treasuredata.com/).
 
@@ -35,7 +35,7 @@ In order to be listed as a service provider, please send an email using your cor
   - What kind of services around Fluentd do you provide ?
 - Community
   - List of activities of your company within the Fluentd community in the last 12 months
-  - Are you a member of the [Cloud Native Computing Foundation](http://cncf.io) ?
+  - Are you a member of the [Cloud Native Computing Foundation](https://cncf.io) ?
 
 ### Maintainers / Recipients
 
