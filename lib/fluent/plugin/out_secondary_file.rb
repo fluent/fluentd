@@ -71,7 +71,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      path_without_suffix = extract_placeholders(@path_without_suffix.gsub(CHUNK_ID_PLACEHOLDER_PATTERN, dump_unique_id_hex(chunk.unique_id)), chunk.metadata)
+      path_without_suffix = extract_placeholders(@path_without_suffix, chunk)
       path = generate_path(path_without_suffix)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 

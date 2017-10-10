@@ -684,9 +684,23 @@ module Fluent
       end
 
       # TODO: optimize this code
-      def extract_placeholders(str, metadata)
+      def extract_placeholders(str, chunk)
+        metadata = if chunk.is_a?(Fluent::Plugin::Buffer::Chunk)
+                     chunk_passed = true
+                     chunk.metadata
+                   else
+                     chunk_passed = false
+                     # For existing plugins. Old plugin passes Chunk.metadata instead of Chunk
+                     chunk
+                   end
         if metadata.empty?
-          str
+          str.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+            if chunk_passed
+              dump_unique_id_hex(chunk.unique_id)
+            else
+              log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
+            end
+          }
         else
           rvalue = str.dup
           # strftime formatting
@@ -721,7 +735,13 @@ module Fluent
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
             log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
           end
-          rvalue
+          rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+            if chunk_passed
+              dump_unique_id_hex(chunk.unique_id)
+            else
+              log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
+            end
+          }
         end
       end
 
@@ -800,6 +820,13 @@ module Fluent
           pairs = Hash[@chunk_key_accessors.map { |k, a| [k, a.call(record)] }]
           @buffer.metadata(timekey: timekey, tag: (@chunk_key_tag ? tag : nil), variables: pairs)
         end
+      end
+
+      def chunk_for_test(tag, time, record)
+        require 'fluent/plugin/buffer/memory_chunk'
+
+        m = metadata_for_test(tag, time, record)
+        Fluent::Plugin::Buffer::MemoryChunk.new(m)
       end
 
       def metadata_for_test(tag, time, record)
