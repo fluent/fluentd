@@ -844,6 +844,20 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     sock.close rescue nil
   end
 
+  def assert_certificate(cert, expected_extensions)
+    get_extension = lambda do |oid|
+      cert.extensions.detect { |e| e.oid == oid }
+    end
+
+    assert_true cert.serial > 1
+    assert_equal 2, cert.version
+
+    expected_extensions.each do |ext|
+      expected_oid, expected_value = ext
+      assert_equal expected_value, get_extension.call(expected_oid).value
+    end
+  end
+
   sub_test_case '#server_create_tls with various certificate options' do
     setup do
       @d = Dummy.new # to get plugin not configured/started yet
@@ -900,14 +914,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         private_key_path = File.join(@certs_dir, "server.key.pem")
         cert = create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
 
-        get_extension = lambda do |oid|
-          cert.extensions.detect { |e| e.oid == oid }
-        end
-
-        assert_true cert.serial > 1
-        assert_equal 2, cert.version
-        assert_equal 'CA:FALSE', get_extension.call('basicConstraints').value
-        assert_equal 'SSL Server', get_extension.call('nsCertType').value
+        assert_certificate(cert,[
+          ['basicConstraints', 'CA:FALSE'],
+          ['nsCertType', 'SSL Server']
+        ])
 
         tls_options = {
           protocol: :tls,
@@ -976,16 +986,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         private_key_path = File.join(@certs_dir, "server.key.pem")
         cert = create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
 
-        get_extension = lambda do |oid|
-          cert.extensions.detect { |e| e.oid == oid }
-        end
-
-        assert_true cert.serial > 1
-        assert_equal 2, cert.version
-        assert_equal 'CA:FALSE', get_extension.call('basicConstraints').value
-        assert_equal 'SSL Server', get_extension.call('nsCertType').value
-        assert_equal 'Digital Signature, Key Encipherment', get_extension.call('keyUsage').value
-        assert_equal 'TLS Web Server Authentication', get_extension.call('extendedKeyUsage').value
+        assert_certificate(cert,[
+            ['basicConstraints', 'CA:FALSE'],
+            ['nsCertType', 'SSL Server'],
+            ['keyUsage', 'Digital Signature, Key Encipherment'],
+            ['extendedKeyUsage', 'TLS Web Server Authentication']
+        ])
 
         tls_options = {
           protocol: :tls,
