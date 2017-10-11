@@ -966,7 +966,13 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         private_key_path = File.join(@certs_dir, "server.key.pem")
         cert = create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
 
+        get_extension = lambda do |oid|
+          cert.extensions.detect { |e| e.oid == oid }
+        end
+
         assert_equal 2, cert.version
+        assert_equal 'CA:FALSE', get_extension.call('basicConstraints').value
+        assert_equal 'SSL Server', get_extension.call('nsCertType').value
 
         tls_options = {
           protocol: :tls,
