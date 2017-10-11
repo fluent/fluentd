@@ -786,6 +786,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   def create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, passphrase)
     cert, key, _ = CertUtil.cert_option_generate_server_pair_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, create_server_options)
     write_cert_and_key(cert_path, cert, private_key_path, key, passphrase)
+    return cert
   end
 
   def create_server_pair_chained_with_root_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, passphrase)
@@ -963,7 +964,9 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
+        cert = create_server_pair_signed_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, cert_path, private_key_path, private_key_passphrase)
+
+        assert_equal 2, cert.version
 
         tls_options = {
           protocol: :tls,
