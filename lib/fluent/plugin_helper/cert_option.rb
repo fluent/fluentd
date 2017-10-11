@@ -132,6 +132,8 @@ module Fluent
         # basicConstraints: this cert is for CA or not
         cert.add_extension ef.create_extension('basicConstraints', 'CA:FALSE')
         cert.add_extension ef.create_extension('nsCertType', 'server')
+        cert.add_extension ef.create_extension('keyUsage', 'digitalSignature,keyEncipherment')
+        cert.add_extension ef.create_extension('extendedKeyUsage', 'serverAuth')
 
         cert.sign(ca_key, generate_opts[:digest].to_s)
         return cert, key, nil

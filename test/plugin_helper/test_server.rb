@@ -973,6 +973,8 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         assert_equal 2, cert.version
         assert_equal 'CA:FALSE', get_extension.call('basicConstraints').value
         assert_equal 'SSL Server', get_extension.call('nsCertType').value
+        assert_equal 'Digital Signature, Key Encipherment', get_extension.call('keyUsage').value
+        assert_equal 'TLS Web Server Authentication', get_extension.call('extendedKeyUsage').value
 
         tls_options = {
           protocol: :tls,
