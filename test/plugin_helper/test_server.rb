@@ -776,6 +776,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   def create_server_pair_signed_by_self(cert_path, private_key_path, passphrase)
     cert, key, _ = CertUtil.cert_option_generate_server_pair_self_signed(create_server_options)
     write_cert_and_key(cert_path, cert, private_key_path, key, passphrase)
+    return cert
   end
 
   def create_ca_pair_signed_by_self(cert_path, private_key_path, passphrase)
@@ -897,7 +898,16 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       test 'load self-signed cert/key pair (files), verified from clients using cert files' do |private_key_passphrase|
         cert_path = File.join(@server_cert_dir, "cert.pem")
         private_key_path = File.join(@certs_dir, "server.key.pem")
-        create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
+        cert = create_server_pair_signed_by_self(cert_path, private_key_path, private_key_passphrase)
+
+        get_extension = lambda do |oid|
+          cert.extensions.detect { |e| e.oid == oid }
+        end
+
+        assert_true cert.serial > 1
+        assert_equal 2, cert.version
+        assert_equal 'CA:FALSE', get_extension.call('basicConstraints').value
+        assert_equal 'SSL Server', get_extension.call('nsCertType').value
 
         tls_options = {
           protocol: :tls,

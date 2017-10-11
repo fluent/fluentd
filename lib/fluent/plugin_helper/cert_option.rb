@@ -112,11 +112,20 @@ module Fluent
         return cert, key
       end
 
+      def cert_option_add_extensions(cert, extensions)
+        ef = OpenSSL::X509::ExtensionFactory.new
+        extensions.each do |ext|
+          oid, value = ext
+          cert.add_extension ef.create_extension(oid, value)
+        end
+      end
+
       def cert_option_generate_ca_pair_self_signed(generate_opts)
         cert, key = cert_option_generate_pair(generate_opts)
 
-        # basicConstraints: this cert is for CA or not
-        cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(true)]))
+        cert_option_add_extensions(cert, [
+          ['basicConstraints', 'CA:TRUE']
+        ])
 
         cert.sign(key, generate_opts[:digest].to_s)
         return cert, key
@@ -128,12 +137,12 @@ module Fluent
         cert, key = cert_option_generate_pair(generate_opts, ca_cert.subject)
         raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
 
-        ef = OpenSSL::X509::ExtensionFactory.new
-        # basicConstraints: this cert is for CA or not
-        cert.add_extension ef.create_extension('basicConstraints', 'CA:FALSE')
-        cert.add_extension ef.create_extension('nsCertType', 'server')
-        cert.add_extension ef.create_extension('keyUsage', 'digitalSignature,keyEncipherment')
-        cert.add_extension ef.create_extension('extendedKeyUsage', 'serverAuth')
+        cert_option_add_extensions(cert, [
+          ['basicConstraints', 'CA:FALSE'],
+          ['nsCertType', 'server'],
+          ['keyUsage', 'digitalSignature,keyEncipherment'],
+          ['extendedKeyUsage', 'serverAuth']
+        ])
 
         cert.sign(ca_key, generate_opts[:digest].to_s)
         return cert, key, nil
@@ -143,9 +152,10 @@ module Fluent
         cert, key = cert_option_generate_pair(generate_opts)
         raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
 
-        # basicConstraints: this cert is for CA or not
-        cert.add_extension OpenSSL::X509::Extension.new('basicConstraints', OpenSSL::ASN1.Sequence([OpenSSL::ASN1::Boolean(false)]))
-        cert.add_extension OpenSSL::X509::Extension.new('nsCertType', 'server')
+        cert_option_add_extensions(cert, [
+          ['basicConstraints', 'CA:FALSE'],
+          ['nsCertType', 'server']
+        ])
 
         cert.sign(key, generate_opts[:digest].to_s)
         return cert, key, nil
