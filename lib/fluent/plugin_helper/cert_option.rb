@@ -105,7 +105,7 @@ module Fluent
         cert.not_after = Time.now + opts[:expiration]
         cert.public_key = key
         cert.version = 2
-        cert.serial = 1
+        cert.serial = rand(2**(8*10))
         cert.issuer = issuer
         cert.subject  = subject
 

@@ -970,6 +970,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
           cert.extensions.detect { |e| e.oid == oid }
         end
 
+        assert_true cert.serial > 1
         assert_equal 2, cert.version
         assert_equal 'CA:FALSE', get_extension.call('basicConstraints').value
         assert_equal 'SSL Server', get_extension.call('nsCertType').value
