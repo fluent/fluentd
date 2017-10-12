@@ -178,7 +178,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      path = extract_placeholders(@path_template.gsub(CHUNK_ID_PLACEHOLDER_PATTERN, dump_unique_id_hex(chunk.unique_id)), chunk.metadata)
+      path = extract_placeholders(@path_template, chunk)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       writer = case
