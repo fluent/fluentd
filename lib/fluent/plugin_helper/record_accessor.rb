@@ -133,8 +133,9 @@ module Fluent
 
           until param.empty?
             if in_bracket
-              if param[0] == "'"
-                if i = param.index("']")
+              if param[0] == "'" || param[0] == '"'
+                if i = param.index("']") || param.index('"]')
+                  raise Fluent::ConfigError, "Mismatched quotes. Invalid syntax: #{orig_param}" unless param[0] == param[i]
                   result << param[1..i - 1]
                   param = param[i + 2..-1]
                   in_bracket = false

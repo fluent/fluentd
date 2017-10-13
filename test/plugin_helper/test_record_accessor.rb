@@ -24,20 +24,23 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
     end
 
     data('dot' => '$.key1.key2[0]',
-         'bracket' => "$['key1']['key2'][0]")
+         'bracket' => "$['key1']['key2'][0]",
+         'bracket w/ double quotes' => '$["key1"]["key2"][0]')
     test "nested keys ['key1', 'key2', 0]" do |param|
       result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
       assert_equal ['key1', 'key2', 0], result
     end
 
-    data('bracket' => "$['key1'][0]['ke y2']")
+    data('bracket' => "$['key1'][0]['ke y2']",
+         'bracket w/ double quotes' => '$["key1"][0]["ke y2"]')
     test "nested keys ['key1', 0, 'ke y2']" do |param|
       result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
       assert_equal ['key1', 0, 'ke y2'], result
     end
 
     data('dot' => '$.[0].key1.[1].key2',
-         'bracket' => "$[0]['key1'][1]['key2']")
+         'bracket' => "$[0]['key1'][1]['key2']",
+         'bracket w/ double quotes' => '$[0]["key1"][1]["key2"]')
     test "nested keys [0, 'key1', 1, 'key2']" do |param|
       result = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
       assert_equal [0, 'key1', 1, 'key2'], result
@@ -49,7 +52,9 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
          "more chars" => "$.key1[0]foo",
          "whitespace char included key in dot notation" => "$.key[0].ke y",
          "empty keys with dot" => "$.",
-         "empty keys with bracket" => "$[")
+         "empty keys with bracket" => "$[",
+         "mismatched quotes1" => "$['key1']['key2\"]",
+         "mismatched quotes2" => '$["key1"]["key2\']')
     test 'invalid syntax' do |param|
       assert_raise Fluent::ConfigError do
         Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(param)
@@ -78,14 +83,16 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
     end
 
     data('dot' => '$.key1.key2[0]',
-         'bracket' => "$['key1']['key2'][0]")
+         'bracket' => "$['key1']['key2'][0]",
+         'bracket w/ double quotes' => '$["key1"]["key2"][0]')
     test "nested keys ['key1', 'key2', 0]" do |param|
       r = {'key1' => {'key2' => [1, 2, 3]}}
       accessor = @d.record_accessor_create(param)
       assert_equal 1, accessor.call(r)
     end
 
-    data('bracket' => "$['key1'][0]['ke y2']")
+    data('bracket' => "$['key1'][0]['ke y2']",
+         'bracket w/ double quotes' => '$["key1"][0]["ke y2"]')
     test "nested keys ['key1', 0, 'ke y2']" do |param|
       r = {'key1' => [{'ke y2' => "value"}]}
       accessor = @d.record_accessor_create(param)
@@ -98,7 +105,9 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
          "whitespace char included key in dot notation" => "$.key[0].ke y",
          "more chars" => "$.key1[0]foo",
          "empty keys with dot" => "$.",
-         "empty keys with bracket" => "$[")
+         "empty keys with bracket" => "$[",
+         "mismatched quotes1" => "$['key1']['key2\"]",
+         "mismatched quotes2" => '$["key1"]["key2\']')
     test 'invalid syntax' do |param|
       assert_raise Fluent::ConfigError do
         @d.record_accessor_create(param)
