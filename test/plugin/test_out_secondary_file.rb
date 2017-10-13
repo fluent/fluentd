@@ -260,6 +260,20 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/dump.bin", path
     end
 
+    test 'path with ${chunk_id}' do
+      d = create_driver %[
+        directory #{TMP_DIR}
+        basename out_file_chunk_id_${chunk_id}
+      ]
+      path = d.instance.write(@c)
+      if File.basename(path) =~ /out_file_chunk_id_([-_.@a-zA-Z0-9].*).0/
+        unique_id = Fluent::UniqueId.hex(Fluent::UniqueId.generate)
+        assert_equal unique_id.size, $1.size, "chunk_id size is mismatched"
+      else
+        flunk "chunk_id is not included in the path"
+      end
+    end
+
     data(
       invalid_tag: [/tag/, '${tag}'],
       invalid_tag0: [/tag\[0\]/, '${tag[0]}'],
