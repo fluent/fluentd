@@ -323,7 +323,7 @@ module Fluent
             else
               @queue << chunk
               @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
-              chunk.enqueued! if chunk.respond_to?(:enqueued!)
+              chunk.enqueued!
             end
           end
           bytesize = chunk.bytesize
@@ -340,7 +340,7 @@ module Fluent
             metadata = chunk.metadata
             @queue << chunk
             @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
-            chunk.enqueued! if chunk.respond_to?(:enqueued!)
+            chunk.enqueued!
           end
           @queue_size += chunk.bytesize
         end
