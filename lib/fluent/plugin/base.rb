@@ -156,6 +156,18 @@ module Fluent
         @_state.terminate
       end
 
+      def called_in_test?
+        caller_locations.each do |location|
+          # Thread::Backtrace::Location#path returns base filename or absolute path.
+          # #absolute_path returns absolute_path always.
+          # https://bugs.ruby-lang.org/issues/12159
+          if location.absolute_path =~ /\/test_[^\/]+\.rb$/ # location.path =~ /test_.+\.rb$/
+            return true
+          end
+        end
+        false
+      end
+
       def inspect
         # Plugin instances are sometimes too big to dump because it may have too many thins (buffer,storage, ...)
         # Original commit comment says that:

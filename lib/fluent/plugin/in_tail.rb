@@ -87,6 +87,8 @@ module Fluent::Plugin
 
     attr_reader :paths
 
+    @@pos_file_paths = {}
+
     def configure(conf)
       compat_parameters_convert(conf, :parser)
       parser_config = conf.elements('parse').first
@@ -109,7 +111,13 @@ module Fluent::Plugin
       end
 
       # TODO: Use plugin_root_dir and storage plugin to store positions if available
-      unless @pos_file
+      if @pos_file
+        if @@pos_file_paths.has_key?(@pos_file) && !called_in_test?
+          plugin_id_using_this_path = @@pos_file_paths[@pos_file]
+          raise Fluent::ConfigError, "Other 'in_tail' plugin already use same pos_file path: plugin_id = #{plugin_id_using_this_path}, pos_file path = #{@pos_file}"
+        end
+        @@pos_file_paths[@pos_file] = self.plugin_id
+      else
         $log.warn "'pos_file PATH' parameter is not set to a 'tail' source."
         $log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
