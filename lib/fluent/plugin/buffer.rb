@@ -313,20 +313,24 @@ module Fluent
 
       def enqueue_chunk(metadata)
         log.trace "enqueueing chunk", instance: self.object_id, metadata: metadata
-        synchronize do
-          chunk = @stage.delete(metadata)
-          return nil unless chunk
+        chunk = synchronize do
+          @stage.delete(metadata)
+        end
+        return nil unless chunk
 
-          chunk.synchronize do
-            if chunk.empty?
-              chunk.close
-            else
+        chunk.synchronize do
+          if chunk.empty?
+            chunk.close
+          else
+            synchronize do
               @queue << chunk
               @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
-              chunk.enqueued!
             end
+            chunk.enqueued!
           end
-          bytesize = chunk.bytesize
+        end
+        bytesize = chunk.bytesize
+        synchronize do
           @stage_size -= bytesize
           @queue_size += bytesize
         end
@@ -348,17 +352,16 @@ module Fluent
 
       def enqueue_all
         log.trace "enqueueing all chunks in buffer", instance: self.object_id
-        synchronize do
-          if block_given?
-            @stage.keys.each do |metadata|
-              chunk = @stage[metadata]
-              v = yield metadata, chunk
-              enqueue_chunk(metadata) if v
-            end
-          else
-            @stage.keys.each do |metadata|
-              enqueue_chunk(metadata)
-            end
+        if block_given?
+          synchronize{ @stage.keys }.each do |metadata|
+            chunk = @stage[metadata]
+            next unless chunk
+            v = yield metadata, chunk
+            enqueue_chunk(metadata) if v
+          end
+        else
+          synchronize{ @stage.keys }.each do |metadata|
+            enqueue_chunk(metadata)
           end
         end
       end
