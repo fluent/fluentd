@@ -66,7 +66,7 @@ module Fluent
         end
 
         type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
-        if @@buffer_paths.has_key?(@path) && !buffer_path_for_test?
+        if @@buffer_paths.has_key?(@path) && !called_in_test?
           type_using_this_path = @@buffer_paths[@path]
           raise ConfigError, "Other '#{type_using_this_path}' plugin already use same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
         end
@@ -112,18 +112,6 @@ module Fluent
           log.error "file buffer with multi workers should be configured to use directory 'path', or system root_dir and plugin id"
         end
         @multi_workers_available
-      end
-
-      def buffer_path_for_test?
-        caller_locations.each do |location|
-          # Thread::Backtrace::Location#path returns base filename or absolute path.
-          # #absolute_path returns absolute_path always.
-          # https://bugs.ruby-lang.org/issues/12159
-          if location.absolute_path =~ /\/test_[^\/]+\.rb$/ # location.path =~ /test_.+\.rb$/
-            return true
-          end
-        end
-        false
       end
 
       def start
