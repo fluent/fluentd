@@ -319,20 +319,18 @@ module Fluent
         return nil unless chunk
 
         chunk.synchronize do
-          if chunk.empty?
-            chunk.close
-          else
-            synchronize do
+          synchronize do
+            if chunk.empty?
+              chunk.close
+            else
               @queue << chunk
               @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
+              chunk.enqueued!
             end
-            chunk.enqueued!
+            bytesize = chunk.bytesize
+            @stage_size -= bytesize
+            @queue_size += bytesize
           end
-        end
-        bytesize = chunk.bytesize
-        synchronize do
-          @stage_size -= bytesize
-          @queue_size += bytesize
         end
         nil
       end
