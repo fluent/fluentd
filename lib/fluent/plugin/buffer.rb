@@ -269,7 +269,9 @@ module Fluent
         chunks_to_enqueue = []
 
         begin
-          metadata_and_data.each do |metadata, data|
+          # sort metadata to get lock of chunks in same order with other threads
+          metadata_and_data.keys.sort.each do |metadata|
+            data = metadata_and_data[metadata]
             write_once(metadata, data, format: format, size: size) do |chunk, adding_bytesize|
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
