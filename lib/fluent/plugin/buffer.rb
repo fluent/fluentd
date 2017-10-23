@@ -352,6 +352,8 @@ module Fluent
         log.trace "enqueueing all chunks in buffer", instance: self.object_id
         if block_given?
           synchronize{ @stage.keys }.each do |metadata|
+            # NOTE: The following line might cause data race depending on Ruby implementations except CRuby
+            # cf. https://github.com/fluent/fluentd/pull/1721#discussion_r146170251
             chunk = @stage[metadata]
             next unless chunk
             v = yield metadata, chunk
