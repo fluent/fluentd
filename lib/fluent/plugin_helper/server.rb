@@ -425,9 +425,12 @@ module Fluent
       end
 
       class TCPCallbackSocket < CallbackSocket
+        attr_accessor :buffer
+
         def initialize(sock)
           super("tcp", sock, [:data, :write_complete, :close])
           @peeraddr = @sock.peeraddr
+          @buffer = ''
         end
 
         def write(data)
