@@ -72,14 +72,16 @@ module Fluent
             return 1
           end
           # both of v1 and v2 are non-nil
-          if v1.keys.sort != v2.keys.sort
-            if v1.keys.size == v2.keys.size
-              v1.keys.sort <=> v2.keys.sort
+          v1_sorted_keys = v1.keys.sort
+          v2_sorted_keys = v2.keys.sort
+          if v1_sorted_keys != v2_sorted_keys
+            if v1_sorted_keys.size == v2_sorted_keys.size
+              v1_sorted_keys <=> v2_sorted_keys
             else
-              v1.keys.size <=> v2.keys.size
+              v1_sorted_keys.size <=> v2_sorted_keys.size
             end
           else
-            v1.keys.sort.each do |k|
+            v1_sorted_keys.each do |k|
               a = v1[k]
               b = v2[k]
               if a && b && a != b
