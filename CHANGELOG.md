@@ -1,5 +1,31 @@
 # v0.14
 
+## Release v0.14.22 - 2017/11/01
+
+### New features / Enhancements
+
+* formatter_tsv: Add add_newline parameter
+  https://github.com/fluent/fluentd/pull/1691
+* out_file/out_secondary_file: Support ${chunk_id} placeholder. This includes extrace_placeholders API change
+  https://github.com/fluent/fluentd/pull/1708
+* record_accessor: Support double quotes in bracket notation
+  https://github.com/fluent/fluentd/pull/1716
+* log: Show running ruby version in startup log
+  https://github.com/fluent/fluentd/pull/1717
+* log: Log message when chunk is created
+  https://github.com/fluent/fluentd/pull/1718
+* in_tail: Add pos_file duplication check
+  https://github.com/fluent/fluentd/pull/1720
+
+### Bug fixes
+
+* parser_apache2: Delay time parser initialization
+  https://github.com/fluent/fluentd/pull/1690
+* cert_option: Improve generated certificates' conformance to X.509 specification 
+  https://github.com/fluent/fluentd/pull/1714
+* buffer: Always lock chunks first to avoid deadlock
+  https://github.com/fluent/fluentd/pull/1721
+
 ## Release v0.14.21 - 2017/09/07
 
 ### New features / Enhancements
