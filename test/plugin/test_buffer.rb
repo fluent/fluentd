@@ -851,7 +851,8 @@ class BufferTest < Test::Unit::TestCase
       assert{ @p.stage[@dm1].size == 2 }
       assert !@p.stage[@dm1].rollbacked
 
-      @p.stage[@dm1].failing = true
+      meta_list = [@dm0, @dm1, @dm2, @dm3].sort
+      @p.stage[meta_list.last].failing = true
 
       assert_raise(FluentPluginBufferTest::DummyMemoryChunkError) do
         @p.write({ @dm2 => [row], @dm3 => [row], @dm0 => [row, row, row], @dm1 => [row, row] })

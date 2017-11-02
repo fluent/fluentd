@@ -62,6 +62,74 @@ module Fluent
         def empty?
           timekey.nil? && tag.nil? && variables.nil?
         end
+
+        def cmp_variables(v1, v2)
+          if v1.nil? && v2.nil?
+            return 0
+          elsif v1.nil? # v2 is non-nil
+            return -1
+          elsif v2.nil? # v1 is non-nil
+            return 1
+          end
+          # both of v1 and v2 are non-nil
+          v1_sorted_keys = v1.keys.sort
+          v2_sorted_keys = v2.keys.sort
+          if v1_sorted_keys != v2_sorted_keys
+            if v1_sorted_keys.size == v2_sorted_keys.size
+              v1_sorted_keys <=> v2_sorted_keys
+            else
+              v1_sorted_keys.size <=> v2_sorted_keys.size
+            end
+          else
+            v1_sorted_keys.each do |k|
+              a = v1[k]
+              b = v2[k]
+              if a && b && a != b
+                return a <=> b
+              elsif a && b || (!a && !b) # same value (including both are nil)
+                next
+              elsif a # b is nil
+                return 1
+              else # a is nil (but b is non-nil)
+                return -1
+              end
+            end
+
+            0
+          end
+        end
+
+        def <=>(o)
+          timekey2 = o.timekey
+          tag2 = o.tag
+          variables2 = o.variables
+          if (!!timekey ^ !!timekey2) || (!!tag ^ !!tag2) || (!!variables ^ !!variables2)
+            # One has value in a field, but another doesn't have value in same field
+            # This case occurs very rarely
+            if timekey == timekey2 # including the case of nil == nil
+              if tag == tag2
+                cmp_variables(variables, variables2)
+              elsif tag.nil?
+                -1
+              elsif tag2.nil?
+                1
+              else
+                tag <=> tag2
+              end
+            elsif timekey.nil?
+              -1
+            elsif timekey2.nil?
+              1
+            else
+              timekey <=> timekey2
+            end
+          else
+            # objects have values in same field pairs (comparison with non-nil and nil doesn't occur here)
+            (timekey <=> timekey2 || 0).nonzero? || # if `a <=> b` is nil, then both are nil
+              (tag <=> tag2 || 0).nonzero? ||
+              cmp_variables(variables, variables2)
+          end
+        end
       end
 
       # for tests
@@ -203,7 +271,9 @@ module Fluent
         chunks_to_enqueue = []
 
         begin
-          metadata_and_data.each do |metadata, data|
+          # sort metadata to get lock of chunks in same order with other threads
+          metadata_and_data.keys.sort.each do |metadata|
+            data = metadata_and_data[metadata]
             write_once(metadata, data, format: format, size: size) do |chunk, adding_bytesize|
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
