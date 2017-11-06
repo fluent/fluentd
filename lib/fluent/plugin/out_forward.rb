@@ -395,9 +395,6 @@ module Fluent::Plugin
 
     def on_timer
       @nodes.each {|n|
-        if n.tick
-          rebuild_weight_array
-        end
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
@@ -406,6 +403,9 @@ module Fluent::Plugin
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         rescue => e
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+        end
+        if n.tick
+          rebuild_weight_array
         end
       }
     end
