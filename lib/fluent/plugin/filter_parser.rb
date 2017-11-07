@@ -53,7 +53,7 @@ class Fluent::ParserFilter < Fluent::Filter
             if @emit_invalid_record_to_error
               router.emit_error_event(tag, time, record, ::Fluent::ParserError.new("pattern not match with data '#{raw_value}'"))
             else
-              log.warn "pattern not match with data '#{raw_value}'" unless @suppress_parse_error_log
+              log.warn "pattern not match with data '#{raw_value.dump}'" unless @suppress_parse_error_log
             end
             if @reserve_data
               t = time
