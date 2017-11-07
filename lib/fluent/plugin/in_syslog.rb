@@ -156,8 +156,8 @@ module Fluent::Plugin
       delimiter = "\n"
       delimiter_size = delimiter.size
       server_create_connection(:in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_hostname) do |conn|
-        buffer = ""
         conn.data do |data|
+          buffer = conn.buffer
           buffer << data
           pos = 0
           while idx = buffer.index(delimiter, pos)
