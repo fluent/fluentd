@@ -394,9 +394,6 @@ module Fluent
     def on_timer
       return if @finished
       @nodes.each {|n|
-        if n.tick
-          rebuild_weight_array
-        end
         begin
           #log.trace "sending heartbeat #{n.host}:#{n.port} on #{@heartbeat_type}"
           if @heartbeat_type == :tcp
@@ -407,6 +404,9 @@ module Fluent
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED
           # TODO log
           log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", error: $!.to_s
+        end
+        if n.tick
+          rebuild_weight_array
         end
       }
     end
