@@ -425,10 +425,12 @@ module Fluent
       end
 
       class TCPCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = [:data, :write_complete, :close]
+
         attr_accessor :buffer
 
         def initialize(sock)
-          super("tcp", sock, [:data, :write_complete, :close])
+          super("tcp", sock, ENABLED_EVENTS)
           @peeraddr = @sock.peeraddr
           @buffer = ''
         end
@@ -439,8 +441,10 @@ module Fluent
       end
 
       class TLSCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = [:data, :write_complete, :close]
+
         def initialize(sock)
-          super("tls", sock, [:data, :write_complete, :close])
+          super("tls", sock, ENABLED_EVENTS)
           @peeraddr = @sock.to_io.peeraddr
         end
 
@@ -450,8 +454,10 @@ module Fluent
       end
 
       class UDPCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = []
+
         def initialize(sock, peeraddr, **kwargs)
-          super("udp", sock, [], **kwargs)
+          super("udp", sock, ENABLED_EVENTS, **kwargs)
           @peeraddr = peeraddr
         end
 
