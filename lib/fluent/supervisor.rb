@@ -164,7 +164,7 @@ module Fluent
       end
 
       if config[:worker_pid]
-        config[:worker_pid].each do |pid|
+        config[:worker_pid].each_value do |pid|
           Process.kill(:USR1, pid)
           # don't rescue Erro::ESRSH here (invalid status)
         end
@@ -175,7 +175,7 @@ module Fluent
       if config[:worker_pid]
         pids = config[:worker_pid].clone
         config[:worker_pid].clear
-        pids.each do |pid|
+        pids.each_value do |pid|
           if Fluent.windows?
             Process.kill :KILL, pid
           else
@@ -204,7 +204,7 @@ module Fluent
     end
 
     def after_start
-      (config[:worker_pid] ||= []).push(@pm.pid)
+      (config[:worker_pid] ||= {})[@worker_id] = @pm.pid
     end
   end
 
