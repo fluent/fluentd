@@ -149,4 +149,27 @@ class UdpInputTest < Test::Unit::TestCase
       assert_equal expected_record, d.events[i][2]
     end
   end
+
+  test 'remove_newline' do
+    d = create_driver(BASE_CONFIG + %!
+      format none
+      remove_newline false
+    !)
+    payloads = ["test1\n", "test2\n"]
+    d.run(expect_records: 2) do
+      create_udp_socket('127.0.0.1', PORT) do |u|
+        payloads.each do |payload|
+          u.send(payload, 0)
+        end
+      end
+    end
+
+    expecteds = payloads.map { |payload| {'message' => payload} }
+    assert_equal 2, d.events.size
+    expecteds.each_with_index do |expected_record, i|
+      assert_equal "udp", d.events[i][0]
+      assert d.events[i][1].is_a?(Fluent::EventTime)
+      assert_equal expected_record, d.events[i][2]
+    end
+  end
 end
