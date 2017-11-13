@@ -34,6 +34,16 @@ module Fluent::Plugin
 
     helpers :timer, :event_loop, :parser, :compat_parameters
 
+    class WatcherSetupError < StandardError
+      def initialize(msg)
+        @message = msg
+      end
+
+      def to_s
+        @message
+      end
+    end
+
     FILE_PERMISSION = 0644
 
     def initialize
@@ -250,6 +260,12 @@ module Fluent::Plugin
         event_loop_attach(watcher.stat_trigger)
       end
       tw
+    rescue => e
+      if tw
+        tw.detach
+        tw.close
+      end
+      raise e
     end
 
     def start_watchers(paths)
@@ -266,7 +282,13 @@ module Fluent::Plugin
           end
         end
 
-        @tails[path] = setup_watcher(path, pe)
+        begin
+          tw = setup_watcher(path, pe)
+        rescue WatcherSetupError => e
+          log.warn "Skip #{path} because unexpected setup error happens: #{e}"
+          next
+        end
+        @tails[path] = tw
       }
     end
 
@@ -480,8 +502,8 @@ module Fluent::Plugin
       end
 
       def detach
-        @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
-        @stat_trigger.detach if @stat_trigger.attached?
+        @timer_trigger.detach if @enable_watch_timer && @timer_trigger && @timer_trigger.attached?
+        @stat_trigger.detach if @stat_trigger && @stat_trigger.attached?
         @io_handler.on_notify if @io_handler
       end
 
@@ -698,6 +720,9 @@ module Fluent::Plugin
           io = Fluent::FileWrapper.open(@watcher.path)
           io.seek(@watcher.pe.read_pos + @fifo.bytesize)
           io
+        rescue RangeError
+          io.close if io
+          raise WatcherSetupError, "seek error with #{@watcher.path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
         rescue Errno::ENOENT
           nil
         end
@@ -715,6 +740,9 @@ module Fluent::Plugin
               @io ||= open
               yield @io
             end
+          rescue WatcherSetupError => e
+            close
+            raise e
           rescue
             @watcher.log.error $!.to_s
             @watcher.log.error_backtrace
