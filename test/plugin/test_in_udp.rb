@@ -104,6 +104,26 @@ class UdpInputTest < Test::Unit::TestCase
     end
   }
 
+  test "remove_newline" do
+    tests = [{'msg' => "test1\n", 'expected' => "test1\n"},
+             {'msg' => "test2\n", 'expected' => "test2\n"}]
+
+    d = create_driver(BASE_CONFIG + %!
+      format none
+      remove_newline false
+    !)
+    d.run do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each { |test|
+        u.send(test['msg'], 0)
+      }
+      sleep 1
+    end
+
+    compare_test_result(d.emits, tests)
+  end
+
   def compare_test_result(emits, tests)
     assert_equal(2, emits.size)
     emits.each_index {|i|

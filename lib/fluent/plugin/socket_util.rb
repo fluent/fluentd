@@ -32,18 +32,19 @@ module Fluent
     module_function :create_udp_socket
 
     class UdpHandler < Coolio::IO
-      def initialize(io, log, body_size_limit, callback, resolve_hostname = false)
+      def initialize(io, log, body_size_limit, callback, resolve_hostname = false, remove_newline = true)
         super(io)
         @io = io
         @io.do_not_reverse_lookup = !resolve_hostname
         @log = log
         @body_size_limit = body_size_limit
+        @remove_newline = remove_newline
         @callback = callback
       end
 
       def on_readable
         msg, addr = @io.recvfrom_nonblock(@body_size_limit)
-        msg.chomp!
+        msg.chomp! if @remove_newline
         @callback.call(msg, addr)
       rescue => e
         @log.error "unexpected error", error: e, error_class: e.class
