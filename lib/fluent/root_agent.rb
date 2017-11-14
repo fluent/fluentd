@@ -304,7 +304,7 @@ module Fluent
     end
 
     def handle_emits_error(tag, es, error)
-      error_info = {error: error, tag: tag}
+      error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag}
       if @error_collector
         log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
@@ -333,7 +333,7 @@ module Fluent
       end
 
       def emit_error_event(tag, time, record, error)
-        error_info = {error: error, tag: tag, time: time, record: record}
+        error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time, record: record}
         log.warn "dump an error event in @ERROR:", error_info
       end
 
