@@ -177,7 +177,7 @@ module Fluent
     end
 
     def emit_error_event(tag, time, record, error)
-      error_info = {error_class: error.class, error: error.to_s, tag: tag, time: time}
+      error_info = {error_class: error.class, error: error.to_s, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time}
       if @error_collector
         # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
         log.warn "send an error event to @ERROR:", error_info
@@ -189,7 +189,7 @@ module Fluent
     end
 
     def handle_emits_error(tag, es, error)
-      error_info = {error_class: error.class, error: error.to_s, tag: tag}
+      error_info = {error_class: error.class, error: error.to_s, location: (error.backtrace ? error.backtrace.first : nil), tag: tag}
       if @error_collector
         log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
@@ -218,7 +218,7 @@ module Fluent
       end
 
       def emit_error_event(tag, time, record, error)
-        error_info = {error_class: error.class, error: error.to_s, tag: tag, time: time, record: record}
+        error_info = {error_class: error.class, error: error.to_s, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time, record: record}
         log.warn "dump an error event in @ERROR:", error_info
       end
 
