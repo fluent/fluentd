@@ -292,7 +292,7 @@ module Fluent
     end
 
     def emit_error_event(tag, time, record, error)
-      error_info = {error: error, tag: tag, time: time}
+      error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time}
       if @error_collector
         # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
         log.warn "send an error event to @ERROR:", error_info
