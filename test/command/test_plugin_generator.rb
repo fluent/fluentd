@@ -4,6 +4,7 @@ require 'pathname'
 require 'fluent/command/plugin_generator'
 
 class TestFluentPluginGenerator < Test::Unit::TestCase
+  sub_test_case "generate plugin" do
   TEMP_DIR = "tmp/plugin_generator"
   setup do
     FileUtils.mkdir_p(TEMP_DIR)
@@ -62,5 +63,6 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
       end
     end
     assert { out.lines.include?("License: unknown\n") }
+  end
   end
 end
