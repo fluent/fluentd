@@ -50,8 +50,6 @@ The submission process starts as a Pull Request on Fluentd repository with the r
 
 ## Code of Conduct
 
-The Fluentd community abides by the CNCF code of conduct. Here is an excerpt:
+Fluentd follows the CNCF Code of Conduct:
 
-As contributors and maintainers of this project, and in the interest of fostering an open and welcoming community, we pledge to respect all people who contribute through reporting issues, posting feature requests, updating documentation, submitting pull requests or patches, and other activities.
-
-As a member of the Fluentd project, you represent the project and your fellow contributors. We value our community tremendously and we'd like to keep cultivating a friendly and collaborative environment for our contributors and users. We want everyone in the community to have positive experiences.
+https://github.com/cncf/foundation/blob/master/code-of-conduct.md
