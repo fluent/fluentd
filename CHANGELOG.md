@@ -1,5 +1,29 @@
 # v0.14
 
+## Release v0.14.23 - 2017/11/15
+
+### New features / Enhancements
+
+* in_udp: Add remove_newline parameter
+  https://github.com/fluent/fluentd/pull/1747
+
+### Bug fixes
+
+* buffer: Lock buffers in order of metadata
+  https://github.com/fluent/fluentd/pull/1722
+* in_tcp: Fix log corruption under load.
+  https://github.com/fluent/fluentd/pull/1729
+* out_forward: Fix elapsed time miscalculation in tcp heartbeat
+  https://github.com/fluent/fluentd/pull/1738
+* supervisor: Fix worker pid handling during worker restart
+  https://github.com/fluent/fluentd/pull/1739
+* in_tail: Skip setup failed watcher to avoid resource leak and log bloat
+  https://github.com/fluent/fluentd/pull/1742
+* agent: Add error location to emit error logs
+  https://github.com/fluent/fluentd/pull/1746
+* command: Consider hyphen and underscore in fluent-plugin-generate arguments
+  https://github.com/fluent/fluentd/pull/1751
+
 ## Release v0.14.22 - 2017/11/01
 
 ### New features / Enhancements
