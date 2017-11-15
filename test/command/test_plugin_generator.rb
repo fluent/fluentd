@@ -4,19 +4,19 @@ require 'pathname'
 require 'fluent/command/plugin_generator'
 
 class TestFluentPluginGenerator < Test::Unit::TestCase
+  TEMP_DIR = "tmp/plugin_generator"
+  setup do
+    FileUtils.mkdir_p(TEMP_DIR)
+    @pwd = Dir.pwd
+    Dir.chdir(TEMP_DIR)
+  end
+
+  teardown do
+    Dir.chdir(@pwd)
+    FileUtils.rm_rf(TEMP_DIR)
+  end
+
   sub_test_case "generate plugin" do
-    TEMP_DIR = "tmp/plugin_generator"
-    setup do
-      FileUtils.mkdir_p(TEMP_DIR)
-      @pwd = Dir.pwd
-      Dir.chdir(TEMP_DIR)
-    end
-
-    teardown do
-      Dir.chdir(@pwd)
-      FileUtils.rm_rf(TEMP_DIR)
-    end
-
     data(input: ["input", "in"],
          output: ["output", "out"],
          filter: ["filter", "filter"],
@@ -63,6 +63,30 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
         end
       end
       assert { out.lines.include?("License: unknown\n") }
+    end
+  end
+
+  sub_test_case "unify plugin name" do
+    data("word" => ["fake", "fake"],
+         "underscore" => ["rewrite_tag_filter", "rewrite_tag_filter"],
+         "dash" => ["rewrite-tag-filter", "rewrite_tag_filter"])
+    test "plugin_name" do |(name, plugin_name)|
+      generator = FluentPluginGenerator.new(["filter", name])
+      capture_stdout do
+        generator.call
+      end
+      assert_equal(plugin_name, generator.__send__(:plugin_name))
+    end
+
+    data("word" => ["fake", "fluent-plugin-fake"],
+         "underscore" => ["rewrite_tag_filter", "fluent-plugin-rewrite-tag-filter"],
+         "dash" => ["rewrite-tag-filter", "fluent-plugin-rewrite-tag-filter"])
+    test "gem_name" do |(name, gem_name)|
+      generator = FluentPluginGenerator.new(["output", name])
+      capture_stdout do
+        generator.call
+      end
+      assert_equal(gem_name, generator.__send__(:gem_name))
     end
   end
 end

@@ -5,7 +5,7 @@ require "fluent/plugin/parser"
 module Fluent
   module Plugin
     class <%= class_name %> < Fluent::Plugin::Parser
-      Fluent::Plugin.register_parser("<%= name %>", self)
+      Fluent::Plugin.register_parser("<%= plugin_name %>", self)
     end
 
     def parse(text)
