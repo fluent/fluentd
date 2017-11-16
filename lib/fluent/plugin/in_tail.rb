@@ -24,6 +24,16 @@ module Fluent
   class NewTailInput < Input
     Plugin.register_input('tail', self)
 
+    class WatcherSetupError < StandardError
+      def initialize(msg)
+        @message = msg
+      end
+
+      def to_s
+        @message
+      end
+    end
+
     def initialize
       super
       @paths = []
@@ -65,6 +75,8 @@ module Fluent
     config_param :skip_refresh_on_startup, :bool, default: false
     desc 'Ignore repeated permission error logs'
     config_param :ignore_repeated_permission_error, :bool, default: false
+    # This option is for Cool.io's loop wait timeout to avoid loop stuck at shutdown. Almost users don't need to change this value.
+    config_param :blocking_timeout, :time, default: 0.5
 
     attr_reader :paths
 
@@ -207,6 +219,9 @@ module Fluent
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher,  &method(:receive_lines))
       tw.attach(@loop)
       tw
+    rescue => e
+      tw.close if tw
+      raise e
     end
 
     def start_watchers(paths)
@@ -223,7 +238,13 @@ module Fluent
           end
         end
 
-        @tails[path] = setup_watcher(path, pe)
+        begin
+          tw = setup_watcher(path, pe)
+        rescue WatcherSetupError => e
+          log.warn "Skip #{path} because unexpected setup error happens: #{e}"
+          next
+        end
+        @tails[path] = tw
       }
     end
 
@@ -292,7 +313,7 @@ module Fluent
     end
 
     def run
-      @loop.run
+      @loop.run(@blocking_timeout)
     rescue
       log.error "unexpected error", error: $!.to_s
       log.error_backtrace
@@ -436,8 +457,8 @@ module Fluent
       end
 
       def detach
-        @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
-        @stat_trigger.detach if @stat_trigger.attached?
+        @timer_trigger.detach if @enable_watch_timer && @timer_trigger && @timer_trigger.attached?
+        @stat_trigger.detach if @stat_trigger && @stat_trigger.attached?
       end
 
       def close(close_io = true)
@@ -485,7 +506,12 @@ module Fluent
               pos = @read_from_head ? 0 : fsize
               @pe.update(inode, pos)
             end
-            io.seek(pos)
+
+            begin
+              io.seek(pos)
+            rescue RangeError
+              raise WatcherSetupError, "seek error with #{@path}: file_position = #{pos.to_s(16)}"
+            end
 
             @io_handler = IOHandler.new(io, @pe, @log, @read_lines_limit, &method(:wrap_receive_lines))
           else
@@ -690,6 +716,9 @@ module Fluent
             @fsize = fsize
           end
 
+        rescue WatcherSetupError => e
+          io.close if io
+          raise e
         rescue
           @log.error $!.to_s
           @log.error_backtrace
