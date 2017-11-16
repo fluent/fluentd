@@ -31,6 +31,8 @@ class FluentPluginConfigFormatter
     "buffer", "parser", "formatter", "storage"
   ]
 
+  DOCS_BASE_URL = "https://docs.fluentd.org/v0.14/articles/"
+
   def initialize(argv = ARGV)
     @argv = argv
 
@@ -134,7 +136,7 @@ class FluentPluginConfigFormatter
     if plugin_helpers && !plugin_helpers.empty?
       dumped = "## Plugin helpers\n\n"
       plugin_helpers.each do |plugin_helper|
-        dumped << "* #{plugin_helper}\n"
+        dumped << "* #{plugin_helper_markdown_link(plugin_helper)}\n"
       end
       dumped << "\n"
     end
@@ -143,7 +145,7 @@ class FluentPluginConfigFormatter
         dumped << "## #{name}\n\n"
         dumped << dump_section_markdown(config)
       else
-        dumped << "* See also: #{name}\n\n"
+        dumped << "* See also: #{plugin_overview_markdown_link(name)}\n\n"
       end
     end
     dumped
@@ -179,6 +181,24 @@ class FluentPluginConfigFormatter
     else
       JSON.pretty_generate(dumped_config)
     end
+  end
+
+  def plugin_helper_url(plugin_helper)
+    "#{DOCS_BASE_URL}api-plugin-helper-#{plugin_helper}"
+  end
+
+  def plugin_helper_markdown_link(plugin_helper)
+    "[#{plugin_helper}](#{plugin_helper_url(plugin_helper)})"
+  end
+
+  def plugin_overview_url(class_name)
+    plugin_type = class_name.slice(/::(\w+)\z/, 1).downcase
+    "#{DOCS_BASE_URL}#{plugin_type}-plugin-overview"
+  end
+
+  def plugin_overview_markdown_link(class_name)
+    plugin_type = class_name.slice(/::(\w+)\z/, 1)
+    "[#{plugin_type} Plugin Overview](#{plugin_overview_url(class_name)})"
   end
 
   def usage(message = nil)
