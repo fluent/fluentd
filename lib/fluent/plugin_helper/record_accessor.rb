@@ -37,7 +37,7 @@ module Fluent
 
           # Call [] for single key to reduce dig overhead
           m = method(@keys.is_a?(Array) ? :call_dig : :call_index)
-          (class << self; self; end).module_eval do
+          singleton_class.module_eval do
             define_method(:call, m)
           end
         end

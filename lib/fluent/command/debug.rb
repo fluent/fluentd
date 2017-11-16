@@ -34,7 +34,7 @@ op.on('-u', '--unix PATH', "use unix socket instead of tcp") {|b|
   unix = b
 }
 
-(class << self; self; end).module_eval do
+singleton_class.module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
     puts "error: #{msg}" if msg
