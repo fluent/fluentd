@@ -195,7 +195,7 @@ if Fluent.windows?
 end
 
 
-(class << self; self; end).module_eval do
+singleton_class.module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
     puts "error: #{msg}" if msg

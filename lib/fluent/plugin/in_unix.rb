@@ -146,7 +146,7 @@ module Fluent
           @u = Fluent::Engine.msgpack_factory.unpacker
         end
 
-        (class << self; self; end).module_eval do
+        singleton_class.module_eval do
           define_method(:on_read, m)
         end
         m.call(data)

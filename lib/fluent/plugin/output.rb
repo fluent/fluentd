@@ -224,7 +224,7 @@ module Fluent
         end
         self.context_router = primary.context_router
 
-        (class << self; self; end).module_eval do
+        singleton_class.module_eval do
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
           define_method(:rollback_write){ |chunk_id| @primary_instance.rollback_write(chunk_id) }
         end
@@ -389,7 +389,7 @@ module Fluent
 
         if @buffering
           m = method(:emit_buffered)
-          (class << self; self; end).module_eval do
+          singleton_class.module_eval do
             define_method(:emit_events, m)
           end
 
@@ -403,7 +403,7 @@ module Fluent
           @delayed_commit_timeout = @buffer_config.delayed_commit_timeout
         else # !@buffering
           m = method(:emit_sync)
-          (class << self; self; end).module_eval do
+          singleton_class.module_eval do
             define_method(:emit_events, m)
           end
         end
