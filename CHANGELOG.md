@@ -1,5 +1,23 @@
 # v0.12
 
+## Release 0.12.41 - 2017/11/15
+
+### New features / Enhancements
+
+* in_udp: Add remove_newline parameter
+  https://github.com/fluent/fluentd/pull/1748
+
+### Bug fixes
+
+* out_forward: Fix elapsed time miscalculation in tcp heartbeat
+  https://github.com/fluent/fluentd/pull/1738
+* in_tail: Skip setup failed watcher to avoid resource leak and log bloat
+  https://github.com/fluent/fluentd/pull/1752
+* agent: Add error location to emit error logs
+  https://github.com/fluent/fluentd/pull/1746
+* filter_parser: Fix dumpped result for avoiding escape sequence injection
+  https://github.com/fluent/fluentd/pull/1733
+
 ## Release 0.12.40 - 2017/08/25
 
 ### Bug fixes
