@@ -535,6 +535,7 @@ module Fluent
               io_handler = IOHandler.new(io, @pe, @log, @read_lines_limit, &method(:wrap_receive_lines))
               @io_handler = io_handler
             else # file is rotated and new file found
+              io.close unless io.closed?
               detach
               @update_watcher.call(@path, swap_state(@pe))
             end
