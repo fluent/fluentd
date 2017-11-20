@@ -545,10 +545,10 @@ module Fluent
     end
 
     ## Set Engine's dry_run_mode true to override all target_id of worker sections
-    def dry_run
+    def dry_run(with_change_privilege = true)
       begin
         Fluent::Engine.dry_run_mode = true
-        change_privilege
+        change_privilege if with_change_privilege
         init_engine
         run_configure
       rescue Fluent::ConfigError => e
@@ -568,7 +568,7 @@ module Fluent
 
     def supervise
       # Make dumpable conf, which is set corresponding_proxies for all elements in all worker sections
-      dry_run
+      dry_run(false)
 
       Process.setproctitle("supervisor:#{@process_name}") if @process_name
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid, ruby: RUBY_VERSION
