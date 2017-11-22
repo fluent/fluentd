@@ -370,6 +370,8 @@ module Fluent
         sock
       end
 
+      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+
       class CallbackSocket
         def initialize(server_type, sock, enabled_events = [], close_socket: true)
           @server_type = server_type
@@ -431,7 +433,7 @@ module Fluent
 
         def initialize(sock)
           super("tcp", sock, ENABLED_EVENTS)
-          @peeraddr = @sock.peeraddr
+          @peeraddr = (@sock.peeraddr rescue PEERADDR_FAILED)
           @buffer = ''
         end
 
@@ -445,7 +447,7 @@ module Fluent
 
         def initialize(sock)
           super("tls", sock, ENABLED_EVENTS)
-          @peeraddr = @sock.to_io.peeraddr
+          @peeraddr = (@sock.to_io.peeraddr rescue PEERADDR_FAILED)
         end
 
         def write(data)
