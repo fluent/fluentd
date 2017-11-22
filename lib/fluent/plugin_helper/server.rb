@@ -370,6 +370,9 @@ module Fluent
         sock
       end
 
+      # Use string "?" for port, not integer or nil. "?" is clear than -1 or nil in the log.
+      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+
       class CallbackSocket
         def initialize(server_type, sock, enabled_events = [], close_socket: true)
           @server_type = server_type
@@ -425,11 +428,13 @@ module Fluent
       end
 
       class TCPCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = [:data, :write_complete, :close]
+
         attr_accessor :buffer
 
         def initialize(sock)
-          super("tcp", sock, [:data, :write_complete, :close])
-          @peeraddr = @sock.peeraddr
+          super("tcp", sock, ENABLED_EVENTS)
+          @peeraddr = (@sock.peeraddr rescue PEERADDR_FAILED)
           @buffer = ''
         end
 
@@ -439,9 +444,11 @@ module Fluent
       end
 
       class TLSCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = [:data, :write_complete, :close]
+
         def initialize(sock)
-          super("tls", sock, [:data, :write_complete, :close])
-          @peeraddr = @sock.to_io.peeraddr
+          super("tls", sock, ENABLED_EVENTS)
+          @peeraddr = (@sock.to_io.peeraddr rescue PEERADDR_FAILED)
         end
 
         def write(data)
@@ -450,8 +457,10 @@ module Fluent
       end
 
       class UDPCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = []
+
         def initialize(sock, peeraddr, **kwargs)
-          super("udp", sock, [], **kwargs)
+          super("udp", sock, ENABLED_EVENTS, **kwargs)
           @peeraddr = peeraddr
         end
 
