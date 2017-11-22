@@ -370,6 +370,7 @@ module Fluent
         sock
       end
 
+      # Use string "?" for port, not integer or nil. "?" is clear than -1 or nil in the log.
       PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
 
       class CallbackSocket
