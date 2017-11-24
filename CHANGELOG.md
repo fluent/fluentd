@@ -1,5 +1,19 @@
 # v0.14
 
+## Release v0.14.24 - 2017/11/24
+
+### New features / Enhancements
+
+* plugin-config-formatter: Add link to plugin helper result
+  https://github.com/fluent/fluentd/pull/1753
+* server helper: Refactor code
+  https://github.com/fluent/fluentd/pull/1759
+
+### Bug fixes
+
+* supervisor: Don't call change_privilege twice
+  https://github.com/fluent/fluentd/pull/1757
+
 ## Release v0.14.23 - 2017/11/15
 
 ### New features / Enhancements
