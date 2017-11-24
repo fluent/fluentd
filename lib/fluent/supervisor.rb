@@ -517,7 +517,7 @@ module Fluent
 
       main_process do
         create_socket_manager if @standalone_worker
-        change_privilege
+        change_privilege if @standalone_worker
         init_engine
         run_configure
         run_engine
