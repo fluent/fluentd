@@ -225,7 +225,7 @@ module Fluent
 
         (class << self; self; end).module_eval do
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
-          define_method(:rollback_write){ |chunk_id, update_retry = true| @primary_instance.rollback_write(chunk_id, update_retry) }
+          define_method(:rollback_write){ |chunk_id, update_retry: true| @primary_instance.rollback_write(chunk_id, update_retry) }
         end
       end
 
@@ -963,7 +963,7 @@ module Fluent
         end
       end
 
-      def rollback_write(chunk_id, update_retry = true)
+      def rollback_write(chunk_id, update_retry: true)
         # This API is to rollback chunks explicitly from plugins.
         # 3rd party plugins can depend it on automatic rollback of #try_rollback_write
         @dequeued_chunks_mutex.synchronize do
