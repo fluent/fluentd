@@ -212,7 +212,6 @@ module Fluent
 
       lifecycle_unsafe_sequence = ->(method, checker) {
         operation = case method
-                    when :before_shutdown then "preparing shutdown"
                     when :shutdown then "shutting down"
                     when :close    then "closing"
                     else
