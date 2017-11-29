@@ -963,6 +963,8 @@ module Fluent
         end
       end
 
+      # update_retry parameter is for preventing busy loop by async write
+      # We will remove this parameter by re-design retry_state management between threads.
       def rollback_write(chunk_id, update_retry: true)
         # This API is to rollback chunks explicitly from plugins.
         # 3rd party plugins can depend it on automatic rollback of #try_rollback_write
