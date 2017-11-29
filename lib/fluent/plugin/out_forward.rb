@@ -433,7 +433,7 @@ module Fluent::Plugin
       if raw_data.empty?
         log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
         info.node.disable!
-        rollback_write(info.chunk_id)
+        rollback_write(info.chunk_id, update_retry: false)
         return nil
       else
         unpacker.feed(raw_data)
@@ -442,7 +442,7 @@ module Fluent::Plugin
         if res['ack'] != info.chunk_id_base64
           # Some errors may have occured when ack and chunk id is different, so send the chunk again.
           log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
-          rollback_write(info.chunk_id)
+          rollback_write(info.chunk_id, update_retry: false)
           return nil
         else
           log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
@@ -483,7 +483,7 @@ module Fluent::Plugin
                 log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
                 info.sock.close rescue nil
-                rollback_write(info.chunk_id)
+                rollback_write(info.chunk_id, update_retry: false)
               else
                 sockets << info.sock
                 new_list << info

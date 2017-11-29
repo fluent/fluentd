@@ -226,7 +226,7 @@ module Fluent
 
         singleton_class.module_eval do
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
-          define_method(:rollback_write){ |chunk_id| @primary_instance.rollback_write(chunk_id) }
+          define_method(:rollback_write){ |chunk_id, update_retry: true| @primary_instance.rollback_write(chunk_id, update_retry) }
         end
       end
 
@@ -991,7 +991,9 @@ module Fluent
         end
       end
 
-      def rollback_write(chunk_id)
+      # update_retry parameter is for preventing busy loop by async write
+      # We will remove this parameter by re-design retry_state management between threads.
+      def rollback_write(chunk_id, update_retry: true)
         # This API is to rollback chunks explicitly from plugins.
         # 3rd party plugins can depend it on automatic rollback of #try_rollback_write
         @dequeued_chunks_mutex.synchronize do
@@ -1002,8 +1004,10 @@ module Fluent
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
           @counters_monitor.synchronize{ @rollback_count += 1 }
-          primary = @as_secondary ? @primary_instance : self
-          primary.update_retry_state(chunk_id, @as_secondary)
+          if update_retry
+            primary = @as_secondary ? @primary_instance : self
+            primary.update_retry_state(chunk_id, @as_secondary)
+          end
           true
         else
           false
