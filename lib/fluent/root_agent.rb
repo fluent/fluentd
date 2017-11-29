@@ -229,9 +229,14 @@ module Fluent
               if method == :shutdown
                 # To avoid Input#shutdown and Output#before_shutdown mismatch problem, combine before_shutdown and shutdown call in one sequence.
                 # The problem is in_tail flushes buffered multiline in shutdown but output's flush_at_shutdown is invoked in before_shutdown
-                operation = "preparing shutdown" # for error message
+                operation = "preparing shutdown" # for logging
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(:before_shutdown) unless instance.send(:before_shutdown?)
+                begin
+                  instance.send(:before_shutdown) unless instance.send(:before_shutdown?)
+                rescue Exception => e
+                  log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
+                  log.warn_backtrace
+                end
                 operation = "shutting down"
                 log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
                 instance.send(:shutdown) unless instance.send(:shutdown?)
