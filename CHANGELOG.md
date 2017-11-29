@@ -1,3 +1,19 @@
+# v1.0
+
+## Release v1.0.0.rc1 - 2017/11/29
+
+### New features / Enhancements
+
+* Disable tracepoint feature to omit unnecessary insts
+  https://github.com/fluent/fluentd/pull/1764
+
+### Bug fixes
+
+* out_forward: Don't update retry state when failed to get ack response.
+  https://github.com/fluent/fluentd/pull/1686
+* plugin: Combine before_shutdown and shutdown call in one sequence.
+  https://github.com/fluent/fluentd/pull/1763
+
 # v0.14
 
 ## Release v0.14.24 - 2017/11/24
