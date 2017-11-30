@@ -1,6 +1,6 @@
 # v1.0
 
-## Release v1.0.0.rc1 - 2017/11/29
+## Release v1.0.0.rc1/v0.14.25 - 2017/11/29
 
 ### New features / Enhancements
 
