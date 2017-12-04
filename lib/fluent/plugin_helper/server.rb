@@ -661,22 +661,39 @@ module Fluent
             end
           end
 
+          if RUBY_VERSION.to_f >= 2.3
+            NONBLOCK_ARG = {exception: false}
+            def try_handshake
+              @_handler_socket.accept_nonblock(NONBLOCK_ARG)
+            end
+          else
+            def try_handshake
+              @_handler_socket.accept_nonblock
+            rescue IO::WaitReadable
+              :wait_readable
+            rescue IO::WaitWritable
+              :wait_writable
+            end
+          end
+
           def try_tls_accept
             return true if @_handler_accepted
 
             begin
-              @_handler_socket.accept_nonblock # this method call actually try to do handshake via TLS
-              @_handler_accepted = true
+              result = try_handshake # this method call actually try to do handshake via TLS
+              if result == :wait_readable || result == :wait_writable
+                # retry accept_nonblock: there aren't enough data in underlying socket buffer
+              else
+                @_handler_accepted = true
 
-              @callback_connection = TLSCallbackSocket.new(self)
-              @connect_callback.call(@callback_connection)
-              unless @data_callback
-                raise "connection callback must call #data to set data callback"
+                @callback_connection = TLSCallbackSocket.new(self)
+                @connect_callback.call(@callback_connection)
+                unless @data_callback
+                  raise "connection callback must call #data to set data callback"
+                end
+
+                return true
               end
-              return true
-
-            rescue IO::WaitReadable, IO::WaitWritable
-              # retry accept_nonblock: there aren't enough data in underlying socket buffer
             rescue OpenSSL::SSL::SSLError => e
               @log.trace "unexpected error before accepting TLS connection", error: e
               close rescue nil
@@ -700,6 +717,7 @@ module Fluent
           def on_writable
             begin
               @mutex.synchronize do
+                # Consider write_nonblock with {exception: false} when IO::WaitWritable error happens frequently.
                 written_bytes = @_handler_socket.write_nonblock(@_handler_write_buffer)
                 @_handler_write_buffer.slice!(0, written_bytes)
                 super
