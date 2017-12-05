@@ -34,11 +34,11 @@ module Fluent::Plugin
     config_param :reserve_time, :bool, default: false
     desc 'Store parsed values with specified key name prefix.'
     config_param :inject_key_prefix, :string, default: nil
-    desc 'If `true`, invalid string is replaced with safe characters and re-parse it.'
+    desc 'If true, invalid string is replaced with safe characters and re-parse it.'
     config_param :replace_invalid_sequence, :bool, default: false
     desc 'Store parsed values as a hash value in a field.'
     config_param :hash_value_field, :string, default: nil
-    desc 'Emit invalid record to `@ERROR` label'
+    desc 'Emit invalid record to @ERROR label'
     config_param :emit_invalid_record_to_error, :bool, default: true
 
     attr_reader :parser
