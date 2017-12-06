@@ -80,6 +80,8 @@ module Fluent::Plugin
     config_param :emit_unmatched_lines, :bool, default: false
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
+    desc 'Enable the stat watcher based on inotify.'
+    config_param :enable_stat_watcher, :bool, default: true
     desc 'The encoding after conversion of the input.'
     config_param :encoding, :string, default: nil
     desc 'The encoding of the input.'
@@ -114,6 +116,10 @@ module Fluent::Plugin
       end
 
       super
+
+      if !@enable_watch_timer && !@enable_stat_watcher
+        raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
 
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
@@ -254,10 +260,10 @@ module Fluent::Plugin
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
       tw.attach do |watcher|
         watcher.timer_trigger = timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
-        event_loop_attach(watcher.stat_trigger)
+        event_loop_attach(watcher.stat_trigger) if watcher.enable_stat_watcher
       end
       tw
     rescue => e
@@ -457,17 +463,18 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @enable_watch_timer = enable_watch_timer
+        @enable_stat_watcher = enable_stat_watcher
         @read_lines_limit = read_lines_limit
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @stat_trigger = StatWatcher.new(self, &method(:on_notify))
+        @stat_trigger = @enable_stat_watcher ? StatWatcher.new(self, &method(:on_notify)) : nil
         @timer_trigger = nil
 
         @rotate_handler = RotateHandler.new(self, &method(:on_rotate))
@@ -483,7 +490,7 @@ module Fluent::Plugin
       attr_reader :path
       attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
       attr_reader :from_encoding, :encoding
-      attr_reader :stat_trigger, :enable_watch_timer
+      attr_reader :stat_trigger, :enable_watch_timer, :enable_stat_watcher
       attr_accessor :timer_trigger
       attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
@@ -503,7 +510,7 @@ module Fluent::Plugin
 
       def detach
         @timer_trigger.detach if @enable_watch_timer && @timer_trigger && @timer_trigger.attached?
-        @stat_trigger.detach if @stat_trigger && @stat_trigger.attached?
+        @stat_trigger.detach if @enable_stat_watcher && @stat_trigger && @stat_trigger.attached?
         @io_handler.on_notify if @io_handler
       end
 
