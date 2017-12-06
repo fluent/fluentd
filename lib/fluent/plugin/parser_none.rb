@@ -23,6 +23,7 @@ module Fluent
     class NoneParser < Parser
       Plugin.register_parser('none', self)
 
+      desc 'Field name to contain logs'
       config_param :message_key, :string, default: 'message'
 
       def parse(text)
