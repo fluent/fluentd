@@ -84,6 +84,12 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
+    test "both enable_watch_timer and enable_stat_watcher are false" do
+      assert_raise(Fluent::ConfigError) do
+        create_driver(CONFIG_ENABLE_WATCH_TIMER + CONFIG_DISABLE_STAT_WATCHER + PARSE_SINGLE_LINE_CONFIG)
+      end
+    end
+
     sub_test_case "encoding" do
       test "valid" do
         conf = SINGLE_LINE_CONFIG + config_element("", "", { "encoding" => "utf-8" })

@@ -117,6 +117,10 @@ module Fluent::Plugin
 
       super
 
+      if !@enable_watch_timer && !@enable_stat_watcher
+        raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
+
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
