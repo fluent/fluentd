@@ -32,8 +32,11 @@ module Fluent
       REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
+      desc 'If the incoming logs have priority prefix, e.g. <9>, set true'
       config_param :with_priority, :bool, default: false
+      desc 'Specify protocol format'
       config_param :message_format, :enum, list: [:rfc3164, :rfc5424, :auto], default: :rfc3164
+      desc 'Specify time format for event time for rfc5424 protocol'
       config_param :rfc5424_time_format, :string, default: "%Y-%m-%dT%H:%M:%S.%L%z"
 
       def initialize
