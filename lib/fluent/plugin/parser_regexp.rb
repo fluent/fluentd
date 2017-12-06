@@ -21,8 +21,11 @@ module Fluent
     class RegexpParser < Parser
       Plugin.register_parser("regexp", self)
 
+      desc 'Regular expression for matching logs'
       config_param :expression, :string
+      desc 'Ignore case in matching'
       config_param :ignorecase, :bool, default: false
+      desc 'Build regular expression as a multline mode'
       config_param :multiline, :bool, default: false
 
       config_set_default :time_key, 'time'
