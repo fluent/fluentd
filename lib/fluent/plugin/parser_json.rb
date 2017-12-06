@@ -27,6 +27,7 @@ module Fluent
       Plugin.register_parser('json', self)
 
       config_set_default :time_key, 'time'
+      desc 'Set JSON parser'
       config_param :json_parser, :enum, list: [:oj, :yajl, :json], default: :oj
 
       config_set_default :time_type, :float
