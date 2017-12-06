@@ -1,6 +1,36 @@
 # v1.0
 
-## Release v1.0.0.rc1/v0.14.25 - 2017/11/29
+## Release v1.0.0 - 2017/12/6
+
+### New features / Enhancements
+
+* out_copy: Support ignore_error argument in `<store>`
+  https://github.com/fluent/fluentd/pull/1764
+* server helper: Improve resource usage of TLS transport
+  https://github.com/fluent/fluentd/pull/1764
+* Disable tracepoint feature to omit unnecessary insts
+  https://github.com/fluent/fluentd/pull/1764
+
+### Bug fixes
+
+* out_forward: Don't update retry state when failed to get ack response.
+  https://github.com/fluent/fluentd/pull/1686
+* plugin: Combine before_shutdown and shutdown call in one sequence.
+  https://github.com/fluent/fluentd/pull/1763
+* Add description to parsers
+  https://github.com/fluent/fluentd/pull/1776
+  https://github.com/fluent/fluentd/pull/1777
+  https://github.com/fluent/fluentd/pull/1778
+  https://github.com/fluent/fluentd/pull/1779
+  https://github.com/fluent/fluentd/pull/1780
+* filter_parser: Add parameter description
+  https://github.com/fluent/fluentd/pull/1773
+* plugin: Combine before_shutdown and shutdown call in one sequence.
+  https://github.com/fluent/fluentd/pull/1763
+
+# v0.14
+
+## Release v0.14.25 - 2017/11/29
 
 ### New features / Enhancements
 
@@ -13,8 +43,6 @@
   https://github.com/fluent/fluentd/pull/1686
 * plugin: Combine before_shutdown and shutdown call in one sequence.
   https://github.com/fluent/fluentd/pull/1763
-
-# v0.14
 
 ## Release v0.14.24 - 2017/11/24
 
