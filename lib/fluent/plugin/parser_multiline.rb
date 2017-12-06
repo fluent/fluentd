@@ -22,6 +22,7 @@ module Fluent
     class MultilineParser < Parser
       Plugin.register_parser('multiline', self)
 
+      desc 'Specify regexp pattern for start line of multiple lines'
       config_param :format_firstline, :string, default: nil
 
       FORMAT_MAX_NUM = 20
