@@ -2,6 +2,8 @@
 
 ## Release v1.0.0 - 2017/12/6
 
+See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
+
 ### New features / Enhancements
 
 * out_copy: Support ignore_error argument in `<store>`
