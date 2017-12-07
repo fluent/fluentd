@@ -32,8 +32,11 @@ module Fluent
     module_function :create_udp_socket
 
     class UdpHandler < Coolio::IO
-      def initialize(io, log, body_size_limit, callback, resolve_hostname = false, remove_newline = true)
+      def initialize(io, log, body_size_limit, callback, resolve_hostname = false, remove_newline = true, rcvbuf = nil)
         super(io)
+        if io.is_a?(UDPSocket) && rcvbuf
+          io.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF, rcvbuf)
+        end
         @io = io
         @io.do_not_reverse_lookup = !resolve_hostname
         @log = log
