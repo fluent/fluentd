@@ -179,10 +179,10 @@ TEXT
       expected = <<TEXT
 ## Plugin helpers
 
-* [inject](https://docs.fluentd.org/v0.14/articles/api-plugin-helper-inject)
-* [compat_parameters](https://docs.fluentd.org/v0.14/articles/api-plugin-helper-compat_parameters)
+* [inject](https://docs.fluentd.org/v1.0/articles/api-plugin-helper-inject)
+* [compat_parameters](https://docs.fluentd.org/v1.0/articles/api-plugin-helper-compat_parameters)
 
-* See also: [Input Plugin Overview](https://docs.fluentd.org/v0.14/articles/input-plugin-overview)
+* See also: [Input Plugin Overview](https://docs.fluentd.org/v1.0/articles/input-plugin-overview)
 
 ## TestFluentPluginConfigFormatter::SimpleInput
 
@@ -202,10 +202,10 @@ TEXT
       expected = <<TEXT
 ## Plugin helpers
 
-* [inject](https://docs.fluentd.org/v0.14/articles/api-plugin-helper-inject)
-* [compat_parameters](https://docs.fluentd.org/v0.14/articles/api-plugin-helper-compat_parameters)
+* [inject](https://docs.fluentd.org/v1.0/articles/api-plugin-helper-inject)
+* [compat_parameters](https://docs.fluentd.org/v1.0/articles/api-plugin-helper-compat_parameters)
 
-* See also: [Output Plugin Overview](https://docs.fluentd.org/v0.14/articles/output-plugin-overview)
+* See also: [Output Plugin Overview](https://docs.fluentd.org/v1.0/articles/output-plugin-overview)
 
 ## TestFluentPluginConfigFormatter::ComplexOutput
 
