@@ -398,7 +398,9 @@ module Fluent::Plugin
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
-          n.send_heartbeat
+          if n.send_heartbeat
+            rebuild_weight_array
+          end
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         rescue => e
@@ -665,11 +667,13 @@ module Fluent::Plugin
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
-            # successful tcp connection establishment is considered as valid heartbeat
+            # successful tcp connection establishment is considered as valid heartbeat.
+            # When heartbeat is succeeded after detached, return true. It rebuilds weight array.
             heartbeat(true)
           end
         when :udp
           @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
+          nil
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
         else
