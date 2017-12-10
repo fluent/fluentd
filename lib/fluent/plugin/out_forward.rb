@@ -263,6 +263,7 @@ module Fluent
 
       r = Random.new(@rand_seed)
       weight_array.sort_by! { r.rand }
+      p weight_array.map { |e| e.name }
 
       @weight_array = weight_array
     end
@@ -397,13 +398,17 @@ module Fluent
         begin
           #log.trace "sending heartbeat #{n.host}:#{n.port} on #{@heartbeat_type}"
           if @heartbeat_type == :tcp
-            send_heartbeat_tcp(n)
+            if send_heartbeat_tcp(n)
+              rebuild_weight_array
+            end
           else
             @usock.send "\0", 0, Socket.pack_sockaddr_in(n.port, n.resolved_host)
           end
-        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED
+        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED => e
           # TODO log
-          log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", error: $!.to_s
+          log.debug "failed to send heartbeat packet to #{n.host}:#{n.port}", error: e.to_s
+        rescue => e
+          log.debug "unexpected error happen during heartbeat to #{n.host}:#{n.port}", error: e.to_s
         end
         if n.tick
           rebuild_weight_array
