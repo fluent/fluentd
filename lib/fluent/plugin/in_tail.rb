@@ -383,8 +383,16 @@ module Fluent
               # assuming following situation:
               #   a) file was once renamed and backed, or
               #   b) symlink or hardlink to the same file is recreated
-              # in either case, seek to the saved position
-              pos = @pe.read_pos
+              # in either case of a and b, seek to the saved position
+              #   c) file was once renamed, truncated and then backed
+              # in this case, the files is truncated, so update the saved position before seeking
+              last_pos = @pe.read_pos
+              if stat.size < last_pos
+                pos = stat.size
+                @pe.update(inode, pos)
+              else
+                pos = last_pos
+              end
             elsif last_inode != 0
               # this is FilePositionEntry and fluentd once started.
               # read data from the head of the rotated file.
