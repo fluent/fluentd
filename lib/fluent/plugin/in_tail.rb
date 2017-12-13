@@ -547,7 +547,10 @@ module Fluent::Plugin
               # assuming following situation:
               #   a) file was once renamed and backed, or
               #   b) symlink or hardlink to the same file is recreated
-              # in either case, seek to the saved position
+              # in either case of a and b, seek to the saved position
+              #   c) file was once renamed, truncated and then backed
+              # in this case, consider it truncated
+              @pe.update(inode, 0) if fsize < @pe.read_pos
             elsif last_inode != 0
               # this is FilePositionEntry and fluentd once started.
               # read data from the head of the rotated file.
