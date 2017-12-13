@@ -471,6 +471,67 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_truncate_file
+    config = SINGLE_LINE_CONFIG
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    d = create_driver(config)
+
+    d.run(expect_emits: 2) do
+      File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
+        f.puts "test3\ntest4"
+        f.flush
+      }
+      sleep 1
+      File.truncate("#{TMP_DIR}/tail.txt", 6)
+    end
+
+    events = d.events
+    assert_equal(3, events.length)
+    assert_equal({"message" => "test3"}, events[0][2])
+    assert_equal({"message" => "test4"}, events[1][2])
+    assert_equal({"message" => "test1"}, events[2][2])
+    assert(events[0][1].is_a?(Fluent::EventTime))
+    assert(events[1][1].is_a?(Fluent::EventTime))
+    assert(events[2][1].is_a?(Fluent::EventTime))
+    assert_equal(2, d.emit_count)
+  end
+
+  def test_move_truncate_move_back
+    config = SINGLE_LINE_CONFIG
+    File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    d = create_driver(config)
+
+    d.run(expect_emits: 1) do
+      if Fluent.windows?
+        FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt", force: true)
+      else
+        FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
+      end
+      sleep(1)
+      File.truncate("#{TMP_DIR}/tail2.txt", 6)
+      sleep(1)
+      if Fluent.windows?
+        FileUtils.mv("#{TMP_DIR}/tail2.txt", "#{TMP_DIR}/tail.txt", force: true)
+      else
+        FileUtils.mv("#{TMP_DIR}/tail2.txt", "#{TMP_DIR}/tail.txt")
+      end
+    end
+
+    events = d.events
+    assert_equal(1, events.length)
+    assert_equal({"message" => "test1"}, events[0][2])
+    assert(events[0][1].is_a?(Fluent::EventTime))
+    assert_equal(1, d.emit_count)
+  end
+
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f| }
 
