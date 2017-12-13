@@ -55,6 +55,7 @@ class UdpInputTest < Test::Unit::TestCase
     assert_equal PORT, d.instance.port
     assert_equal bind, d.instance.bind
     assert_equal 4096, d.instance.message_length_limit
+    assert_equal nil, d.instance.receive_buffer_size
   end
 
   data(
@@ -170,6 +171,39 @@ class UdpInputTest < Test::Unit::TestCase
       assert_equal "udp", d.events[i][0]
       assert d.events[i][1].is_a?(Fluent::EventTime)
       assert_equal expected_record, d.events[i][2]
+    end
+  end
+
+  test 'receive_buffer_size' do
+    # doesn't check exact value because it depends on platform and condition
+
+    # check if default socket and in_udp's one without receive_buffer_size have same size buffer
+    d0 = create_driver(BASE_CONFIG + %!
+      format none
+    !)
+    d0.run do
+      sock = d0.instance.instance_variable_get(:@_servers)[0].server.instance_variable_get(:@sock)
+      begin
+        default_sock = UDPSocket.new
+        assert_equal(default_sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int, sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int)
+      ensure
+        default_sock.close
+      end
+    end
+
+    # check if default socket and in_udp's one with receive_buffer_size have different size buffer
+    d1 = create_driver(BASE_CONFIG + %!
+      format none
+      receive_buffer_size 1001
+    !)
+    d1.run do
+      sock = d1.instance.instance_variable_get(:@_servers)[0].server.instance_variable_get(:@sock)
+      begin
+        default_sock = UDPSocket.new
+        assert_not_equal(default_sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int, sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int)
+      ensure
+        default_sock.close
+      end
     end
   end
 end

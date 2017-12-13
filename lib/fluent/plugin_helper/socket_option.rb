@@ -24,7 +24,7 @@ module Fluent
       FORMAT_STRUCT_LINGER  = 'I!I!' # { int l_onoff; int l_linger; }
       FORMAT_STRUCT_TIMEVAL = 'L!L!' # { time_t tv_sec; suseconds_t tv_usec; }
 
-      def socket_option_validate!(protocol, resolve_name: nil, linger_timeout: nil, recv_timeout: nil, send_timeout: nil)
+      def socket_option_validate!(protocol, resolve_name: nil, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, receive_buffer_size: nil)
         unless resolve_name.nil?
           if protocol != :tcp && protocol != :udp && protocol != :tls
             raise ArgumentError, "BUG: resolve_name in available for tcp/udp/tls"
@@ -37,7 +37,7 @@ module Fluent
         end
       end
 
-      def socket_option_set(sock, resolve_name: nil, nonblock: false, linger_timeout: nil, recv_timeout: nil, send_timeout: nil)
+      def socket_option_set(sock, resolve_name: nil, nonblock: false, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, receive_buffer_size: nil)
         unless resolve_name.nil?
           sock.do_not_reverse_lookup = !resolve_name
         end
@@ -55,6 +55,9 @@ module Fluent
         if send_timeout
           optval = [send_timeout.to_i, 0].pack(FORMAT_STRUCT_TIMEVAL)
           socket_option_set_one(sock, :SO_SNDTIMEO, optval)
+        end
+        if receive_buffer_size
+          socket_option_set_one(sock, :SO_RCVBUF, receive_buffer_size.to_i)
         end
         sock
       end
