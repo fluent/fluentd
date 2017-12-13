@@ -24,7 +24,6 @@ module Fluent::Plugin
 
     DEFAULT_LINE_FORMAT_TYPE = 'stdout'
     DEFAULT_FORMAT_TYPE = 'json'
-    TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%9N %z'
 
     config_section :buffer do
       config_set_default :chunk_keys, ['tag']

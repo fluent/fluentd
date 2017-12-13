@@ -319,6 +319,7 @@ module Fluent
       @tc2 = 0
       @tc2_str = nil
 
+      strftime = format && (Strftime.new(format) rescue nil)
       if format && format =~ /(^|[^%])(%%)*%L|(^|[^%])(%%)*%\d*N/
         define_singleton_method(:format, method(:format_with_subsec))
         define_singleton_method(:call, method(:format_with_subsec))
@@ -327,13 +328,15 @@ module Fluent
         define_singleton_method(:call, method(:format_with_subsec))
       end
 
-      formatter = Fluent::Timezone.formatter(timezone, format)
+      formatter = Fluent::Timezone.formatter(timezone, strftime ? strftime : format)
       @format_nocache = case
-                        when formatter           then formatter
-                        when format && localtime then ->(time){ Time.at(time).strftime(format) }
-                        when format              then ->(time){ Time.at(time).utc.strftime(format) }
-                        when localtime           then ->(time){ Time.at(time).iso8601 }
-                        else                          ->(time){ Time.at(time).utc.iso8601 }
+                        when formatter             then formatter
+                        when strftime && localtime then ->(time){ strftime.exec(Time.at(time)) }
+                        when format && localtime   then ->(time){ Time.at(time).strftime(format) }
+                        when strftime              then ->(time){ strftime.exec(Time.at(time).utc) }
+                        when format                then ->(time){ Time.at(time).utc.strftime(format) }
+                        when localtime             then ->(time){ Time.at(time).iso8601 }
+                        else                            ->(time){ Time.at(time).utc.iso8601 }
                         end
     end
 
