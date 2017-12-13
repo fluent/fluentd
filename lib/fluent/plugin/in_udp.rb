@@ -40,6 +40,8 @@ module Fluent::Plugin
     config_param :message_length_limit, :size, default: 4096
     desc "Remove newline from the end of incoming payload"
     config_param :remove_newline, :bool, default: true
+    desc "The max size of socket receive buffer. SO_RCVBUF"
+    config_param :receive_buffer_size, :size, default: nil
 
     config_param :blocking_timeout, :time, default: 0.5
 
@@ -61,7 +63,7 @@ module Fluent::Plugin
       super
 
       log.info "listening udp socket", bind: @bind, port: @port
-      server_create(:in_udp_server, @port, proto: :udp, bind: @bind, max_bytes: @message_length_limit) do |data, sock|
+      server_create(:in_udp_server, @port, proto: :udp, bind: @bind, max_bytes: @message_length_limit, receive_buffer_size: @receive_buffer_size) do |data, sock|
         data.chomp! if @remove_newline
         begin
           @parser.parse(data) do |time, record|
