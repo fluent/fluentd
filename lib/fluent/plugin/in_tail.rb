@@ -526,7 +526,7 @@ module Fluent
             stat = io.stat
             inode = stat.ino
             if inode == @pe.read_inode # truncated
-              @pe.update_pos(stat.size)
+              @pe.update_pos(0)
               io_handler = IOHandler.new(io, @pe, @log, @read_lines_limit, &method(:wrap_receive_lines))
               @io_handler.close
               @io_handler = io_handler
