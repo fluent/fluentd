@@ -1,5 +1,25 @@
 # v0.12
 
+## Release 0.12.42 - 2017/12/14
+
+### New features / Enhancements
+
+* Disable tracepoint feature to omit unnecessary insts
+  https://github.com/fluent/fluentd/pull/1764
+* in_udp: Add receive_buffer_size parameter
+  https://github.com/fluent/fluentd/pull/1788
+
+### Bug fixes
+
+* in_tail: Ensure close temporaly opened IO object
+  https://github.com/fluent/fluentd/pull/1756
+* in_tail: Explicitly update position to 0 when the file is truncated
+  https://github.com/fluent/fluentd/pull/1791
+* in_tail: Properly handle moved back and truncated case
+  https://github.com/fluent/fluentd/pull/1793
+* out_forward: Rebuild weight array to apply server setting properly
+  https://github.com/fluent/fluentd/pull/1784
+
 ## Release 0.12.41 - 2017/11/15
 
 ### New features / Enhancements
