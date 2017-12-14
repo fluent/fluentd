@@ -315,6 +315,54 @@ class TailInputTest < Test::Unit::TestCase
     file.close
   end
 
+  def test_truncate_file
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    d = create_driver
+    d.run do
+      sleep 1
+
+      File.open("#{TMP_DIR}/tail.txt", "a") {|f|
+        f.puts "test3"
+        f.puts "test4"
+      }
+      sleep 1
+      File.truncate("#{TMP_DIR}/tail.txt", 6)
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(3, emits.length)
+    assert_equal({"message" => "test3"}, emits[0][2])
+    assert_equal({"message" => "test4"}, emits[1][2])
+    assert_equal({"message" => "test1"}, emits[2][2])
+  end
+
+  def test_move_truncate_move_back
+    File.open("#{TMP_DIR}/tail.txt", "w") {|f|
+      f.puts "test1"
+      f.puts "test2"
+    }
+
+    d = create_driver
+    d.run do
+      sleep 1
+      FileUtils.mv("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt")
+      sleep 1
+      File.truncate("#{TMP_DIR}/tail2.txt", 6)
+      sleep 1
+      FileUtils.mv("#{TMP_DIR}/tail2.txt", "#{TMP_DIR}/tail.txt")
+      sleep 1
+    end
+
+    emits = d.emits
+    assert_equal(1, emits.length)
+    assert_equal({"message" => "test1"}, emits[0][2])
+  end
+
   def test_lf
     File.open("#{TMP_DIR}/tail.txt", "w") {|f| }
 
