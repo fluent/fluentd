@@ -1,5 +1,24 @@
 # v1.0
 
+## Release v1.0.1 - 2017/12/14
+
+### New features / Enhancements
+
+* in_udp: Add receive_buffer_size parameter
+  https://github.com/fluent/fluentd/pull/1788
+* in_tail: Add enable_stat_watcher option to disable inotify events
+  https://github.com/fluent/fluentd/pull/1775
+* Relax strptime gem version
+
+### Bug fixes
+
+* in_tail: Properly handle moved back and truncated case
+  https://github.com/fluent/fluentd/pull/1793
+* out_forward: Rebuild weight array to apply server setting properly
+  https://github.com/fluent/fluentd/pull/1784
+* fluent-plugin-config-formatter: Use v1.0 for URL
+  https://github.com/fluent/fluentd/pull/1781
+
 ## Release v1.0.0 - 2017/12/6
 
 See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
