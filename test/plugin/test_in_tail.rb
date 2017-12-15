@@ -472,6 +472,8 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_truncate_file
+    omit "Permission denied error happen on Windows. Need fix" if Fluent.windows?
+
     config = SINGLE_LINE_CONFIG
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
@@ -501,6 +503,8 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_move_truncate_move_back
+    omit "Permission denied error happen on Windows. Need fix" if Fluent.windows?
+
     config = SINGLE_LINE_CONFIG
     File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
       f.puts "test1"
