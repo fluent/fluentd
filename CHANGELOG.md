@@ -1,5 +1,12 @@
 # v1.0
 
+## Release v1.0.2 - 2017/12/17
+
+### New features / Enhancements
+
+* Use dig_rb instead of ruby_dig to support dig method in more objects
+  https://github.com/fluent/fluentd/pull/1794
+
 ## Release v1.0.1 - 2017/12/14
 
 ### New features / Enhancements
