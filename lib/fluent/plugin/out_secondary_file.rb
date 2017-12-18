@@ -71,7 +71,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      path_without_suffix = extract_placeholders(@path_without_suffix, chunk.metadata)
+      path_without_suffix = extract_placeholders(@path_without_suffix, chunk)
       path = generate_path(path_without_suffix)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
@@ -106,7 +106,7 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder #{ph}, remove tag placeholder, like `${tag}`, from basename or directory"
       end
 
-      vars = placeholders.reject { |placeholder| placeholder.match(/tag(\[\d+\])?/) }
+      vars = placeholders.reject { |placeholder| placeholder.match(/tag(\[\d+\])?/) || (placeholder == 'chunk_id') }
 
       if ph = vars.find { |v| !@chunk_keys.include?(v) }
         raise Fluent::ConfigError, "out_secondary_file: basename or directory has an incompatible placeholder #{ph}, remove variable placeholder, like `${varname}`, from basename or directory"

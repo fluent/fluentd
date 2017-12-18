@@ -137,32 +137,36 @@ BANNER
   end
 
   def gem_name
-    "fluent-plugin-#{name}"
+    "fluent-plugin-#{dash_name}"
+  end
+
+  def plugin_name
+    underscore_name
   end
 
   def class_name
-    "#{name.capitalize}#{type.capitalize}"
+    "#{capitalized_name}#{type.capitalize}"
   end
 
   def plugin_filename
     case type
     when "input"
-      "in_#{name}.rb"
+      "in_#{underscore_name}.rb"
     when "output"
-      "out_#{name}.rb"
+      "out_#{underscore_name}.rb"
     else
-      "#{type}_#{name}.rb"
+      "#{type}_#{underscore_name}.rb"
     end
   end
 
   def test_filename
     case type
     when "input"
-      "test_in_#{name}.rb"
+      "test_in_#{underscore_name}.rb"
     when "output"
-      "test_out_#{name}.rb"
+      "test_out_#{underscore_name}.rb"
     else
-      "test_#{type}_#{name}.rb"
+      "test_#{type}_#{underscore_name}.rb"
     end
   end
 
@@ -177,6 +181,18 @@ BANNER
     else
       path.basename.sub_ext("")
     end
+  end
+
+  def capitalized_name
+    @capitalized_name ||= name.split(/[-_]/).map(&:capitalize).join
+  end
+
+  def underscore_name
+    @underscore_name ||= name.tr("-", "_")
+  end
+
+  def dash_name
+    @dash_name ||= name.tr("_", "-")
   end
 
   def preamble

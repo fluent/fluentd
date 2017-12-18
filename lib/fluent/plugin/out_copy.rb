@@ -25,6 +25,21 @@ module Fluent::Plugin
     desc 'If true, pass different record to each `store` plugin.'
     config_param :deep_copy, :bool, default: false
 
+    attr_reader :ignore_errors
+
+    def initialize
+      super
+      @ignore_errors = []
+    end
+
+    def configure(conf)
+      super
+
+      @stores.each { |store|
+        @ignore_errors << (store.arg == 'ignore_error')
+      }
+    end
+
     def multi_workers_ready?
       true
     end
@@ -38,8 +53,16 @@ module Fluent::Plugin
         es = m
       end
 
-      outputs.each do |output|
-        output.emit_events(tag, @deep_copy ? es.dup : es)
+      outputs.each_with_index do |output, i|
+        begin
+          output.emit_events(tag, @deep_copy ? es.dup : es)
+        rescue => e
+          if @ignore_errors[i]
+            log.error "ignore emit error", error: e
+          else
+            raise e
+          end
+        end
       end
     end
   end

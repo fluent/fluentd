@@ -164,7 +164,7 @@ module Fluent
       end
 
       if config[:worker_pid]
-        config[:worker_pid].each do |pid|
+        config[:worker_pid].each_value do |pid|
           Process.kill(:USR1, pid)
           # don't rescue Erro::ESRSH here (invalid status)
         end
@@ -173,7 +173,9 @@ module Fluent
 
     def kill_worker
       if config[:worker_pid]
-        config[:worker_pid].each do |pid|
+        pids = config[:worker_pid].clone
+        config[:worker_pid].clear
+        pids.each_value do |pid|
           if Fluent.windows?
             Process.kill :KILL, pid
           else
@@ -202,7 +204,7 @@ module Fluent
     end
 
     def after_start
-      (config[:worker_pid] ||= []).push(@pm.pid)
+      (config[:worker_pid] ||= {})[@worker_id] = @pm.pid
     end
   end
 
@@ -511,11 +513,11 @@ module Fluent
       install_main_process_signal_handlers
 
       # This is the only log messsage for @standalone_worker
-      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid if @standalone_worker
+      $log.info "starting fluentd-#{Fluent::VERSION} without supervision", pid: Process.pid, ruby: RUBY_VERSION if @standalone_worker
 
       main_process do
         create_socket_manager if @standalone_worker
-        change_privilege
+        change_privilege if @standalone_worker
         init_engine
         run_configure
         run_engine
@@ -533,7 +535,7 @@ module Fluent
     end
 
     def dry_run_cmd
-      $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode"
+      $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
       @system_config.suppress_config_dump = true
       dry_run
       exit 0
@@ -569,7 +571,7 @@ module Fluent
       dry_run
 
       Process.setproctitle("supervisor:#{@process_name}") if @process_name
-      $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid
+      $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid, ruby: RUBY_VERSION
 
       rubyopt = ENV["RUBYOPT"]
       fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]

@@ -125,6 +125,10 @@ class OutputTest < Test::Unit::TestCase
   def create_metadata(timekey: nil, tag: nil, variables: nil)
     Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
   end
+  def create_chunk(timekey: nil, tag: nil, variables: nil)
+    m = Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
+    Fluent::Plugin::Buffer::MemoryChunk.new(m)
+  end
   def waiting(seconds)
     begin
       Timeout.timeout(seconds) do
@@ -219,7 +223,9 @@ class OutputTest < Test::Unit::TestCase
       assert @i.terminated?
     end
 
-    test '#extract_placeholders does nothing if chunk key is not specified' do
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders does nothing if chunk key is not specified' do |api|
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
       assert !@i.chunk_key_time
       assert !@i.chunk_key_tag
@@ -227,11 +233,17 @@ class OutputTest < Test::Unit::TestCase
       tmpl = "/mypath/%Y/%m/%d/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail"
       t = event_time('2016-04-11 20:30:00 +0900')
       v = {key1: "value1", key2: "value2"}
-      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
-      assert_equal tmpl, @i.extract_placeholders(tmpl, m)
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal tmpl, @i.extract_placeholders(tmpl, c)
     end
 
-    test '#extract_placeholders can extract time if time key and range are configured' do
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders can extract time if time key and range are configured' do |api|
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
       assert !@i.chunk_key_tag
@@ -239,11 +251,17 @@ class OutputTest < Test::Unit::TestCase
       tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail"
       t = event_time('2016-04-11 20:30:00 +0900')
       v = {key1: "value1", key2: "value2"}
-      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
-      assert_equal "/mypath/2016/04/11/20-30/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail", @i.extract_placeholders(tmpl, m)
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal "/mypath/2016/04/11/20-30/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail", @i.extract_placeholders(tmpl, c)
     end
 
-    test '#extract_placeholders can extract tag and parts of tag if tag is configured' do
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders can extract tag and parts of tag if tag is configured' do |api|
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'tag', {})]))
       assert !@i.chunk_key_time
       assert @i.chunk_key_tag
@@ -251,11 +269,17 @@ class OutputTest < Test::Unit::TestCase
       tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail"
       t = event_time('2016-04-11 20:30:00 +0900')
       v = {key1: "value1", key2: "value2"}
-      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
-      assert_equal "/mypath/%Y/%m/%d/%H-%M/fluentd.test.output/test/output/${key1}/${key2}/tail", @i.extract_placeholders(tmpl, m)
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal "/mypath/%Y/%m/%d/%H-%M/fluentd.test.output/test/output/${key1}/${key2}/tail", @i.extract_placeholders(tmpl, c)
     end
 
-    test '#extract_placeholders can extract variables if variables are configured' do
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders can extract variables if variables are configured' do |api|
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'key1,key2', {})]))
       assert !@i.chunk_key_time
       assert !@i.chunk_key_tag
@@ -263,11 +287,35 @@ class OutputTest < Test::Unit::TestCase
       tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail"
       t = event_time('2016-04-11 20:30:00 +0900')
       v = {key1: "value1", key2: "value2"}
-      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
-      assert_equal "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/value1/value2/tail", @i.extract_placeholders(tmpl, m)
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/value1/value2/tail", @i.extract_placeholders(tmpl, c)
     end
 
-    test '#extract_placeholders can extract all chunk keys if configured' do
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders can extract nested variables if variables are configured with dot notation' do |api|
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'key,$.nest.key', {})]))
+      assert !@i.chunk_key_time
+      assert !@i.chunk_key_tag
+      assert_equal ['key','$.nest.key'], @i.chunk_keys
+      tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/${key}/${$.nest.key}/tail"
+      t = event_time('2016-04-11 20:30:00 +0900')
+      v = {:key => "value1", :"$.nest.key" => "value2"}
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/value1/value2/tail", @i.extract_placeholders(tmpl, c)
+    end
+
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders can extract all chunk keys if configured' do |api|
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
       assert @i.chunk_key_tag
@@ -275,11 +323,17 @@ class OutputTest < Test::Unit::TestCase
       tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[1]}/${tag[2]}/${key1}/${key2}/tail"
       t = event_time('2016-04-11 20:30:00 +0900')
       v = {key1: "value1", key2: "value2"}
-      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
-      assert_equal "/mypath/2016/04/11/20-30/fluentd.test.output/test/output/value1/value2/tail", @i.extract_placeholders(tmpl, m)
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal "/mypath/2016/04/11/20-30/fluentd.test.output/test/output/value1/value2/tail", @i.extract_placeholders(tmpl, c)
     end
 
-    test '#extract_placeholders removes out-of-range tag part and unknown variable placeholders' do
+    data(:new_api => :chunk,
+         :old_api => :metadata)
+    test '#extract_placeholders removes out-of-range tag part and unknown variable placeholders' do |api|
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time,tag,key1,key2', {'timekey' => 60*30, 'timekey_zone' => "+0900"})]))
       assert @i.chunk_key_time
       assert @i.chunk_key_tag
@@ -287,8 +341,23 @@ class OutputTest < Test::Unit::TestCase
       tmpl = "/mypath/%Y/%m/%d/%H-%M/${tag}/${tag[3]}/${tag[4]}/${key3}/${key4}/tail"
       t = event_time('2016-04-11 20:30:00 +0900')
       v = {key1: "value1", key2: "value2"}
+      c = if api == :chunk
+            create_chunk(timekey: t, tag: 'fluentd.test.output', variables: v)
+          else
+            create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+          end
+      assert_equal "/mypath/2016/04/11/20-30/fluentd.test.output/////tail", @i.extract_placeholders(tmpl, c)
+    end
+
+    test '#extract_placeholders logs warn message if metadata is passed for ${chunk_id} placeholder' do
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+      tmpl = "/mypath/${chunk_id}/tail"
+      t = event_time('2016-04-11 20:30:00 +0900')
+      v = {key1: "value1", key2: "value2"}
       m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
-      assert_equal "/mypath/2016/04/11/20-30/fluentd.test.output/////tail", @i.extract_placeholders(tmpl, m)
+      @i.extract_placeholders(tmpl, m)
+      logs = @i.log.out.logs
+      assert { logs.any? { |log| log.include?("${chunk_id} is not allowed in this plugin") } }
     end
 
     sub_test_case '#placeholder_validators' do
@@ -493,11 +562,21 @@ class OutputTest < Test::Unit::TestCase
       assert_equal ['.hidden', '0001', '@timestamp', 'a_key', 'my-domain'], @i.get_placeholders_keys("http://${my-domain}/${.hidden}/${0001}/${a_key}?timestamp=${@timestamp}")
     end
 
+    data('include space' => 'ke y',
+         'bracket notation' => "$['key']",
+         'invalid notation' => "$.ke y")
+    test 'configure checks invalid chunk keys' do |chunk_keys|
+      i = create_output(:buffered)
+      assert_raise Fluent::ConfigError do
+        i.configure(config_element('ROOT' , '', {}, [config_element('buffer', chunk_keys)]))
+      end
+    end
+
     test '#metadata returns object which contains tag/timekey/variables from records as specified in configuration' do
       tag = 'test.output'
       time = event_time('2016-04-12 15:31:23 -0700')
       timekey = event_time('2016-04-12 15:00:00 -0700')
-      record = {"key1" => "value1", "num1" => 1, "message" => "my message"}
+      record = {"key1" => "value1", "num1" => 1, "message" => "my message", "nest" => {"key" => "nested value"}}
 
       i1 = create_output(:buffered)
       i1.configure(config_element('ROOT','',{},[config_element('buffer', '')]))
@@ -530,6 +609,10 @@ class OutputTest < Test::Unit::TestCase
       i8 = create_output(:buffered)
       i8.configure(config_element('ROOT','',{},[config_element('buffer', 'time,tag,key1', {"timekey" => 3600, "timekey_zone" => "-0700"})]))
       assert_equal create_metadata(timekey: timekey, tag: tag, variables: {key1: "value1"}), i8.metadata(tag, time, record)
+
+      i9 = create_output(:buffered)
+      i9.configure(config_element('ROOT','',{},[config_element('buffer', 'key1,$.nest.key', {})]))
+      assert_equal create_metadata(variables: {:key1 => "value1", :"$.nest.key" => 'nested value'}), i9.metadata(tag, time, record)
     end
 
     test '#emit calls #process via #emit_sync for non-buffered output' do

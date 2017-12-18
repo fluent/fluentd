@@ -29,6 +29,7 @@ module Fluent
       helpers :event_emitter # to get router from agent, which will be supplied to child plugins
 
       config_section :store, param_name: :stores, multi: true, required: true do
+        config_argument :arg, :string, default: ''
         config_param :@type, :string, default: nil
       end
 

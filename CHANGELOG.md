@@ -1,4 +1,160 @@
+# v1.0
+
+## Release v1.0.2 - 2017/12/17
+
+### New features / Enhancements
+
+* Use dig_rb instead of ruby_dig to support dig method in more objects
+  https://github.com/fluent/fluentd/pull/1794
+
+## Release v1.0.1 - 2017/12/14
+
+### New features / Enhancements
+
+* in_udp: Add receive_buffer_size parameter
+  https://github.com/fluent/fluentd/pull/1788
+* in_tail: Add enable_stat_watcher option to disable inotify events
+  https://github.com/fluent/fluentd/pull/1775
+* Relax strptime gem version
+
+### Bug fixes
+
+* in_tail: Properly handle moved back and truncated case
+  https://github.com/fluent/fluentd/pull/1793
+* out_forward: Rebuild weight array to apply server setting properly
+  https://github.com/fluent/fluentd/pull/1784
+* fluent-plugin-config-formatter: Use v1.0 for URL
+  https://github.com/fluent/fluentd/pull/1781
+
+## Release v1.0.0 - 2017/12/6
+
+See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
+
+### New features / Enhancements
+
+* out_copy: Support ignore_error argument in `<store>`
+  https://github.com/fluent/fluentd/pull/1764
+* server helper: Improve resource usage of TLS transport
+  https://github.com/fluent/fluentd/pull/1764
+* Disable tracepoint feature to omit unnecessary insts
+  https://github.com/fluent/fluentd/pull/1764
+
+### Bug fixes
+
+* out_forward: Don't update retry state when failed to get ack response.
+  https://github.com/fluent/fluentd/pull/1686
+* plugin: Combine before_shutdown and shutdown call in one sequence.
+  https://github.com/fluent/fluentd/pull/1763
+* Add description to parsers
+  https://github.com/fluent/fluentd/pull/1776
+  https://github.com/fluent/fluentd/pull/1777
+  https://github.com/fluent/fluentd/pull/1778
+  https://github.com/fluent/fluentd/pull/1779
+  https://github.com/fluent/fluentd/pull/1780
+* filter_parser: Add parameter description
+  https://github.com/fluent/fluentd/pull/1773
+* plugin: Combine before_shutdown and shutdown call in one sequence.
+  https://github.com/fluent/fluentd/pull/1763
+
 # v0.14
+
+## Release v0.14.25 - 2017/11/29
+
+### New features / Enhancements
+
+* Disable tracepoint feature to omit unnecessary insts
+  https://github.com/fluent/fluentd/pull/1764
+
+### Bug fixes
+
+* out_forward: Don't update retry state when failed to get ack response.
+  https://github.com/fluent/fluentd/pull/1686
+* plugin: Combine before_shutdown and shutdown call in one sequence.
+  https://github.com/fluent/fluentd/pull/1763
+
+## Release v0.14.24 - 2017/11/24
+
+### New features / Enhancements
+
+* plugin-config-formatter: Add link to plugin helper result
+  https://github.com/fluent/fluentd/pull/1753
+* server helper: Refactor code
+  https://github.com/fluent/fluentd/pull/1759
+
+### Bug fixes
+
+* supervisor: Don't call change_privilege twice
+  https://github.com/fluent/fluentd/pull/1757
+
+## Release v0.14.23 - 2017/11/15
+
+### New features / Enhancements
+
+* in_udp: Add remove_newline parameter
+  https://github.com/fluent/fluentd/pull/1747
+
+### Bug fixes
+
+* buffer: Lock buffers in order of metadata
+  https://github.com/fluent/fluentd/pull/1722
+* in_tcp: Fix log corruption under load.
+  https://github.com/fluent/fluentd/pull/1729
+* out_forward: Fix elapsed time miscalculation in tcp heartbeat
+  https://github.com/fluent/fluentd/pull/1738
+* supervisor: Fix worker pid handling during worker restart
+  https://github.com/fluent/fluentd/pull/1739
+* in_tail: Skip setup failed watcher to avoid resource leak and log bloat
+  https://github.com/fluent/fluentd/pull/1742
+* agent: Add error location to emit error logs
+  https://github.com/fluent/fluentd/pull/1746
+* command: Consider hyphen and underscore in fluent-plugin-generate arguments
+  https://github.com/fluent/fluentd/pull/1751
+
+## Release v0.14.22 - 2017/11/01
+
+### New features / Enhancements
+
+* formatter_tsv: Add add_newline parameter
+  https://github.com/fluent/fluentd/pull/1691
+* out_file/out_secondary_file: Support ${chunk_id} placeholder. This includes extrace_placeholders API change
+  https://github.com/fluent/fluentd/pull/1708
+* record_accessor: Support double quotes in bracket notation
+  https://github.com/fluent/fluentd/pull/1716
+* log: Show running ruby version in startup log
+  https://github.com/fluent/fluentd/pull/1717
+* log: Log message when chunk is created
+  https://github.com/fluent/fluentd/pull/1718
+* in_tail: Add pos_file duplication check
+  https://github.com/fluent/fluentd/pull/1720
+
+### Bug fixes
+
+* parser_apache2: Delay time parser initialization
+  https://github.com/fluent/fluentd/pull/1690
+* cert_option: Improve generated certificates' conformance to X.509 specification 
+  https://github.com/fluent/fluentd/pull/1714
+* buffer: Always lock chunks first to avoid deadlock
+  https://github.com/fluent/fluentd/pull/1721
+
+## Release v0.14.21 - 2017/09/07
+
+### New features / Enhancements
+
+* filter_parser: Support record_accessor in key_name
+  https://github.com/fluent/fluentd/pull/1654
+* buffer: Support record_accessor in chunk keys
+  https://github.com/fluent/fluentd/pull/1662
+
+### Bug fixes
+
+* compat_parameters: Support all syslog parser parameters
+  https://github.com/fluent/fluentd/pull/1650
+* filter_record_transformer: Don't create new keys if the original record doesn't have `keep_keys` keys
+  https://github.com/fluent/fluentd/pull/1663
+* in_tail: Fix the error when 'tag *' is configured
+  https://github.com/fluent/fluentd/pull/1664
+* supervisor: Clear previous worker pids when receive kill signals.
+  https://github.com/fluent/fluentd/pull/1683
 
 ## Release v0.14.20 - 2017/07/31
 

@@ -5,7 +5,7 @@ require "fluent/plugin/input"
 module Fluent
   module Plugin
     class <%= class_name %> < Fluent::Plugin::Input
-      Fluent::Plugin.register_input("<%= name %>", self)
+      Fluent::Plugin.register_input("<%= plugin_name %>", self)
     end
   end
 end

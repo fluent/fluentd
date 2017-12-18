@@ -395,17 +395,19 @@ module Fluent::Plugin
 
     def on_timer
       @nodes.each {|n|
-        if n.tick
-          rebuild_weight_array
-        end
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
-          n.send_heartbeat
+          if n.send_heartbeat
+            rebuild_weight_array
+          end
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         rescue => e
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+        end
+        if n.tick
+          rebuild_weight_array
         end
       }
     end
@@ -433,7 +435,7 @@ module Fluent::Plugin
       if raw_data.empty?
         log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
         info.node.disable!
-        rollback_write(info.chunk_id)
+        rollback_write(info.chunk_id, update_retry: false)
         return nil
       else
         unpacker.feed(raw_data)
@@ -442,7 +444,7 @@ module Fluent::Plugin
         if res['ack'] != info.chunk_id_base64
           # Some errors may have occured when ack and chunk id is different, so send the chunk again.
           log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
-          rollback_write(info.chunk_id)
+          rollback_write(info.chunk_id, update_retry: false)
           return nil
         else
           log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
@@ -483,7 +485,7 @@ module Fluent::Plugin
                 log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
                 info.sock.close rescue nil
-                rollback_write(info.chunk_id)
+                rollback_write(info.chunk_id, update_retry: false)
               else
                 sockets << info.sock
                 new_list << info
@@ -582,7 +584,7 @@ module Fluent::Plugin
           rescue IO::WaitReadable
             # If the exception is Errno::EWOULDBLOCK or Errno::EAGAIN, it is extended by IO::WaitReadable.
             # So IO::WaitReadable can be used to rescue the exceptions for retrying read_nonblock.
-            # http://docs.ruby-lang.org/en/2.3.0/IO.html#method-i-read_nonblock
+            # https//docs.ruby-lang.org/en/2.3.0/IO.html#method-i-read_nonblock
             sleep @sender.read_interval unless @state == :established
           rescue SystemCallError => e
             @log.warn "disconnected by error", host: @host, port: @port, error: e
@@ -665,11 +667,13 @@ module Fluent::Plugin
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
-            # successful tcp connection establishment is considered as valid heartbeat
+            # successful tcp connection establishment is considered as valid heartbeat.
+            # When heartbeat is succeeded after detached, return true. It rebuilds weight array.
             heartbeat(true)
           end
         when :udp
           @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
+          nil
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
         else

@@ -141,8 +141,8 @@ module Fluent::Plugin
         dummy_record_keys = get_placeholders_keys(@path_template) || ['message']
         dummy_record = Hash[dummy_record_keys.zip(['data'] * dummy_record_keys.size)]
 
-        test_meta1 = metadata_for_test(dummy_tag, Fluent::Engine.now, dummy_record)
-        test_path = extract_placeholders(@path_template, test_meta1)
+        test_chunk1 = chunk_for_test(dummy_tag, Fluent::Engine.now, dummy_record)
+        test_path = extract_placeholders(@path_template, test_chunk1)
         unless ::Fluent::FileUtil.writable_p?(test_path)
           raise Fluent::ConfigError, "out_file: `#{test_path}` is not writable"
         end
@@ -178,7 +178,7 @@ module Fluent::Plugin
     end
 
     def write(chunk)
-      path = extract_placeholders(@path_template, chunk.metadata)
+      path = extract_placeholders(@path_template, chunk)
       FileUtils.mkdir_p File.dirname(path), mode: @dir_perm
 
       writer = case

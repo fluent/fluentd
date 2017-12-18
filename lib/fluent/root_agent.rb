@@ -212,7 +212,6 @@ module Fluent
 
       lifecycle_unsafe_sequence = ->(method, checker) {
         operation = case method
-                    when :before_shutdown then "preparing shutdown"
                     when :shutdown then "shutting down"
                     when :close    then "closing"
                     else
@@ -228,11 +227,23 @@ module Fluent
             Thread.current.abort_on_exception = true
             begin
               if method == :shutdown
+                # To avoid Input#shutdown and Output#before_shutdown mismatch problem, combine before_shutdown and shutdown call in one sequence.
+                # The problem is in_tail flushes buffered multiline in shutdown but output's flush_at_shutdown is invoked in before_shutdown
+                operation = "preparing shutdown" # for logging
+                log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+                begin
+                  instance.send(:before_shutdown) unless instance.send(:before_shutdown?)
+                rescue Exception => e
+                  log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
+                  log.warn_backtrace
+                end
+                operation = "shutting down"
                 log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+                instance.send(:shutdown) unless instance.send(:shutdown?)
               else
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
+                instance.send(method) unless instance.send(checker)
               end
-              instance.send(method) unless instance.send(checker)
             rescue Exception => e
               log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
               log.warn_backtrace
@@ -245,8 +256,6 @@ module Fluent
       lifecycle_safe_sequence.call(:stop, :stopped?)
 
       # before_shutdown does force_flush for output plugins: it should block, so it's unsafe operation
-      lifecycle_unsafe_sequence.call(:before_shutdown, :before_shutdown?)
-
       lifecycle_unsafe_sequence.call(:shutdown, :shutdown?)
 
       lifecycle_safe_sequence.call(:after_shutdown, :after_shutdown?)
@@ -292,7 +301,7 @@ module Fluent
     end
 
     def emit_error_event(tag, time, record, error)
-      error_info = {error: error, tag: tag, time: time}
+      error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time}
       if @error_collector
         # A record is not included in the logs because <@ERROR> handles it. This warn is for the notification
         log.warn "send an error event to @ERROR:", error_info
@@ -304,7 +313,7 @@ module Fluent
     end
 
     def handle_emits_error(tag, es, error)
-      error_info = {error: error, tag: tag}
+      error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag}
       if @error_collector
         log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
@@ -333,7 +342,7 @@ module Fluent
       end
 
       def emit_error_event(tag, time, record, error)
-        error_info = {error: error, tag: tag, time: time, record: record}
+        error_info = {error: error, location: (error.backtrace ? error.backtrace.first : nil), tag: tag, time: time, record: record}
         log.warn "dump an error event in @ERROR:", error_info
       end
 

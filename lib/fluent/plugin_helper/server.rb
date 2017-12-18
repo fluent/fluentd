@@ -370,6 +370,9 @@ module Fluent
         sock
       end
 
+      # Use string "?" for port, not integer or nil. "?" is clear than -1 or nil in the log.
+      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+
       class CallbackSocket
         def initialize(server_type, sock, enabled_events = [], close_socket: true)
           @server_type = server_type
@@ -425,9 +428,14 @@ module Fluent
       end
 
       class TCPCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = [:data, :write_complete, :close]
+
+        attr_accessor :buffer
+
         def initialize(sock)
-          super("tcp", sock, [:data, :write_complete, :close])
-          @peeraddr = @sock.peeraddr
+          super("tcp", sock, ENABLED_EVENTS)
+          @peeraddr = (@sock.peeraddr rescue PEERADDR_FAILED)
+          @buffer = ''
         end
 
         def write(data)
@@ -436,9 +444,11 @@ module Fluent
       end
 
       class TLSCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = [:data, :write_complete, :close]
+
         def initialize(sock)
-          super("tls", sock, [:data, :write_complete, :close])
-          @peeraddr = @sock.to_io.peeraddr
+          super("tls", sock, ENABLED_EVENTS)
+          @peeraddr = (@sock.to_io.peeraddr rescue PEERADDR_FAILED)
         end
 
         def write(data)
@@ -447,8 +457,10 @@ module Fluent
       end
 
       class UDPCallbackSocket < CallbackSocket
+        ENABLED_EVENTS = []
+
         def initialize(sock, peeraddr, **kwargs)
-          super("udp", sock, [], **kwargs)
+          super("udp", sock, ENABLED_EVENTS, **kwargs)
           @peeraddr = peeraddr
         end
 
@@ -649,22 +661,39 @@ module Fluent
             end
           end
 
+          if RUBY_VERSION.to_f >= 2.3
+            NONBLOCK_ARG = {exception: false}
+            def try_handshake
+              @_handler_socket.accept_nonblock(NONBLOCK_ARG)
+            end
+          else
+            def try_handshake
+              @_handler_socket.accept_nonblock
+            rescue IO::WaitReadable
+              :wait_readable
+            rescue IO::WaitWritable
+              :wait_writable
+            end
+          end
+
           def try_tls_accept
             return true if @_handler_accepted
 
             begin
-              @_handler_socket.accept_nonblock # this method call actually try to do handshake via TLS
-              @_handler_accepted = true
+              result = try_handshake # this method call actually try to do handshake via TLS
+              if result == :wait_readable || result == :wait_writable
+                # retry accept_nonblock: there aren't enough data in underlying socket buffer
+              else
+                @_handler_accepted = true
 
-              @callback_connection = TLSCallbackSocket.new(self)
-              @connect_callback.call(@callback_connection)
-              unless @data_callback
-                raise "connection callback must call #data to set data callback"
+                @callback_connection = TLSCallbackSocket.new(self)
+                @connect_callback.call(@callback_connection)
+                unless @data_callback
+                  raise "connection callback must call #data to set data callback"
+                end
+
+                return true
               end
-              return true
-
-            rescue IO::WaitReadable, IO::WaitWritable
-              # retry accept_nonblock: there aren't enough data in underlying socket buffer
             rescue OpenSSL::SSL::SSLError => e
               @log.trace "unexpected error before accepting TLS connection", error: e
               close rescue nil
@@ -688,6 +717,7 @@ module Fluent
           def on_writable
             begin
               @mutex.synchronize do
+                # Consider write_nonblock with {exception: false} when IO::WaitWritable error happens frequently.
                 written_bytes = @_handler_socket.write_nonblock(@_handler_write_buffer)
                 @_handler_write_buffer.slice!(0, written_bytes)
                 super

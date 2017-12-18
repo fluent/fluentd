@@ -66,7 +66,7 @@ module Fluent
         end
 
         type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
-        if @@buffer_paths.has_key?(@path) && !buffer_path_for_test?
+        if @@buffer_paths.has_key?(@path) && !called_in_test?
           type_using_this_path = @@buffer_paths[@path]
           raise ConfigError, "Other '#{type_using_this_path}' plugin already use same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
         end
@@ -114,18 +114,6 @@ module Fluent
         @multi_workers_available
       end
 
-      def buffer_path_for_test?
-        caller_locations.each do |location|
-          # Thread::Backtrace::Location#path returns base filename or absolute path.
-          # #absolute_path returns absolute_path always.
-          # https://bugs.ruby-lang.org/issues/12159
-          if location.absolute_path =~ /\/test_[^\/]+\.rb$/ # location.path =~ /test_.+\.rb$/
-            return true
-          end
-        end
-        false
-      end
-
       def start
         FileUtils.mkdir_p File.dirname(@path), mode: @dir_permission
 
@@ -170,10 +158,14 @@ module Fluent
       def generate_chunk(metadata)
         # FileChunk generates real path with unique_id
         if @file_permission
-          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, perm: @file_permission, compress: @compress)
+          chunk = Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, perm: @file_permission, compress: @compress)
         else
-          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, compress: @compress)
+          chunk = Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, compress: @compress)
         end
+
+        log.debug "Created new chunk", chunk_id: dump_unique_id_hex(chunk.unique_id), metadata: metadata
+
+        return chunk
       end
     end
   end

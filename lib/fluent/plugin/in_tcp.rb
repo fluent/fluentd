@@ -55,13 +55,12 @@ module Fluent::Plugin
     def start
       super
 
-      @buffer = ''
       server_create(:in_tcp_server, @port, bind: @bind) do |data, conn|
-        @buffer << data
+        conn.buffer << data
         begin
           pos = 0
-          while i = @buffer.index(@delimiter, pos)
-            msg = @buffer[pos...i]
+          while i = conn.buffer.index(@delimiter, pos)
+            msg = conn.buffer[pos...i]
             pos = i + @delimiter.length
 
             @parser.parse(msg) do |time, record|
@@ -77,7 +76,7 @@ module Fluent::Plugin
               router.emit(tag, time, record)
             end
           end
-          @buffer.slice!(0, pos) if pos > 0
+          conn.buffer.slice!(0, pos) if pos > 0
         end
       end
     end

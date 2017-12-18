@@ -2,11 +2,13 @@ Fluentd: Open-Source Log Collector
 ===================================
 
 [<img src="https://travis-ci.org/fluent/fluentd.svg" />](https://travis-ci.org/fluent/fluentd) [![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd?ref=badge_shield)
 
-[Fluentd](http://fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](http://www.fluentd.org/blog/unified-logging-layer)).
+[Fluentd](https://fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](https://www.fluentd.org/blog/unified-logging-layer)).
 
 <p align="center">
-<img src="http://docs.fluentd.org/images/fluentd-architecture.png" width="500px"/>
+<img src="https://docs.fluentd.org/images/fluentd-architecture.png" width="500px"/>
 </p>
 
 An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time recorded at occurrence of an event. Record is a JSON object.
@@ -60,16 +62,16 @@ Many enterprises run Fluentd in production to handle all of their logging needs.
 
 [Fluentd UI](https://github.com/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
 
-<p align="center"><img width="500" src="http://www.fluentd.org/images/blog/fluentd-ui.gif"/></p>
+<p align="center"><img width="500" src="https://www.fluentd.org/images/blog/fluentd-ui.gif"/></p>
 
 ## More Information
 
 - Website: https://www.fluentd.org/
-- Documentation: http://docs.fluentd.org/
-- Project repository: http://github.com/fluent
-- Discussion: http://groups.google.com/group/fluentd
-- Slack / Community: http://slack.fluentd.org
-- Newsletters: http://get.treasuredata.com/Fluentd_education
+- Documentation: https://docs.fluentd.org/
+- Project repository: https://github.com/fluent
+- Discussion: https://groups.google.com/group/fluentd
+- Slack / Community: https://slack.fluentd.org
+- Newsletters: https://www.fluentd.org/newsletter_signup
 - Author: Sadayuki Furuhashi
 - Copyright: (c) 2011 FURUHASHI Sadayuki
 - License: Apache License, Version 2.0

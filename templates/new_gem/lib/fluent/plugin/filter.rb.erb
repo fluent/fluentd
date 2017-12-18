@@ -5,7 +5,7 @@ require "fluent/plugin/filter"
 module Fluent
   module Plugin
     class <%= class_name %> < Fluent::Plugin::Filter
-      Fluent::Plugin.register_filter("<%= name %>", self)
+      Fluent::Plugin.register_filter("<%= plugin_name %>", self)
 
       def filter(tag, time, record)
       end

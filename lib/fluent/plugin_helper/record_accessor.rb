@@ -17,10 +17,10 @@
 require 'fluent/config/error'
 unless {}.respond_to?(:dig)
   begin
-    # backport_dig is faster than ruby_dig so prefer backport_dig.
+    # backport_dig is faster than dig_rb so prefer backport_dig.
     require 'backport_dig'
   rescue LoadError
-    require 'ruby_dig'
+    require 'dig_rb'
   end
 end
 
@@ -37,7 +37,7 @@ module Fluent
 
           # Call [] for single key to reduce dig overhead
           m = method(@keys.is_a?(Array) ? :call_dig : :call_index)
-          (class << self; self; end).module_eval do
+          singleton_class.module_eval do
             define_method(:call, m)
           end
         end
@@ -133,8 +133,9 @@ module Fluent
 
           until param.empty?
             if in_bracket
-              if param[0] == "'"
-                if i = param.index("']")
+              if param[0] == "'" || param[0] == '"'
+                if i = param.index("']") || param.index('"]')
+                  raise Fluent::ConfigError, "Mismatched quotes. Invalid syntax: #{orig_param}" unless param[0] == param[i]
                   result << param[1..i - 1]
                   param = param[i + 2..-1]
                   in_bracket = false

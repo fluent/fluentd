@@ -8,7 +8,7 @@ Gem::Specification.new do |gem|
   gem.email         = ["frsyuki@gmail.com"]
   gem.description   = %q{Fluentd is an open source data collector designed to scale and simplify log management. It can collect, process and ship many kinds of data in near real-time.}
   gem.summary       = %q{Fluentd event collector}
-  gem.homepage      = "http://fluentd.org/"
+  gem.homepage      = "https://fluentd.org/"
 
   gem.files         = `git ls-files`.split($\)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
@@ -27,8 +27,8 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
   gem.add_runtime_dependency("tzinfo", ["~> 1.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
-  gem.add_runtime_dependency("strptime", ["~> 0.1.7"])
-  gem.add_runtime_dependency("ruby_dig", ["~> 0.0.2"])
+  gem.add_runtime_dependency("strptime", ["~> 0.1"])
+  gem.add_runtime_dependency("dig_rb", ["~> 1.0.0"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s

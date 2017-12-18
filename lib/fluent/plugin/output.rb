@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin/base'
+require 'fluent/plugin_helper/record_accessor'
 require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
@@ -36,8 +37,9 @@ module Fluent
       helpers_internal :thread, :retry_state
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
-      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
+      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@$a-zA-Z0-9]+\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
+      CHUNK_ID_PLACEHOLDER_PATTERN = /\$\{chunk_id\}/
 
       CHUNKING_FIELD_WARN_NUM = 4
 
@@ -161,7 +163,7 @@ module Fluent
       attr_reader :num_errors, :emit_count, :emit_records, :write_count, :rollback_count
 
       # for tests
-      attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_time, :chunk_key_tag
+      attr_reader :buffer, :retry, :secondary, :chunk_keys, :chunk_key_accessors, :chunk_key_time, :chunk_key_tag
       attr_accessor :output_enqueue_thread_waiting, :dequeued_chunks, :dequeued_chunks_mutex
       # output_enqueue_thread_waiting: for test of output.rb itself
       attr_accessor :retry_for_error_chunk # if true, error flush will be retried even if under_plugin_development is true
@@ -203,7 +205,7 @@ module Fluent
         @output_flush_threads = nil
 
         @simple_chunking = nil
-        @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
+        @chunk_keys = @chunk_key_accessors = @chunk_key_time = @chunk_key_tag = nil
         @flush_mode = nil
         @timekey_zone = nil
 
@@ -222,9 +224,9 @@ module Fluent
         end
         self.context_router = primary.context_router
 
-        (class << self; self; end).module_eval do
+        singleton_class.module_eval do
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
-          define_method(:rollback_write){ |chunk_id| @primary_instance.rollback_write(chunk_id) }
+          define_method(:rollback_write){ |chunk_id, update_retry: true| @primary_instance.rollback_write(chunk_id, update_retry) }
         end
       end
 
@@ -276,8 +278,25 @@ module Fluent
           @chunk_keys = @buffer_config.chunk_keys.dup
           @chunk_key_time = !!@chunk_keys.delete('time')
           @chunk_key_tag = !!@chunk_keys.delete('tag')
-          if @chunk_keys.any?{ |key| key !~ CHUNK_KEY_PATTERN }
+          if @chunk_keys.any? { |key|
+              begin
+                k = Fluent::PluginHelper::RecordAccessor::Accessor.parse_parameter(key)
+                if k.is_a?(String)
+                  k !~ CHUNK_KEY_PATTERN
+                else
+                  if key.start_with?('$[')
+                    raise Fluent::ConfigError, "in chunk_keys: bracket notation is not allowed"
+                  else
+                    false
+                  end
+                end
+              rescue => e
+                raise Fluent::ConfigError, "in chunk_keys: #{e.message}"
+              end
+            }
             raise Fluent::ConfigError, "chunk_keys specification includes invalid char"
+          else
+            @chunk_key_accessors = Hash[@chunk_keys.map { |key| [key.to_sym, Fluent::PluginHelper::RecordAccessor::Accessor.new(key)] }]
           end
 
           if @chunk_key_time
@@ -370,7 +389,7 @@ module Fluent
 
         if @buffering
           m = method(:emit_buffered)
-          (class << self; self; end).module_eval do
+          singleton_class.module_eval do
             define_method(:emit_events, m)
           end
 
@@ -384,7 +403,7 @@ module Fluent
           @delayed_commit_timeout = @buffer_config.delayed_commit_timeout
         else # !@buffering
           m = method(:emit_sync)
-          (class << self; self; end).module_eval do
+          singleton_class.module_eval do
             define_method(:emit_events, m)
           end
         end
@@ -661,13 +680,27 @@ module Fluent
       end
 
       def get_placeholders_keys(str)
-        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| s == "tag"}.sort
+        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| (s == "tag") || (s == 'chunk_id') }.sort
       end
 
       # TODO: optimize this code
-      def extract_placeholders(str, metadata)
+      def extract_placeholders(str, chunk)
+        metadata = if chunk.is_a?(Fluent::Plugin::Buffer::Chunk)
+                     chunk_passed = true
+                     chunk.metadata
+                   else
+                     chunk_passed = false
+                     # For existing plugins. Old plugin passes Chunk.metadata instead of Chunk
+                     chunk
+                   end
         if metadata.empty?
-          str
+          str.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+            if chunk_passed
+              dump_unique_id_hex(chunk.unique_id)
+            else
+              log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
+            end
+          }
         else
           rvalue = str.dup
           # strftime formatting
@@ -702,7 +735,13 @@ module Fluent
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
             log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
           end
-          rvalue
+          rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
+            if chunk_passed
+              dump_unique_id_hex(chunk.unique_id)
+            else
+              log.warn "${chunk_id} is not allowed in this plugin. Pass Chunk instead of metadata in extract_placeholders's 2nd argument"
+            end
+          }
         end
       end
 
@@ -778,9 +817,16 @@ module Fluent
                     else
                       nil
                     end
-          pairs = Hash[@chunk_keys.map{|k| [k.to_sym, record[k]]}]
+          pairs = Hash[@chunk_key_accessors.map { |k, a| [k, a.call(record)] }]
           @buffer.metadata(timekey: timekey, tag: (@chunk_key_tag ? tag : nil), variables: pairs)
         end
+      end
+
+      def chunk_for_test(tag, time, record)
+        require 'fluent/plugin/buffer/memory_chunk'
+
+        m = metadata_for_test(tag, time, record)
+        Fluent::Plugin::Buffer::MemoryChunk.new(m)
       end
 
       def metadata_for_test(tag, time, record)
@@ -945,7 +991,9 @@ module Fluent
         end
       end
 
-      def rollback_write(chunk_id)
+      # update_retry parameter is for preventing busy loop by async write
+      # We will remove this parameter by re-design retry_state management between threads.
+      def rollback_write(chunk_id, update_retry: true)
         # This API is to rollback chunks explicitly from plugins.
         # 3rd party plugins can depend it on automatic rollback of #try_rollback_write
         @dequeued_chunks_mutex.synchronize do
@@ -956,8 +1004,10 @@ module Fluent
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
           @counters_monitor.synchronize{ @rollback_count += 1 }
-          primary = @as_secondary ? @primary_instance : self
-          primary.update_retry_state(chunk_id, @as_secondary)
+          if update_retry
+            primary = @as_secondary ? @primary_instance : self
+            primary.update_retry_state(chunk_id, @as_secondary)
+          end
           true
         else
           false

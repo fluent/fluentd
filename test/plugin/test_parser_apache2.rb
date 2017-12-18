@@ -16,6 +16,7 @@ class Apache2ParserTest < ::Test::Unit::TestCase
       'referer' => nil,
       'agent'   => 'Opera/12.0'
     }
+    @parser.configure({})
   end
 
   def test_parse

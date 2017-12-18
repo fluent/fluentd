@@ -34,6 +34,16 @@ module Fluent::Plugin
 
     helpers :timer, :event_loop, :parser, :compat_parameters
 
+    class WatcherSetupError < StandardError
+      def initialize(msg)
+        @message = msg
+      end
+
+      def to_s
+        @message
+      end
+    end
+
     FILE_PERMISSION = 0644
 
     def initialize
@@ -70,6 +80,8 @@ module Fluent::Plugin
     config_param :emit_unmatched_lines, :bool, default: false
     desc 'Enable the additional watch timer.'
     config_param :enable_watch_timer, :bool, default: true
+    desc 'Enable the stat watcher based on inotify.'
+    config_param :enable_stat_watcher, :bool, default: true
     desc 'The encoding after conversion of the input.'
     config_param :encoding, :string, default: nil
     desc 'The encoding of the input.'
@@ -89,6 +101,8 @@ module Fluent::Plugin
 
     attr_reader :paths
 
+    @@pos_file_paths = {}
+
     def configure(conf)
       compat_parameters_convert(conf, :parser)
       parser_config = conf.elements('parse').first
@@ -105,13 +119,23 @@ module Fluent::Plugin
 
       super
 
+      if !@enable_watch_timer && !@enable_stat_watcher
+        raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
+      end
+
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
 
       # TODO: Use plugin_root_dir and storage plugin to store positions if available
-      unless @pos_file
+      if @pos_file
+        if @@pos_file_paths.has_key?(@pos_file) && !called_in_test?
+          plugin_id_using_this_path = @@pos_file_paths[@pos_file]
+          raise Fluent::ConfigError, "Other 'in_tail' plugin already use same pos_file path: plugin_id = #{plugin_id_using_this_path}, pos_file path = #{@pos_file}"
+        end
+        @@pos_file_paths[@pos_file] = self.plugin_id
+      else
         if @follow_inodes
           raise Fluent::ConfigError, "Can't follow inodes without pos_file configuration parameter"
         end
@@ -135,6 +159,7 @@ module Fluent::Plugin
     def configure_tag
       if @tag.index('*')
         @tag_prefix, @tag_suffix = @tag.split('*')
+        @tag_prefix ||= ''
         @tag_suffix ||= ''
       else
         @tag_prefix = nil
@@ -264,12 +289,18 @@ module Fluent::Plugin
 
     def setup_watcher(path, ino, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, ino, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, @follow_inodes, &method(:receive_lines))
+      tw = TailWatcher.new(path, ino, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, @follow_inodes, &method(:receive_lines))
       tw.attach do |watcher|
         watcher.timer_trigger = timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
-        event_loop_attach(watcher.stat_trigger)
+        event_loop_attach(watcher.stat_trigger) if watcher.enable_stat_watcher
       end
       tw
+    rescue => e
+      if tw
+        tw.detach
+        tw.close
+      end
+      raise e
     end
 
     def start_watchers(paths_with_inodes)
@@ -288,7 +319,13 @@ module Fluent::Plugin
           end
         end
 
-        @tails[path_with_inode] = setup_watcher(path, ino, pe)
+        begin
+          tw = setup_watcher(path, ino, pe)
+        rescue WatcherSetupError => e
+          log.warn "Skip #{path} because unexpected setup error happens: #{e}"
+          next
+        end
+        @tails[path] = tw
       }
     end
 
@@ -469,19 +506,20 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, ino, rotate_wait, pe, log, read_from_head, enable_watch_timer, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, follow_inodes, &receive_lines)
+      def initialize(path, ino, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, follow_inodes, &receive_lines)
         @path = path
         @ino = ino
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @enable_watch_timer = enable_watch_timer
+        @enable_stat_watcher = enable_stat_watcher
         @read_lines_limit = read_lines_limit
         @receive_lines = receive_lines
         @update_watcher = update_watcher
         @follow_inodes = follow_inodes
 
-        @stat_trigger = StatWatcher.new(self, &method(:on_notify))
+        @stat_trigger = @enable_stat_watcher ? StatWatcher.new(self, &method(:on_notify)) : nil
         @timer_trigger = nil
 
         @rotate_handler = RotateHandler.new(self, &method(:on_rotate))
@@ -497,7 +535,7 @@ module Fluent::Plugin
       attr_reader :path, :ino
       attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
       attr_reader :from_encoding, :encoding
-      attr_reader :stat_trigger, :enable_watch_timer
+      attr_reader :stat_trigger, :enable_watch_timer, :enable_stat_watcher
       attr_accessor :timer_trigger
       attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
@@ -516,8 +554,8 @@ module Fluent::Plugin
       end
 
       def detach
-        @timer_trigger.detach if @enable_watch_timer && @timer_trigger.attached?
-        @stat_trigger.detach if @stat_trigger.attached?
+        @timer_trigger.detach if @enable_watch_timer && @timer_trigger && @timer_trigger.attached?
+        @stat_trigger.detach if @enable_stat_watcher && @stat_trigger && @stat_trigger.attached?
         @io_handler.on_notify if @io_handler
       end
 
@@ -554,7 +592,10 @@ module Fluent::Plugin
               # assuming following situation:
               #   a) file was once renamed and backed, or
               #   b) symlink or hardlink to the same file is recreated
-              # in either case, seek to the saved position
+              # in either case of a and b, seek to the saved position
+              #   c) file was once renamed, truncated and then backed
+              # in this case, consider it truncated
+              @pe.update(inode, 0) if fsize < @pe.read_pos
             elsif last_inode != 0
               # this is FilePositionEntry and fluentd once started.
               # read data from the head of the rotated file.
@@ -743,6 +784,9 @@ module Fluent::Plugin
           io = Fluent::FileWrapper.open(@watcher.path)
           io.seek(@watcher.pe.read_pos + @fifo.bytesize)
           io
+        rescue RangeError
+          io.close if io
+          raise WatcherSetupError, "seek error with #{@watcher.path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
         rescue Errno::ENOENT
           nil
         end
@@ -760,6 +804,9 @@ module Fluent::Plugin
               @io ||= open
               yield @io
             end
+          rescue WatcherSetupError => e
+            close
+            raise e
           rescue
             @watcher.log.error $!.to_s
             @watcher.log.error_backtrace
