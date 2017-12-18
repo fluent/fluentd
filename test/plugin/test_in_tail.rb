@@ -17,6 +17,7 @@ class TailInputTest < Test::Unit::TestCase
 
   def teardown
     super
+    cleanup_directory(TMP_DIR)
     Fluent::Engine.stop
   end
 
@@ -31,12 +32,23 @@ class TailInputTest < Test::Unit::TestCase
     FileUtils.mkdir_p(path)
   end
 
+  def cleanup_file(path)
+    FileUtils.rm_f(path, secure: true)
+    if File.exist?(path)
+      # ensure files are closed for Windows, on which deleted files
+      # are still visible from filesystem
+      GC.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
+      FileUtils.remove_entry_secure(path, true)
+    end
+  end
+
   TMP_DIR = File.dirname(__FILE__) + "/../tmp/tail#{ENV['TEST_ENV_NUMBER']}"
 
   CONFIG = config_element("ROOT", "", {
                             "path" => "#{TMP_DIR}/tail.txt",
                             "tag" => "t1",
-                            "rotate_wait" => "2s"
+                            "rotate_wait" => "2s",
+                            "refresh_interval" => "1s"
                           })
   COMMON_CONFIG = CONFIG + config_element("", "", { "pos_file" => "#{TMP_DIR}/tail.pos" })
   CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
@@ -59,6 +71,19 @@ class TailInputTest < Test::Unit::TestCase
                       "format_firstline" => "/^[s]/"
                     })
     ])
+  COMMON_FOLLOW_INODE_CONFIG = config_element("ROOT", "", {
+      "path" => "#{TMP_DIR}/tail.txt*",
+      "pos_file" => "#{TMP_DIR}/tail.pos",
+      "tag" => "t1",
+      "refresh_interval" => "1s",
+      "read_from_head" => "true",
+      "format" => "none",
+      "follow_inodes" => "true"
+  })
+
+  def path_to_tuple(path)
+    Fluent::Plugin::TailInput::PathInodeTuple.new(path, Fluent::FileWrapper.stat(path).ino)
+  end
 
   def create_driver(conf = SINGLE_LINE_CONFIG, use_common_conf = true)
     config = use_common_conf ? COMMON_CONFIG + conf : conf
@@ -81,6 +106,12 @@ class TailInputTest < Test::Unit::TestCase
     test "w/o parse section" do |conf|
       assert_raise(Fluent::ConfigError) do
         create_driver(conf)
+      end
+    end
+
+    test "follow_inodes w/o pos file" do
+      assert_raise(Fluent::ConfigError) do
+        create_driver(CONFIG + config_element('', '', {'follow_inodes' => 'true'}))
       end
     end
 
@@ -920,6 +951,7 @@ class TailInputTest < Test::Unit::TestCase
     # * path test
     # TODO: Clean up tests
     EX_ROTATE_WAIT = 0
+    EX_FOLLOW_INODES = false
 
     EX_CONFIG = config_element("", "", {
                                  "tag" => "tail",
@@ -929,32 +961,34 @@ class TailInputTest < Test::Unit::TestCase
                                  "read_from_head" => true,
                                  "refresh_interval" => 30,
                                  "rotate_wait" => "#{EX_ROTATE_WAIT}s",
+                                 "follow_inodes" => "#{EX_FOLLOW_INODES}",
                                })
-    EX_PATHS = [
-      'test/plugin/data/2010/01/20100102-030405.log',
-      'test/plugin/data/log/foo/bar.log',
-      'test/plugin/data/log/test.log'
-    ]
 
     def test_expand_paths
+      ex_path = [
+        path_to_tuple('test/plugin/data/2010/01/20100102-030405.log'),
+        path_to_tuple('test/plugin/data/log/foo/bar.log'),
+        path_to_tuple('test/plugin/data/log/test.log')
+      ]
+
       plugin = create_driver(EX_CONFIG, false).instance
       flexstub(Time) do |timeclass|
         timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 2, 3, 4, 5))
-        assert_equal EX_PATHS, plugin.expand_paths.sort
+        assert_equal ex_path, plugin.expand_paths.values.sort_by {|path_ino| path_ino.path}
       end
 
       # Test exclusion
-      exclude_config = EX_CONFIG + config_element("", "", { "exclude_path" => %Q(["#{EX_PATHS.last}"]) })
+      exclude_config = EX_CONFIG + config_element("", "", {"exclude_path" => %Q(["#{ex_path.last.path}"])})
       plugin = create_driver(exclude_config, false).instance
-      assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
+      assert_equal ex_path - [ex_path.last], plugin.expand_paths.values.sort_by {|path_ino| path_ino.path}
     end
 
     def test_log_file_without_extension
       expected_files = [
-        'test/plugin/data/log/bar',
-        'test/plugin/data/log/foo/bar.log',
-        'test/plugin/data/log/foo/bar2',
-        'test/plugin/data/log/test.log'
+          path_to_tuple('test/plugin/data/log/bar'),
+          path_to_tuple('test/plugin/data/log/foo/bar.log'),
+          path_to_tuple('test/plugin/data/log/foo/bar2'),
+          path_to_tuple('test/plugin/data/log/test.log')
       ]
 
       config = config_element("", "", {
@@ -965,7 +999,7 @@ class TailInputTest < Test::Unit::TestCase
       })
 
       plugin = create_driver(config, false).instance
-      assert_equal expected_files, plugin.expand_paths.sort
+      assert_equal expected_files, plugin.expand_paths.values.sort_by {|path_ino| path_ino.path}
     end
 
     # For https://github.com/fluent/fluentd/issues/1455
@@ -1012,17 +1046,23 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   def test_z_refresh_watchers
+    ex_paths = [
+      path_to_tuple('test/plugin/data/2010/01/20100102-030405.log'),
+      path_to_tuple('test/plugin/data/log/foo/bar.log'),
+      path_to_tuple('test/plugin/data/log/test.log'),
+    ]
+
     plugin = create_driver(EX_CONFIG, false).instance
     sio = StringIO.new
     plugin.instance_eval do
-      @pf = Fluent::Plugin::TailInput::PositionFile.parse(sio)
+      @pf = Fluent::Plugin::TailInput::PositionFile.parse(sio, EX_FOLLOW_INODES, nil)
       @loop = Coolio::Loop.new
     end
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any).once.and_return do
+        ex_paths.each do |path|
+          watcherclass.should_receive(:new).with(path_ino.path, path_ino.ino,EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, false, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:unwatched=).zero_or_more_times
@@ -1035,12 +1075,14 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     plugin.instance_eval do
-      @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).zero_or_more_times
+      @tails[ex_paths[0]].should_receive(:close).zero_or_more_times
     end
+
+    path_ino = path_to_tuple('test/plugin/data/2010/01/20100102-030406.log')
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any).once.and_return do
+        watcherclass.should_receive(:new).with(path_ino.path, path_ino.ino, EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, false, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
             watcher.should_receive(:unwatched=).zero_or_more_times
@@ -1174,6 +1216,307 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'inode_processing' do
+    def test_should_delete_file_pos_entry_for_non_existing_file_with_follow_inodes
+      config = COMMON_FOLLOW_INODE_CONFIG
+
+      path = "#{TMP_DIR}/tail.txt"
+      ino = 1
+      pos = 1234
+      File.open("#{TMP_DIR}/tail.pos", "wb") {|f|
+        f.puts ("%s\t%016x\t%016x\n" % [path, pos, ino])
+      }
+
+      d = create_driver(config, false)
+      d.run
+
+      pos_file = File.open("#{TMP_DIR}/tail.pos", "r")
+      pos_file.pos = 0
+
+      assert_raise(EOFError) do
+        pos_file.readline
+      end
+    end
+
+    def test_should_write_latest_offset_after_rotate_wait
+      config = COMMON_FOLLOW_INODE_CONFIG
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d = create_driver(config, false)
+      d.run(expect_emits: 2, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        FileUtils.move("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail.txt" + "1")
+        sleep 1
+        File.open("#{TMP_DIR}/tail.txt" + "1", "ab") {|f| f.puts "test4\n"}
+      end
+
+      pos_file = File.open("#{TMP_DIR}/tail.pos", "r")
+      pos_file.pos = 0
+      line_parts = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
+      waiting(5) {
+        while line_parts[2].to_i(16) != 24
+          sleep(0.1)
+          pos_file.pos = 0
+          line_parts = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
+        end
+      }
+      assert_equal(24, line_parts[2].to_i(16))
+      d.instance_shutdown
+    end
+
+    def test_should_keep_and_update_existing_file_pos_entry_for_deleted_file_when_new_file_with_same_name_created
+      config = config_element("", "", {"format" => "none"})
+
+      path = "#{TMP_DIR}/tail.txt"
+      ino = 1
+      pos = 1234
+      File.open("#{TMP_DIR}/tail.pos", "wb") {|f|
+        f.puts ("%s\t%016x\t%016x\n" % [path, pos, ino])
+      }
+
+      d = create_driver(config)
+      d.run(shutdown: false)
+
+      pos_file = File.open("#{TMP_DIR}/tail.pos", "r")
+      pos_file.pos = 0
+
+      path_pos_ino = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
+      assert_equal(path, path_pos_ino[1])
+      assert_equal(pos, path_pos_ino[2].to_i(16))
+      assert_equal(ino, path_pos_ino[3].to_i(16))
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+      Timecop.travel(Time.now + 10) do
+        sleep 5
+        pos_file.pos = 0
+        tuple = path_to_tuple("#{TMP_DIR}/tail.txt")
+        path_pos_ino = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(pos_file.readline)
+        assert_equal(tuple.path, path_pos_ino[1])
+        assert_equal(12, path_pos_ino[2].to_i(16))
+        assert_equal(tuple.ino, path_pos_ino[3].to_i(16))
+      end
+      d.instance_shutdown
+    end
+
+    def test_should_mark_file_unwatched_after_limit_recently_modified_and_rotate_wait
+      config = config_element("ROOT", "", {
+          "path" => "#{TMP_DIR}/tail.txt*",
+          "pos_file" => "#{TMP_DIR}/tail.pos",
+          "tag" => "t1",
+          "rotate_wait" => "1s",
+          "refresh_interval" => "1s",
+          "limit_recently_modified" => "1s",
+          "read_from_head" => "true",
+          "format" => "none"
+      })
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+
+      d.run(expect_emits: 1, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+      end
+
+
+      Timecop.travel(Time.now + 10) do
+        waiting(5) {sleep 0.1 until d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos == Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION}
+      end
+
+      assert_equal(Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION, d.instance.instance_variable_get(:@pf)[path_ino.path, path_ino.ino].read_pos)
+
+      d.instance_shutdown
+    end
+
+    def test_should_read_from_head_on_file_renaming_with_star_in_pattern
+      config = config_element("ROOT", "", {
+          "path" => "#{TMP_DIR}/tail.txt*",
+          "pos_file" => "#{TMP_DIR}/tail.pos",
+          "tag" => "t1",
+          "rotate_wait" => "10s",
+          "refresh_interval" => "1s",
+          "limit_recently_modified" => "60s",
+          "read_from_head" => "true",
+          "format" => "none"
+      })
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d.run(expect_emits: 2, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        FileUtils.move("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail.txt1")
+      end
+
+      events = d.events
+      assert_equal(6, events.length)
+      d.instance_shutdown
+    end
+
+    def test_should_not_read_from_head_on_rotation_when_watching_inodes
+      config = COMMON_FOLLOW_INODE_CONFIG
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d.run(expect_emits: 1, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+      end
+
+      FileUtils.move("#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail.txt1")
+      Timecop.travel(Time.now + 10) do
+        sleep 2
+        events = d.events
+        assert_equal(3, events.length)
+      end
+
+      d.instance_shutdown
+    end
+
+    def test_should_mark_file_unwatched_if_same_name_file_created_with_different_inode
+      config = COMMON_FOLLOW_INODE_CONFIG
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+
+      d.run(expect_emits: 2, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        cleanup_file("#{TMP_DIR}/tail.txt")
+        File.open("#{TMP_DIR}/tail.txt", "wb") {|f| f.puts "test4\n"}
+      end
+
+      new_path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+
+      pos_file = d.instance.instance_variable_get(:@pf)
+
+      waiting(10) {sleep 0.1 until pos_file[path_ino.path, path_ino.ino].read_pos == Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION}
+      new_position = pos_file[new_path_ino.path, new_path_ino.ino].read_pos
+      assert_equal(6, new_position)
+
+      d.instance_shutdown
+    end
+
+    def test_should_close_watcher_after_rotate_wait
+      now = Time.now
+      config = COMMON_FOLLOW_INODE_CONFIG + config_element('', '', {"rotate_wait" => "1s", "limit_recently_modified" => "1s"})
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+
+      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
+        watcherclass.should_receive(:new).with(path_ino.path, path_ino.ino, 1, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, 1000, any, any, any, any, any, true, any).once.and_return do
+          flexmock('TailWatcher') {|watcher|
+            watcher.should_receive(:attach).once
+            watcher.should_receive(:unwatched=).once
+            watcher.should_receive(:detach).once
+            watcher.should_receive(:close).once
+            watcher.should_receive(:line_buffer).zero_or_more_times.and_return nil
+          }
+        end
+        d.run(shutdown: false)
+      end
+
+      Timecop.travel(now + 10) do
+        sleep 3
+        d.instance.instance_eval do
+          @tails[path_ino] == nil
+        end
+      end
+      d.instance_shutdown
+    end
+
+    def test_should_create_new_watcher_for_new_file_with_same_name
+      now = Time.now
+      config = COMMON_FOLLOW_INODE_CONFIG + config_element('', '', {"limit_recently_modified" => "2s"})
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+      path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+
+      d.run(expect_emits: 1, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+      end
+
+      cleanup_file("#{TMP_DIR}/tail.txt")
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test3"
+        f.puts "test4"
+      }
+      new_path_ino = path_to_tuple("#{TMP_DIR}/tail.txt")
+
+      Timecop.travel(now + 10) do
+        sleep 3
+        d.instance.instance_eval do
+          @tails[path_ino] == nil
+          @tails[new_path_ino] != nil
+        end
+      end
+
+      events = d.events
+
+      assert_equal(5, events.length)
+
+      d.instance_shutdown
+    end
+
+    def test_truncate_file_with_follow_inodes
+      config = COMMON_FOLLOW_INODE_CONFIG
+
+      d = create_driver(config, false)
+
+      File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
+        f.puts "test1"
+        f.puts "test2"
+      }
+
+      d.run(expect_emits: 3, shutdown: false) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") {|f| f.puts "test3\n"}
+        sleep 2
+        File.open("#{TMP_DIR}/tail.txt", "w+b") {|f| f.puts "test4\n"}
+      end
+
+      events = d.events
+      assert_equal(4, events.length)
+      assert_equal({"message" => "test1"}, events[0][2])
+      assert_equal({"message" => "test2"}, events[1][2])
+      assert_equal({"message" => "test3"}, events[2][2])
+      assert_equal({"message" => "test4"}, events[3][2])
+      d.instance_shutdown
+    end
+  end
+
   sub_test_case "tail_path" do
     def test_tail_path_with_singleline
       File.open("#{TMP_DIR}/tail.txt", "wb") {|f|
@@ -1300,13 +1643,13 @@ class TailInputTest < Test::Unit::TestCase
     })
 
     expected_files = [
-      "#{TMP_DIR}/tail_watch1.txt",
-      "#{TMP_DIR}/tail_watch2.txt"
+        path_to_tuple("#{TMP_DIR}/tail_watch1.txt"),
+        path_to_tuple("#{TMP_DIR}/tail_watch2.txt")
     ]
 
     Timecop.freeze(now) do
       plugin = create_driver(config, false).instance
-      assert_equal expected_files, plugin.expand_paths.sort
+      assert_equal expected_files, plugin.expand_paths.values.sort_by {|path_ino| path_ino.path}
     end
   end
 
