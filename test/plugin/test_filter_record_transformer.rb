@@ -44,7 +44,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       d = create_driver(config)
       d.run {
         msgs.each { |msg|
-          d.feed(@tag, @time, {'foo' => 'bar', 'message' => msg})
+          d.feed(@tag, @time, {'foo' => 'bar', 'message' => msg, 'nest' => {'k1' => 'v1', 'k2' => 'v2'}})
         }
       }
       d.filtered
@@ -68,6 +68,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal(@tag, r['tag'])
         assert_equal(Time.at(@time).localtime.to_s, r['time'])
         assert_equal("#{@hostname} #{@tag_parts[-1]} #{msgs[i]}", r['message'])
+        assert_equal({'k1' => 'v1', 'k2' => 'v2'}, r['nest'])
       end
     end
 
@@ -80,6 +81,14 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
         assert_equal(@tag, r['tag'])
         assert_equal(Time.at(@time).localtime.to_s, r['time'])
         assert_not_include(r, 'message')
+      end
+    end
+
+    test 'remove_keys with nested key' do
+      config = CONFIG + %[remove_keys $.nest.k1]
+      filtered = filter(config)
+      filtered.each_with_index do |(_t, r), i|
+        assert_not_include({'k2' => 'v2'}, r['nest'])
       end
     end
 

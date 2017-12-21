@@ -27,6 +27,8 @@ module Fluent::Plugin
   class RecordTransformerFilter < Fluent::Plugin::Filter
     Fluent::Plugin.register_filter('record_transformer', self)
 
+    helpers :record_accessor
+
     desc 'A comma-delimited list of keys to delete.'
     config_param :remove_keys, :array, default: nil
     desc 'A comma-delimited list of keys to keep.'
@@ -55,6 +57,10 @@ module Fluent::Plugin
       if @keep_keys
         raise Fluent::ConfigError, "`renew_record` must be true to use `keep_keys`" unless @renew_record
       end
+
+      @key_deleters = if @remove_keys
+                        @remove_keys.map { |k| record_accessor_create(k) }
+                      end
 
       placeholder_expander_params = {
         log: log,
@@ -96,8 +102,7 @@ module Fluent::Plugin
           if @renew_time_key && new_record.has_key?(@renew_time_key)
             time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
           end
-          @remove_keys.each {|k| new_record.delete(k) } if @remove_keys
-
+          @key_deleters.each { |deleter| deleter.delete(new_record) } if @key_deleters
           new_es.add(time, new_record)
         rescue => e
           router.emit_error_event(tag, time, record, e)
