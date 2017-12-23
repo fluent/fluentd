@@ -36,7 +36,8 @@ module Fluent
           @keys = Accessor.parse_parameter(param)
 
           if @keys.is_a?(Array)
-            @last_key_pos = @keys.size - 1
+            @last_key = @keys.last
+            @dig_keys = @keys[0..-2]
             mcall = method(:call_dig)
             mdelete = method(:delete_nest)
           else
@@ -68,17 +69,13 @@ module Fluent
         end
 
         def delete_nest(r)
-          @keys.each_with_index { |key, i|
-            if @last_key_pos == i
-              # Need Array support?
-              r.delete(key)
+          if target = r.dig(*@dig_keys)
+            if target.is_a?(Array)
+              target.delete_at(@last_key)
             else
-              r = r[key]
+              target.delete(@last_key)
             end
-            return nil if r.nil?
-          }
-
-          nil
+          end
         rescue
           nil
         end

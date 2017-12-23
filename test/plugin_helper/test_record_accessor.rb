@@ -135,7 +135,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
     test "delete nested keys ['key1', 0, 'ke y2']" do |param|
       r = {'key1' => [{'ke y2' => "value"}]}
       accessor = @d.record_accessor_create(param)
-      p accessor.delete(r)
+      accessor.delete(r)
       assert_not_include(r['key1'][0], 'ke y2')
     end
 
