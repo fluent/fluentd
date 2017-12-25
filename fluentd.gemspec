@@ -27,7 +27,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
   gem.add_runtime_dependency("tzinfo", ["~> 1.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
-  gem.add_runtime_dependency("strptime", [">= 0.2.1", "< 1.0.0"])
+  gem.add_runtime_dependency("strptime", [">= 0.2.2", "< 1.0.0"])
   gem.add_runtime_dependency("dig_rb", ["~> 1.0.0"])
 
   # build gem for a certain platform. see also Rakefile
