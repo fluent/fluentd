@@ -125,4 +125,21 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
       assert_equal record['b'], ' '
     end
   end
+
+  data("single space" => ["k1=v1 k2=v2", { "k1" => "v1", "k2" => "v2" }],
+       "multiple space" => ["k1=v1    k2=v2", { "k1" => "v1", "k2" => "v2" }],
+       "reverse" => ["k2=v2 k1=v1", { "k1" => "v1", "k2" => "v2" }],
+       "tab" => ["k2=v2\tk1=v1", { "k1" => "v1", "k2" => "v2" }],
+       "tab and space" => ["k2=v2\t k1=v1", { "k1" => "v1", "k2" => "v2" }])
+  def test_parse_with_delimiter_pattern(data)
+    text, expected = data
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
+    parser.configure(
+                     'delimiter_pattern' => '/\s+/',
+                     'label_delimiter' => '='
+                    )
+    parser.instance.parse(text) do |_time, record|
+      assert_equal(expected, record)
+    end
+  end
 end
