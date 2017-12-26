@@ -32,10 +32,14 @@ module Fluent
 
       config_set_default :time_key, 'time'
 
+      def configure(conf)
+        super
+        @delimiter = @delimiter_pattern || @delimiter
+      end
+
       def parse(text)
         r = {}
-        delimiter = @delimiter_pattern || @delimiter
-        text.split(delimiter).each do |pair|
+        text.split(@delimiter).each do |pair|
           key, value = pair.split(@label_delimiter, 2)
           r[key] = value
         end
