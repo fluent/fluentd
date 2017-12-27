@@ -23,10 +23,19 @@ module Fluent
 
       desc 'The delimiter character (or string) of TSV values'
       config_param :delimiter, :string, default: "\t"
+      desc 'The delimiter pattern of TSV values'
+      config_param :delimiter_pattern, default: nil do |value|
+        Regexp.compile(value[1..-2]) if value
+      end
       desc 'The delimiter character between field name and value'
       config_param :label_delimiter, :string, default: ":"
 
       config_set_default :time_key, 'time'
+
+      def configure(conf)
+        super
+        @delimiter = @delimiter_pattern || @delimiter
+      end
 
       def parse(text)
         r = {}
