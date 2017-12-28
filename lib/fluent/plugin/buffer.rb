@@ -240,7 +240,8 @@ module Fluent
       end
 
       def add_metadata(metadata)
-        log.trace "adding metadata", instance: self.object_id, metadata: metadata
+        log.on_trace { log.trace "adding metadata", instance: self.object_id, metadata: metadata }
+
         synchronize do
           if i = @metadata_list.index(metadata)
             @metadata_list[i]
@@ -263,7 +264,7 @@ module Fluent
         return if metadata_and_data.size < 1
         raise BufferOverflowError, "buffer space has too many data" unless storable?
 
-        log.trace "writing events into buffer", instance: self.object_id, metadata_size: metadata_and_data.size
+        log.on_trace { log.trace "writing events into buffer", instance: self.object_id, metadata_size: metadata_and_data.size }
 
         staged_bytesize = 0
         operated_chunks = []
@@ -382,7 +383,8 @@ module Fluent
       end
 
       def enqueue_chunk(metadata)
-        log.trace "enqueueing chunk", instance: self.object_id, metadata: metadata
+        log.on_trace { log.trace "enqueueing chunk", instance: self.object_id, metadata: metadata }
+
         chunk = synchronize do
           @stage.delete(metadata)
         end
@@ -406,7 +408,8 @@ module Fluent
       end
 
       def enqueue_unstaged_chunk(chunk)
-        log.trace "enqueueing unstaged chunk", instance: self.object_id, metadata: chunk.metadata
+        log.on_trace { log.trace "enqueueing unstaged chunk", instance: self.object_id, metadata: chunk.metadata }
+
         synchronize do
           chunk.synchronize do
             metadata = chunk.metadata
@@ -419,7 +422,8 @@ module Fluent
       end
 
       def enqueue_all
-        log.trace "enqueueing all chunks in buffer", instance: self.object_id
+        log.on_trace { log.trace "enqueueing all chunks in buffer", instance: self.object_id }
+
         if block_given?
           synchronize{ @stage.keys }.each do |metadata|
             # NOTE: The following line might cause data race depending on Ruby implementations except CRuby
@@ -438,7 +442,8 @@ module Fluent
 
       def dequeue_chunk
         return nil if @queue.empty?
-        log.trace "dequeueing a chunk", instance: self.object_id
+        log.on_trace { log.trace "dequeueing a chunk", instance: self.object_id }
+
         synchronize do
           chunk = @queue.shift
 
@@ -453,7 +458,8 @@ module Fluent
       end
 
       def takeback_chunk(chunk_id)
-        log.trace "taking back a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id)
+        log.on_trace { log.trace "taking back a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id) }
+
         synchronize do
           chunk = @dequeued.delete(chunk_id)
           return false unless chunk # already purged by other thread
@@ -470,7 +476,8 @@ module Fluent
           return nil unless chunk # purged by other threads
 
           metadata = chunk.metadata
-          log.trace "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
+          log.on_trace { log.trace "purging a chunk", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata }
+
           begin
             bytesize = chunk.bytesize
             chunk.purge
@@ -489,7 +496,8 @@ module Fluent
       end
 
       def clear_queue!
-        log.trace "clearing queue", instance: self.object_id
+        log.on_trace { log.trace "clearing queue", instance: self.object_id }
+
         synchronize do
           until @queue.empty?
             begin

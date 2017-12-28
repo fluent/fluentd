@@ -971,7 +971,8 @@ module Fluent
       end
 
       def commit_write(chunk_id, delayed: @delayed_commit, secondary: false)
-        log.trace "committing write operation to a chunk", chunk: dump_unique_id_hex(chunk_id), delayed: delayed
+        log.on_trace { log.trace "committing write operation to a chunk", chunk: dump_unique_id_hex(chunk_id), delayed: delayed }
+
         if delayed
           @dequeued_chunks_mutex.synchronize do
             @dequeued_chunks.delete_if{ |info| info.chunk_id == chunk_id }
@@ -1057,7 +1058,7 @@ module Fluent
         chunk = @buffer.dequeue_chunk
         return unless chunk
 
-        log.trace "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
+        log.on_trace { log.trace "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id) }
 
         output = self
         using_secondary = false
