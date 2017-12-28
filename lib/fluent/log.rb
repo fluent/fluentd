@@ -178,7 +178,7 @@ module Fluent
         @format = :json
         @formatter = Proc.new { |type, time, level, msg|
           r = {
-            'time' => @time_formatter ? @time_formatter.exec(time) : time.strftime(@time_format),
+            'time' => format_time(time),
             'level' => LEVEL_TEXT[level],
             'message' => msg
           }
@@ -429,7 +429,7 @@ module Fluent
         end
       else
         r = {
-          'time' => @time_formatter ? @time_formatter.exec(time) : time.strftime(@time_format),
+          'time' => format_time(time),
           'level' => LEVEL_TEXT[level],
         }
         if wid = get_worker_id(type)
@@ -497,7 +497,7 @@ module Fluent
                        else
                          "".freeze
                        end
-      log_msg = "#{@time_formatter ? @time_formatter.exec(time): time.strftime(@time_format)} [#{LEVEL_TEXT[level]}]: #{worker_id_part}"
+      log_msg = "#{format_time(time)} [#{LEVEL_TEXT[level]}]: #{worker_id_part}"
       if @debug_mode
         line = caller(depth+1)[0]
         if match = /^(.+?):(\d+)(?::in `(.*)')?/.match(line)
@@ -508,6 +508,10 @@ module Fluent
         end
       end
       return log_msg
+    end
+
+    def format_time(time)
+      @time_formatter ? @time_formatter.exec(time) : time.strftime(@time_format)
     end
   end
 
