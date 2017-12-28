@@ -88,7 +88,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
       config = CONFIG + %[remove_keys $.nest.k1]
       filtered = filter(config)
       filtered.each_with_index do |(_t, r), i|
-        assert_not_include({'k2' => 'v2'}, r['nest'])
+        assert_not_include(r['nest'], 'k1')
       end
     end
 
