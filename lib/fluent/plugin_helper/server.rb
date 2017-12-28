@@ -446,9 +446,12 @@ module Fluent
       class TLSCallbackSocket < CallbackSocket
         ENABLED_EVENTS = [:data, :write_complete, :close]
 
+        attr_accessor :buffer
+
         def initialize(sock)
           super("tls", sock, ENABLED_EVENTS)
           @peeraddr = (@sock.to_io.peeraddr rescue PEERADDR_FAILED)
+          @buffer = ''
         end
 
         def write(data)
