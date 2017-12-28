@@ -31,8 +31,14 @@ matrix:
       osx_image: xcode8.3 # OSX 10.12
     - rvm: ruby-head
       os: osx
-      osx_image: xcode 8.3 # OSX 10.12
+      osx_image: xcode8.3 # OSX 10.12
   allow_failures:
+    - rvm: 2.1.10
+      os: osx
+      osx_image: xcode8.3
+    - rvm: 2.4.1
+      os: osx
+      osx_image: xcode8.3
     - rvm: ruby-head
 
 branches:
