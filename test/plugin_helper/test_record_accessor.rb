@@ -62,6 +62,40 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'attr_reader :keys' do
+    setup do
+      @d = Dummy.new
+    end
+
+    data('normal' => 'key1',
+         'space' => 'ke y2',
+         'dot key' => 'this.is.key3')
+    test 'access single key' do |param|
+      accessor = @d.record_accessor_create(param)
+      assert_equal param, accessor.keys
+    end
+
+    test "nested bracket keys with dot" do
+      accessor = @d.record_accessor_create("$['key1']['this.is.key3']")
+      assert_equal ['key1','this.is.key3'], accessor.keys
+    end
+
+    data('dot' => '$.key1.key2[0]',
+         'bracket' => "$['key1']['key2'][0]",
+         'bracket w/ double quotes' => '$["key1"]["key2"][0]')
+    test "nested keys ['key1', 'key2', 0]" do |param|
+      accessor = @d.record_accessor_create(param)
+      assert_equal ['key1', 'key2', 0], accessor.keys
+    end
+
+    data('bracket' => "$['key1'][0]['ke y2']",
+         'bracket w/ double quotes' => '$["key1"][0]["ke y2"]')
+    test "nested keys ['key1', 0, 'ke y2']" do |param|
+      accessor = @d.record_accessor_create(param)
+      assert_equal ['key1', 0, 'ke y2'], accessor.keys
+    end
+  end
+
   sub_test_case Fluent::PluginHelper::RecordAccessor::Accessor do
     setup do
       @d = Dummy.new
