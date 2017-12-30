@@ -32,6 +32,8 @@ module Fluent
       end
 
       class Accessor
+        attr_reader :keys
+
         def initialize(param)
           @keys = Accessor.parse_parameter(param)
 
