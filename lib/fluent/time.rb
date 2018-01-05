@@ -324,7 +324,7 @@ module Fluent
         define_singleton_method(:call, method(:format_with_subsec))
       else
         define_singleton_method(:format, method(:format_without_subsec))
-        define_singleton_method(:call, method(:format_with_subsec))
+        define_singleton_method(:call, method(:format_without_subsec))
       end
 
       formatter = Fluent::Timezone.formatter(timezone, format)
