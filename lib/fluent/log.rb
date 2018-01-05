@@ -261,9 +261,9 @@ module Fluent
       end
     end
 
-    def on_trace(&block)
+    def on_trace
       return if @level > LEVEL_TRACE
-      block.call if block
+      yield
     end
 
     def trace(*args, &block)
@@ -282,9 +282,9 @@ module Fluent
       dump_stacktrace(type, backtrace, LEVEL_TRACE)
     end
 
-    def on_debug(&block)
+    def on_debug
       return if @level > LEVEL_DEBUG
-      block.call if block
+      yield
     end
 
     def debug(*args, &block)
@@ -302,9 +302,9 @@ module Fluent
       dump_stacktrace(type, backtrace, LEVEL_DEBUG)
     end
 
-    def on_info(&block)
+    def on_info
       return if @level > LEVEL_INFO
-      block.call if block
+      yield
     end
 
     def info(*args, &block)
@@ -322,9 +322,9 @@ module Fluent
       dump_stacktrace(type, backtrace, LEVEL_INFO)
     end
 
-    def on_warn(&block)
+    def on_warn
       return if @level > LEVEL_WARN
-      block.call if block
+      yield
     end
 
     def warn(*args, &block)
@@ -342,9 +342,9 @@ module Fluent
       dump_stacktrace(type, backtrace, LEVEL_WARN)
     end
 
-    def on_error(&block)
+    def on_error
       return if @level > LEVEL_ERROR
-      block.call if block
+      yield
     end
 
     def error(*args, &block)
@@ -362,9 +362,9 @@ module Fluent
       dump_stacktrace(type, backtrace, LEVEL_ERROR)
     end
 
-    def on_fatal(&block)
+    def on_fatal
       return if @level > LEVEL_FATAL
-      block.call if block
+      yield
     end
 
     def fatal(*args, &block)
