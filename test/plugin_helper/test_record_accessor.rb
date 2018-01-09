@@ -148,4 +148,37 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case 'Fluent::PluginHelper::RecordAccessor::Accessor#delete' do
+    setup do
+      @d = Dummy.new
+    end
+
+    data('normal' => 'key1',
+         'space' => 'ke y2',
+         'dot key' => 'this.is.key3')
+    test 'delete top key' do |param|
+      r = {'key1' => 'v1', 'ke y2' => 'v2', 'this.is.key3' => 'v3'}
+      accessor = @d.record_accessor_create(param)
+      accessor.delete(r)
+      assert_not_include(r, param)
+    end
+
+    data('bracket' => "$['key1'][0]['ke y2']",
+         'bracket w/ double quotes' => '$["key1"][0]["ke y2"]')
+    test "delete nested keys ['key1', 0, 'ke y2']" do |param|
+      r = {'key1' => [{'ke y2' => "value"}]}
+      accessor = @d.record_accessor_create(param)
+      accessor.delete(r)
+      assert_not_include(r['key1'][0], 'ke y2')
+    end
+
+    test "don't raise an error when unexpected record is coming" do
+      r = {'key1' => [{'key3' => "value"}]}
+      accessor = @d.record_accessor_create("$['key1']['key2']['key3']")
+      assert_nothing_raised do
+        assert_nil accessor.delete(r)
+      end
+    end
+  end
 end

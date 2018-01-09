@@ -37,10 +37,20 @@ module Fluent
         def initialize(param)
           @keys = Accessor.parse_parameter(param)
 
-          # Call [] for single key to reduce dig overhead
-          m = method(@keys.is_a?(Array) ? :call_dig : :call_index)
+          if @keys.is_a?(Array)
+            @last_key = @keys.last
+            @dig_keys = @keys[0..-2]
+            mcall = method(:call_dig)
+            mdelete = method(:delete_nest)
+          else
+            # Call [] for single key to reduce dig overhead
+            mcall = method(:call_index)
+            mdelete = method(:delete_top)
+          end
+
           singleton_class.module_eval do
-            define_method(:call, m)
+            define_method(:call, mcall)
+            define_method(:delete, mdelete)
           end
         end
 
@@ -55,6 +65,25 @@ module Fluent
 
         def call_index(r)
           r[@keys]
+        end
+
+        def delete(r)
+        end
+
+        def delete_nest(r)
+          if target = r.dig(*@dig_keys)
+            if target.is_a?(Array)
+              target.delete_at(@last_key)
+            else
+              target.delete(@last_key)
+            end
+          end
+        rescue
+          nil
+        end
+
+        def delete_top(r)
+          r.delete(@keys)
         end
 
         def self.parse_parameter(param)
