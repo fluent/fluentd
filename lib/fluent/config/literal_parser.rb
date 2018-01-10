@@ -18,6 +18,7 @@ require 'stringio'
 
 require 'json'
 require 'yajl'
+require 'socket'
 require 'irb/ruby-lex'  # RubyLex
 
 require 'fluent/config/basic_parser'
@@ -162,6 +163,8 @@ module Fluent
         if @eval_context.nil?
           parse_error! "embedded code is not allowed in this file"
         end
+        hostname = Socket.gethostname
+        worker_id = ENV['SERVERENGINE_WORKER_ID'] || ''
         @eval_context.instance_eval(code)
       end
 

@@ -232,6 +232,14 @@ module Fluent::Config
       test("\"\#{\n=begin\n}\"") { assert_parse_error("\"\#{\n=begin\n}\"") }  # error in embedded ruby code
       test('"#{v1}foo#{v2}"') { assert_text_parsed_as("#{v1}foo#{v2}", '"#{v1}foo#{v2}"') }
       test('"#{1+1}foo#{2+2}bar"') { assert_text_parsed_as("#{1+1}foo#{2+2}bar", '"#{1+1}foo#{2+2}bar"') }
+      test('"foo#{hostname}"') { assert_text_parsed_as("foo#{Socket.gethostname}", '"foo#{hostname}"') }
+      test('"foo#{worker_id}"') {
+        ENV.delete('SERVERENGINE_WORKER_ID')
+        assert_text_parsed_as("foo", '"foo#{worker_id}"')
+        ENV['SERVERENGINE_WORKER_ID'] = '1'
+        assert_text_parsed_as("foo1", '"foo#{worker_id}"')
+        ENV.delete('SERVERENGINE_WORKER_ID')
+      }
     end
 
     sub_test_case 'array parsing' do
