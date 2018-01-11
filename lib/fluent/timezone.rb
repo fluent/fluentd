@@ -97,9 +97,14 @@ module Fluent
       if NUMERIC_PATTERN === timezone
         offset = Time.zone_offset(timezone)
 
-        if format
+        case
+        when format.is_a?(String)
           return Proc.new {|time|
             Time.at(time).localtime(offset).strftime(format)
+          }
+        when format.is_a?(Strftime)
+          return Proc.new {|time|
+            format.exec(Time.at(time).localtime(offset))
           }
         else
           return Proc.new {|time|
@@ -116,9 +121,14 @@ module Fluent
           return nil
         end
 
-        if format
+        case
+        when format.is_a?(String)
           return Proc.new {|time|
             Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset).strftime(format)
+          }
+        when format.is_a?(Strftime)
+          return Proc.new {|time|
+            format.exec(Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset))
           }
         else
           return Proc.new {|time|

@@ -163,10 +163,12 @@ module Fluent
     def format=(fmt)
       return if @format == fmt
 
+      @time_format = '%Y-%m-%d %H:%M:%S %z'
+      @time_formatter = Strftime.new(@time_format) rescue nil
+
       case fmt
       when :text
         @format = :text
-        @time_format = '%Y-%m-%d %H:%M:%S %z'
         @formatter = Proc.new { |type, time, level, msg|
           r = caller_line(type, time, @depth_offset, level)
           r << msg
@@ -174,10 +176,9 @@ module Fluent
         }
       when :json
         @format = :json
-        @time_format = '%Y-%m-%d %H:%M:%S %z'
         @formatter = Proc.new { |type, time, level, msg|
           r = {
-            'time' => time.strftime(@time_format),
+            'time' => format_time(time),
             'level' => LEVEL_TEXT[level],
             'message' => msg
           }
@@ -189,6 +190,11 @@ module Fluent
       end
 
       nil
+    end
+
+    def time_format=(time_fmt)
+      @time_format = time_fmt
+      @time_formatter = Strftime.new(@time_format) rescue nil
     end
 
     def reopen!
@@ -423,7 +429,7 @@ module Fluent
         end
       else
         r = {
-          'time' => time.strftime(@time_format),
+          'time' => format_time(time),
           'level' => LEVEL_TEXT[level],
         }
         if wid = get_worker_id(type)
@@ -491,7 +497,7 @@ module Fluent
                        else
                          "".freeze
                        end
-      log_msg = "#{time.strftime(@time_format)} [#{LEVEL_TEXT[level]}]: #{worker_id_part}"
+      log_msg = "#{format_time(time)} [#{LEVEL_TEXT[level]}]: #{worker_id_part}"
       if @debug_mode
         line = caller(depth+1)[0]
         if match = /^(.+?):(\d+)(?::in `(.*)')?/.match(line)
@@ -502,6 +508,10 @@ module Fluent
         end
       end
       return log_msg
+    end
+
+    def format_time(time)
+      @time_formatter ? @time_formatter.exec(time) : time.strftime(@time_format)
     end
   end
 
@@ -545,8 +555,8 @@ module Fluent
     extend Forwardable
     def_delegators '@logger', :get_worker_id, :enable_color?, :enable_debug, :enable_event,
       :disable_events, :log_event_enabled, :log_event_enamed=, :time_format, :time_format=,
-      :event, :caller_line, :puts, :write, :<<, :flush, :reset, :out, :out=,
-      :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
+      :time_formatter, :time_formatter=, :event, :caller_line, :puts, :write, :<<, :flush,
+      :reset, :out, :out=, :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
   end
 
 
