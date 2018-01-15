@@ -1,7 +1,43 @@
 require 'openssl'
 
 module Fluent
-  module CaGenerate
+  class CaGenerate
+    def initialize(argv = ARGV)
+      @argv = argv
+    end
+
+    def call
+      ca_dir, passphrase = @argv
+
+      unless ca_dir && passphrase
+        puts 'USAGE: fluent-ca-generate  DIR_PATH  PRIVATE_KEY_PASSPHRASE'
+        puts ''
+        exit 0
+      end
+
+      FileUtils.mkdir_p(ca_dir)
+
+      opt = {
+        private_key_length: 2048,
+        cert_country:  'US',
+        cert_state:    'CA',
+        cert_locality: 'Mountain View',
+        cert_common_name: 'Fluentd Forward CA',
+      }
+      cert, key = Fluent::CaGenerate.generate_ca_pair(opt)
+
+      key_data = key.export(OpenSSL::Cipher.new('aes256'), passphrase)
+      File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
+        file.write key_data
+      end
+      File.open(File.join(ca_dir, 'ca_cert.pem'), 'w') do |file|
+        file.write cert.to_pem
+      end
+
+      puts "successfully generated: ca_key.pem, ca_cert.pem"
+      puts "copy and use ca_cert.pem to client(out_forward)"
+    end
+
     def self.certificates_from_file(path)
       data = File.read(path)
       pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\n(?:[^-]*\n)+-+END CERTIFICATE-+\n', Regexp::MULTILINE)
