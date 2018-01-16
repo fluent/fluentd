@@ -1,30 +1,46 @@
 require 'openssl'
+require 'optparse'
 
 module Fluent
   class CaGenerate
+    DEFAULT_OPTIONS = {
+      private_key_length: 2048,
+      cert_country:  'US',
+      cert_state:    'CA',
+      cert_locality: 'Mountain View',
+      cert_common_name: 'Fluentd Forward CA',
+    }
+    HELP_TEXT = <<HELP
+Usage: fluent-ca-genrate DIR_PATH PRIVATE_KEY_PASSPHRASE [--country COUNTRY] [--state STATE] [--locality LOCALITY] [--common-name COMMON_NAME]
+HELP
+
     def initialize(argv = ARGV)
       @argv = argv
+      @options = {}
+      @opt_parser = OptionParser.new
+      configure_option_parser
+      @options.merge!(DEFAULT_OPTIONS)
+      parse_options!
+    end
+
+    def usage(msg = nil)
+      puts HELP_TEXT
+      puts "Error: #{msg}" if msg
+      exit 1
     end
 
     def call
-      ca_dir, passphrase = @argv
+      ca_dir, passphrase, = @argv[0..1]
 
       unless ca_dir && passphrase
-        puts 'USAGE: fluent-ca-generate  DIR_PATH  PRIVATE_KEY_PASSPHRASE'
+        puts "#{HELP_TEXT}"
         puts ''
-        exit 0
+        exit 1
       end
 
       FileUtils.mkdir_p(ca_dir)
 
-      opt = {
-        private_key_length: 2048,
-        cert_country:  'US',
-        cert_state:    'CA',
-        cert_locality: 'Mountain View',
-        cert_common_name: 'Fluentd Forward CA',
-      }
-      cert, key = Fluent::CaGenerate.generate_ca_pair(opt)
+      cert, key = Fluent::CaGenerate.generate_ca_pair(@options)
 
       key_data = key.export(OpenSSL::Cipher.new('aes256'), passphrase)
       File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
@@ -122,6 +138,41 @@ module Fluent
       cert.sign(key, digest)
 
       return cert, key
+    end
+
+    private
+
+    def configure_option_parser
+      @opt_parser.banner = HELP_TEXT
+
+      @opt_parser.on('--key-length [KEY_LENGTH]',
+                     "configure key length. (default: #{DEFAULT_OPTIONS[:private_key_length]})") do |v|
+        @options[:private_key_length] = v.to_i
+      end
+
+      @opt_parser.on('--country [COUNTRY]',
+                     "configure country. (default: #{DEFAULT_OPTIONS[:cert_country]})") do |v|
+        @options[:cert_country] = v.upcase
+      end
+
+      @opt_parser.on('--state [STATE]',
+                     "configure state. (default: #{DEFAULT_OPTIONS[:cert_state]})") do |v|
+        @options[:cert_state] = v
+      end
+
+      @opt_parser.on('--locality [LOCALITY]',
+                     "configure locality. (default: #{DEFAULT_OPTIONS[:cert_locality]})") do |v|
+        @options[:cert_locality] = v
+      end
+
+      @opt_parser.on('--common-name [COMMON_NAME]',
+                     "configure common name (default: #{DEFAULT_OPTIONS[:cert_common_name]})") do |v|
+        @options[:cert_common_name] = v
+      end
+    end
+
+    def parse_options!
+      @opt_parser.parse!(@argv)
     end
   end
 end
