@@ -47,5 +47,24 @@ copy and use ca_cert.pem to client(out_forward)
 TEXT
       assert_equal(expected, dumped_output)
     end
+
+    test "invalid options" do
+      Dir.mktmpdir do |dir|
+        assert_raise(OptionParser::InvalidOption) do
+          Fluent::CaGenerate.new([dir, "fluentd",
+                                  "--invalid"]).call
+        end
+        assert_false(File.exist?(File.join(dir, "ca_key.pem")))
+        assert_false(File.exist?(File.join(dir, "ca_cert.pem")))
+      end
+    end
+
+    test "empty options" do
+      assert_raise(SystemExit) do
+        capture_stdout do
+          Fluent::CaGenerate.new([]).call
+        end
+      end
+    end
   end
 end
