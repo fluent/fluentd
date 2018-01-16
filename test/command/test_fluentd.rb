@@ -494,14 +494,14 @@ CONF
     end
 
     test 'success to start the number of workers specified in configuration' do
-      conf = <<CONF
+      conf = <<'CONF'
 <system>
   workers 2
   root_dir #{@root_path}
 </system>
 <source>
   @type dummy
-  @id dummy
+  @id "dummy#{worker_id}" # check worker_id works or not with actual command
   @label @dummydata
   tag dummy
   dummy {"message": "yay!"}
