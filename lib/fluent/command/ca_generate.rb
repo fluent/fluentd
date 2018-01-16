@@ -1,5 +1,6 @@
 require 'openssl'
 require 'optparse'
+require 'fileutils'
 
 module Fluent
   class CaGenerate
