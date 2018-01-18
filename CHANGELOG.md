@@ -1,5 +1,31 @@
 # v1.0
 
+## Release v1.1.0 - 2018/01/17
+
+### New features / Enhancements
+
+* config: Add hostname and worker_id short-cut
+  https://github.com/fluent/fluentd/pull/1814
+* parser_ltsv: Add delimiter_pattern parameter
+  https://github.com/fluent/fluentd/pull/1802
+* record_accessor helper: Support nested field deletion
+  https://github.com/fluent/fluentd/pull/1800
+* record_accessor helper: Expose internal instance `@keys` variable
+  https://github.com/fluent/fluentd/pull/1808
+* log: Improve Log#on_xxx API performance
+  https://github.com/fluent/fluentd/pull/1809
+* time: Improve time formatting performance
+  https://github.com/fluent/fluentd/pull/1796
+* command: Port certificates generating command from secure-forward
+  https://github.com/fluent/fluentd/pull/1818
+
+### Bug fixes
+
+* server helper: Fix TCP + TLS degradation
+  https://github.com/fluent/fluentd/pull/1805
+* time: Fix the method for TimeFormatter#call
+  https://github.com/fluent/fluentd/pull/1813
+
 ## Release v1.0.2 - 2017/12/17
 
 ### New features / Enhancements
