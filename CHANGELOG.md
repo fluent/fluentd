@@ -1,4 +1,4 @@
-# v1.0
+# v1.1
 
 ## Release v1.1.0 - 2018/01/17
 
@@ -25,6 +25,8 @@
   https://github.com/fluent/fluentd/pull/1805
 * time: Fix the method for TimeFormatter#call
   https://github.com/fluent/fluentd/pull/1813
+  
+# v1.0
 
 ## Release v1.0.2 - 2017/12/17
 
