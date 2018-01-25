@@ -1059,7 +1059,6 @@ module Fluent
         return unless chunk
 
         log.on_trace { log.trace "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id) }
-
         output = self
         using_secondary = false
         if @retry_mutex.synchronize{ @retry && @retry.secondary? }
@@ -1141,7 +1140,8 @@ module Fluent
             if @retry.limit?
               records = @buffer.queued_records
               msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
-              log.error msg, retry_times: @retry.steps, records: records, error: error
+              $log.error msg, retry_times: @retry.steps, records: records, error: error
+
               log.error_backtrace error.backtrace
             elsif using_secondary
               msg = "failed to flush the buffer with secondary output."
