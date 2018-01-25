@@ -1141,7 +1141,6 @@ module Fluent
               records = @buffer.queued_records
               msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
               $log.error msg, retry_times: @retry.steps, records: records, error: error
-
               log.error_backtrace error.backtrace
             elsif using_secondary
               msg = "failed to flush the buffer with secondary output."
