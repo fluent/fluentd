@@ -12,7 +12,7 @@ module Fluent
       cert_common_name: 'Fluentd Forward CA',
     }
     HELP_TEXT = <<HELP
-Usage: fluent-ca-genrate DIR_PATH PRIVATE_KEY_PASSPHRASE [--country COUNTRY] [--state STATE] [--locality LOCALITY] [--common-name COMMON_NAME]
+Usage: fluent-ca-generate DIR_PATH PRIVATE_KEY_PASSPHRASE [--country COUNTRY] [--state STATE] [--locality LOCALITY] [--common-name COMMON_NAME]
 HELP
 
     def initialize(argv = ARGV)
