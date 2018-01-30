@@ -18,10 +18,12 @@ require 'optparse'
 require 'fluent/env'
 require 'fluent/time'
 require 'fluent/msgpack_factory'
+require 'fluent/version'
 
 op = OptionParser.new
 
 op.banner += " <tag>"
+op.version = Fluent::VERSION
 
 port = 24224
 host = '127.0.0.1'

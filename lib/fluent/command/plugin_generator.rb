@@ -21,6 +21,7 @@ require "erb"
 require "open-uri"
 
 require "fluent/registry"
+require 'fluent/version'
 
 class FluentPluginGenerator
   attr_reader :type, :name
@@ -91,6 +92,7 @@ class FluentPluginGenerator
 
   def prepare_parser
     @parser = OptionParser.new
+    @parser.version = Fluent::VERSION
     @parser.banner = <<BANNER
 Usage: fluent-plugin-generate [options] <type> <name>
 

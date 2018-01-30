@@ -1,6 +1,7 @@
 require 'openssl'
 require 'optparse'
 require 'fileutils'
+require 'fluent/version'
 
 module Fluent
   class CaGenerate
@@ -145,6 +146,7 @@ HELP
 
     def configure_option_parser
       @opt_parser.banner = HELP_TEXT
+      @opt_parser.version = Fluent::VERSION
 
       @opt_parser.on('--key-length [KEY_LENGTH]',
                      "configure key length. (default: #{DEFAULT_OPTIONS[:private_key_length]})") do |v|

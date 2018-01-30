@@ -22,6 +22,7 @@ require 'fluent/formatter'
 require 'fluent/plugin'
 require 'fluent/config/element'
 require 'fluent/engine'
+require 'fluent/version'
 
 class FluentBinlogReader
   SUBCOMMAND = %w(cat head formats)
@@ -49,7 +50,14 @@ HELP
 
   def command
     command = @argv.shift
-    if !command || !SUBCOMMAND.include?(command)
+    if command
+      if command == '--version'
+        puts "#{File.basename($PROGRAM_NAME)} #{Fluent::VERSION}"
+        exit 1
+      elsif !SUBCOMMAND.include?(command)
+        usage "'#{command}' is not supported: Required subcommand : #{SUBCOMMAND.join(' | ')}"
+      end
+    else
       usage "Required subcommand : #{SUBCOMMAND.join(' | ')}"
     end
 
@@ -70,6 +78,7 @@ module BinlogReaderCommand
 
       @options = { plugin: [] }
       @opt_parser = OptionParser.new do |opt|
+        opt.version = Fluent::VERSION
         opt.separator 'Options:'
 
         opt.on('-p DIR', '--plugin', 'add library directory path') do |v|
