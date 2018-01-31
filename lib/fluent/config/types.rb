@@ -64,7 +64,11 @@ module Fluent
       end
     end
 
-    STRING_TYPE = Proc.new { |val, opts| val.to_s.force_encoding(Encoding::UTF_8) }
+    STRING_TYPE = Proc.new { |val, opts|
+      v = val.to_s
+      v = v.frozen? ? v.dup : v # config_param can't assume incoming string is mutable
+      v.force_encoding(Encoding::UTF_8)
+    }
     ENUM_TYPE = Proc.new { |val, opts|
       s = val.to_sym
       list = opts[:list]
