@@ -35,7 +35,7 @@ After 6 months a maintainer will be made an "owner" of the GitHub organization.
 
 ## Projects
 
-The fluent organization is open to receive new projects under it umbrella. To apply a project as part of the __fluent__ organization, it have to met the following criteria:
+The fluent organization is open to receive new sub-projects under it umbrella. To apply a project as part of the __fluent__ organization, it have to met the following criteria:
 
 - Licensed under the terms of the Apache License v2.0
 - Project have been active for at least one year since it inception
@@ -46,7 +46,7 @@ The fluent organization is open to receive new projects under it umbrella. To ap
   - Metering
 - Be supported by 2/3 majority of organization
 
-The submission process starts as a Pull Request on Fluentd repository with the required information mentioned above.
+The submission process starts as a Pull Request on Fluentd repository with the required information mentioned above. Once a project is accepted, it's considered a __CNCF sub-project under the umbrella of Fluentd__
 
 ## Code of Conduct
 
