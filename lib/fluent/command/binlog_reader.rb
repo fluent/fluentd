@@ -53,7 +53,7 @@ HELP
     if command
       if command == '--version'
         puts "#{File.basename($PROGRAM_NAME)} #{Fluent::VERSION}"
-        exit 1
+        exit 0
       elsif !SUBCOMMAND.include?(command)
         usage "'#{command}' is not supported: Required subcommand : #{SUBCOMMAND.join(' | ')}"
       end
