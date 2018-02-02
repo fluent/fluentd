@@ -22,6 +22,7 @@ require "fluent/env"
 require "fluent/engine"
 require "fluent/system_config"
 require "fluent/config/element"
+require 'fluent/version'
 
 class FluentPluginConfigFormatter
 
@@ -210,6 +211,7 @@ class FluentPluginConfigFormatter
 
   def prepare_option_parser
     @parser = OptionParser.new
+    @parser.version = Fluent::VERSION
     @parser.banner = <<BANNER
 Usage: #{$0} [options] <type> <name>
 
