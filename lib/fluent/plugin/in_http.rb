@@ -202,7 +202,11 @@ module Fluent::Plugin
             if @add_remote_addr
               single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
             end
-            single_time = single_record.delete("time") || time
+            single_time = if t = single_record.delete('time')
+                            Fluent::EventTime.from_time(Time.at(t))
+                          else
+                            time
+                          end
             mes.add(single_time, single_record)
           end
           router.emit_stream(tag, mes)
