@@ -101,7 +101,7 @@ module Fluent
           context.verify_mode = OpenSSL::SSL::VERIFY_NONE
         else
           cert_store = OpenSSL::X509::Store.new
-          if allow_self_signed_cert && OpenSSL::X509.const_defined?('V_FLAG_CHECK_SS_SIGNATURE')
+          if !allow_self_signed_cert && OpenSSL::X509.const_defined?('V_FLAG_CHECK_SS_SIGNATURE')
             cert_store.flags = OpenSSL::X509::V_FLAG_CHECK_SS_SIGNATURE
           end
           begin
