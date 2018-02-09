@@ -86,8 +86,6 @@ module Fluent::Plugin
     config_param :tls_ciphers, :string, default: Fluent::PluginHelper::Socket::CIPHERS_DEFAULT
     desc 'Skip all verification of certificates or not.'
     config_param :tls_insecure_mode, :bool, default: false
-    desc 'Allow self signed certificates or not.'
-    config_param :tls_allow_self_signed_cert, :bool, default: false
     desc 'Verify hostname of servers and certificates or not in TLS transport.'
     config_param :tls_verify_hostname, :bool, default: true
     desc 'The additional CA certificate path for TLS.'
@@ -176,7 +174,6 @@ module Fluent::Plugin
         if @tls_insecure_mode
           log.warn "TLS transport is configured in insecure way"
           @tls_verify_hostname = false
-          @tls_allow_self_signed_cert = true
         end
       end
 
@@ -323,7 +320,6 @@ module Fluent::Plugin
           insecure: @tls_insecure_mode,
           verify_fqdn: @tls_verify_hostname,
           fqdn: hostname,
-          allow_self_signed_cert: @tls_allow_self_signed_cert,
           cert_paths: @tls_cert_path,
           linger_timeout: @send_timeout,
           send_timeout: @send_timeout,

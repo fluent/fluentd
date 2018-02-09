@@ -89,7 +89,7 @@ module Fluent
       def socket_create_tls(
           host, port,
           version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
-          enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil, **kwargs, &block)
+          enable_system_cert_store: true, cert_paths: nil, **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
@@ -101,9 +101,6 @@ module Fluent
           context.verify_mode = OpenSSL::SSL::VERIFY_NONE
         else
           cert_store = OpenSSL::X509::Store.new
-          if allow_self_signed_cert && OpenSSL::X509.const_defined?('V_FLAG_CHECK_SS_SIGNATURE')
-            cert_store.flags = OpenSSL::X509::V_FLAG_CHECK_SS_SIGNATURE
-          end
           begin
             if enable_system_cert_store
               log.trace "loading system default certificate store"
