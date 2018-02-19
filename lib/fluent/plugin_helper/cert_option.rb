@@ -33,6 +33,11 @@ module Fluent
           ctx.ciphers = ciphers
         end
 
+        if conf.client_cert_auth
+            ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER | OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
+        end
+
+        ctx.ca_file = conf.ca_path
         ctx.cert = cert
         ctx.key = key
         if extra && !extra.empty?

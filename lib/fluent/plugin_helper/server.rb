@@ -237,7 +237,7 @@ module Fluent
 
       SERVER_TRANSPORT_PARAMS = [
         :protocol, :version, :ciphers, :insecure,
-        :cert_path, :private_key_path, :private_key_passphrase,
+        :ca_path, :cert_path, :private_key_path, :private_key_passphrase, :client_cert_auth,
         :ca_cert_path, :ca_private_key_path, :ca_private_key_passphrase,
         :generate_private_key_length,
         :generate_cert_country, :generate_cert_state, :generate_cert_state,
@@ -271,9 +271,11 @@ module Fluent
           config_param :insecure, :bool, default: false
 
           # Cert signed by public CA
+          config_param :ca_path, :string, default: nil
           config_param :cert_path, :string, default: nil
           config_param :private_key_path, :string, default: nil
           config_param :private_key_passphrase, :string, default: nil, secret: true
+          config_param :client_cert_auth, :bool, default: false
 
           # Cert generated and signed by private CA Certificate
           config_param :ca_cert_path, :string, default: nil
