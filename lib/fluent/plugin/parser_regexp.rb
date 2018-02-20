@@ -41,7 +41,7 @@ module Fluent
         regexp_option = 0
         regexp_option |= Regexp::IGNORECASE if @ignorecase
         regexp_option |= Regexp::MULTILINE if @multiline
-        @regexp = Regexp.new(expr, regexp_option)
+        @regexp = Regexp.new(expr.force_encoding('ASCII-8BIT'), regexp_option)
       end
 
       def parse(text)
