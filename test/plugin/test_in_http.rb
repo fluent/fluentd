@@ -92,6 +92,25 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[0][1]
   end
 
+  def test_time_in_record
+    d = create_driver
+    time = event_time("2011-01-02 13:14:15.123 UTC")
+
+    events = [
+      ["tag1", nil, {"time"=>time.to_f}],
+    ]
+    res_codes = []
+
+    d.run(expect_records: 1) do
+      events.each do |tag, _t, record|
+        res = post("/#{tag}", {"json"=>record.to_json})
+        res_codes << res.code
+      end
+    end
+    assert_equal ["200"], res_codes
+    assert_equal_event_time time, d.events[0][1]
+  end
+
   def test_json
     d = create_driver
     time = event_time("2011-01-02 13:14:15 UTC")

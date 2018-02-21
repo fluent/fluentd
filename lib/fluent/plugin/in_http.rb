@@ -232,8 +232,8 @@ module Fluent::Plugin
           return nil, record
         end
       elsif js = params['json']
-        @parser_json.parse(js) do |_time, record|
-          return nil, record
+        @parser_json.parse(js) do |time, record|
+          return time, record
         end
       else
         raise "'json' or 'msgpack' parameter is required"
