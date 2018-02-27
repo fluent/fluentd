@@ -34,11 +34,18 @@ module Fluent::Plugin
 
     def configure(conf)
       super
+      if system_config.workers > 1
+        @port += fluentd_worker_id
+      end
       if @unix_path
         unless ::Fluent::FileUtil.writable?(@unix_path)
           raise Fluent::ConfigError, "in_debug_agent: `#{@unix_path}` is not writable"
         end
       end
+    end
+
+    def multi_workers_ready?
+      @unix_path.nil?
     end
 
     def start
@@ -50,7 +57,7 @@ module Fluent::Plugin
       else
         uri = "druby://#{@bind}:#{@port}"
       end
-      log.info "listening dRuby", uri: uri, object: @object
+      log.info "listening dRuby", uri: uri, object: @object, worker: fluentd_worker_id
       obj = eval(@object)
       @server = DRb::DRbServer.new(uri, obj)
     end
