@@ -43,6 +43,15 @@ module Fluent
         end
       end
 
+      def event_loop_detach(watcher)
+        if watcher.attached?
+          watcher.detach
+        end
+        @_event_loop_mutex.synchronize do
+          @_event_loop_attached_watchers.delete(watcher)
+        end
+      end
+
       def event_loop_wait_until_start
         sleep(0.1) until event_loop_running?
       end

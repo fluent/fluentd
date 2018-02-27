@@ -15,6 +15,7 @@
 #
 
 require 'fluent/plugin_helper/event_loop'
+require 'set'
 
 module Fluent
   module PluginHelper
@@ -33,7 +34,8 @@ module Fluent
         raise ArgumentError, "BUG: title must be a symbol" unless title.is_a? Symbol
         raise ArgumentError, "BUG: block not specified for callback" unless block_given?
         checker = ->(){ @_timer_running }
-        timer = TimerWatcher.new(title, interval, repeat, log, checker, &block)
+        detacher = ->(watcher){ event_loop_detach(watcher) }
+        timer = TimerWatcher.new(title, interval, repeat, log, checker, detacher, &block)
         @_timers << title
         event_loop_attach(timer)
         timer
@@ -45,7 +47,7 @@ module Fluent
 
       def initialize
         super
-        @_timers = []
+        @_timers ||= Set.new
       end
 
       def start
@@ -60,16 +62,17 @@ module Fluent
 
       def terminate
         super
-        @_timers = []
+        @_timers = nil
       end
 
       class TimerWatcher < Coolio::TimerWatcher
-        def initialize(title, interval, repeat, log, checker, &callback)
+        def initialize(title, interval, repeat, log, checker, detacher, &callback)
           @title = title
           @callback = callback
           @repeat = repeat
           @log = log
           @checker = checker
+          @detacher = detacher
           super(interval, repeat)
         end
 
@@ -81,9 +84,7 @@ module Fluent
           detach
           @log.error "Timer detached.", title: @title
         ensure
-          if attached?
-            detach unless @repeat
-          end
+          @detacher.call(self) unless @repeat
         end
       end
     end
