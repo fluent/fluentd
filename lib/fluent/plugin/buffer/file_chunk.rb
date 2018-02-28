@@ -22,6 +22,8 @@ module Fluent
   module Plugin
     class Buffer
       class FileChunk < Chunk
+        class FileChunkError < StandardError; end
+
         ### buffer path user specified : /path/to/directory/user_specified_prefix.*.log
         ### buffer chunk path          : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log
         ### buffer chunk metadata path : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log.meta
@@ -309,6 +311,8 @@ module Fluent
           # staging buffer chunk without metadata is classic buffer chunk file
           # and it should be enqueued immediately
           if File.exist?(@meta_path)
+            raise FileChunkError, "staged file chunk is empty" if File.size(@path).zero?
+
             @chunk = File.open(@path, 'rb+')
             @chunk.set_encoding(Encoding::ASCII_8BIT)
             @chunk.sync = true
@@ -319,7 +323,13 @@ module Fluent
             @meta.set_encoding(Encoding::ASCII_8BIT)
             @meta.sync = true
             @meta.binmode
-            restore_metadata(@meta.read)
+            begin
+              restore_metadata(@meta.read)
+            rescue => e
+              @chunk.close
+              @meta.close
+              raise FileChunkError, "staged meta file is broken. #{e.message}"
+            end
             @meta.seek(0, IO::SEEK_SET)
 
             @state = :staged
@@ -345,6 +355,8 @@ module Fluent
 
         def load_existing_enqueued_chunk(path)
           @path = path
+          raise FileChunkError, "enqueued file chunk is empty" if File.size(@path).zero?
+
           @chunk = File.open(@path, 'rb')
           @chunk.set_encoding(Encoding::ASCII_8BIT)
           @chunk.binmode
@@ -354,7 +366,12 @@ module Fluent
 
           @meta_path = @path + '.meta'
           if File.readable?(@meta_path)
-            restore_metadata(File.open(@meta_path){|f| f.set_encoding(Encoding::ASCII_8BIT); f.binmode; f.read })
+            begin
+              restore_metadata(File.open(@meta_path){|f| f.set_encoding(Encoding::ASCII_8BIT); f.binmode; f.read })
+            rescue => e
+              @chunk.close
+              raise FileChunkError, "enqueued meta file is broken. #{e.message}"
+            end
           else
             restore_metadata_partially(@chunk)
           end
