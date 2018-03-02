@@ -840,4 +840,128 @@ class FileBufferTest < Test::Unit::TestCase
       assert File.exist?(@not_chunk)
     end
   end
+
+  sub_test_case 'there are existing broken file chunks' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/broken_buffer_file', __FILE__)
+      FileUtils.mkdir_p @bufdir unless File.exist?(@bufdir)
+      @bufpath = File.join(@bufdir, 'broken_test.*.log')
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
+    end
+
+    def create_first_chunk(mode)
+      cid = Fluent::UniqueId.generate
+      path = File.join(@bufdir, "broken_test.#{mode}#{Fluent::UniqueId.hex(cid)}.log")
+      File.open(path, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        path + '.meta', cid, metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i),
+        4, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i
+      )
+
+      return cid, path
+    end
+
+    def create_second_chunk(mode)
+      cid = Fluent::UniqueId.generate
+      path = File.join(@bufdir, "broken_test.#{mode}#{Fluent::UniqueId.hex(cid)}.log")
+      File.open(path, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        path + '.meta', cid, metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i),
+        3, event_time('2016-04-17 14:01:00 -0700').to_i, event_time('2016-04-17 14:01:25 -0700').to_i
+      )
+
+      return cid, path
+    end
+
+    def compare_staged_chunk(staged, id, time, num, mode)
+      assert_equal 1, staged.size
+      m = metadata(timekey: event_time(time).to_i)
+      assert_equal id, staged[m].unique_id
+      assert_equal num, staged[m].size
+      assert_equal mode, staged[m].state
+    end
+
+     def compare_queued_chunk(queued, id, num, mode)
+      assert_equal 1, queued.size
+      assert_equal id, queued[0].unique_id
+      assert_equal num, queued[0].size
+      assert_equal mode, queued[0].state
+    end
+
+    def compare_log(plugin, msg)
+      logs = plugin.log.out.logs
+      assert { logs.any? { |log| log.include?(msg) } }
+    end
+
+    test '#resume ignores staged empty chunk' do
+      _, p1 = create_first_chunk('b')
+      File.open(p1, 'wb') { |f| } # create staged empty chunk file
+      c2id, _ = create_second_chunk('b')
+
+      @p.start
+      compare_staged_chunk(@p.stage, c2id, '2016-04-17 14:01:00 -0700', 3, :staged)
+      compare_log(@p, 'staged file chunk is empty')
+    end
+
+    test '#resume ignores staged broken metadata' do
+      c1id, _ = create_first_chunk('b')
+      _, p2 = create_second_chunk('b')
+      File.open(p2 + '.meta', 'wb') { |f| f.write("\0" * 70) } # create staged broken meta file
+
+      @p.start
+      compare_staged_chunk(@p.stage, c1id, '2016-04-17 14:00:00 -0700', 4, :staged)
+      compare_log(@p, 'staged meta file is broken')
+    end
+
+    test '#resume ignores enqueued empty chunk' do
+      _, p1 = create_first_chunk('q')
+      File.open(p1, 'wb') { |f| } # create enqueued empty chunk file
+      c2id, _ = create_second_chunk('q')
+
+      @p.start
+      compare_queued_chunk(@p.queue, c2id, 3, :queued)
+      compare_log(@p, 'enqueued file chunk is empty')
+    end
+
+    test '#resume ignores enqueued broken metadata' do
+      c1id, _ = create_first_chunk('q')
+      _, p2 = create_second_chunk('q')
+      File.open(p2 + '.meta', 'wb') { |f| f.write("\0" * 70) } # create enqueued broken meta file
+
+      @p.start
+      compare_queued_chunk(@p.queue, c1id, 4, :queued)
+      compare_log(@p, 'enqueued meta file is broken')
+    end
+  end
 end
