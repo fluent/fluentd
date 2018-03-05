@@ -678,10 +678,15 @@ module Fluent::Plugin
           @iobuf = ''.force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
+          @notify_mutex = Mutex.new
           @watcher.log.info "following tail of #{@watcher.path}"
         end
 
         def on_notify
+          @notify_mutex.synchronize { handle_notify }
+        end
+
+        def handle_notify
           with_io do |io|
             begin
               read_more = false
