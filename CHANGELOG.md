@@ -1,5 +1,33 @@
 # v1.1
 
+## Release v1.1.1 - 2018/03/05
+
+### Enhancements
+
+* in_debug_agent: Support multi worker environment
+  https://github.com/fluent/fluentd/pull/1869
+* in_forward: Improve SSL setup to support mutual TLS
+  https://github.com/fluent/fluentd/pull/1861
+* buf_file: Skip and delete broken file chunks to avoid unsuccessful retry in resume
+  https://github.com/fluent/fluentd/pull/1874
+* command: Show fluentd version for debug purpose
+  https://github.com/fluent/fluentd/pull/1839
+
+### Bug fixes
+
+* in_forward: Do not close connection until write is complete on failed auth PONG
+  https://github.com/fluent/fluentd/pull/1835
+* in_tail: Fix IO event race condition during shutdown
+  https://github.com/fluent/fluentd/pull/1876
+* in_http: Emit event time instead of raw time value in batch
+  https://github.com/fluent/fluentd/pull/1850
+* parser_json: Add EncodingError to rescue list for oj 3.x.
+  https://github.com/fluent/fluentd/pull/1875
+* config: Fix config_param for string type with frozen string
+  https://github.com/fluent/fluentd/pull/1838
+* timer: Fix a bug to leak non-repeating timer watchers
+  https://github.com/fluent/fluentd/pull/1864
+
 ## Release v1.1.0 - 2018/01/17
 
 ### New features / Enhancements
