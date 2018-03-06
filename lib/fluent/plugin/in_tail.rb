@@ -580,6 +580,8 @@ module Fluent::Plugin
               @pe.update(inode, 0)
             else # file is rotated and new file found
               watcher_needs_update = true
+              # Handle the old log file before renewing TailWatcher [fluentd#1055]
+              @io_handler.on_notify
             end
           else # file is rotated and new file not found
             # Clear RotateHandler to avoid duplicated file watch in same path.
