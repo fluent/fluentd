@@ -486,6 +486,7 @@ EOL
         retry_type periodic
         retry_wait 30s
         flush_at_shutdown false # suppress errors in d.instance_shutdown
+        flush_thread_interval 30s
       </buffer>
     ])
 
@@ -501,7 +502,7 @@ EOL
     target_input_driver.end_if{ d.instance.rollback_count > 0 }
     target_input_driver.end_if{ !node.available }
     target_input_driver.run(expect_records: 2, timeout: 25) do
-      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false) do
+      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false) do
         delayed_commit_timeout_value = d.instance.delayed_commit_timeout
         d.feed([[time, records[0]], [time,records[1]]])
       end
@@ -530,6 +531,7 @@ EOL
         retry_type periodic
         retry_wait 30s
         flush_at_shutdown false # suppress errors in d.instance_shutdown
+        flush_thread_interval 30s
       </buffer>
     ])
 
@@ -545,7 +547,7 @@ EOL
     target_input_driver.end_if{ d.instance.rollback_count > 0 }
     target_input_driver.end_if{ !node.available }
     target_input_driver.run(expect_records: 2, timeout: 25) do
-      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false) do
+      d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false) do
         delayed_commit_timeout_value = d.instance.delayed_commit_timeout
         d.feed([[time, records[0]], [time,records[1]]])
       end
