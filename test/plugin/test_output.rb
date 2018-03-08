@@ -907,7 +907,8 @@ class OutputTest < Test::Unit::TestCase
 
   sub_test_case 'slow_flush_log_threshold' do
     def invoke_slow_flush_log_threshold_test(i)
-      i.configure(config_element('ROOT', '', {'slow_flush_log_threshold' => 0.5}, [config_element('buffer', '', {"flush_mode" => "immediate"})]))
+      i.configure(config_element('ROOT', '', {'slow_flush_log_threshold' => 0.5},
+                                 [config_element('buffer', '', {"flush_mode" => "immediate", "flush_thread_interval" => 30})]))
       i.start
       i.after_start
 
