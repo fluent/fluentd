@@ -31,7 +31,11 @@ module Fluent
       when /([0-9]+)t/i
         $~[1].to_i * (1024 ** 4)
       else
-        str.to_i
+        begin
+          Integer(str)
+        rescue ArgumentError, TypeError => e
+          raise Fluent::ConfigError, "got invalid value in size type parameter: '#{str}'"
+        end
       end
     end
 
@@ -46,7 +50,11 @@ module Fluent
       when /([0-9]+)d/
         $~[1].to_i * 24 * 60 * 60
       else
-        str.to_f
+        begin
+          Float(str)
+        rescue ArgumentError, TypeError => e
+          raise Fluent::ConfigError, "got invalid value in time type parameter: '#{str}'"
+        end
       end
     end
 

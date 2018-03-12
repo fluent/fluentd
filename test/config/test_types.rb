@@ -19,9 +19,13 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     test 'not assumed case' do
       assert_equal(6, Config.size_value(6))
-      assert_equal(0, Config.size_value("hoge"))
-      assert_equal(0, Config.size_value(""))
-      assert_equal(0, Config.size_value(nil))
+    end
+
+    data('string' => 'hoge', 'empty' => '', 'nil' => nil, 'invalid-suffix' => '7z')
+    test 'invalid cases' do |str|
+      assert_raises(Fluent::ConfigError.new("got invalid value in size type parameter: '#{str}'")) {
+        Config.size_value(str)
+      }
     end
   end
 
@@ -37,9 +41,13 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'not assumed case' do
       assert_equal(4.0, Config.time_value(4))
       assert_equal(0.4, Config.time_value(0.4))
-      assert_equal(0.0, Config.time_value("hoge"))
-      assert_equal(0.0, Config.time_value(""))
-      assert_equal(0.0, Config.time_value(nil))
+    end
+
+    data('string' => 'hoge', 'empty' => '', 'nil' => nil, 'invalid-suffix' => '7z')
+    test 'invalid cases' do |str|
+      assert_raises(Fluent::ConfigError.new("got invalid value in time type parameter: '#{str}'")) {
+        Config.time_value(str)
+      }
     end
   end
 
