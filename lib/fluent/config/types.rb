@@ -60,7 +60,13 @@ module Fluent
       when ''
         true
       else
-        nil
+        # Current parser passes comment without actual values, e.g. "param #foo".
+        # parser should pass empty string in this case but changing behaviour may break existing environment so keep parser behaviour. Just ignore comment value in boolean handling for now.
+        if str.respond_to?('start_with?') && str.start_with?('#')
+          true
+        else
+          nil
+        end
       end
     end
 

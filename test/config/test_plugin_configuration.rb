@@ -3,7 +3,7 @@ require 'fluent/plugin/input'
 require 'fluent/test/driver/input'
 
 module ConfigurationForPlugins
-  class Base1 < Fluent::Plugin::Input
+  class AllBooleanParams < Fluent::Plugin::Input
     config_param :flag1, :bool, default: true
     config_param :flag2, :bool, default: true
     config_param :flag3, :bool, default: false
@@ -17,7 +17,7 @@ module ConfigurationForPlugins
     end
   end
 
-  class WithoutValue < ::Test::Unit::TestCase
+  class BooleanParamsWithoutValue < ::Test::Unit::TestCase
     CONFIG = <<CONFIG
     flag1 
     flag2 # yaaaaaaaaaay
@@ -45,7 +45,7 @@ module ConfigurationForPlugins
 CONFIG
 
     test 'create plugin via driver' do
-      d = Fluent::Test::Driver::Input.new(Base1)
+      d = Fluent::Test::Driver::Input.new(AllBooleanParams)
       d.configure(CONFIG)
       assert_equal([true] * 4, [d.instance.flag1, d.instance.flag2, d.instance.flag3, d.instance.flag4])
       num_of_sections = 3
