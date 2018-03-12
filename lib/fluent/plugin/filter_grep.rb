@@ -41,7 +41,11 @@ module Fluent::Plugin
       config_param :key, :string
       desc "The regular expression."
       config_param :pattern do |value|
-        Regexp.compile(value)
+        if value.start_with?("/") and value.end_with?("/")
+          Regexp.compile(value[1..-2])
+        else
+          Regexp.compile(value)
+        end
       end
     end
 
@@ -50,7 +54,11 @@ module Fluent::Plugin
       config_param :key, :string
       desc "The regular expression."
       config_param :pattern do |value|
-        Regexp.compile(value)
+        if value.start_with?("/") and value.end_with("/")
+          Regexp.compile(value[1..-2])
+        else
+          Regexp.compile(value)
+        end
       end
     end
 
