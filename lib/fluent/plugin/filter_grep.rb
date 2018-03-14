@@ -69,38 +69,29 @@ module Fluent::Plugin
     def configure(conf)
       super
 
-      rs = {}
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["regexp#{i}"]
         key, regexp = conf["regexp#{i}"].split(/ /, 2)
         raise Fluent::ConfigError, "regexp#{i} does not contain 2 parameters" unless regexp
-        raise Fluent::ConfigError, "regexp#{i} contains a duplicated key, #{key}" if rs[key]
-        rs[key] = Regexp.compile(regexp)
+        raise Fluent::ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @_regexps[key]
+        @_regexps[key] = Expression.new(record_accessor_create(key), Regexp.compile(regexp))
       end
 
-      es = {}
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["exclude#{i}"]
         key, exclude = conf["exclude#{i}"].split(/ /, 2)
         raise Fluent::ConfigError, "exclude#{i} does not contain 2 parameters" unless exclude
-        raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if es[key]
-        es[key] = Regexp.compile(exclude)
+        raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @_excludes[key]
+        @_excludes[key] = Expression.new(record_accessor_create(key), Regexp.compile(exclude))
       end
 
       @regexps.each do |e|
-        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if rs.key?(e.key)
-        rs[e.key] = e.pattern
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_regexps.key?(e.key)
+        @_regexps[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
       end
       @excludes.each do |e|
-        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if es.key?(e.key)
-        es[e.key] = e.pattern
-      end
-
-      rs.each_pair do |k, v|
-        @_regexps[record_accessor_create(k)] = v
-      end
-      es.each_pair do |k, v|
-        @_excludes[record_accessor_create(k)] = v
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_excludes.key?(e.key)
+        @_excludes[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
       end
     end
 
@@ -108,11 +99,11 @@ module Fluent::Plugin
       result = nil
       begin
         catch(:break_loop) do
-          @_regexps.each do |key, regexp|
-            throw :break_loop unless ::Fluent::StringUtil.match_regexp(regexp, key.call(record).to_s)
+          @_regexps.each do |key, expression|
+            throw :break_loop unless expression.match?(record)
           end
-          @_excludes.each do |key, exclude|
-            throw :break_loop if ::Fluent::StringUtil.match_regexp(exclude, key.call(record).to_s)
+          @_excludes.each do |key, expression|
+            throw :break_loop if expression.match?(record)
           end
           result = record
         end
@@ -121,6 +112,19 @@ module Fluent::Plugin
         log.warn_backtrace
       end
       result
+    end
+
+    class Expression
+      attr_reader :key, :pattern
+
+      def initialize(key, pattern)
+        @key = key
+        @pattern = pattern
+      end
+
+      def match?(record)
+        ::Fluent::StringUtil.match_regexp(@pattern, @key.call(record).to_s)
+      end
     end
   end
 end
