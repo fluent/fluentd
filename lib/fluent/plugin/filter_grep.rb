@@ -27,6 +27,10 @@ module Fluent::Plugin
 
       @_regexps = {}
       @_excludes = {}
+      @_regexp_and_conditions = {}
+      @_exclude_and_conditions = {}
+      @_regexp_or_conditions = {}
+      @_exclude_or_conditions = {}
     end
 
     helpers :record_accessor
@@ -62,6 +66,44 @@ module Fluent::Plugin
       end
     end
 
+    config_section :and, param_name: :and_conditions, multi: true do
+      config_section :regexp, param_name: :regexps, multi: true do
+        desc "The field name to which the regular expression is applied."
+        config_param :key, :string
+        desc "The regular expression."
+        config_param :pattern do |value|
+          Regexp.compile(value)
+        end
+      end
+      config_section :exclude, param_name: :excludes, multi: true do
+        desc "The field name to which the regular expression is applied."
+        config_param :key, :string
+        desc "The regular expression."
+        config_param :pattern do |value|
+          Regexp.compile(value)
+        end
+      end
+    end
+
+    config_section :or, param_name: :or_conditions, multi: true do
+      config_section :regexp, param_name: :regexps, multi: true do
+        desc "The field name to which the regular expression is applied."
+        config_param :key, :string
+        desc "The regular expression."
+        config_param :pattern do |value|
+          Regexp.compile(value)
+        end
+      end
+      config_section :exclude, param_name: :excludes, multi: true do
+        desc "The field name to which the regular expression is applied."
+        config_param :key, :string
+        desc "The regular expression."
+        config_param :pattern do |value|
+          Regexp.compile(value)
+        end
+      end
+    end
+
     # for test
     attr_reader :_regexps
     attr_reader :_excludes
@@ -73,25 +115,52 @@ module Fluent::Plugin
         next unless conf["regexp#{i}"]
         key, regexp = conf["regexp#{i}"].split(/ /, 2)
         raise Fluent::ConfigError, "regexp#{i} does not contain 2 parameters" unless regexp
-        raise Fluent::ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @_regexps[key]
-        @_regexps[key] = Expression.new(record_accessor_create(key), Regexp.compile(regexp))
+        raise Fluent::ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @_regexp_and_conditions[key]
+        @_regexp_and_conditions[key] = Expression.new(record_accessor_create(key), Regexp.compile(regexp))
       end
 
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["exclude#{i}"]
         key, exclude = conf["exclude#{i}"].split(/ /, 2)
         raise Fluent::ConfigError, "exclude#{i} does not contain 2 parameters" unless exclude
-        raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @_excludes[key]
-        @_excludes[key] = Expression.new(record_accessor_create(key), Regexp.compile(exclude))
+        raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @_exclude_or_conditions[key]
+        @_exclude_or_conditions[key] = Expression.new(record_accessor_create(key), Regexp.compile(exclude))
       end
 
       @regexps.each do |e|
-        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_regexps.key?(e.key)
-        @_regexps[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_regexp_and_conditions.key?(e.key)
+        @_regexp_and_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
       end
       @excludes.each do |e|
-        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_excludes.key?(e.key)
-        @_excludes[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+        raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_exclude_or_conditions.key?(e.key)
+        @_exclude_or_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+      end
+      @and_conditions.each do |and_condition|
+        if !and_condition.regexps.empty? && !and_condition.excludes.empty?
+          raise Fluent::ConfigError, "Do not specify both <regexp> and <exclude> in <and>"
+        end
+        and_condition.regexps.each do |e|
+          raise Fluent::ConfigError, "Duplicate key in <and>: #{e.key}" if @_regexp_and_conditions.key?(e.key)
+          @_regexp_and_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+        end
+        and_condition.excludes.each do |e|
+          raise Fluent::ConfigError, "Duplicate key in <and>: #{e.key}" if @_exclude_and_conditions.key?(e.key)
+          @_exclude_and_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+        end
+      end
+
+      @or_conditions.each do |or_condition|
+        if !or_condition.regexps.empty? && !or_condition.excludes.empty?
+          raise Fluent::ConfigError, "Do not specify both <regexp> and <exclude> in <or>"
+        end
+        or_condition.regexps.each do |e|
+          raise Fluent::ConfigError, "Duplicate key in <or>: #{e.key}" if @_regexp_or_conditions.key?(e.key)
+          @_regexp_or_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+        end
+        or_condition.excludes.each do |e|
+          raise Fluent::ConfigError, "Duplicate key in <or>: #{e.key}" if @_exclude_or_conditions.key?(e.key)
+          @_exclude_or_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+        end
       end
     end
 
@@ -99,10 +168,16 @@ module Fluent::Plugin
       result = nil
       begin
         catch(:break_loop) do
-          @_regexps.each do |key, expression|
+          @_regexp_and_conditions.each do |key, expression|
             throw :break_loop unless expression.match?(record)
           end
-          @_excludes.each do |key, expression|
+          if !@_regexp_or_conditions.empty? && @_regexp_or_conditions.none? {|key, expression| expression.match?(record) }
+            throw :break_loop
+          end
+          if !@_exclude_and_conditions.empty? && @_exclude_and_conditions.all? {|key, expression| expression.match?(record) }
+            throw :break_loop
+          end
+          @_exclude_or_conditions.each do |key, expression|
             throw :break_loop if expression.match?(record)
           end
           result = record
