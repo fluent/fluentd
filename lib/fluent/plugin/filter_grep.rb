@@ -33,6 +33,8 @@ module Fluent::Plugin
       @_exclude_or_conditions = {}
     end
 
+    attr_reader :_regexp_and_conditions, :_exluce_and_conditions, :_regexp_or_conditions, :_exclude_or_conditions
+
     helpers :record_accessor
 
     REGEXP_MAX_NUM = 20

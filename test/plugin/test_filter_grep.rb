@@ -23,14 +23,14 @@ class GrepFilterTest < Test::Unit::TestCase
 
     test "regexpN can contain a space" do
       d = create_driver(%[regexp1 message  foo])
-      d.instance._regexps.each_pair { |key, value|
+      d.instance._regexp_and_conditions.each_pair { |key, value|
         assert_equal(Regexp.compile(/ foo/), value.pattern)
       }
     end
 
     test "excludeN can contain a space" do
       d = create_driver(%[exclude1 message  foo])
-      d.instance._excludes.each_pair { |key, value|
+      d.instance._exclude_or_conditions.each_pair { |key, value|
         assert_equal(Regexp.compile(/ foo/), value.pattern)
       }
     end
