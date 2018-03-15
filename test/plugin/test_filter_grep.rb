@@ -81,9 +81,14 @@ class GrepFilterTest < Test::Unit::TestCase
             key message
             pattern /[a-z]test/
           </regexp>
+          <exclude>
+            key message
+            pattern /[A-Z]test/
+          </exclude>
         ]
         d = create_driver(conf)
         assert_equal(/[a-z]test/, d.instance.regexps.first.pattern)
+        assert_equal(/[A-Z]test/, d.instance.excludes.first.pattern)
       end
     end
   end
