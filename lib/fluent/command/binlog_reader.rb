@@ -32,7 +32,7 @@ Usage: fluent-binlog-reader <command> [<args>]
 Commands of fluent-binlog-reader:
    cat     :     Read files sequentially, writing them to standard output.
    head    :     Display the beginning of a text file.
-   format  :     Display plugins that you can use.
+   formats :     Display plugins that you can use.
 
 See 'fluent-binlog-reader <command> --help' for more information on a specific command.
 HELP
