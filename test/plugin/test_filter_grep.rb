@@ -86,6 +86,44 @@ class GrepFilterTest < Test::Unit::TestCase
         assert_equal(/[a-z]test/, d.instance.regexps.first.pattern)
       end
     end
+
+    sub_test_case "and/or section" do
+      test "<and> section cannot include both <regexp> and <exclude>" do
+        conf = %[
+          <and>
+            <regexp>
+              key message
+              pattern /test/
+            </regexp>
+            <exclude>
+              key level
+              pattern /debug/
+            </exclude>
+          </and>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "<or> section cannot include both <regexp> and <exclude>" do
+        conf = %[
+          <or>
+            <regexp>
+              key message
+              pattern /test/
+            </regexp>
+            <exclude>
+              key level
+              pattern /debug/
+            </exclude>
+          </or>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+    end
   end
 
   sub_test_case 'filter_stream' do
@@ -176,6 +214,218 @@ class GrepFilterTest < Test::Unit::TestCase
         assert_nothing_raised { 
           filter(%[regexp1 message WARN], ["\xff".force_encoding('UTF-8')])
         }
+      end
+    end
+
+    sub_test_case "and/or section" do
+      def records
+        [
+          { "time" => "2013/01/13T07:02:11.124202", "level" => "INFO", "method" => "GET", "path" => "/ping" },
+          { "time" => "2013/01/13T07:02:13.232645", "level" => "WARN", "method" => "POST", "path" => "/auth" },
+          { "time" => "2013/01/13T07:02:21.542145", "level" => "WARN", "method" => "GET", "path" => "/favicon.ico" },
+          { "time" => "2013/01/13T07:02:43.632145", "level" => "WARN", "method" => "POST", "path" => "/login" },
+        ]
+      end
+
+      def filter(conf, records)
+        d = create_driver(conf)
+        d.run do
+          records.each do |record|
+            d.feed("filter.test", @time, record)
+          end
+        end
+        d.filtered_records
+      end
+
+      test "basic and/regexp" do
+        conf = %[
+          <and>
+            <regexp>
+              key level
+              pattern ^INFO$
+            </regexp>
+            <regexp>
+              key method
+              pattern ^GET$
+            </regexp>
+          </and>
+        ]
+        filtered_records = filter(conf, records)
+        assert_equal(records.values_at(0), filtered_records)
+      end
+
+      test "basic or/exclude" do
+        conf = %[
+          <or>
+            <exclude>
+              key level
+              pattern ^INFO$
+            </exclude>
+            <exclude>
+              key method
+              pattern ^GET$
+            </exclude>
+          </or>
+        ]
+        filtered_records = filter(conf, records)
+        assert_equal(records.values_at(1, 3), filtered_records)
+      end
+
+      test "basic or/regexp" do
+        conf = %[
+          <or>
+            <regexp>
+              key level
+              pattern ^INFO$
+            </regexp>
+            <regexp>
+              key method
+              pattern ^GET$
+            </regexp>
+          </or>
+        ]
+        filtered_records = filter(conf, records)
+        assert_equal(records.values_at(0, 2), filtered_records)
+      end
+
+      test "basic and/exclude" do
+        conf = %[
+          <and>
+            <exclude>
+              key level
+              pattern ^INFO$
+            </exclude>
+            <exclude>
+              key method
+              pattern ^GET$
+            </exclude>
+          </and>
+        ]
+        filtered_records = filter(conf, records)
+        assert_equal(records.values_at(1, 2, 3), filtered_records)
+      end
+
+      sub_test_case "and/or combo" do
+        def records
+          [
+            { "time" => "2013/01/13T07:02:11.124202", "level" => "INFO", "method" => "GET", "path" => "/ping" },
+            { "time" => "2013/01/13T07:02:13.232645", "level" => "WARN", "method" => "POST", "path" => "/auth" },
+            { "time" => "2013/01/13T07:02:21.542145", "level" => "WARN", "method" => "GET", "path" => "/favicon.ico" },
+            { "time" => "2013/01/13T07:02:43.632145", "level" => "WARN", "method" => "POST", "path" => "/login" },
+            { "time" => "2013/01/13T07:02:44.959307", "level" => "ERROR", "method" => "POST", "path" => "/login" },
+            { "time" => "2013/01/13T07:02:45.444992", "level" => "ERROR", "method" => "GET", "path" => "/ping" },
+            { "time" => "2013/01/13T07:02:51.247941", "level" => "WARN", "method" => "GET", "path" => "/info" },
+            { "time" => "2013/01/13T07:02:53.108366", "level" => "WARN", "method" => "POST", "path" => "/ban" },
+          ]
+        end
+
+        test "and/regexp, or/exclude" do
+          conf = %[
+            <and>
+              <regexp>
+                key level
+                pattern ^ERROR|WARN$
+              </regexp>
+              <regexp>
+                key method
+                pattern ^GET|POST$
+              </regexp>
+            </and>
+            <or>
+              <exclude>
+                key level
+                pattern ^WARN$
+              </exclude>
+              <exclude>
+                key method
+                pattern ^GET$
+              </exclude>
+            </or>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(4), filtered_records)
+        end
+
+        test "and/regexp, and/exclude" do
+          conf = %[
+            <and>
+              <regexp>
+                key level
+                pattern ^ERROR|WARN$
+              </regexp>
+              <regexp>
+                key method
+                pattern ^GET|POST$
+              </regexp>
+            </and>
+            <and>
+              <exclude>
+                key level
+                pattern ^WARN$
+              </exclude>
+              <exclude>
+                key method
+                pattern ^GET$
+              </exclude>
+            </and>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(1, 3, 4, 5, 7), filtered_records)
+        end
+
+        test "or/regexp, and/exclude" do
+          conf = %[
+            <or>
+              <regexp>
+                key level
+                pattern ^ERROR|WARN$
+              </regexp>
+              <regexp>
+                key method
+                pattern ^GET|POST$
+              </regexp>
+            </or>
+            <and>
+              <exclude>
+                key level
+                pattern ^WARN$
+              </exclude>
+              <exclude>
+                key method
+                pattern ^GET$
+              </exclude>
+            </and>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(0, 1, 3, 4, 5, 7), filtered_records)
+        end
+
+        test "or/regexp, or/exclude" do
+          conf = %[
+            <or>
+              <regexp>
+                key level
+                pattern ^ERROR|WARN$
+              </regexp>
+              <regexp>
+                key method
+                pattern ^GET|POST$
+              </regexp>
+            </or>
+            <or>
+              <exclude>
+                key level
+                pattern ^WARN$
+              </exclude>
+              <exclude>
+                key method
+                pattern ^GET$
+              </exclude>
+            </or>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(4), filtered_records)
+        end
       end
     end
   end
