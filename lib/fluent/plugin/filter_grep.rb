@@ -25,8 +25,6 @@ module Fluent::Plugin
     def initialize
       super
 
-      @_regexps = {}
-      @_excludes = {}
       @_regexp_and_conditions = {}
       @_exclude_and_conditions = {}
       @_regexp_or_conditions = {}
