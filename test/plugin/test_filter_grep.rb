@@ -73,6 +73,19 @@ class GrepFilterTest < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case "pattern with slashes" do
+      test "start with character classes" do
+        conf = %[
+          <regexp>
+            key message
+            pattern /[a-z]test/
+          </regexp>
+        ]
+        d = create_driver(conf)
+        assert_equal(/[a-z]test/, d.instance.regexps.first.pattern)
+      end
+    end
   end
 
   sub_test_case 'filter_stream' do
