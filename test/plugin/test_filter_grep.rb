@@ -72,6 +72,118 @@ class GrepFilterTest < Test::Unit::TestCase
           create_driver(conf)
         end
       end
+
+      test "and/regexp" do
+        conf = %[
+          <and>
+            <regexp>
+              key message
+              pattern test
+            </regexp>
+            <regexp>
+              key message
+              pattern test
+            </regexp>
+          </and>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "and/regexp, and/regexp" do
+        conf = %[
+          <and>
+            <regexp>
+              key message
+              pattern test
+            </regexp>
+          </and>
+          <and>
+            <regexp>
+              key message
+              pattern test
+            </regexp>
+          </and>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "regexp, and/regexp" do
+        conf = %[
+          <regexp>
+            key message
+            pattern test
+          </regexp>
+          <and>
+            <regexp>
+              key message
+              pattern test
+            </regexp>
+          </and>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "and/exclude" do
+        conf = %[
+          <and>
+            <exclude>
+              key message
+              pattern test
+            </exclude>
+            <exclude>
+              key message
+              pattern test
+            </exclude>
+          </and>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "and/exclude, and/exclude" do
+        conf = %[
+          <and>
+            <exclude>
+              key message
+              pattern test
+            </exclude>
+          </and>
+          <and>
+            <exclude>
+              key message
+              pattern test
+            </exclude>
+          </and>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
+
+      test "exclude, or/exclude" do
+        conf = %[
+          <exclude>
+            key message
+            pattern test
+          </exclude>
+          <or>
+            <exclude>
+              key message
+              pattern test
+            </exclude>
+          </or>
+        ]
+        assert_raise(Fluent::ConfigError) do
+          create_driver(conf)
+        end
+      end
     end
 
     sub_test_case "pattern with slashes" do
@@ -425,6 +537,77 @@ class GrepFilterTest < Test::Unit::TestCase
           ]
           filtered_records = filter(conf, records)
           assert_equal(records.values_at(4), filtered_records)
+        end
+
+        test "regexp, and/regexp" do
+          conf = %[
+            <and>
+              <regexp>
+                key level
+                pattern ^ERROR|WARN$
+              </regexp>
+              <regexp>
+                key method
+                pattern ^GET|POST$
+              </regexp>
+            </and>
+            <regexp>
+              key path
+              pattern ^/login$
+            </regexp>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(3, 4), filtered_records)
+        end
+
+        test "regexp, or/exclude" do
+          conf = %[
+            <regexp>
+              key level
+              pattern ^ERROR|WARN$
+            </regexp>
+            <regexp>
+              key method
+              pattern ^GET|POST$
+            </regexp>
+            <or>
+              <exclude>
+                key level
+                pattern ^WARN$
+              </exclude>
+              <exclude>
+                key method
+                pattern ^GET$
+              </exclude>
+            </or>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(4), filtered_records)
+        end
+
+        test "regexp, and/exclude" do
+          conf = %[
+            <regexp>
+              key level
+              pattern ^ERROR|WARN$
+            </regexp>
+            <regexp>
+              key method
+              pattern ^GET|POST$
+            </regexp>
+            <and>
+              <exclude>
+                key level
+                pattern ^WARN$
+              </exclude>
+              <exclude>
+                key method
+                pattern ^GET$
+              </exclude>
+            </and>
+          ]
+          filtered_records = filter(conf, records)
+          assert_equal(records.values_at(1, 3, 4, 5, 7), filtered_records)
         end
       end
     end
