@@ -31,6 +31,7 @@ module Fluent::Plugin
       @_exclude_or_conditions = {}
     end
 
+    # for test
     attr_reader :_regexp_and_conditions, :_exclude_and_conditions, :_regexp_or_conditions, :_exclude_or_conditions
 
     helpers :record_accessor
