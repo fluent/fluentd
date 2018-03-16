@@ -100,7 +100,7 @@ module Fluent
 
         if /^\/(.*)\/([im]?)$/.match(format)
           begin
-            regexp = Regexp.new($~[1], if $~[2]=='m' then Regexp::MULTILINE elsif $~[2]=='i' then Regexp::IGNORECASE nil end)
+            regexp = Regexp.new($~[1], if $~[2]=='m' then Regexp::MULTILINE elsif $~[2]=='i' then Regexp::IGNORECASE else nil end)
             if regexp.named_captures.empty?
               raise "No named captures"
             end

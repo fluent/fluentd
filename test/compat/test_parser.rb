@@ -89,4 +89,27 @@ class TextParserTest < ::Test::Unit::TestCase
     regexp = parser.instance_variable_get("@regexp")
     assert_equal(options, regexp.options)
   end
+
+  def test_text_parser_options
+    p1 = Fluent::TextParser.new
+    p1.configure('format' => '/(?<message>.*)/')
+    assert_equal true, p1.parser.estimate_current_event
+    
+    _time, record = p1.parse("log message!\naaa")
+    assert_equal({'message' => 'log message!'}, record)
+
+    p2 = Fluent::TextParser.new
+    p2.configure('format' => '/(?<message>.*)/m')
+    assert_equal true, p2.parser.estimate_current_event
+    
+    _time, record = p2.parse("log message!\naaa")
+    assert_equal({'message' => "log message!\naaa"}, record)
+
+    p3 = Fluent::TextParser.new
+    p3.configure('format' => '/(?<message>TEST.*)/i')
+    assert_equal true, p3.parser.estimate_current_event
+    
+    _time, record = p3.parse("test log message!")
+    assert_equal({'message' => "test log message!"}, record)
+  end
 end
