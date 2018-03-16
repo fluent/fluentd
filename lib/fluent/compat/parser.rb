@@ -98,15 +98,14 @@ module Fluent
           raise ConfigError, "'format' parameter is required"
         end
 
-        if format[0] == ?/ && format[format.length-1] == ?/
-          # regexp
+        if /^\/(.*)\/([im]?)$/.match(format)
           begin
-            regexp = Regexp.new(format[1..-2])
+            regexp = Regexp.new($~[1], if $~[2]=='m' then Regexp::MULTILINE elsif $~[2]=='i' then Regexp::IGNORECASE nil end)
             if regexp.named_captures.empty?
               raise "No named captures"
             end
           rescue
-            raise ConfigError, "Invalid regexp '#{format[1..-2]}': #{$!}"
+            raise ConfigError, "Invalid regexp '#{format}': #{$!}"
           end
 
           RegexpParser.new(regexp)
