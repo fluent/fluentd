@@ -120,10 +120,6 @@ module Fluent::Plugin
       end
     end
 
-    # for test
-    attr_reader :_regexps
-    attr_reader :_excludes
-
     def configure(conf)
       super
 
