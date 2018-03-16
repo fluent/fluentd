@@ -1313,9 +1313,17 @@ module Fluent
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase
           while @output_flush_threads_running
             current_clock = Fluent::Clock.now
-            interval = state.next_clock - current_clock
+            next_retry_time = nil
 
-            if state.next_clock <= current_clock && @retry_mutex.synchronize { @retry ? @retry.next_time <= Time.now : true }
+            @retry_mutex.synchronize do
+              next_retry_time = @retry ? @retry.next_time : nil
+            end
+
+            if state.next_clock > current_clock
+              interval = state.next_clock - current_clock
+            elsif next_retry_time && next_retry_time > Time.now
+              interval = next_retry_time.to_f - Time.now.to_f
+            else
               try_flush
 
               # next_flush_time uses flush_thread_interval or flush_thread_burst_interval (or retrying)
