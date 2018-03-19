@@ -1,5 +1,28 @@
 # v1.1
 
+## Release v1.1.2 - 2018/03/18
+
+### Enhancements
+
+* filter_grep: Support pattern starts with character classes with //
+  https://github.com/fluent/fluentd/pull/1887
+
+### Bug fixes
+
+* in_tail: Handle records in the correct order on file rotation
+  https://github.com/fluent/fluentd/pull/1880
+* out_forward: Fix race condition with <security> on multi thread environment
+  https://github.com/fluent/fluentd/pull/1893
+* output: Prevent flushing threads consume too much CPU when retry happens
+  https://github.com/fluent/fluentd/pull/1901
+* config: Fix boolean param handling for comment without value
+  https://github.com/fluent/fluentd/pull/1883
+* test: Fix random test failures in test/plugin/test_out_forward.rb
+  https://github.com/fluent/fluentd/pull/1881
+  https://github.com/fluent/fluentd/pull/1890
+* command: Fix typo in binlog_reader
+  https://github.com/fluent/fluentd/pull/1898
+
 ## Release v1.1.1 - 2018/03/05
 
 ### Enhancements
@@ -926,4 +949,4 @@ This list includes changes of 0.14.0.pre.1 and release candidates.
   https://github.com/fluent/fluentd/pull/955
   https://github.com/fluent/fluentd/pull/966
 
-See https://github.com/fluent/fluentd/blob/v0.12/ChangeLog for v0.12 changelog
+See https://github.com/fluent/fluentd/blob/v0.12/CHANGELOG.md for v0.12 changelog
