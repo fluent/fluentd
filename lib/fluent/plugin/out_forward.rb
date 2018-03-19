@@ -263,7 +263,6 @@ module Fluent
 
       r = Random.new(@rand_seed)
       weight_array.sort_by! { r.rand }
-      p weight_array.map { |e| e.name }
 
       @weight_array = weight_array
     end
