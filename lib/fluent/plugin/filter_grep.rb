@@ -210,16 +210,9 @@ module Fluent::Plugin
       result
     end
 
-    class Expression
-      attr_reader :key, :pattern
-
-      def initialize(key, pattern)
-        @key = key
-        @pattern = pattern
-      end
-
+    Expression = Struct.new(:key, :pattern) do
       def match?(record)
-        ::Fluent::StringUtil.match_regexp(@pattern, @key.call(record).to_s)
+        ::Fluent::StringUtil.match_regexp(pattern, key.call(record).to_s)
       end
     end
   end
