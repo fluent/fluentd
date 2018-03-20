@@ -140,14 +140,22 @@ module Fluent::Plugin
         @_exclude_or_conditions[key] = Expression.new(record_accessor_create(key), Regexp.compile(exclude))
       end
 
+      if @regexps.size > 1
+        log.info "Top level multiple <regexp> is intepreted as 'and' condition"
+      end
       @regexps.each do |e|
         raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_regexp_and_conditions.key?(e.key)
         @_regexp_and_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
+      end
+
+      if @excludes.size > 1
+        log.info "Top level multiple <exclude> is intepreted as 'or' condition"
       end
       @excludes.each do |e|
         raise Fluent::ConfigError, "Duplicate key: #{e.key}" if @_exclude_or_conditions.key?(e.key)
         @_exclude_or_conditions[e.key] = Expression.new(record_accessor_create(e.key), e.pattern)
       end
+
       @and_conditions.each do |and_condition|
         if !and_condition.regexps.empty? && !and_condition.excludes.empty?
           raise Fluent::ConfigError, "Do not specify both <regexp> and <exclude> in <and>"
