@@ -108,6 +108,10 @@ module Fluent
     def method_missing(name, *args, &block)
       @sec.send(name, *args, &block)
     end
+
+    def inspect
+      Time.at(@sec, @nsec, :nanosecond).strftime('%Y-%m-%d %H:%M:%S.%N %z')
+    end
   end
 
   module TimeMixin
