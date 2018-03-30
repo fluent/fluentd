@@ -56,6 +56,11 @@ module Fluent
         def plugin_id_configured?
           false
         end
+
+        # storage_local calls PluginId#plugin_root_dir
+        def plugin_root_dir
+          nil
+        end
       end
 
       def start
