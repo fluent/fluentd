@@ -24,6 +24,7 @@ require 'fluent/config/error'
 module Fluent
   class EventTime
     TYPE = 0
+    FORMATTER = Strftime.new('%Y-%m-%d %H:%M:%S.%N %z')
 
     def initialize(sec, nsec = 0)
       @sec = sec
@@ -110,7 +111,7 @@ module Fluent
     end
 
     def inspect
-      Time.at(self).strftime('%Y-%m-%d %H:%M:%S.%N %z')
+      FORMATTER.exec(Time.at(self))
     end
   end
 
