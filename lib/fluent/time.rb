@@ -110,7 +110,7 @@ module Fluent
     end
 
     def inspect
-      Time.at(@sec, @nsec, :nanosecond).strftime('%Y-%m-%d %H:%M:%S.%N %z')
+      Time.at(self).strftime('%Y-%m-%d %H:%M:%S.%N %z')
     end
   end
 
