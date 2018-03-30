@@ -143,6 +143,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   <counter_client>
     host 127.0.0.1
     port 24321
+    timeout 2
   </counter_client>
 </system>
     EOC
@@ -169,6 +170,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     counter_client = sys_conf.counter_client
     assert_equal '127.0.0.1', counter_client.host
     assert_equal 24321, counter_client.port
+    assert_equal 2, counter_client.timeout
   end
 
   def test_main_process_signal_handlers

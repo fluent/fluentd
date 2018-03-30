@@ -16,20 +16,23 @@
 
 require 'cool.io'
 require 'fluent/counter/base_socket'
+require 'timeout'
 
 module Fluent
   module Counter
     class Client
       DEFAULT_PORT = 24321
       DEFAULT_ADDR = '127.0.0.1'
+      DEFAULT_TIMEOUT = 5
       ID_LIMIT_COUNT = 1 << 31
 
       def initialize(loop = nil, opt = {})
         @loop = loop || Coolio::Loop.new
         @port = opt[:port] || DEFAULT_PORT
-        @addr = opt[:addr] || DEFAULT_ADDR
+        @host = opt[:host] || DEFAULT_ADDR
         @log = opt[:log] || $log
-        @conn = Connection.connect(@addr, @port, method(:on_message))
+        @timeout = opt[:timeout] || DEFAULT_TIMEOUT
+        @conn = Connection.connect(@host, @port, method(:on_message))
         @responses = {}
         @id = 0
         @id_mutex = Mutex.new
@@ -38,7 +41,7 @@ module Fluent
 
       def start
         @loop.attach(@conn)
-        @log.debug("starting counter client: #{@addr}:#{@port}")
+        @log.debug("starting counter client: #{@host}:#{@port}")
         self
       rescue => e
         if @log
@@ -50,15 +53,19 @@ module Fluent
 
       def stop
         @conn.close
-        @log.debug("calling stop in counter client: #{@addr}:#{@port}")
+        @log.debug("calling stop in counter client: #{@host}:#{@port}")
       end
 
       def establish(scope)
-        response = send_request('establish', nil, [scope])
-
-        raise response.errors.first if response.errors?
-        data = response.data
-        @scope = data.first
+        scope = Timeout.timeout(@timeout) {
+          response = send_request('establish', nil, [scope])
+          raise response.errors.first if response.errors?
+          data = response.data
+          data.first
+        }
+        @scope = scope
+      rescue Timeout::Error
+        raise "Can't establish the connection to counter server due to timeout"
       end
 
       # === Example

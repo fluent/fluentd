@@ -69,6 +69,8 @@ module Fluent
       config_param :port, :integer, default: nil
       desc 'the IP address or hostname of counter server'
       config_param :host, :string
+      desc 'the timeout of each operation'
+      config_param :timeout, :time, default: nil
     end
 
     def self.create(conf)
