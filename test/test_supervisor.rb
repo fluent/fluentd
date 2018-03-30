@@ -136,13 +136,13 @@ class SupervisorTest < ::Test::Unit::TestCase
   </log>
   <counter_server>
     bind 127.0.0.1
-    port 4321
+    port 24321
     scope server1
     backup_path /tmp/backup
   </counter_server>
   <counter_client>
     host 127.0.0.1
-    port 4321
+    port 24321
   </counter_client>
 </system>
     EOC
@@ -163,12 +163,12 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal '%Y', sys_conf.log.time_format
     counter_server = sys_conf.counter_server
     assert_equal '127.0.0.1', counter_server.bind
-    assert_equal 4321, counter_server.port
+    assert_equal 24321, counter_server.port
     assert_equal 'server1', counter_server.scope
     assert_equal '/tmp/backup', counter_server.backup_path
     counter_client = sys_conf.counter_client
     assert_equal '127.0.0.1', counter_client.host
-    assert_equal 4321, counter_client.port
+    assert_equal 24321, counter_client.port
   end
 
   def test_main_process_signal_handlers

@@ -24,7 +24,7 @@ module Fluent
   module Counter
     class Server
       DEFAULT_ADDR = '127.0.0.1'
-      DEFAULT_PORT = 4321
+      DEFAULT_PORT = 24321
 
       def initialize(name, opt = {})
         raise 'Counter server name is invalid' unless Validator::VALID_NAME =~ name

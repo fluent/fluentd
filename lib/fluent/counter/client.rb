@@ -20,7 +20,7 @@ require 'fluent/counter/base_socket'
 module Fluent
   module Counter
     class Client
-      DEFAULT_PORT = 4321
+      DEFAULT_PORT = 24321
       DEFAULT_ADDR = '127.0.0.1'
       ID_LIMIT_COUNT = 1 << 31
 
