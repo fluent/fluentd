@@ -55,16 +55,20 @@ module Fluent
       desc 'scope name of counter server'
       config_param :scope, :string
 
-      desc 'endpoint of counter server'
-      config_param :endpoint, :string # host:port
+      desc 'the port of counter server to listen to'
+      config_param :port, :integer, default: nil
+      desc 'the bind address of counter server to listen to'
+      config_param :bind, :string, default: nil
 
       desc 'backup file path of counter values'
-      config_param :path, :string
+      config_param :backup_path, :string
     end
 
     config_section :counter_client, multi: false do
-      desc 'endpoint of counter client'
-      config_param :endpoint, :string # host:port
+      desc 'the port of counter server'
+      config_param :port, :integer, default: nil
+      desc 'the IP address or hostname of counter server'
+      config_param :host, :string
     end
 
     def self.create(conf)

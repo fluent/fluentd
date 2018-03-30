@@ -56,10 +56,7 @@ module Fluent
       end
 
       if counter = config[:counter_server]
-        @counter_endpoint = counter.endpoint
-        @counter_scope = counter.scope
-        @counter_path = counter.path
-        run_counter_server
+        run_counter_server(counter)
       end
 
       socket_manager_path = ServerEngine::SocketManager::Server.generate_path
@@ -135,11 +132,10 @@ module Fluent
       @rpc_server.shutdown
     end
 
-    def run_counter_server
-      host, port = @counter_endpoint.split(':')
+    def run_counter_server(counter_conf)
       @counter = Fluent::Counter::Server.new(
-        @counter_scope,
-         { host: host, port: port, log: $log, path: @counter_path }
+        counter_conf.scope,
+        {host: counter_conf.bind, port: counter_conf.port, log: $log, path: counter_conf.backup_path}
       )
       @counter.start
     end
