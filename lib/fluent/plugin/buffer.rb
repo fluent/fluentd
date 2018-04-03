@@ -489,6 +489,7 @@ module Fluent
 
           if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1)
             @metadata_list.delete(metadata)
+            @queued_num.delete(metadata)
           end
           log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
         end
