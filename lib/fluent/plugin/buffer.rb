@@ -428,12 +428,13 @@ module Fluent
         end
       end
 
-      def enqueue_all
+      # At flush_at_shutdown, all staged chunks should be enqueued for buffer flush. Set true to force_enqueue for it.
+      def enqueue_all(force_enqueue = false)
         log.on_trace { log.trace "enqueueing all chunks in buffer", instance: self.object_id }
 
         if block_given?
           synchronize{ @stage.keys }.each do |metadata|
-            return if queue_full?
+            return if !force_enqueue && queue_full?
             # NOTE: The following line might cause data race depending on Ruby implementations except CRuby
             # cf. https://github.com/fluent/fluentd/pull/1721#discussion_r146170251
             chunk = @stage[metadata]
@@ -443,7 +444,7 @@ module Fluent
           end
         else
           synchronize{ @stage.keys }.each do |metadata|
-            return if queue_full?
+            return if !force_enqueue && queue_full?
             enqueue_chunk(metadata)
           end
         end
