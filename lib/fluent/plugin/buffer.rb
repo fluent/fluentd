@@ -55,6 +55,9 @@ module Fluent
       # if chunk size (or records) is 95% or more after #write, then that chunk will be enqueued
       config_param :chunk_full_threshold, :float, default: DEFAULT_CHUNK_FULL_THRESHOLD
 
+      desc 'The max number of queued chunks.'
+      config_param :queued_chunks_limit_size, :integer, default: nil
+
       desc 'Compress buffered data.'
       config_param :compress, :enum, list: [:text, :gzip], default: :text
 
@@ -367,6 +370,10 @@ module Fluent
         end
       end
 
+      def queue_full?
+        @queued_chunks_limit_size && (synchronize { @queue.size } >= @queued_chunks_limit_size)
+      end
+
       def queued_records
         synchronize { @queue.reduce(0){|r, chunk| r + chunk.size } }
       end
@@ -421,11 +428,13 @@ module Fluent
         end
       end
 
-      def enqueue_all
+      # At flush_at_shutdown, all staged chunks should be enqueued for buffer flush. Set true to force_enqueue for it.
+      def enqueue_all(force_enqueue = false)
         log.on_trace { log.trace "enqueueing all chunks in buffer", instance: self.object_id }
 
         if block_given?
           synchronize{ @stage.keys }.each do |metadata|
+            return if !force_enqueue && queue_full?
             # NOTE: The following line might cause data race depending on Ruby implementations except CRuby
             # cf. https://github.com/fluent/fluentd/pull/1721#discussion_r146170251
             chunk = @stage[metadata]
@@ -435,6 +444,7 @@ module Fluent
           end
         else
           synchronize{ @stage.keys }.each do |metadata|
+            return if !force_enqueue && queue_full?
             enqueue_chunk(metadata)
           end
         end

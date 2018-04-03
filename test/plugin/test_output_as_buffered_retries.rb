@@ -412,6 +412,68 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       assert{ @i.buffer.stage.size == 1 }
       assert{ chunks.all?{|c| c.empty? } }
     end
+
+    test 'output plugin limits queued chunks via queued_chunks_limit_size' do
+      chunk_key = 'tag'
+      hash = {
+        'flush_interval' => 1,
+        'flush_thread_burst_interval' => 0.1,
+        'retry_randomize' => false,
+        'retry_max_times' => 7,
+        'queued_chunks_limit_size' => 2,
+      }
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
+      @i.register(:prefer_buffered_processing) { true }
+      @i.register(:format) { |tag,time,record| [tag,time.to_i,record].to_json + "\n" }
+      @i.register(:write) { |chunk| raise "yay, your #write must fail" }
+      @i.start
+      @i.after_start
+
+      @i.interrupt_flushes
+
+      now = Time.parse('2016-04-13 18:33:30 -0700')
+      Timecop.freeze(now)
+
+      @i.emit_events("test.tag.1", dummy_event_stream())
+
+      now = Time.parse('2016-04-13 18:33:31 -0700')
+      Timecop.freeze(now)
+
+      @i.emit_events("test.tag.2", dummy_event_stream())
+
+      @i.enqueue_thread_wait
+      @i.flush_thread_wakeup
+      waiting(4) { Thread.pass until @i.write_count > 0 && @i.num_errors > 0 }
+
+      assert { @i.buffer.queue.size > 0 }
+      assert { @i.buffer.queue.first.metadata.tag == 'test.tag.1' }
+
+      assert { @i.write_count > 0 }
+      assert { @i.num_errors > 0 }
+
+      prev_write_count = @i.write_count
+      prev_num_errors = @i.num_errors
+
+      chunks = @i.buffer.queue.dup
+
+      20.times do |i| # large times enough
+        now = @i.next_flush_time
+
+        Timecop.freeze(now)
+        @i.enqueue_thread_wait
+        @i.flush_thread_wakeup
+        waiting(4) { Thread.pass until @i.write_count > prev_write_count && @i.num_errors > prev_num_errors }
+
+        @i.emit_events("test.tag.1", dummy_event_stream())
+        assert { @i.buffer.queue.size <= 2 }
+        assert { @i.buffer.stage.size == 1 } # all new data is stored into staged chunk
+
+        break if @i.buffer.queue.size == 0
+
+        prev_write_count = @i.write_count
+        prev_num_errors = @i.num_errors
+      end
+    end
   end
 
   sub_test_case 'bufferd output for retries with periodical retry' do

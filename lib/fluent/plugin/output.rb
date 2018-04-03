@@ -1199,7 +1199,7 @@ module Fluent
 
       def force_flush
         if @buffering
-          @buffer.enqueue_all
+          @buffer.enqueue_all(true)
           submit_flush_all
         end
       end
