@@ -128,6 +128,7 @@ module Fluent
       time: Config::TIME_TYPE,
       hash: Config::HASH_TYPE,
       array: Config::ARRAY_TYPE,
+      regexp: Config::REGEXP_TYPE,
     }.each do |name, type|
       register_type(name, type)
     end

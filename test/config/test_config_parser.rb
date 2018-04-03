@@ -35,6 +35,7 @@ module Fluent::Config
     config_param :param_time, :time
     config_param :param_hash, :hash
     config_param :param_array, :array
+    config_param :param_regexp, :regexp
   end
 
   class TestV1Parser < ::Test::Unit::TestCase
@@ -451,6 +452,7 @@ module Fluent::Config
           param_time 10m
           param_hash { "key1": "value1", "key2": 2 }
           param_array ["value1", "value2", 100]
+          param_regexp /pattern/
         ])
         target = AllTypes.new.configure(conf)
         assert_equal(conf.to_s, target.config.to_s)
@@ -465,6 +467,7 @@ module Fluent::Config
   param_time 10m
   param_hash {"key1":"value1","key2":2}
   param_array ["value1","value2",100]
+  param_regexp /pattern/
 </ROOT>
 DUMP
         assert_equal(expected, conf.to_s)
@@ -490,6 +493,7 @@ DUMP
           param_time 10m
           param_hash { "key1": "value1", "key2": 2 }
           param_array ["value1", "value2", 100]
+          param_regexp /pattern/
         ])
         target = AllTypes.new.configure(conf)
         assert_equal(conf.to_s, target.config.to_s)
@@ -504,6 +508,7 @@ DUMP
   param_time 10m
   param_hash { "key1": "value1", "key2": 2 }
   param_array ["value1", "value2", 100]
+  param_regexp /pattern/
 </ROOT>
 DUMP
         assert_equal(expected, conf.to_s)
