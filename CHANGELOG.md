@@ -31,7 +31,7 @@
 
 * in_tail: Handle records in the correct order on file rotation
   https://github.com/fluent/fluentd/pull/1880
-* out_forward: Fix race condition with <security> on multi thread environment
+* out_forward: Fix race condition with `<security>` on multi thread environment
   https://github.com/fluent/fluentd/pull/1893
 * output: Prevent flushing threads consume too much CPU when retry happens
   https://github.com/fluent/fluentd/pull/1901
@@ -261,7 +261,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 * plugin: Add record_accessor plugin helper
   https://github.com/fluent/fluentd/pull/1637
-* log: Add format and time_format parameters to <system> setting
+* log: Add format and time_format parameters to `<system>` setting
   https://github.com/fluent/fluentd/pull/1644
 
 ### Bug fixes
@@ -355,7 +355,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 ### New features / Enhancements
 
-* Add <worker N> directive
+* Add `<worker N>` directive
   https://github.com/fluent/fluentd/pull/1507
 * in_tail: Do not warn that directories are unreadable in the in_tail plugin
   https://github.com/fluent/fluentd/pull/1540
@@ -410,7 +410,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
   https://github.com/fluent/fluentd/pull/1477
 * Fix Input and Output deadlock when buffer is full during startup
   https://github.com/fluent/fluentd/pull/1502
-* config: Fix log_level handling in <system>
+* config: Fix log_level handling in `<system>`
   https://github.com/fluent/fluentd/pull/1501
 * Fix typo in root agent error log
   https://github.com/fluent/fluentd/pull/1491
@@ -505,7 +505,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 ## Release v0.14.11 - 2016/12/26
 
 ### New features / Enhancements
-* Add "root_dir" parameter in <system> directive to configure server root directory, used for buffer/storage paths
+* Add "root_dir" parameter in `<system>` directive to configure server root directory, used for buffer/storage paths
   https://github.com/fluent/fluentd/pull/1374
 * Fix not to restart Fluentd processes when unrecoverable errors occur
   https://github.com/fluent/fluentd/pull/1359
@@ -633,7 +633,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
   https://github.com/fluent/fluentd/pull/1207
 * Add a feature to parse/format numeric time (unix time [+ subsecond value])
   https://github.com/fluent/fluentd/pull/1254
-* Raise configuration errors for inconsistent <label> configurations
+* Raise configuration errors for inconsistent `<label>` configurations
   https://github.com/fluent/fluentd/pull/1233
 * Fix to instantiate an unconfigured section even for multi: true
   https://github.com/fluent/fluentd/pull/1210
@@ -959,7 +959,7 @@ This list includes changes of 0.14.0.pre.1 and release candidates.
   https://github.com/fluent/fluentd/pull/838
 * Move TypeConverter mixin to mixin.rb
   https://github.com/fluent/fluentd/pull/842
-* Override default configurations by <system>
+* Override default configurations by `<system>`
   https://github.com/fluent/fluentd/pull/854
 * Suppress Ruby level warnings
   https://github.com/fluent/fluentd/pull/846
