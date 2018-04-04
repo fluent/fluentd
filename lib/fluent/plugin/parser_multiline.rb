@@ -36,7 +36,7 @@ module Fluent
           if regexp.named_captures.empty?
             raise "No named captures"
           end
-          regexp_conf = Fluent::Config::Element.new("", "", { "expression" => "/#{formats}/", "multiline" => true }, [])
+          regexp_conf = Fluent::Config::Element.new("", "", { "expression" => "/#{formats}/m" }, [])
           @parser = Fluent::Plugin::RegexpParser.new
           @parser.configure(conf + regexp_conf)
         rescue => e
