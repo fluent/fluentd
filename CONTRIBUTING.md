@@ -36,6 +36,7 @@ Here are some things that would increase a chance that your patch is accepted:
 * Write tests.
 * Run tests before send Pull Request by `bundle exec rake test`
 * Write a [good commit message](http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
+  * Fluentd repositories needs [DCO](https://github.com/apps/dco) on PR. Please add `Signed-off-by` to the commit(See DCO link for more detail).
 
 There are some patches which are hard to write tests, e.g. process handling, concurrency issue or etc.
 In such case, please don't hesitate to submit a Pull Request.
