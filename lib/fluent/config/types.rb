@@ -72,7 +72,7 @@ module Fluent
 
     def self.regexp_value(str)
       return nil unless str
-      return nil unless str.start_with?("/")
+      return Regexp.compile(str) unless str.start_with?("/")
       right_slash_position = str.rindex("/")
       options = str[(right_slash_position + 1)..-1]
       option = 0
