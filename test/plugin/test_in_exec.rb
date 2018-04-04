@@ -131,9 +131,7 @@ EOC
       d = create_driver REGEXP_CONFIG
       assert{ d.instance.parser.is_a? Fluent::Plugin::RegexpParser }
       assert_equal "regex_tag", d.instance.tag
-      expression = <<'EXP'.chomp
-(?<time>[^\]]*) (?<message>[^ ]*)
-EXP
+      expression = /(?<time>[^\]]*) (?<message>[^ ]*)/
       assert_equal expression, d.instance.parser.expression
       assert_nil d.instance.extract_config
     end
@@ -194,8 +192,8 @@ EXP
     test 'configure_with_regexp' do
       d = create_driver REGEXP_CONFIG_COMPAT
       assert{ d.instance.parser.is_a? Fluent::Plugin::RegexpParser }
-      assert_equal '(?<time>[^\]]*) (?<message>[^ ]*)', d.instance.parser.expression
-      assert_equal 'regex_tag', d.instance.tag
+      assert_equal(/(?<time>[^\]]*) (?<message>[^ ]*)/, d.instance.parser.expression)
+      assert_equal('regex_tag', d.instance.tag)
     end
   end
 
