@@ -192,6 +192,23 @@ module Fluent
     end
 
     class Future
+      class Result
+        attr_reader :data, :errors
+
+        def initialize(result)
+          @errors = result['errors']
+          @data = result['data']
+        end
+
+        def success?
+          @errors.nil? || @errors.empty?
+        end
+
+        def error?
+          !success?
+        end
+      end
+
       def initialize(loop, mutex)
         @set = false
         @result = nil
@@ -200,12 +217,12 @@ module Fluent
       end
 
       def set(v)
-        @result = v
+        @result = Result.new(v)
         @set = true
       end
 
       def errors
-        get['errors']
+        get.errors
       end
 
       def errors?
@@ -214,11 +231,11 @@ module Fluent
       end
 
       def data
-        get['data']
+        get.data
       end
 
       def get
-        # Block until `set` method is called and @result is set a value
+        # Block until `set` method is called and @result is set
         join if @result.nil?
         @result
       end

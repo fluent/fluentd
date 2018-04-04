@@ -103,9 +103,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_nil extract_value_from_server(@server, @scope, param[:name])
 
       response = @client.init(param)
-      data = response['data'].first
+      data = response.data.first
 
-      assert_nil response['errors']
+      assert_nil response.errors
       assert_equal param[:name], data['name']
       assert_equal param[:reset_interval], data['reset_interval']
       assert_equal param[:type], data['type']
@@ -149,9 +149,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       @client.init(:name => 'key1', :reset_interval => 10)
       response = @client.init(param)
 
-      errors = response['errors'].first
+      errors = response.errors.first
 
-      assert_empty response['data']
+      assert_empty response.data
       assert_equal expected_error, errors
     end
 
@@ -163,7 +163,7 @@ class CounterClientTest < ::Test::Unit::TestCase
         res2 = @client.init({ name: 'key1', reset_interval: 10 }, options: { ignore: true })
       end
 
-      assert_equal res1['data'], res2['data']
+      assert_equal res1.data, res2.data
     end
 
     test 'return an error object and data object' do
@@ -172,8 +172,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       @client.init(param)
 
       response = @client.init([param2, param])
-      data = response['data'].first
-      error = response['errors'].first
+      data = response.data.first
+      error = response.errors.first
 
       assert_equal param2[:name], data['name']
       assert_equal param2[:reset_interval], data['reset_interval']
@@ -204,9 +204,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert extract_value_from_server(@server, @scope, @name)
 
       response = @client.delete(@name)
-      v = response['data'].first
+      v = response.data.first
 
-      assert_nil response['errors']
+      assert_nil response.errors
       assert_equal @init_obj[:name], v['name']
       assert_equal @init_obj[:type], v['type']
       assert_equal @init_obj[:reset_interval], v['reset_interval']
@@ -234,9 +234,9 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'return an error object' do |(param, expected_error)|
       response = @client.delete(param)
 
-      errors = response['errors'].first
+      errors = response.errors.first
 
-      assert_empty response['data']
+      assert_empty response.data
       assert_equal expected_error, errors
     end
 
@@ -244,8 +244,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       unknown_name = 'key2'
 
       response = @client.delete(@name, unknown_name)
-      data = response['data'].first
-      error = response['errors'].first
+      data = response.data.first
+      error = response.errors.first
 
       assert_equal @name, data['name']
       assert_equal @init_obj[:reset_interval], data['reset_interval']
@@ -332,8 +332,8 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'return an error object' do |(param, expected_error)|
       response = @client.inc(param)
 
-      errors = response['errors'].first
-      assert_empty response['data']
+      errors = response.errors.first
+      assert_empty response.data
       assert_equal expected_error, errors
     end
 
@@ -344,8 +344,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       ]
       response = @client.inc(parmas)
 
-      data = response['data'].first
-      error = response['errors'].first
+      data = response.data.first
+      error = response.errors.first
 
       assert_equal @name, data['name']
       assert_equal 10, data['current']
@@ -374,7 +374,7 @@ class CounterClientTest < ::Test::Unit::TestCase
 
     test 'get a value' do
       v1 = extract_value_from_server(@server, @scope, @name)
-      v2 = @client.get(@name)['data'].first
+      v2 = @client.get(@name).data.first
 
       assert_equal v1['name'], v2['name']
       assert_equal v1['current'], v2['current']
@@ -402,9 +402,9 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'return an error object' do |(param, expected_error)|
       response = @client.get(param)
 
-      errors = response['errors'].first
+      errors = response.errors.first
 
-      assert_empty response['data']
+      assert_empty response.data
       assert_equal expected_error, errors
     end
 
@@ -412,8 +412,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       unknown_name = 'key2'
 
       response = @client.get(@name, unknown_name)
-      data = response['data'].first
-      error = response['errors'].first
+      data = response.data.first
+      error = response.errors.first
 
       assert_equal @name, data['name']
       assert_equal @init_obj[:reset_interval], data['reset_interval']
@@ -451,7 +451,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       Timecop.travel(travel_sec)
 
       v2 = @client.reset(@name)
-      data = v2['data'].first
+      data = v2.data.first
 
       c = data['counter_data']
 
@@ -479,7 +479,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       Timecop.travel(travel_sec)
 
       v2 = @client.reset(@name)
-      data = v2['data'].first
+      data = v2.data.first
 
       c = data['counter_data']
 
@@ -516,9 +516,9 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'return an error object' do |(param, expected_error)|
       response = @client.reset(param)
 
-      errors = response['errors'].first
+      errors = response.errors.first
 
-      assert_empty response['data']
+      assert_empty response.data
       assert_equal expected_error, errors
     end
 
@@ -529,8 +529,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       Timecop.travel(travel_sec)
 
       response = @client.reset(@name, unknown_name)
-      data = response['data'].first
-      error = response['errors'].first
+      data = response.data.first
+      error = response.errors.first
       counter = data['counter_data']
 
       assert_true data['success']
