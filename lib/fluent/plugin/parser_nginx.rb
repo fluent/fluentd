@@ -21,7 +21,7 @@ module Fluent
     class NginxParser < RegexpParser
       Plugin.register_parser("nginx", self)
 
-      config_set_default :expression, %q{/^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)" (?<http_x_forwarded_for>[^ ]*))?$/}
+      config_set_default :expression, %q{/^(?<remote>\S*) (?<host>\S*) (?<user>\S*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?:\s+\S*)?)?" (?<code>\S*) (?<size>\S*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)"(?:\s+(?<http_x_forwarded_for>\S+))?)?$/}
       config_set_default :time_format, "%d/%b/%Y:%H:%M:%S %z"
     end
   end

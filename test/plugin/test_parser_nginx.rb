@@ -14,7 +14,18 @@ class NginxParserTest < ::Test::Unit::TestCase
       'code'    => '200',
       'size'    => '777',
       'referer' => '-',
-      'agent'   => 'Opera/12.0',
+      'agent'   => 'Opera/12.0'
+    }
+    @expected_extended = {
+      'remote'               => '127.0.0.1',
+      'host'                 => '192.168.0.1',
+      'user'                 => '-',
+      'method'               => 'GET',
+      'path'                 => '/',
+      'code'                 => '200',
+      'size'                 => '777',
+      'referer'              => '-',
+      'agent'                => 'Opera/12.0',
       'http_x_forwarded_for' => '-'
     }
   end
@@ -25,7 +36,7 @@ class NginxParserTest < ::Test::Unit::TestCase
 
   def test_parse
     d = create_driver
-    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0" -') { |time, record|
+    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
       assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
     }
@@ -33,7 +44,7 @@ class NginxParserTest < ::Test::Unit::TestCase
 
   def test_parse_with_empty_included_path
     d = create_driver
-    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /a[ ]b HTTP/1.1" 200 777 "-" "Opera/12.0" -') { |time, record|
+    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /a[ ]b HTTP/1.1" 200 777 "-" "Opera/12.0"') { |time, record|
       assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected.merge('path' => '/a[ ]b'), record)
     }
@@ -41,9 +52,17 @@ class NginxParserTest < ::Test::Unit::TestCase
 
   def test_parse_without_http_version
     d = create_driver
-    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0" -') { |time, record|
+    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET /" 200 777 "-" "Opera/12.0"') { |time, record|
       assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
       assert_equal(@expected, record)
+    }
+  end
+
+  def test_parse_with_http_x_forwarded_for
+    d = create_driver
+    d.instance.parse('127.0.0.1 192.168.0.1 - [28/Feb/2013:12:00:00 +0900] "GET / HTTP/1.1" 200 777 "-" "Opera/12.0" -') { |time, record|
+      assert_equal(event_time('28/Feb/2013:12:00:00 +0900', format: '%d/%b/%Y:%H:%M:%S %z'), time)
+      assert_equal(@expected_extended, record)
     }
   end
 end
