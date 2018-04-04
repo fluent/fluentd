@@ -70,6 +70,15 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'normal case' do |(expected, str)|
       assert_equal(expected, Config.regexp_value(str))
     end
+
+    data("empty" => [//, ""],
+         "plain" => [/regexp/, "regexp"],
+         "zero width" => [/^$/, "^$"],
+         "character classes" => [/[a-z]/, "[a-z]"],
+         "meta charactersx" => [/.+.*?\d\w\s\S/, '.+.*?\d\w\s\S'])
+    test 'w/o slashes' do |(expected, str)|
+      assert_equal(expected, Config.regexp_value(str))
+    end
   end
 
   sub_test_case 'type converters for config_param definitions' do
