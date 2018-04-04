@@ -42,6 +42,8 @@ module Fluent
   module ServerModule
     def before_run
       @start_time = Time.now
+      @rpc_server = nil
+      @counter = nil
 
       if config[:rpc_endpoint]
         @rpc_endpoint = config[:rpc_endpoint]
@@ -66,7 +68,7 @@ module Fluent
 
     def after_run
       stop_rpc_server if @rpc_endpoint
-      stop_counter_server if @counter_endpoint
+      stop_counter_server if @counter
       Fluent::Supervisor.cleanup_resources
     end
 
