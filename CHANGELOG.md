@@ -1,5 +1,25 @@
 # v1.1
 
+## Release v1.1.3 - 2018/04/03
+
+### Enhancements
+
+* output: Support negative index for tag placeholders
+  https://github.com/fluent/fluentd/pull/1908
+* buffer: Add queued_chunks_limit_size to control the number of queued chunks
+  https://github.com/fluent/fluentd/pull/1916
+* time: Make Fluent::EventTime human readable for inspect
+  https://github.com/fluent/fluentd/pull/1915
+
+### Bug fixes
+
+* output: Delete empty queued_num field after purging chunks
+  https://github.com/fluent/fluentd/pull/1919
+* fluent-debug: Fix usage message of fluent-debug command
+  https://github.com/fluent/fluentd/pull/1920
+* out_forward: The node should be disabled when TLS socket for ack returns an error
+  https://github.com/fluent/fluentd/pull/1925
+
 ## Release v1.1.2 - 2018/03/18
 
 ### Enhancements
