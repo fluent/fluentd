@@ -32,6 +32,13 @@ module Fluent
 
       def configure(conf)
         super
+        # For compat layer
+        if @ignorecase || @multiline
+          options = 0
+          options |= Regexp::IGNORECASE if @ignorecase
+          options |= Regexp::MULTILINE if @multiline
+          @expression = Regexp.compile(@expression.source, options)
+        end
         @regexp = @expression # For backward compatibility
       end
 
