@@ -425,7 +425,7 @@ module Fluent::Plugin
     def read_ack_from_sock(sock, unpacker)
       begin
         raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
-      rescue Errno::ECONNRESET
+      rescue Errno::ECONNRESET, EOFError # ECONNRESET for #recv, #EOFError for #readpartial
         raw_data = ""
       end
       info = @sock_ack_waiting_mutex.synchronize{ @sock_ack_waiting.find{|i| i.sock == sock } }
