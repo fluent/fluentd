@@ -1,5 +1,11 @@
 # v0.12
 
+## Release 0.12.43 - 2018/04/06
+
+### Bug fixes
+
+* out_forward: Remove debug print
+
 ## Release 0.12.42 - 2017/12/14
 
 ### New features / Enhancements
