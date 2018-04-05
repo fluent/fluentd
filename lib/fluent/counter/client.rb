@@ -75,20 +75,50 @@ module Fluent
       # 2. init({ name: 'name',reset_interval: 20 }, options: {})
       # 3. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }])
       # 4. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }], options: {})
+      # 5. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }], options: {async: true}) { |res| ... }
       def init(params, options: {})
         exist_scope!
         params = [params] unless params.is_a?(Array)
         res = send_request('init', @scope, params, options)
 
         # if `async` is true, return a Future object (non blocking).
-        # if `async` is false or missing, block at this method and return a Hash object.
-        options[:async] ? res : res.get
+        # if `async` is false or missing, block at this method and return a Future::Result object.
+        if options[:async]
+          if block_given?
+            Thread.start do
+              yield res.get
+            end
+          else
+            res
+          end
+        else
+          if block_given?
+            yield res.get
+          else
+            res.get
+          end
+        end
       end
 
       def delete(*params, options: {})
         exist_scope!
         res = send_request('delete', @scope, params, options)
-        options[:async] ? res : res.get
+
+        if options[:async]
+          if block_given?
+            Thread.start do
+              yield res.get
+            end
+          else
+            res
+          end
+        else
+          if block_given?
+            yield res.get
+          else
+            res.get
+          end
+        end
       end
 
       # === Example
@@ -102,19 +132,64 @@ module Fluent
         exist_scope!
         params = [params] unless params.is_a?(Array)
         res = send_request('inc', @scope, params, options)
-        options[:async] ? res : res.get
+
+        if options[:async]
+          if block_given?
+            Thread.start do
+              yield res.get
+            end
+          else
+            res
+          end
+        else
+          if block_given?
+            yield res.get
+          else
+            res.get
+          end
+        end
       end
 
       def get(*params, options: {})
         exist_scope!
         res = send_request('get', @scope, params, options)
-        options[:async] ? res : res.get
+
+        if options[:async]
+          if block_given?
+            Thread.start do
+              yield res.get
+            end
+          else
+            res
+          end
+        else
+          if block_given?
+            yield res.get
+          else
+            res.get
+          end
+        end
       end
 
       def reset(*params, options: {})
         exist_scope!
         res = send_request('reset', @scope, params, options)
-        options[:async] ? res : res.get
+
+        if options[:async]
+          if block_given?
+            Thread.start do
+              yield res.get
+            end
+          else
+            res
+          end
+        else
+          if block_given?
+            yield res.get
+          else
+            res.get
+          end
+        end
       end
 
       private
