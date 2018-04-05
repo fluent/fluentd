@@ -124,10 +124,10 @@ module Fluent
       # === Example
       # `inc` receives various arguments.
       #
-      # 1. init(name: 'name')
-      # 2. init({ name: 'name',value: 20 }, options: {})
-      # 3. init([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }])
-      # 4. init([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }], options: {})
+      # 1. inc(name: 'name')
+      # 2. inc({ name: 'name',value: 20 }, options: {})
+      # 3. inc([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }])
+      # 4. inc([{ name: 'name1',value: 20 }, { name: 'name2',value: 20 }], options: {})
       def inc(params, options: {})
         exist_scope!
         params = [params] unless params.is_a?(Array)
