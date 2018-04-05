@@ -45,26 +45,14 @@ module Fluent::Plugin
       desc "The field name to which the regular expression is applied."
       config_param :key, :string
       desc "The regular expression."
-      config_param :pattern do |value|
-        if value.start_with?("/") and value.end_with?("/")
-          Regexp.compile(value[1..-2])
-        else
-          Regexp.compile(value)
-        end
-      end
+      config_param :pattern, :regexp
     end
 
     config_section :exclude, param_name: :excludes, multi: true do
       desc "The field name to which the regular expression is applied."
       config_param :key, :string
       desc "The regular expression."
-      config_param :pattern do |value|
-        if value.start_with?("/") and value.end_with?("/")
-          Regexp.compile(value[1..-2])
-        else
-          Regexp.compile(value)
-        end
-      end
+      config_param :pattern, :regexp
     end
 
     config_section :and, param_name: :and_conditions, multi: true do
@@ -72,25 +60,13 @@ module Fluent::Plugin
         desc "The field name to which the regular expression is applied."
         config_param :key, :string
         desc "The regular expression."
-        config_param :pattern do |value|
-          if value.start_with?("/") and value.end_with?("/")
-            Regexp.compile(value[1..-2])
-          else
-            Regexp.compile(value)
-          end
-        end
+        config_param :pattern, :regexp
       end
       config_section :exclude, param_name: :excludes, multi: true do
         desc "The field name to which the regular expression is applied."
         config_param :key, :string
         desc "The regular expression."
-        config_param :pattern do |value|
-          if value.start_with?("/") and value.end_with?("/")
-            Regexp.compile(value[1..-2])
-          else
-            Regexp.compile(value)
-          end
-        end
+        config_param :pattern, :regexp
       end
     end
 
@@ -99,25 +75,13 @@ module Fluent::Plugin
         desc "The field name to which the regular expression is applied."
         config_param :key, :string
         desc "The regular expression."
-        config_param :pattern do |value|
-          if value.start_with?("/") and value.end_with?("/")
-            Regexp.compile(value[1..-2])
-          else
-            Regexp.compile(value)
-          end
-        end
+        config_param :pattern, :regexp
       end
       config_section :exclude, param_name: :excludes, multi: true do
         desc "The field name to which the regular expression is applied."
         config_param :key, :string
         desc "The regular expression."
-        config_param :pattern do |value|
-          if value.start_with?("/") and value.end_with?("/")
-            Regexp.compile(value[1..-2])
-          else
-            Regexp.compile(value)
-          end
-        end
+        config_param :pattern, :regexp
       end
     end
 

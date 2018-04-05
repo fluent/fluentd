@@ -20,7 +20,7 @@ module Fluent
   module Plugin
     class ApacheErrorParser < RegexpParser
       Plugin.register_parser("apache_error", self)
-      config_set_default :expression, %q{/^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/}
+      config_set_default :expression, /^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$/
     end
   end
 end

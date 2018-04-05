@@ -160,25 +160,24 @@ class RegexpParserTest < ::Test::Unit::TestCase
           'types' => 'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'
         }
         d = create_driver(conf)
-        regexp = d.instance.instance_variable_get(:@regexp)
+        regexp = d.instance.expression
         assert_equal(0, regexp.options)
       end
 
       data(
-        ignorecase: [{ "ignorecase" => true }, Regexp::IGNORECASE],
-        multiline: [{ "multiline" => true }, Regexp::MULTILINE],
-        ignorecase_multiline: [{ "ignorecase" => true, "multiline" => true }, Regexp::IGNORECASE | Regexp::MULTILINE],
+        ignorecase: ["i", Regexp::IGNORECASE],
+        multiline: ["m", Regexp::MULTILINE],
+        ignorecase_multiline: ["im", Regexp::IGNORECASE | Regexp::MULTILINE],
       )
       def test_options(data)
         regexp_option, expected = data
         conf = {
-          'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
+          'expression' => %Q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/#{regexp_option}!,
           'time_format' => "%d/%b/%Y:%H:%M:%S %z",
           'types' => 'user:string,date:time:%d/%b/%Y:%H:%M:%S %z,flag:bool,path:array,code:float,size:integer'
         }
-        conf = conf.merge(regexp_option)
         d = create_driver(conf)
-        regexp = d.instance.instance_variable_get(:@regexp)
+        regexp = d.instance.expression
         assert_equal(expected, regexp.options)
       end
     end

@@ -61,6 +61,26 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'Config.regexp_value' do
+    data("empty" => [//, "//"],
+         "plain" => [/regexp/, "/regexp/"],
+         "zero width" => [/^$/, "/^$/"],
+         "character classes" => [/[a-z]/, "/[a-z]/"],
+         "meta charactersx" => [/.+.*?\d\w\s\S/, '/.+.*?\d\w\s\S/'])
+    test 'normal case' do |(expected, str)|
+      assert_equal(expected, Config.regexp_value(str))
+    end
+
+    data("empty" => [//, ""],
+         "plain" => [/regexp/, "regexp"],
+         "zero width" => [/^$/, "^$"],
+         "character classes" => [/[a-z]/, "[a-z]"],
+         "meta charactersx" => [/.+.*?\d\w\s\S/, '.+.*?\d\w\s\S'])
+    test 'w/o slashes' do |(expected, str)|
+      assert_equal(expected, Config.regexp_value(str))
+    end
+  end
+
   sub_test_case 'type converters for config_param definitions' do
     test 'string' do
       assert_equal 'test', Config::STRING_TYPE.call('test', {})
@@ -132,6 +152,15 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal 60, Config::TIME_TYPE.call('1m', {})
       assert_equal 3600, Config::TIME_TYPE.call('1h', {})
       assert_equal 86400, Config::TIME_TYPE.call('1d', {})
+    end
+
+    data("empty" => [//, "//"],
+         "plain" => [/regexp/, "/regexp/"],
+         "zero width" => [/^$/, "/^$/"],
+         "character classes" => [/[a-z]/, "/[a-z]/"],
+         "meta charactersx" => [/.+.*?\d\w\s\S/, '/.+.*?\d\w\s\S/'])
+    test 'regexp' do |(expected, str)|
+      assert_equal(expected, Config::REGEXP_TYPE.call(str, {}))
     end
 
     test 'hash' do

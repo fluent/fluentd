@@ -193,9 +193,10 @@ module Fluent::Config
           assert_nothing_raised{ @proxy.config_param(:p7, :time, **opt) }
           assert_nothing_raised{ @proxy.config_param(:p8, :hash, **opt) }
           assert_nothing_raised{ @proxy.config_param(:p9, :array, **opt) }
+          assert_nothing_raised{ @proxy.config_param(:pa, :regexp, **opt) }
         end
 
-        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, hash: :hash, array: :array)
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, hash: :hash, array: :array, regexp: :regexp)
         test 'deny list for non-enum types' do |type|
           assert_raise ArgumentError.new(":list is valid only for :enum type, but #{type}: arg") do
             @proxy.config_argument(:arg, type, list: [:a, :b])
@@ -205,7 +206,7 @@ module Fluent::Config
           end
         end
 
-        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time)
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, regexp: :regexp)
         test 'deny value_type for non-hash/array types' do |type|
           assert_raise ArgumentError.new(":value_type is valid only for :hash and :array, but #{type}: arg") do
             @proxy.config_argument(:arg, type, value_type: :string)
@@ -215,7 +216,7 @@ module Fluent::Config
           end
         end
 
-        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, array: :array)
+        data(string: :string, integer: :integer, float: :float, size: :size, bool: :bool, time: :time, array: :array, regexp: :regexp)
         test 'deny symbolize_keys for non-hash types' do |type|
           assert_raise ArgumentError.new(":symbolize_keys is valid only for :hash, but #{type}: arg") do
             @proxy.config_argument(:arg, type, symbolize_keys: true)
