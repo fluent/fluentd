@@ -161,10 +161,8 @@ module Fluent::Plugin
 
     def filter(tag, time, record)
       begin
-        if @_regexp_and_conditions
-          @_regexp_and_conditions.each do |expression|
-            return nil unless expression.match?(record)
-          end
+        if @_regexp_and_conditions && @_regexp_and_conditions.any? { |expression| !expression.match?(record) }
+          return nil
         end
         if @_regexp_or_conditions && @_regexp_or_conditions.none? { |expression| expression.match?(record) }
           return nil
@@ -172,10 +170,8 @@ module Fluent::Plugin
         if @_exclude_and_conditions && @_exclude_and_conditions.all? { |expression| expression.match?(record) }
           return nil
         end
-        if @_exclude_or_conditions
-          @_exclude_or_conditions.each do |expression|
-            return nil if expression.match?(record)
-          end
+        if @_exclude_or_conditions && @_exclude_or_conditions.any? { |expression| expression.match?(record) }
+          return nil
         end
       rescue => e
         log.warn "failed to grep events", error: e
