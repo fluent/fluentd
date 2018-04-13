@@ -25,10 +25,10 @@ module Fluent::Plugin
     def initialize
       super
 
-      @_regexp_and_conditions = []
-      @_exclude_and_conditions = []
-      @_regexp_or_conditions = []
-      @_exclude_or_conditions = []
+      @_regexp_and_conditions = nil
+      @_exclude_and_conditions = nil
+      @_regexp_or_conditions = nil
+      @_exclude_or_conditions = nil
     end
 
     # for test
@@ -153,35 +153,31 @@ module Fluent::Plugin
         end
       end
 
-      @_regexp_and_conditions = regexp_and_conditions.values
-      @_exclude_and_conditions = exclude_and_conditions.values
-      @_regexp_or_conditions = regexp_or_conditions.values
-      @_exclude_or_conditions = exclude_or_conditions.values
+      @_regexp_and_conditions = regexp_and_conditions.values unless regexp_and_conditions.empty?
+      @_exclude_and_conditions = exclude_and_conditions.values unless exclude_and_conditions.empty?
+      @_regexp_or_conditions = regexp_or_conditions.values unless regexp_or_conditions.empty?
+      @_exclude_or_conditions = exclude_or_conditions.values unless exclude_or_conditions.empty?
     end
 
     def filter(tag, time, record)
-      result = nil
       begin
-        catch(:break_loop) do
-          @_regexp_and_conditions.each do |expression|
-            throw :break_loop unless expression.match?(record)
-          end
-          if !@_regexp_or_conditions.empty? && @_regexp_or_conditions.none? {|expression| expression.match?(record) }
-            throw :break_loop
-          end
-          if !@_exclude_and_conditions.empty? && @_exclude_and_conditions.all? {|expression| expression.match?(record) }
-            throw :break_loop
-          end
-          @_exclude_or_conditions.each do |expression|
-            throw :break_loop if expression.match?(record)
-          end
-          result = record
+        if @_regexp_and_conditions && @_regexp_and_conditions.any? { |expression| !expression.match?(record) }
+          return nil
+        end
+        if @_regexp_or_conditions && @_regexp_or_conditions.none? { |expression| expression.match?(record) }
+          return nil
+        end
+        if @_exclude_and_conditions && @_exclude_and_conditions.all? { |expression| expression.match?(record) }
+          return nil
+        end
+        if @_exclude_or_conditions && @_exclude_or_conditions.any? { |expression| expression.match?(record) }
+          return nil
         end
       rescue => e
         log.warn "failed to grep events", error: e
         log.warn_backtrace
       end
-      result
+      record
     end
 
     Expression = Struct.new(:key, :pattern) do
