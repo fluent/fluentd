@@ -717,6 +717,9 @@ module Fluent
             end
           rescue IO::WaitReadable, IO::WaitWritable
             # ignore and return with doing nothing
+          rescue OpenSSL::SSL::SSLError => e
+            @log.warn "close socket due to unexpected ssl error: #{e}"
+            close rescue nil
           end
 
           def on_writable
