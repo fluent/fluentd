@@ -165,17 +165,25 @@ module Fluent
         end
 
         def calc_interval(num)
-          # make it infinite if calculated "interval" is too big
-          interval = @constant_factor.to_f * (@backoff_base ** (num - 1))
-          if interval.finite?
-            if @max_interval && interval > @max_interval
-              @max_interval
+          interval = raw_interval(num - 1)
+          if @max_interval && interval > @max_interval
+            @max_interval
+          else
+            if interval.finite?
+              interval
             else
+              # Calculate previous finite value to avoid inf related errors. If this re-computing is heavy, use cache.
+              until interval.finite?
+                num -= 1
+                interval = raw_interval(num - 1)
+              end
               interval
             end
-          else
-            interval
           end
+        end
+
+        def raw_interval(num)
+          @constant_factor.to_f * (@backoff_base ** (num))
         end
       end
 
