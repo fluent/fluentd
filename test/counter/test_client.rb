@@ -48,7 +48,6 @@ class CounterClientTest < ::Test::Unit::TestCase
 
     test 'call a set method to a corresponding object' do
       @future.should_receive(:set).once.with(Hash)
-
       @client.send(:on_message, { 'id' => 1 })
     end
 
@@ -102,7 +101,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'create a value' do |(param, initial_value)|
       assert_nil extract_value_from_server(@server, @scope, param[:name])
 
-      response = @client.init(param)
+      response = @client.init(param).get
       data = response.data.first
 
       assert_nil response.errors
@@ -123,7 +122,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'raise an error when @scope is nil' do
       @client.instance_variable_set(:@scope, nil)
       assert_raise 'Call `establish` method to get a `scope` before calling this method' do
-        @client.init(name: 'key1', reset_interval: 10)
+        @client.init(name: 'key1', reset_interval: 10).get
       end
     end
 
@@ -146,9 +145,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       ]
     )
     test 'return an error object' do |(param, expected_error)|
-      @client.init(:name => 'key1', :reset_interval => 10)
-      response = @client.init(param)
-
+      @client.init(:name => 'key1', :reset_interval => 10).get
+      response = @client.init(param).get
       errors = response.errors.first
 
       assert_empty response.data
@@ -156,22 +154,20 @@ class CounterClientTest < ::Test::Unit::TestCase
     end
 
     test 'return an existing value when passed key already exists and ignore option is true' do
-      res1 = @client.init(name: 'key1', reset_interval: 10)
-
+      res1 = @client.init(name: 'key1', reset_interval: 10).get
       res2 = nil
       assert_nothing_raised do
-        res2 = @client.init({ name: 'key1', reset_interval: 10 }, options: { ignore: true })
+        res2 = @client.init({ name: 'key1', reset_interval: 10 }, options: { ignore: true }).get
       end
-
       assert_equal res1.data, res2.data
     end
 
     test 'return an error object and data object' do
       param = { name: 'key1', reset_interval: 10 }
       param2 = { name: 'key2', reset_interval: 10 }
-      @client.init(param)
+      @client.init(param).get
 
-      response = @client.init([param2, param])
+      response = @client.init([param2, param]).get
       data = response.data.first
       error = response.errors.first
 
@@ -182,9 +178,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal "#{@scope}\t#{param[:name]} already exists in counter", error['message']
     end
 
-    test 'return a future object when async option is true' do
+    test 'return a future object when async call' do
       param = { name: 'key', reset_interval: 10 }
-      r = @client.init(param, options: { async: true })
+      r = @client.init(param)
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
     end
@@ -197,13 +193,13 @@ class CounterClientTest < ::Test::Unit::TestCase
       @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
       @init_obj = { name: @name, reset_interval: 20, type: 'numeric' }
-      @client.init(@init_obj)
+      @client.init(@init_obj).get
     end
 
     test 'delete a value' do
       assert extract_value_from_server(@server, @scope, @name)
 
-      response = @client.delete(@name)
+      response = @client.delete(@name).get
       v = response.data.first
 
       assert_nil response.errors
@@ -217,7 +213,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'raise an error when @scope is nil' do
       @client.instance_variable_set(:@scope, nil)
       assert_raise 'Call `establish` method to get a `scope` before calling this method' do
-        @client.delete(@name)
+        @client.delete(@name).get
       end
     end
 
@@ -232,8 +228,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       ]
     )
     test 'return an error object' do |(param, expected_error)|
-      response = @client.delete(param)
-
+      response = @client.delete(param).get
       errors = response.errors.first
 
       assert_empty response.data
@@ -243,7 +238,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'return an error object and data object' do
       unknown_name = 'key2'
 
-      response = @client.delete(@name, unknown_name)
+      response = @client.delete(@name, unknown_name).get
       data = response.data.first
       error = response.errors.first
 
@@ -256,8 +251,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_nil extract_value_from_server(@server, @scope, @name)
     end
 
-    test 'return a future object when async option is true' do
-      r = @client.delete(@name, options: { async: true })
+    test 'return a future object when async call' do
+      r = @client.delete(@name)
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
     end
@@ -270,7 +265,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
       @init_obj = { name: @name, reset_interval: 20, type: 'numeric' }
-      @client.init(@init_obj)
+      @client.init(@init_obj).get
     end
 
     test 'increment a value' do
@@ -280,7 +275,7 @@ class CounterClientTest < ::Test::Unit::TestCase
 
       Timecop.travel(1)
       inc_obj = { name: @name, value: 10 }
-      @client.inc(inc_obj)
+      @client.inc(inc_obj).get
 
       v = extract_value_from_server(@server, @scope, @name)
       assert_equal inc_obj[:value], v['total']
@@ -294,7 +289,7 @@ class CounterClientTest < ::Test::Unit::TestCase
 
       assert_nil extract_value_from_server(@server, @scope, name)
 
-      @client.inc(param, options: { force: true })
+      @client.inc(param, options: { force: true }).get
 
       v = extract_value_from_server(@server, @scope, name)
       assert v
@@ -307,7 +302,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'raise an error when @scope is nil' do
       @client.instance_variable_set(:@scope, nil)
       assert_raise 'Call `establish` method to get a `scope` before calling this method' do
-        @client.inc(name: 'name', value: 1)
+        @client.inc(name: 'name', value: 1).get
       end
     end
 
@@ -330,8 +325,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       ]
     )
     test 'return an error object' do |(param, expected_error)|
-      response = @client.inc(param)
-
+      response = @client.inc(param).get
       errors = response.errors.first
       assert_empty response.data
       assert_equal expected_error, errors
@@ -342,7 +336,7 @@ class CounterClientTest < ::Test::Unit::TestCase
         { name: @name, value: 10 },
         { name: 'unknown_key', value: 9 },
       ]
-      response = @client.inc(parmas)
+      response = @client.inc(parmas).get
 
       data = response.data.first
       error = response.errors.first
@@ -355,9 +349,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal "`#{@scope}\tunknown_key` doesn't exist in counter", error['message']
     end
 
-    test 'return a future object when async option is true' do
+    test 'return a future object when async call' do
       param = { name: 'key', value: 10 }
-      r = @client.inc(param, options: { async: true })
+      r = @client.inc(param)
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
     end
@@ -369,7 +363,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       @name = 'key'
 
       @init_obj = { name: @name, reset_interval: 20, type: 'numeric' }
-      @client.init(@init_obj)
+      @client.init(@init_obj).get
     end
 
     test 'get a value' do
@@ -385,7 +379,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'raise an error when @scope is nil' do
       @client.instance_variable_set(:@scope, nil)
       assert_raise 'Call `establish` method to get a `scope` before calling this method' do
-        @client.get(@name)
+        @client.get(@name).get
       end
     end
 
@@ -400,10 +394,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       ]
     )
     test 'return an error object' do |(param, expected_error)|
-      response = @client.get(param)
-
+      response = @client.get(param).get
       errors = response.errors.first
-
       assert_empty response.data
       assert_equal expected_error, errors
     end
@@ -411,7 +403,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'return an error object and data object' do
       unknown_name = 'key2'
 
-      response = @client.get(@name, unknown_name)
+      response = @client.get(@name, unknown_name).get
       data = response.data.first
       error = response.errors.first
 
@@ -422,8 +414,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal "`#{@scope}\t#{unknown_name}` doesn't exist in counter", error['message']
     end
 
-    test 'return a future object when async option is true' do
-      r = @client.get(@name, options: { async: true })
+    test 'return a future object when async call' do
+      r = @client.get(@name)
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
     end
@@ -436,9 +428,9 @@ class CounterClientTest < ::Test::Unit::TestCase
       @key = Fluent::Counter::Store.gen_key(@scope, @name)
 
       @init_obj = { name: @name, reset_interval: 5, type: 'numeric' }
-      @client.init(@init_obj)
+      @client.init(@init_obj).get
       @inc_obj = { name: @name, value: 10 }
-      @client.inc(@inc_obj)
+      @client.inc(@inc_obj).get
     end
 
     test 'reset a value after `reset_interval` passed' do
@@ -450,7 +442,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       travel_sec = 6            # greater than reset_interval
       Timecop.travel(travel_sec)
 
-      v2 = @client.reset(@name)
+      v2 = @client.reset(@name).get
       data = v2.data.first
 
       c = data['counter_data']
@@ -478,7 +470,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       travel_sec = 4            # less than reset_interval
       Timecop.travel(travel_sec)
 
-      v2 = @client.reset(@name)
+      v2 = @client.reset(@name).get
       data = v2.data.first
 
       c = data['counter_data']
@@ -499,7 +491,7 @@ class CounterClientTest < ::Test::Unit::TestCase
     test 'raise an error when @scope is nil' do
       @client.instance_variable_set(:@scope, nil)
       assert_raise 'Call `establish` method to get a `scope` before calling this method' do
-        @client.reset(@name)
+        @client.reset(@name).get
       end
     end
 
@@ -514,10 +506,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       ]
     )
     test 'return an error object' do |(param, expected_error)|
-      response = @client.reset(param)
-
+      response = @client.reset(param).get
       errors = response.errors.first
-
       assert_empty response.data
       assert_equal expected_error, errors
     end
@@ -528,7 +518,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       travel_sec = 6            # greater than reset_interval
       Timecop.travel(travel_sec)
 
-      response = @client.reset(@name, unknown_name)
+      response = @client.reset(@name, unknown_name).get
       data = response.data.first
       error = response.errors.first
       counter = data['counter_data']
@@ -550,8 +540,8 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal (@now + travel_sec), Fluent::EventTime.new(*v1['last_modified_at'])
     end
 
-    test 'return a future object when async option is true' do
-      r = @client.reset(@name, options: { async: true })
+    test 'return a future object when async call' do
+      r = @client.reset(@name)
       assert_true r.is_a?(Fluent::Counter::Future)
       assert_nil r.errors
     end

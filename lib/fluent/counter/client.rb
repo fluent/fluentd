@@ -75,28 +75,19 @@ module Fluent
       # 2. init({ name: 'name',reset_interval: 20 }, options: {})
       # 3. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }])
       # 4. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }], options: {})
-      # 5. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }], options: {async: true}) { |res| ... }
+      # 5. init([{ name: 'name1',reset_interval: 20 }, { name: 'name2',reset_interval: 20 }]) { |res| ... }
       def init(params, options: {})
         exist_scope!
         params = [params] unless params.is_a?(Array)
         res = send_request('init', @scope, params, options)
 
-        # if `async` is true, return a Future object (non blocking).
         # if `async` is false or missing, block at this method and return a Future::Result object.
-        if options[:async]
-          if block_given?
-            Thread.start do
-              yield res.get
-            end
-          else
-            res
+        if block_given?
+          Thread.start do
+            yield res.get
           end
         else
-          if block_given?
-            yield res.get
-          else
-            res.get
-          end
+          res
         end
       end
 
@@ -104,20 +95,12 @@ module Fluent
         exist_scope!
         res = send_request('delete', @scope, params, options)
 
-        if options[:async]
-          if block_given?
-            Thread.start do
-              yield res.get
-            end
-          else
-            res
+        if block_given?
+          Thread.start do
+            yield res.get
           end
         else
-          if block_given?
-            yield res.get
-          else
-            res.get
-          end
+          res
         end
       end
 
@@ -133,20 +116,12 @@ module Fluent
         params = [params] unless params.is_a?(Array)
         res = send_request('inc', @scope, params, options)
 
-        if options[:async]
-          if block_given?
-            Thread.start do
-              yield res.get
-            end
-          else
-            res
+        if block_given?
+          Thread.start do
+            yield res.get
           end
         else
-          if block_given?
-            yield res.get
-          else
-            res.get
-          end
+          res
         end
       end
 
@@ -154,20 +129,12 @@ module Fluent
         exist_scope!
         res = send_request('get', @scope, params, options)
 
-        if options[:async]
-          if block_given?
-            Thread.start do
-              yield res.get
-            end
-          else
-            res
+        if block_given?
+          Thread.start do
+            yield res.get
           end
         else
-          if block_given?
-            yield res.get
-          else
-            res.get
-          end
+          res
         end
       end
 
@@ -175,20 +142,12 @@ module Fluent
         exist_scope!
         res = send_request('reset', @scope, params, options)
 
-        if options[:async]
-          if block_given?
-            Thread.start do
-              yield res.get
-            end
-          else
-            res
+        if block_given?
+          Thread.start do
+            yield res.get
           end
         else
-          if block_given?
-            yield res.get
-          else
-            res.get
-          end
+          res
         end
       end
 
