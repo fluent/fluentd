@@ -160,7 +160,11 @@ module Fluent
 
     def supervisor_sigusr1_handler
       if log = config[:logger_initializer]
-        log.reopen!
+        # Creating new thread due to mutex can't lock
+        # in main thread during trap context
+        Thread.new {
+          log.reopen!
+        }.run
       end
 
       if config[:worker_pid]
@@ -663,14 +667,13 @@ module Fluent
     end
 
     def flush_buffer
-      $log.debug "fluentd main process get SIGUSR1"
-      $log.info "force flushing buffered events"
-      @log.reopen!
-
       # Creating new thread due to mutex can't lock
       # in main thread during trap context
       Thread.new {
         begin
+          $log.debug "fluentd main process get SIGUSR1"
+          $log.info "force flushing buffered events"
+          @log.reopen!
           Fluent::Engine.flush!
           $log.debug "flushing thread: flushed"
         rescue Exception => e
