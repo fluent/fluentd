@@ -26,7 +26,7 @@ module Fluent
       :suppress_repeated_stacktrace, :emit_error_log_interval, :suppress_config_dump,
       :log_event_verbose,
       :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
-      :file_permission, :dir_permission,
+      :file_permission, :dir_permission, :counter_server, :counter_client,
     ]
 
     config_param :workers,   :integer, default: 1
@@ -49,6 +49,28 @@ module Fluent
     config_section :log, required: false, init: true, multi: false do
       config_param :format, :enum, list: [:text, :json], default: :text
       config_param :time_format, :string, default: '%Y-%m-%d %H:%M:%S %z'
+    end
+
+    config_section :counter_server, multi: false do
+      desc 'scope name of counter server'
+      config_param :scope, :string
+
+      desc 'the port of counter server to listen to'
+      config_param :port, :integer, default: nil
+      desc 'the bind address of counter server to listen to'
+      config_param :bind, :string, default: nil
+
+      desc 'backup file path of counter values'
+      config_param :backup_path, :string
+    end
+
+    config_section :counter_client, multi: false do
+      desc 'the port of counter server'
+      config_param :port, :integer, default: nil
+      desc 'the IP address or hostname of counter server'
+      config_param :host, :string
+      desc 'the timeout of each operation'
+      config_param :timeout, :time, default: nil
     end
 
     def self.create(conf)
@@ -98,7 +120,7 @@ module Fluent
       supervisor.instance_eval {
         SYSTEM_CONFIG_PARAMETERS.each do |param|
           case param
-          when :rpc_endpoint, :enable_get_dump, :process_name, :file_permission, :dir_permission
+          when :rpc_endpoint, :enable_get_dump, :process_name, :file_permission, :dir_permission, :counter_server, :counter_client
             next # doesn't exist in command line options
           when :emit_error_log_interval
             system.emit_error_log_interval = @suppress_interval if @suppress_interval
@@ -136,6 +158,8 @@ module Fluent
             instance_variable_set("@#{param}", param_value)
           end
         end
+        #@counter_server = system.counter_server unless system.counter_server.nil?
+        #@counter_client = system.counter_client unless system.counter_client.nil?
       }
     end
 
