@@ -1151,7 +1151,7 @@ module Fluent
 
       def backup_chunk(chunk, using_secondary, delayed_commit)
         unique_id = dump_unique_id_hex(chunk.unique_id)
-        safe_plugin_id = plugin_id.gsub(/[ \/\\:]/, '_')
+        safe_plugin_id = plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
         backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
         backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_plugin_id, "#{unique_id}.log")
         backup_dir = File.dirname(backup_file)
