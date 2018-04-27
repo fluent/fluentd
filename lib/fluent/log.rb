@@ -625,5 +625,12 @@ module Fluent
         super
       end
     end
+
+    def reopen(path, mode)
+      if mode != 'a'
+        raise "Unsupported mode: #{mode}"
+      end
+      super(path)
+    end
   end
 end
