@@ -911,13 +911,15 @@ module Fluent::Plugin
       def initialize(file, seek)
         @file = file
         @seek = seek
-        @pos = nil
+        @pos = 0
+        @inode = 0
       end
 
       def update(ino, pos)
         @file.pos = @seek
         @file.write "%016x\t%016x" % [pos, ino]
         @pos = pos
+        @inode = ino
       end
 
       def update_pos(pos)
@@ -927,17 +929,11 @@ module Fluent::Plugin
       end
 
       def read_inode
-        @file.pos = @seek + INO_OFFSET
-        raw = @file.read(16)
-        raw ? raw.to_i(16) : 0
+        @inode
       end
 
       def read_pos
-        @pos ||= begin
-          @file.pos = @seek
-          raw = @file.read(16)
-          raw ? raw.to_i(16) : 0
-        end
+        @pos
       end
     end
 
