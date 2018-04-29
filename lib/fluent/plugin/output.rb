@@ -874,7 +874,7 @@ module Fluent
             begin
               oldest = @buffer.dequeue_chunk
               if oldest
-                log.warn "dropping oldest chunk to make space after buffer overflow", chunk_id: oldest.unique_id
+                log.warn "dropping oldest chunk to make space after buffer overflow", chunk_id: dump_unique_id_hex(oldest.unique_id)
                 @buffer.purge_chunk(oldest.unique_id)
               else
                 log.error "no queued chunks to be dropped for drop_oldest_chunk"
