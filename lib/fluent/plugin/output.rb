@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/error'
 require 'fluent/plugin/base'
 require 'fluent/plugin_helper/record_accessor'
 require 'fluent/log'
@@ -1056,6 +1057,8 @@ module Fluent
         end
       end
 
+      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError]
+
       def try_flush
         chunk = @buffer.dequeue_chunk
         return unless chunk
@@ -1100,6 +1103,37 @@ module Fluent
             commit_write(chunk_id, delayed: false, secondary: using_secondary)
             log.trace "done to commit a chunk", chunk: dump_chunk_id
           end
+        rescue *UNRECOVERABLE_ERRORS => e
+          if @secondary
+            if using_secondary
+              log.warn "got unrecoverable error in secondary.", error: e
+              backup_chunk(chunk, using_secondary, output.delayed_commit)
+            else
+              if (self.class == @secondary.class)
+                log.warn "got unrecoverable error in primary and secondary type is same as primary. Skip secondary", error: e
+                backup_chunk(chunk, using_secondary, output.delayed_commit)
+              else
+                # Call secondary output directly without retry update.
+                # In this case, delayed commit causes inconsistent state in dequeued chunks so async output in secondary is not allowed for now.
+                if @secondary.delayed_commit
+                  log.warn "got unrecoverable error in primary and secondary is async output. Skip secondary for backup", error: e
+                  backup_chunk(chunk, using_secondary, output.delayed_commit)
+                else
+                  log.warn "got unrecoverable error in primary. Skip retry and flush chunk to secondary", error: e
+                  begin
+                    @secondary.write(chunk)
+                    commit_write(chunk_id, delayed: output.delayed_commit, secondary: true)
+                  rescue => e
+                    log.warn "got an error in secondary for unrecoverable error", error: e
+                    backup_chunk(chunk, using_secondary, output.delayed_commit)
+                  end
+                end
+              end
+            end
+          else
+            log.warn "got unrecoverable error in primary and no secondary", error: e
+            backup_chunk(chunk, using_secondary, output.delayed_commit)
+          end
         rescue => e
           log.debug "taking back chunk for errors.", chunk: dump_unique_id_hex(chunk.unique_id)
           if output.delayed_commit
@@ -1113,6 +1147,21 @@ module Fluent
 
           raise if @under_plugin_development && !@retry_for_error_chunk
         end
+      end
+
+      def backup_chunk(chunk, using_secondary, delayed_commit)
+        unique_id = dump_unique_id_hex(chunk.unique_id)
+        safe_plugin_id = plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
+        backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
+        backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_plugin_id, "#{unique_id}.log")
+        backup_dir = File.dirname(backup_file)
+
+        log.warn "bad chunk is moved to #{backup_file}"
+        FileUtils.mkdir_p(backup_dir) unless Dir.exist?(backup_dir)
+        File.open(backup_file, 'ab', system_config.file_permission || 0644) { |f|
+          chunk.write_to(f)
+        }
+        commit_write(chunk.unique_id, secondary: using_secondary, delayed: delayed_commit)
       end
 
       def check_slow_flush(start)
