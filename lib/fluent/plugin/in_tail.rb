@@ -912,32 +912,43 @@ module Fluent::Plugin
         @file = file
         @seek = seek
         @pos = nil
+        @mutex = Mutex.new
       end
 
       def update(ino, pos)
-        @file.pos = @seek
-        @file.write "%016x\t%016x" % [pos, ino]
-        @pos = pos
+        @mutex.synchronize do
+          @file.pos = @seek
+          @file.write "%016x\t%016x" % [pos, ino]
+          @pos = pos
+        end
       end
 
       def update_pos(pos)
-        @file.pos = @seek
-        @file.write "%016x" % pos
-        @pos = pos
+        @mutex.synchronize do
+          @file.pos = @seek
+          @file.write "%016x" % pos
+          @pos = pos
+        end
       end
 
       def read_inode
-        @file.pos = @seek + INO_OFFSET
-        raw = @file.read(16)
+        raw = nil
+        @mutex.synchronize do
+          @file.pos = @seek + INO_OFFSET
+          raw = @file.read(16)
+        end
         raw ? raw.to_i(16) : 0
       end
 
       def read_pos
-        @pos ||= begin
+        pos = nil
+        @mutex.synchronize do
           @file.pos = @seek
           raw = @file.read(16)
-          raw ? raw.to_i(16) : 0
+          pos = raw ? raw.to_i(16) : 0
+          @pos = pos
         end
+        pos
       end
     end
 
