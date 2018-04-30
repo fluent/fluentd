@@ -1,4 +1,4 @@
-# v1.1
+# v1.2
 
 ## Release v1.2.0 - 2018/04/30
 
@@ -27,6 +27,8 @@
 * server helper: Close invalid socket when ssl error happens on reading
   https://github.com/fluent/fluentd/pull/1942
 * output: Buffer chunk's unique id should be formatted as hex in the log
+
+# v1.1
 
 ## Release v1.1.3 - 2018/04/03
 
