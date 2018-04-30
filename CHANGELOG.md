@@ -1,5 +1,33 @@
 # v1.1
 
+## Release v1.2.0 - 2018/04/30
+
+### New Features
+
+* New Counter API
+  https://github.com/fluent/fluentd/pull/1857
+* output: Backup for broken chunks
+  https://github.com/fluent/fluentd/pull/1952
+* filter_grep: Support `<and>` and `<or>` support
+  https://github.com/fluent/fluentd/pull/1897
+* config: Support `regexp` type in configuration parameter
+  https://github.com/fluent/fluentd/pull/1927
+
+### Enhancements
+
+* parser_nginx: Support optional `http-x-forwarded-for` field
+  https://github.com/fluent/fluentd/pull/1932
+* filter_grep: Improve the performance
+  https://github.com/fluent/fluentd/pull/1940
+
+### Bug fixes
+
+* log: Fix unexpected implementation bug when log rotation setting is applied
+  https://github.com/fluent/fluentd/pull/1957
+* server helper: Close invalid socket when ssl error happens on reading
+  https://github.com/fluent/fluentd/pull/1942
+* output: Buffer chunk's unique id should be formatted as hex in the log
+
 ## Release v1.1.3 - 2018/04/03
 
 ### Enhancements
