@@ -8,7 +8,7 @@
   https://github.com/fluent/fluentd/pull/1857
 * output: Backup for broken chunks
   https://github.com/fluent/fluentd/pull/1952
-* filter_grep: Support `<and>` and `<or>` support
+* filter_grep: Support for `<and>` and `<or>` sections
   https://github.com/fluent/fluentd/pull/1897
 * config: Support `regexp` type in configuration parameter
   https://github.com/fluent/fluentd/pull/1927
