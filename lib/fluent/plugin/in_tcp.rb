@@ -55,7 +55,7 @@ module Fluent::Plugin
     def start
       super
 
-      server_create(:in_tcp_server, @port, bind: @bind) do |data, conn|
+      server_create(:in_tcp_server, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
         conn.buffer << data
         begin
           pos = 0
