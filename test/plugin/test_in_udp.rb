@@ -31,6 +31,7 @@ class UdpInputTest < Test::Unit::TestCase
         else
           UDPSocket.new(Socket::AF_INET6)
         end
+    u.do_not_reverse_lookup = false
     u.connect(host, port)
     if block_given?
       begin
@@ -172,6 +173,26 @@ class UdpInputTest < Test::Unit::TestCase
       assert d.events[i][1].is_a?(Fluent::EventTime)
       assert_equal expected_record, d.events[i][2]
     end
+  end
+
+  test 'source_hostname_key' do
+    d = create_driver(BASE_CONFIG + %!
+      format none
+      source_hostname_key host
+    !)
+    hostname = nil
+    d.run(expect_records: 1) do
+      create_udp_socket('127.0.0.1', PORT) do |u|
+        u.send("test", 0)
+        hostname = u.peeraddr[2]
+      end
+    end
+
+    expected = {'message' => 'test'}
+    assert_equal 1, d.events.size
+    assert_equal "udp", d.events[0][0]
+    assert d.events[0][1].is_a?(Fluent::EventTime)
+    assert_equal hostname, d.events[0][2]['host']
   end
 
   test 'receive_buffer_size' do
