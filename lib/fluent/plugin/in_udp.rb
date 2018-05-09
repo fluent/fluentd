@@ -63,7 +63,7 @@ module Fluent::Plugin
       super
 
       log.info "listening udp socket", bind: @bind, port: @port
-      server_create(:in_udp_server, @port, proto: :udp, bind: @bind, max_bytes: @message_length_limit, receive_buffer_size: @receive_buffer_size) do |data, sock|
+      server_create(:in_udp_server, @port, proto: :udp, bind: @bind, resolve_name: !!@source_hostname_key, max_bytes: @message_length_limit, receive_buffer_size: @receive_buffer_size) do |data, sock|
         data.chomp! if @remove_newline
         begin
           @parser.parse(data) do |time, record|

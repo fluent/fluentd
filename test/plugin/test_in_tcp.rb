@@ -115,4 +115,25 @@ class TcpInputTest < Test::Unit::TestCase
       assert_equal expected_record, d.events[i][2]
     end
   end
+
+  test 'source_hostname_key' do
+    d = create_driver(BASE_CONFIG + %!
+      format none
+      source_hostname_key host
+    !)
+    hostname = nil
+    d.run(expect_records: 1) do
+      create_tcp_socket('127.0.0.1', PORT) do |sock|
+        sock.do_not_reverse_lookup = false
+        hostname = sock.peeraddr[2]
+        sock.send("test\n", 0)
+      end
+    end
+
+    assert_equal 1, d.events.size
+    event = d.events[0]
+    assert_equal "tcp", event[0]
+    assert event[1].is_a?(Fluent::EventTime)
+    assert_equal hostname, event[2]['host']
+  end
 end
