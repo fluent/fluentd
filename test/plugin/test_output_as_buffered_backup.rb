@@ -169,6 +169,14 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
       @i.flush_thread_wakeup
     end
 
+    def wait_flush(target_file)
+      waiting(5) {
+        target_dir = File.join(File.dirname(target_file), "*")
+        while Dir.glob(target_dir).size.zero?
+        end
+      }
+    end
+
     test 'backup chunk without secondary' do
       Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test'
@@ -186,6 +194,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         flush_chunks
 
         target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        wait_flush(target)
         assert_true File.exist?(target)
         logs = @i.log.out.logs
         assert { logs.any? { |l| l.include?("got unrecoverable error in primary and no secondary") } }
@@ -210,6 +219,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         flush_chunks
 
         target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        wait_flush(target)
         assert_true File.exist?(target)
         logs = @i.log.out.logs
         assert { logs.any? { |l| l.include?("got unrecoverable error in primary and secondary type is same as primary") } }
@@ -237,6 +247,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         flush_chunks
 
         target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        wait_flush(target)
         assert_true File.exist?(target)
         logs = @i.log.out.logs
         assert { logs.any? { |l| l.include?("got unrecoverable error in primary. Skip retry and flush chunk to secondary") } }
@@ -262,6 +273,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         flush_chunks
 
         target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        wait_flush(target)
         assert_true File.exist?(target)
         logs = @i.log.out.logs
         assert { logs.any? { |l| l.include?("got unrecoverable error in primary and secondary is async output") } }
