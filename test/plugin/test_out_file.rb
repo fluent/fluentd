@@ -397,6 +397,41 @@ class FileOutputTest < Test::Unit::TestCase
       assert File.exist?("#{TMP_DIR}/out_file_test.20110102_0.log.gz")
       check_gzipped_result("#{TMP_DIR}/out_file_test.20110102_0.log.gz", %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n])
     end
+
+    test 'not break gzip thread' do
+      CONFIG_WITH_BUFFER = %[
+        path #{TMP_DIR}/${tag[1]}-${tag[4]}
+        compress gzip
+        append true
+        <buffer tag, time>
+          @type memory
+          timekey 1m
+          flush_mode interval
+          flush_interval 1s
+        </buffer>
+        <format>
+          @type json
+        </format>
+      ]
+
+
+      d = create_driver CONFIG_WITH_BUFFER
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      msg = "0"*10000
+      d.run() do
+       for i in 0..1000000
+         d.feed("test1", time, {"a"=>i, "msg"=>msg})
+         d.feed("test2", time, {"a"=>i, "msg"=>msg})
+         d.feed("test3", time, {"a"=>i, "msg"=>msg})
+         d.feed("test4", time, {"a"=>i, "msg"=>msg})
+         d.feed("test5", time, {"a"=>i, "msg"=>msg})
+         d.feed("test6", time, {"a"=>i, "msg"=>msg})
+         d.feed("test7", time, {"a"=>i, "msg"=>msg})
+         d.feed("test8", time, {"a"=>i, "msg"=>msg})
+       end
+      end
+    end
   end
 
   sub_test_case 'file/directory permissions' do
