@@ -408,6 +408,8 @@ class FileOutputTest < Test::Unit::TestCase
           timekey 1m
           flush_mode interval
           flush_interval 1s
+          chunk_limit_size 128m
+          total_limit_size 10g
         </buffer>
         <format>
           @type json
