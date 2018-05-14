@@ -414,22 +414,23 @@ class FileOutputTest < Test::Unit::TestCase
         </format>
       ]
 
-
-      d = create_driver CONFIG_WITH_BUFFER
-
-      time = event_time("2011-01-02 13:14:15 UTC")
-      msg = "0"*10000
-      d.run() do
-       for i in 0..1000000
-         d.feed("test1", time, {"a"=>i, "msg"=>msg})
-         d.feed("test2", time, {"a"=>i, "msg"=>msg})
-         d.feed("test3", time, {"a"=>i, "msg"=>msg})
-         d.feed("test4", time, {"a"=>i, "msg"=>msg})
-         d.feed("test5", time, {"a"=>i, "msg"=>msg})
-         d.feed("test6", time, {"a"=>i, "msg"=>msg})
-         d.feed("test7", time, {"a"=>i, "msg"=>msg})
-         d.feed("test8", time, {"a"=>i, "msg"=>msg})
-       end
+      assert_nothing_raised do
+        d = create_driver CONFIG_WITH_BUFFER
+  
+        time = event_time("2011-01-02 13:14:15 UTC")
+        msg = "0"*10000
+        d.run() do
+         for i in 0..100000
+           d.feed("test1", time, {"a"=>i, "msg"=>msg})
+           d.feed("test2", time, {"a"=>i, "msg"=>msg})
+           d.feed("test3", time, {"a"=>i, "msg"=>msg})
+           d.feed("test4", time, {"a"=>i, "msg"=>msg})
+           d.feed("test5", time, {"a"=>i, "msg"=>msg})
+           d.feed("test6", time, {"a"=>i, "msg"=>msg})
+           d.feed("test7", time, {"a"=>i, "msg"=>msg})
+           d.feed("test8", time, {"a"=>i, "msg"=>msg})
+         end
+       end 
       end
     end
   end
