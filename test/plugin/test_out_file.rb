@@ -404,7 +404,7 @@ class FileOutputTest < Test::Unit::TestCase
         compress gzip
         append true
         <buffer tag, time>
-          @type memory
+          @type file
           timekey 1m
           flush_mode interval
           flush_interval 1s
