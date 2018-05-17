@@ -420,9 +420,9 @@ class FileOutputTest < Test::Unit::TestCase
         d = create_driver CONFIG_WITH_BUFFER
   
         time = event_time("2011-01-02 13:14:15 UTC")
-        msg = "0"*10000
+        msg = "0"*1000
         d.run() do
-         for i in 0..100000
+         for i in 0..10000
            d.feed("test1", time, {"a"=>i, "msg"=>msg})
            d.feed("test2", time, {"a"=>i, "msg"=>msg})
            d.feed("test3", time, {"a"=>i, "msg"=>msg})
