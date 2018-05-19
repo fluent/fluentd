@@ -455,7 +455,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       d.instance.start
       expected_test_out_fail_write_response = {
           "buffer_queue_length" => 1,
-          "buffer_total_queued_size" => 0,
+          "buffer_total_queued_size" => 40,
           "output_plugin" => true,
           "plugin_category" => "output",
           "plugin_id" => "test_out_fail_write",
