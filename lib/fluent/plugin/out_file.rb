@@ -17,6 +17,7 @@
 require 'fileutils'
 require 'zlib'
 require 'time'
+require 'tempfile'
 
 require 'fluent/plugin/output'
 require 'fluent/config/error'
@@ -213,10 +214,28 @@ module Fluent::Plugin
     end
 
     def write_gzip_with_compression(path, chunk)
-      File.open(path, "ab", @file_perm) do |f|
-        gz = Zlib::GzipWriter.new(f)
-        chunk.write_to(gz, compressed: :text)
-        gz.close
+      if @append
+        # This code will be removed after zlib/multithread bug is fixed.
+        # Use Tempfile to avoid broken gzip files: https://github.com/fluent/fluentd/issues/1903
+        Tempfile.create('out_file-gzip-append') { |temp|
+          begin
+            writer = Zlib::GzipWriter.new(temp)
+            chunk.write_to(writer, compressed: :text)
+          ensure
+            writer.finish # avoid zlib finalizer warning
+          end
+          temp.rewind
+
+          File.open(path, "ab", @file_perm) do |f|
+            IO.copy_stream(temp, f)
+          end
+        }
+      else
+        File.open(path, "ab", @file_perm) do |f|
+          gz = Zlib::GzipWriter.new(f)
+          chunk.write_to(gz, compressed: :text)
+          gz.close
+        end
       end
     end
 
