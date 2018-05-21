@@ -151,6 +151,10 @@ class CounterClientTest < ::Test::Unit::TestCase
 
       assert_empty response.data
       assert_equal expected_error, errors
+
+      assert_raise {
+        @client.init(param).wait
+      }
     end
 
     test 'return an existing value when passed key already exists and ignore option is true' do

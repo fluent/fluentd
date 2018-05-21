@@ -61,5 +61,26 @@ module Fluent
         'internal_server_error'
       end
     end
+
+    def raise_error(response)
+      msg = response['message']
+      case response['code']
+      when 'invalid_params'
+        raise InvalidParams.new(msg)
+      when 'unknown_key'
+        raise UnknownKey.new(msg)
+      when 'parse_error'
+        raise ParseError.new(msg)
+      when 'invalid_request'
+        raise InvalidRequest.new(msg)
+      when 'method_not_found'
+        raise MethodNotFound.new(msg)
+      when 'internal_server_error'
+        raise InternalServerError.new(msg)
+      else
+        raise "Unknown code: #{response['code']}"
+      end
+    end
+    module_function :raise_error
   end
 end
