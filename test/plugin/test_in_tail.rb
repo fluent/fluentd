@@ -38,6 +38,11 @@ class TailInputTest < Test::Unit::TestCase
                             "tag" => "t1",
                             "rotate_wait" => "2s"
                           })
+  MULTIPATH_CONFIG = config_element("ROOT", "", {
+                            "paths" => %Q(["#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt"]),
+                            "tag" => "t1",
+                            "rotate_wait" => "2s"
+                          })
   COMMON_CONFIG = CONFIG + config_element("", "", { "pos_file" => "#{TMP_DIR}/tail.pos" })
   CONFIG_READ_FROM_HEAD = config_element("", "", { "read_from_head" => true })
   CONFIG_ENABLE_WATCH_TIMER = config_element("", "", { "enable_watch_timer" => false })
@@ -74,6 +79,11 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
       assert_equal false, d.instance.ignore_repeated_permission_error
+    end
+
+    test "plain multi path" do
+      d = create_driver(MULTIPATH_CONFIG + SINGLE_LINE_CONFIG, false)
+      assert_equal ["#{TMP_DIR}/tail.txt", "#{TMP_DIR}/tail2.txt"], d.instance.paths
     end
 
     data("empty" => config_element,

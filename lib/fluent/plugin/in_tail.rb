@@ -55,8 +55,10 @@ module Fluent::Plugin
       @ignore_list = []
     end
 
-    desc 'The paths to read. Multiple paths can be specified, separated by comma.'
-    config_param :path, :string
+    desc 'The paths to read. Multiple paths can be specified, separated by comma. Alternatively, paths setting can be used for multiple paths.'
+    config_param :path, :string, default: ''
+    desc 'The paths to read, specified as an array of stings. Path configuration settings takes precedence.'
+    config_param :paths, :array, default: []
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
@@ -121,10 +123,15 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
       end
 
-      @paths = @path.split(',').map {|path| path.strip }
-      if @paths.empty?
-        raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
+      parsed = @path.split(',')
+      if parsed.empty?
+        if @paths.empty?
+          raise Fluent::ConfigError, "tail: either the 'path' or the 'paths' parameter is required on tail input"
+        end
+      else
+        @paths = parsed
       end
+      @paths.map! { |path| path.strip }
 
       # TODO: Use plugin_root_dir and storage plugin to store positions if available
       if @pos_file
