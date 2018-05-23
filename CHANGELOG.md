@@ -1,5 +1,24 @@
 # v1.2
 
+## Release v1.2.1 - 2018/05/23
+
+### Enhancements
+
+* Counter: Add wait API to client
+  https://github.com/fluent/fluentd/pull/1997
+
+### Bug fixes
+
+* in_tcp/in_udp: Fix source_hostname_key to set hostname correctly
+  https://github.com/fluent/fluentd/pull/1976
+* in_monitor_agent: Fix buffer_total_queued_size calculation
+  https://github.com/fluent/fluentd/pull/1990
+* out_file: Temporal fix for broken gzipped files with gzip and append
+  https://github.com/fluent/fluentd/pull/1995
+* test: Fix unstable backup test
+  https://github.com/fluent/fluentd/pull/1979
+* gemspec: Remove deprecated has_rdoc
+
 ## Release v1.2.0 - 2018/04/30
 
 ### New Features
