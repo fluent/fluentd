@@ -16,6 +16,7 @@
 
 require 'cool.io'
 require 'fluent/counter/base_socket'
+require 'fluent/counter/error'
 require 'timeout'
 
 module Fluent
@@ -59,7 +60,7 @@ module Fluent
       def establish(scope)
         scope = Timeout.timeout(@timeout) {
           response = send_request('establish', nil, [scope])
-          raise response.errors.first if response.errors?
+          Fluent::Counter.raise_error(response.errors.first) if response.errors?
           data = response.data
           data.first
         }
@@ -272,6 +273,14 @@ module Fluent
         # Block until `set` method is called and @result is set
         join if @result.nil?
         @result
+      end
+
+      def wait
+        res = get
+        if res.error?
+          Fluent::Counter.raise_error(res.errors.first)
+        end
+        res
       end
 
       private
