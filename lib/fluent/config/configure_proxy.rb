@@ -370,6 +370,12 @@ module Fluent
 
       def dump_config_definition
         dumped_config = {}
+        if @argument
+          argument_name, _block, options = @argument
+          options[:required] = !@defaults.key?(argument_name)
+          options[:argument] = true
+          dumped_config[argument_name] = options
+        end
         @params.each do |name, config|
           dumped_config[name] = config[1]
           dumped_config[name][:required] = !@defaults.key?(name)
@@ -378,7 +384,7 @@ module Fluent
         end
         # Overwrite by config_set_default
         @defaults.each do |name, value|
-          if @params.key?(name)
+          if @params.key?(name) || @argument.first == name
             dumped_config[name][:default] = value
           else
             dumped_config[name] = { default: value }
