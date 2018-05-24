@@ -190,7 +190,7 @@ module Fluent
       if config[:worker_pid]
         config[:worker_pid].each_value do |pid|
           Process.kill(:USR1, pid)
-          # don't rescue Erro::ESRSH here (invalid status)
+          # don't rescue Errno::ESRCH here (invalid status)
         end
       end
     end
