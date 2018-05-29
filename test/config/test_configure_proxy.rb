@@ -435,6 +435,43 @@ module Fluent::Config
           assert_equal(expected, @proxy.dump_config_definition)
         end
 
+        test 'plain proxy w/ argument' do
+          @proxy.instance_eval do
+            config_argument(:argname, :string)
+            config_param(:name, :string, default: "name1")
+          end
+          expected = {
+            argname: { type: :string, required: true, argument: true },
+            name: { type: :string, default: "name1", required: false }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
+        end
+
+        test 'plain proxy w/ argument default value' do
+          @proxy.instance_eval do
+            config_argument(:argname, :string, default: "value")
+            config_param(:name, :string, default: "name1")
+          end
+          expected = {
+            argname: { type: :string, default: "value", required: false, argument: true },
+            name: { type: :string, default: "name1", required: false }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
+        end
+
+        test 'plain proxy w/ argument overwriting default value' do
+          @proxy.instance_eval do
+            config_argument(:argname, :string)
+            config_param(:name, :string, default: "name1")
+            config_set_default(:argname, "value1")
+          end
+          expected = {
+            argname: { type: :string, default: "value1", required: false, argument: true },
+            name: { type: :string, default: "name1", required: false }
+          }
+          assert_equal(expected, @proxy.dump_config_definition)
+        end
+
         test 'single sub proxy' do
           @proxy.config_section(:sub) do
             config_param(:name, :string, default: "name1")

@@ -132,6 +132,7 @@ helpers: inject,compat_parameters
 time_as_integer: bool: (false)
 slow_flush_log_threshold: float: (20.0)
 <buffer>: optional, single
+ chunk_keys: array: ([])
  @type: string: ("memory")
  timekey: time: (nil)
  timekey_wait: time: (600)
@@ -154,7 +155,6 @@ slow_flush_log_threshold: float: (20.0)
  retry_exponential_backoff_base: float: (2)
  retry_max_interval: time: (nil)
  retry_randomize: bool: (true)
- chunk_keys: : ([])
 <secondary>: optional, single
  @type: string: (nil)
  <buffer>: optional, single
