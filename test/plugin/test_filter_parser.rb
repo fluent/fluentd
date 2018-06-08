@@ -209,10 +209,13 @@ class ParserFilterTest < Test::Unit::TestCase
 
   end
 
-  def test_filter_with_reserved_data
+  data(:keep_key_name => false,
+       :remove_key_name => true)
+  def test_filter_with_reserved_data(remove_key_name)
     d1 = create_driver(%[
       key_name data
       reserve_data yes
+      remove_key_name_field #{remove_key_name}
       <parse>
         @type regexp
         expression /^(?<x>\\d)(?<y>\\d) (?<t>.+)$/
@@ -230,6 +233,7 @@ class ParserFilterTest < Test::Unit::TestCase
     d2 = create_driver(%[
       key_name data
       reserve_data yes
+      remove_key_name_field #{remove_key_name}
       <parse>
         @type json
       </parse>
@@ -244,7 +248,11 @@ class ParserFilterTest < Test::Unit::TestCase
 
     first = filtered[0]
     assert_equal_event_time time, first[0]
-    assert_equal '{"xxx":"first","yyy":"second"}', first[1]['data']
+    if remove_key_name
+      assert_not_include first[1], 'data'
+    else
+      assert_equal '{"xxx":"first","yyy":"second"}', first[1]['data']
+    end
     assert_equal 'first', first[1]['xxx']
     assert_equal 'second', first[1]['yyy']
 

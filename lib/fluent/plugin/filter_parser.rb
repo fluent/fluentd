@@ -32,6 +32,8 @@ module Fluent::Plugin
     config_param :reserve_data, :bool, default: false
     desc 'Keep original event time in parsed result.'
     config_param :reserve_time, :bool, default: false
+    desc 'Remove "key_name" field from the record when parsing is succeeded'
+    config_param :remove_key_name_field, :bool, default: false
     desc 'Store parsed values with specified key name prefix.'
     config_param :inject_key_prefix, :string, default: nil
     desc 'If true, invalid string is replaced with safe characters and re-parse it.'
@@ -75,6 +77,7 @@ module Fluent::Plugin
                 else
                   t.nil? ? time : t
                 end
+            @accessor.delete(record) if @remove_key_name_field
             r = handle_parsed(tag, record, t, values)
             return t, r
           else
