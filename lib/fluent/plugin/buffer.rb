@@ -151,6 +151,7 @@ module Fluent
         @queue = []    #=> Array (chunks)           : already flushed (not written)
         @dequeued = {} #=> Hash (unique_id -> chunk): already written (not purged)
         @queued_num = {} # metadata => int (number of queued chunks)
+        @dequeued_num = {} # metadata => int (number of dequeued chunks)
 
         @stage_size = @queue_size = 0
         @metadata_list = [] # keys of @stage
@@ -462,6 +463,8 @@ module Fluent
 
           @dequeued[chunk.unique_id] = chunk
           @queued_num[chunk.metadata] -= 1 # BUG if nil, 0 or subzero
+          @dequeued_num[chunk.metadata] ||= 0
+          @dequeued_num[chunk.metadata] += 1
           log.trace "chunk dequeued", instance: self.object_id, metadata: chunk.metadata
           chunk
         end
@@ -476,6 +479,7 @@ module Fluent
           @queue.unshift(chunk)
           log.trace "chunk taken back", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: chunk.metadata
           @queued_num[chunk.metadata] += 1 # BUG if nil
+          @dequeued_num[chunk.metadata] -= 1
         end
         true
       end
@@ -497,9 +501,11 @@ module Fluent
             log.error_backtrace
           end
 
-          if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1)
+          @dequeued_num[chunk.metadata] -= 1
+          if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1) && @dequeued_num[metadata].zero?
             @metadata_list.delete(metadata)
             @queued_num.delete(metadata)
+            @dequeued_num.delete(metadata)
           end
           log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
         end
