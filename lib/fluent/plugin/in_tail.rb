@@ -862,7 +862,7 @@ module Fluent::Plugin
         @file.write "0000000000000000\t0000000000000000\n"
         @last_pos = @file.pos
 
-        @map[path] = FilePositionEntry.new(@file, seek)
+        @map[path] = FilePositionEntry.new(@file, seek, 0, 0)
       end
 
       def self.parse(file)
@@ -874,8 +874,10 @@ module Fluent::Plugin
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
           next unless m
           path = m[1]
+          pos = m[2].to_i(16)
+          ino = m[3].to_i(16)
           seek = file.pos - line.bytesize + path.bytesize + 1
-          map[path] = FilePositionEntry.new(file, seek)
+          map[path] = FilePositionEntry.new(file, seek, pos, ino)
         }
         new(file, map, file.pos)
       end
@@ -908,16 +910,18 @@ module Fluent::Plugin
       LN_OFFSET = 33
       SIZE = 34
 
-      def initialize(file, seek)
+      def initialize(file, seek, pos, inode)
         @file = file
         @seek = seek
-        @pos = nil
+        @pos = pos 
+        @inode = inode
       end
 
       def update(ino, pos)
         @file.pos = @seek
         @file.write "%016x\t%016x" % [pos, ino]
         @pos = pos
+        @inode = ino
       end
 
       def update_pos(pos)
@@ -927,17 +931,11 @@ module Fluent::Plugin
       end
 
       def read_inode
-        @file.pos = @seek + INO_OFFSET
-        raw = @file.read(16)
-        raw ? raw.to_i(16) : 0
+        @inode
       end
 
       def read_pos
-        @pos ||= begin
-          @file.pos = @seek
-          raw = @file.read(16)
-          raw ? raw.to_i(16) : 0
-        end
+        @pos
       end
     end
 

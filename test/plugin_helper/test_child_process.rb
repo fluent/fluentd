@@ -510,7 +510,7 @@ class ChildProcessTest < Test::Unit::TestCase
   unless Fluent.windows?
     test 'can specify subprocess name' do
       io = IO.popen([["cat", "caaaaaaaaaaat"], '-'])
-      process_naming_enabled = (open("|ps"){|_io| _io.readlines }.select{|line| line.include?("caaaaaaaaaaat") }.size > 0)
+      process_naming_enabled = (open("|ps opid,cmd"){|_io| _io.readlines }.select{|line| line.include?("caaaaaaaaaaat") }.size > 0)
       Process.kill(:TERM, io.pid) rescue nil
       io.close rescue nil
 
@@ -527,15 +527,15 @@ class ChildProcessTest < Test::Unit::TestCase
           m.lock
           ran = true
           pids << @d.child_process_id
-          proc_lines += open("|ps"){|_io| _io.readlines }
+          proc_lines += open("|ps opid,cmd"){|_io| _io.readlines }
           m.unlock
           readio.read
         end
         sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
         m.lock
         pid = pids.first
-        # 51358 ttys001    0:00.00 sleeper -e sleep 10
-        assert{ proc_lines.select{|line| line =~ /^\s*#{pid}\s/ }.first.strip.split(/\s+/)[3] == "sleeeeeeeeeper" }
+        # 16357 sleeeeeeeeeper -e sleep 10; puts "hello"
+        assert{ proc_lines.select{|line| line =~ /^\s*#{pid}\s/ }.first.strip.split(/\s+/)[1] == "sleeeeeeeeeper" }
         @d.stop; @d.shutdown; @d.close; @d.terminate
       end
     end
