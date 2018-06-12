@@ -1,5 +1,21 @@
 # v1.2
 
+## Release v1.2.2 - 2018/06/12
+
+### Enhancements
+
+* filter_parser: Add remove_key_name_field parameter
+  https://github.com/fluent/fluentd/pull/2012
+* fluent-plugin-config-format: Dump config_argument
+  https://github.com/fluent/fluentd/pull/2003
+
+### Bug fixes
+
+* in_tail: Change pos file entry handling to avoid read conflict for other plugins
+  https://github.com/fluent/fluentd/pull/1963
+* buffer: Wait for all chunks being purged before deleting @queued_num items
+  https://github.com/fluent/fluentd/pull/2016
+
 ## Release v1.2.1 - 2018/05/23
 
 ### Enhancements
