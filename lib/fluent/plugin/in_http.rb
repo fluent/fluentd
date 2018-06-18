@@ -205,12 +205,12 @@ module Fluent::Plugin
 
             if single_record.has_key?('time')
                 single_time = Fluent::EventTime.from_time(Time.at(single_record['time']))
+
+                unless @parser and @parser.keep_time_key
+                    single_record.delete('time')
+                end
             else
                 single_time = time
-            end
-
-            unless @parser and @parser.keep_time_key
-                single_record.delete('time')
             end
 
             mes.add(single_time, single_record)
