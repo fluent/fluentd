@@ -384,7 +384,7 @@ module Fluent
         end
         # Overwrite by config_set_default
         @defaults.each do |name, value|
-          if @params.key?(name) || @argument.first == name
+          if @params.key?(name) || (@argument && @argument.first == name)
             dumped_config[name][:default] = value
           else
             dumped_config[name] = { default: value }
