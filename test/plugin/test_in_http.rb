@@ -162,6 +162,29 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  def test_multi_json_with_time_key
+    d = create_driver(CONFIG + %[
+      <parse>
+        time_key missing
+      </parse>
+    ])
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_i = time.to_i
+    time_f = time.to_f
+
+    records = [{"a" => 1, 'time' => time_i},{"a" => 2, 'time' => time_f}]
+    tag = "tag1"
+    res_codes = []
+    d.run(expect_records: 2, timeout: 5) do
+      res = post("/#{tag}", {"json" => records.to_json})
+      res_codes << res.code
+    end
+    assert_equal ["200"], res_codes
+    assert_equal 2, d.events.size
+    assert_not_equal time_i, d.events[0][1].sec # current time is used because "missing" field doesn't exist
+    assert_not_equal time_i, d.events[1][1].sec
+  end
+
   def test_json_with_add_remote_addr
     d = create_driver(CONFIG + "add_remote_addr true")
     time = event_time("2011-01-02 13:14:15 UTC")
