@@ -162,7 +162,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
-  def test_multi_json_with_time_key
+  def test_multi_json_with_nonexistent_time_key
     d = create_driver(CONFIG + %[
       <parse>
         time_key missing
