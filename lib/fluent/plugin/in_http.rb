@@ -78,10 +78,16 @@ module Fluent::Plugin
             @parser_json = parser_create(usage: 'parser_in_http_json', type: 'json')
             @parser_json.estimate_current_event = false
             @format_name = 'default'
+            @parser_time_key = if parser_config = conf.elements('parse').first
+                                 parser_config['time_key'] || 'time'
+                               else
+                                 'time'
+                               end
             method(:parse_params_default)
           else
             @parser = parser_create
             @format_name = @parser_configs.first['@type']
+            @parser_time_key = @parser.time_key
             method(:parse_params_with_parser)
           end
       self.singleton_class.module_eval do
@@ -203,14 +209,13 @@ module Fluent::Plugin
               single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
             end
 
-            if single_record.has_key?('time')
-                single_time = Fluent::EventTime.from_time(Time.at(single_record['time']))
-
-                unless @parser and @parser.keep_time_key
-                    single_record.delete('time')
-                end
+            if single_record.has_key?(@parser_time_key)
+              single_time = Fluent::EventTime.from_time(Time.at(single_record[@parser_time_key]))
+              unless @parser and @parser.keep_time_key
+                single_record.delete(@parser_time_key)
+              end
             else
-                single_time = time
+              single_time = time
             end
 
             mes.add(single_time, single_record)
