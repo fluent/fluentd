@@ -22,6 +22,8 @@ require 'fluent/config/element'
 module Fluent
   module Config
     module DSL
+      SYSTEM_PARAM = [:type, :id, :log_level] # Add '@' prefix to avoid deprecation message
+
       module Parser
         def self.read(path)
           path = File.expand_path(path)
@@ -95,11 +97,12 @@ module Fluent
             proxy.element.instance_exec(&block)
             @elements.push(proxy.to_config_element)
           else
-            @attrs[name.to_s] = if value.is_a?(Array) || value.is_a?(Hash)
-                                  JSON.dump(value)
-                                else
-                                  value.to_s
-                                end
+            param_name = SYSTEM_PARAM.include?(name) ? "@#{name}" : name.to_s
+            @attrs[param_name] = if value.is_a?(Array) || value.is_a?(Hash)
+                                   JSON.dump(value)
+                                 else
+                                   value.to_s
+                                 end
           end
 
           self
