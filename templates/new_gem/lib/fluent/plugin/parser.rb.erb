@@ -6,10 +6,10 @@ module Fluent
   module Plugin
     class <%= class_name %> < Fluent::Plugin::Parser
       Fluent::Plugin.register_parser("<%= plugin_name %>", self)
-    end
 
-    def parse(text)
-      yield time, record
+      def parse(text)
+        yield time, record
+      end
     end
   end
 end
