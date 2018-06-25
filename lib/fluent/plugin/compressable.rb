@@ -60,7 +60,7 @@ module Fluent
         out = ''
         loop do
           gz = Zlib::GzipReader.new(io)
-          out += gz.read
+          out << gz.read
           unused = gz.unused
           gz.finish
 
