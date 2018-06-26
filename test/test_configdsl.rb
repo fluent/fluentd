@@ -65,13 +65,13 @@ match('aa')
     e0 = root.elements[0]
     assert_equal 'source', e0.name
     assert_equal '', e0.arg
-    assert_equal 'forward', e0['type']
+    assert_equal 'forward', e0['@type']
     assert_equal '24224', e0['port']
 
     e1 = root.elements[1]
     assert_equal 'match', e1.name
     assert_equal 'test.**', e1.arg
-    assert_equal 'forward', e1['type']
+    assert_equal 'forward', e1['@type']
     assert_equal '1s', e1['flush_interval']
     assert_equal 2, e1.elements.size
     e1s0 = e1.elements[0]
