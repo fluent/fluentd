@@ -64,6 +64,12 @@ class CounterClientTest < ::Test::Unit::TestCase
     store[key]
   end
 
+  def travel(sec)
+    # Since Timecop.travel() causes test failures on Windows/AppVeyor by inducing
+    # rounding errors to Time.now, we need to use Timecop.freeze() instead.
+    Timecop.freeze(Time.now + sec)
+  end
+
   sub_test_case 'establish' do
     test 'establish a scope' do
       @client.establish(@scope)
@@ -277,7 +283,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal 0, v['total']
       assert_equal 0, v['current']
 
-      Timecop.travel(1)
+      travel(1)
       inc_obj = { name: @name, value: 10 }
       @client.inc(inc_obj).get
 
@@ -444,7 +450,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @now, Fluent::EventTime.new(*v1['last_reset_at'])
 
       travel_sec = 6            # greater than reset_interval
-      Timecop.travel(travel_sec)
+      travel(travel_sec)
 
       v2 = @client.reset(@name).get
       data = v2.data.first
@@ -472,7 +478,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       assert_equal @now, Fluent::EventTime.new(*v1['last_reset_at'])
 
       travel_sec = 4            # less than reset_interval
-      Timecop.travel(travel_sec)
+      travel(travel_sec)
 
       v2 = @client.reset(@name).get
       data = v2.data.first
@@ -520,7 +526,7 @@ class CounterClientTest < ::Test::Unit::TestCase
       unknown_name = 'key2'
 
       travel_sec = 6            # greater than reset_interval
-      Timecop.travel(travel_sec)
+      travel(travel_sec)
 
       response = @client.reset(@name, unknown_name).get
       data = response.data.first
