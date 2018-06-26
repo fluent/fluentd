@@ -176,7 +176,7 @@ module Fluent::Config
           assert_equal('source', ele4.name)
           assert_predicate(ele4.arg, :empty?)
           assert_equal(2, ele4.keys.size)
-          assert_equal('tail', ele4['type'])
+          assert_equal('tail', ele4['@type'])
           assert_equal("/var/log/httpd/access.part4.log", ele4['path'])
         end
 
@@ -185,11 +185,11 @@ module Fluent::Config
 
           assert_equal('filter', filter0.name)
           assert_equal('bar.**', filter0.arg)
-          assert_equal('hoge', filter0['type'])
+          assert_equal('hoge', filter0['@type'])
           assert_equal('moge', filter0['val1'])
           assert_equal(JSON.dump(['foo', 'bar', 'baz']), filter0['val2'])
           assert_equal('10', filter0['val3'])
-          assert_equal('hoge', filter0['id'])
+          assert_equal('hoge', filter0['@id'])
 
           assert_equal(2, filter0.elements.size)
           assert_equal('subsection', filter0.elements[0].name)
@@ -203,7 +203,7 @@ module Fluent::Config
 
           assert_equal('match', match0.name)
           assert_equal('{foo,bar}.**', match0.arg)
-          assert_equal('file', match0['type'])
+          assert_equal('file', match0['@type'])
           assert_equal('/var/log/httpd/access.myhostname.4.log', match0['path'])
         end
       end
@@ -302,7 +302,7 @@ module Fluent::Config
           assert_equal('source', ele4.name)
           assert_predicate(ele4.arg, :empty?)
           assert_equal(2, ele4.keys.size)
-          assert_equal('tail', ele4['type'])
+          assert_equal('tail', ele4['@type'])
           assert_equal("/var/log/httpd/access.part4.log", ele4['path'])
         end
 
@@ -311,11 +311,11 @@ module Fluent::Config
 
           assert_equal('filter', filter0.name)
           assert_equal('bar.**', filter0.arg)
-          assert_equal('hoge', filter0['type'])
+          assert_equal('hoge', filter0['@type'])
           assert_equal('moge', filter0['val1'])
           assert_equal(JSON.dump(['foo', 'bar', 'baz']), filter0['val2'])
           assert_equal('10', filter0['val3'])
-          assert_equal('hoge', filter0['id'])
+          assert_equal('hoge', filter0['@id'])
 
           assert_equal(2, filter0.elements.size)
           assert_equal('subsection', filter0.elements[0].name)
@@ -329,7 +329,7 @@ module Fluent::Config
 
           assert_equal('match', match0.name)
           assert_equal('{foo,bar}.**', match0.arg)
-          assert_equal('file', match0['type'])
+          assert_equal('file', match0['@type'])
           assert_equal('/var/log/httpd/access.myhostname.4.log', match0['path'])
         end
       end
