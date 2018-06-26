@@ -22,7 +22,7 @@ require 'fluent/config/element'
 module Fluent
   module Config
     module DSL
-      SYSTEM_PARAM = [:type, :id, :log_level, :label] # Need '@' prefix for reserved parameters
+      RESERVED_PARAMETERS = [:type, :id, :log_level, :label] # Need '@' prefix for reserved parameters
 
       module Parser
         def self.read(path)
@@ -97,7 +97,7 @@ module Fluent
             proxy.element.instance_exec(&block)
             @elements.push(proxy.to_config_element)
           else
-            param_name = SYSTEM_PARAM.include?(name) ? "@#{name}" : name.to_s
+            param_name = RESERVED_PARAMETERS.include?(name) ? "@#{name}" : name.to_s
             @attrs[param_name] = if value.is_a?(Array) || value.is_a?(Hash)
                                    JSON.dump(value)
                                  else
