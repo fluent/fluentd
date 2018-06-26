@@ -22,7 +22,7 @@ require 'fluent/config/element'
 module Fluent
   module Config
     module DSL
-      SYSTEM_PARAM = [:type, :id, :log_level] # Add '@' prefix to avoid deprecation message
+      SYSTEM_PARAM = [:type, :id, :log_level, :label] # Need '@' prefix for reserved parameters
 
       module Parser
         def self.read(path)
