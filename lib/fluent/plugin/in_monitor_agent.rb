@@ -30,11 +30,17 @@ module Fluent::Plugin
 
     helpers :timer, :thread
 
+    desc 'The address to bind to.'
     config_param :bind, :string, default: '0.0.0.0'
+    desc 'The port to listen to.'
     config_param :port, :integer, default: 24220
+    desc 'The tag with which internal metrics are emitted.'
     config_param :tag, :string, default: nil
+    desc 'Determine the rate to emit internal metrics as events.'
     config_param :emit_interval, :time, default: 60
+    desc 'Determine whether to include the config information.'
     config_param :include_config, :bool, default: true
+    desc 'Determine whether to include the retry information.'
     config_param :include_retry, :bool, default: true
 
     class MonitorServlet < WEBrick::HTTPServlet::AbstractServlet
