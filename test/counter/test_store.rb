@@ -23,6 +23,12 @@ class CounterStoreTest < ::Test::Unit::TestCase
     store[key]
   end
 
+  def travel(sec)
+    # Since Timecop.travel() causes test failures on Windows/AppVeyor by inducing
+    # rounding errors to Time.now, we need to use Timecop.freeze() instead.
+    Timecop.freeze(Time.now + sec)
+  end
+
   sub_test_case 'init' do
     setup do
       @reset_interval = 10
@@ -142,7 +148,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
     test 'increment or decrement a value in the counter' do |value|
       key = Fluent::Counter::Store.gen_key(@scope, @name)
       @store.init(key, @init_data)
-      Timecop.travel(@travel_sec)
+      travel(@travel_sec)
       v = @store.inc(key, { 'value' => value })
 
       assert_equal value, v['total']
@@ -198,7 +204,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
     end
 
     test 'reset a value in the counter' do
-      Timecop.travel(@travel_sec)
+      travel(@travel_sec)
 
       v = @store.reset(@key)
       assert_equal @travel_sec, v['elapsed_time']
@@ -222,7 +228,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
 
     test 'reset a value after `reset_interval` passed' do
       first_travel_sec = 5
-      Timecop.travel(first_travel_sec) # jump time less than reset_interval
+      travel(first_travel_sec) # jump time less than reset_interval
       v = @store.reset(@key)
 
       assert_equal false, v['success']
@@ -232,7 +238,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
       assert_equal @now, Fluent::EventTime.new(*store['last_reset_at'])
 
       # time is passed greater than reset_interval
-      Timecop.travel(@travel_sec)
+      travel(@travel_sec)
       v = @store.reset(@key)
       assert_true v['success']
       assert_equal @travel_sec + first_travel_sec, v['elapsed_time']
