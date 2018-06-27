@@ -304,7 +304,11 @@ class FileOutputTest < Test::Unit::TestCase
       assert_equal r4, d.formatted[3]
       assert_equal r5, d.formatted[4]
 
-      read_gunzip = ->(path){ File.open(path){|fio| Zlib::GzipReader.open(fio){|io| io.read } } }
+      read_gunzip = ->(path){
+        File.open(path){ |fio|
+          Zlib::GzipReader.new(StringIO.new(fio.read)).read
+        }
+      }
       assert_equal r1 + r2, read_gunzip.call("#{TMP_DIR}/my.data/a/full.20161003.2345.log.gz")
       assert_equal r3, read_gunzip.call("#{TMP_DIR}/your.data/a/full.20161003.2345.log.gz")
       assert_equal r4, read_gunzip.call("#{TMP_DIR}/my.data/a/full.20161004.0000.log.gz")
@@ -370,7 +374,7 @@ class FileOutputTest < Test::Unit::TestCase
     result = ''
     File.open(path, "rb") { |io|
       loop do
-        gzr = Zlib::GzipReader.new(io)
+        gzr = Zlib::GzipReader.new(StringIO.new(io.read))
         result << gzr.read
         unused = gzr.unused
         gzr.finish
