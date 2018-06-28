@@ -422,7 +422,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
 
   sub_test_case 'exponential backoff' do
     test 'too big steps(check inf handling)' do
-      s = @d.retry_state_create(:t11, :exponential_backoff, 0.1, 300, randomize: false, forever: true, backoff_base: 2)
+      s = @d.retry_state_create(:t11, :exponential_backoff, 1, 300, randomize: false, forever: true, backoff_base: 2)
       dummy_current_time = s.start
       override_current_time(s, dummy_current_time)
 
@@ -431,7 +431,7 @@ class RetryStateHelperTest < Test::Unit::TestCase
         if i >= 1025
           # With this setting, 1025+ number causes inf in `calc_interval`, so 1024 value is used for next_time
           assert_nothing_raised(FloatDomainError) { s.step }
-          assert_equal (dummy_current_time + 0.1 * (2 ** (1024 - 1))), s.next_time
+          assert_equal (dummy_current_time + (2 ** (1024 - 1))), s.next_time
         else
           s.step
         end
