@@ -8,7 +8,7 @@ Gem::Specification.new do |gem|
   gem.email         = ["frsyuki@gmail.com"]
   gem.description   = %q{Fluentd is an open source data collector designed to scale and simplify log management. It can collect, process and ship many kinds of data in near real-time.}
   gem.summary       = %q{Fluentd event collector}
-  gem.homepage      = "https://fluentd.org/"
+  gem.homepage      = "https://www.fluentd.org/"
 
   gem.files         = `git ls-files`.split($\)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
