@@ -209,13 +209,15 @@ module Fluent::Plugin
               single_record['REMOTE_ADDR'] = params['REMOTE_ADDR']
             end
 
-            if single_record.has_key?(@parser_time_key)
-              single_time = Fluent::EventTime.from_time(Time.at(single_record[@parser_time_key]))
-              unless @parser and @parser.keep_time_key
-                single_record.delete(@parser_time_key)
-              end
+            if defined? @parser
+              single_time = @parser.parse_time(single_record)
+              single_time, single_record = @parser.convert_values(single_time, single_record)
             else
-              single_time = time
+              single_time = if t = single_record.delete(@parser_time_key)
+                              Fluent::EventTime.from_time(Time.at(t))
+                            else
+                              time
+                            end
             end
 
             mes.add(single_time, single_record)
