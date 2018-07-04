@@ -349,13 +349,14 @@ module Fluent
 
       Process.waitpid(@main_pid)
       @main_pid = nil
-      ecode = $?.to_i
+      exitstatus = $?.exitstatus
+      signal = $?.termsig
 
-      $log.info "process finished", code: ecode
+      $log.info "process finished", status: exitstatus, signal: signal
 
       if !@finished && Time.now - start_time < 1
         $log.warn "process died within 1 second. exit."
-        exit ecode
+        exit exitstatus || 1
       end
     end
 
