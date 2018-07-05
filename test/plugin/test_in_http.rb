@@ -600,6 +600,54 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  def test_content_encoding_gzip
+    d = create_driver
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}],
+    ]
+    res_codes = []
+    res_headers = []
+
+    d.run do
+      events.each do |tag, time, record|
+        header = {'Content-Type'=>'application/json', 'Content-Encoding'=>'gzip'}
+        res = post("/#{tag}?time=#{time}", compress_gzip(record.to_json), header)
+        res_codes << res.code
+      end
+    end
+    assert_equal ["200", "200"], res_codes
+    assert_equal events, d.events
+    assert_equal_event_time time, d.events[0][1]
+    assert_equal_event_time time, d.events[1][1]
+  end
+
+  def test_content_encoding_deflate
+    d = create_driver
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"a"=>1}],
+      ["tag2", time, {"a"=>2}],
+    ]
+    res_codes = []
+    res_headers = []
+
+    d.run do
+      events.each do |tag, time, record|
+        header = {'Content-Type'=>'application/msgpack', 'Content-Encoding'=>'deflate'}
+        res = post("/#{tag}?time=#{time}", Zlib.deflate(record.to_msgpack), header)
+        res_codes << res.code
+      end
+    end
+    assert_equal ["200", "200"], res_codes
+    assert_equal events, d.events
+    assert_equal_event_time time, d.events[0][1]
+    assert_equal_event_time time, d.events[1][1]
+  end
+
   def test_cors_disallowed
     d = create_driver(CONFIG + "cors_allow_origins [\"http://foo.com\"]")
     assert_equal ["http://foo.com"], d.instance.cors_allow_origins
@@ -688,6 +736,13 @@ class HttpInputTest < Test::Unit::TestCase
       req.set_form_data(params)
     end
     http.request(req)
+  end
+
+  def compress_gzip(data)
+    io = StringIO.new
+    io.binmode
+    Zlib::GzipWriter.wrap(io) { |gz| gz.write data }
+    return io.string
   end
 
   def include_http_header?(record)

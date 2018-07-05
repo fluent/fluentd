@@ -316,6 +316,7 @@ module Fluent::Plugin
         end
         @env = {}
         @content_type = ""
+        @content_encoding = ""
         headers.each_pair {|k,v|
           @env["HTTP_#{k.gsub('-','_').upcase}"] = v
           case k
@@ -325,6 +326,8 @@ module Fluent::Plugin
             size = v.to_i
           when /Content-Type/i
             @content_type = v
+          when /Content-Encoding/i
+            @content_encoding = v
           when /Connection/i
             if v =~ /close/i
               @keep_alive = false
@@ -374,6 +377,22 @@ module Fluent::Plugin
             send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
             return
           end
+        end
+
+        # Content Encoding
+        # =================
+        # Decode payload according to the "Content-Encoding" header.
+        # For now, we only support 'gzip' and 'deflate'.
+        begin
+          if @content_encoding == 'gzip'
+            @body = Zlib::GzipReader.new(StringIO.new(@body)).read
+          elsif @content_encoding == 'deflate'
+            @body = Zlib::Inflate.inflate(@body)
+          end
+        rescue
+          @log.warn 'fails to decode payload', error: $!.to_s
+          send_response_and_close("400 Bad Request", {}, "")
+          return
         end
 
         @env['REMOTE_ADDR'] = @remote_addr if @remote_addr
