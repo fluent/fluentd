@@ -558,7 +558,7 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   test 'append when JST' do
-    with_timezone("Asia/Tokyo") do
+    with_timezone(Fluent.windows? ? "JST-9" : "Asia/Tokyo") do
       time = event_time("2011-01-02 03:14:15+09:00")
       formatted_lines = %[2011-01-02T03:14:15+09:00\ttest\t{"a":1}\n] + %[2011-01-02T03:14:15+09:00\ttest\t{"a":2}\n]
 
