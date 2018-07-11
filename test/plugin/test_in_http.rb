@@ -370,16 +370,20 @@ class HttpInputTest < Test::Unit::TestCase
     assert include_http_header?(d.events[1][2])
   end
 
-  def test_multi_json_with_keep_time_key
+  def test_multi_json_with_custom_parser
     d = create_driver(CONFIG + %[
         <parse>
           @type json
           keep_time_key true
+          time_key foo
+          time_format %iso8601
         </parse>
     ])
-    time1 = event_time("2011-01-02 13:14:15 UTC")
-    time2 = event_time("2012-01-02 13:14:15 UTC")
-    records = [{"time"=>time1.to_i},{"time"=>time2.to_i}]
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    time_s = Time.at(time).iso8601
+
+    records = [{"foo"=>time_s,"bar"=>"test1"},{"foo"=>time_s,"bar"=>"test2"}]
     tag = "tag1"
     res_codes = []
 
@@ -390,11 +394,11 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal ["200"], res_codes
 
     assert_equal "tag1", d.events[0][0]
-    assert_equal_event_time time1, d.events[0][1]
+    assert_equal_event_time time, d.events[0][1]
     assert_equal d.events[0][2], records[0]
 
     assert_equal "tag1", d.events[1][0]
-    assert_equal_event_time time2, d.events[1][1]
+    assert_equal_event_time time, d.events[1][1]
     assert_equal d.events[1][2], records[1]
   end
 
