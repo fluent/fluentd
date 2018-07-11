@@ -1,5 +1,31 @@
 # v1.2
 
+## Release v1.2.3 - 2018/07/10
+
+### Enhancements
+
+* in_http: Consider `<parse>` parameters in batch mode
+  https://github.com/fluent/fluentd/pull/2055
+* in_http: Support gzip payload
+  https://github.com/fluent/fluentd/pull/2060
+* output: Improve compress performance
+  https://github.com/fluent/fluentd/pull/2031
+* in_monitor_agent: Add missing descriptions for configurable options
+  https://github.com/fluent/fluentd/pull/2037
+* parser_syslog: update regex of pid field for conformance to RFC5424 spec
+  https://github.com/fluent/fluentd/pull/2051
+
+### Bug fixes
+
+* in_tail: Fix to rescue Errno::ENOENT for File.mtime()
+  https://github.com/fluent/fluentd/pull/2063
+* fluent-plugin-generate: Fix Parser plugin template
+  https://github.com/fluent/fluentd/pull/2026
+* fluent-plugin-config-format: Fix NoMethodError for some plugins
+  https://github.com/fluent/fluentd/pull/2023
+* config: Don't warn message for reserved parameters in DSL
+  https://github.com/fluent/fluentd/pull/2034
+
 ## Release v1.2.2 - 2018/06/12
 
 ### Enhancements
