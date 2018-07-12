@@ -304,6 +304,8 @@ module Fluent
             raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey is not configured" unless @buffer_config.timekey
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
+            @timekey = @buffer_config.timekey
+            @timekey_use_utc = @buffer_config.timekey_use_utc
             @output_time_formatter_cache = {}
           end
 
@@ -824,11 +826,11 @@ module Fluent
 
       def calculate_timekey(time)
         time_int = time.to_i
-        if @buffer_config.timekey_use_utc
-          (time_int - (time_int % @buffer_config.timekey)).to_i
+        if @timekey_use_utc
+          (time_int - (time_int % @timekey)).to_i
         else
           offset = Time.at(time_int).utc_offset
-          (time_int - ((time_int + offset)% @buffer_config.timekey)).to_i
+          (time_int - ((time_int + offset)% @timekey)).to_i
         end
       end
 
