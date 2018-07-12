@@ -420,6 +420,7 @@ module Fluent
       if @format == :text
         line = caller_line(type, time, 5, level)
         if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+          return if @level > LEVEL_TRACE
           puts ["  ", line, 'suppressed same stacktrace'].join
         else
           backtrace.each { |msg|
@@ -437,6 +438,7 @@ module Fluent
         end
 
         if @suppress_repeated_stacktrace && (Thread.current[:last_repeated_stacktrace] == backtrace)
+          return if @level > LEVEL_TRACE
           r['message'] = 'suppressed same stacktrace'
         else
           r['message'] = backtrace.join("\n")
