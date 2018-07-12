@@ -829,7 +829,7 @@ module Fluent
         if @timekey_use_utc
           (time_int - (time_int % @timekey)).to_i
         else
-          offset = Time.at(time_int).utc_offset
+          offset = Fluent::Timezone.utc_offset(time, @timekey_zone)
           (time_int - ((time_int + offset)% @timekey)).to_i
         end
       end
