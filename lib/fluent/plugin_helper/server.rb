@@ -518,8 +518,8 @@ module Fluent
             end
             @callback.call(data)
           rescue => e
-            @log.error "unexpected error in processing UDP data", error: e
-            @log.error_backtrace
+            @log.trace "unexpected error in processing UDP data", error: e
+            @log.trace_backtrace
             raise if @under_plugin_development
           end
 
@@ -531,8 +531,8 @@ module Fluent
             end
             @callback.call(data, UDPCallbackSocket.new(@sock, addr, close_socket: @close_socket))
           rescue => e
-            @log.error "unexpected error in processing UDP data", error: e
-            @log.error_backtrace
+            @log.trace "unexpected error in processing UDP data", error: e
+            @log.trace_backtrace
             raise if @under_plugin_development
           end
         end
@@ -592,8 +592,8 @@ module Fluent
           def on_read_without_connection(data)
             @data_callback.call(data)
           rescue => e
-            @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
-            @log.error_backtrace
+            @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
+            @log.trace_backtrace
             close(true) rescue nil
             raise if @under_plugin_development
           end
@@ -601,8 +601,8 @@ module Fluent
           def on_read_with_connection(data)
             @data_callback.call(data, @callback_connection)
           rescue => e
-            @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
-            @log.error_backtrace
+            @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
+            @log.trace_backtrace
             close(true) rescue nil
             raise if @under_plugin_development
           end
@@ -746,8 +746,8 @@ module Fluent
           def on_read_without_connection(data)
             @data_callback.call(data)
           rescue => e
-            @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
-            @log.error_backtrace
+            @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
+            @log.trace_backtrace
             close(true) rescue nil
             raise if @under_plugin_development
           end
@@ -755,8 +755,8 @@ module Fluent
           def on_read_with_connection(data)
             @data_callback.call(data, @callback_connection)
           rescue => e
-            @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
-            @log.error_backtrace
+            @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
+            @log.trace_backtrace
             close(true) rescue nil
             raise if @under_plugin_development
           end
