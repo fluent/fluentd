@@ -318,7 +318,7 @@ module Fluent
         log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
       else
-        now = Time.now
+        now = Time.now.to_i
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed:", error_info
           log.warn_backtrace
@@ -347,7 +347,7 @@ module Fluent
       end
 
       def handle_emits_error(tag, es, e)
-        now = EventTime.now
+        now = EventTime.now.to_i
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed in @ERROR:", error: e, tag: tag
           log.warn_backtrace
