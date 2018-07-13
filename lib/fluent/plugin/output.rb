@@ -853,7 +853,7 @@ module Fluent
         begin
           block.call
         rescue Fluent::Plugin::Buffer::BufferOverflowError
-          log.warn "failed to write data into buffer by buffer overflow", action: @buffer_config.overflow_action
+          log.trace "failed to write data into buffer by buffer overflow", action: @buffer_config.overflow_action
           case @buffer_config.overflow_action
           when :throw_exception
             raise
