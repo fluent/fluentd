@@ -93,7 +93,6 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
         @i.emit_events("tag9", es)
       end
       logs = @i.log.out.logs
-      assert{ logs.any?{|line| line.include?("failed to write data into buffer by buffer overflow") } }
     end
   end
 
@@ -153,7 +152,6 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       assert{ flushed_chunks.size > 0 }
 
       logs = @i.log.out.logs
-      assert{ logs.any?{|line| line.include?("failed to write data into buffer by buffer overflow") } }
       assert{ logs.any?{|line| line.include?("buffer.write is now blocking") } }
       assert{ logs.any?{|line| line.include?("retrying buffer.write after blocked operation") } }
     end
@@ -215,7 +213,6 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       assert{ @i.buffer.queue[0].metadata.tag == "tag1" }
 
       logs = @i.log.out.logs
-      assert{ logs.any?{|line| line.include?("failed to write data into buffer by buffer overflow") } }
       assert{ logs.any?{|line| line.include?("dropping oldest chunk to make space after buffer overflow") } }
     end
 
@@ -243,7 +240,6 @@ class BufferedOutputOverflowTest < Test::Unit::TestCase
       end
 
       logs = @i.log.out.logs
-      assert{ logs.any?{|line| line.include?("failed to write data into buffer by buffer overflow") } }
       assert{ logs.any?{|line| line.include?("no queued chunks to be dropped for drop_oldest_chunk") } }
     end
   end
