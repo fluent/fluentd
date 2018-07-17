@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/event_router'
 require 'fluent/system_config'
+require 'timecop'
 require_relative 'test_plugin_classes'
 
 class RootAgentTest < ::Test::Unit::TestCase
@@ -606,6 +607,38 @@ EOC
       assert_equal [true, true], dyn_out.child.outputs.map{|i| i.after_shutdown? }
       assert_equal [true, true], dyn_out.child.outputs.map{|i| i.closed? }
       assert_equal [true, true], dyn_out.child.outputs.map{|i| i.terminated? }
+    end
+  end
+
+  sub_test_case 'configure emit_error_interval' do
+    setup do
+      system_config = SystemConfig.new
+      system_config.emit_error_log_interval = 30
+      @ra = RootAgent.new(log: $log, system_config: system_config)
+      stub(Engine).root_agent { @ra }
+      @ra.log.out.reset
+      one_minute_ago = Time.now.to_i - 60
+      Timecop.freeze(one_minute_ago)
+    end
+
+    teardown do
+      Timecop.return
+    end
+
+    test 'suppresses errors' do
+      mock(@ra.log).warn_backtrace()
+      e = StandardError.new('standard error')
+      begin
+        @ra.handle_emits_error("tag", nil, e)
+      rescue
+      end
+
+      begin
+      @ra.handle_emits_error("tag", nil, e)
+      rescue
+      end
+
+      assert_equal 1, @ra.log.out.logs.size
     end
   end
 
