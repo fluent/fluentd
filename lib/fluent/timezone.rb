@@ -140,7 +140,7 @@ module Fluent
       return nil
     end
 
-    def self.utc_offset(time, timezone)
+    def self.utc_offset(timezone)
       return 0 if timezone.nil?
 
       case timezone
@@ -148,7 +148,9 @@ module Fluent
         Time.zone_offset(timezone)
       when NAME_PATTERN
         tz = TZInfo::Timezone.get(timezone)
-        tz.period_for_utc(time).utc_total_offset
+        ->(time) {
+          tz.period_for_utc(time).utc_total_offset
+        }
       end
     end
   end

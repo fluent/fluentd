@@ -306,6 +306,8 @@ module Fluent
             @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
             @timekey = @buffer_config.timekey
             @timekey_use_utc = @buffer_config.timekey_use_utc
+            @offset = Fluent::Timezone.utc_offset(@timekey_zone)
+            @calculate_offset = @offset.respond_to?(:call) ? @offset : nil
             @output_time_formatter_cache = {}
           end
 
@@ -829,7 +831,7 @@ module Fluent
         if @timekey_use_utc
           (time_int - (time_int % @timekey)).to_i
         else
-          offset = Fluent::Timezone.utc_offset(time, @timekey_zone)
+          offset = @calculate_offset ? @calculate_offset.call(time) : @offset
           (time_int - ((time_int + offset)% @timekey)).to_i
         end
       end
