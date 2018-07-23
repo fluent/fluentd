@@ -561,6 +561,79 @@ class FileOutputTest < Test::Unit::TestCase
     check_gzipped_result(path, formatted_lines * 3)
   end
 
+  test 'append when JST' do
+    with_timezone(Fluent.windows? ? "JST-9" : "Asia/Tokyo") do
+      time = event_time("2011-01-02 03:14:15+09:00")
+      formatted_lines = %[2011-01-02T03:14:15+09:00\ttest\t{"a":1}\n] + %[2011-01-02T03:14:15+09:00\ttest\t{"a":2}\n]
+
+      write_once = ->(){
+        d = create_driver %[
+          path #{TMP_DIR}/out_file_test
+          compress gz
+          append true
+          <buffer>
+            timekey_use_utc false
+            timekey_zone Asia/Tokyo
+          </buffer>
+        ]
+        d.run(default_tag: 'test'){
+          d.feed(time, {"a"=>1})
+          d.feed(time, {"a"=>2})
+        }
+        d.instance.last_written_path
+      }
+
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
+      check_gzipped_result(path, formatted_lines)
+
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
+      check_gzipped_result(path, formatted_lines * 2)
+
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/out_file_test.20110102.log.gz", path
+      check_gzipped_result(path, formatted_lines * 3)
+    end
+  end
+
+  test 'append when UTC-02 but timekey_zone is +0900' do
+    with_timezone("UTC-02") do # +0200
+      time = event_time("2011-01-02 17:14:15+02:00")
+      formatted_lines = %[2011-01-02T17:14:15+02:00\ttest\t{"a":1}\n] + %[2011-01-02T17:14:15+02:00\ttest\t{"a":2}\n]
+
+      write_once = ->(){
+        d = create_driver %[
+          path #{TMP_DIR}/out_file_test
+          compress gz
+          append true
+          <buffer>
+            timekey_use_utc false
+            timekey_zone +0900
+          </buffer>
+        ]
+        d.run(default_tag: 'test'){
+          d.feed(time, {"a"=>1})
+          d.feed(time, {"a"=>2})
+        }
+        d.instance.last_written_path
+      }
+
+      path = write_once.call
+      # Rotated at 2011-01-02 17:00:00+02:00
+      assert_equal "#{TMP_DIR}/out_file_test.20110103.log.gz", path
+      check_gzipped_result(path, formatted_lines)
+
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/out_file_test.20110103.log.gz", path
+      check_gzipped_result(path, formatted_lines * 2)
+
+      path = write_once.call
+      assert_equal "#{TMP_DIR}/out_file_test.20110103.log.gz", path
+      check_gzipped_result(path, formatted_lines * 3)
+    end
+  end
+
   test '${chunk_id}' do
     time = event_time("2011-01-02 13:14:15 UTC")
     formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
