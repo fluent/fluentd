@@ -600,7 +600,7 @@ module Fluent
           rescue => e
             @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.error_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
@@ -609,7 +609,7 @@ module Fluent
           rescue => e
             @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.error_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
@@ -756,7 +756,7 @@ module Fluent
           rescue => e
             @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.error_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
@@ -765,7 +765,7 @@ module Fluent
           rescue => e
             @log.error "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.error_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
