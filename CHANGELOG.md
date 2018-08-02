@@ -1,5 +1,16 @@
 # v1.2
 
+## Release v1.2.4 - 2018/08/01
+
+### Bug fixes
+
+* output: Consider timezone when calculate timekey
+  https://github.com/fluent/fluentd/pull/2054
+* output: Fix bug in suppress_emit_error_log_interval
+  https://github.com/fluent/fluentd/pull/2069
+* server-helper: Fix connection leak by close timing issue.
+  https://github.com/fluent/fluentd/pull/2087
+
 ## Release v1.2.3 - 2018/07/10
 
 ### Enhancements
