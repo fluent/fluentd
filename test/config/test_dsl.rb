@@ -44,7 +44,7 @@ def prepare_config1
   </elem2>
 ]
   write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
-  k9 embeded
+  k9 embedded
   <elem3 name>
     nested nested_value
     include hoge
@@ -262,7 +262,7 @@ module Fluent::Config
         elem2 = @root.elements.find { |e| e.name == 'elem2' }
         assert(elem2)
         assert_equal('name', elem2.arg)
-        assert_equal('embeded', elem2['k9'])
+        assert_equal('embedded', elem2['k9'])
         assert_not_include(elem2, 'include')
 
         elem3 = elem2.elements.find { |e| e.name == 'elem3' }

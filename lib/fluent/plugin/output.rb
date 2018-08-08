@@ -92,8 +92,8 @@ module Fluent
         # k: times
         # total retry time: c + c * b^1 + (...) + c*b^k = c*b^(k+1) - 1
         config_param :retry_wait, :time, default: 1, desc: 'Seconds to wait before next retry to flush, or constant factor of exponential backoff.'
-        config_param :retry_exponential_backoff_base, :float, default: 2, desc: 'The base number of exponencial backoff for retries.'
-        config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponencial backoff between retries while failing.'
+        config_param :retry_exponential_backoff_base, :float, default: 2, desc: 'The base number of exponential backoff for retries.'
+        config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponential backoff between retries while failing.'
 
         config_param :retry_randomize, :bool, default: true, desc: 'If true, output plugin will retry after randomized interval not to do burst retries.'
       end

@@ -177,7 +177,7 @@ if Fluent.windows?
     opts[:regwinsvcautostart] = s
   }
 
-  op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option paramters for Windows Service. (Windows only)") {|s|
+  op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option parameters for Windows Service. (Windows only)") {|s|
     opts[:fluentdopt] = s
   }
   

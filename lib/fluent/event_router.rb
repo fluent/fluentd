@@ -217,7 +217,7 @@ module Fluent
           @optimizable = if fs_filters.empty?
                            true
                          else
-                           # skip log message when filter is only 1, because its performace is same as non optimized chain.
+                           # skip log message when filter is only 1, because its performance is same as non optimized chain.
                            if @filters.size > 1 && fs_filters.size >= 1
                              $log.info "disable filter chain optimization because #{fs_filters.map(&:class)} uses `#filter_stream` method."
                            end

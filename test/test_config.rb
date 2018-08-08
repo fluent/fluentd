@@ -53,7 +53,7 @@ class ConfigTest < Test::Unit::TestCase
       </elem2>
     ]
     write_config "#{TMP_DIR}/dir/config_test_9.conf", %[
-      k9 embeded
+      k9 embedded
       <elem3 name>
         nested nested_value
         include hoge
@@ -98,7 +98,7 @@ class ConfigTest < Test::Unit::TestCase
     elem2 = c.elements.find { |e| e.name == 'elem2' }
     assert_not_nil elem2
     assert_equal 'name', elem2.arg
-    assert_equal 'embeded', elem2['k9']
+    assert_equal 'embedded', elem2['k9']
     assert !elem2.has_key?('include')
 
     elem3 = elem2.elements.find { |e| e.name == 'elem3' }
@@ -145,7 +145,7 @@ class ConfigTest < Test::Unit::TestCase
     not_fetched = []; rule_conf.check_not_fetched {|key, e| not_fetched << key }
     assert_equal %w[pattern replace], not_fetched
 
-    # repeateadly accessing should not grow memory usage
+    # repeatedly accessing should not grow memory usage
     before_size = match_conf.unused.size
     10.times { match_conf['type'] }
     assert_equal before_size, match_conf.unused.size

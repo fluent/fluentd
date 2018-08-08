@@ -969,7 +969,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     # For https://github.com/fluent/fluentd/issues/1455
-    # This test is fragile because test content depends on internal implementaion.
+    # This test is fragile because test content depends on internal implementation.
     # So if you modify in_tail internal, this test may break.
     def test_unwatched_files_should_be_removed
       config = config_element("", "", {
@@ -990,7 +990,7 @@ class TailInputTest < Test::Unit::TestCase
       waiting(20) { sleep 0.1 until Dir.glob("#{TMP_DIR}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
 
-      # Previous implementaion has an infinite watcher creation bug.
+      # Previous implementation has an infinite watcher creation bug.
       # Following code checks such unexpected bug by couting  actual object allocation.
       base_num = count_timer_object
       2.times {
