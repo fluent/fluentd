@@ -358,14 +358,11 @@ module Fluent::Plugin
     end
 
     def detach_watcher_after_rotate_wait(tw)
-      # Call event_loop_attach is high-cost for short-live object.
-      # If this has a problem with large number of files, use @_event_loop directly.
-      checker = ->() { true }
-      detacher = ->(watcher) { event_loop_detach(watcher) }
-      timer = Fluent::PluginHelper::Timer::TimerWatcher.new(:closer, @rotate_wait, false, log, checker, detacher) {
+      # Call event_loop_attach/event_loop_detach is high-cost for short-live object.
+      # If this has a problem with large number of files, use @_event_loop directly instead of timer_execute.
+      timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
         detach_watcher(tw)
-      }
-      event_loop_attach(timer)
+      end
     end
 
     def flush_buffer(tw)
