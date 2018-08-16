@@ -7,7 +7,7 @@ require 'fluent/system_config'
 module Fluent::Config
   class FakeLoggerInitializer
     attr_accessor :level
-    def initalize
+    def initialize
       @level = nil
     end
   end

@@ -493,7 +493,7 @@ class LogTest < Test::Unit::TestCase
     end
   end
 
-  def test_log_rotates_specifed_size_with_logdevio
+  def test_log_rotates_specified_size_with_logdevio
     with_timezone('utc') do
       rotate_age = 2
       rotate_size = 100

@@ -49,7 +49,7 @@ EOS
 
     data('resolve_hostname' => 'resolve_hostname true',
          'source_hostname_key' => 'source_hostname_key source_host')
-    def test_configure_reslove_hostname(param)
+    def test_configure_resolve_hostname(param)
       d = create_driver([CONFIG, param].join("\n"))
       assert_true d.instance.resolve_hostname
     end

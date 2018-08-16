@@ -1032,12 +1032,12 @@ module Fluent::Config
           detail_base = base.class.merged_configure_proxy.sections[:detail]
           detail_sub = sub.class.merged_configure_proxy.sections[:detail]
           detail_base_attributes = {
-            requried: detail_base.required,
+            required: detail_base.required,
             multi: detail_base.multi,
             alias: detail_base.alias,
           }
           detail_sub_attributes = {
-            requried: detail_sub.required,
+            required: detail_sub.required,
             multi: detail_sub.multi,
             alias: detail_sub.alias,
           }
