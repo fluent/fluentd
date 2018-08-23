@@ -1,5 +1,13 @@
 # v1.2
 
+## Release v1.2.5 - 2018/08/22
+
+### Bug fixes
+
+* in_tail: Fix resource leak by file rotation
+  https://github.com/fluent/fluentd/pull/2105
+* fix typos
+
 ## Release v1.2.4 - 2018/08/01
 
 ### Bug fixes
