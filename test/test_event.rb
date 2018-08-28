@@ -401,6 +401,22 @@ module EventTest
         i += 1
       }
     end
+
+    # `any?` represents an Enumerable method which calls `each` internally
+    test 'size_after_any' do
+      @es.any?
+
+      assert_equal 2, @es.size
+    end
+
+    # `any?` represents an Enumerable method which calls `each` internally
+    test 'each_after_any' do
+      @es.any?
+
+      count = 0
+      @es.each { |time, record| count += 1 }
+      assert_equal 2, count
+    end
   end
 
   class CompressedMessagePackEventStreamTest < ::Test::Unit::TestCase
