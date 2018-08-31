@@ -898,7 +898,10 @@ module Fluent::Plugin
         file.pos = 0
         file.each_line {|line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
-          next unless m
+          unless m
+            $log.warn "Unparsable line in pos_file: #{line}"
+            next
+          end
           path = m[1]
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
@@ -913,7 +916,10 @@ module Fluent::Plugin
         file.pos = 0
         existent_entries = file.each_line.map { |line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
-          next unless m
+          unless m
+            $log.warn "Unparsable line in pos_file: #{line}"
+            next
+          end
           path = m[1]
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
