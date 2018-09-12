@@ -279,5 +279,29 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         assert { logs.any? { |l| l.include?("got unrecoverable error in primary and secondary is async output") } }
       end
     end
+
+    test 'chunk is thrown away when disable_chunk_backup is true' do
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+        id = 'backup_test'
+        hash = {
+          'flush_interval' => 1,
+          'flush_thread_burst_interval' => 0.1,
+          'disable_chunk_backup' => true
+        }
+        chunk_id = nil
+        @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash)]))
+        @i.register(:write) { |chunk|
+          chunk_id = chunk.unique_id;
+          raise Fluent::UnrecoverableError, "yay, your #write must fail"
+        }
+
+        flush_chunks
+
+        target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        assert_false File.exist?(target)
+        logs = @i.log.out.logs
+        assert { logs.any? { |l| l.include?("disable_chunk_backup is true") } }
+      end
+    end
   end
 end

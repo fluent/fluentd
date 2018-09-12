@@ -155,6 +155,7 @@ slow_flush_log_threshold: float: (20.0)
  retry_exponential_backoff_base: float: (2)
  retry_max_interval: time: (nil)
  retry_randomize: bool: (true)
+ disable_chunk_backup: bool: (false)
 <secondary>: optional, single
  @type: string: (nil)
  <buffer>: optional, single
