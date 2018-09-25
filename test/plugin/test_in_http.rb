@@ -604,6 +604,26 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  def test_cors_allowed_wildcard
+    d = create_driver(CONFIG + 'cors_allow_origins ["*"]')
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"a"=>1}],
+    ]
+
+    d.run do
+      events.each do |tag, time, record|
+        headers = {"Origin" => "http://foo.com"}
+
+        res = post("/#{tag}", {"json" => record.to_json, "time" => time.to_i}, headers)
+
+        assert_equal "200", res.code
+        assert_equal "*", res["Access-Control-Allow-Origin"]
+      end
+    end
+  end
+
   def test_content_encoding_gzip
     d = create_driver
 
