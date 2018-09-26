@@ -27,8 +27,8 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
-      REGEXP_RFC5424 = /\A^(?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>.{1,128}) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ]))(?: (?<message>.+))?$\z/
-      REGEXP_RFC5424_WITH_PRI = /\A^\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>.{1,128}) (?<msgid>[^ ]+) (?<extradata>(\[(.*)\]|[^ ]))(?: (?<message>.+))?$\z/
+      REGEXP_RFC5424 = /\A^(?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|\[(.*)\]))(?: (?<message>.+))?$\z/
+      REGEXP_RFC5424_WITH_PRI = /\A^\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|\[(.*)\]))(?: (?<message>.+))?$\z/
       REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_set_default :time_format, "%b %d %H:%M:%S"

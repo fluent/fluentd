@@ -150,6 +150,21 @@ class SyslogParserTest < ::Test::Unit::TestCase
       end
     end
 
+    def test_parse_with_rfc5424_message_with_priority_and_pid
+      @parser.configure(
+                        'message_format' => 'rfc5424',
+                        'with_priority' => true,
+                        )
+      text = '<28>1 2018-09-26T15:54:26.620412+09:00 machine minissdpd 1298 - -  peer 192.168.0.5:50123 is not from a LAN'
+      @parser.instance.parse(text) do |time, record|
+        assert_equal(event_time("2018-09-26T15:54:26.620412+0900", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
+        assert_equal "1298", record["pid"]
+        assert_equal "-", record["msgid"]
+        assert_equal "-", record["extradata"]
+        assert_equal " peer 192.168.0.5:50123 is not from a LAN", record["message"]
+      end
+    end
+
     def test_parse_with_rfc5424_structured_message
       @parser.configure(
                         'time_format' => '%Y-%m-%dT%H:%M:%S.%L%z',
