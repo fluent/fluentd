@@ -174,7 +174,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
-assert_equal "11111", record["pid"]
+        assert_equal "11111", record["pid"]
         assert_equal "ID24224", record["msgid"]
         assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"]",
                      record["extradata"]
@@ -191,7 +191,7 @@ assert_equal "11111", record["pid"]
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"][exampleSDID@20224 class="high"] Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
-assert_equal "11111", record["pid"]
+        assert_equal "11111", record["pid"]
         assert_equal "ID24224", record["msgid"]
         assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"][exampleSDID@20224 class=\"high\"]",
                      record["extradata"]
@@ -208,7 +208,7 @@ assert_equal "11111", record["pid"]
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd]!'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
-assert_equal "11111", record["pid"]
+        assert_equal "11111", record["pid"]
         assert_equal "ID24224", record["msgid"]
         assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"]",
                      record["extradata"]
@@ -225,7 +225,7 @@ assert_equal "11111", record["pid"]
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"]'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("2017-02-06T13:14:15.003Z", format: '%Y-%m-%dT%H:%M:%S.%L%z'), time)
-assert_equal "11111", record["pid"]
+        assert_equal "11111", record["pid"]
         assert_equal "ID24224", record["msgid"]
         assert_equal "[exampleSDID@20224 iut=\"3\" eventSource=\"Application\" eventID=\"11211\"]",
                      record["extradata"]
