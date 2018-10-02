@@ -52,9 +52,15 @@ module Fluent
         else
           raise "BUG: unknown json parser specified: #{name}"
         end
-      rescue LoadError
+      rescue LoadError => ex
         name = :yajl
-        log.info "Oj is not installed, and failing back to Yajl for json parser" if log
+        if log
+          if /\boj\z/ =~ ex.message
+            log.info "Oj is not installed, and failing back to Yajl for json parser"
+          else
+            log.warn ex.message
+          end
+        end
         retry
       end
 
