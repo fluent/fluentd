@@ -375,7 +375,7 @@ module Fluent::Plugin
         # For every incoming request, we check if we have some CORS
         # restrictions and white listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
-          unless @cors_allow_origins.include?(@origin)
+          unless @cors_allow_origins.include?('*') or @cors_allow_origins.include?(@origin)
             send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
             return
           end
@@ -422,7 +422,14 @@ module Fluent::Plugin
         code, header, body = *@callback.call(path_info, params)
         body = body.to_s
 
-        header['Access-Control-Allow-Origin'] = @origin if !@cors_allow_origins.nil? && @cors_allow_origins.include?(@origin)
+        unless @cors_allow_origins.nil?
+          if @cors_allow_origins.include?('*')
+            header['Access-Control-Allow-Origin'] = '*'
+          elsif @cors_allow_origins.include?(@origin)
+            header['Access-Control-Allow-Origin'] = @origin
+          end
+        end
+
         if @keep_alive
           header['Connection'] = 'Keep-Alive'
           send_response(code, header, body)
