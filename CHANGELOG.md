@@ -1,5 +1,23 @@
 # v1.2
 
+## Release v1.2.6 - 2018/10/03
+
+### Enhancements
+
+* output: Add `disable_chunk_backup` for ignore broken chunks.
+  https://github.com/fluent/fluentd/pull/2117
+* parser_syslog: Improve regexp for RFC5424
+  https://github.com/fluent/fluentd/pull/2141
+* in_http: Allow specifying the wildcard '*' as the CORS domain
+  https://github.com/fluent/fluentd/pull/2139
+
+### Bug fixes
+
+* in_tail: Prevent thread switching in the interval between seek and read/write operations to pos_file
+  https://github.com/fluent/fluentd/pull/2118
+* parser: Handle LoadError properly for oj
+  https://github.com/fluent/fluentd/pull/2140
+
 ## Release v1.2.5 - 2018/08/22
 
 ### Bug fixes
