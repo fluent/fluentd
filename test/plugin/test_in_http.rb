@@ -624,6 +624,23 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_cors_preflight
+    d = create_driver(CONFIG + 'cors_allow_origins ["*"]')
+
+    d.run do
+      header = {
+        "Origin" => "http://foo.com",
+        "Access-Control-Request-Method" => "POST",
+        "Access-Control-Request-Headers" => "Content-Type",
+      }
+      res = options("/cors.test", {}, header)
+
+      assert_equal "200", res.code
+      assert_equal "*", res["Access-Control-Allow-Origin"]
+      assert_equal "POST", res["Access-Control-Allow-Methods"]
+    end
+  end
+
   def test_content_encoding_gzip
     d = create_driver
 
@@ -742,6 +759,12 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal(['application/json', ''], $test_in_http_content_types)
     # Asserting keepalive
     assert_equal $test_in_http_connection_object_ids[0], $test_in_http_connection_object_ids[1]
+  end
+
+  def options(path, params, header = {})
+    http = Net::HTTP.new("127.0.0.1", PORT)
+    req = Net::HTTP::Options.new(path, header)
+    http.request(req)
   end
 
   def post(path, params, header = {}, &block)
