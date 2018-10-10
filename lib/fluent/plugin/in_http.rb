@@ -342,6 +342,10 @@ module Fluent::Plugin
             # For multiple X-Forwarded-For headers. Use first header value.
             v = v.first if v.is_a?(Array)
             @remote_addr = v.split(",").first
+          when /Access-Control-Request-Method/i
+            @access_control_request_method = v
+          when /Access-Control-Request-Headers/i
+            @access_control_request_headers = v
           end
         }
         if expect
@@ -367,8 +371,42 @@ module Fluent::Plugin
         @body << chunk
       end
 
+      # Web browsers can send an OPTIONS request before performing POST
+      # to check if cross-origin requests are supported.
+      def handle_options_request
+        # Is CORS enabled in the first place?
+        if @cors_allow_origins.nil?
+          return send_response_and_close("403 Forbidden", {}, "")
+        end
+
+        # in_http does not support HTTP methods except POST
+        if @access_control_request_method != 'POST'
+          return send_response_and_close("403 Forbidden", {}, "")
+        end
+
+        header = {
+          "Access-Control-Allow-Methods" => "POST",
+          "Access-Control-Allow-Headers" => @access_control_request_headers || "",
+        }
+
+        # Check the origin and send back a CORS response
+        if @cors_allow_origins.include?('*')
+          header["Access-Control-Allow-Origin"] = "*"
+          send_response_and_close("200 OK", header, "")
+        elsif @cors_allow_origins.include?(@origin)
+          header["Access-Control-Allow-Origin"] = @origin
+          send_response_and_close("200 OK", header, "")
+        else
+          send_response_and_close("403 Forbidden", {}, "")
+        end
+      end
+
       def on_message_complete
         return if closing?
+
+        if @parser.http_method == 'OPTIONS'
+          return handle_options_request()
+        end
 
         # CORS check
         # ==========
