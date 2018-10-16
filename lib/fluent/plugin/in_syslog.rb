@@ -75,8 +75,8 @@ module Fluent::Plugin
     config_param :tag, :string
     desc 'The transport protocol used to receive logs.(udp, tcp)'
     config_param :protocol_type, :enum, list: [:tcp, :udp], default: :udp
-    desc 'The message frame type.(normal, octet_count)'
-    config_param :frame_type, :enum, list: [:normal, :octet_count], default: :normal
+    desc 'The message frame type.(traditional, octet_count)'
+    config_param :frame_type, :enum, list: [:traditional, :octet_count], default: :traditional
 
     desc 'If true, add source host to event record.'
     config_param :include_source_host, :bool, default: false, deprecated: 'use "source_hostname_key" or "source_address_key" instead.'
