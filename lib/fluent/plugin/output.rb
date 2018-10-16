@@ -1119,24 +1119,29 @@ module Fluent
           if @secondary
             if using_secondary
               log.warn "got unrecoverable error in secondary.", error: e
+              log.warn_backtrace
               backup_chunk(chunk, using_secondary, output.delayed_commit)
             else
               if (self.class == @secondary.class)
                 log.warn "got unrecoverable error in primary and secondary type is same as primary. Skip secondary", error: e
+                log.warn_backtrace
                 backup_chunk(chunk, using_secondary, output.delayed_commit)
               else
                 # Call secondary output directly without retry update.
                 # In this case, delayed commit causes inconsistent state in dequeued chunks so async output in secondary is not allowed for now.
                 if @secondary.delayed_commit
                   log.warn "got unrecoverable error in primary and secondary is async output. Skip secondary for backup", error: e
+                  log.warn_backtrace
                   backup_chunk(chunk, using_secondary, output.delayed_commit)
                 else
                   log.warn "got unrecoverable error in primary. Skip retry and flush chunk to secondary", error: e
+                  log.warn_backtrace
                   begin
                     @secondary.write(chunk)
                     commit_write(chunk_id, delayed: output.delayed_commit, secondary: true)
                   rescue => e
                     log.warn "got an error in secondary for unrecoverable error", error: e
+                    log.warn_backtrace
                     backup_chunk(chunk, using_secondary, output.delayed_commit)
                   end
                 end
@@ -1144,6 +1149,7 @@ module Fluent
             end
           else
             log.warn "got unrecoverable error in primary and no secondary", error: e
+            log.warn_backtrace
             backup_chunk(chunk, using_secondary, output.delayed_commit)
           end
         rescue => e
