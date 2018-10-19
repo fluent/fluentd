@@ -33,6 +33,8 @@ module Fluent::Plugin
     config_param :source_host_key, :string, default: nil, deprecated: "use source_hostname_key instead."
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
+    desc "The field name of the client's ip address"
+    config_param :source_address_key, :string, default: nil
 
     desc "Deprecated parameter. Use message_length_limit instead"
     config_param :body_size_limit, :size, default: nil, deprecated: "use message_length_limit instead."
@@ -76,6 +78,7 @@ module Fluent::Plugin
             tag ||= @tag
             time ||= extract_time_from_record(record) || Fluent::EventTime.now
             record[@source_hostname_key] = sock.remote_host if @source_hostname_key
+            record[@source_address_key] = sock.remote_addr if @source_address_key
             router.emit(tag, time, record)
           end
         end
