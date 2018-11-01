@@ -174,9 +174,8 @@ module Fluent
           ss = StringScanner.new(data)
           V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
         end
-
       rescue SystemCallError => e
-        cpe = ConfigParseError.new("include error #{uri}")
+        cpe = ConfigParseError.new("include error #{uri} - #{e}")
         cpe.set_backtrace(e.backtrace)
         raise cpe
       end
