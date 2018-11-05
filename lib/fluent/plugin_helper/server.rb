@@ -408,6 +408,10 @@ module Fluent
           raise "not implemented here"
         end
 
+        def close_after_write_complete
+          @sock.close_after_write_complete = true
+        end
+
         def close
           @sock.close if @close_socket
         end
@@ -492,6 +496,8 @@ module Fluent
 
       module EventHandler
         class UDPServer < Coolio::IO
+          attr_writer :close_after_write_complete # dummy for consistent method call in callbacks
+
           def initialize(sock, max_bytes, flags, close_socket, log, under_plugin_development, &callback)
             raise ArgumentError, "socket must be a UDPSocket: sock = #{sock}" unless sock.is_a?(UDPSocket)
 
@@ -543,6 +549,7 @@ module Fluent
 
         class TCPServer < Coolio::TCPSocket
           attr_reader :closing
+          attr_writer :close_after_write_complete
 
           def initialize(sock, socket_option_setter, close_callback, log, under_plugin_development, connect_callback)
             raise ArgumentError, "socket must be a TCPSocket: sock=#{sock}" unless sock.is_a?(TCPSocket)
@@ -560,6 +567,7 @@ module Fluent
             @close_callback = close_callback
 
             @callback_connection = nil
+            @close_after_write_complete = false
             @closing = false
 
             @mutex = Mutex.new # to serialize #write and #close
@@ -585,6 +593,11 @@ module Fluent
             @mutex.synchronize do
               super
             end
+          end
+
+          def on_writable
+            super
+            close if @close_after_write_complete
           end
 
           def on_connect
@@ -625,6 +638,7 @@ module Fluent
 
         class TLSServer < Coolio::Socket
           attr_reader :closing
+          attr_writer :close_after_write_complete
 
           # It can't use Coolio::TCPSocket, because Coolio::TCPSocket checks that underlying socket (1st argument of super) is TCPSocket.
           def initialize(sock, context, socket_option_setter, close_callback, log, under_plugin_development, connect_callback)
@@ -645,6 +659,7 @@ module Fluent
             @close_callback = close_callback
 
             @callback_connection = nil
+            @close_after_write_complete = false
             @closing = false
 
             @mutex = Mutex.new # to serialize #write and #close
@@ -738,6 +753,7 @@ module Fluent
                 @_handler_write_buffer.slice!(0, written_bytes)
                 super
               end
+              close if @close_after_write_complete
             rescue IO::WaitWritable, IO::WaitReadable
               return
             rescue Errno::EINTR
