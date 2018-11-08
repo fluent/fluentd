@@ -199,7 +199,7 @@ module Fluent::Plugin
         when :pingpong
           success, reason_or_salt, shared_key = check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
           unless success
-            conn.on(:write_complete) { |c| c.close }
+            conn.on(:write_complete) { |c| c.close_after_write_complete }
             send_data.call(serializer, generate_pong(false, reason_or_salt, nonce, shared_key))
             next
           end

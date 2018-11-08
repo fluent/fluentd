@@ -828,7 +828,7 @@ module Fluent::Plugin
         when :pingpong
           succeeded, reason = check_pong(ri, data)
           unless succeeded
-            @log.warn "connection refused to #{@name}: #{reason}"
+            @log.warn "connection refused to #{@name || @host}: #{reason}"
             disable! # shutdown
             return
           end
