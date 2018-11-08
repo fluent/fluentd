@@ -828,34 +828,43 @@ class OutputTest < Test::Unit::TestCase
       assert_equal :interval, @i.instance_variable_get(:@flush_mode)
     end
 
-    test "Warn if primary type is different from secondary type and either primary or secondary has custom_format" do
-      o = create_output(:buffered)
-      mock(o.log).warn("secondary type should be same with primary one",
-                                { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" })
+    sub_test_case 'configure secondary' do
+      test "Warn if primary type is different from secondary type and either primary or secondary has custom_format" do
+        o = create_output(:buffered)
+        mock(o.log).warn("secondary type should be same with primary one",
+                         { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" })
 
-      o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
-      assert_not_nil o.instance_variable_get(:@secondary)
-    end
+        o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
+        assert_not_nil o.instance_variable_get(:@secondary)
+      end
 
-    test "don't warn if primary type is the same as secondary type" do
-      o = Fluent::Plugin::TestOutput.new
-      mock(o.log).warn("secondary type should be same with primary one",
-                                { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
+      test "don't warn if primary type is the same as secondary type" do
+        o = Fluent::Plugin::TestOutput.new
+        mock(o.log).warn("secondary type should be same with primary one",
+                         { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
 
-      o.configure(config_element('ROOT','',{'name' => "cool2"},
-                                 [config_element('secondary','',{'@type'=>'test', 'name' => "cool"}),
-                                  config_element('buffer','',{'@type'=>'memory'})]
-                                ))
-      assert_not_nil o.instance_variable_get(:@secondary)
-    end
+        o.configure(config_element('ROOT','',{'name' => "cool2"},
+                                   [config_element('secondary','',{'@type'=>'test', 'name' => "cool"}),
+                                    config_element('buffer','',{'@type'=>'memory'})]
+                                  ))
+        assert_not_nil o.instance_variable_get(:@secondary)
+      end
 
-    test "don't warn if primary type is different from secondary type and both don't have custom_format" do
-      o = create_output(:standard)
-      mock(o.log).warn("secondary type should be same with primary one",
-                                { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
+      test "don't warn if primary type is different from secondary type and both don't have custom_format" do
+        o = create_output(:standard)
+        mock(o.log).warn("secondary type should be same with primary one",
+                         { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
 
-      o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
-      assert_not_nil o.instance_variable_get(:@secondary)
+        o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
+        assert_not_nil o.instance_variable_get(:@secondary)
+      end
+
+      test "raise configuration error if secondary type specifies non buffered output" do
+        o = create_output(:standard)
+        assert_raise Fluent::ConfigError do
+          o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'copy'})]))
+        end
+      end
     end
   end
 

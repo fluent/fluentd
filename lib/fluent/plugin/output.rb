@@ -368,6 +368,9 @@ module Fluent
           end
           secondary_conf = conf.elements(name: 'secondary').first
           @secondary = Plugin.new_output(secondary_type)
+          unless @secondary.respond_to?(:acts_as_secondary)
+            raise Fluent::ConfigError, "Failed to setup secondary plugin in '#{conf['@type']}'. '#{secondary_type}' plugin in not allowed due to non buffered output"
+          end
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
           if (self.class != @secondary.class) && (@custom_format || @secondary.implement?(:custom_format))
