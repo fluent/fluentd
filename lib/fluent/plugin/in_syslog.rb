@@ -75,6 +75,8 @@ module Fluent::Plugin
     config_param :tag, :string
     desc 'The transport protocol used to receive logs.(udp, tcp)'
     config_param :protocol_type, :enum, list: [:tcp, :udp], default: :udp
+    desc 'The message frame type.(traditional, octet_count)'
+    config_param :frame_type, :enum, list: [:traditional, :octet_count], default: :traditional
 
     desc 'If true, add source host to event record.'
     config_param :include_source_host, :bool, default: false, deprecated: 'use "source_hostname_key" or "source_address_key" instead.'
@@ -152,18 +154,29 @@ module Fluent::Plugin
     end
 
     def start_tcp_server
-      # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
-      delimiter = "\n"
+      octet_count_frame = @frame_type == :octet_count
+
+      # syslog family adds "\n" to each message when transport is TCP and traditional frame
+      delimiter = octet_count_frame ? " " : "\n"
       delimiter_size = delimiter.size
       server_create_connection(:in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_hostname) do |conn|
         conn.data do |data|
           buffer = conn.buffer
           buffer << data
           pos = 0
-          while idx = buffer.index(delimiter, pos)
-            msg = buffer[pos...idx]
-            pos = idx + delimiter_size
-            message_handler(msg, conn)
+          if octet_count_frame
+            while idx = buffer.index(delimiter, pos)
+              num = Integer(buffer[pos..idx])
+              pos = idx + num
+              msg = buffer[idx + 1...pos]
+              message_handler(msg, conn)
+            end
+          else
+            while idx = buffer.index(delimiter, pos)
+              msg = buffer[pos...idx]
+              pos = idx + delimiter_size
+              message_handler(msg, conn)
+            end
           end
           buffer.slice!(0, pos) if pos > 0
         end

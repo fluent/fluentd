@@ -286,4 +286,50 @@ EOS
       assert_equal(options[:facility], events[i][2]['facility']) if options[:facility]
     }
   end
+
+  sub_test_case 'octet counting frame' do
+    def test_msg_size_with_tcp
+      d = create_driver([CONFIG, 'protocol_type tcp', 'frame_type octet_count'].join("\n"))
+      tests = create_test_case
+
+      d.run(expect_emits: 2) do
+        tests.each {|test|
+          TCPSocket.open('127.0.0.1', PORT) do |s|
+            s.send(test['msg'], 0)
+          end
+        }
+      end
+
+      assert(d.events.size > 0)
+      compare_test_result(d.events, tests)
+    end
+
+    def test_msg_size_with_same_tcp_connection
+      d = create_driver([CONFIG, 'protocol_type tcp', 'frame_type octet_count'].join("\n"))
+      tests = create_test_case
+
+      d.run(expect_emits: 2) do
+        TCPSocket.open('127.0.0.1', PORT) do |s|
+          tests.each {|test|
+            s.send(test['msg'], 0)
+          }
+        end
+      end
+
+      assert(d.events.size > 0)
+      compare_test_result(d.events, tests)
+    end
+
+    def create_test_case(large_message: false)
+      msgs = [
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100, 'expected' => 'x' * 100},
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024, 'expected' => 'x' * 1024},
+      ]
+      msgs.each { |msg|
+        m = msg['msg']
+        msg['msg'] = "#{m.size + 1} #{m}"
+      }
+      msgs
+    end
+  end
 end
