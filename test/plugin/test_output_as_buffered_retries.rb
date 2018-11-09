@@ -123,6 +123,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_interval' => 1,
         'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -252,6 +253,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_timeout' => 3600,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -342,6 +344,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -485,6 +488,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_type' => :periodic,
         'retry_wait' => 3,
         'retry_randomize' => false,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -531,6 +535,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 30,
         'retry_randomize' => false,
         'retry_timeout' => 120,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -626,6 +631,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 3,
         'retry_randomize' => false,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -724,6 +730,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_timeout' => 3600,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -795,6 +802,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 30,
         'retry_timeout' => 360,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }

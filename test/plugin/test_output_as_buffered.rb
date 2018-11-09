@@ -1082,6 +1082,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_thread_count' => 1,
         'flush_thread_burst_interval' => 0.1,
         'chunk_limit_size' => 1024,
+        'queued_chunks_limit_size' => 100
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
