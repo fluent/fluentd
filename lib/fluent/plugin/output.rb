@@ -354,6 +354,10 @@ module Fluent
               log.warn "'flush_interval' is ignored because default 'flush_mode' is not 'interval': '#{@flush_mode}'"
             end
           end
+
+          if @buffer.queued_chunks_limit_size.nil?
+            @buffer.queued_chunks_limit_size = @buffer_config.flush_thread_count
+          end
         end
 
         if @secondary_config
