@@ -219,6 +219,24 @@ class BufferedOutputTest < Test::Unit::TestCase
     Timecop.return
   end
 
+  test 'queued_chunks_limit_size is same as flush_thread_count by default' do
+    hash = {'flush_thread_count' => 4}
+    i = create_output
+    i.register(:prefer_buffered_processing) { true }
+    i.configure(config_element('ROOT', '', {}, [config_element('buffer','tag',hash)]))
+
+    assert_equal 4, i.buffer.queued_chunks_limit_size
+  end
+
+  test 'prefer queued_chunks_limit_size parameter than flush_thread_count' do
+    hash = {'flush_thread_count' => 4, 'queued_chunks_limit_size' => 2}
+    i = create_output
+    i.register(:prefer_buffered_processing) { true }
+    i.configure(config_element('ROOT', '', {}, [config_element('buffer','tag',hash)]))
+
+    assert_equal 2, i.buffer.queued_chunks_limit_size
+  end
+
   sub_test_case 'chunk feature in #write for output plugins' do
     setup do
       @stored_global_logger = $log
@@ -1064,6 +1082,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_thread_count' => 1,
         'flush_thread_burst_interval' => 0.1,
         'chunk_limit_size' => 1024,
+        'queued_chunks_limit_size' => 100
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))

@@ -170,7 +170,7 @@ class BufferTest < Test::Unit::TestCase
 
   sub_test_case 'with default configuration and dummy implementation' do
     setup do
-      @p = create_buffer({})
+      @p = create_buffer({'queued_chunks_limit_size' => 100})
       @dm0 = create_metadata(Time.parse('2016-04-11 16:00:00 +0000').to_i, nil, nil)
       @dm1 = create_metadata(Time.parse('2016-04-11 16:10:00 +0000').to_i, nil, nil)
       @dm2 = create_metadata(Time.parse('2016-04-11 16:20:00 +0000').to_i, nil, nil)

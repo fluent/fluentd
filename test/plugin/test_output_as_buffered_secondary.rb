@@ -544,7 +544,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
     test 'secondary plugin can do delayed commit even if primary does not do it, and non-committed chunks will be rollbacked by primary' do
       written = []
       chunks = []
-      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'delayed_commit_timeout' => 2, 'retry_randomize' => false})
+      priconf = config_element('buffer','tag',{'flush_interval' => 1, 'retry_type' => :periodic, 'retry_wait' => 3, 'retry_timeout' => 60, 'delayed_commit_timeout' => 2, 'retry_randomize' => false, 'queued_chunks_limit_size' => 10})
       secconf = config_element('secondary','',{'@type' => 'output_secondary_test2'})
       @i.configure(config_element('ROOT','',{},[priconf,secconf]))
       @i.register(:prefer_buffered_processing){ true }

@@ -372,7 +372,7 @@ module Fluent
       end
 
       def queue_full?
-        @queued_chunks_limit_size && (synchronize { @queue.size } >= @queued_chunks_limit_size)
+        synchronize { @queue.size } >= @queued_chunks_limit_size
       end
 
       def queued_records
