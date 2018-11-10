@@ -1,3 +1,30 @@
+# v1.3
+
+## Release v1.3.0 - 2018/11/10
+
+### New features
+
+* output: Change thread execution control
+  https://github.com/fluent/fluentd/pull/2170
+* in_syslog: Support octet counting frame
+  https://github.com/fluent/fluentd/pull/2147
+* Use `flush_thread_count` value for `queued_chunks_limit_size` when `queued_chunks_limit_size` is not specified
+  https://github.com/fluent/fluentd/pull/2173
+
+### Enhancements
+
+* output: Show backtrace for unrecoverable errors
+  https://github.com/fluent/fluentd/pull/2149
+* in_http: Implement support for CORS preflight requests
+  https://github.com/fluent/fluentd/pull/2144
+
+### Bug fixes
+
+* server: Fix deadlock between on_writable and close in sockets
+  https://github.com/fluent/fluentd/pull/2165
+* output: show correct error when wrong plugin is specified for secondary
+  https://github.com/fluent/fluentd/pull/2169
+
 # v1.2
 
 ## Release v1.2.6 - 2018/10/03
