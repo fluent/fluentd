@@ -153,6 +153,24 @@ EOL
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
 
+  test 'configure tls_cert_path is deprecated' do
+    conf = %[
+      send_timeout 5
+      transport tls
+      tls_insecure_mode true
+      tls_cert_path /tmp/dummy/cert.pem
+      <server>
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ]
+
+    d = create_driver(conf)
+    expected_log = "'tls_cert_path' parameter is deprecated: Use tls_ca_cert_path instead"
+    logs = d.logs
+    assert{ logs.any?{|log| log.include?(expected_log) } }
+  end
+
   test 'compress_default_value' do
     @d = d = create_driver
     assert_equal :text, d.instance.compress
