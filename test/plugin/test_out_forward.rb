@@ -787,7 +787,7 @@ EOL
     end
   end
 
-  test 'verify_connection_at_startup test' do
+  test 'verify_connection_at_startup_nodes_are_not_available' do
       @d = d = create_driver(CONFIG + %[
         verify_connection_at_startup true
         <buffer tag>
@@ -803,7 +803,7 @@ EOL
     d.instance_shutdown
   end
 
-  test 'authentication_with_shared_key_miss_match' do
+  test 'verify_connection_at_startup_nodes_shared_key_miss_match' do
     input_conf = TARGET_CONFIG + %[
                    <security>
                      self_hostname in.localhost
@@ -847,7 +847,7 @@ EOL
     end
   end
 
-  test 'authentication_with_shared_key_match' do
+  test 'verify_connection_at_startup_nodes_shared_key_match' do
       input_conf = TARGET_CONFIG + %[
                        <security>
                          self_hostname in.localhost
