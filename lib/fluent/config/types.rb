@@ -74,6 +74,9 @@ module Fluent
       return nil unless str
       return Regexp.compile(str) unless str.start_with?("/")
       right_slash_position = str.rindex("/")
+      if right_slash_position < str.size - 3
+        raise Fluent::ConfigError, "invalid regexp: missing right slash: #{str}"
+      end
       options = str[(right_slash_position + 1)..-1]
       option = 0
       option |= Regexp::IGNORECASE if options.include?("i")
