@@ -9,12 +9,16 @@ require 'fluent/plugin/in_forward'
 class ForwardOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.mkdir_p(TMP_DIR)
     @d = nil
   end
 
   def teardown
     @d.instance_shutdown if @d
   end
+
+  TMP_DIR = File.join(__dir__, "../tmp/out_forward#{ENV['TEST_ENV_NUMBER']}")
 
   TARGET_HOST = '127.0.0.1'
   TARGET_PORT = unused_port
@@ -154,21 +158,25 @@ EOL
   end
 
   test 'configure tls_cert_path is deprecated' do
+    dummy_cert_path = File.join(TMP_DIR, "dummy_cert.pem")
+    FileUtils.touch(dummy_cert_path)
     conf = %[
       send_timeout 5
       transport tls
       tls_insecure_mode true
-      tls_cert_path /tmp/dummy/cert.pem
+      tls_cert_path #{dummy_cert_path}
       <server>
         host #{TARGET_HOST}
         port #{TARGET_PORT}
       </server>
     ]
 
-    d = create_driver(conf)
+    @d = d = create_driver(conf)
     expected_log = "'tls_cert_path' parameter is deprecated: Use tls_ca_cert_path instead"
     logs = d.logs
     assert{ logs.any?{|log| log.include?(expected_log) } }
+    assert_equal([dummy_cert_path], d.instance.tls_cert_path)
+    assert_equal([dummy_cert_path], d.instance.tls_ca_cert_path)
   end
 
   test 'compress_default_value' do
