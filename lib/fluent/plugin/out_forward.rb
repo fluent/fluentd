@@ -167,6 +167,10 @@ module Fluent::Plugin
       end
 
       if @transport == :tls
+        # for backward compatibility
+        if @tls_cert_path && !@tls_cert_path.empty?
+          @tls_ca_cert_path = @tls_cert_path
+        end
         if @tls_ca_cert_path && !@tls_ca_cert_path.empty?
           @tls_ca_cert_path.each do |path|
             raise Fluent::ConfigError, "specified cert path does not exist:#{path}" unless File.exist?(path)
