@@ -91,7 +91,8 @@ module Fluent::Plugin
     desc 'Verify hostname of servers and certificates or not in TLS transport.'
     config_param :tls_verify_hostname, :bool, default: true
     desc 'The additional CA certificate path for TLS.'
-    config_param :tls_cert_path, :array, value_type: :string, default: nil
+    config_param :tls_ca_cert_path, :array, value_type: :string, default: nil
+    config_param :tls_cert_path, :array, value_type: :string, default: nil, deprecated: "Use tls_ca_cert_path instead"
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
@@ -166,8 +167,12 @@ module Fluent::Plugin
       end
 
       if @transport == :tls
+        # for backward compatibility
         if @tls_cert_path && !@tls_cert_path.empty?
-          @tls_cert_path.each do |path|
+          @tls_ca_cert_path = @tls_cert_path
+        end
+        if @tls_ca_cert_path && !@tls_ca_cert_path.empty?
+          @tls_ca_cert_path.each do |path|
             raise Fluent::ConfigError, "specified cert path does not exist:#{path}" unless File.exist?(path)
             raise Fluent::ConfigError, "specified cert path is not readable:#{path}" unless File.readable?(path)
           end
@@ -324,7 +329,7 @@ module Fluent::Plugin
           verify_fqdn: @tls_verify_hostname,
           fqdn: hostname,
           allow_self_signed_cert: @tls_allow_self_signed_cert,
-          cert_paths: @tls_cert_path,
+          cert_paths: @tls_ca_cert_path,
           linger_timeout: @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
