@@ -93,6 +93,12 @@ module Fluent::Plugin
     desc 'The additional CA certificate path for TLS.'
     config_param :tls_ca_cert_path, :array, value_type: :string, default: nil
     config_param :tls_cert_path, :array, value_type: :string, default: nil, deprecated: "Use tls_ca_cert_path instead"
+    desc 'The client certificate path for TLS.'
+    config_param :tls_client_cert_path, :string, default: nil
+    desc 'The client private key path for TLS.'
+    config_param :tls_client_private_key_path, :string, default: nil
+    desc 'The client private key passphrase for TLS.'
+    config_param :tls_client_private_key_passphrase, :string, default: nil
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
@@ -330,6 +336,9 @@ module Fluent::Plugin
           fqdn: hostname,
           allow_self_signed_cert: @tls_allow_self_signed_cert,
           cert_paths: @tls_ca_cert_path,
+          cert_path: @tls_client_cert_path,
+          private_key_path: @tls_client_private_key_path,
+          private_key_passphrase: @tls_client_private_key_passphrase,
           linger_timeout: @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
