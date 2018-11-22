@@ -219,14 +219,14 @@ EOL
 
   test 'verify_connection_at_startup is disabled in default' do
     @d = d = create_driver(CONFIG)
-    assert_equal false, d.instance.verify_connection_at_startup
+    assert_false d.instance.verify_connection_at_startup
   end
 
   test 'verify_connection_at_startup can be enabled' do
     @d = d = create_driver(CONFIG + %[
       verify_connection_at_startup true
     ])
-    assert_equal true, d.instance.verify_connection_at_startup
+    assert_true d.instance.verify_connection_at_startup
   end
 
   test 'send tags in str (utf-8 strings)' do
@@ -787,7 +787,8 @@ EOL
     end
   end
 
-  test 'verify_connection_at_startup_nodes_are_not_available' do
+  sub_test_case 'verify_connection_at_startup' do
+    test 'nodes are not available' do
       @d = d = create_driver(CONFIG + %[
         verify_connection_at_startup true
         <buffer tag>
@@ -797,57 +798,56 @@ EOL
           flush_at_shutdown false # suppress errors in d.instance_shutdown
         </buffer>
       ])
-    assert_raise Fluent::UnrecoverableError do
-      d.instance_start
-    end
-    d.instance_shutdown
-  end
-
-  test 'verify_connection_at_startup_nodes_shared_key_miss_match' do
-    input_conf = TARGET_CONFIG + %[
-                   <security>
-                     self_hostname in.localhost
-                     shared_key fluentd-sharedkey
-                   </security>
-                 ]
-    target_input_driver = create_target_input_driver(conf: input_conf)
-
-    output_conf = %[
-      send_timeout 30
-      heartbeat_type transport
-      transport tls
-      tls_verify_hostname false
-      verify_connection_at_startup true
-      require_ack_response true
-      ack_response_timeout 5s
-      <security>
-        self_hostname localhost
-        shared_key key_miss_match
-      </security>
-      <buffer tag>
-        flush_mode immediate
-        retry_type periodic
-        retry_wait 30s
-        flush_at_shutdown false # suppress errors in d.instance_shutdown
-        flush_thread_interval 31s
-      </buffer>
-
-      <server>
-        host #{TARGET_HOST}
-        port #{TARGET_PORT}
-      </server>
-    ]
-    @d = d = create_driver(output_conf)
-
-    target_input_driver.run(expect_records: 1, timeout: 15) do
       assert_raise Fluent::UnrecoverableError do
         d.instance_start
       end
       d.instance_shutdown
     end
-  end
 
-  test 'verify_connection_at_startup_nodes_shared_key_match' do
+    test 'nodes_shared_key_miss_match' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        send_timeout 30
+        heartbeat_type transport
+        transport tls
+        tls_verify_hostname false
+        verify_connection_at_startup true
+        require_ack_response true
+        ack_response_timeout 5s
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+        <buffer tag>
+          flush_mode immediate
+          retry_type periodic
+          retry_wait 30s
+          flush_at_shutdown false # suppress errors in d.instance_shutdown
+          flush_thread_interval 31s
+        </buffer>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 15) do
+        assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
+        d.instance_shutdown
+      end
+    end
+
+    test 'nodes_shared_key_match' do
       input_conf = TARGET_CONFIG + %[
                        <security>
                          self_hostname in.localhost
@@ -872,7 +872,7 @@ EOL
             port #{TARGET_PORT}
             shared_key fluentd-sharedkey
           </server>
-        ]
+      ]
       @d = d = create_driver(output_conf)
 
       time = event_time("2011-01-02 13:14:15 UTC")
@@ -894,4 +894,5 @@ EOL
       assert_equal(['test', time, records[0]], events[0])
       assert_equal(['test', time, records[1]], events[1])
     end
+  end
 end
