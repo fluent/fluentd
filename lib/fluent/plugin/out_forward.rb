@@ -262,7 +262,7 @@ module Fluent::Plugin
           begin
             node.verify_connection
           rescue StandardError => e
-            log.fatal e.message
+            log.fatal "forward's connection setting error: #{e.message}"
             raise Fluent::UnrecoverableError, e.message
           end
         end
