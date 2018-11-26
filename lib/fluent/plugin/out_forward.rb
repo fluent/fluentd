@@ -92,7 +92,8 @@ module Fluent::Plugin
     config_param :tls_verify_hostname, :bool, default: true
     desc 'The additional CA certificate path for TLS.'
     config_param :tls_ca_cert_path, :array, value_type: :string, default: nil
-    config_param :tls_cert_path, :array, value_type: :string, default: nil, deprecated: "Use tls_ca_cert_path instead"
+    desc 'The additional certificate path for TLS.'
+    config_param :tls_cert_path, :array, value_type: :string, default: nil
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
@@ -167,7 +168,7 @@ module Fluent::Plugin
       end
 
       if @transport == :tls
-        # for backward compatibility
+        # socket helper adds CA cert or signed certificate to same cert store internally so unify it in this place.
         if @tls_cert_path && !@tls_cert_path.empty?
           @tls_ca_cert_path = @tls_cert_path
         end
