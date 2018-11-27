@@ -34,6 +34,7 @@ config_path = Fluent::DEFAULT_CONFIG_PATH
 format = 'json'
 message_key = 'message'
 time_as_integer = false
+retry_limit = 5
 
 op.on('-p', '--port PORT', "fluent tcp port (default: #{port})", Integer) {|i|
   port = i
@@ -73,6 +74,10 @@ op.on('--message-key KEY', "key field for none format (default: #{message_key})"
 
 op.on('--time-as-integer', "Send time as integer for v0.12 or earlier", TrueClass) { |b|
   time_as_integer = true
+}
+
+op.on('--retry-limit N', "Specify the number of retry limit (default: #{retry_limit})", Integer) {|n|
+  retry_limit = n
 }
 
 singleton_class.module_eval do
@@ -132,7 +137,7 @@ class Writer
     end
   end
 
-  def initialize(tag, connector, time_as_integer: false)
+  def initialize(tag, connector, time_as_integer: false, retry_limit: 5)
     @tag = tag
     @connector = connector
     @socket = false
@@ -144,7 +149,7 @@ class Writer
     @pending = []
     @pending_limit = 1024  # TODO
     @retry_wait = 1
-    @retry_limit = 5  # TODO
+    @retry_limit = retry_limit
     @time_as_integer = time_as_integer
 
     super()
@@ -291,7 +296,7 @@ else
   }
 end
 
-w = Writer.new(tag, connector, time_as_integer: time_as_integer)
+w = Writer.new(tag, connector, time_as_integer: time_as_integer, retry_limit: retry_limit)
 w.start
 
 case format
