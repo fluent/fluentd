@@ -1,5 +1,28 @@
 # v1.3
 
+## Release v1.3.1 - 2018/11/27
+
+### Enhancements
+
+* out_forward: Separate parameter names for certificate
+  https://github.com/fluent/fluentd/pull/2181
+  https://github.com/fluent/fluentd/pull/2190
+* out_forward: Add `verify_connection_at_startup` parameter to check connection setting at startup phase
+  https://github.com/fluent/fluentd/pull/2184
+* config: Check right slash position in regexp type
+  https://github.com/fluent/fluentd/pull/2176
+* parser_nginx: Support multiple IPs in `http_x_forwarded_for` field
+  https://github.com/fluent/fluentd/pull/2171
+
+### Bug fixes
+
+* fluent-cat: Fix retry limit handling
+  https://github.com/fluent/fluentd/pull/2193
+* record_accessor helper: Delete top level field with bracket style
+  https://github.com/fluent/fluentd/pull/2192
+* filter_record_transformer: Keep `class` methond to avoid undefined method error
+  https://github.com/fluent/fluentd/pull/2186
+
 ## Release v1.3.0 - 2018/11/10
 
 ### New features
