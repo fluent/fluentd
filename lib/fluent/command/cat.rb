@@ -107,6 +107,8 @@ require 'msgpack'
 class Writer
   include MonitorMixin
 
+  RetryLimitError = Class.new(StandardError)
+
   class TimerThread
     def initialize(writer)
       @writer = writer
@@ -236,21 +238,24 @@ class Writer
   end
 
   def try_connect
-    now = Time.now.to_i
-
-    unless @error_history.empty?
-      # wait before re-connecting
-      wait = @retry_wait * (2 ** (@error_history.size-1))
-      if now <= @socket_time + wait
-        return false
-      end
-    end
-
     begin
+      now = Time.now.to_i
+
+      unless @error_history.empty?
+        # wait before re-connecting
+        wait = 1 #@retry_wait * (2 ** (@error_history.size-1))
+        if now <= @socket_time + wait
+          sleep(wait)
+          try_connect
+        end
+      end
+
       @socket = @connector.call
       @error_history.clear
       return true
 
+    rescue RetryLimitError => ex
+      raise ex
     rescue
       $stderr.puts "connect failed: #{$!}"
       @error_history << $!
@@ -263,9 +268,10 @@ class Writer
         }
         @pending.clear
         @error_history.clear
+        raise RetryLimitError, "exceed retry limit"
+      else
+        retry
       end
-
-      return false
     end
   end
 
