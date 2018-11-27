@@ -40,8 +40,14 @@ module Fluent
           if @keys.is_a?(Array)
             @last_key = @keys.last
             @dig_keys = @keys[0..-2]
-            mcall = method(:call_dig)
-            mdelete = method(:delete_nest)
+            if @dig_keys.empty?
+              @keys = @keys.first
+              mcall = method(:call_index)
+              mdelete = method(:delete_top)
+            else
+              mcall = method(:call_dig)
+              mdelete = method(:delete_nest)
+            end
           else
             # Call [] for single key to reduce dig overhead
             mcall = method(:call_index)
