@@ -157,14 +157,16 @@ EOL
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
 
-  test 'configure tls_cert_path is deprecated' do
+  data('CA cert'     => 'tls_ca_cert_path',
+       'non CA cert' => 'tls_cert_path')
+  test 'configure tls_cert_path/tls_ca_cert_path' do |param|
     dummy_cert_path = File.join(TMP_DIR, "dummy_cert.pem")
     FileUtils.touch(dummy_cert_path)
     conf = %[
       send_timeout 5
       transport tls
       tls_insecure_mode true
-      tls_cert_path #{dummy_cert_path}
+      #{param} #{dummy_cert_path}
       <server>
         host #{TARGET_HOST}
         port #{TARGET_PORT}
@@ -172,10 +174,7 @@ EOL
     ]
 
     @d = d = create_driver(conf)
-    expected_log = "'tls_cert_path' parameter is deprecated: Use tls_ca_cert_path instead"
-    logs = d.logs
-    assert{ logs.any?{|log| log.include?(expected_log) } }
-    assert_equal([dummy_cert_path], d.instance.tls_cert_path)
+    # In the plugin, tls_ca_cert_path is used for both cases
     assert_equal([dummy_cert_path], d.instance.tls_ca_cert_path)
   end
 
