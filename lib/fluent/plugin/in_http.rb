@@ -60,6 +60,8 @@ module Fluent::Plugin
     config_param :cors_allow_origins, :array, default: nil
     desc 'Respond with empty gif image of 1x1 pixel.'
     config_param :respond_with_empty_img, :bool, default: false
+    desc 'status codes by path.'
+    config_param :status_codes_by_path, :hash, default: {}, symbolize_keys: true, value_type: :string
 
     config_section :parse do
       config_set_default :@type, 'in_http'
@@ -160,13 +162,14 @@ module Fluent::Plugin
         path = path_info[1..-1]  # remove /
         tag = path.split('/').join('.')
         record_time, record = parse_params(params)
-
+        log.debug "http Path =", path
         # Skip nil record
         if record.nil?
           if @respond_with_empty_img
             return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
-            return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+            log.debug "http status returned =", @status_codes_by_path.fetch(path,"200 OK")
+            return [@status_codes_by_path.fetch(path,"200 OK"), {'Content-Type'=>'text/plain'}, ""]
           end
         end
 
@@ -233,7 +236,8 @@ module Fluent::Plugin
       if @respond_with_empty_img
         return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
-        return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+        log.debug "http status returned =", @status_codes_by_path.fetch(path,"200 OK")
+        return [@status_codes_by_path.fetch(path,"200 OK"), {'Content-Type'=>'text/plain'}, ""]
       end
     end
 
