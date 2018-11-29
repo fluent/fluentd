@@ -162,13 +162,11 @@ module Fluent::Plugin
         path = path_info[1..-1]  # remove /
         tag = path.split('/').join('.')
         record_time, record = parse_params(params)
-        log.debug "http Path =", path
         # Skip nil record
         if record.nil?
           if @respond_with_empty_img
             return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
-            log.debug "http status returned =", @status_codes_by_path.fetch(path,"200 OK")
             return [@status_codes_by_path.fetch(path,"200 OK"), {'Content-Type'=>'text/plain'}, ""]
           end
         end
@@ -236,7 +234,6 @@ module Fluent::Plugin
       if @respond_with_empty_img
         return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
-        log.debug "http status returned =", @status_codes_by_path.fetch(path,"200 OK")
         return [@status_codes_by_path.fetch(path,"200 OK"), {'Content-Type'=>'text/plain'}, ""]
       end
     end
