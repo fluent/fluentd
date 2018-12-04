@@ -1222,29 +1222,29 @@ module Fluent
 
           # @retry exists
 
-          if error
-            if @retry.limit?
+          if @retry.limit?
+            if error
               records = @buffer.queued_records
               msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
               log.error msg, retry_times: @retry.steps, records: records, error: error
               log.error_backtrace error.backtrace
-            elsif using_secondary
-              msg = "failed to flush the buffer with secondary output."
-              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
-              log.warn_backtrace error.backtrace
-            else
-              msg = "failed to flush the buffer."
-              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
-              log.warn_backtrace error.backtrace
             end
-          end
-
-          if @retry.limit?
             @buffer.clear_queue!
             log.debug "buffer queue cleared"
             @retry = nil
           else
             @retry.step
+            if error
+              if using_secondary
+                msg = "failed to flush the buffer with secondary output."
+                log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+                log.warn_backtrace error.backtrace
+              else
+                msg = "failed to flush the buffer."
+                log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+                log.warn_backtrace error.backtrace
+              end
+            end
           end
         end
       end
