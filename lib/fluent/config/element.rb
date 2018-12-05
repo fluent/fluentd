@@ -102,7 +102,7 @@ module Fluent
       end
 
       def has_key?(key)
-        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in chgeck_not_fetched.
+        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
         @unused.delete(key)
         super
       end
@@ -140,7 +140,7 @@ module Fluent
           out << "#{indent}<#{@name} #{@arg}>\n"
         end
         each_pair { |k, v|
-          out << dump_value(k, v, indent, nindent)
+          out << dump_value(k, v, nindent)
         }
         @elements.each { |e|
           out << e.to_s(nest + 1)
@@ -186,7 +186,7 @@ module Fluent
         opts[:type]
       end
 
-      def dump_value(k, v, indent, nindent)
+      def dump_value(k, v, nindent)
         if secret_param?(k)
           "#{nindent}#{k} xxxxxx\n"
         else

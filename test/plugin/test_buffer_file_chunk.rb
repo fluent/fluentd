@@ -1,5 +1,6 @@
 require_relative '../helper'
 require 'fluent/plugin/buffer/file_chunk'
+require 'fluent/plugin/compressable'
 require 'fluent/unique_id'
 
 require 'fileutils'
@@ -8,6 +9,8 @@ require 'time'
 require 'timecop'
 
 class BufferFileChunkTest < Test::Unit::TestCase
+  include Fluent::Plugin::Compressable
+
   setup do
     @klass = Fluent::Plugin::Buffer::FileChunk
     @chunkdir = File.expand_path('../../tmp/buffer_file_chunk', __FILE__)
@@ -49,8 +52,9 @@ class BufferFileChunkTest < Test::Unit::TestCase
     data(
       correct_staged: ['/mydir/mypath/myfile.b00ff.log', :staged],
       correct_queued: ['/mydir/mypath/myfile.q00ff.log', :queued],
-      incorrect_staged: ['/mydir/mypath/myfile.b00ff.log/unknown', :queued],
-      incorrect_queued: ['/mydir/mypath/myfile.q00ff.log/unknown', :queued],
+      incorrect_staged: ['/mydir/mypath/myfile.b00ff.log/unknown', :unknown],
+      incorrect_queued: ['/mydir/mypath/myfile.q00ff.log/unknown', :unknown],
+      output_file: ['/mydir/mypath/myfile.20160716.log', :unknown],
     )
     test 'can .assume_chunk_state' do |data|
       path, expected = data
@@ -122,7 +126,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert File.exist?(gen_chunk_path('b', @c.unique_id) + '.meta')
       assert{ File.stat(gen_chunk_path('b', @c.unique_id) + '.meta').mode.to_s(8).end_with?(@klass.const_get('FILE_PERMISSION').to_s(8)) }
 
-      assert_equal :staged, @c.state
+      assert_equal :unstaged, @c.state
       assert @c.empty?
     end
 
@@ -765,6 +769,76 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_raise IOError do
         @c.instance_eval{ @chunk }.write "chunk io is opened as read only"
       end
+    end
+  end
+
+  sub_test_case 'compressed buffer' do
+    setup do
+      @src = 'text data for compressing' * 5
+      @gzipped_src = compress(@src)
+    end
+
+    test '#append with compress option writes  compressed data to chunk when compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.append([@src, @src], compress: :gzip)
+      c.commit
+
+      # check chunk is compressed
+      assert c.read(compressed: :gzip).size < [@src, @src].join("").size
+
+      assert_equal @src + @src, c.read
+    end
+
+    test '#open passes io object having decompressed data to a block when compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      decomressed_data = c.open do |io|
+        v = io.read
+        assert_equal @src, v
+        v
+      end
+      assert_equal @src, decomressed_data
+    end
+
+    test '#open with compressed option passes io object having decompressed data to a block when compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      comressed_data = c.open(compressed: :gzip) do |io|
+        v = io.read
+        assert_equal @gzipped_src, v
+        v
+      end
+      assert_equal @gzipped_src, comressed_data
+    end
+
+    test '#write_to writes decompressed data when compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      assert_equal @src, c.read
+      assert_equal @gzipped_src, c.read(compressed: :gzip)
+
+      io = StringIO.new
+      c.write_to(io)
+      assert_equal @src, io.string
+    end
+
+    test '#write_to with compressed option writes compressed data when compress is gzip' do
+      c = @klass.new(gen_metadata, File.join(@chunkdir,'test.*.log'), :create, compress: :gzip)
+      c.concat(@gzipped_src, @src.size)
+      c.commit
+
+      assert_equal @src, c.read
+      assert_equal @gzipped_src, c.read(compressed: :gzip)
+
+      io = StringIO.new
+      c.write_to(io, compressed: :gzip)
+      assert_equal @gzipped_src, io.string
     end
   end
 end

@@ -14,15 +14,15 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 
-module Fluent
+module Fluent::Plugin
   class RelabelOutput < Output
-    Plugin.register_output('relabel', self)
+    Fluent::Plugin.register_output('relabel', self)
+    helpers :event_emitter
 
-    def emit(tag, es, chain)
+    def process(tag, es)
       router.emit_stream(tag, es)
-      chain.next
     end
   end
 end

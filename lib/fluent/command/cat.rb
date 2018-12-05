@@ -16,6 +16,8 @@
 
 require 'optparse'
 require 'fluent/env'
+require 'fluent/time'
+require 'fluent/msgpack_factory'
 
 op = OptionParser.new
 
@@ -143,7 +145,7 @@ class Writer
       raise ArgumentError, "Input must be a map (got #{record.class})"
     end
 
-    entry = [Time.now.to_i, record]
+    entry = [Fluent::EventTime.now, record]
     synchronize {
       unless write_impl([entry])
         # write failed
@@ -200,7 +202,8 @@ class Writer
     end
 
     begin
-      socket.write [@tag, array].to_msgpack
+      packer = Fluent::MessagePackFactory.packer
+      socket.write packer.pack([@tag, array])
       socket.flush
     rescue
       $stderr.puts "write failed: #{$!}"

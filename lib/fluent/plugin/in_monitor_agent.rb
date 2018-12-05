@@ -20,13 +20,16 @@ require 'cgi'
 
 require 'cool.io'
 
-require 'fluent/input'
-require 'fluent/output'
-require 'fluent/filter'
+require 'fluent/plugin/input'
+require 'fluent/plugin/output'
+require 'fluent/plugin/multi_output'
+require 'fluent/plugin/filter'
 
-module Fluent
+module Fluent::Plugin
   class MonitorAgentInput < Input
-    Plugin.register_input('monitor_agent', self)
+    Fluent::Plugin.register_input('monitor_agent', self)
+
+    helpers :timer, :thread
 
     config_param :bind, :string, default: '0.0.0.0'
     config_param :port, :integer, default: 24220
@@ -142,7 +145,7 @@ module Fluent
 
     class LTSVMonitorServlet < MonitorServlet
       def process(req, res)
-        list, opts = build_object(req, res)
+        list, _opts = build_object(req, res)
         return unless list
 
         normalized = JSON.parse(list.to_json)
@@ -204,36 +207,6 @@ module Fluent
       end
     end
 
-    class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, log, &callback)
-        @callback = callback
-        @log = log
-
-        # Avoid long shutdown time
-        @num_call = 0
-        if interval >= 10
-          min_interval = 10
-          @call_interval = interval / 10
-        else
-          min_interval = interval
-          @call_interval = 0
-        end
-
-        super(min_interval, true)
-      end
-
-      def on_timer
-        @num_call += 1
-        if @num_call >= @call_interval
-          @num_call = 0
-          @callback.call
-        end
-      rescue => e
-        @log.error e.to_s
-        @log.error_backtrace
-      end
-    end
-
     def start
       super
 
@@ -248,32 +221,22 @@ module Fluent
       @srv.mount('/api/plugins.json', JSONMonitorServlet, self)
       @srv.mount('/api/config', LTSVConfigMonitorServlet, self)
       @srv.mount('/api/config.json', JSONConfigMonitorServlet, self)
-      @thread = Thread.new {
+      thread_create :in_monitor_agent_servlet do
         @srv.start
-      }
+      end
       if @tag
         log.debug "tag parameter is specified. Emit plugins info to '#{@tag}'"
 
-        @loop = Coolio::Loop.new
         opts = {with_config: false}
-        timer = TimerWatcher.new(@emit_interval, log) {
-          es = MultiEventStream.new
-          now = Engine.now
+        timer_execute(:in_monitor_agent_emit, @emit_interval, repeat: true) {
+          es = Fluent::MultiEventStream.new
+          now = Fluent::Engine.now
           plugins_info_all(opts).each { |record|
             es.add(now, record)
           }
           router.emit_stream(@tag, es)
         }
-        @loop.attach(timer)
-        @thread_for_emit = Thread.new(&method(:run))
       end
-    end
-
-    def run
-      @loop.run
-    rescue => e
-      log.error "unexpected error", error: e.to_s
-      log.error_backtrace
     end
 
     def shutdown
@@ -281,70 +244,45 @@ module Fluent
         @srv.shutdown
         @srv = nil
       end
-      if @thread
-        @thread.join
-        @thread = nil
-      end
-      if @tag
-        @loop.watchers.each { |w| w.detach }
-        @loop.stop
-        @loop = nil
-        @thread_for_emit.join
-        @thread_for_emit = nil
-      end
 
       super
     end
 
     MONITOR_INFO = {
-      'output_plugin' => 'is_a?(::Fluent::Plugin::Output)',
-      'buffer_queue_length' => '@buffer.queue.size',
-      'buffer_total_queued_size' => '@buffer.stage_size + @buffer.queue_size',
-      'retry_count' => '@num_errors',
+      'output_plugin' => ->(){ is_a?(::Fluent::Plugin::Output) },
+      'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer); @buffer.queue.size },
+      'buffer_total_queued_size' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer); @buffer.stage_size },
+      'retry_count' => ->(){ instance_variable_defined?(:@num_errors) ? @num_errors : nil },
     }
 
     def all_plugins
       array = []
 
       # get all input plugins
-      array.concat Engine.root_agent.inputs
+      array.concat Fluent::Engine.root_agent.inputs
 
       # get all output plugins
-      Engine.root_agent.outputs.each { |o|
-        MonitorAgentInput.collect_children(o, array)
-      }
+      array.concat Fluent::Engine.root_agent.outputs
+
       # get all filter plugins
-      Engine.root_agent.filters.each { |f|
-        MonitorAgentInput.collect_children(f, array)
-      }
-      Engine.root_agent.labels.each { |name, l|
+      array.concat Fluent::Engine.root_agent.filters
+
+      Fluent::Engine.root_agent.labels.each { |name, l|
         # TODO: Add label name to outputs / filters for identifing plugins
-        l.outputs.each { |o| MonitorAgentInput.collect_children(o, array) }
-        l.filters.each { |f| MonitorAgentInput.collect_children(f, array) }
+        array.concat l.outputs
+        array.concat l.filters
       }
 
-      array
-    end
-
-    # get nexted plugins (such as <store> of the copy plugin)
-    # from the plugin `pe` recursively
-    def self.collect_children(pe, array=[])
-      array << pe
-      if pe.is_a?(MultiOutput) && pe.respond_to?(:outputs)
-        pe.outputs.each {|nop|
-          collect_children(nop, array)
-        }
-      end
       array
     end
 
     # try to match the tag and get the info from the matched output plugin
     # TODO: Support output in label
     def plugin_info_by_tag(tag, opts={})
-      matches = Engine.root_agent.event_router.instance_variable_get(:@match_rules)
+      matches = Fluent::Engine.root_agent.event_router.instance_variable_get(:@match_rules)
       matches.each { |rule|
         if rule.match?(tag)
-          if rule.collector.is_a?(Output)
+          if rule.collector.is_a?(Fluent::Plugin::Output) || rule.collector.is_a?(Fluent::Output)
             return get_monitor_info(rule.collector, opts)
           end
         end
@@ -381,8 +319,7 @@ module Fluent
       }
     end
 
-    # TODO: use %i() after drop ruby v1.9.3 support.
-    IGNORE_ATTRIBUTES = %W(@config_root_section @config @masked_config).map(&:to_sym)
+    IGNORE_ATTRIBUTES = %i(@config_root_section @config @masked_config)
 
     # get monitor info from the plugin `pe` and return a hash object
     def get_monitor_info(pe, opts={})
@@ -397,8 +334,11 @@ module Fluent
       # run MONITOR_INFO in plugins' instance context and store the info to obj
       MONITOR_INFO.each_pair {|key,code|
         begin
-          obj[key] = pe.instance_eval(code)
-        rescue
+          catch(:skip) do
+            obj[key] = pe.instance_exec(&code)
+          end
+        rescue => e
+          log.warn "unexpected error in monitoring plugins", key: key, plugin: pe.class, error: e
         end
       }
 
@@ -422,7 +362,7 @@ module Fluent
       case pe
       when Fluent::Plugin::Input
         'input'.freeze
-      when Fluent::Plugin::Output, Fluent::Plugin::BareOutput
+      when Fluent::Plugin::Output, Fluent::Plugin::MultiOutput, Fluent::Plugin::BareOutput
         'output'.freeze
       when Fluent::Plugin::Filter
         'filter'.freeze

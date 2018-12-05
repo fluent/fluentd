@@ -15,6 +15,7 @@
 #
 
 require 'forwardable'
+require 'logger'
 
 module Fluent
   class Log
@@ -122,7 +123,7 @@ module Fluent
     end
 
     def reopen!
-      # do noting in @logger.reopen! because it's already reopened in Supervisor.load_config
+      # do nothing in @logger.reopen! because it's already reopened in Supervisor.load_config
       @logger.reopen! if @logger
       nil
     end
@@ -440,6 +441,34 @@ module Fluent
     def terminate
       super
       @log.reset
+    end
+  end
+
+  # This class delegetes some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
+  # https://github.com/ruby/ruby/blob/7b2d47132ff8ee950b0f978ab772dee868d9f1b0/lib/logger.rb#L661
+  class LogDeviceIO < ::Logger::LogDevice
+    def flush
+      if @dev.respond_to?(:flush)
+        @dev.flush
+      else
+        super
+      end
+    end
+
+    def tty?
+      if @dev.respond_to?(:tty?)
+        @dev.tty?
+      else
+        super
+      end
+    end
+
+    def sync=(v)
+      if @dev.respond_to?(:sync=)
+        @dev.sync = v
+      else
+        super
+      end
     end
   end
 end

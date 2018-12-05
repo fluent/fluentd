@@ -15,13 +15,15 @@
 #
 
 require 'fluent/plugin/parser'
-require 'fluent/time'
 
 module Fluent
   module Plugin
-    class TSVParser < ValuesParser
+    class TSVParser < Parser
       Plugin.register_parser('tsv', self)
 
+      desc 'Names of fields included in each lines'
+      config_param :keys, :array, value_type: :string
+      desc 'The delimiter character (or string) of TSV values'
       config_param :delimiter, :string, default: "\t"
 
       def configure(conf)
@@ -30,7 +32,10 @@ module Fluent
       end
 
       def parse(text)
-        yield values_map(text.split(@delimiter, @key_num))
+        values = text.split(@delimiter, @key_num)
+        r = Hash[@keys.zip(values)]
+        time, record = convert_values(parse_time(r), r)
+        yield time, record
       end
     end
   end

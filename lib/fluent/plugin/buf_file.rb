@@ -122,14 +122,17 @@ module Fluent
           m = new_metadata() # this metadata will be overwritten by resuming .meta file content
                              # so it should not added into @metadata_list for now
           mode = Fluent::Plugin::Buffer::FileChunk.assume_chunk_state(path)
+          if mode == :unknown
+            log.debug "uknown state chunk found", path: path
+            next
+          end
+
           chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode) # file chunk resumes contents of metadata
           case chunk.state
           when :staged
             stage[chunk.metadata] = chunk
           when :queued
             queue << chunk
-          else
-            raise "BUG: unexpected chunk state '#{chunk.state}' for path '#{path}'"
           end
         end
 
@@ -141,9 +144,9 @@ module Fluent
       def generate_chunk(metadata)
         # FileChunk generates real path with unique_id
         if @file_permission
-          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, perm: @file_permission)
+          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, perm: @file_permission, compress: @compress)
         else
-          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create)
+          Fluent::Plugin::Buffer::FileChunk.new(metadata, @path, :create, compress: @compress)
         end
       end
     end

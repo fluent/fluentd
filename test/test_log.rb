@@ -1,17 +1,24 @@
 require_relative 'helper'
 require 'fluent/engine'
 require 'fluent/log'
+require 'timecop'
+require 'logger'
 
 class LogTest < Test::Unit::TestCase
+  TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/tmp/log/#{ENV['TEST_ENV_NUMBER']}")
+
   def setup
+    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.mkdir_p(TMP_DIR)
     @log_device = Fluent::Test::DummyLogDevice.new
     @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
-    stub(Time).now { @timestamp }
+    Timecop.freeze(@timestamp)
   end
 
   def teardown
     @log_device.reset
+    Timecop.return
     Thread.current[:last_repeated_stacktrace] = nil
   end
 
@@ -402,6 +409,84 @@ class LogTest < Test::Unit::TestCase
     # check fluentd log side level is also changed
     assert_equal(Fluent::Log::LEVEL_DEBUG, log.level)
   end
+
+  DAY_SEC = 60 * 60 * 24
+  data(
+    rotate_daily_age: ['daily', 100000, DAY_SEC + 1],
+    rotate_weekly_age: ['weekly', 100000, DAY_SEC * 7 + 1],
+    rotate_monthly_age: ['monthly', 100000, DAY_SEC * 31 + 1],
+    rotate_size: [1, 100, 0, '0'],
+  )
+  def test_log_with_logdevio(expected)
+    with_timezone('utc') do
+      @timestamp = Time.parse("2016-04-21 00:00:00 +0000")
+      @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
+      Timecop.freeze(@timestamp)
+
+      rotate_age, rotate_size, travel_term = expected
+      path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
+
+      logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
+
+      msg = 'a' * 101
+      log.info msg
+      assert_match msg, File.read(path)
+
+      Timecop.freeze(@timestamp + travel_term)
+
+      msg2 = 'b' * 101
+      log.info msg2
+      c = File.read(path)
+
+      assert_match msg2, c
+      assert_not_equal msg, c
+    end
+  end
+
+  def test_log_rotates_specifed_size_with_logdevio
+    with_timezone('utc') do
+      rotate_age = 2
+      rotate_size = 100
+      path = "#{TMP_DIR}/log-dev-io-#{rotate_size}-#{rotate_age}"
+      path0 = path + '.0'
+      path1 = path + '.1'
+
+      logdev = Fluent::LogDeviceIO.new(path, shift_age: rotate_age, shift_size: rotate_size)
+      logger = ServerEngine::DaemonLogger.new(logdev)
+      log = Fluent::Log.new(logger)
+
+      msg = 'a' * 101
+      log.info msg
+      assert_match msg, File.read(path)
+      assert_true File.exist?(path)
+      assert_true !File.exist?(path0)
+      assert_true !File.exist?(path1)
+
+      # create log.0
+      msg2 = 'b' * 101
+      log.info msg2
+      c = File.read(path)
+      c0 = File.read(path0)
+      assert_match msg2, c
+      assert_match msg, c0
+      assert_true File.exist?(path)
+      assert_true File.exist?(path0)
+      assert_true !File.exist?(path1)
+
+      # rotate
+      msg3 = 'c' * 101
+      log.info msg3
+      c = File.read(path)
+      c0 = File.read(path0)
+      assert_match msg3, c
+      assert_match msg2, c0
+      assert_true File.exist?(path)
+      assert_true File.exist?(path0)
+      assert_true !File.exist?(path1)
+    end
+  end
 end
 
 class PluginLoggerTest < Test::Unit::TestCase
@@ -409,7 +494,7 @@ class PluginLoggerTest < Test::Unit::TestCase
     @log_device = Fluent::Test::DummyLogDevice.new
     @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
-    stub(Time).now { @timestamp }
+    Timecop.freeze(@timestamp)
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
     logdev = @log_device
@@ -419,6 +504,7 @@ class PluginLoggerTest < Test::Unit::TestCase
 
   def teardown
     @log_device.reset
+    Timecop.return
     Thread.current[:last_repeated_stacktrace] = nil
   end
 
@@ -565,5 +651,43 @@ class PluginLoggerMixinTest < Test::Unit::TestCase
     plugin = DummyPlugin.new
     mock(plugin.log).reset
     plugin.terminate
+  end
+end
+
+class LogDeviceIOTest < Test::Unit::TestCase
+  test 'flush' do
+    io = StringIO.new
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_equal io, logdev.flush
+
+    io.instance_eval { undef :flush }
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_raise NoMethodError do
+      logdev.flush
+    end
+  end
+
+  test 'tty?' do
+    io = StringIO.new
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_equal io.tty?, logdev.tty?
+
+    io.instance_eval { undef :tty? }
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_raise NoMethodError do
+      logdev.tty?
+    end
+  end
+
+  test 'sync=' do
+    io = StringIO.new
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_true logdev.sync = true
+
+    io.instance_eval { undef :sync= }
+    logdev = Fluent::LogDeviceIO.new(io)
+    assert_raise NoMethodError do
+      logdev.sync = true
+    end
   end
 end

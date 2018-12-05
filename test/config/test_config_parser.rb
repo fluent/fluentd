@@ -86,6 +86,12 @@ module Fluent::Config
         assert_text_parsed_as(e('ROOT', '', {"k1" => "a  b  c"}), "k1 a  b  c")
       end
 
+      test "parses value into empty string if only key exists" do
+        # value parser parses empty string as true for bool type
+        assert_text_parsed_as(e('ROOT', '', {"k1" => ""}), "k1\n")
+        assert_text_parsed_as(e('ROOT', '', {"k1" => ""}), "k1")
+      end
+
       sub_test_case 'non-quoted string' do
         test "remains text starting with '#'" do
           assert_text_parsed_as(e('ROOT', '', {"k1" => "#not_comment"}), "  k1 #not_comment")

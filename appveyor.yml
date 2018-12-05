@@ -11,7 +11,7 @@ install:
   - bundle install
 build: off
 test_script:
-  - bundle exec rake test TESTOPTS=-v
+  - bundle exec rake test
 
 branches:
   only:
@@ -22,14 +22,20 @@ branches:
 
 environment:
   matrix:
+    - ruby_version: "23-x64"
+      devkit: C:\Ruby23-x64\DevKit
+    - ruby_version: "23"
+      devkit: C:\Ruby23\DevKit
     - ruby_version: "22-x64"
+      devkit: C:\Ruby23-x64\DevKit
+    - ruby_version: "21-x64"
       devkit: C:\Ruby23-x64\DevKit
     - ruby_version: "22"
       devkit: C:\Ruby23\DevKit
-    - ruby_version: "21-x64"
-      devkit: C:\Ruby23-x64\DevKit
+      WIN_RAPID: true
     - ruby_version: "21"
       devkit: C:\Ruby23\DevKit
+      WIN_RAPID: true
 matrix:
   allow_failures:
     - ruby_version: "21"

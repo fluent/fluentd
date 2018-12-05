@@ -45,21 +45,18 @@ class EventTimeTest < Test::Unit::TestCase
 
   test 'JSON.dump' do
     time = Fluent::EventTime.new(100)
-    assert_equal('100', JSON.dump(time))
     assert_equal('{"time":100}', JSON.dump({'time' => time}))
     assert_equal('["tag",100,{"key":"value"}]', JSON.dump(["tag", time, {"key" => "value"}]))
   end
 
   test 'Oj.dump' do
     time = Fluent::EventTime.new(100)
-    assert_equal('100', Oj.dump(time, mode: :compat))
     assert_equal('{"time":100}', Oj.dump({'time' => time}, mode: :compat))
     assert_equal('["tag",100,{"key":"value"}]', Oj.dump(["tag", time, {"key" => "value"}], mode: :compat))
   end
 
   test 'Yajl.dump' do
     time = Fluent::EventTime.new(100)
-    assert_equal('100', Yajl.dump(time))
     assert_equal('{"time":100}', Yajl.dump({'time' => time}))
     assert_equal('["tag",100,{"key":"value"}]', Yajl.dump(["tag", time, {"key" => "value"}]))
   end

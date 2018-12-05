@@ -26,15 +26,15 @@ module Fluent
     #   ex: storage, buffer chunk, ...
 
     # first class plugins (instantiated by Engine)
-    INPUT_REGISTRY     = Registry.new(:input,     'fluent/plugin/in_')
-    OUTPUT_REGISTRY    = Registry.new(:output,    'fluent/plugin/out_')
-    FILTER_REGISTRY    = Registry.new(:filter,    'fluent/plugin/filter_')
+    INPUT_REGISTRY     = Registry.new(:input,     'fluent/plugin/in_',         dir_search_prefix: 'in_')
+    OUTPUT_REGISTRY    = Registry.new(:output,    'fluent/plugin/out_',        dir_search_prefix: 'out_')
+    FILTER_REGISTRY    = Registry.new(:filter,    'fluent/plugin/filter_',     dir_search_prefix: 'filter_')
 
-    # feature plugin: second class plugins (instanciated by Plugins or Helpers)
-    BUFFER_REGISTRY    = Registry.new(:buffer,    'fluent/plugin/buf_')
-    PARSER_REGISTRY    = Registry.new(:parser,    'fluent/plugin/parser_')
-    FORMATTER_REGISTRY = Registry.new(:formatter, 'fluent/plugin/formatter_')
-    STORAGE_REGISTRY   = Registry.new(:storage,   'fluent/plugin/storage_')
+    # feature plugin: second class plugins (instantiated by Plugins or Helpers)
+    BUFFER_REGISTRY    = Registry.new(:buffer,    'fluent/plugin/buf_',        dir_search_prefix: 'buf_')
+    PARSER_REGISTRY    = Registry.new(:parser,    'fluent/plugin/parser_',     dir_search_prefix: 'parser_')
+    FORMATTER_REGISTRY = Registry.new(:formatter, 'fluent/plugin/formatter_',  dir_search_prefix: 'formatter_')
+    STORAGE_REGISTRY   = Registry.new(:storage,   'fluent/plugin/storage_',    dir_search_prefix: 'storage_')
 
     REGISTRIES = [INPUT_REGISTRY, OUTPUT_REGISTRY, FILTER_REGISTRY, BUFFER_REGISTRY, PARSER_REGISTRY, FORMATTER_REGISTRY, STORAGE_REGISTRY]
 

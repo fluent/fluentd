@@ -213,7 +213,7 @@ class ChildProcessTest < Test::Unit::TestCase
       end
       sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
       sleep TEST_WAIT_INTERVAL_FOR_LOOP * 10
-      @d.stop # nothing occures
+      @d.stop # nothing occurs
       @d.shutdown
 
       assert{ ary.size > 5 }
@@ -249,7 +249,7 @@ class ChildProcessTest < Test::Unit::TestCase
 
         assert_equal [], @d.log.out.logs
 
-        @d.stop # nothing occures
+        @d.stop # nothing occurs
         sleep TEST_WAIT_INTERVAL_FOR_LOOP * 5
         lines1 = ary.size
         assert{ lines1 > 1 }
@@ -312,6 +312,14 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     arguments = ["-e", "10.times{ puts 'okay'; STDOUT.flush rescue nil; sleep #{TEST_WAIT_INTERVAL_FOR_LOOP} }"] # 0.5 * 10
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      assert_equal [], @d.log.out.logs
+      @d.log.out.singleton_class.module_eval do
+        define_method(:write){|message|
+          raise "boo" if message.include?('test: {"test":"test"}') || message.include?('test: {"test"=>"test"}')
+          @logs.push message
+        }
+      end
+
       @d.child_process_execute(:t7, "ruby", arguments: arguments, interval: 2, immediate: true, mode: [:read]) do |io|
         ary << io.read.split("\n").map(&:chomp).join
       end
@@ -319,8 +327,9 @@ class ChildProcessTest < Test::Unit::TestCase
       assert_equal 1, @d._child_process_processes.size
       @d.stop
       warn_msg = '[warn]: previous child process is still running. skipped. title=:t7 command="ruby" arguments=["-e", "10.times{ puts \'okay\'; STDOUT.flush rescue nil; sleep 0.5 }"] interval=2 parallel=false' + "\n"
-      assert{ @d.log.out.logs.first.end_with?(warn_msg) }
-      assert{ @d.log.out.logs.all?{|line| line.end_with?(warn_msg) } }
+      logs = @d.log.out.logs
+      assert{ logs.first.end_with?(warn_msg) }
+      assert{ logs.all?{|line| line.end_with?(warn_msg) } }
       @d.shutdown; @d.close; @d.terminate
       assert_equal [], @d.log.out.logs
     end

@@ -14,31 +14,34 @@
 #    limitations under the License.
 #
 
-require 'fluent/filter'
-require 'fluent/plugin'
+require 'fluent/plugin/filter'
 
-module Fluent
+module Fluent::Plugin
   class StdoutFilter < Filter
-    Plugin.register_filter('stdout', self)
+    Fluent::Plugin.register_filter('stdout', self)
+
+    helpers :formatter, :compat_parameters, :inject
+
+    DEFAULT_FORMAT_TYPE = 'stdout'
+
+    config_section :format do
+      config_set_default :@type, DEFAULT_FORMAT_TYPE
+    end
 
     # for tests
     attr_reader :formatter
 
-    desc 'The format of the output.'
-    config_param :format, :string, default: 'stdout'
-    # config_param :output_type, :string, :default => 'json' (StdoutFormatter defines this)
-
     def configure(conf)
+      compat_parameters_convert(conf, :inject, :formatter)
       super
-
-      @formatter = Plugin.new_formatter(@format)
-      @formatter.configure(conf)
+      @formatter = formatter_create
     end
 
     def filter_stream(tag, es)
       es.each { |time, record|
         begin
-          log.write @formatter.format(tag, time, record)
+          r = inject_values_to_record(tag, time, record)
+          log.write @formatter.format(tag, time, r)
         rescue => e
           router.emit_error_event(tag, time, record, e)
         end

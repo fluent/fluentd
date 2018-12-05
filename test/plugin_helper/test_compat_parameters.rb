@@ -2,6 +2,8 @@ require_relative '../helper'
 require 'fluent/plugin_helper/compat_parameters'
 require 'fluent/plugin/base'
 
+require 'time'
+
 class CompatParameterTest < Test::Unit::TestCase
   setup do
     Fluent::Test.setup
@@ -19,46 +21,53 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  class Dummy0 < Fluent::Plugin::Output
+  class DummyO0 < Fluent::Plugin::Output
     helpers :compat_parameters
-    def compat_parameters_default_chunk_key
-      ''
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: '')
+      super
     end
-    def write(chunk)
-      # dummy
-    end
+    def write(chunk); end # dummy
   end
-  class Dummy1 < Fluent::Plugin::Output
+  class DummyO1 < Fluent::Plugin::Output
     helpers :compat_parameters
-    def compat_parameters_default_chunk_key
-      'time'
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: 'time')
+      super
     end
-    def write(chunk)
-      # dummy
-    end
+    def write(chunk); end # dummy
   end
-  class Dummy2 < Fluent::Plugin::Output
+  class DummyO2 < Fluent::Plugin::Output
     helpers :compat_parameters
-    # for test to assume default key time by 'time_slice_format'
-    def write(chunk)
-      # dummy
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: 'time')
+      super
     end
+    def write(chunk); end # dummy
   end
-  class Dummy3 < Fluent::Plugin::Output
+  class DummyO3 < Fluent::Plugin::Output
     helpers :compat_parameters
-    def compat_parameters_default_chunk_key
-      'tag'
+    def configure(conf)
+      compat_parameters_buffer(conf, default_chunk_key: 'tag')
+      super
     end
-    def write(chunk)
-      # dummy
+    def write(chunk); end # dummy
+  end
+  class DummyO4 < Fluent::Plugin::Output
+    helpers :compat_parameters, :inject, :formatter
+    attr_reader :f
+    def configure(conf)
+      compat_parameters_convert(conf, :buffer, :inject, :formatter, default_chunk_key: 'tag')
+      super
     end
+    def start
+      super
+      @f = formatter_create()
+    end
+    def write(chunk); end # dummy
   end
 
-  sub_test_case 'plugins which does not have default chunk key' do
-    setup do
-      @p = Dummy0
-    end
-
+  sub_test_case 'output plugins which does not have default chunk key' do
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'num_threads' => 8,
@@ -68,7 +77,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'flush_at_shutdown' => 'yes',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO0.new
       @i.configure(conf)
 
       assert_equal 'memory', @i.buffer_config[:@type]
@@ -82,11 +91,7 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'plugins which has default chunk key: time' do
-    setup do
-      @p = Dummy1
-    end
-
+  sub_test_case 'output plugins which has default chunk key: time' do
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'buffer_type' => 'file',
@@ -96,7 +101,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'buffer_queue_full_action' => 'block',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO1.new
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
@@ -112,11 +117,7 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'plugins which does not have default chunk key' do
-    setup do
-      @p = Dummy2
-    end
-
+  sub_test_case 'output plugins which does not have default chunk key' do
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'buffer_type' => 'file',
@@ -127,7 +128,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'buffer_queue_full_action' => 'drop_oldest_chunk',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO2.new
       @i.configure(conf)
 
       assert_equal 'file', @i.buffer_config[:@type]
@@ -144,11 +145,7 @@ class CompatParameterTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'plugins which has default chunk key: tag' do
-    setup do
-      @p = Dummy3
-    end
-
+  sub_test_case 'output plugins which has default chunk key: tag' do
     test 'plugin helper converts parameters into plugin configuration parameters' do
       hash = {
         'buffer_type' => 'memory',
@@ -158,7 +155,7 @@ class CompatParameterTest < Test::Unit::TestCase
         'queued_chunk_flush_interval' => '0.5',
       }
       conf = config_element('ROOT', '', hash)
-      @i = @p.new
+      @i = DummyO3.new
       @i.configure(conf)
 
       assert_equal 'memory', @i.buffer_config[:@type]
@@ -170,6 +167,76 @@ class CompatParameterTest < Test::Unit::TestCase
       assert !@i.chunk_key_time
       assert @i.chunk_key_tag
       assert_equal [], @i.chunk_keys
+    end
+  end
+
+  sub_test_case 'output plugins which has default chunk key: tag, and enables inject and formatter' do
+    test 'plugin helper converts parameters into plugin configuration parameters for all of buffer, inject and formatter' do
+      hash = {
+        'buffer_type' => 'file',
+        'buffer_path' => File.expand_path('../../tmp/compat_parameters/mybuffer.*.log', __FILE__),
+        'num_threads' => '10',
+        'format' => 'ltsv',
+        'delimiter' => ',',
+        'label_delimiter' => '%',
+        'include_time_key' => 'true', # default time_key 'time' and default time format (iso8601: 2016-06-24T15:57:38) at localtime
+        'include_tag_key' => 'yes', # default tag_key 'tag'
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyO4.new
+      @i.configure(conf)
+      @i.start
+      @i.after_start
+
+      assert_equal 'file', @i.buffer_config[:@type]
+      assert_equal 10, @i.buffer_config.flush_thread_count
+      formatter = @i.f
+      assert{ formatter.is_a? Fluent::Plugin::LabeledTSVFormatter }
+      assert_equal ',', @i.f.delimiter
+      assert_equal '%', @i.f.label_delimiter
+
+      assert !@i.chunk_key_time
+      assert @i.chunk_key_tag
+      assert_equal [], @i.chunk_keys
+
+      t = event_time('2016-06-24 16:05:01') # localtime
+      iso8601str = Time.at(t.to_i).iso8601
+      formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
+      assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
+    end
+
+    test 'plugin helper setups time injecting as unix time (integer from epoch)' do
+      hash = {
+        'buffer_type' => 'file',
+        'buffer_path' => File.expand_path('../../tmp/compat_parameters/mybuffer.*.log', __FILE__),
+        'num_threads' => '10',
+        'format' => 'ltsv',
+        'delimiter' => ',',
+        'label_delimiter' => '%',
+        'include_time_key' => 'true', # default time_key 'time' and default time format (iso8601: 2016-06-24T15:57:38) at localtime
+        'include_tag_key' => 'yes', # default tag_key 'tag'
+      }
+      conf = config_element('ROOT', '', hash)
+      @i = DummyO4.new
+      @i.configure(conf)
+      @i.start
+      @i.after_start
+
+      assert_equal 'file', @i.buffer_config[:@type]
+      assert_equal 10, @i.buffer_config.flush_thread_count
+      formatter = @i.f
+      assert{ formatter.is_a? Fluent::Plugin::LabeledTSVFormatter }
+      assert_equal ',', @i.f.delimiter
+      assert_equal '%', @i.f.label_delimiter
+
+      assert !@i.chunk_key_time
+      assert @i.chunk_key_tag
+      assert_equal [], @i.chunk_keys
+
+      t = event_time('2016-06-24 16:05:01') # localtime
+      iso8601str = Time.at(t.to_i).iso8601
+      formatted = @i.f.format('tag.test', t, @i.inject_values_to_record('tag.test', t, {"value" => 1}))
+      assert_equal "value%1,tag%tag.test,time%#{iso8601str}\n", formatted
     end
   end
 end

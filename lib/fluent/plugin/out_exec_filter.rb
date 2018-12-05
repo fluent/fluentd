@@ -38,9 +38,9 @@ module Fluent
     config_param :remove_prefix, :string, default: nil
     config_param :add_prefix, :string, default: nil
 
-    desc "The format used to map the incoming event to the program input.(#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
+    desc "The format used to map the incoming event to the program input.(#{Fluent::ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
     config_param :in_format, default: :tsv do |val|
-      f = ExecUtil::SUPPORTED_FORMAT[val]
+      f = Fluent::ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported in_format '#{val}'" unless f
       f
     end
@@ -55,9 +55,9 @@ module Fluent
     desc 'The format for event time used when the in_time_key parameter is specified.(Defauls is UNIX time)'
     config_param :in_time_format, default: nil
 
-    desc "The format used to process the program output.(#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
+    desc "The format used to process the program output.(#{Fluent::ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
     config_param :out_format, default: :tsv do |val|
-      f = ExecUtil::SUPPORTED_FORMAT[val]
+      f = Fluent::ExecUtil::SUPPORTED_FORMAT[val]
       raise ConfigError, "Unsupported out_format '#{val}'" unless f
       f
     end
@@ -169,11 +169,11 @@ module Fluent
         if @in_keys.empty?
           raise ConfigError, "in_keys option is required on exec_filter output for tsv in_format"
         end
-        @formatter = ExecUtil::TSVFormatter.new(@in_keys)
+        @formatter = Fluent::ExecUtil::TSVFormatter.new(@in_keys)
       when :json
-        @formatter = ExecUtil::JSONFormatter.new
+        @formatter = Fluent::ExecUtil::JSONFormatter.new
       when :msgpack
-        @formatter = ExecUtil::MessagePackFormatter.new
+        @formatter = Fluent::ExecUtil::MessagePackFormatter.new
       end
 
       case @out_format
@@ -181,11 +181,11 @@ module Fluent
         if @out_keys.empty?
           raise ConfigError, "out_keys option is required on exec_filter output for tsv in_format"
         end
-        @parser = ExecUtil::TSVParser.new(@out_keys, method(:on_message))
+        @parser = Fluent::ExecUtil::TSVParser.new(@out_keys, method(:on_message))
       when :json
-        @parser = ExecUtil::JSONParser.new(method(:on_message))
+        @parser = Fluent::ExecUtil::JSONParser.new(method(:on_message))
       when :msgpack
-        @parser = ExecUtil::MessagePackParser.new(method(:on_message))
+        @parser = Fluent::ExecUtil::MessagePackParser.new(method(:on_message))
       end
 
       @respawns = if @child_respawn.nil? or @child_respawn == 'none' or @child_respawn == '0'

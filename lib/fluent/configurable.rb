@@ -144,9 +144,10 @@ module Fluent
       end
 
       def config_section(name, **kwargs, &block)
+        section_already_exists = !!merged_configure_proxy.sections[name]
         configure_proxy(self.name).config_section(name, **kwargs, &block)
         variable_name = configure_proxy(self.name).sections[name].variable_name
-        unless self.respond_to?(variable_name)
+        if !section_already_exists && !self.respond_to?(variable_name)
           attr_accessor variable_name
         end
       end

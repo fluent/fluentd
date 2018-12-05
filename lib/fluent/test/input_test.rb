@@ -24,6 +24,7 @@ module Fluent
       def initialize(klass, &block)
         super(klass, &block)
         @emit_streams = []
+        @event_streams = []
         @expects = nil
         # for checking only the number of emitted records during run
         @expected_emits_length = nil
@@ -42,7 +43,7 @@ module Fluent
 
       attr_accessor :expected_emits_length
       attr_accessor :run_timeout
-      attr_reader :emit_streams
+      attr_reader :emit_streams, :event_streams
 
       def emits
         all = []
@@ -110,12 +111,12 @@ module Fluent
 
       def run(num_waits = 10, &block)
         m = method(:emit_stream)
-        (class << Engine; self; end).module_eval do
-          prepend EmitStreamWrapper
+        unless Engine.singleton_class.ancestors.include?(EmitStreamWrapper)
+          Engine.singleton_class.prepend EmitStreamWrapper
         end
         Engine.emit_stream_callee = m
-        (class << instance.router; self; end).module_eval do
-          prepend EmitStreamWrapper
+        unless instance.router.singleton_class.ancestors.include?(EmitStreamWrapper)
+          instance.router.singleton_class.prepend EmitStreamWrapper
         end
         instance.router.emit_stream_callee = m
 
@@ -135,7 +136,7 @@ module Fluent
               end
             end
 
-            # Set runnning timeout to avoid infinite loop caused by some errors.
+            # Set running timeout to avoid infinite loop caused by some errors.
             started_at = Time.now
             register_run_breaking_condition do
               Time.now >= started_at + @run_timeout
@@ -165,6 +166,7 @@ module Fluent
 
       private
       def emit_stream(tag, es)
+        @event_streams << es
         @emit_streams << [tag, es.to_a]
       end
     end

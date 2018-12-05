@@ -72,4 +72,20 @@ class BaseTest < Test::Unit::TestCase
     assert_equal 'myvalue1', p2.myparam1
     assert_equal 99, p2.mysection.myparam2
   end
+
+  test 'provides #string_safe_encoding to scrub invalid sequence string with info logging' do
+    logger = Fluent::Test::TestLogger.new
+    m = Module.new do
+      define_method(:log) do
+        logger
+      end
+    end
+    @p.extend m
+    assert_equal [], logger.logs
+
+    ret = @p.string_safe_encoding("abc\xff.\x01f"){|s| s.split(/\./) }
+    assert_equal ['abc?', "\u0001f"], ret
+    assert_equal 1, logger.logs.size
+    assert{ logger.logs.first.include?("invalid byte sequence is replaced in ") }
+  end
 end

@@ -19,7 +19,7 @@ module Fluent
     class ConfigureProxy
       attr_accessor :name, :final, :param_name, :init, :required, :multi, :alias, :configured_in_section
       attr_accessor :argument, :params, :defaults, :descriptions, :sections
-      # config_param :desc, :string, :default => '....'
+      # config_param :desc, :string, default: '....'
       # config_set_default :buffer_type, :memory
       #
       # config_section :default, required: true, multi: false do
@@ -123,7 +123,7 @@ module Fluent
                  end
 
         # configured_in MUST be kept
-        merged.configured_in_section = self.configured_in_section
+        merged.configured_in_section = self.configured_in_section || other.configured_in_section
 
         merged.argument = other.argument || self.argument
         merged.params = other.params.merge(self.params)
@@ -177,7 +177,7 @@ module Fluent
                    self.class.new(@name, options)
                  end
 
-        merged.configured_in_section = self.configured_in_section
+        merged.configured_in_section = self.configured_in_section || other.configured_in_section
 
         merged.argument = self.argument || other.argument
         merged.params = other.params.merge(self.params)
@@ -208,6 +208,24 @@ module Fluent
         end
       end
 
+      def option_value_type!(name, opts, key, klass=nil, type: nil)
+        if opts.has_key?(key)
+          if klass && !opts[key].is_a?(klass)
+            raise ArgumentError, "#{name}: #{key} must be a #{klass}, but #{opts[key].class}"
+          end
+          case type
+          when :boolean
+            unless opts[key].is_a?(TrueClass) || opts[key].is_a?(FalseClass)
+              raise ArgumentError, "#{name}: #{key} must be true or false, but #{opts[key].class}"
+            end
+          when nil
+            # ignore
+          else
+            raise "unknown type: #{type} for option #{key}"
+          end
+        end
+      end
+
       def parameter_configuration(name, type = nil, **kwargs, &block)
         name = name.to_sym
 
@@ -216,7 +234,7 @@ module Fluent
         opts.merge!(kwargs)
 
         if block && type
-          raise ArgumentError, "#{self.name}: both of block and type cannot be specified"
+          raise ArgumentError, "#{name}: both of block and type cannot be specified"
         end
 
         begin
@@ -224,8 +242,22 @@ module Fluent
           block ||= @type_lookup.call(type)
         rescue ConfigError
           # override error message
-          raise ArgumentError, "#{self.name}: unknown config_argument type `#{type}'"
+          raise ArgumentError, "#{name}: unknown config_argument type `#{type}'"
         end
+
+        # options for config_param
+        option_value_type!(name, opts, :desc, String)
+        option_value_type!(name, opts, :alias, Symbol)
+        option_value_type!(name, opts, :secret, type: :boolean)
+        option_value_type!(name, opts, :deprecated, String)
+        option_value_type!(name, opts, :obsoleted, String)
+        if type == :enum
+          if !opts.has_key?(:list) || !opts[:list].all?{|v| v.is_a?(Symbol) }
+            raise ArgumentError, "#{name}: enum parameter requires :list of Symbols"
+          end
+        end
+        option_value_type!(name, opts, :value_type, Symbol) # hash, array
+        option_value_type!(name, opts, :skip_accessor, type: :boolean)
 
         if opts.has_key?(:default)
           config_set_default(name, opts[:default])
@@ -233,6 +265,10 @@ module Fluent
 
         if opts.has_key?(:desc)
           config_set_desc(name, opts[:desc])
+        end
+
+        if opts[:deprecated] && opts[:obsoleted]
+          raise ArgumentError, "#{name}: both of deprecated and obsoleted cannot be specified at once"
         end
 
         [name, block, opts]
@@ -296,21 +332,12 @@ module Fluent
 
       def config_section(name, **kwargs, &block)
         unless block_given?
-          raise ArgumentError, "#{self.name}: config_section requires block parameter"
+          raise ArgumentError, "#{name}: config_section requires block parameter"
         end
         name = name.to_sym
 
         sub_proxy = ConfigureProxy.new(name, type_lookup: @type_lookup, **kwargs)
         sub_proxy.instance_exec(&block)
-
-        if sub_proxy.init?
-          if sub_proxy.argument && !sub_proxy.defaults.has_key?(sub_proxy.argument.first)
-            raise ArgumentError, "#{self.name}: init is specified, but default value of argument is missing"
-          end
-          if sub_proxy.params.keys.any?{|param_name| !sub_proxy.defaults.has_key?(param_name)}
-            raise ArgumentError, "#{self.name}: init is specified, but there're parameters without default values"
-          end
-        end
 
         @params.delete(name)
         @sections[name] = sub_proxy

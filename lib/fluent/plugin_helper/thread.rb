@@ -70,7 +70,7 @@ module Fluent
             thread_exit = true
             raise
           ensure
-            unless thread_exit
+            if ::Thread.current.alive? && !thread_exit
               log.warn "thread doesn't exit correctly (killed or other reason)", plugin: self.class, title: title, thread: ::Thread.current, error: $!
             end
             @_threads_mutex.synchronize do
@@ -110,10 +110,30 @@ module Fluent
 
       def stop
         super
+        wakeup_threads = []
         @_threads_mutex.synchronize do
-          @_threads.each_pair do |obj_id, thread|
+          @_threads.each_value do |thread|
             thread[:_fluentd_plugin_helper_thread_running] = false
+            wakeup_threads << thread if thread.alive? && thread.status == "sleep"
           end
+        end
+        wakeup_threads.each do |thread|
+          if thread.alive?
+            thread.wakeup
+          end
+        end
+      end
+
+      def after_shutdown
+        super
+        wakeup_threads = []
+        @_threads_mutex.synchronize do
+          @_threads.each_value do |thread|
+            wakeup_threads << thread if thread.alive? && thread.status == "sleep"
+          end
+        end
+        wakeup_threads.each do |thread|
+          thread.wakeup if thread.alive?
         end
       end
 
@@ -132,7 +152,7 @@ module Fluent
         super
         @_threads_mutex.synchronize{ @_threads.keys }.each do |obj_id|
           thread = @_threads[obj_id]
-          log.warn "killing existing thead", thread: thread
+          log.warn "killing existing thread", thread: thread
           thread.kill if thread
         end
         @_threads_mutex.synchronize{ @_threads.keys }.each do |obj_id|

@@ -24,11 +24,15 @@ module Fluent
       include Configurable
       include SystemConfig::Mixin
 
-      State = Struct.new(:configure, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
+      State = Struct.new(:configure, :start, :after_start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
+
+      attr_accessor :under_plugin_development
 
       def initialize
         super
-        @_state = State.new(false, false, false, false, false, false, false, false)
+        @_state = State.new(false, false, false, false, false, false, false, false, false)
+        @_context_router = nil
+        @under_plugin_development = false
       end
 
       def has_router?
@@ -37,13 +41,34 @@ module Fluent
 
       def configure(conf)
         super
-        @_state ||= State.new(false, false, false, false, false, false, false, false)
+        @_state ||= State.new(false, false, false, false, false, false, false, false, false)
         @_state.configure = true
         self
       end
 
+      def string_safe_encoding(str)
+        unless str.valid_encoding?
+          log.info "invalid byte sequence is replaced in `#{str}`" if self.respond_to?(:log)
+          str = str.scrub('?')
+        end
+        yield str
+      end
+
+      def context_router=(router)
+        @_context_router = router
+      end
+
+      def context_router
+        @_context_router
+      end
+
       def start
         @_state.start = true
+        self
+      end
+
+      def after_start
+        @_state.after_start = true
         self
       end
 
@@ -83,6 +108,10 @@ module Fluent
 
       def started?
         @_state.start
+      end
+
+      def after_started?
+        @_state.after_start
       end
 
       def stopped?

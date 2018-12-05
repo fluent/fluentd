@@ -1,11 +1,37 @@
 require_relative '../helper'
 require 'fluent/test/driver/output'
-require 'fluent/plugin/out_buffered_null'
+require 'fluent/plugin/out_null'
 
-class BufferedNullOutputTestCase < Test::Unit::TestCase
-  sub_test_case 'BufferedNullOutput' do
+class NullOutputTest < Test::Unit::TestCase
+  def setup
+    Fluent::Test.setup
+  end
+
+  def create_driver(conf = "")
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::NullOutput).configure(conf)
+  end
+
+  sub_test_case 'non-buffered' do
+    test 'configure' do
+      assert_nothing_raised do
+        create_driver
+      end
+    end
+
+    test 'process' do
+      d = create_driver
+      assert_nothing_raised do
+        d.run do
+          d.feed("test", Fluent::EventTime.now, {"test" => "null"})
+        end
+      end
+    assert_equal([], d.events(tag: "test"))
+    end
+  end
+
+  sub_test_case 'buffered' do
     test 'default chunk limit size is 100' do
-      d = Fluent::Test::Driver::Output.new(Fluent::Plugin::BufferedNullOutput).configure('')
+      d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
       assert_equal 10 * 1024, d.instance.buffer_config.chunk_limit_size
       assert d.instance.buffer_config.flush_at_shutdown
       assert_equal ['tag'], d.instance.buffer_config.chunk_keys
@@ -15,7 +41,7 @@ class BufferedNullOutputTestCase < Test::Unit::TestCase
     end
 
     test 'writes standard formattted chunks' do
-      d = Fluent::Test::Driver::Output.new(Fluent::Plugin::BufferedNullOutput).configure('')
+      d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
       t = event_time("2016-05-23 00:22:13 -0800")
       d.run(default_tag: 'test', flush: true) do
         d.feed(t, {"message" => "null null null"})
@@ -28,7 +54,7 @@ class BufferedNullOutputTestCase < Test::Unit::TestCase
     end
 
     test 'check for chunk passed to #write' do
-      d = Fluent::Test::Driver::Output.new(Fluent::Plugin::BufferedNullOutput).configure('')
+      d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
       data = []
       d.instance.feed_proc = ->(chunk){ data << [chunk.unique_id, chunk.metadata.tag, chunk.read] }
 
@@ -48,7 +74,7 @@ class BufferedNullOutputTestCase < Test::Unit::TestCase
     end
 
     test 'check for chunk passed to #try_write' do
-      d = Fluent::Test::Driver::Output.new(Fluent::Plugin::BufferedNullOutput).configure('')
+      d = create_driver(config_element("ROOT", "", {}, [config_element("buffer")]))
       data = []
       d.instance.feed_proc = ->(chunk){ data << [chunk.unique_id, chunk.metadata.tag, chunk.read] }
       d.instance.delayed = true

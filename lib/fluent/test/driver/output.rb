@@ -14,15 +14,16 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/base'
+require 'fluent/test/driver/base_owner'
 require 'fluent/test/driver/event_feeder'
 
 require 'fluent/plugin/output'
+require 'timeout'
 
 module Fluent
   module Test
     module Driver
-      class Output < Base
+      class Output < BaseOwner
         include EventFeeder
 
         def initialize(klass, opts: {}, &block)
@@ -40,10 +41,12 @@ module Fluent
         end
 
         def run_actual(**kwargs, &block)
-          super(**kwargs, &block)
+          val = super(**kwargs, &block)
           if @flush_buffer_at_cleanup
             @instance.force_flush
+            Timeout.timeout(10){ sleep 0.1 until !@instance.buffer || @instance.buffer.queue.size == 0 }
           end
+          val
         end
 
         def formatted
@@ -52,6 +55,7 @@ module Fluent
 
         def flush
           @instance.force_flush
+          Timeout.timeout(10){ sleep 0.1 until !@instance.buffer || @instance.buffer.queue.size == 0 }
         end
 
         def instance_hook_after_started
@@ -67,9 +71,7 @@ module Fluent
                 result
               end
             end
-            @instance.singleton_class.module_eval do
-              prepend m
-            end
+            @instance.singleton_class.prepend m
           end
         end
       end

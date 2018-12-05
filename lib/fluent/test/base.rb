@@ -14,27 +14,14 @@
 #    limitations under the License.
 #
 
+require 'fluent/config'
 require 'fluent/engine'
 require 'fluent/system_config'
-require 'fluent/config'
+require 'fluent/test/log'
 require 'serverengine'
 
 module Fluent
   module Test
-    def self.setup
-      Fluent.__send__(:remove_const, :Engine)
-      engine = Fluent.const_set(:Engine, EngineClass.new).init(SystemConfig.new)
-
-      engine.define_singleton_method(:now=) {|n|
-        @now = n
-      }
-      engine.define_singleton_method(:now) {
-        @now ||= super()
-      }
-
-      nil
-    end
-
     class TestDriver
       include ::Test::Unit::Assertions
 
@@ -43,7 +30,9 @@ module Fluent
           if block
             # Create new class for test w/ overwritten methods
             #   klass.dup is worse because its ancestors does NOT include original class name
+            klass_name = klass.name
             klass = Class.new(klass)
+            klass.define_singleton_method("name") { klass_name }
             klass.module_eval(&block)
           end
           @instance = klass.new
@@ -75,6 +64,7 @@ module Fluent
       # num_waits is for checking thread status. This will be removed after improved plugin API
       def run(num_waits = 10, &block)
         @instance.start
+        @instance.after_start
         begin
           # wait until thread starts
           num_waits.times { sleep 0.05 }
@@ -84,63 +74,5 @@ module Fluent
         end
       end
     end
-
-    class DummyLogDevice
-      attr_reader :logs
-
-      def initialize
-        @logs = []
-      end
-
-      def reset
-        @logs = []
-      end
-
-      def tty?
-        false
-      end
-
-      def puts(*args)
-        args.each{ |arg| write(arg + "\n") }
-      end
-
-      def write(message)
-        @logs.push message
-      end
-
-      def flush
-        true
-      end
-
-      def close
-        true
-      end
-    end
-
-    class TestLogger < Fluent::PluginLogger
-      def initialize
-        @logdev = DummyLogDevice.new
-        dl_opts = {}
-        dl_opts[:log_level] = ServerEngine::DaemonLogger::INFO
-        logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
-        log = Fluent::Log.new(logger)
-        super(log)
-      end
-
-      def reset
-        @logdev.reset
-      end
-
-      def logs
-        @logdev.logs
-      end
-    end
-  end
-end
-
-Test::Unit::Assertions.module_eval do
-  def assert_equal_event_time(a, b)
-    assert_equal(a.sec, b.sec)
-    assert_equal(a.nsec, b.nsec)
   end
 end

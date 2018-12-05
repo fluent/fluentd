@@ -14,68 +14,41 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/multi_output'
 require 'fluent/config/error'
 
-module Fluent
+module Fluent::Plugin
   class RoundRobinOutput < MultiOutput
-    Plugin.register_output('roundrobin', self)
+    Fluent::Plugin.register_output('roundrobin', self)
+
+    config_section :store do
+      config_param :weight, :integer, default: 1
+    end
 
     def initialize
       super
-
-      @outputs = []
       @weights = []
     end
 
-    attr_reader :outputs, :weights
-    attr_accessor :rand_seed
+    attr_reader :weights
 
     def configure(conf)
       super
 
-      conf.elements.select {|e|
-        e.name == 'store'
-      }.each {|e|
-        type = e['@type']
-        unless type
-          raise ConfigError, "Missing 'type' parameter on <store> directive"
-        end
-
-        weight = e['weight']
-        weight = weight ? weight.to_i : 1
-        log.debug "adding store type=#{type.dump}, weight=#{weight}"
-
-        output = Plugin.new_output(type)
-        output.router = router
-        output.configure(e)
-        @outputs << output
-        @weights << weight
-      }
+      @stores.each do |store|
+        @weights << store.weight
+      end
       @rr = -1  # starts from @output[0]
       @rand_seed = Random.new.seed
     end
 
     def start
       super
-
       rebuild_weight_array
-
-      @outputs.each do |o|
-        o.start unless o.started?
-      end
     end
 
-    def shutdown
-      @outputs.each do |o|
-        o.shutdown unless o.shutdown?
-      end
-
-      super
-    end
-
-    def emit(tag, es, chain)
-      next_output.emit(tag, es, chain)
+    def process(tag, es)
+      next_output.emit_events(tag, es)
     end
 
     private

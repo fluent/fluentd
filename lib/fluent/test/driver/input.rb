@@ -14,13 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/base'
+require 'fluent/test/driver/base_owner'
 require 'fluent/plugin/input'
 
 module Fluent
   module Test
     module Driver
-      class Input < Base
+      class Input < BaseOwner
         def initialize(klass, opts: {}, &block)
           super
           raise ArgumentError, "plugin is not an instance of Fluent::Plugin::Input" unless @instance.is_a? Fluent::Plugin::Input

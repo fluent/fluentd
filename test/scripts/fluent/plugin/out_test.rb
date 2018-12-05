@@ -14,17 +14,25 @@
 #    limitations under the License.
 #
 
-module Fluent
+require 'fluent/plugin/output'
+require 'fluent/event'
+
+module Fluent::Plugin
   class TestOutput < Output
-    Plugin.register_output('test', self)
+    Fluent::Plugin.register_output('test', self)
+
+    config_param :name, :string
+
+    config_section :buffer do
+      config_set_default :chunk_keys, ['tag']
+    end
 
     def initialize
       super
       @emit_streams = []
-      @name = nil
     end
 
-    attr_reader :emit_streams, :name
+    attr_reader :emit_streams
 
     def emits
       all = []
@@ -54,23 +62,20 @@ module Fluent
       all
     end
 
-    def configure(conf)
-      if name = conf['name']
-        @name = name
-      end
+    def prefer_buffered_processing
+      false
     end
 
-    def start
-      super
-    end
-
-    def shutdown
-      super
-    end
-
-    def emit(tag, es, chain)
-      chain.next
+    def process(tag, es)
       @emit_streams << [tag, es.to_a]
+    end
+
+    def write(chunk)
+      es = Fluent::ArrayEventStream.new
+      chunk.each do |time, record|
+        es.add(time, record)
+      end
+      @emit_streams << [tag, es]
     end
   end
 end

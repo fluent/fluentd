@@ -36,6 +36,9 @@ module Fluent
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
       CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@a-zA-Z0-9]+\}/
+      CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[\d+\])?)\}/
+
+      CHUNKING_FIELD_WARN_NUM = 4
 
       config_param :time_as_integer, :bool, default: false
 
@@ -72,12 +75,12 @@ module Fluent
         config_param :retry_max_times, :integer, default: nil, desc: 'The maximum number of times to retry to flush while failing.'
 
         config_param :retry_secondary_threshold, :float, default: 0.8, desc: 'ratio of retry_timeout to switch to use secondary while failing.'
-        # expornential backoff sequence will be initialized at the time of this threshold
+        # exponential backoff sequence will be initialized at the time of this threshold
 
         desc 'How to wait next retry to flush buffer.'
         config_param :retry_type, :enum, list: [:exponential_backoff, :periodic], default: :exponential_backoff
         ### Periodic -> fixed :retry_wait
-        ### Exponencial backoff: k is number of retry times
+        ### Exponential backoff: k is number of retry times
         # c: constant factor, @retry_wait
         # b: base factor, @retry_exponential_backoff_base
         # k: times
@@ -116,6 +119,12 @@ module Fluent
         raise NotImplementedError, "BUG: output plugins MUST implement this method"
       end
 
+      def formatted_to_msgpack_binary
+        # To indicate custom format method (#format) returns msgpack binary or not.
+        # If #format returns msgpack binary, override this method to return true.
+        false
+      end
+
       def prefer_buffered_processing
         # override this method to return false only when all of these are true:
         #  * plugin has both implementation for buffered and non-buffered methods
@@ -136,7 +145,7 @@ module Fluent
         end
       end
 
-      attr_reader :as_secondary, :delayed_commit, :delayed_commit_timeout
+      attr_reader :as_secondary, :delayed_commit, :delayed_commit_timeout, :timekey_zone
       attr_reader :num_errors, :emit_count, :emit_records, :write_count, :rollback_count
 
       # for tests
@@ -173,23 +182,34 @@ module Fluent
           @buffering = true
         end
         @custom_format = implement?(:custom_format)
+        @enable_msgpack_streamer = false # decided later
 
         @buffer = nil
         @secondary = nil
         @retry = nil
         @dequeued_chunks = nil
+        @output_enqueue_thread = nil
         @output_flush_threads = nil
 
         @simple_chunking = nil
         @chunk_keys = @chunk_key_time = @chunk_key_tag = nil
         @flush_mode = nil
+        @timekey_zone = nil
       end
 
       def acts_as_secondary(primary)
         @as_secondary = true
         @primary_instance = primary
+        @chunk_keys = @primary_instance.chunk_keys || []
+        @chunk_key_tag = @primary_instance.chunk_key_tag || false
+        if @primary_instance.chunk_key_time
+          @chunk_key_time = @primary_instance.chunk_key_time
+          @timekey_zone = @primary_instance.timekey_zone
+          @output_time_formatter_cache = {}
+        end
+        self.context_router = primary.context_router
+
         (class << self; self; end).module_eval do
-          define_method(:extract_placeholders){ |str, metadata| @primary_instance.extract_placeholders(str, metadata) }
           define_method(:commit_write){ |chunk_id| @primary_instance.commit_write(chunk_id, delayed: delayed_commit, secondary: true) }
           define_method(:rollback_write){ |chunk_id| @primary_instance.rollback_write(chunk_id) }
         end
@@ -249,8 +269,12 @@ module Fluent
           if @chunk_key_time
             raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey is not configured" unless @buffer_config.timekey
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
-            @buffer_config.timekey_zone = '+0000' if @buffer_config.timekey_use_utc
+            @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
             @output_time_formatter_cache = {}
+          end
+
+          if (@chunk_key_tag ? 1 : 0) + @chunk_keys.size >= CHUNKING_FIELD_WARN_NUM
+            log.warn "many chunk keys specified, and it may cause too many chunks on your system."
           end
 
           # no chunk keys or only tags (chunking can be done without iterating event stream)
@@ -294,8 +318,7 @@ module Fluent
           @secondary = Plugin.new_output(secondary_type)
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
-          @secondary.router = router if @secondary.has_router?
-          if self.class != @secondary.class
+          if (self.class != @secondary.class) && (@custom_format || @secondary.implement?(:custom_format))
             log.warn "secondary type should be same with primary one", primary: self.class.to_s, secondary: @secondary.class.to_s
           end
         else
@@ -312,6 +335,9 @@ module Fluent
           @buffering = prefer_buffered_processing
           if !@buffering && @buffer
             @buffer.terminate # it's not started, so terminate will be enough
+            # At here, this plugin works as non-buffered plugin.
+            # Un-assign @buffer not to show buffering metrics (e.g., in_monitor_agent)
+            @buffer = nil
           end
         end
 
@@ -322,6 +348,7 @@ module Fluent
           end
 
           @custom_format = implement?(:custom_format)
+          @enable_msgpack_streamer = @custom_format ? formatted_to_msgpack_binary : true
           @delayed_commit = if implement?(:buffered) && implement?(:delayed_commit)
                               prefer_delayed_commit
                             else
@@ -340,6 +367,9 @@ module Fluent
           @retry_mutex = Mutex.new
 
           @buffer.start
+
+          @output_enqueue_thread = nil
+          @output_enqueue_thread_running = true
 
           @output_flush_threads = []
           @output_flush_threads_mutex = Mutex.new
@@ -371,11 +401,16 @@ module Fluent
 
           unless @in_tests
             if @flush_mode == :interval || @chunk_key_time
-              thread_create(:enqueue_thread, &method(:enqueue_thread_run))
+              @output_enqueue_thread = thread_create(:enqueue_thread, &method(:enqueue_thread_run))
             end
           end
         end
         @secondary.start if @secondary
+      end
+
+      def after_start
+        super
+        @secondary.after_start if @secondary
       end
 
       def stop
@@ -393,6 +428,12 @@ module Fluent
             force_flush
           end
           @buffer.before_shutdown
+          # Need to ensure to stop enqueueing ... after #shutdown, we cannot write any data
+          @output_enqueue_thread_running = false
+          if @output_enqueue_thread && @output_enqueue_thread.alive?
+            @output_enqueue_thread.wakeup
+            @output_enqueue_thread.join
+          end
         end
 
         super
@@ -464,27 +505,165 @@ module Fluent
         end
       end
 
+      def placeholder_validate!(name, str)
+        placeholder_validators(name, str).each do |v|
+          v.validate!
+        end
+      end
+
+      def placeholder_validators(name, str, time_key = (@chunk_key_time && @buffer_config.timekey), tag_key = @chunk_key_tag, chunk_keys = @chunk_keys)
+        validators = []
+
+        sec, title, example = get_placeholders_time(str)
+        if sec || time_key
+          validators << PlaceholderValidator.new(name, str, :time, {sec: sec, title: title, example: example, timekey: time_key})
+        end
+
+        parts = get_placeholders_tag(str)
+        if tag_key || !parts.empty?
+          validators << PlaceholderValidator.new(name, str, :tag, {parts: parts, tagkey: tag_key})
+        end
+
+        keys = get_placeholders_keys(str)
+        if chunk_keys && !chunk_keys.empty? || !keys.empty?
+          validators << PlaceholderValidator.new(name, str, :keys, {keys: keys, chunkkeys: chunk_keys})
+        end
+
+        validators
+      end
+
+      class PlaceholderValidator
+        attr_reader :name, :string, :type, :argument
+
+        def initialize(name, str, type, arg)
+          @name = name
+          @string = str
+          @type = type
+          raise ArgumentError, "invalid type:#{type}" if @type != :time && @type != :tag && @type != :keys
+          @argument = arg
+        end
+
+        def time?
+          @type == :time
+        end
+
+        def tag?
+          @type == :tag
+        end
+
+        def keys?
+          @type == :keys
+        end
+
+        def validate!
+          case @type
+          when :time then validate_time!
+          when :tag  then validate_tag!
+          when :keys then validate_keys!
+          end
+        end
+
+        def validate_time!
+          sec = @argument[:sec]
+          title = @argument[:title]
+          example = @argument[:example]
+          timekey = @argument[:timekey]
+          if !sec && timekey
+            raise Fluent::ConfigError, "Parameter '#{name}' doesn't have timestamp placeholders for timekey #{timekey.to_i}"
+          end
+          if sec && !timekey
+            raise Fluent::ConfigError, "Parameter '#{name}' has timestamp placeholders, but chunk key 'time' is not configured"
+          end
+          if sec && timekey && timekey < sec
+            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have timestamp placeholder for #{title}('#{example}') for timekey #{timekey.to_i}"
+          end
+        end
+
+        def validate_tag!
+          parts = @argument[:parts]
+          tagkey = @argument[:tagkey]
+          if tagkey && parts.empty?
+            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have tag placeholder"
+          end
+          if !tagkey && !parts.empty?
+            raise Fluent::ConfigError, "Parameter '#{@name}' has tag placeholders, but chunk key 'tag' is not configured"
+          end
+        end
+
+        def validate_keys!
+          keys = @argument[:keys]
+          chunk_keys = @argument[:chunkkeys]
+          if (chunk_keys - keys).size > 0
+            not_specified = (chunk_keys - keys).sort
+            raise Fluent::ConfigError, "Parameter '#{@name}' doesn't have enough placeholders for keys #{not_specified.join(',')}"
+          end
+          if (keys - chunk_keys).size > 0
+            not_satisfied = (keys - chunk_keys).sort
+            raise Fluent::ConfigError, "Parameter '#{@name}' has placeholders, but chunk keys doesn't have keys #{not_satisfied.join(',')}"
+          end
+        end
+      end
+
+      TIME_KEY_PLACEHOLDER_THRESHOLDS = [
+        [1, :second, '%S'],
+        [60, :minute, '%M'],
+        [3600, :hour, '%H'],
+        [86400, :day, '%d'],
+      ]
+      TIMESTAMP_CHECK_BASE_TIME = Time.parse("2016-01-01 00:00:00 UTC")
+      # it's not validated to use timekey larger than 1 day
+      def get_placeholders_time(str)
+        base_str = TIMESTAMP_CHECK_BASE_TIME.strftime(str)
+        TIME_KEY_PLACEHOLDER_THRESHOLDS.each do |triple|
+          sec = triple.first
+          return triple if (TIMESTAMP_CHECK_BASE_TIME + sec).strftime(str) != base_str
+        end
+        nil
+      end
+
+      # -1 means whole tag
+      def get_placeholders_tag(str)
+        # [["tag"],["tag[0]"]]
+        parts = []
+        str.scan(CHUNK_TAG_PLACEHOLDER_PATTERN).map(&:first).each do |ph|
+          if ph == "tag"
+            parts << -1
+          elsif ph =~ /^tag\[(\d+)\]$/
+            parts << $1.to_i
+          end
+        end
+        parts.sort
+      end
+
+      def get_placeholders_keys(str)
+        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| s == "tag"}.sort
+      end
+
       # TODO: optimize this code
       def extract_placeholders(str, metadata)
-        if metadata.timekey.nil? && metadata.tag.nil? && metadata.variables.nil?
+        if metadata.empty?
           str
         else
-          rvalue = str
+          rvalue = str.dup
           # strftime formatting
           if @chunk_key_time # this section MUST be earlier than rest to use raw 'str'
-            @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@buffer_config.timekey_zone, str)
+            @output_time_formatter_cache[str] ||= Fluent::Timezone.formatter(@timekey_zone, str)
             rvalue = @output_time_formatter_cache[str].call(metadata.timekey)
           end
           # ${tag}, ${tag[0]}, ${tag[1]}, ...
           if @chunk_key_tag
-            if str =~ /\$\{tag\[\d+\]\}/
-              hash = {'${tag}' => metadata.tag}
+            if str.include?('${tag}')
+              rvalue = rvalue.gsub('${tag}', metadata.tag)
+            end
+            if str =~ CHUNK_TAG_PLACEHOLDER_PATTERN
+              hash = {}
               metadata.tag.split('.').each_with_index do |part, i|
                 hash["${tag[#{i}]}"] = part
               end
-              rvalue = rvalue.gsub(/\$\{tag(\[\d+\])?\}/, hash)
-            elsif str.include?('${tag}')
-              rvalue = rvalue.gsub('${tag}', metadata.tag)
+              rvalue = rvalue.gsub(CHUNK_TAG_PLACEHOLDER_PATTERN, hash)
+            end
+            if rvalue =~ CHUNK_TAG_PLACEHOLDER_PATTERN
+              log.warn "tag placeholder '#{$1}' not replaced. tag:#{metadata.tag}, template:#{str}"
             end
           end
           # ${a_chunk_key}, ...
@@ -494,6 +673,9 @@ module Fluent
               hash["${#{key}}"] = metadata.variables[key.to_sym]
             end
             rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN, hash)
+          end
+          if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
+            log.warn "chunk key placeholder '#{$1}' not replaced. templace:#{str}"
           end
           rvalue
         end
@@ -576,6 +758,13 @@ module Fluent
         end
       end
 
+      def metadata_for_test(tag, time, record)
+        raise "BUG: #metadata_for_test is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
+        m = metadata(tag, time, record)
+        @buffer.metadata_list_clear!
+        m
+      end
+
       def execute_chunking(tag, es, enqueue: false)
         if @simple_chunking
           handle_stream_simple(tag, es, enqueue: enqueue)
@@ -621,6 +810,28 @@ module Fluent
         end
       end
 
+      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream }
+      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream }
+      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true) }
+
+      def generate_format_proc
+        if @buffer && @buffer.compress == :gzip
+          @time_as_integer ? FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT : FORMAT_COMPRESSED_MSGPACK_STREAM
+        else
+          @time_as_integer ? FORMAT_MSGPACK_STREAM_TIME_INT : FORMAT_MSGPACK_STREAM
+        end
+      end
+
+      # metadata_and_data is a Hash of:
+      #  (standard format) metadata => event stream
+      #  (custom format)   metadata => array of formatted event
+      # For standard format, formatting should be done for whole event stream, but
+      #   "whole event stream" may be a split of "es" here when it's bigger than chunk_limit_size.
+      #   `@buffer.write` will do this splitting.
+      # For custom format, formatting will be done here. Custom formatting always requires
+      #   iteration of event stream, and it should be done just once even if total event stream size
+      #   is bigger than chunk_limit_size because of performance.
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
@@ -631,13 +842,14 @@ module Fluent
           records += 1
         end
         write_guard do
-          @buffer.write(meta_and_data, bulk: false, enqueue: enqueue)
+          @buffer.write(meta_and_data, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
 
       def handle_stream_with_standard_format(tag, es, enqueue: false)
+        format_proc = generate_format_proc
         meta_and_data = {}
         records = 0
         es.each do |time, record|
@@ -646,41 +858,37 @@ module Fluent
           meta_and_data[meta].add(time, record)
           records += 1
         end
-        meta_and_data_bulk = {}
-        meta_and_data.each_pair do |meta, m_es|
-          meta_and_data_bulk[meta] = [m_es.to_msgpack_stream(time_int: @time_as_integer), m_es.size]
-        end
         write_guard do
-          @buffer.write(meta_and_data_bulk, bulk: true, enqueue: enqueue)
+          @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
 
       def handle_stream_simple(tag, es, enqueue: false)
+        format_proc = nil
         meta = metadata((@chunk_key_tag ? tag : nil), nil, nil)
         records = es.size
         if @custom_format
           records = 0
-          es_size = 0
-          es_bulk = ''
-          es.each do |time,record|
-            es_bulk << format(tag, time, record)
-            es_size += 1
+          data = []
+          es.each do |time, record|
+            data << format(tag, time, record)
             records += 1
           end
         else
-          es_size = es.size
-          es_bulk = es.to_msgpack_stream(time_int: @time_as_integer)
+          format_proc = generate_format_proc
+          data = es
         end
         write_guard do
-          @buffer.write({meta => [es_bulk, es_size]}, bulk: true, enqueue: enqueue)
+          @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
         @counters_monitor.synchronize{ @emit_records += records }
         true
       end
 
       def commit_write(chunk_id, delayed: @delayed_commit, secondary: false)
+        log.trace "committing write operation to a chunk", chunk: dump_unique_id_hex(chunk_id), delayed: delayed
         if delayed
           @dequeued_chunks_mutex.synchronize do
             @dequeued_chunks.delete_if{ |info| info.chunk_id == chunk_id }
@@ -756,6 +964,8 @@ module Fluent
         chunk = @buffer.dequeue_chunk
         return unless chunk
 
+        log.debug "trying flush for a chunk", chunk: dump_unique_id_hex(chunk.unique_id)
+
         output = self
         using_secondary = false
         if @retry_mutex.synchronize{ @retry && @retry.secondary? }
@@ -763,12 +973,13 @@ module Fluent
           using_secondary = true
         end
 
-        unless @custom_format
+        if @enable_msgpack_streamer
           chunk.extend ChunkMessagePackEventStreamer
         end
 
         begin
           if output.delayed_commit
+            log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
             @counters_monitor.synchronize{ @write_count += 1 }
             output.try_write(chunk)
             @dequeued_chunks_mutex.synchronize do
@@ -777,13 +988,22 @@ module Fluent
             end
           else # output plugin without delayed purge
             chunk_id = chunk.unique_id
+            dump_chunk_id = dump_unique_id_hex(chunk_id)
+            log.trace "adding write count", instance: self.object_id
             @counters_monitor.synchronize{ @write_count += 1 }
+            log.trace "executing sync write", chunk: dump_chunk_id
             output.write(chunk)
+            log.trace "write operation done, committing", chunk: dump_chunk_id
             commit_write(chunk_id, secondary: using_secondary)
+            log.trace "done to commit a chunk", chunk: dump_chunk_id
           end
         rescue => e
           log.debug "taking back chunk for errors.", plugin_id: plugin_id, chunk: dump_unique_id_hex(chunk.unique_id)
           @buffer.takeback_chunk(chunk.unique_id)
+
+          if @under_plugin_development
+            raise
+          end
 
           @retry_mutex.synchronize do
             if @retry
@@ -899,8 +1119,13 @@ module Fluent
           interval = @buffer_config.flush_thread_interval
         end
 
+        while !self.after_started? && !self.stopped?
+          sleep 0.5
+        end
+        log.debug "enqueue_thread actually running"
+
         begin
-          while @output_flush_threads_running
+          while @output_enqueue_thread_running
             now_int = Time.now.to_i
             if @output_flush_interrupted
               sleep interval
@@ -924,16 +1149,18 @@ module Fluent
                 @buffer.enqueue_all{ |metadata, chunk| metadata.timekey < current_timekey && metadata.timekey + timekey_unit + timekey_wait <= now_int }
               end
             rescue => e
-              log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error_class: e.class, error: e
+              raise if @under_plugin_development
+              log.error "unexpected error while checking flushed chunks. ignored.", plugin_id: plugin_id, error: e
               log.error_backtrace
+            ensure
+              @output_enqueue_thread_waiting = false
+              @output_enqueue_thread_mutex.unlock
             end
-            @output_enqueue_thread_waiting = false
-            @output_enqueue_thread_mutex.unlock
             sleep interval
           end
         rescue => e
           # normal errors are rescued by inner begin-rescue clause.
-          log.error "error on enqueue thread", plugin_id: plugin_id, error_class: e.class, error: e
+          log.error "error on enqueue thread", plugin_id: plugin_id, error: e
           log.error_backtrace
           raise
         end
@@ -946,6 +1173,11 @@ module Fluent
         clock_id = Process::CLOCK_MONOTONIC rescue Process::CLOCK_MONOTONIC_RAW
         state.next_time = Process.clock_gettime(clock_id) + flush_thread_interval
 
+        while !self.after_started? && !self.stopped?
+          sleep 0.5
+        end
+        log.debug "flush_thread actually running"
+
         begin
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase
           while @output_flush_threads_running
@@ -957,7 +1189,7 @@ module Fluent
               # next_flush_interval uses flush_thread_interval or flush_thread_burst_interval (or retrying)
               interval = next_flush_time.to_f - Time.now.to_f
               # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected (because @retry still exists)
-              #   @retry should be cleard if delayed commit is enabled? Or any other solution?
+              #   @retry should be cleared if delayed commit is enabled? Or any other solution?
               state.next_time = Process.clock_gettime(clock_id) + interval
             end
 

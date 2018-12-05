@@ -9,6 +9,7 @@ class EventRouterTest < ::Test::Unit::TestCase
   teardown do
     @output = nil
     @filter = nil
+    @compat_filter = nil
     @error_output = nil
     @emit_handler = nil
     @default_collector = nil
@@ -20,6 +21,10 @@ class EventRouterTest < ::Test::Unit::TestCase
 
   def filter
     @filter ||= FluentTestFilter.new
+  end
+
+  def compat_filter
+    @compat_filter ||= FluentCompatTestFilter.new
   end
 
   def error_output
@@ -107,16 +112,20 @@ class EventRouterTest < ::Test::Unit::TestCase
         @pipeline.set_output(output)
       end
 
-      test 'set one filer' do
-        @pipeline.add_filter(filter)
+      data('Filter plugin' => 'filter',
+           'Compat::Filter plugin' => 'compat_filter')
+      test 'set one filer' do |filter_type|
+        @pipeline.add_filter(filter_type == 'filter' ? filter : compat_filter)
         @pipeline.emit_events('test', @es)
         assert_equal 1, output.events.size
         assert_equal 'value', output.events['test'].first['key']
         assert_equal 0, output.events['test'].first['__test__']
       end
 
-      test 'set one filer with multi events' do
-        @pipeline.add_filter(filter)
+      data('Filter plugin' => 'filter',
+           'Compat::Filter plugin' => 'compat_filter')
+      test 'set one filer with multi events' do |filter_type|
+        @pipeline.add_filter(filter_type == 'filter' ? filter : compat_filter)
         @pipeline.emit_events('test', events)
         assert_equal 1, output.events.size
         assert_equal 5, output.events['test'].size
@@ -176,6 +185,10 @@ class EventRouterTest < ::Test::Unit::TestCase
 
     sub_test_case 'filter' do
       test 'filter should be called when tag matched' do
+        filter = Class.new(FluentTestFilter) { |x|
+          def filter_stream(_tag, es); end
+        }.new
+
         event_router.add_rule('test', filter)
 
         assert_rr do
@@ -217,6 +230,89 @@ class EventRouterTest < ::Test::Unit::TestCase
         assert_equal 0, output.events['test'].first['__test__']
         assert_equal 0, output.events['test'].first['__hoge__']
         assert_equal 'v', output.events['test'].first['k']
+      end
+    end
+
+    sub_test_case 'optimized filter' do
+      setup do
+        @record = { 'k' => 'v' }
+        @now = Engine.now
+      end
+
+      test 'call optimized filter when the filter plugin implements #filter without #filter_stream' do
+        event_router.add_rule('test', filter)
+
+        assert_rr do
+          mock(filter).filter('test', @now, @record) { @record }
+          event_router.emit('test', @now, @record)
+        end
+      end
+
+      test 'call optimized filter when the filter plugin implements #filter_with_time without #filter_stream' do
+        filter = Class.new(FluentTestFilter) {
+          undef_method :filter
+          def filter_with_time(tag, time, record); end
+        }.new
+
+        event_router.add_rule('test', filter)
+
+        assert_rr do
+          mock(filter).filter_with_time('test', @now, @record) { [time, @record] }
+          event_router.emit('test', @now, @record)
+        end
+      end
+
+      test "don't call optimized filter when filter plugins implement #filter_stream" do
+        filter = Class.new(FluentTestFilter) {
+          undef_method :filter
+          def filter_stream(tag, time, record); end
+        }.new
+
+        event_router.add_rule('test', filter)
+
+        assert_rr do
+          mock(filter).filter_stream('test', is_a(OneEventStream)) { OneEventStream.new(@now, @record) }
+          event_router.emit('test', @now, @record)
+        end
+      end
+
+      test 'call optimized filter when filter plugins have #filter_with_time instead of #filter' do
+        filter_with_time = Class.new(FluentTestFilter) {
+          undef_method :filter
+          def filter_with_time(tag, time, record); end
+        }.new
+
+        event_router.add_rule('test', filter_with_time)
+        event_router.add_rule('test', filter)
+
+        assert_rr do
+          mock(filter_with_time).filter_with_time('test', @now, @record) { [@now + 1, @record] }
+          mock(filter).filter('test', @now + 1, @record) { @record }
+          event_router.emit('test', @now, @record)
+        end
+      end
+
+      test "don't call optimized filter even if just a filter of some filters implements #filter_stream method" do
+        filter_stream = Class.new(FluentTestFilter) {
+          def filter_stream(tag, record); end
+        }.new
+
+        filter_with_time = Class.new(FluentTestFilter) {
+          undef_method :filter
+          def filter_with_time(tag, time, record); end
+        }.new
+
+        filters = [filter_stream, filter_with_time, filter]
+        filters.each { |f| event_router.add_rule('test', f) }
+
+        e = OneEventStream.new(@now, @record)
+        assert_rr do
+          mock($log).info("disable filter chain optimization because #{[filter_stream].map(&:class)} uses `#filter_stream` method.")
+          mock(filter_stream).filter_stream('test', is_a(OneEventStream)) { e }
+          mock(filter).filter_stream('test', is_a(OneEventStream)) { e }
+          mock(filter_with_time).filter_stream('test', is_a(OneEventStream)) { e }
+          event_router.emit('test', @now, @record)
+        end
       end
     end
 

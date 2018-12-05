@@ -14,14 +14,51 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 
-module Fluent
+module Fluent::Plugin
   class NullOutput < Output
-    Plugin.register_output('null', self)
+    # This plugin is for tests of non-buffered/buffered plugins
+    Fluent::Plugin.register_output('null', self)
 
-    def emit(tag, es, chain)
-      chain.next
+    config_section :buffer do
+      config_set_default :chunk_keys, ['tag']
+      config_set_default :flush_at_shutdown, true
+      config_set_default :chunk_limit_size, 10 * 1024
+    end
+
+    def prefer_buffered_processing
+      false
+    end
+
+    def prefer_delayed_commit
+      @delayed
+    end
+
+    attr_accessor :feed_proc, :delayed
+
+    def initialize
+      super
+      @delayed = false
+      @feed_proc = nil
+    end
+
+    def process(tag, es)
+      # Do nothing
+    end
+
+    def write(chunk)
+      if @feed_proc
+        @feed_proc.call(chunk)
+      end
+    end
+
+    def try_write(chunk)
+      if @feed_proc
+        @feed_proc.call(chunk)
+      end
+      # not to commit chunks for testing
+      # commit_write(chunk.unique_id)
     end
   end
 end

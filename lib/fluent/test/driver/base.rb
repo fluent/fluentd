@@ -14,7 +14,9 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/test_event_router'
+require 'fluent/config'
+require 'fluent/config/element'
+require 'fluent/log'
 
 require 'timeout'
 
@@ -22,59 +24,35 @@ module Fluent
   module Test
     module Driver
       class Base
+        attr_reader :instance, :logs
+
+        DEFAULT_TIMEOUT = 300
+
         def initialize(klass, opts: {}, &block)
           if klass.is_a?(Class)
             if block
               # Create new class for test w/ overwritten methods
               #   klass.dup is worse because its ancestors does NOT include original class name
+              klass_name = klass.name
               klass = Class.new(klass)
+              klass.define_singleton_method("name") { klass_name }
               klass.module_eval(&block)
             end
             @instance = klass.new
           else
             @instance = klass
           end
-          if opts
-            @instance.system_config_override(opts)
-          end
-          @instance.log = TestLogger.new
-          @logs = @instance.log.out.logs
+          @instance.under_plugin_development = true
+
+          @logs = []
 
           @run_post_conditions = []
           @run_breaking_conditions = []
-
           @broken = false
-
-          @event_streams = nil
-          @error_events = nil
         end
 
-        attr_reader :instance, :logs
-
         def configure(conf, syntax: :v1)
-          if conf.is_a?(Fluent::Config::Element)
-            @config = conf
-          else
-            @config = Config.parse(conf, "(test)", "(test_dir)", syntax: syntax)
-          end
-
-          if @instance.respond_to?(:router=)
-            @event_streams = []
-            @error_events = []
-
-            driver = self
-            mojule = Module.new do
-              define_method(:event_emitter_router) do |label_name|
-                TestEventRouter.new(driver)
-              end
-            end
-            @instance.singleton_class.module_eval do
-              prepend mojule
-            end
-          end
-
-          @instance.configure(@config)
-          self
+          raise NotImplementedError
         end
 
         def end_if(&block)
@@ -91,49 +69,7 @@ module Fluent
           @broken
         end
 
-        Emit = Struct.new(:tag, :es)
-        ErrorEvent = Struct.new(:tag, :time, :record, :error)
-
-        # via TestEventRouter
-        def emit_event_stream(tag, es)
-          @event_streams << Emit.new(tag, es)
-        end
-
-        def emit_error_event(tag, time, record, error)
-          @error_events << ErrorEvent.new(tag, time, record, error)
-        end
-
-        def events(tag: nil)
-          selected = @event_streams.select{|e| tag.nil? ? true : e.tag == tag }
-          if block_given?
-            selected.each do |e|
-              e.es.each do |time, record|
-                yield e.tag, time, record
-              end
-            end
-          else
-            list = []
-            selected.each do |e|
-              e.es.each do |time, record|
-                list << [e.tag, time, record]
-              end
-            end
-            list
-          end
-        end
-
-        def error_events(tag: nil)
-          selected = @error_events.select{|e| tag.nil? ? true : e.tag == tag }
-          if block_given?
-            selected.each do |e|
-              yield e.tag, e.time, e.record, e.error
-            end
-          else
-            selected.map{|e| [e.tag, e.time, e.record, e.error] }
-          end
-        end
-
-        def run(expect_emits: nil, expect_records: nil, timeout: nil, start: true, shutdown: true, &block)
+        def run(timeout: nil, start: true, shutdown: true, &block)
           instance_start if start
 
           if @instance.respond_to?(:thread_wait_until_start)
@@ -144,7 +80,7 @@ module Fluent
           end
 
           begin
-            run_actual(expect_emits: expect_emits, expect_records: expect_records, timeout: timeout, &block)
+            run_actual(timeout: timeout, &block)
           ensure
             instance_shutdown if shutdown
           end
@@ -154,6 +90,9 @@ module Fluent
           unless @instance.started?
             @instance.start
             instance_hook_after_started
+          end
+          unless @instance.after_started?
+            @instance.after_start
           end
         end
 
@@ -180,7 +119,7 @@ module Fluent
           @instance.terminate unless @instance.terminated?
         end
 
-        def run_actual(expect_emits: nil, expect_records: nil, timeout: nil, &block)
+        def run_actual(timeout: nil, &block)
           if @instance.respond_to?(:_threads)
             until @instance._threads.values.all?(&:alive?)
               sleep 0.01
@@ -193,36 +132,29 @@ module Fluent
             end
           end
 
-          if expect_emits
-            @run_post_conditions << ->(){ @emit_streams.size >= expect_emits }
-          end
-          if expect_records
-            @run_post_conditions << ->(){ @emit_streams.reduce(0){|a, e| a + e.es.size } >= expected_records }
-          end
-          if timeout
-            stop_at = Time.now + timeout
-            @run_breaking_conditions << ->(){ Time.now >= stop_at }
-          end
+          timeout ||= DEFAULT_TIMEOUT
+          stop_at = Time.now + timeout
+          @run_breaking_conditions << ->(){ Time.now >= stop_at }
 
           if !block_given? && @run_post_conditions.empty? && @run_breaking_conditions.empty?
             raise ArgumentError, "no stop conditions nor block specified"
           end
 
-          if !block_given?
-            block = ->(){ sleep(0.1) until stop? }
-          end
+          return_value = nil
+          proc = if block_given?
+                   ->(){ return_value = block.call; sleep(0.1) until stop? }
+                 else
+                   ->(){ sleep(0.1) until stop? }
+                 end
 
-          if timeout
-            begin
-              Timeout.timeout(timeout * 1.1) do |sec|
-                block.call
-              end
-            rescue Timeout::Error
-              @broken = true
+          begin
+            Timeout.timeout(timeout * 1.1) do |sec|
+              proc.call
             end
-          else
-            block.call
+          rescue Timeout::Error
+            @broken = true
           end
+          return_value
         end
 
         def stop?

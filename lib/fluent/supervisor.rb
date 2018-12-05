@@ -29,8 +29,10 @@ require 'shellwords'
 
 if Fluent.windows?
   require 'windows/library'
+  require 'windows/synchronize'
   require 'windows/system_info'
   include Windows::Library
+  include Windows::Synchronize
   include Windows::SystemInfo
   require 'win32/ipc'
   require 'win32/event'
@@ -48,16 +50,17 @@ module Fluent
       end
       install_supervisor_signal_handlers
 
+      if config[:signame]
+        @signame = config[:signame]
+        install_windows_event_handler
+      end
+
       socket_manager_path = ServerEngine::SocketManager::Server.generate_path
       ServerEngine::SocketManager::Server.open(socket_manager_path)
       ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
     end
 
     def after_run
-      if Time.now - @start_time < 1
-        $log.warn "process died within 1 second. exit."
-      end
-
       stop_rpc_server if @rpc_endpoint
     end
 
@@ -73,6 +76,16 @@ module Fluent
       @rpc_server.mount_proc('/api/processes.killWorkers') { |req, res|
         $log.debug "fluentd RPC got /api/processes.killWorkers request"
         Process.kill :TERM, $$
+        nil
+      }
+      @rpc_server.mount_proc('/api/processes.flushBuffersAndKillWorkers') { |req, res|
+        $log.debug "fluentd RPC got /api/processes.flushBuffersAndKillWorkers request"
+        if Fluent.windows?
+          $log.warn "operation 'flushBuffersAndKillWorkers' is not supported on Windows now."
+        else
+          Process.kill :USR1, $$
+          Process.kill :TERM, $$
+        end
         nil
       }
       @rpc_server.mount_proc('/api/plugins.flushBuffers') { |req, res|
@@ -114,10 +127,35 @@ module Fluent
     end
 
     def install_supervisor_signal_handlers
+      trap :HUP do
+        $log.debug "fluentd supervisor process get SIGHUP"
+        supervisor_sighup_handler
+      end unless Fluent.windows?
+
       trap :USR1 do
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
       end unless Fluent.windows?
+    end
+
+    def install_windows_event_handler
+      Thread.new do
+        ev = Win32::Event.new(@signame)
+        begin
+          ev.reset
+          until WaitForSingleObject(ev.handle, 0) == WAIT_OBJECT_0
+            sleep 1
+          end
+          kill_worker
+          stop(true)
+        ensure
+          ev.close
+        end
+      end
+    end
+
+    def supervisor_sighup_handler
+      kill_worker
     end
 
     def supervisor_sigusr1_handler
@@ -136,7 +174,7 @@ module Fluent
         if Fluent.windows?
           Process.kill :KILL, pid
         else
-          Process.kill :INT, pid
+          Process.kill :TERM, pid
         end
       end
     end
@@ -192,17 +230,28 @@ module Fluent
       log_path = params['log_path']
       chuser = params['chuser']
       chgroup = params['chgroup']
+      log_rotate_age = params['log_rotate_age']
+      log_rotate_size = params['log_rotate_size']
       rpc_endpoint = system_config.rpc_endpoint
       enable_get_dump = system_config.enable_get_dump
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
-      logger_initializer = Supervisor::LoggerInitializer.new(log_path, log_level, chuser, chgroup, log_opts)
+      logger_initializer = Supervisor::LoggerInitializer.new(
+        log_path, log_level, chuser, chgroup, log_opts,
+        log_rotate_age: log_rotate_age,
+        log_rotate_size: log_rotate_size
+      )
       # this #init sets initialized logger to $log
       logger_initializer.init
       logger = $log
 
-      daemonize = params.fetch('daemonize', false)
+      command_sender = Fluent.windows? ? "pipe" : "signal"
+
+      # ServerEngine's "daemonize" option is boolean, and path of pid file is brought by "pid_path"
+      pid_path = params['daemonize']
+      daemonize = !!params['daemonize']
       main_cmd = params['main_cmd']
+      signame = params['signame']
 
       se_config = {
           worker_type: 'spawn',
@@ -212,6 +261,8 @@ module Fluent
           log_stderr: false,
           enable_heartbeat: true,
           auto_heartbeat: false,
+          unrecoverable_exit_codes: [2],
+          stop_immediately_at_unrecoverable_exit: true,
           logger: logger,
           log: logger.out,
           log_path: log_path,
@@ -219,6 +270,7 @@ module Fluent
           logger_initializer: logger_initializer,
           chuser: chuser,
           chgroup: chgroup,
+          chumask: 0,
           suppress_repeated_stacktrace: suppress_repeated_stacktrace,
           daemonize: daemonize,
           rpc_endpoint: rpc_endpoint,
@@ -229,9 +281,14 @@ module Fluent
                                    WorkerModule.name,
                                    path,
                                    JSON.dump(params)],
+          command_sender: command_sender,
           fluentd_conf: fluentd_conf,
           main_cmd: main_cmd,
+          signame: signame,
       }
+      if daemonize
+        se_config[:pid_path] = pid_path
+      end
       pre_params = params.dup
       params['pre_loadtime'] = Time.now.to_i
       params['pre_config_mtime'] = config_mtime
@@ -244,42 +301,48 @@ module Fluent
     end
 
     class LoggerInitializer
-      def initialize(path, level, chuser, chgroup, opts)
+      def initialize(path, level, chuser, chgroup, opts, log_rotate_age: nil, log_rotate_size: nil)
         @path = path
         @level = level
         @chuser = chuser
         @chgroup = chgroup
         @opts = opts
+        @log_rotate_age = log_rotate_age
+        @log_rotate_size = log_rotate_size
       end
 
       def init
         if @path && @path != "-"
-          @io = File.open(@path, "a")
+          @logdev = if @log_rotate_age || @log_rotate_size
+                     Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
+                   else
+                     File.open(@path, "a")
+                   end
           if @chuser || @chgroup
-            chuid = @chuser ? ServerEngine::Daemon.get_etc_passwd(@chuser).uid : nil
-            chgid = @chgroup ? ServerEngine::Daemon.get_etc_group(@chgroup).gid : nil
+            chuid = @chuser ? ServerEngine::Privilege.get_etc_passwd(@chuser).uid : nil
+            chgid = @chgroup ? ServerEngine::Privilege.get_etc_group(@chgroup).gid : nil
             File.chown(chuid, chgid, @path)
           end
         else
-          @io = STDOUT
+          @logdev = STDOUT
         end
 
         dl_opts = {}
         # subtract 1 to match serverengine daemon logger side logging severity.
         dl_opts[:log_level] = @level - 1
-        logger = ServerEngine::DaemonLogger.new(@io, dl_opts)
+        logger = ServerEngine::DaemonLogger.new(@logdev, dl_opts)
         $log = Fluent::Log.new(logger, @opts)
         $log.enable_color(false) if @path
         $log.enable_debug if @level <= Fluent::Log::LEVEL_DEBUG
       end
 
       def stdout?
-        @io == STDOUT
+        @logdev == STDOUT
       end
 
       def reopen!
         if @path && @path != "-"
-          @io.reopen(@path, "a")
+          @logdev.reopen(@path, "a")
         end
         self
       end
@@ -306,6 +369,7 @@ module Fluent
         without_source: false,
         use_v1_config: true,
         supervise: true,
+        standalone_worker: false,
         signame: nil,
         winsvcreg: nil,
       }
@@ -314,6 +378,7 @@ module Fluent
     def initialize(opt)
       @daemonize = opt[:daemonize]
       @supervise = opt[:supervise]
+      @standalone_worker= opt[:standalone_worker]
       @config_path = opt[:config_path]
       @inline_config = opt[:inline_config]
       @use_v1_config = opt[:use_v1_config]
@@ -328,6 +393,8 @@ module Fluent
       @process_name = nil
 
       @log_level = opt[:log_level]
+      @log_rotate_age = opt[:log_rotate_age]
+      @log_rotate_size = opt[:log_rotate_size]
       @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
       @without_source = opt[:without_source]
@@ -335,7 +402,11 @@ module Fluent
 
       @suppress_repeated_stacktrace = opt[:suppress_repeated_stacktrace]
       log_opts = {suppress_repeated_stacktrace: @suppress_repeated_stacktrace}
-      @log = LoggerInitializer.new(@log_path, @log_level, @chuser, @chgroup, log_opts)
+      @log = LoggerInitializer.new(
+        @log_path, @log_level, @chuser, @chgroup, log_opts,
+        log_rotate_age: @log_rotate_age,
+        log_rotate_size: @log_rotate_size
+      )
       @finished = false
     end
 
@@ -376,6 +447,7 @@ module Fluent
       $log.info "starting fluentd-#{Fluent::VERSION} without supervision"
 
       main_process do
+        create_socket_manager if @standalone_worker
         change_privilege
         init_engine
         run_configure
@@ -385,6 +457,12 @@ module Fluent
     end
 
     private
+
+    def create_socket_manager
+      socket_manager_path = ServerEngine::SocketManager::Server.generate_path
+      ServerEngine::SocketManager::Server.open(socket_manager_path)
+      ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
+    end
 
     def dry_run
       $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode"
@@ -425,21 +503,25 @@ module Fluent
     def supervise
       $log.info "starting fluentd-#{Fluent::VERSION}"
 
+      rubyopt = ENV["RUBYOPT"]
       if Fluent.windows?
+        # Shellwords doesn't work on windows, then used gsub for adapting space char instead of Shellwords
         fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
+        fluentd_spawn_cmd << ' "' + rubyopt.gsub('"', '""') + '" ' if rubyopt
         fluentd_spawn_cmd << ' "' + $0.gsub('"', '""') + '" '
         $fluentdargv.each{|a|
           fluentd_spawn_cmd << ('"' + a.gsub('"', '""') + '" ')
         }
       else
         fluentd_spawn_cmd = ServerEngine.ruby_bin_path + " -Eascii-8bit:ascii-8bit "
+        fluentd_spawn_cmd << ' ' + rubyopt + ' ' if rubyopt
         fluentd_spawn_cmd << $0.shellescape + ' '
         $fluentdargv.each{|a|
           fluentd_spawn_cmd << (a.shellescape + " ")
         }
       end
 
-      fluentd_spawn_cmd << ("--no-supervisor")
+      fluentd_spawn_cmd << ("--under-supervisor")
       $log.info "spawn command to main: " + fluentd_spawn_cmd
 
       params = {}
@@ -448,10 +530,13 @@ module Fluent
       params['inline_config'] = @inline_config
       params['log_path'] = @log_path
       params['log_level'] = @log_level
+      params['log_rotate_age'] = @log_rotate_age
+      params['log_rotate_size'] = @log_rotate_size
       params['chuser'] = @chuser
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
       params['suppress_repeated_stacktrace'] = @suppress_repeated_stacktrace
+      params['signame'] = @signame
 
       se = ServerEngine.create(ServerModule, WorkerModule){
         Fluent::Supervisor.load_config(@config_path, params)
@@ -469,6 +554,13 @@ module Fluent
       # worker process SHOULD NOT do anything with SIGINT, SHOULD just ignore.
       trap :INT do
         $log.debug "fluentd main process get SIGINT"
+
+        # When Fluentd is launched without supervisor, worker should handle ctrl-c by itself
+        if @standalone_worker
+          @finished = true
+          $log.debug "getting start to shutdown main process"
+          Fluent::Engine.stop
+        end
       end
 
       trap :TERM do
@@ -483,6 +575,29 @@ module Fluent
       trap :USR1 do
         flush_buffer
       end unless Fluent.windows?
+
+      if Fluent.windows?
+        command_pipe = STDIN.dup
+        STDIN.reopen(File::NULL, "rb")
+        command_pipe.binmode
+        command_pipe.sync = true
+
+        Thread.new do
+          loop do
+            cmd = command_pipe.gets.chomp
+            case cmd
+            when "GRACEFUL_STOP", "IMMEDIATE_STOP"
+              $log.debug "fluentd main process get #{cmd} command"
+              @finished = true
+              $log.debug "getting start to shutdown main process"
+              Fluent::Engine.stop
+              break
+            else
+              $log.warn "fluentd main process get unknown command [#{cmd}]"
+            end
+          end
+        end
+      end
     end
 
     def flush_buffer
@@ -505,6 +620,8 @@ module Fluent
     def main_process(&block)
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
+      configuration_error = false
+
       begin
         block.call
       rescue Fluent::ConfigError
@@ -518,7 +635,7 @@ module Fluent
           console.error "config error", file: @config_path, error: $!.to_s
           console.debug_backtrace
         end
-
+        configuration_error = true
       rescue
         $log.error "unexpected error", error: $!.to_s
         $log.error_backtrace
@@ -532,7 +649,7 @@ module Fluent
         end
       end
 
-      exit! 1
+      exit!(configuration_error ? 2 : 1)
     end
 
     def read_config
@@ -554,7 +671,7 @@ module Fluent
     end
 
     def change_privilege
-      ServerEngine::Daemon.change_privilege(@chuser, @chgroup)
+      ServerEngine::Privilege.change(@chuser, @chgroup)
     end
 
     def init_engine

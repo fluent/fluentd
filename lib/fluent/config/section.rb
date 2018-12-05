@@ -126,6 +126,7 @@ module Fluent
             logger.error "config error in:\n#{conf}" if logger # logger should exist, but somethimes it's nil (e.g, in tests)
             raise ConfigError, "'<#{proxy.name} ARG>' section requires argument" + section_stack
           end
+          # argument should NOT be deprecated... (argument always has a value: '')
         end
 
         proxy.params.each_pair do |name, defval|
@@ -138,6 +139,20 @@ module Fluent
                     conf[opts[:alias].to_s]
                   end
             section_params[varname] = self.instance_exec(val, opts, name, &block)
+
+            # Source of definitions of deprecated/obsoleted:
+            # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Deprecated_and_obsolete_features
+            #
+            # Deprecated: These deprecated features can still be used, but should be used with caution
+            #             because they are expected to be removed entirely sometime in the future.
+            # Obsoleted: These obsolete features have been entirely removed from JavaScript and can no longer be used.
+            if opts[:deprecated]
+              logger.warn "'#{name}' parameter is deprecated: #{opts[:deprecated]}"
+            end
+            if opts[:obsoleted]
+              logger.error "config error in:\n#{conf}" if logger
+              raise ObsoletedParameterError, "'#{name}' parameter is already removed: #{opts[:obsoleted]}" + section_stack
+            end
           end
           unless section_params.has_key?(varname)
             logger.error "config error in:\n#{conf}" if logger
@@ -150,7 +165,14 @@ module Fluent
         proxy.sections.each do |name, subproxy|
           varname = subproxy.variable_name
           elements = (conf.respond_to?(:elements) ? conf.elements : []).select{ |e| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
-          if elements.empty? && subproxy.init? && !subproxy.multi?
+          if elements.empty? && subproxy.init?
+            if subproxy.argument && !subproxy.defaults.has_key?(subproxy.argument.first)
+              raise ArgumentError, "#{name}: init is specified, but default value of argument is missing"
+            end
+            missing_keys = subproxy.params.keys.select{|param_name| !subproxy.defaults.has_key?(param_name)}
+            if !missing_keys.empty?
+              raise ArgumentError, "#{name}: init is specified, but there're parameters without default values:#{missing_keys.join(',')}"
+            end
             elements << Fluent::Config::Element.new(subproxy.name.to_s, '', {}, [])
           end
 

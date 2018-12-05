@@ -39,10 +39,10 @@ module Fluent::Plugin
     config_param :time_key, :string, default: nil
     desc 'The format for event time used when the time_key parameter is specified. The default is UNIX time (integer).'
     config_param :time_format, :string, default: nil
-    desc "The format used to map the incoming events to the program input. (#{ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
+    desc "The format used to map the incoming events to the program input. (#{Fluent::ExecUtil::SUPPORTED_FORMAT.keys.join(',')})"
     config_param :format, default: :tsv, skip_accessor: true do |val|
-      f = ExecUtil::SUPPORTED_FORMAT[val]
-      raise ConfigError, "Unsupported format '#{val}'" unless f
+      f = Fluent::ExecUtil::SUPPORTED_FORMAT[val]
+      raise Fluent::ConfigError, "Unsupported format '#{val}'" unless f
       f
     end
     config_param :localtime, :bool, default: false
@@ -53,6 +53,8 @@ module Fluent::Plugin
     end
 
     def configure(conf)
+      compat_parameters_convert(conf, :buffer, default_chunk_key: 'time')
+
       super
 
       @formatter = case @format
@@ -60,11 +62,11 @@ module Fluent::Plugin
                      if @keys.empty?
                        raise Fluent::ConfigError, "keys option is required on exec output for tsv format"
                      end
-                     ExecUtil::TSVFormatter.new(@keys)
+                     Fluent::ExecUtil::TSVFormatter.new(@keys)
                    when :json
-                     ExecUtil::JSONFormatter.new
+                     Fluent::ExecUtil::JSONFormatter.new
                    when :msgpack
-                     ExecUtil::MessagePackFormatter.new
+                     Fluent::ExecUtil::MessagePackFormatter.new
                    end
 
       if @time_key

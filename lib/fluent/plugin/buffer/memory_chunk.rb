@@ -20,7 +20,7 @@ module Fluent
   module Plugin
     class Buffer
       class MemoryChunk < Chunk
-        def initialize(metadata)
+        def initialize(metadata, compress: :text)
           super
           @chunk = ''.force_encoding(Encoding::ASCII_8BIT)
           @chunk_bytes = 0
@@ -28,18 +28,8 @@ module Fluent
           @adding_size = 0
         end
 
-        def append(data)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
-
-          adding = data.join.force_encoding(Encoding::ASCII_8BIT)
-          @chunk << adding
-          @adding_bytes += adding.bytesize
-          @adding_size += data.size
-          true
-        end
-
         def concat(bulk, bulk_size)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
+          raise "BUG: concatenating to unwritable chunk, now '#{self.state}'" unless self.writable?
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk << bulk
@@ -82,15 +72,15 @@ module Fluent
           true
         end
 
-        def read
+        def read(**kwargs)
           @chunk
         end
 
-        def open(&block)
+        def open(**kwargs, &block)
           StringIO.open(@chunk, &block)
         end
 
-        def write_to(io)
+        def write_to(io, **kwargs)
           # re-implementation to optimize not to create StringIO
           io.write @chunk
         end

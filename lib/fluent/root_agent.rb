@@ -91,7 +91,7 @@ module Fluent
       else
         conf.elements(name: 'source').each { |e|
           type = e['@type']
-          raise ConfigError, "Missing 'type' parameter on <source> directive" unless type
+          raise ConfigError, "Missing '@type' parameter on <source> directive" unless type
           add_source(type, e)
         }
       end
@@ -137,6 +137,9 @@ module Fluent
       lifecycle(desc: true) do |i| # instance
         i.start unless i.started?
       end
+      lifecycle(desc: true) do |i|
+        i.after_start unless i.after_started?
+      end
     end
 
     def flush!
@@ -160,7 +163,7 @@ module Fluent
     end
 
     def shutdown # Fluentd's shutdown sequence is stop, before_shutdown, shutdown, after_shutdown, close, terminate for plugins
-      # Thesee method callers does `rescue Exception` to call methods of shutdown sequence as far as possible
+      # These method callers does `rescue Exception` to call methods of shutdown sequence as far as possible
       # if plugin methods does something like infinite recursive call, `exit`, unregistering signal handlers or others.
       # Plugins should be separated and be in sandbox to protect data in each plugins/buffers.
 
@@ -230,7 +233,7 @@ module Fluent
       # <source> emits events to the top-level event router (RootAgent#event_router).
       # Input#configure overwrites event_router to a label's event_router if it has `@label` parameter.
       # See also 'fluentd/plugin/input.rb'
-      input.router = @event_router
+      input.context_router = @event_router
       input.configure(conf)
       @inputs << input
 
@@ -239,6 +242,7 @@ module Fluent
 
     def add_label(name)
       label = Label.new(name, log: log)
+      raise ConfigError, "Section <label #{name}> appears twice" if @labels[name]
       label.root_agent = self
       @labels[name] = label
     end

@@ -1,5 +1,5 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_debug_agent'
 require 'fileutils'
 
@@ -13,7 +13,7 @@ class DebugAgentInputTest < Test::Unit::TestCase
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/in_debug_agent")
 
   def create_driver(conf = '')
-    Fluent::Test::InputTestDriver.new(Fluent::DebugAgentInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::DebugAgentInput).configure(conf)
   end
 
   def test_unix_path_writable

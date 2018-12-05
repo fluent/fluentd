@@ -14,17 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/filter'
+require 'fluent/plugin/filter'
 require 'fluent/config/error'
+require 'fluent/plugin/string_util'
 
-module Fluent
+module Fluent::Plugin
   class GrepFilter < Filter
     Fluent::Plugin.register_filter('grep', self)
-
-    def initialize
-      super
-      require 'fluent/plugin/string_util'
-    end
 
     REGEXP_MAX_NUM = 20
 
@@ -42,8 +38,8 @@ module Fluent
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["regexp#{i}"]
         key, regexp = conf["regexp#{i}"].split(/ /, 2)
-        raise ConfigError, "regexp#{i} does not contain 2 parameters" unless regexp
-        raise ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @regexps[key]
+        raise Fluent::ConfigError, "regexp#{i} does not contain 2 parameters" unless regexp
+        raise Fluent::ConfigError, "regexp#{i} contains a duplicated key, #{key}" if @regexps[key]
         @regexps[key] = Regexp.compile(regexp)
       end
 
@@ -51,8 +47,8 @@ module Fluent
       (1..REGEXP_MAX_NUM).each do |i|
         next unless conf["exclude#{i}"]
         key, exclude = conf["exclude#{i}"].split(/ /, 2)
-        raise ConfigError, "exclude#{i} does not contain 2 parameters" unless exclude
-        raise ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @excludes[key]
+        raise Fluent::ConfigError, "exclude#{i} does not contain 2 parameters" unless exclude
+        raise Fluent::ConfigError, "exclude#{i} contains a duplicated key, #{key}" if @excludes[key]
         @excludes[key] = Regexp.compile(exclude)
       end
     end

@@ -14,13 +14,13 @@
 #    limitations under the License.
 #
 
-require 'cool.io'
+require 'fluent/plugin/input'
 
-require 'fluent/input'
+module Fluent::Plugin
+  class GCStatInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('gc_stat', self)
 
-module Fluent
-  class GCStatInput < Input
-    Plugin.register_input('gc_stat', self)
+    helpers :timer
 
     def initialize
       super
@@ -29,22 +29,6 @@ module Fluent
     config_param :emit_interval, :time, default: 60
     config_param :tag, :string
 
-    class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, repeat, log, &callback)
-        @callback = callback
-        @log = log
-        super(interval, repeat)
-      end
-
-      def on_timer
-        @callback.call
-      rescue
-        # TODO log?
-        @log.error $!.to_s
-        @log.error_backtrace
-      end
-    end
-
     def configure(conf)
       super
     end
@@ -52,29 +36,15 @@ module Fluent
     def start
       super
 
-      @loop = Coolio::Loop.new
-      @timer = TimerWatcher.new(@emit_interval, true, log, &method(:on_timer))
-      @loop.attach(@timer)
-      @thread = Thread.new(&method(:run))
+      timer_execute(:in_gc_stat, @emit_interval, &method(:on_timer))
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @thread.join
-
       super
     end
 
-    def run
-      @loop.run
-    rescue
-      log.error "unexpected error", error: $!.to_s
-      log.error_backtrace
-    end
-
     def on_timer
-      now = Engine.now
+      now = Fluent::EventTime.now
       record = GC.stat
       router.emit(@tag, now, record)
     end

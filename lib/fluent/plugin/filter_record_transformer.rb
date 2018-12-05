@@ -18,13 +18,13 @@ require 'socket'
 require 'json'
 require 'ostruct'
 
-require 'fluent/filter'
+require 'fluent/plugin/filter'
 require 'fluent/config/error'
 require 'fluent/event'
 require 'fluent/time'
 
-module Fluent
-  class RecordTransformerFilter < Filter
+module Fluent::Plugin
+  class RecordTransformerFilter < Fluent::Plugin::Filter
     Fluent::Plugin.register_filter('record_transformer', self)
 
     desc 'A comma-delimited list of keys to delete.'
@@ -81,7 +81,7 @@ module Fluent
     end
 
     def filter_stream(tag, es)
-      new_es = MultiEventStream.new
+      new_es = Fluent::MultiEventStream.new
       tag_parts = tag.split('.')
       tag_prefix = tag_prefix(tag_parts)
       tag_suffix = tag_suffix(tag_parts)
@@ -101,7 +101,7 @@ module Fluent
         })
         new_record = reform(record, placeholder_values)
         if @renew_time_key && new_record.has_key?(@renew_time_key)
-          time = EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
+          time = Fluent::EventTime.from_time(Time.at(new_record[@renew_time_key].to_f))
         end
         new_es.add(time, new_record)
       end
@@ -204,7 +204,9 @@ module Fluent
             end
           elsif value.kind_of?(Hash) # record, etc
             value.each do |k, v|
-              placeholders.store("${#{k}}", v) # foo
+              unless placeholder_values.has_key?(k) # prevent overwriting reserved keys such as tag
+                placeholders.store("${#{k}}", v) # foo
+              end
               placeholders.store(%Q[${#{key}["#{k}"]}], v) # record["foo"]
             end
           else # string, interger, float, and others?

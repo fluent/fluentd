@@ -15,13 +15,13 @@
 #
 
 require 'fluent/plugin/formatter'
+require 'fluent/time'
+require 'yajl'
 
 module Fluent
   module Plugin
     class OutFileFormatter < Formatter
       Plugin.register_formatter('out_file', self)
-
-      include HandleTagAndTimeMixin
 
       config_param :output_time, :bool, default: true
       config_param :output_tag, :bool, default: true
@@ -32,9 +32,15 @@ module Fluent
         else "\t"
         end
       end
+      config_set_default :time_type, :string
+      config_set_default :time_format, nil # time_format nil => iso8601
+
+      def configure(conf)
+        super
+        @timef = time_formatter_create
+      end
 
       def format(tag, time, record)
-        filter_record(tag, time, record)
         header = ''
         header << "#{@timef.format(time)}#{@delimiter}" if @output_time
         header << "#{tag}#{@delimiter}" if @output_tag

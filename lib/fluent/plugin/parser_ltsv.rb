@@ -15,35 +15,27 @@
 #
 
 require 'fluent/plugin/parser'
-require 'fluent/time'
 
 module Fluent
   module Plugin
-    class LabeledTSVParser < ValuesParser
+    class LabeledTSVParser < Parser
       Plugin.register_parser('ltsv', self)
 
-      config_param :delimiter,       :string, default: "\t"
+      desc 'The delimiter character (or string) of TSV values'
+      config_param :delimiter, :string, default: "\t"
+      desc 'The delimiter character between field name and value'
       config_param :label_delimiter, :string, default: ":"
-      config_param :time_key, :string, default: "time"
 
-      def configure(conf)
-        # this assignment is not to raise ConfigError in ValuesParser#configure
-        conf['keys'] = conf['time_key'] || 'time'
-        super(conf)
-      end
+      config_set_default :time_key, 'time'
 
       def parse(text)
-        # TODO: thread unsafe: @keys might be changed by other threads
-        @keys  = []
-        values = []
-
-        text.split(delimiter).each do |pair|
-          key, value = pair.split(label_delimiter, 2)
-          @keys.push(key)
-          values.push(value)
+        r = {}
+        text.split(@delimiter).each do |pair|
+          key, value = pair.split(@label_delimiter, 2)
+          r[key] = value
         end
-
-        yield values_map(values)
+        time, record = convert_values(parse_time(r), r)
+        yield time, record
       end
     end
   end

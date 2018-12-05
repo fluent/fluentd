@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/test/driver/base'
+require 'fluent/test/driver/base_owner'
 require 'fluent/test/driver/event_feeder'
 
 require 'fluent/plugin/filter'
@@ -22,12 +22,34 @@ require 'fluent/plugin/filter'
 module Fluent
   module Test
     module Driver
-      class Filter < Base
+      class Filter < BaseOwner
         include EventFeeder
+
+        attr_reader :filtered
 
         def initialize(klass, opts: {}, &block)
           super
           raise ArgumentError, "plugin is not an instance of Fluent::Plugin::Filter" unless @instance.is_a? Fluent::Plugin::Filter
+          @filtered = []
+        end
+
+        def filtered_records
+          @filtered.map {|_time, record| record }
+        end
+
+        def instance_hook_after_started
+          super
+          filter_hook = ->(time, record) { @filtered << [time, record] }
+          m = Module.new do
+            define_method(:filter_stream) do |tag, es|
+              new_es = super(tag, es)
+              new_es.each do |time, record|
+                filter_hook.call(time, record)
+              end
+              new_es
+            end
+          end
+          @instance.singleton_class.prepend(m)
         end
       end
     end

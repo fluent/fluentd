@@ -14,72 +14,29 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/multi_output'
 require 'fluent/config/error'
 require 'fluent/event'
 
-module Fluent
+module Fluent::Plugin
   class CopyOutput < MultiOutput
-    Plugin.register_output('copy', self)
+    Fluent::Plugin.register_output('copy', self)
 
     desc 'If true, pass different record to each `store` plugin.'
     config_param :deep_copy, :bool, default: false
 
-    def initialize
-      super
-      @outputs = []
-    end
-
-    attr_reader :outputs
-
-    def configure(conf)
-      super
-      conf.elements.select {|e|
-        e.name == 'store'
-      }.each {|e|
-        type = e['@type']
-        unless type
-          raise ConfigError, "Missing 'type' parameter on <store> directive"
-        end
-        log.debug "adding store type=#{type.dump}"
-
-        output = Plugin.new_output(type)
-        output.router = router
-        output.configure(e)
-        @outputs << output
-      }
-    end
-
-    def start
-      super
-
-      @outputs.each do |o|
-        o.start unless o.started?
-      end
-    end
-
-    def shutdown
-      @outputs.each do |o|
-        o.shutdown unless o.shutdown?
-      end
-
-      super
-    end
-
-    def emit(tag, es, chain)
+    def process(tag, es)
       unless es.repeatable?
-        m = MultiEventStream.new
+        m = Fluent::MultiEventStream.new
         es.each {|time,record|
           m.add(time, record)
         }
         es = m
       end
-      if @deep_copy
-        chain = CopyOutputChain.new(@outputs, tag, es, chain)
-      else
-        chain = OutputChain.new(@outputs, tag, es, chain)
+
+      outputs.each do |output|
+        output.emit_events(tag, @deep_copy ? es.dup : es)
       end
-      chain.next
     end
   end
 end

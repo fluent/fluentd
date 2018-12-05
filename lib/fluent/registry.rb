@@ -18,16 +18,17 @@ require 'fluent/config/error'
 
 module Fluent
   class Registry
-    DEFAULT_PLUGIN_PATH = File.expand_path('plugin', __FILE__)
+    DEFAULT_PLUGIN_PATH = File.expand_path('../plugin', __FILE__)
 
-    def initialize(kind, search_prefix)
+    def initialize(kind, search_prefix, dir_search_prefix: nil)
       @kind = kind
       @search_prefix = search_prefix
+      @dir_search_prefix = dir_search_prefix
       @map = {}
       @paths = [DEFAULT_PLUGIN_PATH]
     end
 
-    attr_reader :kind, :paths
+    attr_reader :kind, :paths, :map, :dir_search_prefix
 
     def register(type, value)
       type = type.to_sym
@@ -54,11 +55,10 @@ module Fluent
     end
 
     def search(type)
-      path = "#{@search_prefix}#{type}"
-
-      # prefer LOAD_PATH than gems
-      [@paths, $LOAD_PATH].each do |paths|
-        files = paths.map { |lp|
+      # search from additional plugin directories
+      if @dir_search_prefix
+        path = "#{@dir_search_prefix}#{type}"
+        files = @paths.map { |lp|
           lpath = File.expand_path(File.join(lp, "#{path}.rb"))
           File.exist?(lpath) ? lpath : nil
         }.compact
@@ -67,6 +67,19 @@ module Fluent
           require files.sort.last
           return
         end
+      end
+
+      path = "#{@search_prefix}#{type}"
+
+      # prefer LOAD_PATH than gems
+      files = $LOAD_PATH.map { |lp|
+        lpath = File.expand_path(File.join(lp, "#{path}.rb"))
+        File.exist?(lpath) ? lpath : nil
+      }.compact
+      unless files.empty?
+        # prefer newer version
+        require files.sort.last
+        return
       end
 
       specs = Gem::Specification.find_all { |spec|

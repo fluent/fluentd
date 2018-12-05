@@ -1,3 +1,19 @@
+#
+# Fluentd
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
 require 'fluent/plugin'
 require 'fluent/plugin/storage'
 
@@ -40,7 +56,8 @@ module Fluent
         elsif @path
           # ok
         else # @_plugin_id_configured is true
-          raise NotImplementedError, "implement this feature later with system_config"
+          log.warn "path for <storage> is not specified. Using on-memory store temporarily, but will use file store after support global storage path"
+          @on_memory = true
           ## TODO: get process-wide directory for plugin storage, and generate path for this plugin storage instance
           # path = 
         end
@@ -58,7 +75,7 @@ module Fluent
               raise Fluent::ConfigError, "Unexpected error: failed to read data from plugin storage file: '#{@path}'"
             end
           else
-            raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{@path}'" unless File.writable?(@path)
+            raise Fluent::ConfigError, "Directory is not writable for plugin storage file '#{dir}'" unless File.writable?(dir)
           end
         end
       end

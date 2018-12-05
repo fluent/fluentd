@@ -14,78 +14,80 @@
 #    limitations under the License.
 #
 
-require 'monitor'
 require 'forwardable'
 
 require 'fluent/plugin'
 require 'fluent/plugin/storage'
-require 'fluent/plugin_helper/thread'
 require 'fluent/plugin_helper/timer'
 require 'fluent/config/element'
+require 'fluent/configurable'
 
 module Fluent
   module PluginHelper
     module Storage
-      include Fluent::PluginHelper::Thread
       include Fluent::PluginHelper::Timer
 
       StorageState = Struct.new(:storage, :running)
 
-      def storage_create(usage: '', type: nil, conf: nil)
+      def storage_create(usage: '', type: nil, conf: nil, default_type: nil)
         s = @_storages[usage]
         if s && s.running
           return s.storage
-        elsif !s
-          unless type
-            raise ArgumentError, "BUG: type not specified without configuration"
-          end
+        elsif s
+          # storage is already created, but not loaded / started
+        else # !s
+          type = if type
+                   type
+                 elsif conf && conf.respond_to?(:[])
+                   raise Fluent::ConfigError, "@type is required in <storage>" unless conf['@type']
+                   conf['@type']
+                 elsif default_type
+                   default_type
+                 else
+                   raise ArgumentError, "BUG: both type and conf are not specified"
+                 end
           storage = Plugin.new_storage(type, parent: self)
           config = case conf
                    when Fluent::Config::Element
                      conf
                    when Hash
+                     # in code, programmer may use symbols as keys, but Element needs strings
                      conf = Hash[conf.map{|k,v| [k.to_s, v]}]
-                     Fluent::Config::Element.new('storage', '', conf, [])
+                     Fluent::Config::Element.new('storage', usage, conf, [])
                    when nil
-                     Fluent::Config::Element.new('storage', '', {}, [])
+                     Fluent::Config::Element.new('storage', usage, {}, [])
                    else
                      raise ArgumentError, "BUG: conf must be a Element, Hash (or unspecified), but '#{conf.class}'"
                    end
           storage.configure(config)
+          if @_storages_started
+            storage.start
+          end
           s = @_storages[usage] = StorageState.new(wrap_instance(storage), false)
         end
 
-        s.storage.load
-
-        if s.storage.autosave && !s.storage.persistent
-          timer_execute(:storage_autosave, s.storage.autosave_interval, repeat: true) do
-            begin
-              s.storage.save
-            rescue => e
-              log.error "plugin storage failed to save its data", usage: usage, type: type, error: e
-            end
-          end
-        end
-        s.running = true
         s.storage
       end
 
-      def self.included(mod)
-        mod.instance_eval do
-          # minimum section definition to instantiate storage plugin instances
-          config_section :storage, required: false, multi: true, param_name: :storage_configs do
-            config_argument :usage, :string, default: ''
-            config_param    :@type, :string, default: Fluent::Plugin::Storage::DEFAULT_TYPE
-          end
+      module StorageParams
+        include Fluent::Configurable
+        # minimum section definition to instantiate storage plugin instances
+        config_section :storage, required: false, multi: true, param_name: :storage_configs do
+          config_argument :usage, :string, default: ''
+          config_param    :@type, :string, default: Fluent::Plugin::Storage::DEFAULT_TYPE
         end
+      end
+
+      def self.included(mod)
+        mod.include StorageParams
       end
 
       attr_reader :_storages # for tests
 
       def initialize
         super
+        @_storages_started = false
         @_storages = {} # usage => storage_state
-        @_storages_mutex = Mutex.new
       end
 
       def configure(conf)
@@ -95,56 +97,75 @@ module Fluent
           if @_storages[section.usage]
             raise Fluent::ConfigError, "duplicated storages configured: #{section.usage}"
           end
-          config = conf.elements(name: 'storage', arg: section.usage).first
-          raise "storage section with argument '#{section.usage}' not found. it may be a bug." unless config
-
-          storage = Plugin.new_storage(section[:@type])
-          storage.owner = self
-          storage.configure(config)
+          storage = Plugin.new_storage(section[:@type], parent: self)
+          storage.configure(section.corresponding_config_element)
           @_storages[section.usage] = StorageState.new(wrap_instance(storage), false)
+        end
+      end
+
+      def start
+        super
+
+        @_storages_started = true
+        @_storages.each_pair do |usage, s|
+          s.storage.start
+          s.storage.load
+
+          if s.storage.autosave && !s.storage.persistent
+            timer_execute(:storage_autosave, s.storage.autosave_interval, repeat: true) do
+              begin
+                s.storage.save
+              rescue => e
+                log.error "plugin storage failed to save its data", usage: usage, type: type, error: e
+              end
+            end
+          end
+          s.running = true
+        end
+      end
+
+      def storage_operate(method_name, &block)
+        @_storages.each_pair do |usage, s|
+          begin
+            block.call(s) if block_given?
+            s.storage.send(method_name)
+          rescue => e
+            log.error "unexpected error while #{method_name}", usage: usage, storage: s.storage, error: e
+          end
         end
       end
 
       def stop
         super
-        # timer stops automatically
+        # timer stops automatically in super
+        storage_operate(:stop)
+      end
+
+      def before_shutdown
+        storage_operate(:before_shutdown)
+        super
       end
 
       def shutdown
-        @_storages.each_pair do |usage, s|
-          begin
-            s.storage.save if s.storage.save_at_shutdown
-          rescue => e
-            log.error "unexpected error while saving data of plugin storages", usage: usage, storage: s.storage, error: e
-          end
+        storage_operate(:shutdown) do |s|
+          s.storage.save if s.storage.save_at_shutdown
         end
+        super
+      end
 
+      def after_shutdown
+        storage_operate(:after_shutdown)
         super
       end
 
       def close
-        @_storages.each_pair do |usage, s|
-          begin
-            s.storage.close
-          rescue => e
-            log.error "unexpected error while closing plugin storages", usage: usage, storage: s.storage, error: e
-          end
-          s.running = false
-        end
-
+        storage_operate(:close){|s| s.running = false }
         super
       end
 
       def terminate
-        @_storages.each_pair do |usage, s|
-          begin
-            s.storage.terminate
-          rescue => e
-            log.error "unexpected error while terminating plugin storages", usage: usage, storage: s.storage, error: e
-          end
-        end
+        storage_operate(:terminate)
         @_storages = {}
-
         super
       end
 
@@ -170,7 +191,8 @@ module Fluent
         end
 
         def_delegators :@storage, :autosave_interval, :save_at_shutdown
-        def_delegators :@storage, :close, :terminate
+        def_delegators :@storage, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate
+        def_delegators :@storage, :started?, :stopped?, :before_shutdown?, :shutdown?, :after_shutdown?, :closed?, :terminated?
 
         def persistent_always?
           true
@@ -257,7 +279,8 @@ module Fluent
 
         def_delegators :@storage, :persistent, :autosave, :autosave_interval, :save_at_shutdown
         def_delegators :@storage, :persistent_always?
-        def_delegators :@storage, :close, :terminate
+        def_delegators :@storage, :start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate
+        def_delegators :@storage, :started?, :stopped?, :before_shutdown?, :shutdown?, :after_shutdown?, :closed?, :terminated?
 
         def synchronized?
           true

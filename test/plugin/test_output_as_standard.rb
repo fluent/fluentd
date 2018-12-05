@@ -85,12 +85,13 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element())
       @i.start
+      @i.after_start
 
       m = create_metadata()
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -99,12 +100,13 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer"=>"true"}))
       @i.start
+      @i.after_start
 
       m = create_metadata()
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream(time_int: true), es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -115,12 +117,13 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m = create_metadata(tag: "mytag.test")
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -129,12 +132,13 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer"=>"true"},[config_element('buffer','tag',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m = create_metadata(tag: "mytag.test")
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.to_msgpack_stream(time_int: true), es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es}, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -145,6 +149,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey" => "60",'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
       m2 = create_metadata(timekey: Time.parse('2016-04-21 17:20:00 -0700').to_i)
@@ -164,10 +169,10 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).once.with({
-          m1 => [es1.to_msgpack_stream, 3],
-          m2 => [es2.to_msgpack_stream, 2],
-          m3 => [es3.to_msgpack_stream, 1],
-        }, bulk: true, enqueue: false)
+          m1 => es1,
+          m2 => es2,
+          m3 => es3,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false)
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -177,6 +182,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','time',{"timekey" => "60",'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
       m2 = create_metadata(timekey: Time.parse('2016-04-21 17:20:00 -0700').to_i)
@@ -196,10 +202,10 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).with({
-          m1 => [es1.to_msgpack_stream(time_int: true), 3],
-          m2 => [es2.to_msgpack_stream(time_int: true), 2],
-          m3 => [es3.to_msgpack_stream(time_int: true), 1],
-        }, bulk: true, enqueue: false)
+          m1 => es1,
+          m2 => es2,
+          m3 => es3,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false)
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -211,6 +217,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
       es1 = Fluent::MultiEventStream.new
@@ -226,9 +233,9 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).with({
-          m1 => [es1.to_msgpack_stream, 5],
-          m2 => [es2.to_msgpack_stream, 1],
-        }, bulk: true, enqueue: false).once
+          m1 => es1,
+          m2 => es2,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -238,6 +245,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:standard)
       @i.configure(config_element('ROOT','',{"time_as_integer" => "true"},[config_element('buffer','key,name',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
       es1 = Fluent::MultiEventStream.new
@@ -253,9 +261,9 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
 
       buffer_mock = flexmock(@i.buffer)
       buffer_mock.should_receive(:write).with({
-          m1 => [es1.to_msgpack_stream(time_int: true), 5],
-          m2 => [es2.to_msgpack_stream(time_int: true), 1],
-        }, bulk: true, enqueue: false).once
+          m1 => es1,
+          m2 => es2,
+        }, format: Fluent::Plugin::Output::FORMAT_MSGPACK_STREAM_TIME_INT, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -268,12 +276,13 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element())
       @i.start
+      @i.after_start
 
       m = create_metadata()
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.map{|t,r| [t,r].to_json }.join, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es.map{|t,r| [t,r].to_json }}, format: nil, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -285,12 +294,13 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element('ROOT','',{},[config_element('buffer','tag',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m = create_metadata(tag: "mytag.test")
       es = test_event_stream
 
       buffer_mock = flexmock(@i.buffer)
-      buffer_mock.should_receive(:write).once.with({m => [es.map{|t,r| [t,r].to_json }.join, es.size]}, bulk: true, enqueue: false)
+      buffer_mock.should_receive(:write).once.with({m => es.map{|t,r| [t,r].to_json}}, format: nil, enqueue: false)
 
       @i.execute_chunking("mytag.test", es)
     end
@@ -301,6 +311,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element('ROOT','',{},[config_element('buffer','time',{"timekey" => "60",'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(timekey: Time.parse('2016-04-21 17:19:00 -0700').to_i)
       m2 = create_metadata(timekey: Time.parse('2016-04-21 17:20:00 -0700').to_i)
@@ -323,7 +334,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
           m1 => es1.map{|t,r| [t,r].to_json },
           m2 => es2.map{|t,r| [t,r].to_json },
           m3 => es3.map{|t,r| [t,r].to_json },
-        }, bulk: false, enqueue: false).once
+        }, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)
@@ -336,6 +347,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       @i.register(:format){|tag, time, record| [time, record].to_json }
       @i.configure(config_element('ROOT','',{},[config_element('buffer','key,name',{'flush_thread_burst_interval' => 0.01})]))
       @i.start
+      @i.after_start
 
       m1 = create_metadata(variables: {key: "my value", name: "moris1"})
       es1 = Fluent::MultiEventStream.new
@@ -353,7 +365,7 @@ class StandardBufferedOutputTest < Test::Unit::TestCase
       buffer_mock.should_receive(:write).with({
           m1 => es1.map{|t,r| [t,r].to_json },
           m2 => es2.map{|t,r| [t,r].to_json },
-        }, bulk: false, enqueue: false).once
+        }, enqueue: false).once
 
       es = test_event_stream
       @i.execute_chunking("mytag.test", es)

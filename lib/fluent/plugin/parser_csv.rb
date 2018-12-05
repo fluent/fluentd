@@ -20,11 +20,19 @@ require 'csv'
 
 module Fluent
   module Plugin
-    class CSVParser < ValuesParser
+    class CSVParser < Parser
       Plugin.register_parser('csv', self)
 
+      desc 'Names of fields included in each lines'
+      config_param :keys, :array, value_type: :string
+      desc 'The delimiter character (or string) of CSV values'
+      config_param :delimiter, :string, default: ','
+
       def parse(text)
-        yield values_map(CSV.parse_line(text))
+        values = CSV.parse_line(text, col_sep: @delimiter)
+        r = Hash[@keys.zip(values)]
+        time, record = convert_values(parse_time(r), r)
+        yield time, record
       end
     end
   end

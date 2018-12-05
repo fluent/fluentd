@@ -28,7 +28,7 @@ module Fluent
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
 
-      config_param :time_format, :string, default: "%b %d %H:%M:%S"
+      config_set_default :time_format, "%b %d %H:%M:%S"
       config_param :with_priority, :bool, default: false
 
       def initialize
@@ -40,7 +40,7 @@ module Fluent
         super
 
         @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
-        @time_parser = TimeParser.new(@time_format)
+        @time_parser = time_parser_create
       end
 
       def patterns

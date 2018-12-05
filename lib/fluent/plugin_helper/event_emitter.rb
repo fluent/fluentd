@@ -26,10 +26,14 @@ module Fluent
 
       def router
         @_event_emitter_used_actually = true
+        if @_event_emitter_lazy_init
+          @router = @primary_instance.router
+        end
         @router
       end
 
       def router=(r)
+        # not recommended now...
         @router = r
       end
 
@@ -44,14 +48,23 @@ module Fluent
       def event_emitter_router(label_name)
         if label_name
           Engine.root_agent.find_label(label_name).event_router
+        elsif self.respond_to?(:as_secondary) && self.as_secondary
+          if @primary_instance.has_router?
+            @_event_emitter_lazy_init = true
+            nil # primary plugin's event router is not initialized yet, here.
+          else
+            @primary_instance.context_router
+          end
         else
-          Engine.root_agent.event_router
+          # `Engine.root_agent.event_router` is for testing
+          self.context_router || Engine.root_agent.event_router
         end
       end
 
       def initialize
         super
         @_event_emitter_used_actually = false
+        @_event_emitter_lazy_init = false
         @router = nil
       end
 

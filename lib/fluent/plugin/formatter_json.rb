@@ -15,14 +15,12 @@
 #
 
 require 'fluent/plugin/formatter'
+require 'fluent/env'
 
 module Fluent
   module Plugin
     class JSONFormatter < Formatter
       Plugin.register_formatter('json', self)
-
-      include HandleTagAndTimeMixin
-      include StructuredFormatMixin
 
       config_param :json_parser, :string, default: 'oj'
 
@@ -32,14 +30,14 @@ module Fluent
         begin
           raise LoadError unless @json_parser == 'oj'
           require 'oj'
-          Oj.default_options = {mode: :compat}
+          Oj.default_options = Fluent::DEFAULT_OJ_OPTIONS
           @dump_proc = Oj.method(:dump)
         rescue LoadError
           @dump_proc = Yajl.method(:dump)
         end
       end
 
-      def format_record(record)
+      def format(tag, time, record)
         "#{@dump_proc.call(record)}\n"
       end
     end

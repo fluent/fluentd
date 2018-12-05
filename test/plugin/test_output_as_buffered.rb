@@ -1,6 +1,7 @@
 require_relative '../helper'
 require 'fluent/plugin/output'
 require 'fluent/plugin/buffer'
+require 'fluent/output'
 require 'fluent/event'
 
 require 'json'
@@ -56,6 +57,47 @@ module FluentPluginOutputAsBufferedTest
       super
     end
   end
+  class DummyStandardBufferedOutput < DummyBareOutput
+    def initialize
+      super
+      @prefer_delayed_commit = nil
+      @write = nil
+      @try_write = nil
+    end
+    def prefer_delayed_commit
+      @prefer_delayed_commit ? @prefer_delayed_commit.call : false
+    end
+    def write(chunk)
+      @write ? @write.call(chunk) : nil
+    end
+    def try_write(chunk)
+      @try_write ? @try_write.call(chunk) : nil
+    end
+  end
+  class DummyCustomFormatBufferedOutput < DummyBareOutput
+    def initialize
+      super
+      @format_type_is_msgpack = nil
+      @prefer_delayed_commit = nil
+      @write = nil
+      @try_write = nil
+    end
+    def format(tag, time, record)
+      @format ? @format.call(tag, time, record) : [tag, time, record].to_json
+    end
+    def formatted_to_msgpack_binary
+      @format_type_is_msgpack ? @format_type_is_msgpack.call : false
+    end
+    def prefer_delayed_commit
+      @prefer_delayed_commit ? @prefer_delayed_commit.call : false
+    end
+    def write(chunk)
+      @write ? @write.call(chunk) : nil
+    end
+    def try_write(chunk)
+      @try_write ? @try_write.call(chunk) : nil
+    end
+  end
   class DummyFullFeatureOutput < DummyBareOutput
     def initialize
       super
@@ -85,6 +127,28 @@ module FluentPluginOutputAsBufferedTest
       @try_write ? @try_write.call(chunk) : nil
     end
   end
+  module OldPluginMethodMixin
+    def initialize
+      super
+      @format = nil
+      @write = nil
+    end
+    def register(name, &block)
+      instance_variable_set("@#{name}", block)
+    end
+    def format(tag, time, record)
+      @format ? @format.call(tag, time, record) : [tag, time, record].to_json
+    end
+    def write(chunk)
+      @write ? @write.call(chunk) : nil
+    end
+  end
+  class DummyOldBufferedOutput < Fluent::BufferedOutput
+    include OldPluginMethodMixin
+  end
+  class DummyOldObjectBufferedOutput < Fluent::ObjectBufferedOutput
+    include OldPluginMethodMixin
+  end
 end
 
 class BufferedOutputTest < Test::Unit::TestCase
@@ -94,7 +158,11 @@ class BufferedOutputTest < Test::Unit::TestCase
     when :sync     then FluentPluginOutputAsBufferedTest::DummySyncOutput.new
     when :buffered then FluentPluginOutputAsBufferedTest::DummyAsyncOutput.new
     when :delayed  then FluentPluginOutputAsBufferedTest::DummyDelayedOutput.new
+    when :standard then FluentPluginOutputAsBufferedTest::DummyStandardBufferedOutput.new
+    when :custom   then FluentPluginOutputAsBufferedTest::DummyCustomFormatBufferedOutput.new
     when :full     then FluentPluginOutputAsBufferedTest::DummyFullFeatureOutput.new
+    when :old_buf  then FluentPluginOutputAsBufferedTest::DummyOldBufferedOutput.new
+    when :old_obj  then FluentPluginOutputAsBufferedTest::DummyOldObjectBufferedOutput.new
     else
       raise ArgumentError, "unknown type: #{type}"
     end
@@ -125,6 +193,272 @@ class BufferedOutputTest < Test::Unit::TestCase
     Timecop.return
   end
 
+  sub_test_case 'chunk feature in #write for output plugins' do
+    setup do
+      @stored_global_logger = $log
+      $log = Fluent::Test::TestLogger.new
+      @hash = {
+        'flush_mode' => 'immediate',
+        'flush_thread_interval' => '0.01',
+        'flush_thread_burst_interval' => '0.01',
+      }
+    end
+
+    teardown do
+      $log = @stored_global_logger
+    end
+
+    test 'plugin using standard format can iterate chunk for time, record in #write' do
+      events_from_chunk = []
+      @i = create_output(:standard)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
+      @i.register(:prefer_delayed_commit){ false }
+      @i.register(:write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|t,r| e << [t,r]}; events_from_chunk << [:write, e] }
+      @i.register(:try_write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|t,r| e << [t,r]}; events_from_chunk << [:try_write, e] }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5){ sleep 0.1 until events_from_chunk.size == 2 }
+
+      assert_equal 2, events_from_chunk.size
+      2.times.each do |i|
+        assert_equal :write, events_from_chunk[i][0]
+        assert_equal events, events_from_chunk[i][1]
+      end
+    end
+
+    test 'plugin using standard format can iterate chunk for time, record in #try_write' do
+      events_from_chunk = []
+      @i = create_output(:standard)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
+      @i.register(:prefer_delayed_commit){ true }
+      @i.register(:write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|t,r| e << [t,r]}; events_from_chunk << [:write, e] }
+      @i.register(:try_write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|t,r| e << [t,r]}; events_from_chunk << [:try_write, e] }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5){ sleep 0.1 until events_from_chunk.size == 2 }
+
+      assert_equal 2, events_from_chunk.size
+      2.times.each do |i|
+        assert_equal :try_write, events_from_chunk[i][0]
+        assert_equal events, events_from_chunk[i][1]
+      end
+    end
+
+    test 'plugin using custom format cannot iterate chunk in #write' do
+      events_from_chunk = []
+      @i = create_output(:custom)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
+      @i.register(:prefer_delayed_commit){ false }
+      @i.register(:format){ |tag, time, record| [tag,time,record].to_json }
+      @i.register(:format_type_is_msgpack){ false }
+      @i.register(:write){ |chunk| assert !(chunk.respond_to?(:each)) }
+      @i.register(:try_write){ |chunk| assert !(chunk.respond_to?(:each)) }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      assert_equal 0, events_from_chunk.size
+    end
+
+    test 'plugin using custom format cannot iterate chunk in #try_write' do
+      events_from_chunk = []
+      @i = create_output(:custom)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
+      @i.register(:prefer_delayed_commit){ true }
+      @i.register(:format){ |tag, time, record| [tag,time,record].to_json }
+      @i.register(:format_type_is_msgpack){ false }
+      @i.register(:write){ |chunk| assert !(chunk.respond_to?(:each)) }
+      @i.register(:try_write){ |chunk| assert !(chunk.respond_to?(:each)) }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      assert_equal 0, events_from_chunk.size
+    end
+
+    test 'plugin using custom format can iterate chunk in #write if #format returns msgpack' do
+      events_from_chunk = []
+      @i = create_output(:custom)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
+      @i.register(:prefer_delayed_commit){ false }
+      @i.register(:format){ |tag, time, record| [tag,time,record].to_msgpack }
+      @i.register(:format_type_is_msgpack){ true }
+      @i.register(:write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|ta,t,r| e << [ta,t,r]}; events_from_chunk << [:write, e] }
+      @i.register(:try_write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|ta,t,r| e << [ta,t,r]}; events_from_chunk << [:try_write, e] }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5){ sleep 0.1 until events_from_chunk.size == 2 }
+
+      assert_equal 2, events_from_chunk.size
+      2.times.each do |i|
+        assert_equal :write, events_from_chunk[i][0]
+        each_pushed = events_from_chunk[i][1]
+        assert_equal 2, each_pushed.size
+        assert_equal 'test.tag', each_pushed[0][0]
+        assert_equal 'test.tag', each_pushed[1][0]
+        assert_equal events, each_pushed.map{|tag,time,record| [time,record]}
+      end
+    end
+
+    test 'plugin using custom format can iterate chunk in #try_write if #format returns msgpack' do
+      events_from_chunk = []
+      @i = create_output(:custom)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer','',@hash)]))
+      @i.register(:prefer_delayed_commit){ true }
+      @i.register(:format){ |tag, time, record| [tag,time,record].to_msgpack }
+      @i.register(:format_type_is_msgpack){ true }
+      @i.register(:write){ |chunk| events_from_chunk = []; assert chunk.respond_to?(:each); chunk.each{|ta,t,r| e << [ta,t,r]}; events_from_chunk << [:write, e] }
+      @i.register(:try_write){ |chunk| e = []; assert chunk.respond_to?(:each); chunk.each{|ta,t,r| e << [ta,t,r]}; events_from_chunk << [:try_write, e] }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5){ sleep 0.1 until events_from_chunk.size == 2 }
+
+      assert_equal 2, events_from_chunk.size
+      2.times.each do |i|
+        assert_equal :try_write, events_from_chunk[i][0]
+        each_pushed = events_from_chunk[i][1]
+        assert_equal 2, each_pushed.size
+        assert_equal 'test.tag', each_pushed[0][0]
+        assert_equal 'test.tag', each_pushed[1][0]
+        assert_equal events, each_pushed.map{|tag,time,record| [time,record]}
+      end
+    end
+
+    data(:BufferedOutput => :old_buf,
+         :ObjectBufferedOutput => :old_obj)
+    test 'old plugin types can iterate chunk by msgpack_each in #write' do |plugin_type|
+      events_from_chunk = []
+      # event_emitter helper requires Engine.root_agent for routing
+      ra = Fluent::RootAgent.new(log: $log)
+      stub(Fluent::Engine).root_agent { ra }
+      @i = create_output(plugin_type)
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '', @hash)]))
+      @i.register(:format) { |tag, time, record| [time, record].to_msgpack }
+      @i.register(:write) { |chunk| e = []; chunk.msgpack_each { |t, r| e << [t, r] }; events_from_chunk << [:write, e]; }
+      @i.start
+      @i.after_start
+
+      events = [
+        [event_time('2016-10-05 16:16:16 -0700'), {"message" => "yaaaaaaaaay!"}],
+        [event_time('2016-10-05 16:16:17 -0700'), {"message" => "yoooooooooy!"}],
+      ]
+
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+
+      waiting(5) { sleep 0.1 until events_from_chunk.size == 2 }
+
+      assert_equal 2, events_from_chunk.size
+      2.times.each do |i|
+        assert_equal :write, events_from_chunk[i][0]
+        assert_equal events, events_from_chunk[i][1]
+      end
+    end
+  end
+
+  sub_test_case 'buffered output configured with many chunk keys' do
+    setup do
+      @stored_global_logger = $log
+      $log = Fluent::Test::TestLogger.new
+      @hash = {
+        'flush_mode' => 'interval',
+        'flush_thread_burst_interval' => 0.01,
+        'chunk_limit_size' => 1024,
+        'timekey' => 60,
+      }
+      @i = create_output(:buffered)
+    end
+    teardown do
+      $log = @stored_global_logger
+    end
+    test 'nothing are warned with less chunk keys' do
+      chunk_keys = 'time,key1,key2,key3'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+      @i.start
+      @i.after_start
+      assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
+    end
+
+    test 'a warning reported with 4 chunk keys' do
+      chunk_keys = 'key1,key2,key3,key4'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+
+      @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
+      @i.after_start
+      assert_equal ['key1', 'key2', 'key3', 'key4'], @i.chunk_keys
+
+      assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
+    end
+
+    test 'a warning reported with 4 chunk keys including "tag"' do
+      chunk_keys = 'tag,key1,key2,key3'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+      @i.start # this calls `log.reset`... capturing logs about configure must be done before this line
+      @i.after_start
+      assert{ logs.select{|log| log.include?('[warn]: many chunk keys specified, and it may cause too many chunks on your system.') }.size == 1 }
+    end
+
+    test 'time key is not included for warned chunk keys' do
+      chunk_keys = 'time,key1,key2,key3'
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_keys,@hash)]))
+      logs = @i.log.out.logs.dup
+      @i.start
+      @i.after_start
+      assert{ logs.select{|log| log.include?('[warn]') }.size == 0 }
+    end
+  end
+
   sub_test_case 'buffered output feature without any buffer key, flush_mode: lazy' do
     setup do
       hash = {
@@ -136,6 +470,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#start does not create enqueue thread, but creates flush threads' do
@@ -238,6 +573,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#start creates enqueue thread and flush threads' do
@@ -347,6 +683,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer','',hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#start does not create enqueue thread, but creates flush threads' do
@@ -440,6 +777,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#configure raises config error if timekey is not specified' do
@@ -655,6 +993,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test 'default flush_mode is set to :interval' do
@@ -871,6 +1210,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test 'default flush_mode is set to :interval' do
@@ -1083,6 +1423,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
 
       assert_equal :interval, @i.instance_eval{ @flush_mode }
     end
@@ -1099,6 +1440,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
 
       assert_equal :lazy, @i.instance_eval{ @flush_mode }
     end
@@ -1117,6 +1459,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i = create_output(:delayed)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.start
+      @i.after_start
     end
 
     test '#format is called for each event streams' do

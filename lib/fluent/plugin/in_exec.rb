@@ -17,14 +17,16 @@
 require 'strptime'
 require 'yajl'
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/time'
 require 'fluent/timezone'
 require 'fluent/config/error'
 
-module Fluent
-  class ExecInput < Input
-    Plugin.register_input('exec', self)
+module Fluent::Plugin
+  class ExecInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('exec', self)
+
+    helpers :child_process
 
     def initialize
       super
@@ -65,7 +67,7 @@ module Fluent
       end
 
       if !@tag && !@tag_key
-        raise ConfigError, "'tag' or 'tag_key' option is required on exec input"
+        raise Fleunt::ConfigError, "'tag' or 'tag_key' option is required on exec input"
       end
 
       if @time_key
@@ -90,15 +92,15 @@ module Fluent
       case @format
       when 'tsv'
         if @keys.empty?
-          raise ConfigError, "keys option is required on exec input for tsv format"
+          raise Fluent::ConfigError, "keys option is required on exec input for tsv format"
         end
-        ExecUtil::TSVParser.new(@keys, method(:on_message))
+        Fluent::ExecUtil::TSVParser.new(@keys, method(:on_message))
       when 'json'
-        ExecUtil::JSONParser.new(method(:on_message))
+        Fluent::ExecUtil::JSONParser.new(method(:on_message))
       when 'msgpack'
-        ExecUtil::MessagePackParser.new(method(:on_message))
+        Fluent::ExecUtil::MessagePackParser.new(method(:on_message))
       else
-        ExecUtil::TextParserWrapperParser.new(conf, method(:on_message))
+        Fluent::ExecUtil::TextParserWrapperParser.new(conf, method(:on_message))
       end
     end
 
@@ -106,57 +108,18 @@ module Fluent
       super
 
       if @run_interval
-        @finished = false
-        @thread = Thread.new(&method(:run_periodic))
+        child_process_execute(:exec_input, @command, interval: @run_interval, mode: [:read]) do |io|
+          run(io)
+        end
       else
-        @io = IO.popen(@command, "r")
-        @pid = @io.pid
-        @thread = Thread.new(&method(:run))
+        child_process_execute(:exec_input, @command, immediate: true, mode: [:read]) do |io|
+          run(io)
+        end
       end
     end
 
-    def shutdown
-      if @run_interval
-        @finished = true
-        # call Thread#run which interupts sleep in order to stop run_periodic thread immediately.
-        @thread.run
-        @thread.join
-      else
-        begin
-          Process.kill(:TERM, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        if @thread.join(60)  # TODO wait time
-          return
-        end
-
-        begin
-          Process.kill(:KILL, @pid)
-        rescue #Errno::ECHILD, Errno::ESRCH, Errno::EPERM
-        end
-        @thread.join
-      end
-
-      super
-    end
-
-    def run
-      @parser.call(@io)
-    end
-
-    def run_periodic
-      sleep @run_interval
-      until @finished
-        begin
-          io = IO.popen(@command, "r")
-          @parser.call(io)
-          Process.waitpid(io.pid)
-          sleep @run_interval
-        rescue
-          log.error "exec failed to run or shutdown child process", error: $!
-          log.warn_backtrace $!.backtrace
-        end
-      end
+    def run(io)
+      @parser.call(io)
     end
 
     private
@@ -174,7 +137,7 @@ module Fluent
         if val = record.delete(@time_key)
           time = @time_parse_proc.call(val)
         else
-          time = Engine.now
+          time = Fluent::EventTime.now
         end
       end
 

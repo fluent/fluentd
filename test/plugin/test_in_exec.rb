@@ -1,17 +1,17 @@
 require_relative '../helper'
-require 'fluent/test'
+require 'fluent/test/driver/input'
 require 'fluent/plugin/in_exec'
 require 'net/http'
 
 class ExecInputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-    @test_time = Fluent::EventTime.parse("2011-01-02 13:14:15")
+    @test_time = event_time("2011-01-02 13:14:15")
     @script = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'exec_script.rb'))
   end
 
   def create_driver(conf = tsv_config)
-    Fluent::Test::InputTestDriver.new(Fluent::ExecInput).configure(conf)
+    Fluent::Test::Driver::Input.new(Fluent::Plugin::ExecInput).configure(conf)
   end
 
   def tsv_config
@@ -86,52 +86,48 @@ class ExecInputTest < Test::Unit::TestCase
   def test_emit
     d = create_driver
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_json
     d = create_driver json_config
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_msgpack
     d = create_driver msgpack_config
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["tag1", @test_time, {"k1"=>"ok"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["tag1", @test_time, {"k1"=>"ok"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 
   def test_emit_regexp
     d = create_driver regexp_config
 
-    d.run do
-      sleep 2
-    end
+    d.run(expect_emits: 2)
 
-    emits = d.emits
-    assert_equal true, emits.length > 0
-    assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], emits[0]
-    assert_equal_event_time(@test_time, emits[0][1])
+    assert_equal true, d.events.length > 0
+    d.events.each_with_index {|event, i|
+      assert_equal ["regex_tag", @test_time, {"message"=>"hello"}], event
+      assert_equal_event_time(@test_time, event[1])
+    }
   end
 end

@@ -14,11 +14,11 @@
 #    limitations under the License.
 #
 
-require 'fluent/input'
+require 'fluent/plugin/input'
 
-module Fluent
+module Fluent::Plugin
   class DebugAgentInput < Input
-    Plugin.register_input('debug_agent', self)
+    Fluent::Plugin.register_input('debug_agent', self)
 
     def initialize
       require 'drb/drb'
@@ -30,13 +30,13 @@ module Fluent
     config_param :port, :integer, default: 24230
     config_param :unix_path, :string, default: nil
     #config_param :unix_mode  # TODO
-    config_param :object, :string, default: 'Engine'
+    config_param :object, :string, default: 'Fluent::Engine'
 
     def configure(conf)
       super
       if @unix_path
         unless ::Fluent::FileUtil.writable?(@unix_path)
-          raise ConfigError, "in_debug_agent: `#{@unix_path}` is not writable"
+          raise Fluent::ConfigError, "in_debug_agent: `#{@unix_path}` is not writable"
         end
       end
     end

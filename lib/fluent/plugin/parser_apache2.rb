@@ -26,7 +26,7 @@ module Fluent
 
       def initialize
         super
-        @time_parser = TimeParser.new(TIME_FORMAT)
+        @time_parser = time_parser_create(format: TIME_FORMAT)
         @mutex = Mutex.new
       end
 

@@ -22,23 +22,22 @@ module Fluent
     class CsvFormatter < Formatter
       Plugin.register_formatter('csv', self)
 
-      include HandleTagAndTimeMixin
-
       config_param :delimiter, default: ',' do |val|
         ['\t', 'TAB'].include?(val) ? "\t" : val
       end
       config_param :force_quotes, :bool, default: true
       # "array" looks good for type of :fields, but this implementation removes tailing comma
       # TODO: Is it needed to support tailing comma?
-      config_param :fields, default: [] do |val|
-        val.split(',').map{|f| f.strip!; f.empty? ? nil : f }.compact
+      config_param :fields, :array, value_type: :string
+
+      def configure(conf)
+        super
+        @fields = fields.select{|f| !f.empty? }
       end
 
       def format(tag, time, record)
-        filter_record(tag, time, record)
-        row = @fields.inject([]) do |memo, key|
-            memo << record[key]
-            memo
+        row = @fields.map do |key|
+          record[key]
         end
         CSV.generate_line(row, col_sep: @delimiter,
                           force_quotes: @force_quotes)

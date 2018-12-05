@@ -15,61 +15,51 @@
 #
 
 require 'fluent/plugin/parser'
+require 'fluent/env'
 require 'fluent/time'
 
 require 'yajl'
+require 'json'
 
 module Fluent
   module Plugin
     class JSONParser < Parser
       Plugin.register_parser('json', self)
 
-      config_param :time_key, :string, default: 'time'
-      config_param :time_format, :string, default: nil
-      config_param :json_parser, :string, default: 'oj'
+      config_set_default :time_key, 'time'
+      config_param :json_parser, :enum, list: [:oj, :yajl, :json], default: :oj
+
+      config_set_default :time_type, :float
 
       def configure(conf)
+        if conf.has_key?('time_format')
+          conf['time_type'] ||= 'string'
+        end
+
         super
+        @load_proc, @error_class = configure_json_parser(@json_parser)
+      end
 
-        unless @time_format.nil?
-          @time_parser = TimeParser.new(@time_format)
-          @mutex = Mutex.new
-        end
-
-        begin
-          raise LoadError unless @json_parser == 'oj'
+      def configure_json_parser(name)
+        case name
+        when :oj
           require 'oj'
-          Oj.default_options = {bigdecimal_load: :float}
-          @load_proc = Oj.method(:load)
-          @error_class = Oj::ParseError
-        rescue LoadError
-          @load_proc = Yajl.method(:load)
-          @error_class = Yajl::ParseError
+          Oj.default_options = Fluent::DEFAULT_OJ_OPTIONS
+          [Oj.method(:load), Oj::ParseError]
+        when :json then [JSON.method(:load), JSON::ParserError]
+        when :yajl then [Yajl.method(:load), Yajl::ParseError]
+        else
+          raise "BUG: unknown json parser specified: #{name}"
         end
+      rescue LoadError
+        name = :yajl
+        log.info "Oj is not installed, and failing back to Yajl for json parser"
+        retry
       end
 
       def parse(text)
-        record = @load_proc.call(text)
-
-        value = @keep_time_key ? record[@time_key] : record.delete(@time_key)
-        if value
-          if @time_format
-            time = @mutex.synchronize { @time_parser.parse(value) }
-          else
-            begin
-              time = Fluent::EventTime.from_time(Time.at(value.to_f))
-            rescue => e
-              raise ParserError, "invalid time value: value = #{value}, error_class = #{e.class.name}, error = #{e.message}"
-            end
-          end
-        else
-          if @estimate_current_event
-            time = Fluent::EventTime.now
-          else
-            time = nil
-          end
-        end
-
+        r = @load_proc.call(text)
+        time, record = convert_values(parse_time(r), r)
         yield time, record
       rescue @error_class
         yield nil, nil

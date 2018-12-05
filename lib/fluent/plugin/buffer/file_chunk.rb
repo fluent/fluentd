@@ -40,8 +40,8 @@ module Fluent
 
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION)
-          super(metadata)
+        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
+          super(metadata, compress: compress)
           @permission = perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil
@@ -55,26 +55,8 @@ module Fluent
           end
         end
 
-        def append(data)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
-
-          bytes = 0
-          adding = ''.force_encoding(Encoding::ASCII_8BIT)
-          data.each do |d|
-            x = d.force_encoding(Encoding::ASCII_8BIT)
-            bytes += x.bytesize
-            adding << x
-          end
-          @chunk.write adding
-
-          @adding_bytes += bytes
-          @adding_size += data.size
-
-          true
-        end
-
         def concat(bulk, bulk_size)
-          raise "BUG: appending to non-staged chunk, now '#{self.state}'" unless self.staged?
+          raise "BUG: concatenating to unwritable chunk, now '#{self.state}'" unless self.writable?
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
           @chunk.write bulk
@@ -151,12 +133,12 @@ module Fluent
           File.unlink(@path, @meta_path)
         end
 
-        def read
+        def read(**kwargs)
           @chunk.seek(0, IO::SEEK_SET)
           @chunk.read
         end
 
-        def open(&block)
+        def open(**kwargs, &block)
           @chunk.seek(0, IO::SEEK_SET)
           val = yield @chunk
           @chunk.seek(0, IO::SEEK_END) if self.staged?
@@ -167,7 +149,9 @@ module Fluent
           if /\.(b|q)([0-9a-f]+)\.[^\/]*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern
             $1 == 'b' ? :staged : :queued
           else
-            :queued
+            # files which matches to glob of buffer file pattern
+            # it includes files which are created by out_file
+            :unknown
           end
         end
 
@@ -267,7 +251,7 @@ module Fluent
           @meta.sync = true
           @meta.binmode
 
-          @state = :staged
+          @state = :unstaged
           @bytesize = 0
           @commit_position = @chunk.pos # must be 0
           @adding_bytes = 0

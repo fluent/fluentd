@@ -21,10 +21,7 @@ module Fluent
     class HashFormatter < Formatter
       Plugin.register_formatter('hash', self)
 
-      include HandleTagAndTimeMixin
-      include StructuredFormatMixin
-
-      def format_record(record)
+      def format(tag, time, record)
         "#{record.to_s}\n"
       end
     end

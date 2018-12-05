@@ -309,6 +309,8 @@ module Fluent
             end
           when /Origin/i
             @origin  = v
+          when /X-Forwarded-For/i
+            @remote_addr = v.split(",").first
           end
         }
         if expect

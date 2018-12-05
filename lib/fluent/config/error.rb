@@ -20,4 +20,7 @@ module Fluent
 
   class ConfigParseError < ConfigError
   end
+
+  class ObsoletedParameterError < ConfigError
+  end
 end
