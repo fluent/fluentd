@@ -185,6 +185,8 @@ module Fluent::Plugin
       super
 
       if @pos_file
+        pos_file_dir = File.dirname(@pos_file)
+        FileUtils.mkdir_p(pos_file_dir) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
@@ -946,7 +948,7 @@ module Fluent::Plugin
         @file = file
         @file_mutex = file_mutex
         @seek = seek
-        @pos = pos 
+        @pos = pos
         @inode = inode
       end
 
