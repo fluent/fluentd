@@ -1011,6 +1011,25 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_pos_file_dir_creation
+    config = config_element("", "", {
+      "tag" => "tail",
+      "path" => "#{TMP_DIR}/*.txt",
+      "format" => "none",
+      "pos_file" => "#{TMP_DIR}/pos/tail.pos",
+      "read_from_head" => true,
+      "refresh_interval" => 1
+    })
+    d = create_driver(config, false)
+    d.run(expect_emits: 1, shutdown: false) do
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f| f.puts "test3\n" }
+    end
+    assert_path_exist("#{TMP_DIR}/pos/tail.pos")
+    cleanup_directory(TMP_DIR)
+
+    d.instance_shutdown
+  end
+
   def test_z_refresh_watchers
     plugin = create_driver(EX_CONFIG, false).instance
     sio = StringIO.new

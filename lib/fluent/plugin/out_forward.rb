@@ -77,6 +77,9 @@ module Fluent::Plugin
     desc 'Ignore DNS resolution and errors at startup time.'
     config_param :ignore_network_errors_at_startup, :bool, default: false
 
+    desc 'Verify that a connection can be made with one of out_forward nodes at the time of startup.'
+    config_param :verify_connection_at_startup, :bool, default: false
+
     desc 'Compress buffered data.'
     config_param :compress, :enum, list: [:text, :gzip], default: :text
 
@@ -92,7 +95,8 @@ module Fluent::Plugin
     config_param :tls_verify_hostname, :bool, default: true
     desc 'The additional CA certificate path for TLS.'
     config_param :tls_ca_cert_path, :array, value_type: :string, default: nil
-    config_param :tls_cert_path, :array, value_type: :string, default: nil, deprecated: "Use tls_ca_cert_path instead"
+    desc 'The additional certificate path for TLS.'
+    config_param :tls_cert_path, :array, value_type: :string, default: nil
     desc 'The client certificate path for TLS.'
     config_param :tls_client_cert_path, :string, default: nil
     desc 'The client private key path for TLS.'
@@ -173,7 +177,7 @@ module Fluent::Plugin
       end
 
       if @transport == :tls
-        # for backward compatibility
+        # socket helper adds CA cert or signed certificate to same cert store internally so unify it in this place.
         if @tls_cert_path && !@tls_cert_path.empty?
           @tls_ca_cert_path = @tls_cert_path
         end
@@ -263,6 +267,17 @@ module Fluent::Plugin
         @sock_ack_waiting_mutex = Mutex.new
         @sock_ack_waiting = []
         thread_create(:out_forward_receiving_ack, &method(:ack_reader))
+      end
+
+      if @verify_connection_at_startup
+        @nodes.each do |node|
+          begin
+            node.verify_connection
+          rescue StandardError => e
+            log.fatal "forward's connection setting error: #{e.message}"
+            raise Fluent::UnrecoverableError, e.message
+          end
+        end
       end
     end
 
@@ -580,6 +595,19 @@ module Fluent::Plugin
 
       def standby?
         @standby
+      end
+
+      def verify_connection
+        sock = @sender.create_transfer_socket(resolved_host, port, @hostname)
+        begin
+          ri = RequestInfo.new(@sender.security ? :helo : :established)
+          if ri.state != :established
+            establish_connection(sock, ri)
+            raise if ri.state != :established
+          end
+        ensure
+          sock.close
+        end
       end
 
       def establish_connection(sock, ri)

@@ -157,14 +157,16 @@ EOL
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
 
-  test 'configure tls_cert_path is deprecated' do
+  data('CA cert'     => 'tls_ca_cert_path',
+       'non CA cert' => 'tls_cert_path')
+  test 'configure tls_cert_path/tls_ca_cert_path' do |param|
     dummy_cert_path = File.join(TMP_DIR, "dummy_cert.pem")
     FileUtils.touch(dummy_cert_path)
     conf = %[
       send_timeout 5
       transport tls
       tls_insecure_mode true
-      tls_cert_path #{dummy_cert_path}
+      #{param} #{dummy_cert_path}
       <server>
         host #{TARGET_HOST}
         port #{TARGET_PORT}
@@ -172,10 +174,7 @@ EOL
     ]
 
     @d = d = create_driver(conf)
-    expected_log = "'tls_cert_path' parameter is deprecated: Use tls_ca_cert_path instead"
-    logs = d.logs
-    assert{ logs.any?{|log| log.include?(expected_log) } }
-    assert_equal([dummy_cert_path], d.instance.tls_cert_path)
+    # In the plugin, tls_ca_cert_path is used for both cases
     assert_equal([dummy_cert_path], d.instance.tls_ca_cert_path)
   end
 
@@ -241,6 +240,18 @@ EOL
     ])
     assert d.instance.require_ack_response
     assert_equal 2, d.instance.ack_response_timeout
+  end
+
+  test 'verify_connection_at_startup is disabled in default' do
+    @d = d = create_driver(CONFIG)
+    assert_false d.instance.verify_connection_at_startup
+  end
+
+  test 'verify_connection_at_startup can be enabled' do
+    @d = d = create_driver(CONFIG + %[
+      verify_connection_at_startup true
+    ])
+    assert_true d.instance.verify_connection_at_startup
   end
 
   test 'send tags in str (utf-8 strings)' do
@@ -798,6 +809,115 @@ EOL
     )
     assert_nothing_raised do
       i.configure(conf)
+    end
+  end
+
+  sub_test_case 'verify_connection_at_startup' do
+    test 'nodes are not available' do
+      @d = d = create_driver(CONFIG + %[
+        verify_connection_at_startup true
+        <buffer tag>
+          flush_mode immediate
+          retry_type periodic
+          retry_wait 30s
+          flush_at_shutdown false # suppress errors in d.instance_shutdown
+        </buffer>
+      ])
+      assert_raise Fluent::UnrecoverableError do
+        d.instance_start
+      end
+      d.instance_shutdown
+    end
+
+    test 'nodes_shared_key_miss_match' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        send_timeout 30
+        heartbeat_type transport
+        transport tls
+        tls_verify_hostname false
+        verify_connection_at_startup true
+        require_ack_response true
+        ack_response_timeout 5s
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+        <buffer tag>
+          flush_mode immediate
+          retry_type periodic
+          retry_wait 30s
+          flush_at_shutdown false # suppress errors in d.instance_shutdown
+          flush_thread_interval 31s
+        </buffer>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 15) do
+        assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
+        d.instance_shutdown
+      end
+    end
+
+    test 'nodes_shared_key_match' do
+      input_conf = TARGET_CONFIG + %[
+                       <security>
+                         self_hostname in.localhost
+                         shared_key fluentd-sharedkey
+                         <client>
+                           host 127.0.0.1
+                         </client>
+                       </security>
+                     ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+
+      output_conf = %[
+          send_timeout 51
+          verify_connection_at_startup true
+          <security>
+            self_hostname localhost
+            shared_key fluentd-sharedkey
+          </security>
+          <server>
+            name test
+            host #{TARGET_HOST}
+            port #{TARGET_PORT}
+            shared_key fluentd-sharedkey
+          </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      records = [
+          {"a" => 1},
+          {"a" => 2}
+      ]
+
+      target_input_driver.run(expect_records: 2, timeout: 15) do
+        d.run(default_tag: 'test') do
+          records.each do |record|
+            d.feed(time, record)
+          end
+        end
+      end
+
+      events = target_input_driver.events
+      assert{ events != [] }
+      assert_equal(['test', time, records[0]], events[0])
+      assert_equal(['test', time, records[1]], events[1])
     end
   end
 end

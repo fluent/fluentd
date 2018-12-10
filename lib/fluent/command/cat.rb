@@ -34,6 +34,7 @@ config_path = Fluent::DEFAULT_CONFIG_PATH
 format = 'json'
 message_key = 'message'
 time_as_integer = false
+retry_limit = 5
 
 op.on('-p', '--port PORT', "fluent tcp port (default: #{port})", Integer) {|i|
   port = i
@@ -75,6 +76,10 @@ op.on('--time-as-integer', "Send time as integer for v0.12 or earlier", TrueClas
   time_as_integer = true
 }
 
+op.on('--retry-limit N', "Specify the number of retry limit (default: #{retry_limit})", Integer) {|n|
+  retry_limit = n
+}
+
 singleton_class.module_eval do
   define_method(:usage) do |msg|
     puts op.to_s
@@ -107,6 +112,8 @@ require 'msgpack'
 class Writer
   include MonitorMixin
 
+  RetryLimitError = Class.new(StandardError)
+
   class TimerThread
     def initialize(writer)
       @writer = writer
@@ -130,7 +137,7 @@ class Writer
     end
   end
 
-  def initialize(tag, connector, time_as_integer: false)
+  def initialize(tag, connector, time_as_integer: false, retry_limit: 5)
     @tag = tag
     @connector = connector
     @socket = false
@@ -142,7 +149,7 @@ class Writer
     @pending = []
     @pending_limit = 1024  # TODO
     @retry_wait = 1
-    @retry_limit = 5  # TODO
+    @retry_limit = retry_limit
     @time_as_integer = time_as_integer
 
     super()
@@ -236,21 +243,24 @@ class Writer
   end
 
   def try_connect
-    now = Time.now.to_i
-
-    unless @error_history.empty?
-      # wait before re-connecting
-      wait = @retry_wait * (2 ** (@error_history.size-1))
-      if now <= @socket_time + wait
-        return false
-      end
-    end
-
     begin
+      now = Time.now.to_i
+
+      unless @error_history.empty?
+        # wait before re-connecting
+        wait = 1 #@retry_wait * (2 ** (@error_history.size-1))
+        if now <= @socket_time + wait
+          sleep(wait)
+          try_connect
+        end
+      end
+
       @socket = @connector.call
       @error_history.clear
       return true
 
+    rescue RetryLimitError => ex
+      raise ex
     rescue
       $stderr.puts "connect failed: #{$!}"
       @error_history << $!
@@ -263,9 +273,10 @@ class Writer
         }
         @pending.clear
         @error_history.clear
+        raise RetryLimitError, "exceed retry limit"
+      else
+        retry
       end
-
-      return false
     end
   end
 
@@ -285,7 +296,7 @@ else
   }
 end
 
-w = Writer.new(tag, connector, time_as_integer: time_as_integer)
+w = Writer.new(tag, connector, time_as_integer: time_as_integer, retry_limit: retry_limit)
 w.start
 
 case format
