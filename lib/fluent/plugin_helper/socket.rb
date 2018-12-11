@@ -89,7 +89,8 @@ module Fluent
       def socket_create_tls(
           host, port,
           version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
-          enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil, **kwargs, &block)
+          enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
+          cert_path: nil, private_key_path: nil, private_key_passphrase: nil, **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
@@ -131,6 +132,8 @@ module Fluent
           context.verify_mode = OpenSSL::SSL::VERIFY_PEER
           context.cert_store = cert_store
           context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
+          context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
+          context.key = OpenSSL::PKey::RSA.new(File.read(private_key_path), private_key_passphrase) if private_key_path
         end
 
         tcpsock = socket_create_tcp(host, port, **kwargs)
