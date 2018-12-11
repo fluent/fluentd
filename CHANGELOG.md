@@ -1,5 +1,19 @@
 # v1.3
 
+## Release v1.3.2 - 2018/12/10
+
+### Enhancements
+
+* out_forward: Support mutual TLS
+  https://github.com/fluent/fluentd/pull/2187
+* out_file: Create `pos_file` directory if it doesn't exist
+  https://github.com/fluent/fluentd/pull/2223
+
+### Bug fixes
+
+* output: Fix logs during retry
+  https://github.com/fluent/fluentd/pull/2203
+
 ## Release v1.3.1 - 2018/11/27
 
 ### Enhancements
