@@ -137,7 +137,7 @@ module Fluent
                              # so it should not added into @metadata_list for now
           mode = Fluent::Plugin::Buffer::FileChunk.assume_chunk_state(path)
           if mode == :unknown
-            log.debug "uknown state chunk found", path: path
+            log.debug "unknown state chunk found", path: path
             next
           end
 
