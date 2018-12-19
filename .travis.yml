@@ -11,7 +11,7 @@ matrix:
       os: linux
     - rvm: 2.2.10
       os: linux
-    - rvm: 2.3.8
+    - rvm: 2.3.7
       os: linux
     - rvm: 2.4.5
       os: linux
