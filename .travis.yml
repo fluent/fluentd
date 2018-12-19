@@ -50,7 +50,7 @@ branches:
     - v0.14
 
 before_install:
-  - gem update --system
+  - gem update --system=2.7.8
 
 sudo: false
 dist: trusty # for TLSv1.2 support
