@@ -106,7 +106,7 @@ module Fluent
             when "pri"
               record['pri'] = value.to_i
             when "time"
-              time = @mutex.synchronize { @time_parser.parse(value.gsub(/ +/, ' ')) }
+              time = @mutex.synchronize { @time_parser.parse(value.squeeze(' ')) }
               record[name] = value if @keep_time_key
             else
               record[name] = value
