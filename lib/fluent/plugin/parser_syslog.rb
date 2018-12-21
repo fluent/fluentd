@@ -48,6 +48,8 @@ module Fluent
         super
 
         @time_parser_rfc3164 = @time_parser_rfc5424 = nil
+        @time_parser_rfc5424_without_subseconds = nil
+        @support_rfc5424_without_subseconds = false
         @regexp = case @message_format
                   when :rfc3164
                     class << self
@@ -59,6 +61,7 @@ module Fluent
                       alias_method :parse, :parse_plain
                     end
                     @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
+                    @support_rfc5424_without_subseconds = true
                     @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424
                   when :auto
                     class << self
@@ -69,6 +72,7 @@ module Fluent
                     nil
                   end
         @time_parser = time_parser_create
+        @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
       end
 
       def patterns
@@ -83,6 +87,7 @@ module Fluent
         if REGEXP_DETECT_RFC5424.match(text)
           @regexp = @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424
           @time_parser = @time_parser_rfc5424
+          @support_rfc5424_without_subseconds = true
         else
           @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
           @time_parser = @time_parser_rfc3164
@@ -106,7 +111,19 @@ module Fluent
             when "pri"
               record['pri'] = value.to_i
             when "time"
-              time = @mutex.synchronize { @time_parser.parse(value.squeeze(' ')) }
+              time = @mutex.synchronize do
+                time_str = value.squeeze(' ')
+                begin
+                  @time_parser.parse(time_str)
+                rescue Fluent::TimeParser::TimeParseError => e
+                  if @support_rfc5424_without_subseconds
+                    log.trace(e)
+                    @time_parser_rfc5424_without_subseconds.parse(time_str)
+                  else
+                    raise
+                  end
+                end
+              end
               record[name] = value if @keep_time_key
             else
               record[name] = value
