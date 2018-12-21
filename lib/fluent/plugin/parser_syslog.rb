@@ -48,7 +48,7 @@ module Fluent
         super
 
         @time_parser_rfc3164 = @time_parser_rfc5424 = nil
-        @time_parser_rfc5424_without_secfrac = nil
+        @time_parser_rfc5424_without_subseconds = nil
         @support_rfc5424_without_subseconds = false
         @regexp = case @message_format
                   when :rfc3164
