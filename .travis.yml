@@ -17,6 +17,8 @@ matrix:
       os: linux
     - rvm: 2.5.3
       os: linux
+    - rvm: 2.6.0
+      os: linux
     - rvm: ruby-head
       os: linux
     - rvm: 2.1.10
