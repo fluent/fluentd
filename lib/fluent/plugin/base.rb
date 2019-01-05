@@ -81,6 +81,12 @@ module Fluent
       end
 
       def start
+        # By initialization order, plugin logger is created before set log_event_enabled.
+        # It causes '@id' specified plugin, it uses plugin logger instead of global logger, ignores `<label @FLUENT_LOG>` setting.
+        # This is adhoc approach but impact is minimal.
+        if @log.is_a?(Fluent::PluginLogger)
+          @log.log_event_enabled = $log.log_event_enabled
+        end
         @_state.start = true
         self
       end
