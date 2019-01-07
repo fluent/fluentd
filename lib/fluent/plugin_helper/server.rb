@@ -722,7 +722,7 @@ module Fluent
 
                 return true
               end
-            rescue Errno::ECONNRESET, OpenSSL::SSL::SSLError => e
+            rescue Errno::EPIPE, Errno::ECONNRESET, OpenSSL::SSL::SSLError => e
               @log.trace "unexpected error before accepting TLS connection", error: e
               close rescue nil
             end
