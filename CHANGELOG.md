@@ -1,5 +1,21 @@
 # v1.3
 
+## Release v1.3.3 - 2018/01/06
+
+### Enhancements
+
+* parser_syslog: Use String#squeeze for performance improvement
+  https://github.com/fluent/fluentd/pull/2239
+* parser_syslog: Support RFC5424 timestamp without subseconds
+  https://github.com/fluent/fluentd/pull/2240
+
+### Bug fixes
+
+* server: Ignore ECONNRESET in TLS accept to avoid fluentd restart
+  https://github.com/fluent/fluentd/pull/2243
+* log: Fix plugin logger ignores fluentd log event setting
+  https://github.com/fluent/fluentd/pull/2252
+
 ## Release v1.3.2 - 2018/12/10
 
 ### Enhancements
