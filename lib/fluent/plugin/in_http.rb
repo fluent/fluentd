@@ -163,6 +163,7 @@ module Fluent::Plugin
 
         # Skip nil record
         if record.nil?
+          log.debug { "incoming event is invalid: path=#{path_info} params=#{params.to_json}" }
           if @respond_with_empty_img
             return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
