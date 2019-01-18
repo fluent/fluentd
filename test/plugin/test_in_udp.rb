@@ -59,6 +59,12 @@ class UdpInputTest < Test::Unit::TestCase
     assert_equal nil, d.instance.receive_buffer_size
   end
 
+  test ' configure w/o parse section' do
+    assert_raise(Fluent::ConfigError.new("<parse> section is required.")) {
+      create_driver(BASE_CONFIG)
+    }
+  end
+
   data(
     'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
     'ipv6' => [IPv6_CONFIG, '::1', :ipv6],

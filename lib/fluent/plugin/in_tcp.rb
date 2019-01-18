@@ -41,11 +41,15 @@ module Fluent::Plugin
 
     def configure(conf)
       compat_parameters_convert(conf, :parser)
+      parser_config = conf.elements('parse').first
+      unless parser_config
+        raise Fluent::ConfigError, "<parse> section is required."
+      end
       super
       @_event_loop_blocking_timeout = @blocking_timeout
       @source_hostname_key ||= @source_host_key if @source_host_key
 
-      @parser = parser_create
+      @parser = parser_create(conf: parser_config)
     end
 
     def multi_workers_ready?
