@@ -48,6 +48,12 @@ class TcpInputTest < Test::Unit::TestCase
     assert_equal "\n", d.instance.delimiter
   end
 
+  test ' configure w/o parse section' do
+    assert_raise(Fluent::ConfigError.new("<parse> section is required.")) {
+      create_driver(BASE_CONFIG)
+    }
+  end
+
   test_case_data = {
     'none' => {
       'format' => 'none',
