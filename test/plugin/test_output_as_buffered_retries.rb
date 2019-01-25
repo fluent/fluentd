@@ -706,16 +706,20 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
   end
 
   sub_test_case 'buffered output configured as retry_forever' do
-    test 'configuration error will be raised if secondary section is configured' do
+    setup do
+      Fluent::Plugin.register_output('output_retries_secondary_test', FluentPluginOutputAsBufferedRetryTest::DummyFullFeatureOutput2)
+    end
+
+    test 'warning logs are generated if secondary section is configured' do
       chunk_key = 'tag'
       hash = {
         'retry_forever' => true,
         'retry_randomize' => false,
       }
       i = create_output()
-      assert_raise Fluent::ConfigError do
-        i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash),config_element('secondary','')]))
-      end
+      i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash),config_element('secondary','', {'@type' => 'output_retries_secondary_test'})]))
+      logs = i.log.out.logs
+      assert { logs.any? { |l| l.include?("<secondary> with 'retry_forever', only unrecoverable errors are moved to secondary") } }
     end
 
     test 'retry_timeout and retry_max_times will be ignored if retry_forever is true for exponential backoff' do

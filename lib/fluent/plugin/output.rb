@@ -364,7 +364,9 @@ module Fluent
           raise Fluent::ConfigError, "Invalid <secondary> section for non-buffered plugin" unless @buffering
           raise Fluent::ConfigError, "<secondary> section cannot have <buffer> section" if @secondary_config.buffer
           raise Fluent::ConfigError, "<secondary> section cannot have <secondary> section" if @secondary_config.secondary
-          raise Fluent::ConfigError, "<secondary> section and 'retry_forever' are exclusive" if @buffer_config.retry_forever
+          if @buffer_config.retry_forever
+            log.warn "<secondary> with 'retry_forever', only unrecoverable errors are moved to secondary"
+          end
 
           secondary_type = @secondary_config[:@type]
           unless secondary_type
