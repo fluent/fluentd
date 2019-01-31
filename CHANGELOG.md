@@ -1,6 +1,6 @@
 # v1.3
 
-## Release v1.3.3 - 2018/01/06
+## Release v1.3.3 - 2019/01/06
 
 ### Enhancements
 
