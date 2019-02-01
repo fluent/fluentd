@@ -53,10 +53,6 @@ module Fluent
           @randomize = randomize
           @randomize_width = randomize_width
 
-          if forever && secondary
-            raise "BUG: forever and secondary are exclusive to each other"
-          end
-
           @forever = forever
           @max_steps = max_steps
 
@@ -118,12 +114,12 @@ module Fluent
         end
 
         def secondary?
-          @secondary && (@current == :secondary || current_time >= @secondary_transition_at)
+          !@forever && @secondary && (@current == :secondary || current_time >= @secondary_transition_at)
         end
 
         def step
           @steps += 1
-          if @secondary && @current != :secondary && current_time >= @secondary_transition_at
+          if !@forever && @secondary && @current != :secondary && current_time >= @secondary_transition_at
             @current = :secondary
             @secondary_transition_steps = @steps
           end
