@@ -71,6 +71,10 @@ module Fluent::Plugin
     attr_accessor :last_written_path # for tests
 
     module SymlinkBufferMixin
+      def output_plugin_for_symlink=(output_plugin)
+        @_output_plugin_for_symlink = output_plugin
+      end
+
       def symlink_path=(path)
         @_symlink_path = path
       end
@@ -83,7 +87,7 @@ module Fluent::Plugin
         # These chunks will be enqueued immediately, and will be flushed soon.
         latest_metadata = metadata_list.select{|m| m.timekey }.sort_by(&:timekey).last
         if chunk.metadata == latest_metadata
-          FileUtils.ln_sf(chunk.path, @_symlink_path)
+          FileUtils.ln_sf(chunk.path, @_output_plugin_for_symlink.extract_placeholders(@_symlink_path, chunk))
         end
         chunk
       end
@@ -161,6 +165,7 @@ module Fluent::Plugin
         else
           @buffer.extend SymlinkBufferMixin
           @buffer.symlink_path = @symlink_path
+          @buffer.output_plugin_for_symlink = self
         end
       end
 

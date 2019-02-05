@@ -14,7 +14,6 @@ class FileOutputTest < Test::Unit::TestCase
   end
 
   TMP_DIR = File.expand_path(File.dirname(__FILE__) + "/../tmp/out_file#{ENV['TEST_ENV_NUMBER']}")
-  SYMLINK_PATH = File.expand_path("#{TMP_DIR}/current")
 
   CONFIG = %[
     path #{TMP_DIR}/out_file_test
@@ -663,15 +662,43 @@ class FileOutputTest < Test::Unit::TestCase
     end
   end
 
-  test 'symlink' do
-    omit "Windows doesn't support symlink" if Fluent.windows?
-    conf = CONFIG + %[
-      symlink_path #{SYMLINK_PATH}
-    ]
-    symlink_path = "#{SYMLINK_PATH}"
+  SYMLINK_PATH = File.expand_path("#{TMP_DIR}/current")
 
-    d = create_driver(conf)
-    begin
+  sub_test_case 'symlink' do
+    test 'static symlink' do
+      omit "Windows doesn't support symlink" if Fluent.windows?
+      conf = CONFIG + %[
+        symlink_path #{SYMLINK_PATH}
+      ]
+      symlink_path = "#{SYMLINK_PATH}"
+
+      d = create_driver(conf)
+      begin
+        run_and_check(d, symlink_path)
+      ensure
+        FileUtils.rm_rf(symlink_path)
+      end
+    end
+
+    test 'symlink with placeholders' do
+      omit "Windows doesn't support symlink" if Fluent.windows?
+      conf = %[
+        path #{TMP_DIR}/${tag}/out_file_test
+        symlink_path #{SYMLINK_PATH}-${tag}
+        <buffer tag,time>
+        </buffer>
+      ]
+      symlink_path = "#{SYMLINK_PATH}-tag"
+
+      d = create_driver(conf)
+      begin
+        run_and_check(d, symlink_path)
+      ensure
+        FileUtils.rm_rf(symlink_path)
+      end
+    end
+
+    def run_and_check(d, symlink_path)
       d.run(default_tag: 'tag') do
         es = Fluent::OneEventStream.new(event_time("2011-01-02 13:14:15 UTC"), {"a"=>1})
         d.feed(es)
@@ -688,8 +715,6 @@ class FileOutputTest < Test::Unit::TestCase
         meta = d.instance.metadata('tag', event_time("2011-01-03 14:15:16 UTC"), {})
         assert_equal d.instance.buffer.instance_eval{ @stage[meta].path }, File.readlink(symlink_path)
       end
-    ensure
-      FileUtils.rm_rf(symlink_path)
     end
   end
 
