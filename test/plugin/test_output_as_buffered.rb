@@ -1074,6 +1074,44 @@ class BufferedOutputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'buffered output with large timekey and small timekey_wait' do
+    setup do
+      chunk_key = 'time'
+      hash = {
+        'timekey' => 86400, # per 1 day
+        'timekey_wait' => 10, # 10 seconds delay for flush
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.01,
+      }
+      @i = create_output(:buffered)
+      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
+      @i.start
+      @i.after_start
+    end
+
+    test '#configure raises config error if timekey is not specified' do
+      Timecop.freeze( Time.parse('2019-02-08 00:01:00 +0900') )
+      ary = []
+      @i.register(:write){|chunk| ary << chunk.read }
+      @i.thread_wait_until_start
+      events = [
+        [event_time('2019-02-08 00:02:00 +0900'), {"message" => "foobar"}]
+      ]
+      @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+      @i.enqueue_thread_wait
+      assert{ @i.write_count == 0 }
+
+      Timecop.freeze( Time.parse('2019-02-09 00:00:08 +0900') )
+      @i.enqueue_thread_wait
+      assert{ @i.write_count == 0 }
+
+      Timecop.freeze( Time.parse('2019-02-09 00:00:12 +0900') )
+      # wirte should be called in few seconds since
+      # running interval of enque thread is timekey_wait / 11.0.
+      waiting(5){ sleep 0.1 until @i.write_count == 1 }
+    end
+  end
+
   sub_test_case 'buffered output feature with tag key' do
     setup do
       chunk_key = 'tag'

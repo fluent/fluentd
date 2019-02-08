@@ -1336,7 +1336,7 @@ module Fluent
         end
         if @chunk_key_time
           if !value_for_interval || @buffer_config.timekey < value_for_interval
-            value_for_interval = @buffer_config.timekey
+            value_for_interval = [@buffer_config.timekey, @buffer_config.timekey_wait].min
           end
         end
         unless value_for_interval
