@@ -329,6 +329,36 @@ module Fluent::Config
       end
     end
 
+    sub_test_case "Embedded Ruby Code in section attributes" do
+      setup do
+        ENV["EMBEDDED_VAR"] = "embedded"
+        ENV["NESTED_EMBEDDED_VAR"] = "nested-embedded"
+        @hostname = Socket.gethostname
+      end
+
+      teardown do
+        ENV["EMBEDDED_VAR"] = nil
+        ENV["NESTED_EMBEDDED_VAR"] = nil
+      end
+
+      test "embedded Ruby code should be expanded" do
+        assert_text_parsed_as(root(
+          e("test", 'embedded', {'key'=>'1'}, [
+            e('nested1', 'nested-embedded'),
+            e('nested2', "#{@hostname}")
+          ])), <<-EOF
+          <test "#{ENV["EMBEDDED_VAR"]}">
+            key 1
+            <nested1 "#{ENV["NESTED_EMBEDDED_VAR"]}">
+            </nested1>
+            <nested2 "#{Socket.gethostname}">
+            </nested2>
+          </test>
+        EOF
+        )
+      end
+    end
+
     # port from test_config.rb
     sub_test_case '@include parsing' do
       TMP_DIR = File.dirname(__FILE__) + "/tmp/v1_config#{ENV['TEST_ENV_NUMBER']}"

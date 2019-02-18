@@ -82,7 +82,7 @@ module Fluent
           elsif skip(/\</)
             e_name = scan(ELEMENT_NAME)
             spacing
-            e_arg = scan_nonquoted_string(/(?:#{ZERO_OR_MORE_SPACING}\>)/)
+            e_arg = scan_string(/(?:#{ZERO_OR_MORE_SPACING}\>)/)
             spacing
             unless skip(/\>/)
               parse_error! "expected '>'"
