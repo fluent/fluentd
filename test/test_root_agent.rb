@@ -697,6 +697,19 @@ EOC
       end
     end
 
+    test 'raises configuration error for worker id collisions on multi workers syntax' do
+      errmsg = "specified worker_id<2> collisions is detected on <worker> directive. Available worker id is between 0 and 3 without collisions"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 0-2>
+</worker>
+<worker 2-4>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
     test 'raises configuration error for too big worker id on invalid reversed multi workers syntax' do
       errmsg = "greater first_worker_id<3> than last_worker_id<0> specified by <worker> directive is not allowed. Available multi worker assign syntax is <smaller_worker_id>-<greater_worker_id>"
       assert_raise Fluent::ConfigError.new(errmsg) do
