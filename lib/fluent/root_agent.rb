@@ -68,7 +68,7 @@ module Fluent
       conf.elements(name: 'worker').each do |e|
         target_worker_id_str = e.arg
         if target_worker_id_str.empty?
-          raise ConfigError, "Missing worker id on <worker> directive"
+          raise Fluent::ConfigError, "Missing worker id on <worker> directive"
         end
 
         target_worker_ids = target_worker_id_str.split("-")
@@ -76,17 +76,17 @@ module Fluent
           first_worker_id = target_worker_ids.first.to_i
           last_worker_id = target_worker_ids.last.to_i
           if first_worker_id > last_worker_id
-            raise ConfigError, "greater first_worker_id<#{first_worker_id}> than last_worker_id<#{last_worker_id}> specified by <worker> directive is not allowed. Available multi worker assign syntax is <smaller_worker_id>-<greater_worker_id>"
+            raise Fluent::ConfigError, "greater first_worker_id<#{first_worker_id}> than last_worker_id<#{last_worker_id}> specified by <worker> directive is not allowed. Available multi worker assign syntax is <smaller_worker_id>-<greater_worker_id>"
           end
           first_worker_id.step(last_worker_id, 1) do |worker_id|
             target_worker_id = worker_id.to_i
             if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
-              raise ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+              raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
             end
 
             e.elements.each do |elem|
               unless ['source', 'match', 'filter', 'label'].include?(elem.name)
-                raise ConfigError, "<worker> section cannot have <#{elem.name}> directive"
+                raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
               end
               elem.set_target_worker_id(target_worker_id)
             end
@@ -94,7 +94,7 @@ module Fluent
         else
           target_worker_id = target_worker_id_str.to_i
           if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
-            raise ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+            raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
           end
 
           ## On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
@@ -102,7 +102,7 @@ module Fluent
 
           e.elements.each do |elem|
             unless ['source', 'match', 'filter', 'label'].include?(elem.name)
-              raise ConfigError, "<worker> section cannot have <#{elem.name}> directive"
+              raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
             end
             elem.set_target_worker_id(target_worker_id)
           end
