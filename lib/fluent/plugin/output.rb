@@ -1333,8 +1333,7 @@ module Fluent
         value_for_interval = nil
         if @flush_mode == :interval
           value_for_interval = @buffer_config.flush_interval
-        end
-        if @chunk_key_time
+        elsif @flush_mode == :lazy
           if !value_for_interval || @buffer_config.timekey < value_for_interval
             value_for_interval = [@buffer_config.timekey, @buffer_config.timekey_wait].min
           end
@@ -1368,9 +1367,7 @@ module Fluent
                 # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
                 # If we use integered values for this comparison, expected actual flush timing is 1.0s.
                 @buffer.enqueue_all{ |metadata, chunk| chunk.created_at.to_i + flush_interval <= now_int }
-              end
-
-              if @chunk_key_time
+              elsif @flush_mode == :lazy
                 timekey_unit = @buffer_config.timekey
                 timekey_wait = @buffer_config.timekey_wait
                 current_timekey = now_int - now_int % timekey_unit

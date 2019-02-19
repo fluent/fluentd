@@ -813,6 +813,14 @@ class OutputTest < Test::Unit::TestCase
     test 'flush_interval is ignored when flush_mode is not interval' do
       mock(@i.log).warn("'flush_interval' is ignored because default 'flush_mode' is not 'interval': 'lazy'")
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer', 'time', {'timekey' => 60*30, 'flush_interval' => 10})]))
+      assert_equal :lazy, @i.instance_variable_get(:@flush_mode)
+    end
+
+    test 'flush_mode is set explicitly.' do
+      mock(@i.log)
+      @i.configure(config_element('ROOT', '', {},
+                                  [config_element('buffer', 'time', {'flush_mode' => :interval, 'timekey' => 60*30})]))
+      assert_equal :interval, @i.instance_variable_get(:@flush_mode)
     end
 
     data(:lazy => 'lazy', :immediate => 'immediate')
