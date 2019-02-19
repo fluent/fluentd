@@ -698,12 +698,25 @@ EOC
     end
 
     test 'raises configuration error for worker id collisions on multi workers syntax' do
-      errmsg = "specified worker_id<2> collisions is detected on <worker> directive. Available worker id is between 0 and 3 without collisions"
+      errmsg = "specified worker_id<2> collisions is detected on <worker> directive. Available worker id(s): [3]"
       assert_raise Fluent::ConfigError.new(errmsg) do
         conf = <<-EOC
 <worker 0-2>
 </worker>
 <worker 2-4>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for worker id collisions on multi workers syntax when multi avaliable worker_ids are left' do
+      errmsg = "specified worker_id<1> collisions is detected on <worker> directive. Available worker id(s): [2, 3]"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 0-1>
+</worker>
+<worker 1-3>
 </worker>
 EOC
         configure_ra(conf)

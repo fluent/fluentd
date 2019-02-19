@@ -65,6 +65,10 @@ module Fluent
 
     def configure(conf)
       used_worker_ids = []
+      available_worker_ids = []
+      0.step(Fluent::Engine.system_config.workers - 1, 1).each do |id|
+        available_worker_ids << id
+      end
       # initialize <worker> elements
       conf.elements(name: 'worker').each do |e|
         target_worker_id_str = e.arg
@@ -84,8 +88,9 @@ module Fluent
             if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
               raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
             end
+            available_worker_ids.delete(worker_id) if available_worker_ids.include?(worker_id)
             if used_worker_ids.include?(worker_id)
-              raise Fluent::ConfigError, "specified worker_id<#{worker_id}> collisions is detected on <worker> directive. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)} without collisions"
+              raise Fluent::ConfigError, "specified worker_id<#{worker_id}> collisions is detected on <worker> directive. Available worker id(s): #{available_worker_ids}"
             end
             used_worker_ids << worker_id
 
