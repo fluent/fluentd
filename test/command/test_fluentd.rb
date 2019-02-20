@@ -340,7 +340,7 @@ CONF
     end
   end
 
-  sub_test_case 'configured to suppress configration dump' do
+  sub_test_case 'configured to suppress configuration dump' do
     setup do
       @basic_conf = <<CONF
 <source>
@@ -614,7 +614,7 @@ CONF
       )
     end
 
-    test 'failed to start workers when configured plugins as chidren of MultiOutput do not support multi worker configuration' do
+    test 'failed to start workers when configured plugins as children of MultiOutput do not support multi worker configuration' do
       script = <<-EOC
 require 'fluent/plugin/output'
 module Fluent::Plugin

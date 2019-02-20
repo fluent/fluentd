@@ -72,7 +72,7 @@ class TestFluentPluginConfigFormatter < Test::Unit::TestCase
       desc "username"
       config_param :username, :string
       desc "password"
-      config_param :passowrd, :string, secret: true
+      config_param :password, :string, secret: true
     end
 
     config_section :parent do
@@ -162,7 +162,7 @@ slow_flush_log_threshold: float: (20.0)
  <secondary>: optional, single
 <authentication>: required, single
  username: string: (nil)
- passowrd: string: (nil)
+ password: string: (nil)
 <parent>: optional, multiple
  <child>: optional, multiple
   names: array: (nil)
@@ -217,7 +217,7 @@ TEXT
 
 username
 
-#### passowrd (string) (required)
+#### password (string) (required)
 
 password
 

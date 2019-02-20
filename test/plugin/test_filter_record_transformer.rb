@@ -229,7 +229,7 @@ class RecordTransformerFilterTest < Test::Unit::TestCase
     end
 
     %w[yes no].each do |enable_ruby|
-      test "hostname with enble_ruby #{enable_ruby}" do
+      test "hostname with enable_ruby #{enable_ruby}" do
         config = %[
           enable_ruby #{enable_ruby}
           <record>

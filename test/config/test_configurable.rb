@@ -733,7 +733,7 @@ module Fluent::Config
           assert_nothing_raised { b4.configure(config_element('ROOT', '', BASE_ATTRS, [d1.dup, d2.dup, d3.dup, d3.dup])) }
         end
 
-        test 'constructs confuguration object tree for Base3' do
+        test 'constructs configuration object tree for Base3' do
           conf = config_element(
             'ROOT',
             '',

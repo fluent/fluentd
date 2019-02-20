@@ -276,7 +276,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
     def test_auto_with_legacy_syslog_message
       @parser.configure(
                         'time_format' => '%b %d %M:%S:%H',
-                        'mseeage_format' => 'auto',
+                        'message_format' => 'auto',
                         )
       text = 'Feb 28 00:00:12 192.168.0.1 fluentd[11111]: [error] Syslog test'
       @parser.instance.parse(text) do |time, record|
@@ -290,7 +290,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       @parser.configure(
                         'time_format' => '%b %d %M:%S:%H',
                         'with_priority' => true,
-                        'mseeage_format' => 'auto',
+                        'message_format' => 'auto',
                         )
       text = '<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test'
       @parser.instance.parse(text) do |time, record|

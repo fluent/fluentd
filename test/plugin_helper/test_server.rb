@@ -767,7 +767,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
   def write_cert_and_key(cert_path, cert, key_path, key, passphrase)
     File.open(cert_path, "w"){|f| f.write(cert.to_pem) }
-    # Write the secret key (raw or ecnrypted by AES256) in PEM format
+    # Write the secret key (raw or encrypted by AES256) in PEM format
     key_str = passphrase ? key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase) : key.export
     File.open(key_path, "w"){|f| f.write(key_str) }
     File.chmod(0600, cert_path, key_path)

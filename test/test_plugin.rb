@@ -97,7 +97,7 @@ class PluginTest < Test::Unit::TestCase
       output1: ['plugin_test_dummy1', Dummy1Output, :new_output],
       output2: ['plugin_test_dummy2', Dummy2Output, :new_output],
     )
-    test 'retruns plugin instances of registered plugin classes' do |(type, klass, m)|
+    test 'returns plugin instances of registered plugin classes' do |(type, klass, m)|
       instance = Fluent::Plugin.__send__(m, type)
       assert_kind_of klass, instance
     end
