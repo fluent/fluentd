@@ -893,30 +893,16 @@ EOC
       refute ra.error_collector
     end
 
-    test 'with plugins for workers syntax' do
+    test 'with plugins for workers syntax should match worker_id equals to 2' do
       conf = <<-EOC
-<worker 0-1>
-  <source>
-    @type tcp
-    tag test.worker_group1
-    <parse>
-      @type none
-    </parse>
-  </source>
-  <match pattern>
-    @type stdout
-  </match>
-  <label @ERROR>
-    <match>
-      @type null
-    </match>
-  </label>
-</worker>
-
-<worker 2-3>
+<worker 0-2>
   <source>
     @type forward
   </source>
+  <filter **>
+    @type test_filter
+    @id test_filter
+  </filter>
   <match pattern>
     @type stdout
   </match>
@@ -927,12 +913,12 @@ EOC
   </label>
 </worker>
 EOC
+
       ra = configure_ra(conf)
-      assert_equal 0, ra.inputs.size
-      assert_equal 0, ra.outputs.size
-      assert_equal 0, ra.filters.size
-      assert_equal 0, ra.labels.size
-      refute ra.error_collector
+      assert_kind_of Fluent::Plugin::ForwardInput, ra.inputs.first
+      assert_kind_of Fluent::Plugin::StdoutOutput, ra.outputs.first
+      assert_kind_of FluentTestFilter, ra.filters.first
+      assert ra.error_collector
     end
   end
 end
