@@ -177,7 +177,12 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
       }
     end
 
-    test 'backup chunk without secondary' do
+    data('unrecoverable error' => Fluent::UnrecoverableError,
+         'type error' => TypeError,
+         'argument error' => ArgumentError,
+         'no method error' => NoMethodError,
+         'msgpack unpack error' => MessagePack::UnpackError)
+    test 'backup chunk without secondary' do |error_class|
       Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test'
         hash = {
@@ -188,7 +193,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
         @i.configure(config_element('ROOT', '', {'@id' => id}, [config_element('buffer', 'tag', hash)]))
         @i.register(:write) { |chunk|
           chunk_id = chunk.unique_id;
-          raise Fluent::UnrecoverableError, "yay, your #write must fail"
+          raise error_class, "yay, your #write must fail"
         }
 
         flush_chunks

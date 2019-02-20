@@ -1083,7 +1083,7 @@ module Fluent
         end
       end
 
-      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError]
+      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError, MessagePack::UnpackError]
 
       def try_flush
         chunk = @buffer.dequeue_chunk
