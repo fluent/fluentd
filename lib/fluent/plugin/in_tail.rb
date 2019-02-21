@@ -171,6 +171,9 @@ module Fluent::Plugin
 
       @encoding = parse_encoding_param(@encoding) if @encoding
       @from_encoding = parse_encoding_param(@from_encoding) if @from_encoding
+      if @encoding == @from_encoding
+        log.warn "'encoding' and 'from_encoding' are same encoding. No effect"
+      end
     end
 
     def parse_encoding_param(encoding_name)
