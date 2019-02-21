@@ -157,7 +157,7 @@ class TestConfigElement < ::Test::Unit::TestCase
                              Fluent::Config::Element.new('ROOT', 'mydata', {}, [])],
            "differ keys" => [Fluent::Config::Element.new('ROOT', 'mydata', {}, []),
                              Fluent::Config::Element.new('ROOT', 'mydata', {"k1" => "v1"}, [])],
-           "differ elemnts" =>
+           "differ elements" =>
            [Fluent::Config::Element.new('ROOT', 'mydata', {"k1" => "v1"}, []),
             Fluent::Config::Element.new('ROOT', 'mydata', {"k1" => "v1"}, [
               Fluent::Config::Element.new('test', 'mydata', {'k3' => 'v3'}, [])

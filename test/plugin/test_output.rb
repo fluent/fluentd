@@ -547,7 +547,7 @@ class OutputTest < Test::Unit::TestCase
       assert_equal 86400, s
       assert_equal :day, t
       assert_equal '%d', e
-      s, t, e = @i.get_placeholders_time("my birthiday! at %F")
+      s, t, e = @i.get_placeholders_time("my birthday! at %F")
       assert_equal 86400, s
       assert_equal :day, t
       assert_equal '%d', e

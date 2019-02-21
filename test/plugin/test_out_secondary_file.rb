@@ -39,7 +39,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     c.configure(conf)
   end
 
-  sub_test_case 'configture' do
+  sub_test_case 'configure' do
     test 'default configuration' do
       d = create_driver %[directory #{TMP_DIR}]
       assert_equal 'dump.bin', d.instance.basename
