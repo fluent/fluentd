@@ -65,10 +65,7 @@ module Fluent
 
     def configure(conf)
       used_worker_ids = []
-      available_worker_ids = []
-      0.step(Fluent::Engine.system_config.workers - 1, 1).each do |id|
-        available_worker_ids << id
-      end
+      available_worker_ids = (0..Fluent::Engine.system_config.workers - 1).to_a
       # initialize <worker> elements
       conf.elements(name: 'worker').each do |e|
         target_worker_id_str = e.arg
