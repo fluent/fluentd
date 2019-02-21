@@ -52,7 +52,11 @@ module Fluent
 
       def configure(conf)
         if conf.respond_to?(:for_this_worker?) && conf.for_this_worker?
-          workers = conf.target_worker_ids.size || 1
+          workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
+                      conf.target_worker_ids.size
+                    else
+                      1
+                    end
           system_config_override(workers: workers)
         end
         super
