@@ -211,7 +211,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal 2, @p.queued_num[@dm1]
     end
 
-    test '#close closes all chunks in in dequeued, enqueued and staged' do
+    test '#close closes all chunks in dequeued, enqueued and staged' do
       dmx = create_metadata(Time.parse('2016-04-11 15:50:00 +0000').to_i, nil, nil)
       cx = create_chunk(dmx, ["x" * 1024])
       @p.dequeued[cx.unique_id] = cx
@@ -1027,7 +1027,7 @@ class BufferTest < Test::Unit::TestCase
       ##### 900 + 9500 + 9900 * 4 == 5000 + 45000
     end
 
-    test '#write raises BufferChunkOverflowError if a record is biggar than chunk limit size' do
+    test '#write raises BufferChunkOverflowError if a record is bigger than chunk limit size' do
       assert_equal [@dm0], @p.stage.keys
       assert_equal [], @p.queue.map(&:metadata)
 
