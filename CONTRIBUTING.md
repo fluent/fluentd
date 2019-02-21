@@ -27,7 +27,7 @@ submitting an issue to Fluentd. Even better you can submit a Pull Request with a
 * **Documentation**: Use [fluentd-docs](https://github.com/fluent/fluentd-docs) repository.
 
 If you find a bug of 3rd party plugins, please submit an issue to each plugin repository.
-And use [omnibus-td-agent](https://github.com/treasure-data/omnibus-td-agent) repository for td-agent releated issues.
+And use [omnibus-td-agent](https://github.com/treasure-data/omnibus-td-agent) repository for td-agent related issues.
 
 Note: Before report the issue, check latest version first. Sometimes users report fixed bug with older version.
 
