@@ -649,6 +649,26 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
 
+  def test_encoding_with_bad_character
+    conf = config_element(
+      "", "", {
+        "format" => "/(?<message>.*)/",
+        "read_from_head" => "true",
+        "from_encoding" => "ASCII-8BIT",
+        "encoding" => "utf-8"
+      })
+    d = create_driver(conf)
+
+    d.run(expect_emits: 1) do
+      File.open("#{TMP_DIR}/tail.txt", "w") { |f|
+        f.write "te\x86st\n"
+      }
+    end
+
+    events = d.events
+    assert_equal("te\uFFFDst", events[0][2]['message'])
+    assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
+  end
 
   sub_test_case "multiline" do
     data(flat: MULTILINE_CONFIG,

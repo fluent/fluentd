@@ -657,6 +657,7 @@ module Fluent::Plugin
         def initialize(from_encoding, encoding)
           @from_encoding = from_encoding
           @encoding = encoding
+          @need_enc = from_encoding != encoding
           @buffer = ''.force_encoding(from_encoding)
           @eol = "\n".encode(from_encoding).freeze
         end
@@ -682,11 +683,13 @@ module Fluent::Plugin
         end
 
         def convert(s)
-          if @from_encoding == @encoding
-            s
-          else
+          if @need_enc
             s.encode(@encoding, @from_encoding)
+          else
+            s
           end
+        rescue
+          s.encode(@encoding, @from_encoding, :invalid => :replace, :undef => :replace)
         end
 
         def next_line
