@@ -72,7 +72,7 @@ Many enterprises run Fluentd in production to handle all of their logging needs.
 - Discussion: https://groups.google.com/group/fluentd
 - Slack / Community: https://slack.fluentd.org
 - Newsletters: https://www.fluentd.org/newsletter_signup
-- Author: Sadayuki Furuhashi
+- Author: [Sadayuki Furuhashi](https://github.com/frsyuki)
 - Copyright: 2011-2018 Fluentd Authors
 - License: Apache License, Version 2.0
 
