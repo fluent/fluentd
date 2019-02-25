@@ -523,7 +523,7 @@ module Fluent
           def on_readable_without_sock
             begin
               data = @sock.recv(@max_bytes, @flags)
-            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
+            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET, IOError, Errno::EBADF
               return
             end
             @callback.call(data)
@@ -536,7 +536,7 @@ module Fluent
           def on_readable_with_sock
             begin
               data, addr = @sock.recvfrom(@max_bytes)
-            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
+            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET, IOError, Errno::EBADF
               return
             end
             @callback.call(data, UDPCallbackSocket.new(@sock, addr, close_socket: @close_socket))
