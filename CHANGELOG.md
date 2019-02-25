@@ -1,5 +1,36 @@
 # v1.3
 
+## Release v1.4.0 - 2019/02/24
+
+### New features
+
+* multiprocess: Support <worker N-M> syntax
+  https://github.com/fluent/fluentd/pull/2292
+* output: Work <secondary> and retry_forever together
+  https://github.com/fluent/fluentd/pull/2276
+* out_file: Support placeholders in symlink_path
+  https://github.com/fluent/fluentd/pull/2254
+
+### Enhancements
+
+* output: Add MessagePack unpacker error to unrecoverable error list
+  https://github.com/fluent/fluentd/pull/2301
+* output: Reduce flush deley when large timekey and small timekey_wait are specified
+  https://github.com/fluent/fluentd/pull/2291
+* config: Support embedded ruby code in section argument.
+  https://github.com/fluent/fluentd/pull/2291
+* in_tail: Improve encoding parameter handling
+  https://github.com/fluent/fluentd/pull/2305
+* in_tcp/in_udp: Add <parse> section check
+  https://github.com/fluent/fluentd/pull/2267
+
+### Bug fixes
+
+* server: Ignore IOError and related errors in UDP
+  https://github.com/fluent/fluentd/pull/2310
+* server: Ignore EPIPE in TLS accept to avoid fluentd restart
+  https://github.com/fluent/fluentd/pull/2253
+
 ## Release v1.3.3 - 2019/01/06
 
 ### Enhancements
