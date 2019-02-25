@@ -32,7 +32,7 @@ class FluentPluginConfigFormatter
     "buffer", "parser", "formatter", "storage"
   ]
 
-  DOCS_BASE_URL = "https://docs.fluentd.org/v1.0/articles/"
+  DOCS_BASE_URL = "https://docs.fluentd.org/v1.0/articles/quickstart"
 
   def initialize(argv = ARGV)
     @argv = argv
