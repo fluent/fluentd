@@ -26,3 +26,4 @@ coverage/*
 .vagrant/
 cov-int/
 cov-fluentd.tar.gz
+.idea/
