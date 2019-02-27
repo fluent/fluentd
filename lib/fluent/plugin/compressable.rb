@@ -44,7 +44,7 @@ module Fluent
           # check compressed_data(String) is 0 length
           compressed_data
         when output_io
-          # exeucte after checking compressed_data is empty or not
+          # execute after checking compressed_data is empty or not
           io = StringIO.new(compressed_data)
           io_decompress(io, output_io)
         else
