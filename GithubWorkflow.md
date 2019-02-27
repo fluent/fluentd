@@ -13,7 +13,7 @@ The [fluentd](https://github.com/fluent/fluentd.git) code is hosted on Github (h
 
 ## Fork a repository
 
- Goto https://github.com/fluent/fluentd then hit the `Fork` button to fork your own copy of repository **fluentd** to your github account.
+ Go to https://github.com/fluent/fluentd then hit the `Fork` button to fork your own copy of repository **fluentd** to your github account.
 
 ## Clone the forked repository to local
 
@@ -74,5 +74,5 @@ $ git push -u origin new-feature
 
 ## Create a Pull Request
 
-* Goto your fork at https://github.com/$your_github_account/fluentd
+* Go to your fork at https://github.com/$your_github_account/fluentd
 * Create a Pull Request from the branch you recently pushed by hitting the button `Compare & pull request` next to branch name.
