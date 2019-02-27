@@ -1,4 +1,4 @@
-# v1.3
+# v1.4
 
 ## Release v1.4.0 - 2019/02/24
 
@@ -30,6 +30,8 @@
   https://github.com/fluent/fluentd/pull/2310
 * server: Ignore EPIPE in TLS accept to avoid fluentd restart
   https://github.com/fluent/fluentd/pull/2253
+
+# v1.3
 
 ## Release v1.3.3 - 2019/01/06
 
