@@ -673,12 +673,12 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 * output: Secondary calculation should consider 'retry_max_times'
   https://github.com/fluent/fluentd/pull/1452
-* Fix regression of deprecatd 'process' module
+* Fix regression of deprecated 'process' module
   https://github.com/fluent/fluentd/pull/1443
 * Fix missing parser_regex require
   https://github.com/fluent/fluentd/issues/1458
   https://github.com/fluent/fluentd/pull/1453
-* Keep 'Fluent::BufferQueueLimitError' for exsting plugins
+* Keep 'Fluent::BufferQueueLimitError' for existing plugins
   https://github.com/fluent/fluentd/pull/1456
 * in_tail: Untracked files should be removed from watching list to avoid memory bloat
   https://github.com/fluent/fluentd/pull/1467
@@ -930,7 +930,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 ### Bug fixes
 
-* Raise configuration errors to clearify what's wrong when "@type" is missing
+* Raise configuration errors to clarify what's wrong when "@type" is missing
   https://github.com/fluent/fluentd/pull/1202
 * Fix the bug not to launch Fluentd when v0.12 MultiOutput plugin is configured
   https://github.com/fluent/fluentd/pull/1206
