@@ -716,7 +716,13 @@ module Fluent
     end
 
     def main_process(&block)
-      Process.setproctitle("worker:#{@process_name}") if @process_name
+      if @process_name
+        if @workers > 1
+          Process.setproctitle("worker:#{@process_name}#{ENV['SERVERENGINE_WORKER_ID']}")
+        else
+          Process.setproctitle("worker:#{@process_name}")
+        end
+      end
 
       unrecoverable_error = false
 
