@@ -102,7 +102,7 @@ module Fluent::Plugin
     desc 'The client private key path for TLS.'
     config_param :tls_client_private_key_path, :string, default: nil
     desc 'The client private key passphrase for TLS.'
-    config_param :tls_client_private_key_passphrase, :string, default: nil
+    config_param :tls_client_private_key_passphrase, :string, default: nil, secret: true
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
