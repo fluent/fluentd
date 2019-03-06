@@ -15,10 +15,10 @@
 
 * output: Add MessagePack unpacker error to unrecoverable error list
   https://github.com/fluent/fluentd/pull/2301
-* output: Reduce flush deley when large timekey and small timekey_wait are specified
+* output: Reduce flush delay when large timekey and small timekey_wait are specified
   https://github.com/fluent/fluentd/pull/2291
 * config: Support embedded ruby code in section argument.
-  https://github.com/fluent/fluentd/pull/2291
+  https://github.com/fluent/fluentd/pull/2295
 * in_tail: Improve encoding parameter handling
   https://github.com/fluent/fluentd/pull/2305
 * in_tcp/in_udp: Add <parse> section check
