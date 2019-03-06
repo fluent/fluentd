@@ -169,6 +169,10 @@ module Fluent::Plugin
               num = Integer(buffer[pos..idx])
               pos = idx + num
               msg = buffer[idx + 1...pos]
+              if msg.size < num - 1
+                pos = pos - num - num.to_s.size
+                break
+              end
               message_handler(msg, conn)
             end
           else
