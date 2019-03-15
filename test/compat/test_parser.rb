@@ -84,7 +84,7 @@ class TextParserTest < ::Test::Unit::TestCase
        multiline: Regexp::MULTILINE,
        both: Regexp::IGNORECASE & Regexp::MULTILINE)
   def test_regexp_parser_config(options)
-    source = "a"
+    source = "(?<test>.*)"
     parser = Fluent::TextParser::RegexpParser.new(Regexp.new(source, options), { "dummy" => "dummy" })
     regexp = parser.instance_variable_get("@regexp")
     assert_equal(options, regexp.options)

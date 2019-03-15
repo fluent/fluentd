@@ -153,6 +153,15 @@ class RegexpParserTest < ::Test::Unit::TestCase
     end
 
     sub_test_case "configure" do
+      def test_bad_expression
+        conf = {
+          'expression' => %q!/.*/!,
+        }
+        assert_raise Fluent::ConfigError do
+          create_driver(conf)
+        end
+      end
+
       def test_default_options
         conf = {
           'expression' => %q!/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] \[(?<date>[^\]]*)\] "(?<flag>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)$/!,
