@@ -6,8 +6,6 @@
 
 * system: Add worker_id to process_name when workers is larger than 1
   https://github.com/fluent/fluentd/pull/2321
-* in_syslog: Check message length when read from buffer in octet counting
-  https://github.com/fluent/fluentd/pull/2323
 * parser_regexp: Check named captures. When no named captures, configuration error is raised
   https://github.com/fluent/fluentd/pull/2331
 
@@ -15,6 +13,8 @@
 
 * out_forward: Make tls_client_private_key_passphrase secret
   https://github.com/fluent/fluentd/pull/2324
+* in_syslog: Check message length when read from buffer in octet counting
+  https://github.com/fluent/fluentd/pull/2323
 
 ## Release v1.4.0 - 2019/02/24
 
