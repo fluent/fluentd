@@ -394,7 +394,7 @@ module Fluent::Plugin
         if @cors_allow_origins.include?('*')
           header["Access-Control-Allow-Origin"] = "*"
           send_response_and_close("200 OK", header, "")
-        elsif @cors_allow_origins.include?(@origin)
+        elsif include_cors_allow_origin
           header["Access-Control-Allow-Origin"] = @origin
           send_response_and_close("200 OK", header, "")
         else
@@ -414,7 +414,7 @@ module Fluent::Plugin
         # For every incoming request, we check if we have some CORS
         # restrictions and white listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
-          unless @cors_allow_origins.include?('*') or @cors_allow_origins.include?(@origin)
+          unless @cors_allow_origins.include?('*') or include_cors_allow_origin
             send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
             return
           end
@@ -464,7 +464,7 @@ module Fluent::Plugin
         unless @cors_allow_origins.nil?
           if @cors_allow_origins.include?('*')
             header['Access-Control-Allow-Origin'] = '*'
-          elsif @cors_allow_origins.include?(@origin)
+          elsif include_cors_allow_origin
             header['Access-Control-Allow-Origin'] = @origin
           end
         end
@@ -511,6 +511,14 @@ module Fluent::Plugin
         }
         data << "\r\n"
         write data
+      end
+
+      def include_cors_allow_origin
+        if @cors_allow_origins.include?(@origin)
+          return true
+        end
+        filtered_cors_allow_origins = @cors_allow_origins.select {|origin| origin != ""}
+        return filtered_cors_allow_origins.find {|origin| (start_str,end_str) = origin.split("*",2); @origin.start_with?(start_str) and @origin.end_with?(end_str)} != nil
       end
     end
   end
