@@ -1,5 +1,21 @@
 # v1.4
 
+## Release v1.4.1 - 2019/03/18
+
+### Enhancements
+
+* system: Add worker_id to process_name when workers is larger than 1
+  https://github.com/fluent/fluentd/pull/2321
+* in_syslog: Check message length when read from buffer in octet counting
+  https://github.com/fluent/fluentd/pull/2323
+* parser_regexp: Check named captures. When no named captures, configuration error is raised
+  https://github.com/fluent/fluentd/pull/2331
+
+### Bug fixes
+
+* out_forward: Make tls_client_private_key_passphrase secret
+  https://github.com/fluent/fluentd/pull/2324
+
 ## Release v1.4.0 - 2019/02/24
 
 ### New features
@@ -15,10 +31,10 @@
 
 * output: Add MessagePack unpacker error to unrecoverable error list
   https://github.com/fluent/fluentd/pull/2301
-* output: Reduce flush deley when large timekey and small timekey_wait are specified
+* output: Reduce flush delay when large timekey and small timekey_wait are specified
   https://github.com/fluent/fluentd/pull/2291
 * config: Support embedded ruby code in section argument.
-  https://github.com/fluent/fluentd/pull/2291
+  https://github.com/fluent/fluentd/pull/2295
 * in_tail: Improve encoding parameter handling
   https://github.com/fluent/fluentd/pull/2305
 * in_tcp/in_udp: Add <parse> section check
