@@ -69,7 +69,7 @@ module Fluent::Plugin
     desc 'The number of spawned process for command.'
     config_param :num_children, :integer, default: 1
 
-    desc 'Respawn command when command exit. ["none", "inf" or positive integer for times to respawn (defaut: none)]'
+    desc 'Respawn command when command exit. ["none", "inf" or positive integer for times to respawn (default: none)]'
     # nil, 'none' or 0: no respawn, 'inf' or -1: infinite times, positive integer: try to respawn specified times only
     config_param :child_respawn, :string, default: nil
 
