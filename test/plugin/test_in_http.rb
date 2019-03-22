@@ -641,6 +641,63 @@ class HttpInputTest < Test::Unit::TestCase
     end
   end
 
+  def test_cors_allowed_wildcard_for_subdomain
+    d = create_driver(CONFIG + 'cors_allow_origins ["http://*.foo.com"]')
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"a"=>1}],
+    ]
+
+    d.run do
+      events.each do |tag, time, record|
+        headers = {"Origin" => "http://subdomain.foo.com"}
+
+        res = post("/#{tag}", {"json" => record.to_json, "time" => time.to_i}, headers)
+
+        assert_equal "200", res.code
+        assert_equal "http://subdomain.foo.com", res["Access-Control-Allow-Origin"]
+      end
+    end
+  end
+  
+  def test_cors_allowed_exclude_empty_string
+    d = create_driver(CONFIG + 'cors_allow_origins ["", "http://*.foo.com"]')
+
+    time = event_time("2011-01-02 13:14:15 UTC")
+    events = [
+      ["tag1", time, {"a"=>1}],
+    ]
+
+    d.run do
+      events.each do |tag, time, record|
+        headers = {"Origin" => "http://subdomain.foo.com"}
+
+        res = post("/#{tag}", {"json" => record.to_json, "time" => time.to_i}, headers)
+
+        assert_equal "200", res.code
+        assert_equal "http://subdomain.foo.com", res["Access-Control-Allow-Origin"]
+      end
+    end
+  end
+  
+  def test_cors_allowed_wildcard_preflight_for_subdomain
+    d = create_driver(CONFIG + 'cors_allow_origins ["http://*.foo.com"]')
+
+    d.run do
+      header = {
+        "Origin" => "http://subdomain.foo.com",
+        "Access-Control-Request-Method" => "POST",
+        "Access-Control-Request-Headers" => "Content-Type",
+      }
+      res = options("/cors.test", {}, header)
+
+      assert_equal "200", res.code
+      assert_equal "http://subdomain.foo.com", res["Access-Control-Allow-Origin"]
+      assert_equal "POST", res["Access-Control-Allow-Methods"]
+    end
+  end
+
   def test_content_encoding_gzip
     d = create_driver
 
