@@ -285,6 +285,7 @@ module Fluent::Plugin
     MONITOR_INFO = {
       'output_plugin' => ->(){ is_a?(::Fluent::Plugin::Output) },
       'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil? && @buffer.is_a?(::Fluent::Plugin::Buffer); @buffer.queue.size },
+      'buffer_timekeys' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil? && @buffer.is_a?(::Fluent::Plugin::Buffer); @buffer.timekeys },
       'buffer_total_queued_size' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil? && @buffer.is_a?(::Fluent::Plugin::Buffer); @buffer.stage_size + @buffer.queue_size },
       'retry_count' => ->(){ instance_variable_defined?(:@num_errors) ? @num_errors : nil },
     }
