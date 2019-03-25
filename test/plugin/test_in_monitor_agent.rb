@@ -123,6 +123,7 @@ EOC
       output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
       error_label_info = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
@@ -296,6 +297,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
@@ -333,6 +335,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
@@ -367,6 +370,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       }
       expected_null_response = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
@@ -434,7 +438,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 <match **>
   @type test_out_fail_write
   @id test_out_fail_write
-  <buffer>
+  <buffer time>
+    timekey 1m
     flush_mode immediate
   </buffer>
 </match>
@@ -453,17 +458,18 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   include_config no
 ")
       d.instance.start
+      output = @ra.outputs[0]
+      output.start
+      output.after_start
       expected_test_out_fail_write_response = {
           "buffer_queue_length" => 1,
+          "buffer_timekeys" => [output.calculate_timekey(event_time)],
           "buffer_total_queued_size" => 40,
           "output_plugin" => true,
           "plugin_category" => "output",
           "plugin_id" => "test_out_fail_write",
           "type" => "test_out_fail_write",
       }
-      output = @ra.outputs[0]
-      output.start
-      output.after_start
       output.emit_events('test.tag', Fluent::ArrayEventStream.new([[event_time, {"message" => "test failed flush 1"}]]))
       # flush few times to check steps
       2.times do

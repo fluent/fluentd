@@ -189,6 +189,7 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal 0, plugin.stage_size
       assert_equal 0, plugin.queue_size
+      assert_equal [], plugin.timekeys
 
       # @p is started plugin
 
@@ -242,6 +243,7 @@ class BufferTest < Test::Unit::TestCase
       assert_nil @p.instance_eval{ @metadata_list } # #metadata_list does #dup for @metadata_list
       assert_equal 0, @p.stage_size
       assert_equal 0, @p.queue_size
+      assert_equal [], @p.timekeys
     end
 
     test '#metadata_list returns list of metadata on stage or in queue' do
@@ -569,9 +571,12 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys
 
-      prev_stage_size = @p.stage_size
+      timekey = Time.parse('2016-04-11 16:40:00 +0000').to_i
+      assert !@p.timekeys.include?(timekey)
 
-      m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
+      prev_stage_size = @p.stage_size
+      
+      m = @p.metadata(timekey: timekey)
 
       @p.write({m => ["x" * 256, "y" * 256, "z" * 256]})
 
@@ -581,6 +586,8 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
+
+      assert @p.timekeys.include?(timekey)
     end
 
     test '#write tries to enqueue and store data into a new chunk if existing chunk is full' do
@@ -688,8 +695,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys
+      
+      timekey = Time.parse('2016-04-11 16:40:00 +0000').to_i
+      assert !@p.timekeys.include?(timekey)
 
-      m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
+      m = @p.metadata(timekey: timekey)
 
       es = Fluent::ArrayEventStream.new(
         [
@@ -708,6 +718,8 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
+      
+      assert @p.timekeys.include?(timekey)
     end
 
     test '#write w/ format tries to enqueue and store data into a new chunk if existing chunk does not have enough space' do
