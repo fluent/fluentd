@@ -47,6 +47,8 @@ module Fluent::Plugin
     config_param :resolve_hostname, :bool, default: nil
     desc 'Connections will be disconnected right after receiving first message if this value is true.'
     config_param :deny_keepalive, :bool, default: false
+    desc 'Check the remote connection is still available by sending a keepalive packet if this value is true.'
+    config_param :send_keepalive_packet, :bool, default: false
 
     desc 'Log warning if received chunk size is larger than this value.'
     config_param :chunk_size_warn_limit, :size, default: nil
@@ -141,6 +143,10 @@ module Fluent::Plugin
             })
         end
       end
+
+      if @send_keepalive_packet && @deny_keepalive
+        raise Fluent::ConfigError, "both 'send_keepalive_packet' and 'deny_keepalive' cannot be set to true"
+      end
     end
 
     def multi_workers_ready?
@@ -161,6 +167,7 @@ module Fluent::Plugin
         shared: shared_socket,
         resolve_name: @resolve_hostname,
         linger_timeout: @linger_timeout,
+        send_keepalive_packet: @send_keepalive_packet,
         backlog: @backlog,
         &method(:handle_connection)
       )
