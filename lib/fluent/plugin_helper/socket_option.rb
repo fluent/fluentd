@@ -24,7 +24,7 @@ module Fluent
       FORMAT_STRUCT_LINGER  = 'I!I!' # { int l_onoff; int l_linger; }
       FORMAT_STRUCT_TIMEVAL = 'L!L!' # { time_t tv_sec; suseconds_t tv_usec; }
 
-      def socket_option_validate!(protocol, resolve_name: nil, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, receive_buffer_size: nil)
+      def socket_option_validate!(protocol, resolve_name: nil, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, receive_buffer_size: nil, send_keepalive_packet: nil)
         unless resolve_name.nil?
           if protocol != :tcp && protocol != :udp && protocol != :tls
             raise ArgumentError, "BUG: resolve_name in available for tcp/udp/tls"
@@ -35,9 +35,14 @@ module Fluent
             raise ArgumentError, "BUG: linger_timeout is available for tcp/tls"
           end
         end
+        if send_keepalive_packet
+          if protocol != :tcp
+            raise ArgumentError, "BUG: send_keepalive_packet is available for tcp"
+          end
+        end
       end
 
-      def socket_option_set(sock, resolve_name: nil, nonblock: false, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, receive_buffer_size: nil)
+      def socket_option_set(sock, resolve_name: nil, nonblock: false, linger_timeout: nil, recv_timeout: nil, send_timeout: nil, receive_buffer_size: nil, send_keepalive_packet: nil)
         unless resolve_name.nil?
           sock.do_not_reverse_lookup = !resolve_name
         end
@@ -58,6 +63,9 @@ module Fluent
         end
         if receive_buffer_size
           socket_option_set_one(sock, :SO_RCVBUF, receive_buffer_size.to_i)
+        end
+        if send_keepalive_packet
+          socket_option_set_one(sock, :SO_KEEPALIVE, true)
         end
         sock
       end

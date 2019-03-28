@@ -237,6 +237,15 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     end
 
     data(
+      'server_create udp' => [:server_create, :udp],
+    )
+    test 'raise error if tcp/tls/unix options specified for udp' do |(m, proto)|
+      assert_raise(ArgumentError.new("BUG: send_keepalive_packet is available for tcp")) do
+        @d.__send__(m, :myserver, PORT, proto: proto, send_keepalive_packet: true){|x| x }
+      end
+    end
+
+    data(
       'server_create tcp' => [:server_create, :tcp, {}],
       'server_create udp' => [:server_create, :udp, {max_bytes: 128}],
       # 'server_create unix' => [:server_create, :unix, {}],
@@ -352,7 +361,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   sub_test_case '#server_create_tcp' do
     test 'can accept all keyword arguments valid for tcp server' do
       assert_nothing_raised do
-        @d.server_create_tcp(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500) do |data, conn|
+        @d.server_create_tcp(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500, send_keepalive_packet: true) do |data, conn|
           # ...
         end
       end

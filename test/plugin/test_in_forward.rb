@@ -81,6 +81,27 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal 1, d.instance.security.users.size
       assert_equal 1, d.instance.security.clients.size
     end
+
+    test 'send_keepalive_packet is disabled by default' do
+      @d = d = create_driver(CONFIG_AUTH)
+      assert_false d.instance.send_keepalive_packet
+    end
+
+    test 'send_keepalive_packet can be enabled' do
+      @d = d = create_driver(CONFIG_AUTH + %[
+        send_keepalive_packet true
+      ])
+      assert_true d.instance.send_keepalive_packet
+    end
+
+    test 'both send_keepalive_packet and deny_keepalive cannot be enabled' do
+      assert_raise(Fluent::ConfigError.new("both 'send_keepalive_packet' and 'deny_keepalive' cannot be set to true")) do
+        create_driver(CONFIG_AUTH + %[
+          send_keepalive_packet true
+          deny_keepalive true
+        ])
+      end
+    end
   end
 
   sub_test_case 'message' do
