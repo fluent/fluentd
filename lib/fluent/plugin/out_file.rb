@@ -68,6 +68,7 @@ module Fluent::Plugin
       config_set_default :timekey, DEFAULT_TIMEKEY
     end
 
+    attr_reader :dir_perm
     attr_accessor :last_written_path # for tests
 
     module SymlinkBufferMixin
@@ -87,7 +88,9 @@ module Fluent::Plugin
         # These chunks will be enqueued immediately, and will be flushed soon.
         latest_metadata = metadata_list.select{|m| m.timekey }.sort_by(&:timekey).last
         if chunk.metadata == latest_metadata
-          FileUtils.ln_sf(chunk.path, @_output_plugin_for_symlink.extract_placeholders(@_symlink_path, chunk))
+          sym_path = @_output_plugin_for_symlink.extract_placeholders(@_symlink_path, chunk)
+          FileUtils.mkdir_p(File.dirname(sym_path), mode: @_output_plugin_for_symlink.dir_perm)
+          FileUtils.ln_sf(chunk.path, sym_path)
         end
         chunk
       end
