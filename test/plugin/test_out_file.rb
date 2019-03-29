@@ -684,11 +684,11 @@ class FileOutputTest < Test::Unit::TestCase
       omit "Windows doesn't support symlink" if Fluent.windows?
       conf = %[
         path #{TMP_DIR}/${tag}/out_file_test
-        symlink_path #{SYMLINK_PATH}-${tag}
+        symlink_path #{SYMLINK_PATH}/foo/${tag}
         <buffer tag,time>
         </buffer>
       ]
-      symlink_path = "#{SYMLINK_PATH}-tag"
+      symlink_path = "#{SYMLINK_PATH}/foo/tag"
 
       d = create_driver(conf)
       begin
