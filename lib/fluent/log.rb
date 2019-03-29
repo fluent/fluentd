@@ -532,6 +532,7 @@ module Fluent
       end
 
       self.format = @logger.format
+      self.time_format = @logger.time_format
       enable_color @logger.enable_color?
     end
 
@@ -540,11 +541,17 @@ module Fluent
     end
 
     alias orig_format= format=
+    alias orig_time_format= time_format=
     alias orig_enable_color enable_color
 
     def format=(fmt)
       self.orig_format = fmt
       @logger.format = fmt
+    end
+
+    def time_format=(fmt)
+      self.orig_time_format = fmt
+      @logger.time_format = fmt
     end
 
     def enable_color(b = true)
@@ -554,9 +561,9 @@ module Fluent
 
     extend Forwardable
     def_delegators '@logger', :get_worker_id, :enable_color?, :enable_debug, :enable_event,
-      :disable_events, :log_event_enabled, :log_event_enabled=, :time_format, :time_format=,
-      :time_formatter, :time_formatter=, :event, :caller_line, :puts, :write, :<<, :flush,
-      :reset, :out, :out=, :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
+      :disable_events, :log_event_enabled, :log_event_enabled=, :event, :caller_line, :puts, :write,
+      :<<, :flush, :reset, :out, :out=, :optional_header, :optional_header=, :optional_attrs,
+      :optional_attrs=
   end
 
 

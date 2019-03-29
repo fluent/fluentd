@@ -744,12 +744,6 @@ class PluginLoggerTest < Test::Unit::TestCase
       @log.disable_events(Thread.current)
     end
 
-    def test_time_format
-      assert_equal(@log.time_format, @logger.time_format)
-      @log.time_format = "time_format"
-      assert_equal(@log.time_format, @logger.time_format)
-    end
-
     def test_event
       mock(@logger).event(Fluent::Log::LEVEL_TRACE, { key: "value" })
       @log.event(Fluent::Log::LEVEL_TRACE, { key: "value" })
@@ -792,6 +786,37 @@ class PluginLoggerTest < Test::Unit::TestCase
       assert_equal(@log.optional_attrs, @logger.optional_attrs)
       @log.optional_attrs = "optional_attrs"
       assert_equal(@log.optional_attrs, @logger.optional_attrs)
+    end
+  end
+
+  sub_test_case "partially delegated" do
+    def setup
+      super
+      @log = Fluent::PluginLogger.new(@logger)
+    end
+
+    data(
+      text: [:text, "2016-04-21 11:58:41 +0900 [info]: yaaay\n"],
+      json: [:json, %Q({"time":"2016-04-21 11:58:41 +0900","level":"info","message":"yaaay"}\n)],
+    )
+    def test_format(data)
+      fmt, expected_log_line = data
+      @log.format = fmt
+      @log.info "yaaay"
+      assert{ @log_device.logs.include? expected_log_line }
+    end
+
+    data(
+      text: [:text, "2016 [info]: yaaay\n"],
+      json: [:json, %Q({"time":"2016","level":"info","message":"yaaay"}\n)],
+    )
+    def test_time_format(data)
+      fmt, expected_log_line = data
+      @log.format = fmt
+      @log.time_format = "%Y"
+      timestamp_str = '2016'
+      @log.info "yaaay"
+      assert{ @log_device.logs.include? expected_log_line }
     end
   end
 end
