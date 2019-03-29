@@ -814,7 +814,6 @@ class PluginLoggerTest < Test::Unit::TestCase
       fmt, expected_log_line = data
       @log.format = fmt
       @log.time_format = "%Y"
-      timestamp_str = '2016'
       @log.info "yaaay"
       assert{ @log_device.logs.include? expected_log_line }
     end
