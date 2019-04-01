@@ -239,6 +239,7 @@ module Fluent::Plugin
                 false
               end
             rescue Errno::ENOENT
+              log.debug("#{p} is missing after refresh file list")
               false
             end
           }
@@ -259,6 +260,8 @@ module Fluent::Plugin
     def refresh_watchers
       target_paths = expand_paths
       existence_paths = @tails.keys
+
+      log.debug { "tailing paths: target = #{target_paths.join(",")} | existing = #{existence_paths.join(",")}" }
 
       unwatched = existence_paths - target_paths
       added = target_paths - existence_paths
@@ -337,7 +340,7 @@ module Fluent::Plugin
     def update_watcher(path, pe)
       if @pf
         unless pe.read_inode == @pf[path].read_inode
-          log.trace "Skip update_watcher because watcher has been already updated by other inotify event"
+          log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
           return
         end
       end

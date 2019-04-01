@@ -133,6 +133,8 @@ module Fluent
         Dir.glob(patterns) do |path|
           next unless File.file?(path)
 
+          log.debug { "restoring buffer file: path = #{path}" }
+
           m = new_metadata() # this metadata will be overwritten by resuming .meta file content
                              # so it should not added into @metadata_list for now
           mode = Fluent::Plugin::Buffer::FileChunk.assume_chunk_state(path)
