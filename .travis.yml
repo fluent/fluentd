@@ -11,11 +11,11 @@ matrix:
       os: linux
     - rvm: 2.2.10
       os: linux
-    - rvm: 2.4.5
+    - rvm: 2.4.6
       os: linux
-    - rvm: 2.5.3
+    - rvm: 2.5.5
       os: linux
-    - rvm: 2.6.0
+    - rvm: 2.6.2
       os: linux
     - rvm: ruby-head
       os: linux
@@ -28,7 +28,7 @@ matrix:
     # - rvm: 2.3.3
     #   os: osx
     #   osx_image: xcode8.2 # OSX 10.12
-    - rvm: 2.4.1
+    - rvm: 2.4.6
       os: osx
       osx_image: xcode8.3 # OSX 10.12
     - rvm: ruby-head
