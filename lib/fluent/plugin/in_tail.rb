@@ -171,7 +171,7 @@ module Fluent::Plugin
 
       @encoding = parse_encoding_param(@encoding) if @encoding
       @from_encoding = parse_encoding_param(@from_encoding) if @from_encoding
-      if @encoding == @from_encoding
+      if @encoding && (@encoding == @from_encoding)
         log.warn "'encoding' and 'from_encoding' are same encoding. No effect"
       end
     end
@@ -239,6 +239,7 @@ module Fluent::Plugin
                 false
               end
             rescue Errno::ENOENT
+              log.debug("#{p} is missing after refresh file list")
               false
             end
           }
@@ -259,6 +260,8 @@ module Fluent::Plugin
     def refresh_watchers
       target_paths = expand_paths
       existence_paths = @tails.keys
+
+      log.debug { "tailing paths: target = #{target_paths.join(",")} | existing = #{existence_paths.join(",")}" }
 
       unwatched = existence_paths - target_paths
       added = target_paths - existence_paths
@@ -337,7 +340,7 @@ module Fluent::Plugin
     def update_watcher(path, pe)
       if @pf
         unless pe.read_inode == @pf[path].read_inode
-          log.trace "Skip update_watcher because watcher has been already updated by other inotify event"
+          log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
           return
         end
       end
