@@ -82,7 +82,7 @@ module Fluent::Plugin
             return t, r
           else
             if @emit_invalid_record_to_error
-              router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("pattern not match with data '#{raw_value}'"))
+              router.emit_error_event(tag, time, record, Fluent::Plugin::Parser::ParserError.new("pattern not matched with data '#{raw_value}'"))
             end
             if @reserve_data
               t = time

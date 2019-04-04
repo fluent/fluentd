@@ -427,7 +427,7 @@ module Fluent::Plugin
               record[@path_key] ||= tail_watcher.path unless @path_key.nil?
               es.add(Fluent::EventTime.now, record)
             end
-            log.warn "pattern not match: #{line.inspect}"
+            log.warn "pattern not matched: #{line.inspect}"
           end
         }
       rescue => e
