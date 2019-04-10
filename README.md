@@ -30,6 +30,11 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
 
 ## Development
 
+### Branch
+
+- master: For v1 development.
+- v0.12: For v0.12. This is security maintenance mode. Only security fix is accepted.
+
 ### Prerequisites
 
 - Ruby 2.1 or later
