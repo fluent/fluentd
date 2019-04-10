@@ -195,6 +195,10 @@ module Fluent
           # chunk unique id is generated in #new_chunk
           chunk = (@map[key] ||= new_chunk(key))
 
+          if @queue.size >= @buffer_queue_limit
+             raise BufferQueueLimitError, "queue size exceeds limit"
+          end  
+            
           if storable?(chunk, data)
             chain.next
             chunk << data
@@ -297,8 +301,14 @@ module Fluent
     def push(key)
       synchronize do
         chunk = @map[key]
-        if !chunk || chunk.empty?
+        if !chunk
           return false
+        end
+        
+        if chunk.empty?
+          chunk.purge
+          @map.delete(key)
+          return true
         end
 
         @queue.synchronize do
