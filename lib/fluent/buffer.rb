@@ -193,8 +193,7 @@ module Fluent
       synchronize do
         begin
           # chunk unique id is generated in #new_chunk
-          chunk = (@map[key] ||= new_chunk(key))
-
+          chunk = (@map[key] ||= new_chunk(key)) 
           if @queue.size >= @buffer_queue_limit
              raise BufferQueueLimitError, "queue size exceeds limit"
           end  
