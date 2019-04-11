@@ -37,10 +37,7 @@ matrix:
   allow_failures:
     - rvm: 2.3.8
       os: linux
-    - rvm: 2.1.10
-      os: osx
-      osx_image: xcode8.3
-    - rvm: 2.4.1
+    - rvm: 2.4.6
       os: osx
       osx_image: xcode8.3
     - rvm: ruby-head
