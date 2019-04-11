@@ -99,6 +99,9 @@ module Fluent::Plugin
 
     config_param :blocking_timeout, :time, default: 0.5
 
+    desc 'The delimiter value "\n"'
+    config_param :delimiter, :string, default: "\n" # syslog family add "\n" to each message
+
     config_section :parse do
       config_set_default :@type, DEFAULT_PARSER
       config_param :with_priority, :bool, default: true
@@ -156,8 +159,7 @@ module Fluent::Plugin
     def start_tcp_server
       octet_count_frame = @frame_type == :octet_count
 
-      # syslog family adds "\n" to each message when transport is TCP and traditional frame
-      delimiter = octet_count_frame ? " " : "\n"
+      delimiter = octet_count_frame ? " " : @delimiter
       delimiter_size = delimiter.size
       server_create_connection(:in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_hostname) do |conn|
         conn.data do |data|
