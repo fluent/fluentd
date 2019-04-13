@@ -328,6 +328,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     </format>
     <parse>
       @type json
+      stream_buffer_size 1
     </parse>
     <extract>
       tag_key tag
@@ -338,6 +339,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     command cat
     in_keys message
     out_format json
+    out_stream_buffer_size 1
     time_key time
     tag_key tag
   ]
@@ -372,6 +374,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     </format>
     <parse>
       @type json
+      stream_buffer_size 1
     </parse>
     <extract>
       tag_key tag
@@ -382,6 +385,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     command cat
     in_keys message
     out_format json
+    out_stream_buffer_size 1
     time_key time
     tag_key tag
   ]
@@ -414,6 +418,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     </format>
     <parse>
       @type json
+      stream_buffer_size 1
     </parse>
     <extract>
       tag_key tag
@@ -426,6 +431,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     command cat
     in_keys message
     out_format json
+    out_stream_buffer_size 1
     time_key time
     time_format %d/%b/%Y %H:%M:%S.%N %z
     tag_key tag

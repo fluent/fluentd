@@ -95,6 +95,7 @@ module Fluent::Plugin
     COMPAT_PARSE_PARAMS = {
       'out_format' => '@type',
       'out_keys' => 'keys',
+      'out_stream_buffer_size' => 'stream_buffer_size',
     }
     COMPAT_EXTRACT_PARAMS = {
       'out_tag_key' => 'tag_key',
