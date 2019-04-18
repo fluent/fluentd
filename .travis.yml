@@ -11,8 +11,12 @@ matrix:
       os: linux
     - rvm: 2.2.10
       os: linux
+    - rvm: 2.2.10
+      os: linux-ppc64le
     - rvm: 2.4.6
       os: linux
+    - rvm: 2.4.6
+      os: linux-ppc64le
     - rvm: 2.5.5
       os: linux
     - rvm: 2.6.2
