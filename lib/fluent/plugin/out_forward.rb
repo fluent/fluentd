@@ -103,6 +103,10 @@ module Fluent::Plugin
     config_param :tls_client_private_key_path, :string, default: nil
     desc 'The client private key passphrase for TLS.'
     config_param :tls_client_private_key_passphrase, :string, default: nil, secret: true
+    desc "Enable keepalive connection."
+    config_param :keepalive, :bool, default: false
+    desc "Expired time of keepalive. Default value is nil, which means to keep connection as long as possible"
+    config_param :keepalive_timeout, :time, default: nil
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
@@ -225,6 +229,10 @@ module Fluent::Plugin
 
       if @nodes.empty?
         raise Fluent::ConfigError, "forward output plugin requires at least one <server> is required"
+      end
+
+      unless @keepalive
+        log.warn "The value of keepalive_timeout is ignored. if you want to use keepalive, please add to your conf `keepalive: true`."
       end
 
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
