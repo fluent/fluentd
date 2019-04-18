@@ -148,10 +148,10 @@ module Fluent
     end
 
     attr_reader :format
+    attr_reader :time_format
     attr_accessor :log_event_enabled
     attr_accessor :out
     attr_accessor :level
-    attr_accessor :time_format
     attr_accessor :optional_header, :optional_attrs
 
     def logdev=(logdev)
