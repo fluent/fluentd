@@ -622,7 +622,7 @@ module Fluent::Plugin
         def fetch_or(key = Thread.current.object_id)
           @mutex.synchronize do
             unless @active_socks[key]
-              @active_socks[key] = TimedSocket.new(timeout, yield, 0)
+              @active_socks[key] = TimedSocket.new(timeout, yield, 1)
               @log.debug("connect new socket #{@active_socks[key]}")
               return @active_socks[key].sock
             end
@@ -634,18 +634,19 @@ module Fluent::Plugin
               @active_socks[key] = TimedSocket.new(timeout, yield, 0)
             end
 
+            @active_socks[key].ref += 1;
             @active_socks[key].sock
           end
         end
 
-        def inc_ref(key = Thread.current.object_id)
+        def dec_ref(key = Thread.current.object_id)
           @mutex.synchronize do
             if @active_socks[key]
-              @active_socks[key].ref += 1
+              @active_socks[key].ref -= 1
             elsif @inactive_socks[key]
-              @inactive_socks[key].ref += 1
+              @inactive_socks[key].ref -= 1
             else
-              @log.warn("Not found key for inc_ref: #{key}")
+              @log.warn("Not found key for dec_ref: #{key}")
             end
           end
         end
@@ -666,7 +667,7 @@ module Fluent::Plugin
               @inactive_socks[key].ref -= 1
               return
             else
-              @log.warn("Not found key for dec_ref: #{key}")
+              @log.warn("Not found key for dec_ref_by_value: #{key}")
             end
           end
         end
@@ -765,21 +766,11 @@ module Fluent::Plugin
       end
 
       def verify_connection
-        sock = connect
-
-        begin
+        connect do |sock|
           ri = RequestInfo.new(@sender.security ? :helo : :established)
           if ri.state != :established
             establish_connection(sock, ri)
             raise if ri.state != :established
-          end
-        rescue
-          if @keepalive
-            @socket_cache.revoke
-          end
-        ensure
-          unless @keepalive
-            sock.close
           end
         end
       end
@@ -858,14 +849,12 @@ module Fluent::Plugin
         end
 
         if @sender.require_ack_response
-          if @keepalive
-            # to identify sock can't be closed
-            @socket_cache.inc_ref
-          end
           return sock # to read ACK from socket
         end
 
-        unless @keepalive
+        if @keepalive
+          @socket_cache.dec_ref
+        else
           sock.close_write rescue nil
           sock.close rescue nil
         end
@@ -1086,7 +1075,16 @@ module Fluent::Plugin
                end
 
         if block_given?
-          yield(sock)
+          begin
+            yield(sock)
+          rescue
+            @socket_cache.revoke(sock) if @keepalive
+            raise
+          else
+            @socket_cache.dec_ref(sock) if @keepalive
+          ensure
+            sock.close unless @keepalive
+          end
         else
           sock
         end

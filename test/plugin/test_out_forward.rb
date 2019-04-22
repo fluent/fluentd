@@ -1044,21 +1044,21 @@ EOL
       assert_equal(1, c.fetch_or { sock.open })
     end
 
-    sub_test_case 'inc_ref' do
+    sub_test_case 'dec_ref' do
       test 'when value exists in active_socks' do
         c = Fluent::Plugin::ForwardOutput::Node::SocketCache.new(10, Logger.new(nil))
         c.fetch_or { 1 }
-        c.inc_ref
+        c.dec_ref
 
-        assert_equal(1, c.instance_variable_get(:@active_socks)[Thread.current.object_id].ref)
+        assert_equal(0, c.instance_variable_get(:@active_socks)[Thread.current.object_id].ref)
       end
 
       test 'when value exists in inactive_socks' do
         c = Fluent::Plugin::ForwardOutput::Node::SocketCache.new(10, Logger.new(nil))
         c.fetch_or { 1 }
         c.revoke
-        c.inc_ref
-        assert_equal(1, c.instance_variable_get(:@inactive_socks)[Thread.current.object_id].ref)
+        c.dec_ref
+        assert_equal(-1, c.instance_variable_get(:@inactive_socks)[Thread.current.object_id].ref)
       end
     end
 
@@ -1068,7 +1068,7 @@ EOL
         c.fetch_or { 1 }
         c.dec_ref_by_value(1)
 
-        assert_equal(-1, c.instance_variable_get(:@active_socks)[Thread.current.object_id].ref)
+        assert_equal(0, c.instance_variable_get(:@active_socks)[Thread.current.object_id].ref)
       end
 
       test 'when value exists in inactive_socks' do
