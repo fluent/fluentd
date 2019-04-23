@@ -131,7 +131,7 @@ module Fluent::Plugin
       log.debug "listening http", bind: @bind, port: @port
 
       @km = KeepaliveManager.new(@keepalive_timeout)
-      s = server_create_for_tcp_connection(true, @bind, @port, @backlog, ->(_){}) do |conn|
+      server_create_connection(:in_http, @port, bind: @bind, backlog: @backlog) do |conn|
         h = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
         h.on_connect
 
@@ -147,7 +147,6 @@ module Fluent::Plugin
           h.on_close
         end
       end
-      server_attach('in_http', :tcp, @port, @bind, true, s)
       event_loop_attach(@km)
       @float_time_parser = Fluent::NumericTimeParser.new(:float)
     end
