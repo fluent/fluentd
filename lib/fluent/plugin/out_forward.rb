@@ -619,6 +619,7 @@ module Fluent::Plugin
           end
         end
 
+        # We expect that `yield` returns a unique object in this class
         def fetch_or(key = Thread.current.object_id)
           @mutex.synchronize do
             unless @active_socks[key]
