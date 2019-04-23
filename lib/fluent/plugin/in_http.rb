@@ -130,11 +130,7 @@ module Fluent::Plugin
 
       log.debug "listening http", bind: @bind, port: @port
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
+      client = server_socket_manager_client
       lsock = client.listen_tcp(@bind, @port)
 
       @km = KeepaliveManager.new(@keepalive_timeout)
