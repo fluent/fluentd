@@ -130,8 +130,7 @@ module Fluent::Plugin
 
       log.debug "listening http", bind: @bind, port: @port
 
-      client = server_socket_manager_client
-      lsock = client.listen_tcp(@bind, @port)
+      lsock = server_create_tcp_socket(true, @bind, @port)
 
       @km = KeepaliveManager.new(@keepalive_timeout)
       @lsock = Coolio::TCPServer.new(
