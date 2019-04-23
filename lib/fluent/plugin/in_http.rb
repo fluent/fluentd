@@ -130,23 +130,30 @@ module Fluent::Plugin
 
       log.debug "listening http", bind: @bind, port: @port
 
-      lsock = server_create_tcp_socket(true, @bind, @port)
-
       @km = KeepaliveManager.new(@keepalive_timeout)
-      @lsock = Coolio::TCPServer.new(
-        lsock, nil, Handler, @km, method(:on_request),
-        @body_size_limit, @format_name, log,
-        @cors_allow_origins
-      )
-      @lsock.listen(@backlog) unless @backlog.nil?
-      event_loop_attach(@km)
-      event_loop_attach(@lsock)
+      s = server_create_for_tcp_connection(true, @bind, @port, @backlog, ->(_){}) do |conn|
+        h = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
+        h.on_connect
 
+        conn.on(:data) do |data|
+          h.on_read(data)
+        end
+
+        conn.on(:write_complete) do |_|
+          h.on_write_complete
+        end
+
+        conn.on(:close) do |_|
+          h.on_close
+        end
+      end
+      server_attach('in_http', :tcp, @port, @bind, true, s)
+      event_loop_attach(@km)
       @float_time_parser = Fluent::NumericTimeParser.new(:float)
     end
 
     def close
-      @lsock.close
+      server_wait_until_stop
       super
     end
 
@@ -260,11 +267,11 @@ module Fluent::Plugin
       end
     end
 
-    class Handler < Coolio::Socket
+    class Handler
       attr_reader :content_type
 
       def initialize(io, km, callback, body_size_limit, format_name, log, cors_allow_origins)
-        super(io)
+        @io = io
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
@@ -275,7 +282,7 @@ module Fluent::Plugin
         @idle = 0
         @km.add(self)
 
-        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
+        @remote_port, @remote_addr = io.remote_port, io.remote_addr
       end
 
       def step_idle
@@ -296,7 +303,7 @@ module Fluent::Plugin
       rescue
         @log.warn "unexpected error", error: $!.to_s
         @log.warn_backtrace
-        close
+        @io.close
       end
 
       def on_message_begin
@@ -472,8 +479,12 @@ module Fluent::Plugin
         end
       end
 
+      def close
+        @io.close
+      end
+
       def on_write_complete
-        close if @next_close
+        @io.close if @next_close
       end
 
       def send_response_and_close(code, header, body)
@@ -494,9 +505,9 @@ module Fluent::Plugin
           data << "#{k}: #{v}\r\n"
         }
         data << "\r\n"
-        write data
+        @io.write(data)
 
-        write body
+        @io.write(body)
       end
 
       def send_response_nobody(code, header)
@@ -505,7 +516,7 @@ module Fluent::Plugin
           data << "#{k}: #{v}\r\n"
         }
         data << "\r\n"
-        write data
+        @io.write(data)
       end
 
       def include_cors_allow_origin
