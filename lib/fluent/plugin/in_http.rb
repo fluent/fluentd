@@ -38,7 +38,7 @@ module Fluent::Plugin
 
     # TODO: update this plugin implementation to use server plugin helper, after adding keepalive feature on it
 
-    helpers :parser, :compat_parameters, :event_loop
+    helpers :parser, :compat_parameters, :event_loop, :server
 
     EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
 
