@@ -62,6 +62,11 @@ module Fluent::Plugin
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
 
+    desc "New tag instead of incoming tag"
+    config_param :tag, :string, default: nil
+    desc "Add prefix to incoming tag"
+    config_param :add_tag_prefix, :string, default: nil
+
     config_section :security, required: false, multi: false do
       desc 'The hostname'
       config_param :self_hostname, :string
@@ -292,6 +297,9 @@ module Fluent::Plugin
       elsif @chunk_size_warn_limit && (chunk_size > @chunk_size_warn_limit)
         log.warn "Input chunk size is larger than 'chunk_size_warn_limit':", tag: tag, host: conn.remote_host, limit: @chunk_size_warn_limit, size: chunk_size
       end
+
+      tag = @tag.dup if @tag
+      tag = "#{@add_tag_prefix}.#{tag}" if @add_tag_prefix
 
       case entries
       when String
