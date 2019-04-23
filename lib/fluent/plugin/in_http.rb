@@ -131,22 +131,9 @@ module Fluent::Plugin
       log.debug "listening http", bind: @bind, port: @port
 
       @km = KeepaliveManager.new(@keepalive_timeout)
-      server_create_connection(:in_http, @port, bind: @bind, backlog: @backlog) do |conn|
-        h = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
-
-        conn.on(:data) do |data|
-          h.on_read(data)
-        end
-
-        conn.on(:write_complete) do |_|
-          h.on_write_complete
-        end
-
-        conn.on(:close) do |_|
-          h.on_close
-        end
-      end
       event_loop_attach(@km)
+
+      server_create_connection(:in_http, @port, bind: @bind, backlog: @backlog, &method(:on_server_connect))
       @float_time_parser = Fluent::NumericTimeParser.new(:float)
     end
 
@@ -239,6 +226,22 @@ module Fluent::Plugin
     end
 
     private
+
+    def on_server_connect(conn)
+      handler = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
+
+      conn.on(:data) do |data|
+        handler.on_read(data)
+      end
+
+      conn.on(:write_complete) do |_|
+        handler.on_write_complete
+      end
+
+      conn.on(:close) do |_|
+        handler.on_close
+      end
+    end
 
     def parse_params_default(params)
       if msgpack = params['msgpack']
