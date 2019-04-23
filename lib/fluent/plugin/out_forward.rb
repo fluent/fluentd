@@ -232,7 +232,7 @@ module Fluent::Plugin
       end
 
       if !@keepalive && @keepalive_timeout
-        log.warn 'The value of keepalive_timeout is ignored. if you want to use keepalive, please add `keepalive: true` to your conf.'
+        log.warn('The value of keepalive_timeout is ignored. if you want to use keepalive, please add `keepalive true` to your conf.')
       end
 
       raise Fluent::ConfigError, "ack_response_timeout must be a positive integer" if @ack_response_timeout < 1
@@ -630,7 +630,7 @@ module Fluent::Plugin
             if expired?(key)
               # Do not close this socket here in case of it will be used by other place (e.g. wait for receiving ack)
               @inactive_socks[key] = @active_socks.delete(key)
-              @log.debug("connection  #{@inactive_socks[key]} is expired. reconnecting...")
+              @log.debug("connection #{@inactive_socks[key]} is expired. reconnecting...")
               @active_socks[key] = TimedSocket.new(timeout, yield, 0)
             end
 
