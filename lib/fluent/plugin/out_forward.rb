@@ -205,9 +205,9 @@ module Fluent::Plugin
 
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: keepalive_timeout)
+          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
         else
-          node = Node.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: keepalive_timeout)
+          node = Node.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
           begin
             node.validate_host_resolution!
           rescue => e
