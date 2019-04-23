@@ -133,7 +133,6 @@ module Fluent::Plugin
       @km = KeepaliveManager.new(@keepalive_timeout)
       server_create_connection(:in_http, @port, bind: @bind, backlog: @backlog) do |conn|
         h = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
-        h.on_connect
 
         conn.on(:data) do |data|
           h.on_read(data)
@@ -282,6 +281,7 @@ module Fluent::Plugin
         @km.add(self)
 
         @remote_port, @remote_addr = io.remote_port, io.remote_addr
+        @parser = Http::Parser.new(self)
       end
 
       def step_idle
@@ -290,10 +290,6 @@ module Fluent::Plugin
 
       def on_close
         @km.delete(self)
-      end
-
-      def on_connect
-        @parser = Http::Parser.new(self)
       end
 
       def on_read(data)
