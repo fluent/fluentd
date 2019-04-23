@@ -1072,7 +1072,7 @@ module Fluent::Plugin
                  @socket_cache.fetch_or { @sender.create_transfer_socket(host || resolved_host, port, @hostname) }
                else
                  @log.debug('connect new socket')
-                 @sender.create_transfer_socket(resolved_host, port, @hostname)
+                 @sender.create_transfer_socket(host || resolved_host, port, @hostname)
                end
 
         if block_given?
