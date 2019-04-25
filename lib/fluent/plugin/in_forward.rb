@@ -111,6 +111,9 @@ module Fluent::Plugin
       end
       @enable_field_injection = @source_address_key || @source_hostname_key
 
+      raise Fluent::ConfigError, "'tag' parameter must not be empty" if @tag && @tag.empty?
+      raise Fluent::ConfigError, "'add_tag_prefix' parameter must not be empty" if @add_tag_prefix && @add_tag_prefix.empty?
+
       if @security
         if @security.user_auth && @security.users.empty?
           raise Fluent::ConfigError, "<user> sections required if user_auth enabled"

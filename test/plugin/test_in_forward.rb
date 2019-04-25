@@ -82,6 +82,14 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal 1, d.instance.security.clients.size
     end
 
+    data(tag: "tag",
+         add_tag_prefix: "add_tag_prefix")
+    test 'tag parameters' do |data|
+      assert_raise(Fluent::ConfigError.new("'#{data}' parameter must not be empty")) {
+        create_driver(CONFIG + "#{data} ''")
+      }
+    end
+
     test 'send_keepalive_packet is disabled by default' do
       @d = d = create_driver(CONFIG_AUTH)
       assert_false d.instance.send_keepalive_packet
