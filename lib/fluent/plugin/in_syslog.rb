@@ -149,7 +149,7 @@ module Fluent::Plugin
       case @protocol_type || @transport_config.protocol
       when :udp then start_udp_server
       when :tcp then start_tcp_server
-      when :tls then start_tcp_server
+      when :tls then start_tcp_server(tls: true)
       else
         raise "BUG: invalid transport value: #{@protocol_type || @transport_config.protocol}"
       end
@@ -161,12 +161,12 @@ module Fluent::Plugin
       end
     end
 
-    def start_tcp_server
+    def start_tcp_server(tls: false)
       octet_count_frame = @frame_type == :octet_count
 
       delimiter = octet_count_frame ? " " : @delimiter
       delimiter_size = delimiter.size
-      server_create_connection(:in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_hostname) do |conn|
+      server_create_connection(tls ? :in_syslog_tls_server : :in_syslog_tcp_server, @port, bind: @bind, resolve_name: @resolve_hostname) do |conn|
         conn.data do |data|
           buffer = conn.buffer
           buffer << data
