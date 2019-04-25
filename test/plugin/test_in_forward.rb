@@ -82,6 +82,14 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal 1, d.instance.security.clients.size
     end
 
+    data(tag: "tag",
+         add_tag_prefix: "add_tag_prefix")
+    test 'tag parameters' do |data|
+      assert_raise(Fluent::ConfigError.new("'#{data}' parameter must not be empty")) {
+        create_driver(CONFIG + "#{data} ''")
+      }
+    end
+
     test 'send_keepalive_packet is disabled by default' do
       @d = d = create_driver(CONFIG_AUTH)
       assert_false d.instance.send_keepalive_packet
@@ -269,6 +277,34 @@ class ForwardInputTest < Test::Unit::TestCase
       assert_equal(records, d.events)
     end
 
+    data(tag: {
+           param: "tag new_tag",
+           result: "new_tag"
+         },
+         add_tag_prefix: {
+           param: "add_tag_prefix new_prefix",
+           result: "new_prefix.tag1"
+         })
+    test 'tag parameters' do |data|
+      @d = create_driver(CONFIG + data[:param])
+      time = event_time("2011-01-02 13:14:15 UTC")
+      options = {auth: false}
+
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}],
+      ]
+
+      @d.run(expect_records: records.length, timeout: 20) do
+        entries = []
+        records.each {|tag, _time, record|
+          entries << [_time, record]
+        }
+        send_data packer.write(["tag1", entries]).to_s, **options
+      end
+      assert_equal(data[:result], @d.events[0][0])
+    end
+
     data(tcp: {
            config: CONFIG,
            options: {
@@ -376,6 +412,34 @@ class ForwardInputTest < Test::Unit::TestCase
         send_data packer.write(["tag1", entries]).to_s, **options
       end
       assert_equal(records, d.events)
+    end
+
+    data(tag: {
+           param: "tag new_tag",
+           result: "new_tag"
+         },
+         add_tag_prefix: {
+           param: "add_tag_prefix new_prefix",
+           result: "new_prefix.tag1"
+         })
+    test 'tag parameters' do |data|
+      @d = create_driver(CONFIG + data[:param])
+      time = event_time("2011-01-02 13:14:15 UTC")
+      options = {auth: false}
+
+      records = [
+        ["tag1", time, {"a"=>1}],
+        ["tag1", time, {"a"=>2}],
+      ]
+
+      @d.run(expect_records: records.length, timeout: 20) do
+        entries = ''
+        records.each {|_tag, _time, record|
+          packer(entries).write([_time, record]).flush
+        }
+        send_data packer.write(["tag1", entries]).to_s, **options
+      end
+      assert_equal(data[:result], @d.events[0][0])
     end
 
     data(tcp: {
