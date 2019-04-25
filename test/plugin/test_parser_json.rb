@@ -111,4 +111,28 @@ class JsonParserTest < ::Test::Unit::TestCase
       assert_equal text, record['time']
     end
   end
+
+  def test_yajl_parse_io_with_buffer_smaller_than_input
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
+    parser.configure(
+                     'keep_time_key' => 'true',
+                     'json_parser' => 'yajl',
+                     'stream_buffer_size' => 1,
+                     )
+    text = "100"
+
+    waiting(5) do
+      rd, wr = IO.pipe
+      wr.write "{\"time\":\"#{text}\"}"
+
+      parser.instance.parse_io(rd) do |time, record|
+        assert_equal text.to_i, time.sec
+        assert_equal text, record['time']
+
+        # Once a record has been received the 'write' end of the pipe must be
+        # closed, otherwise the test will block waiting for more input.
+        wr.close
+      end
+    end
+  end
 end

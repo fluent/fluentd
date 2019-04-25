@@ -30,6 +30,12 @@ module Fluent
       desc 'Set JSON parser'
       config_param :json_parser, :enum, list: [:oj, :yajl, :json], default: :oj
 
+      # The Yajl library defines a default buffer size of 8KiB when parsing
+      # from IO streams, so maintain this for backwards-compatibility.
+      # https://www.rubydoc.info/github/brianmario/yajl-ruby/Yajl%2FParser:parse
+      desc 'Set the buffer size that Yajl will use when parsing streaming input'
+      config_param :stream_buffer_size, :integer, default: 8192
+
       config_set_default :time_type, :float
 
       def configure(conf)
@@ -81,7 +87,7 @@ module Fluent
         y.on_parse_complete = ->(record){
           block.call(parse_time(record), record)
         }
-        y.parse(io)
+        y.parse(io, @stream_buffer_size)
       end
     end
   end
