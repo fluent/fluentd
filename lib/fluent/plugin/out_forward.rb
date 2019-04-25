@@ -354,7 +354,10 @@ module Fluent::Plugin
           cert_path: @tls_client_cert_path,
           private_key_path: @tls_client_private_key_path,
           private_key_passphrase: @tls_client_private_key_passphrase,
-          linger_timeout: @send_timeout,
+
+          # Enabling SO_LINGER causes data loss on Windows
+          # https://github.com/fluent/fluentd/issues/1968
+          linger_timeout: Fluent.windows? ? nil : @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           &block
