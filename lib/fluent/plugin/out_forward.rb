@@ -589,12 +589,12 @@ module Fluent::Plugin
         def clear
           @mutex.synchronize do
             @inactive_socks.values.each do |s|
-              s.sock.close
+              s.sock.close rescue nil
             end
             @inactive_socks.clear
 
             @active_socks.values.each do |s|
-              s.sock.close
+              s.sock.close rescue nil
             end
             @active_socks.clear
           end
@@ -606,7 +606,7 @@ module Fluent::Plugin
               # 0 means sockets stored in this class received all acks
               if @inactive_socks[k].ref <= 0
                 s = @inactive_socks.delete(k)
-                s.sock.close
+                s.sock.close  rescue nil
                 @log.debug("purged obsolete socket #{s.sock}")
               end
             end
