@@ -845,6 +845,8 @@ module Fluent::Plugin
         rescue
           if @keepalive
             @socket_cache.revoke
+          else
+            sock.close rescue nil
           end
           raise
         end
