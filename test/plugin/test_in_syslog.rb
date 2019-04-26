@@ -55,7 +55,7 @@ EOS
     end
   end
 
-  data('Use protocol_type' => ['protocol_type tcp', :tcp, :tcp],
+  data('Use protocol_type' => ['protocol_type tcp', :tcp, :udp],
        'Use transport' => ["<transport tcp>\n </transport>", nil, :tcp],
        'Use transport and protocol' => ["protocol_type udp\n<transport tcp>\n </transport>", :udp, :tcp])
   def test_configure_protocol(param)

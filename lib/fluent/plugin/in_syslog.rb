@@ -107,6 +107,11 @@ module Fluent::Plugin
       config_param :with_priority, :bool, default: true
     end
 
+    # overwrite server plugin to change default to :udp
+    config_section :transport, required: false, multi: false, init: true, param_name: :transport_config do
+      config_argument :protocol, :enum, list: [:tcp, :udp, :tls], default: :udp
+    end
+
     def configure(conf)
       compat_parameters_convert(conf, :parser)
 
