@@ -588,7 +588,7 @@ module Fluent
 
     def show_plugin_config
       name, type = @show_plugin_config.split(":") # input:tail
-      $log.info "Use fluent-plugin-config-format --format=txt #{name} #{type}"
+      $log.info "show_plugin_config option is deprecated. Use fluent-plugin-config-format --format=txt #{name} #{type}"
       exit 0
     end
 
