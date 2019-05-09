@@ -1,3 +1,28 @@
+# v1.5
+
+## Pre release
+
+### New feature
+
+* out_forward: Support keepalive feature
+  https://github.com/fluent/fluentd/pull/2393
+
+### Enhancement
+
+* in_syslog: Add delimiter parameter
+  https://github.com/fluent/fluentd/pull/2378
+* in_forward: Add tag/add_tag_prefix parameters
+  https://github.com/fluent/fluentd/pull/2396
+* parser_json: Add stream_buffer_size parameter for yajl
+  https://github.com/fluent/fluentd/pull/2381
+* command: Add deprecated message to show-plugin-config option
+  https://github.com/fluent/fluentd/pull/2401
+
+### Bug fixes
+
+* out_forward: Don't use SO_LINGER on SSL/TLS WinSock
+  https://github.com/fluent/fluentd/pull/2398
+
 # v1.4
 
 ## Release v1.4.2 - 2019/04/02
