@@ -23,6 +23,8 @@ matrix:
       os: linux
     - rvm: ruby-head
       os: linux
+    - rvm: ruby-head
+      os: linux-ppc64le
     - rvm: 2.1.10
       os: osx
       osx_image: xcode8.3 # OSX 10.12
