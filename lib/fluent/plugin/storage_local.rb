@@ -133,7 +133,7 @@ module Fluent
         tmp_path = @path + '.tmp'
         begin
           json_string = Yajl::Encoder.encode(@store, pretty: @pretty_print)
-          open(tmp_path, 'w:utf-8', @mode){ |io| io.write json_string }
+          open(tmp_path, 'w:utf-8', @mode) { |io| io.write json_string; io.fsync }
           File.rename(tmp_path, @path)
         rescue => e
           log.error "failed to save data for plugin storage to file", path: @path, tmp: tmp_path, error: e
