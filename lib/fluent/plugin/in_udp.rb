@@ -74,7 +74,7 @@ module Fluent::Plugin
         begin
           @parser.parse(data) do |time, record|
             unless time && record
-              log.warn "pattern not match", data: data
+              log.warn "pattern not matched", data: data
               next
             end
 

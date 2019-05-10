@@ -71,7 +71,7 @@ module Fluent::Plugin
 
             @parser.parse(msg) do |time, record|
               unless time && record
-                log.warn "pattern not match", message: msg
+                log.warn "pattern not matched", message: msg
                 next
               end
 
