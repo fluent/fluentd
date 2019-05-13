@@ -36,9 +36,7 @@ module Fluent::Plugin
   class HttpInput < Input
     Fluent::Plugin.register_input('http', self)
 
-    # TODO: update this plugin implementation to use server plugin helper, after adding keepalive feature on it
-
-    helpers :parser, :compat_parameters, :event_loop
+    helpers :parser, :compat_parameters, :event_loop, :server
 
     EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
 
@@ -130,28 +128,15 @@ module Fluent::Plugin
 
       log.debug "listening http", bind: @bind, port: @port
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
-      lsock = client.listen_tcp(@bind, @port)
-
       @km = KeepaliveManager.new(@keepalive_timeout)
-      @lsock = Coolio::TCPServer.new(
-        lsock, nil, Handler, @km, method(:on_request),
-        @body_size_limit, @format_name, log,
-        @cors_allow_origins
-      )
-      @lsock.listen(@backlog) unless @backlog.nil?
       event_loop_attach(@km)
-      event_loop_attach(@lsock)
 
+      server_create_connection(:in_http, @port, bind: @bind, backlog: @backlog, &method(:on_server_connect))
       @float_time_parser = Fluent::NumericTimeParser.new(:float)
     end
 
     def close
-      @lsock.close
+      server_wait_until_stop
       super
     end
 
@@ -240,6 +225,22 @@ module Fluent::Plugin
 
     private
 
+    def on_server_connect(conn)
+      handler = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
+
+      conn.on(:data) do |data|
+        handler.on_read(data)
+      end
+
+      conn.on(:write_complete) do |_|
+        handler.on_write_complete
+      end
+
+      conn.on(:close) do |_|
+        handler.on_close
+      end
+    end
+
     def parse_params_default(params)
       if msgpack = params['msgpack']
         @parser_msgpack.parse(msgpack) do |_time, record|
@@ -265,11 +266,11 @@ module Fluent::Plugin
       end
     end
 
-    class Handler < Coolio::Socket
+    class Handler
       attr_reader :content_type
 
       def initialize(io, km, callback, body_size_limit, format_name, log, cors_allow_origins)
-        super(io)
+        @io = io
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
@@ -280,7 +281,8 @@ module Fluent::Plugin
         @idle = 0
         @km.add(self)
 
-        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
+        @remote_port, @remote_addr = io.remote_port, io.remote_addr
+        @parser = Http::Parser.new(self)
       end
 
       def step_idle
@@ -291,17 +293,13 @@ module Fluent::Plugin
         @km.delete(self)
       end
 
-      def on_connect
-        @parser = Http::Parser.new(self)
-      end
-
       def on_read(data)
         @idle = 0
         @parser << data
       rescue
         @log.warn "unexpected error", error: $!.to_s
         @log.warn_backtrace
-        close
+        @io.close
       end
 
       def on_message_begin
@@ -477,8 +475,12 @@ module Fluent::Plugin
         end
       end
 
+      def close
+        @io.close
+      end
+
       def on_write_complete
-        close if @next_close
+        @io.close if @next_close
       end
 
       def send_response_and_close(code, header, body)
@@ -499,9 +501,9 @@ module Fluent::Plugin
           data << "#{k}: #{v}\r\n"
         }
         data << "\r\n"
-        write data
+        @io.write(data)
 
-        write body
+        @io.write(body)
       end
 
       def send_response_nobody(code, header)
@@ -510,7 +512,7 @@ module Fluent::Plugin
           data << "#{k}: #{v}\r\n"
         }
         data << "\r\n"
-        write data
+        @io.write(data)
       end
 
       def include_cors_allow_origin
