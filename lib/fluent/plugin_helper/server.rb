@@ -751,8 +751,15 @@ module Fluent
                 # Consider write_nonblock with {exception: false} when IO::WaitWritable error happens frequently.
                 written_bytes = @_handler_socket.write_nonblock(@_handler_write_buffer)
                 @_handler_write_buffer.slice!(0, written_bytes)
-                super
               end
+
+              # No need to call `super` in a synchronized context because TLSServer doesn't use the inner buffer(::IO::Buffer) of Coolio::IO.
+              # Instead of using Coolio::IO's inner buffer, TLSServer has own buffer(`@_handler_write_buffer`). See also TLSServer#write.
+              # Actually, the only reason calling `super` here is call Coolio::IO#disable_write_watcher.
+              # If `super` is called in a synchronized context, it could cause a mutex recursive locking since Coolio::IO#on_write_complete
+              # eventually calls TLSServer#close which try to get a lock.
+              super
+
               close if @close_after_write_complete
             rescue IO::WaitWritable, IO::WaitReadable
               return
