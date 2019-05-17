@@ -55,6 +55,35 @@ EOS
     end
   end
 
+  data('Use protocol_type' => ['protocol_type tcp', :tcp, :udp],
+       'Use transport' => ["<transport tcp>\n </transport>", nil, :tcp],
+       'Use transport and protocol' => ["protocol_type udp\n<transport tcp>\n </transport>", :udp, :tcp])
+  def test_configure_protocol(param)
+    conf, proto_type, transport_proto_type = *param
+    d = create_driver([CONFIG, conf].join("\n"))
+
+    assert_equal(d.instance.protocol_type, proto_type)
+    assert_equal(d.instance.transport_config.protocol, transport_proto_type)
+  end
+
+  # For backward compat
+  def test_respect_protocol_type_than_transport
+    d = create_driver([CONFIG, "<transport tcp> \n</transport>", "protocol_type udp"].join("\n"))
+    tests = create_test_case
+
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size > 0)
+    compare_test_result(d.events, tests)
+  end
+
+
   data(
     ipv4: ['127.0.0.1', CONFIG, ::Socket::AF_INET],
     ipv6: ['::1', IPv6_CONFIG, ::Socket::AF_INET6],
@@ -119,7 +148,7 @@ EOS
   end
 
   def test_msg_size_with_tcp
-    d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
+    d = create_driver([CONFIG, "<transport tcp> \n</transport>"].join("\n"))
     tests = create_test_case
 
     d.run(expect_emits: 2) do
@@ -135,7 +164,7 @@ EOS
   end
 
   def test_msg_size_with_same_tcp_connection
-    d = create_driver([CONFIG, 'protocol_type tcp'].join("\n"))
+    d = create_driver([CONFIG, "<transport tcp> \n</transport>"].join("\n"))
     tests = create_test_case
 
     d.run(expect_emits: 2) do
@@ -289,7 +318,7 @@ EOS
 
   sub_test_case 'octet counting frame' do
     def test_msg_size_with_tcp
-      d = create_driver([CONFIG, 'protocol_type tcp', 'frame_type octet_count'].join("\n"))
+      d = create_driver([CONFIG, "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
       tests = create_test_case
 
       d.run(expect_emits: 2) do
@@ -305,7 +334,7 @@ EOS
     end
 
     def test_msg_size_with_same_tcp_connection
-      d = create_driver([CONFIG, 'protocol_type tcp', 'frame_type octet_count'].join("\n"))
+      d = create_driver([CONFIG, "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
       tests = create_test_case
 
       d.run(expect_emits: 2) do
