@@ -1,11 +1,15 @@
 # v1.5
 
-## Pre release
+## Release v1.5.0 - 2019/05/18
 
 ### New feature
 
 * out_forward: Support keepalive feature
   https://github.com/fluent/fluentd/pull/2393
+* in_http: Support TLS via server helper
+  https://github.com/fluent/fluentd/pull/2395
+* in_syslog: Support TLS via server helper
+  https://github.com/fluent/fluentd/pull/2399
 
 ### Enhancement
 
@@ -17,11 +21,17 @@
   https://github.com/fluent/fluentd/pull/2381
 * command: Add deprecated message to show-plugin-config option
   https://github.com/fluent/fluentd/pull/2401
+* storage_local: Ignore empty file. Call sync after write for XFS.
+  https://github.com/fluent/fluentd/pull/2409
 
 ### Bug fixes
 
 * out_forward: Don't use SO_LINGER on SSL/TLS WinSock
   https://github.com/fluent/fluentd/pull/2398
+* server helper: Fix recursive lock issue in TLSServer
+  https://github.com/fluent/fluentd/pull/2341
+* Fix typo
+  https://github.com/fluent/fluentd/pull/2369
 
 # v1.4
 
