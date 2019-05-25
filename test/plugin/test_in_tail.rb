@@ -196,7 +196,7 @@ class TailInputTest < Test::Unit::TestCase
         config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit }) + PARSE_SINGLE_LINE_CONFIG
       end
       d = create_driver(config)
-      msg = 'test' * 500 # in_tail reads 2048 bytes at once.
+      msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|

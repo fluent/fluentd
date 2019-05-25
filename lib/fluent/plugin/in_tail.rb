@@ -732,7 +732,7 @@ module Fluent::Plugin
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    @fifo << io.readpartial(2048, @iobuf)
+                    @fifo << io.readpartial(8192, @iobuf)
                     while (line = @fifo.next_line)
                       @lines << line
                     end
