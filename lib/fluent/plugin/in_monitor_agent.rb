@@ -190,6 +190,10 @@ module Fluent::Plugin
 
     class ConfigMonitorServlet < MonitorServlet
       def build_object(req, _opt)
+        unless req.path_info == ''
+          return render_json_error(404, 'Not found')
+        end
+
         {
           'pid' => Process.pid,
           'ppid' => Process.ppid

@@ -314,6 +314,20 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(expected_null_response, null_response)
     end
 
+    test "/api/plugins.json/not_found" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      resp = get("http://127.0.0.1:#{@port}/api/plugins.json/not_found")
+      assert_equal('200', resp.code)
+      body = JSON.parse(resp.body)
+      assert_equal(body, { 'plugins' => [404, { "Content-Type" => "application/json" }, '"Not found"'] })
+    end
+
     data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
          :with_config_and_retry_no => [false, false, "?with_config=no&with_retry=no"])
     test "/api/plugins.json with query parameter. query parameter is preferred than include_config" do |(with_config, with_retry, query_param)|
@@ -426,6 +440,21 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       # To check pretty print
       assert_true !get("http://127.0.0.1:#{@port}/api/config.json").body.include?("\n")
       assert_true get("http://127.0.0.1:#{@port}/api/config.json?debug=1").body.include?("\n")
+
+    end
+
+    test "/api/config.json/not_found" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      resp = get("http://127.0.0.1:#{@port}/api/config.json/not_found")
+      assert_equal('200', resp.code)
+      body = JSON.parse(resp.body)
+      assert_equal(body, [404, { "Content-Type" => "application/json" }, '"Not found"'])
     end
   end
 
