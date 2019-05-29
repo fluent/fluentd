@@ -84,7 +84,8 @@ module Fluent::Plugin
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
-        opts = {with_config: @agent.include_config, with_retry: @agent.include_retry}
+        opts = {}
+
         if qs['debug'.freeze].first
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
@@ -96,10 +97,14 @@ module Fluent::Plugin
 
         if with_config = qs['with_config'.freeze].first
           opts[:with_config] = Fluent::Config.bool_value(with_config)
+        else
+          opts[:with_config] = @agent.include_config
         end
 
         if with_retry = qs['with_retry'.freeze].first
           opts[:with_retry] = Fluent::Config.bool_value(with_retry)
+        else
+          opts[:with_retry] = @agent.include_retry
         end
 
         if tag = qs['tag'.freeze].first
