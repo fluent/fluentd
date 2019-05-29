@@ -325,7 +325,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       resp = get("http://127.0.0.1:#{@port}/api/plugins.json/not_found")
       assert_equal('404', resp.code)
       body = JSON.parse(resp.body)
-      assert_equal(body, 'Not found')
+      assert_equal(body['message'], 'Not found')
     end
 
     data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
@@ -440,7 +440,6 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       # To check pretty print
       assert_true !get("http://127.0.0.1:#{@port}/api/config.json").body.include?("\n")
       assert_true get("http://127.0.0.1:#{@port}/api/config.json?debug=1").body.include?("\n")
-
     end
 
     test "/api/config.json/not_found" do
@@ -454,7 +453,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       resp = get("http://127.0.0.1:#{@port}/api/config.json/not_found")
       assert_equal('404', resp.code)
       body = JSON.parse(resp.body)
-      assert_equal(body, 'Not found')
+      assert_equal(body['message'], 'Not found')
     end
   end
 

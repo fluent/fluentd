@@ -68,10 +68,6 @@ module Fluent::Plugin
       end
 
       def build_object(req, opts)
-        unless req.path_info == ""
-          return render_json_error(404, "Not found")
-        end
-
         qs = opts[:query]
         if tag = qs['tag'.freeze].first
           # ?tag= to search an output plugin by match pattern
@@ -150,13 +146,32 @@ module Fluent::Plugin
 
         opts
       end
+
+      def render_not_found_json
+        render_error_json(code: 404, msg: 'Not found')
+      end
+
+      # @param code [Integer, String] 5xx or 4xx
+      # @param msg [String] error message
+      def render_error_json(code:, msg:, pretty_json: nil, **additional_params)
+        resp = additional_params.merge('message' => msg)
+        body =
+          if pretty_json
+            JSON.pretty_generate(resp)
+          else
+            resp.to_json
+          end
+
+        [code, { 'Content-Type' => 'application/json' }, body]
+      end
     end
 
     class LTSVMonitorServlet < MonitorServlet
       def process(req)
         unless req.path_info == ''
-          return render_json_error(404, 'Not found')
+          return render_not_found_json
         end
+
         opts = build_option(req)
         list = build_object(req, opts)
         return unless list
@@ -182,7 +197,7 @@ module Fluent::Plugin
     class JSONMonitorServlet < MonitorServlet
       def process(req)
         unless req.path_info == ''
-          return render_json_error(404, 'Not found')
+          return render_not_found_json
         end
 
         opts = build_option(req)
@@ -197,10 +212,6 @@ module Fluent::Plugin
 
     class ConfigMonitorServlet < MonitorServlet
       def build_object(req, _opt)
-        unless req.path_info == ''
-          return render_json_error(404, 'Not found')
-        end
-
         {
           'pid' => Process.pid,
           'ppid' => Process.ppid
@@ -211,7 +222,7 @@ module Fluent::Plugin
     class LTSVConfigMonitorServlet < ConfigMonitorServlet
       def process(req)
         unless req.path_info == ''
-          return render_json_error(404, 'Not found')
+          return render_not_found_json
         end
 
         opts = build_option(req)
@@ -230,7 +241,7 @@ module Fluent::Plugin
     class JSONConfigMonitorServlet < ConfigMonitorServlet
       def process(req)
         unless req.path_info == ''
-          return render_json_error(404, 'Not found')
+          return render_not_found_json
         end
 
         opts = build_option(req)
