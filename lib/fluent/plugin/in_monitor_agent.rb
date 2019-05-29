@@ -50,7 +50,7 @@ module Fluent::Plugin
 
       def do_GET(req, res)
         begin
-          code, header, body = process(req, res)
+          code, header, body = process(req)
         rescue
           code, header, body = render_json_error(500, {
               'message '=> 'Internal Server Error',
@@ -67,7 +67,7 @@ module Fluent::Plugin
         res.body = body
       end
 
-      def build_object(req, res)
+      def build_object(req)
         unless req.path_info == ""
           return render_json_error(404, "Not found")
         end
@@ -147,8 +147,8 @@ module Fluent::Plugin
     end
 
     class LTSVMonitorServlet < MonitorServlet
-      def process(req, res)
-        list, _opts = build_object(req, res)
+      def process(req)
+        list, _opts = build_object(req)
         return unless list
 
         normalized = JSON.parse(list.to_json)
@@ -170,8 +170,8 @@ module Fluent::Plugin
     end
 
     class JSONMonitorServlet < MonitorServlet
-      def process(req, res)
-        list, opts = build_object(req, res)
+      def process(req)
+        list, opts = build_object(req)
         return unless list
 
         render_json({
@@ -181,7 +181,7 @@ module Fluent::Plugin
     end
 
     class ConfigMonitorServlet < MonitorServlet
-      def build_object(req, res)
+      def build_object(req)
         {
           'pid' => Process.pid,
           'ppid' => Process.ppid
@@ -190,8 +190,8 @@ module Fluent::Plugin
     end
 
     class LTSVConfigMonitorServlet < ConfigMonitorServlet
-      def process(req, res)
-        result = build_object(req, res)
+      def process(req)
+        result = build_object(req)
 
         row = []
         JSON.parse(result.to_json).each_pair { |k, v|
@@ -204,8 +204,8 @@ module Fluent::Plugin
     end
 
     class JSONConfigMonitorServlet < ConfigMonitorServlet
-      def process(req, res)
-        result = build_object(req, res)
+      def process(req)
+        result = build_object(req)
         render_json(result)
       end
     end
