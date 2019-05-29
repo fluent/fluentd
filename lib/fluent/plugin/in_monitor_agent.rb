@@ -72,52 +72,51 @@ module Fluent::Plugin
           return render_json_error(404, "Not found")
         end
 
+        qs = Hash.new { |_, _| [] }
         # parse ?=query string
         if req.query_string
           begin
-            qs = CGI.parse(req.query_string)
+            qs.merge!(CGI.parse(req.query_string))
           rescue
             return render_json_error(400, "Invalid query string")
           end
-        else
-          qs = Hash.new {|h,k| [] }
         end
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
         opts = {with_config: @agent.include_config, with_retry: @agent.include_retry}
-        if get_search_parameter(qs, 'debug'.freeze)
+        if qs['debug'.freeze].first
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
         end
 
-        if ivars = get_search_parameter(qs, 'with_ivars'.freeze)
+        if ivars = qs['with_ivars'.freeze].first
           opts[:ivars] = ivars.split(',')
         end
 
-        if with_config = get_search_parameter(qs, 'with_config'.freeze)
+        if with_config = qs['with_config'.freeze].first
           opts[:with_config] = Fluent::Config.bool_value(with_config)
         end
 
-        if with_retry = get_search_parameter(qs, 'with_retry'.freeze)
+        if with_retry = qs['with_retry'.freeze].first
           opts[:with_retry] = Fluent::Config.bool_value(with_retry)
         end
 
-        if tag = get_search_parameter(qs, 'tag'.freeze)
+        if tag = qs['tag'.freeze].first
           # ?tag= to search an output plugin by match pattern
           if obj = @agent.plugin_info_by_tag(tag, opts)
             list = [obj]
           else
             list = []
           end
-        elsif plugin_id = (get_search_parameter(qs, '@id'.freeze) || get_search_parameter(qs, 'id'.freeze))
+        elsif plugin_id = (qs['@id'.freeze].first || qs['id'.freeze].first)
           # ?@id= to search a plugin by 'id <plugin_id>' config param
           if obj = @agent.plugin_info_by_id(plugin_id, opts)
             list = [obj]
           else
             list = []
           end
-        elsif plugin_type = (get_search_parameter(qs, '@type'.freeze) || get_search_parameter(qs, 'type'.freeze))
+        elsif plugin_type = (qs['@type'.freeze].first || qs['type'.freeze].first)
           # ?@type= to search plugins by 'type <type>' config param
           list = @agent.plugins_info_by_type(plugin_type, opts)
         else
@@ -126,11 +125,6 @@ module Fluent::Plugin
         end
 
         [list, opts]
-      end
-
-      def get_search_parameter(qs, param_name)
-        return nil unless qs.has_key?(param_name)
-        qs[param_name].first
       end
 
       def render_json(obj, opts={})
