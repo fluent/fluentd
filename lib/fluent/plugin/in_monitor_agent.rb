@@ -72,41 +72,8 @@ module Fluent::Plugin
           return render_json_error(404, "Not found")
         end
 
-        qs = Hash.new { |_, _| [] }
-        # parse ?=query string
-        if req.query_string
-          begin
-            qs.merge!(CGI.parse(req.query_string))
-          rescue
-            return render_json_error(400, "Invalid query string")
-          end
-        end
-
-        # if ?debug=1 is set, set :with_debug_info for get_monitor_info
-        # and :pretty_json for render_json_error
-        opts = {}
-
-        if qs['debug'.freeze].first
-          opts[:with_debug_info] = true
-          opts[:pretty_json] = true
-        end
-
-        if ivars = qs['with_ivars'.freeze].first
-          opts[:ivars] = ivars.split(',')
-        end
-
-        if with_config = qs['with_config'.freeze].first
-          opts[:with_config] = Fluent::Config.bool_value(with_config)
-        else
-          opts[:with_config] = @agent.include_config
-        end
-
-        if with_retry = qs['with_retry'.freeze].first
-          opts[:with_retry] = Fluent::Config.bool_value(with_retry)
-        else
-          opts[:with_retry] = @agent.include_retry
-        end
-
+        opts = build_option(req)
+        qs = opts[:query]
         if tag = qs['tag'.freeze].first
           # ?tag= to search an output plugin by match pattern
           if obj = @agent.plugin_info_by_tag(tag, opts)
@@ -143,6 +110,46 @@ module Fluent::Plugin
           js = obj.to_json
         end
         [code, {'Content-Type'=>'application/json'}, js]
+      end
+
+      private
+
+      def build_option(req)
+        qs = Hash.new { |_, _| [] }
+        # parse ?=query string
+        if req.query_string
+          begin
+            qs.merge!(CGI.parse(req.query_string))
+          rescue
+            return render_json_error(400, "Invalid query string")
+          end
+        end
+
+        # if ?debug=1 is set, set :with_debug_info for get_monitor_info
+        # and :pretty_json for render_json_error
+        opts = { query: qs }
+        if qs['debug'.freeze].first
+          opts[:with_debug_info] = true
+          opts[:pretty_json] = true
+        end
+
+        if ivars = qs['with_ivars'.freeze].first
+          opts[:ivars] = ivars.split(',')
+        end
+
+        if with_config = qs['with_config'.freeze].first
+          opts[:with_config] = Fluent::Config.bool_value(with_config)
+        else
+          opts[:with_config] = @agent.include_config
+        end
+
+        if with_retry = qs['with_retry'.freeze].first
+          opts[:with_retry] = Fluent::Config.bool_value(with_retry)
+        else
+          opts[:with_retry] = @agent.include_retry
+        end
+
+        opts
       end
     end
 
