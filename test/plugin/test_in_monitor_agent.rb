@@ -323,9 +323,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 ")
       d.instance.start
       resp = get("http://127.0.0.1:#{@port}/api/plugins.json/not_found")
-      assert_equal('200', resp.code)
+      assert_equal('404', resp.code)
       body = JSON.parse(resp.body)
-      assert_equal(body, { 'plugins' => [404, { "Content-Type" => "application/json" }, '"Not found"'] })
+      assert_equal(body, 'Not found')
     end
 
     data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
@@ -452,9 +452,9 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 ")
       d.instance.start
       resp = get("http://127.0.0.1:#{@port}/api/config.json/not_found")
-      assert_equal('200', resp.code)
+      assert_equal('404', resp.code)
       body = JSON.parse(resp.body)
-      assert_equal(body, [404, { "Content-Type" => "application/json" }, '"Not found"'])
+      assert_equal(body, 'Not found')
     end
   end
 

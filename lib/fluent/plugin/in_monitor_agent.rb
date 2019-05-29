@@ -154,6 +154,9 @@ module Fluent::Plugin
 
     class LTSVMonitorServlet < MonitorServlet
       def process(req)
+        unless req.path_info == ''
+          return render_json_error(404, 'Not found')
+        end
         opts = build_option(req)
         list = build_object(req, opts)
         return unless list
@@ -178,6 +181,10 @@ module Fluent::Plugin
 
     class JSONMonitorServlet < MonitorServlet
       def process(req)
+        unless req.path_info == ''
+          return render_json_error(404, 'Not found')
+        end
+
         opts = build_option(req)
         list = build_object(req, opts)
         return unless list
@@ -203,6 +210,10 @@ module Fluent::Plugin
 
     class LTSVConfigMonitorServlet < ConfigMonitorServlet
       def process(req)
+        unless req.path_info == ''
+          return render_json_error(404, 'Not found')
+        end
+
         opts = build_option(req)
         result = build_object(req, opts)
 
@@ -218,6 +229,10 @@ module Fluent::Plugin
 
     class JSONConfigMonitorServlet < ConfigMonitorServlet
       def process(req)
+        unless req.path_info == ''
+          return render_json_error(404, 'Not found')
+        end
+
         opts = build_option(req)
         result = build_object(req, opts)
         render_json(result, opts)
