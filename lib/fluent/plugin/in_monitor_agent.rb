@@ -86,12 +86,12 @@ module Fluent::Plugin
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
         # and :pretty_json for render_json_error
         opts = {with_config: @agent.include_config, with_retry: @agent.include_retry}
-        if s = qs['debug'] and s[0]
+        if get_search_parameter(qs, 'debug'.freeze)
           opts[:with_debug_info] = true
           opts[:pretty_json] = true
         end
 
-        if ivars = (qs['with_ivars'] || []).first
+        if ivars = get_search_parameter(qs, 'with_ivars'.freeze)
           opts[:ivars] = ivars.split(',')
         end
 
