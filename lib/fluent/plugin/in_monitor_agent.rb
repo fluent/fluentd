@@ -67,12 +67,11 @@ module Fluent::Plugin
         res.body = body
       end
 
-      def build_object(req)
+      def build_object(req, opts)
         unless req.path_info == ""
           return render_json_error(404, "Not found")
         end
 
-        opts = build_option(req)
         qs = opts[:query]
         if tag = qs['tag'.freeze].first
           # ?tag= to search an output plugin by match pattern
@@ -96,7 +95,7 @@ module Fluent::Plugin
           list = @agent.plugins_info_all(opts)
         end
 
-        [list, opts]
+        list
       end
 
       def render_json(obj, opts={})
@@ -155,7 +154,8 @@ module Fluent::Plugin
 
     class LTSVMonitorServlet < MonitorServlet
       def process(req)
-        list, _opts = build_object(req)
+        opts = build_option(req)
+        list = build_object(req, opts)
         return unless list
 
         normalized = JSON.parse(list.to_json)
@@ -178,7 +178,8 @@ module Fluent::Plugin
 
     class JSONMonitorServlet < MonitorServlet
       def process(req)
-        list, opts = build_object(req)
+        opts = build_option(req)
+        list = build_object(req, opts)
         return unless list
 
         render_json({
@@ -188,7 +189,7 @@ module Fluent::Plugin
     end
 
     class ConfigMonitorServlet < MonitorServlet
-      def build_object(req)
+      def build_object(req, _opt)
         {
           'pid' => Process.pid,
           'ppid' => Process.ppid
@@ -198,7 +199,8 @@ module Fluent::Plugin
 
     class LTSVConfigMonitorServlet < ConfigMonitorServlet
       def process(req)
-        result = build_object(req)
+        opts = build_option(req)
+        result = build_object(req, opts)
 
         row = []
         JSON.parse(result.to_json).each_pair { |k, v|
@@ -212,7 +214,8 @@ module Fluent::Plugin
 
     class JSONConfigMonitorServlet < ConfigMonitorServlet
       def process(req)
-        result = build_object(req)
+        opts = build_option(req)
+        result = build_object(req, opts)
         render_json(result)
       end
     end
