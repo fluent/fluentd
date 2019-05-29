@@ -125,7 +125,7 @@ module Fluent::Plugin
           list = @agent.plugins_info_all(opts)
         end
 
-        return list, opts
+        [list, opts]
       end
 
       def get_search_parameter(qs, param_name)
