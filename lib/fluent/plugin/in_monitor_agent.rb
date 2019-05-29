@@ -216,7 +216,7 @@ module Fluent::Plugin
       def process(req)
         opts = build_option(req)
         result = build_object(req, opts)
-        render_json(result)
+        render_json(result, opts)
       end
     end
 
