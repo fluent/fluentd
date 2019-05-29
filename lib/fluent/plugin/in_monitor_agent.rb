@@ -110,31 +110,16 @@ module Fluent::Plugin
           else
             list = []
           end
-
-        elsif plugin_id = get_search_parameter(qs, '@id'.freeze)
+        elsif plugin_id = (get_search_parameter(qs, '@id'.freeze) || get_search_parameter(qs, 'id'.freeze))
           # ?@id= to search a plugin by 'id <plugin_id>' config param
           if obj = @agent.plugin_info_by_id(plugin_id, opts)
             list = [obj]
           else
             list = []
           end
-
-        elsif plugin_id = get_search_parameter(qs, 'id'.freeze)
-          # Without @ version of ?@id= for backward compatibility
-          if obj = @agent.plugin_info_by_id(plugin_id, opts)
-            list = [obj]
-          else
-            list = []
-          end
-
-        elsif plugin_type = get_search_parameter(qs, '@type'.freeze)
+        elsif plugin_type = (get_search_parameter(qs, '@type'.freeze) || get_search_parameter(qs, 'type'.freeze))
           # ?@type= to search plugins by 'type <type>' config param
           list = @agent.plugins_info_by_type(plugin_type, opts)
-
-        elsif plugin_type = get_search_parameter(qs, 'type'.freeze)
-          # Without @ version of ?@type= for backward compatibility
-          list = @agent.plugins_info_by_type(plugin_type, opts)
-
         else
           # otherwise show all plugins
           list = @agent.plugins_info_all(opts)
