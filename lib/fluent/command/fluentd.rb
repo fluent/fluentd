@@ -92,7 +92,7 @@ op.on('--log-rotate-age AGE', 'generations to keep rotated log files') {|age|
   else
     begin
       opts[:log_rotate_age] = Integer(age)
-    rescue TypeError
+    rescue TypeError, ArgumentError
       usage "log-rotate-age should be #{rotate_ages.join(', ')} or a number"
     end
   end
