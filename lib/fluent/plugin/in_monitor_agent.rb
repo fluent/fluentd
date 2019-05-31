@@ -67,7 +67,7 @@ module Fluent::Plugin
         res.body = body
       end
 
-      def build_object(req, opts)
+      def build_object(opts)
         qs = opts[:query]
         if tag = qs['tag'.freeze].first
           # ?tag= to search an output plugin by match pattern
@@ -173,7 +173,7 @@ module Fluent::Plugin
         end
 
         opts = build_option(req)
-        list = build_object(req, opts)
+        list = build_object(opts)
         return unless list
 
         normalized = JSON.parse(list.to_json)
@@ -201,7 +201,7 @@ module Fluent::Plugin
         end
 
         opts = build_option(req)
-        list = build_object(req, opts)
+        list = build_object(opts)
         return unless list
 
         render_json({
@@ -211,7 +211,7 @@ module Fluent::Plugin
     end
 
     class ConfigMonitorServlet < MonitorServlet
-      def build_object(req, _opt)
+      def build_object(_opt)
         {
           'pid' => Process.pid,
           'ppid' => Process.ppid
@@ -226,7 +226,7 @@ module Fluent::Plugin
         end
 
         opts = build_option(req)
-        result = build_object(req, opts)
+        result = build_object(opts)
 
         row = []
         JSON.parse(result.to_json).each_pair { |k, v|
@@ -245,7 +245,7 @@ module Fluent::Plugin
         end
 
         opts = build_option(req)
-        result = build_object(req, opts)
+        result = build_object(opts)
         render_json(result, opts)
       end
     end
