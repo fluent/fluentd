@@ -113,11 +113,7 @@ module Fluent::Plugin
         qs = Hash.new { |_, _| [] }
         # parse ?=query string
         if req.query_string
-          begin
-            qs.merge!(CGI.parse(req.query_string))
-          rescue
-            return render_json_error(400, "Invalid query string")
-          end
+          qs.merge!(CGI.parse(req.query_string))
         end
 
         # if ?debug=1 is set, set :with_debug_info for get_monitor_info
