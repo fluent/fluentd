@@ -1084,10 +1084,10 @@ module Fluent::Plugin
           begin
             yield(sock)
           rescue
-            @socket_cache.revoke(sock) if @keepalive
+            @socket_cache.revoke if @keepalive
             raise
           else
-            @socket_cache.dec_ref(sock) if @keepalive
+            @socket_cache.dec_ref if @keepalive
           ensure
             sock.close unless @keepalive
           end
