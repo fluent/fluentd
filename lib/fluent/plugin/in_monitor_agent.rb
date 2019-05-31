@@ -52,11 +52,12 @@ module Fluent::Plugin
         begin
           code, header, body = process(req)
         rescue
-          code, header, body = render_json_error(500, {
-              'message '=> 'Internal Server Error',
-              'error' => "#{$!}",
-              'backgrace'=> $!.backtrace,
-            })
+          code, header, body = render_error_json(
+            code: 500,
+            msg: 'Internal Server Error',
+            'error' => "#{$!}",
+            'backgrace' => $!.backtrace,
+          )
         end
 
         # set response code, header and body
@@ -95,16 +96,14 @@ module Fluent::Plugin
       end
 
       def render_json(obj, opts={})
-        render_json_error(200, obj, opts)
-      end
+        body =
+          if opts[:pretty_json]
+            JSON.pretty_generate(obj)
+          else
+            obj.to_json
+          end
 
-      def render_json_error(code, obj, opts={})
-        if opts[:pretty_json]
-          js = JSON.pretty_generate(obj)
-        else
-          js = obj.to_json
-        end
-        [code, {'Content-Type'=>'application/json'}, js]
+        [200, { 'Content-Type' => 'application/json' }, body]
       end
 
       private
