@@ -414,6 +414,19 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
       assert_nil(res["log_path"])
     end
+
+    test "/api/config.json?debug=1" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      # To check pretty print
+      assert_true !get("http://127.0.0.1:#{@port}/api/config.json").body.include?("\n")
+      assert_true get("http://127.0.0.1:#{@port}/api/config.json?debug=1").body.include?("\n")
+    end
   end
 
   sub_test_case "check retry of buffered plugins" do
