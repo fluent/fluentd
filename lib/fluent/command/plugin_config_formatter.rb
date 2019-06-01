@@ -164,7 +164,13 @@ class FluentPluginConfigFormatter
     params.each do |name, config|
       next if name == :section
       template_name = @compact ? "param.md-compact.erb" : "param.md.erb"
-      dumped << ERB.new(template_path(template_name).read, nil, "-").result(binding)
+      template = template_path(template_name).read
+      dumped <<
+        if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+
+          ERB.new(template, trim_mode: "-")
+        else
+          ERB.new(template, nil, "-")
+        end.result(binding)
     end
     dumped << "\n"
     sections.each do |section_name, sub_section|
@@ -172,7 +178,13 @@ class FluentPluginConfigFormatter
       multi = sub_section.delete(:multi)
       alias_name = sub_section.delete(:alias)
       sub_section.delete(:section)
-      dumped << ERB.new(template_path("section.md.erb").read, nil, "-").result(binding)
+      template = template_path("section.md.erb").read
+      dumped <<
+        if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+
+          ERB.new(template, trim_mode: "-")
+        else
+          ERB.new(template, nil, "-")
+        end.result(binding)
     end
     dumped
   end
