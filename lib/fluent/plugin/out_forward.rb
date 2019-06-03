@@ -638,7 +638,7 @@ module Fluent::Plugin
               @active_socks[key] = TimedSocket.new(timeout, yield, 0)
             end
 
-            @active_socks[key].ref += 1;
+            @active_socks[key].ref += 1
             @active_socks[key].sock
           end
         end
