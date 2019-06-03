@@ -56,7 +56,7 @@ module Fluent::Plugin
             code: 500,
             msg: 'Internal Server Error',
             'error' => "#{$!}",
-            'backgrace' => $!.backtrace,
+            'backtrace' => $!.backtrace,
           )
         end
 
