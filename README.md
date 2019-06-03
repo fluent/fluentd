@@ -8,7 +8,7 @@ Travis CI:
 
 GitLab CI:
 
-[![pipeline status](https://gitlab.com/fluent/fluent-bit/badges/master/pipeline.svg)](https://gitlab.com/fluent/fluent-bit/commits/master)
+[![pipeline status](https://gitlab.com/fluent/fluentd/badges/master/pipeline.svg)](https://gitlab.com/fluent/fluentd/commits/master)
 
 [Fluentd](https://www.fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](https://www.fluentd.org/blog/unified-logging-layer)).
 
