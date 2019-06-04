@@ -28,16 +28,6 @@ stages:
     key: "$CI_COMMIT_REF_SLUG 2-2-10"
     paths:
 
-#ppc-2-2-10:
-#  image: "ppc64le/ruby:2.2.10"
-#  stage: build
-#  allow_failure: true
-#  before_script:
-#    - gem update --system=2.7.8
-#    - ruby -v 
-#  script:
-#    - bundle install --jobs=3 --retry=3
-
 2-4-5:
   image: "ruby:2.4.5"
   stage: build
@@ -48,16 +38,6 @@ stages:
   cache:
     key: "$CI_COMMIT_REF_SLUG 2-4-5"
     paths:
-
-#ppc-2-4-6:
-#  image: "ppc64le/ruby:2.4.5"
-#  stage: build
-#  allow_failure: true
-#  before_script:
-#    - gem update --system=2.7.8
-#    - ruby -v 
-#  script:
-#    - bundle install --jobs=3 --retry=3
 
 2-5-5:
   image: "ruby:2.5.5"
