@@ -7,3 +7,4 @@
   before_script:
     - gem install rake
     - bundle install 
+    - chmod 777 -R ./test
