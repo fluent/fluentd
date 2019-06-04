@@ -1,38 +1,147 @@
+include:
+  - local: '/.gitlab/cicd-template.yaml'
+
 stages:
   - build
-  - docker-build
+  - tests
 
-build:
+2-1-10:
+  image: "ruby:2.1.10"
   stage: build
-  image: gcc
-  variables:
-      FLB_OPT: "-DFLB_JEMALLOC=On -DFLB_JEMALLOC=Off -DSANITIZE_ADDRESS=On -DSANITIZE_UNDEFINED=On -DFLB_COVERAGE=On"
+  allow_failure: true
+  extends: .install-template 
   script:
-    - echo "CC = $CC, CXX = $CXX"
-    - apt-get update -y
-    - apt-get install cmake flex bison -y
-    #- update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 90
-    #- update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 90
-    #- usermod -a -G systemd-journal $(id -un)
-    - sh ci/do-ut
+    - bundle install --jobs=3 --retry=3
   cache:
-    key: "$CI_COMMIT_REF_SLUG"
+    key: "$CI_COMMIT_REF_SLUG 2-1-10"
     paths:
-      - ./build
+      - ./*
 
-docker-build:
-  stage: docker-build
-  image: docker:stable
-  variables: 
-    DOCKER_BUILD: 1
-  services:
-    - docker:dind
-  before_script:
-    - docker info
-  cache:
-    key: "$CI_COMMIT_REF_SLUG"
-    paths:
-      - ./build
+2-2-10:
+  image: "ruby:2.2.10"
+  stage: build
+  allow_failure: true
+  extends: .install-template 
   script:
-    - echo "===== BUILD DOCKER IMAGE ======="
-    - docker build -t test-image -f ./Dockerfile .
+    - bundle install --jobs=3 --retry=3
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-2-10"
+    paths:
+
+2-4-5:
+  image: "ruby:2.4.5"
+  stage: build
+  allow_failure: true
+  extends: .install-template 
+  script:
+    - bundle install --jobs=3 --retry=3
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-4-5"
+    paths:
+
+2-5-5:
+  image: "ruby:2.5.5"
+  stage: build
+  allow_failure: true
+  extends: .install-template 
+  script:
+    - bundle install --jobs=3 --retry=3
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-5-5"
+    paths:
+
+2-6-3:
+  image: "ruby:2.6.3"
+  stage: build
+  allow_failure: true
+  extends: .install-template 
+  script:
+    - bundle install --jobs=3 --retry=3
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-6-3"
+    paths:
+
+rubyhead:
+  image: "ruby:latest"
+  stage: build
+  allow_failure: true
+  extends: .install-template 
+  script:
+    - bundle install --jobs=3 --retry=3
+  cache:
+    key: "$CI_COMMIT_REF_SLUG latest"
+    paths:
+      - ./*
+
+2-1-10-test:
+  image: "ruby:2.1.10"
+  stage: tests
+  allow_failure: true
+  extends: .test-template
+  script:
+    - bundle exec rake test
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-1-10"
+    paths:
+      - ./*
+
+2-2-10-test:
+  image: "ruby:2.2.10"
+  stage: tests
+  allow_failure: true
+  extends: .test-template
+  script:
+    - bundle exec rake test
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-2-10"
+    paths:
+      - ./*
+
+2-4-5-test:
+  image: "ruby:2.4.5"
+  stage: tests
+  allow_failure: true
+  extends: .test-template
+  script:
+    - bundle exec rake test
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-4-5"
+    paths:
+      - ./*
+
+2-5-5-test:
+  image: "ruby:2.5.5"
+  stage: tests
+  allow_failure: true
+  extends: .test-template
+  script:
+    - bundle exec rake test
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-5-5"
+    paths:
+      - ./*
+
+2-6-3-test:
+  image: "ruby:2.6.3"
+  stage: tests
+  allow_failure: true
+  extends: .test-template
+  script:
+    - bundle exec rake test
+  cache:
+    key: "$CI_COMMIT_REF_SLUG 2-6-3"
+    paths:
+      - ./*
+
+rubyhead-test:
+  image: "ruby:latest"
+  stage: tests
+  allow_failure: true
+  extends: .test-template
+  script:
+    - bundle exec rake test
+  cache:
+    key: "$CI_COMMIT_REF_SLUG latest"
+    paths:
+      - ./*
+    
