@@ -1,5 +1,27 @@
 # v1.5
 
+## Release v1.5.1 - 2019/06/05
+
+### Enhancement
+
+* in_tail: Increase read block size to reduce IO call
+  https://github.com/fluent/fluentd/pull/2418
+* in_monitor_agent: Refactor code
+  https://github.com/fluent/fluentd/pull/2422
+
+### Bug fixes
+
+* out_forward: Fix socket handling of keepalive
+  https://github.com/fluent/fluentd/pull/2434
+* parser: Fix the use of name based timezone
+  https://github.com/fluent/fluentd/pull/2421
+* in_monitor_agent: Fix debug parameter handling
+  https://github.com/fluent/fluentd/pull/2423
+* command: Fix error handling of log rotation age option
+  https://github.com/fluent/fluentd/pull/2427
+* command: Fix ERB warning for ruby 2.6 or later
+  https://github.com/fluent/fluentd/pull/2430
+
 ## Release v1.5.0 - 2019/05/18
 
 ### New feature
