@@ -201,14 +201,18 @@ module Fluent
       format_with_timezone = format && (format.include?("%z") || format.include?("%Z"))
 
       # unixtime_in_expected_tz = unixtime_in_localtime + offset_diff
-      offset_diff = ->(t){
-                      case
-                      when format_with_timezone then nil
-                      when timezone  then Time.now.localtime.utc_offset - offset_utc(timezone, t)
-                      when localtime then 0
-                      else Time.now.localtime.utc_offset # utc
+      offset_diff = case
+                    when format_with_timezone then nil
+                    when timezone  then
+                      offset = Fluent::Timezone.utc_offset(timezone)
+                      if offset.respond_to?(:call)
+                        ->(t) { Time.now.localtime.utc_offset - offset.call(t) }
+                      else
+                        ->(t) { Time.now.localtime.utc_offset - offset }
                       end
-                    }
+                    when localtime then 0
+                    else Time.now.localtime.utc_offset # utc
+                    end
 
       strptime = format && (Strptime.new(format) rescue nil)
 
@@ -216,15 +220,15 @@ module Fluent
                when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
                when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
                when format == '%iso8601'             then ->(v){ Fluent::EventTime.from_time(Time.iso8601(v)) }
-               when strptime then ->(v){ t = strptime.exec(v);         Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
-               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
+               when strptime then
+                 if offset_diff.respond_to?(:call)
+                   ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
+                 else
+                   ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+                 end
+               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
                else ->(v){ Fluent::EventTime.parse(v) }
                end
-    end
-
-    def offset_utc(timezone, time)
-      offset = Fluent::Timezone.utc_offset(timezone)
-      offset.respond_to?(:call) ? offset.call(time) : offset
     end
 
     # TODO: new cache mechanism using format string
