@@ -226,7 +226,12 @@ module Fluent
                  else
                    ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
                  end
-               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+               when format   then
+                 if offset_diff.respond_to?(:call)
+                   ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
+                 else
+                   ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+                 end
                else ->(v){ Fluent::EventTime.parse(v) }
                end
     end
