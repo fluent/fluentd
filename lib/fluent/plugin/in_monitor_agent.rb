@@ -224,13 +224,7 @@ module Fluent::Plugin
         opts = build_option(req)
         result = build_object(opts)
 
-        row = []
-        JSON.parse(result.to_json).each_pair { |k, v|
-          row << "#{k}:#{v}"
-        }
-        text = row.join("\t")
-
-        [200, {'Content-Type'=>'text/plain'}, text]
+        render_lstv([result])
       end
     end
 

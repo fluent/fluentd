@@ -408,7 +408,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   tag monitor
 ")
       d.instance.start
-      expected_response_regex = /pid:\d+\tppid:\d+\tconfig_path:\/etc\/fluent\/fluent.conf\tpid_file:\tplugin_dirs:\[\"\/etc\/fluent\/plugin\"\]\tlog_path:/
+      expected_response_regex = /pid:\d+\tppid:\d+\tconfig_path:\/etc\/fluent\/fluent.conf\tpid_file:\tplugin_dirs:\/etc\/fluent\/plugin\tlog_path:/
 
       assert_match(expected_response_regex,
                    get("http://127.0.0.1:#{@port}/api/config").body)
