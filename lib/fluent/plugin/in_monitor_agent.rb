@@ -174,8 +174,12 @@ module Fluent::Plugin
         text = ''
         JSON.parse(list.to_json).map {|hash|
           row = []
-          hash.each_pair {|k,v|
-            unless v.is_a?(Hash) || v.is_a?(Array)
+          hash.each { |k,v|
+            if v.is_a?(Array)
+              row << "#{k}:#{v.join(',')}"
+            elsif v.is_a?(Hash)
+              next
+            else
               row << "#{k}:#{v}"
             end
           }
