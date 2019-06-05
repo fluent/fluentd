@@ -208,7 +208,7 @@ module Fluent
                       if offset.respond_to?(:call)
                         ->(t) { Time.now.localtime.utc_offset - offset.call(t) }
                       else
-                        ->(t) { Time.now.localtime.utc_offset - offset }
+                        Time.now.localtime.utc_offset - offset
                       end
                     when localtime then 0
                     else Time.now.localtime.utc_offset # utc
