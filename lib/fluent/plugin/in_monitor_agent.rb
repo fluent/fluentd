@@ -159,22 +159,12 @@ module Fluent::Plugin
 
         [code, { 'Content-Type' => 'application/json' }, body]
       end
-    end
 
-    class LTSVMonitorServlet < MonitorServlet
-      def process(req)
-        unless req.path_info == ''
-          return render_not_found_json
-        end
-
-        opts = build_option(req)
-        list = build_object(opts)
-        return unless list
-
+      def render_lstv(obj, code: 200)
         text = ''
-        JSON.parse(list.to_json).map {|hash|
+        JSON.parse(obj.to_json).each do |hash|
           row = []
-          hash.each { |k,v|
+          hash.each do |k,v|
             if v.is_a?(Array)
               row << "#{k}:#{v.join(',')}"
             elsif v.is_a?(Hash)
@@ -182,11 +172,21 @@ module Fluent::Plugin
             else
               row << "#{k}:#{v}"
             end
-          }
-          text << row.join("\t") << "\n"
-        }
+          end
 
-        [200, {'Content-Type'=>'text/plain'}, text]
+          text << row.join("\t") << "\n"
+        end
+
+        [code, { 'Content-Type' => 'text/plain' }, text]
+      end
+    end
+
+    class LTSVMonitorServlet < MonitorServlet
+      def process(req)
+        opts = build_option(req)
+        list = build_object(opts)
+        return unless list
+        render_lstv(list)
       end
     end
 
