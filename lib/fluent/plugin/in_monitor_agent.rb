@@ -171,11 +171,8 @@ module Fluent::Plugin
         list = build_object(opts)
         return unless list
 
-        normalized = JSON.parse(list.to_json)
-
         text = ''
-
-        normalized.map {|hash|
+        JSON.parse(list.to_json).map {|hash|
           row = []
           hash.each_pair {|k,v|
             unless v.is_a?(Hash) || v.is_a?(Array)
