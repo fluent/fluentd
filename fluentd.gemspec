@@ -28,6 +28,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
   gem.add_runtime_dependency("strptime", [">= 0.2.2", "< 1.0.0"])
   gem.add_runtime_dependency("dig_rb", ["~> 1.0.0"])
+  gem.add_runtime_dependency("async-http", ["~> 0.42"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
