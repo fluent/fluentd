@@ -14,7 +14,15 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin_helper/http/server'
+begin
+  # raise if RUBY_VERSION < 2.3.x. see Gemfile
+  require 'async'
+  require 'fluent/plugin_helper/http/server'
+rescue LoadError => _
+  require 'fluent/plugin_helper/http/compat/server'
+  Fluent::PluginHelper::Http::Server = Fluent::PluginHelper::Http::Compat::Server
+end
+
 require 'fluent/plugin_helper/thread'
 
 module Fluent
