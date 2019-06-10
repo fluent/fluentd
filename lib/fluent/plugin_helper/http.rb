@@ -35,7 +35,7 @@ module Fluent
           yield(serv)
         end
 
-        _block_until_http_servdr_start do |notify|
+        _block_until_http_server_start do |notify|
           thread_create(:plugin_helper_http_server) do
             @_http_server.start(notify)
           end
@@ -51,7 +51,7 @@ module Fluent
       private
 
       # To block until server is ready to listen
-      def _block_until_http_servdr_start
+      def _block_until_http_server_start
         que = Queue.new
         yield(que)
         que.pop
