@@ -50,6 +50,7 @@ module Fluent
 
           def stop
             @server.shutdown
+            @server.stop
           end
 
           HttpServer::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|

@@ -23,8 +23,8 @@ module Fluent
       module Compat
         class WebrickHandler
           # **opt is enough. but I wrote a signature explicitly for readability
-          def self.build(get: nil, head: nil, post: nil, put: nil, patch: nil, delete: nil, connect: nil)
-            opt = { get: get, head: head, post: post, put: put, patch: patch, delete: delete, connect: connect }
+          def self.build(get: nil, head: nil, post: nil, put: nil, patch: nil, delete: nil, connect: nil, options: nil, trace: nil)
+            opt = { get: get, head: head, post: post, put: put, patch: patch, delete: delete, connect: connect, options: options, trace: trace }
 
             Class.new(WEBrick::HTTPServlet::AbstractServlet) do
               HttpServer::Methods::ALL.each do |name|

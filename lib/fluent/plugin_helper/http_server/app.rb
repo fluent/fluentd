@@ -50,6 +50,8 @@ module Fluent
               connect(request)
             when HttpServer::Methods::TRACE
               trace(request)
+            else
+              raise "Unknown method #{method}"
             end
           Protocol::HTTP::Response[*resp]
         rescue => e

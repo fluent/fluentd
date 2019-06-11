@@ -24,16 +24,17 @@ module Fluent
         attr_reader :path, :query_string
 
         def initialize(request)
+          @request = request
           path = request.path
           @path, @query_string = path.split('?', 2)
         end
 
         def query
-          CGI.parse(@query_string)
+          @query_string && CGI.parse(@query_string)
         end
 
         def body
-          request.body
+          @request.body && @request.body.read
         end
       end
     end
