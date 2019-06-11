@@ -1470,7 +1470,7 @@ module Fluent
         }
 
         if @buffer && @buffer.respond_to?(:statistics)
-          (@buffer.statistics && @buffer.statistics['buffer'] || {}).each do |k, v|
+          (@buffer.statistics['buffer'] || {}).each do |k, v|
             stats["buffer_#{k}"] = v
           end
         end
