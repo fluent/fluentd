@@ -231,7 +231,6 @@ module Fluent::Plugin
     end
 
     def shutdown
-      stop_http_server
       super
     end
 

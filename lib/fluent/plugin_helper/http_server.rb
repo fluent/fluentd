@@ -29,6 +29,10 @@ module Fluent
   module PluginHelper
     module HttpServer
       include Fluent::PluginHelper::Thread
+      # stop     : stop http server and mark callback thread as stopped
+      # shutdown : [-]
+      # close    : correct stopped threads
+      # terminate: kill thread
 
       # @param addr [String] Listen address
       # @param port [String] Listen port
@@ -50,7 +54,9 @@ module Fluent
         end
       end
 
-      def stop_http_server
+      def stop
+        super
+
         if @_http_server
           @_http_server.stop
         end
