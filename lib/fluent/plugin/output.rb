@@ -1457,6 +1457,26 @@ module Fluent
           state.mutex.unlock
         end
       end
+
+      def statistics
+        stats = {
+          'emit_records' => @emit_records,
+          # Respect original name
+          # https://github.com/fluent/fluentd/blob/45c7b75ba77763eaf87136864d4942c4e0c5bfcd/lib/fluent/plugin/in_monitor_agent.rb#L284
+          'retry_count' => @num_errors,
+          'emit_count' => @emit_count,
+          'write_count' => @write_count,
+          'rollback_count' => @rollback_count,
+        }
+
+        if @buffer && @buffer.respond_to?(:statistics)
+          (@buffer.statistics && @buffer.statistics['buffer'] || {}).each do |k, v|
+            stats["buffer_#{k}"] = v
+          end
+        end
+
+        { 'output' => stats }
+      end
     end
   end
 end

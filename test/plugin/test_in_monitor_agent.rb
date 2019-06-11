@@ -118,7 +118,11 @@ EOC
         "plugin_category" => "output",
         "plugin_id"       => "test_out",
         "retry_count"     => 0,
-        "type"            => "test_out"
+        "type"            => "test_out",
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
       }
       output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
       error_label_info = {
@@ -129,7 +133,15 @@ EOC
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => 100.0,
+        "buffer_queue_byte_size" => 0,
+        "buffer_stage_byte_size" => 0,
+        "buffer_stage_length" => 0,
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
       }
       error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
       opts = {with_config: with_config}
@@ -186,13 +198,22 @@ EOC
         "plugin_category" => "output",
         "type"            => "relabel",
         "output_plugin"   => true,
-        "retry_count"     => 0}
+        "retry_count"     => 0,
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
+      }
       expect_test_out_record = {
         "plugin_id"       => "test_out",
         "plugin_category" => "output",
         "type"            => "test_out",
         "output_plugin"   => true,
-        "retry_count"     => 0
+        "retry_count"     => 0,
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
       }
       assert_equal(expect_relabel_record, d.events[1][2])
       assert_equal(expect_test_out_record, d.events[3][2])
@@ -303,7 +324,15 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => 100.0,
+        "buffer_queue_byte_size" => 0,
+        "buffer_stage_byte_size" => 0,
+        "buffer_stage_length" => 0,
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       expected_null_response.merge!("retry" => {}) if with_retry
@@ -355,7 +384,15 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => 100.0,
+        "buffer_queue_byte_size" => 0,
+        "buffer_stage_byte_size" => 0,
+        "buffer_stage_length" => 0,
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       expected_null_response.merge!("retry" => {}) if with_retry
@@ -391,7 +428,15 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
         "plugin_id"       => "null",
         "retry_count"     => 0,
         "type"            => "null",
-        "instance_variables" => {"id" => "null", "num_errors" => 0}
+        "instance_variables" => {"id" => "null", "num_errors" => 0},
+        "buffer_available_buffer_space_ratios" => 100.0,
+        "buffer_queue_byte_size" => 0,
+        "buffer_stage_byte_size" => 0,
+        "buffer_stage_length" => 0,
+        "emit_count"      => 0,
+        "emit_records"    => 0,
+        "write_count"     => 0,
+        "rollback_count"  => 0,
       }
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,num_errors").body)
       test_in_response = response["plugins"][0]
@@ -510,6 +555,16 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
           "plugin_category" => "output",
           "plugin_id" => "test_out_fail_write",
           "type" => "test_out_fail_write",
+          "buffer_newest_timekey" => output.calculate_timekey(event_time),
+          "buffer_oldest_timekey" => output.calculate_timekey(event_time),
+          "buffer_available_buffer_space_ratios" => 100.0,
+          "buffer_queue_byte_size" => 40,
+          "buffer_stage_byte_size" => 0,
+          "buffer_stage_length" => 0,
+          "emit_count" => 1,
+          "emit_records" => 1,
+          "write_count" => 2,
+          "rollback_count" => 0,
       }
       output.emit_events('test.tag', Fluent::ArrayEventStream.new([[event_time, {"message" => "test failed flush 1"}]]))
       # flush few times to check steps
