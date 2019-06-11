@@ -55,8 +55,8 @@ module Fluent::Plugin
           code, header, body = render_error_json(
             code: 500,
             msg: 'Internal Server Error',
-            'error' => "#{$!}",
-            'backtrace' => $!.backtrace,
+            error: "#{$!}",
+            backtrace: $!.backtrace,
           )
         end
 
