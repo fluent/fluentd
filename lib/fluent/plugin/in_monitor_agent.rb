@@ -28,7 +28,7 @@ module Fluent::Plugin
   class MonitorAgentInput < Input
     Fluent::Plugin.register_input('monitor_agent', self)
 
-    helpers :timer, :thread, :http
+    helpers :timer, :thread, :http_server
 
     desc 'The address to bind to.'
     config_param :bind, :string, default: '0.0.0.0'

@@ -17,17 +17,17 @@
 begin
   # raise if RUBY_VERSION < 2.3.x. see Gemfile
   require 'async'
-  require 'fluent/plugin_helper/http/server'
+  require 'fluent/plugin_helper/http_server/server'
 rescue LoadError => _
-  require 'fluent/plugin_helper/http/compat/server'
-  Fluent::PluginHelper::Http::Server = Fluent::PluginHelper::Http::Compat::Server
+  require 'fluent/plugin_helper/http_server/compat/server'
+  Fluent::PluginHelper::HttpServer::Server = Fluent::PluginHelper::HttpServer::Compat::Server
 end
 
 require 'fluent/plugin_helper/thread'
 
 module Fluent
   module PluginHelper
-    module Http
+    module HttpServer
       include Fluent::PluginHelper::Thread
 
       # @param addr [String] Listen address
@@ -39,7 +39,7 @@ module Fluent
           raise ArgumentError, 'BUG: callback not specified'
         end
 
-        @_http_server = Http::Server.new(addr: addr, port: port, logger: logger, default_app: default_app) do |serv|
+        @_http_server = HttpServer::Server.new(addr: addr, port: port, logger: logger, default_app: default_app) do |serv|
           yield(serv)
         end
 

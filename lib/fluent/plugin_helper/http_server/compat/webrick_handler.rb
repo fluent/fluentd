@@ -19,7 +19,7 @@ require 'json'
 
 module Fluent
   module PluginHelper
-    module Http
+    module HttpServer
       module Compat
         class WebrickHandler
           # **opt is enough. but I wrote a signature explicitly for readability
@@ -27,7 +27,7 @@ module Fluent
             opt = { get: get, head: head, post: post, put: put, patch: patch, delete: delete, connect: connect }
 
             Class.new(WEBrick::HTTPServlet::AbstractServlet) do
-              Http::Methods::ALL.each do |name|
+              HttpServer::Methods::ALL.each do |name|
                 define_method("do_#{name}") do |request, response|
                   code, headers, body =
                                  if request.path_info != ''

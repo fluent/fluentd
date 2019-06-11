@@ -14,28 +14,21 @@
 #    limitations under the License.
 #
 
-require 'async/http/protocol'
-require 'fluent/plugin_helper/http'
-require 'fluent/plugin_helper/http/methods'
-
 module Fluent
   module PluginHelper
-    module Http
-      class Request
-        attr_reader :path, :query_string
+    module HttpServer
+      module Methods
+        GET = 'GET'.freeze
+        HEAD = 'HEAD'.freeze
+        POST = 'POST'.freeze
+        PUT = 'PUT'.freeze
+        PATCH = 'PATCH'.freeze
+        DELETE = 'DELETE'.freeze
+        OPTIONS = 'OPTIONS'.freeze
+        CONNECT = 'CONNECT'.freeze
+        TRACE = 'TRACE'.freeze
 
-        def initialize(request)
-          path = request.path
-          @path, @query_string = path.split('?', 2)
-        end
-
-        def query
-          CGI.parse(@query_string)
-        end
-
-        def body
-          request.body
-        end
+        ALL = [GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS, TRACE].freeze
       end
     end
   end

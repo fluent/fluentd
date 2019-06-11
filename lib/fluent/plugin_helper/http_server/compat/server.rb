@@ -14,12 +14,12 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin_helper/http/methods'
-require 'fluent/plugin_helper/http/compat/webrick_handler'
+require 'fluent/plugin_helper/http_server/methods'
+require 'fluent/plugin_helper/http_server/compat/webrick_handler'
 
 module Fluent
   module PluginHelper
-    module Http
+    module HttpServer
       module Compat
         class Server
           # @param logger [Logger] ignored option. only for compat
@@ -52,7 +52,7 @@ module Fluent
             @server.shutdown
           end
 
-          Http::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
+          HttpServer::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
             define_method(name) do |path, app = nil, &block|
               if (block && app) || (!block && !app)
                 raise 'You must specify either app or block in the same time'
@@ -67,7 +67,7 @@ module Fluent
 
           def build_handler
             @methods.group_by(&:first).each do |(path, rest)|
-              klass = Fluent::PluginHelper::Http::Compat::WebrickHandler.build(Hash[rest.map { |e| [e[1], e[2]] }])
+              klass = Fluent::PluginHelper::HttpServer::Compat::WebrickHandler.build(Hash[rest.map { |e| [e[1], e[2]] }])
               @server.mount(path, klass)
             end
           end

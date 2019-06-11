@@ -18,13 +18,13 @@ require 'async'
 require 'async/http'
 require 'async/http/endpoint'
 
-require 'fluent/plugin_helper/http/app'
-require 'fluent/plugin_helper/http/router'
-require 'fluent/plugin_helper/http/methods'
+require 'fluent/plugin_helper/http_server/app'
+require 'fluent/plugin_helper/http_server/router'
+require 'fluent/plugin_helper/http_server/methods'
 
 module Fluent
   module PluginHelper
-    module Http
+    module HttpServer
       class Server
         # @param default_app [Object] This method must have #call.
         def initialize(addr:, port:, logger:, default_app: nil)
@@ -48,13 +48,15 @@ module Fluent
 
         def start(notify = nil)
           @logger.debug("Start HTTP server listening #{@uri}")
-          @reactor.run do
+          task = @reactor.run do
             @server.run
 
             if notify
               notify.push(:ready)
             end
           end
+
+          task.stop
           @logger.debug('Finished HTTP server')
         end
 
@@ -66,13 +68,8 @@ module Fluent
           end
         end
 
-        Http::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
+        HttpServer::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
           define_method(name) do |path, app = nil, &block|
-
-            unless path.start_with?('/')
-              path += "/#{path}"
-            end
-
             unless path.end_with?('/')
               path << '/'
             end

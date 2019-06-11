@@ -15,13 +15,12 @@
 #
 
 require 'async/http/protocol'
-require 'fluent/plugin_helper/http'
-require 'fluent/plugin_helper/http/methods'
-require 'fluent/plugin_helper/http/request'
+require 'fluent/plugin_helper/http_server/methods'
+require 'fluent/plugin_helper/http_server/request'
 
 module Fluent
   module PluginHelper
-    module Http
+    module HttpServer
       class App
         def initialize(router, logger)
           @logger = logger
@@ -33,18 +32,24 @@ module Fluent
           method = request.method
           resp =
             case method
-            when Http::Methods::GET
+            when HttpServer::Methods::GET
               get(request)
-            when Http::Methods::POST
+            when HttpServer::Methods::HEAD
+              head(request)
+            when HttpServer::Methods::POST
               post(request)
-            when Http::Methods::PATCH
+            when HttpServer::Methods::PATCH
               patch(request)
-            when Http::Methods::PUT
+            when HttpServer::Methods::PUT
               put(request)
-            when Http::Methods::CONNECT
-              connect(request)
-            when Http::Methods::DELETE
+            when HttpServer::Methods::DELETE
               delete(request)
+            when HttpServer::Methods::OPTIONS
+              options(request)
+            when HttpServer::Methods::CONNECT
+              connect(request)
+            when HttpServer::Methods::TRACE
+              trace(request)
             end
           Protocol::HTTP::Response[*resp]
         rescue => e
@@ -52,7 +57,7 @@ module Fluent
           Protocol::HTTP::Response[500, { 'Content-Type' => 'text/http' }, 'Internal Server Error']
         end
 
-        Http::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
+        HttpServer::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
           define_method(name) do |request|
             req = Request.new(request)
 

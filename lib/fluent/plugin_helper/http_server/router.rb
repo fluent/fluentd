@@ -18,7 +18,7 @@ require 'async/http/protocol'
 
 module Fluent
   module PluginHelper
-    module Http
+    module HttpServer
       class Router
         class NotFoundApp
           def self.call(req)
@@ -27,7 +27,7 @@ module Fluent
         end
 
         def initialize(default_app = nil)
-          @router = { get: {}, head: {}, post: {}, put: {}, patch: {}, delete: {}, connect: {} }
+          @router = { get: {}, head: {}, post: {}, put: {}, patch: {}, delete: {}, connect: {}, options: {}, trace: {} }
           @default_app = default_app || NotFoundApp
         end
 
@@ -44,7 +44,7 @@ module Fluent
 
         # @param method [Symbol]
         # @param path [String]
-        # @param request [Fluent::PluginHelper::Http::Request]
+        # @param request [Fluent::PluginHelper::HttpServer::Request]
         def route!(method, path, request)
           @router.fetch(method).fetch(path, @default_app).call(request)
         end
