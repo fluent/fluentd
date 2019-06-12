@@ -155,6 +155,10 @@ op.on('-G', '--gem-path GEM_INSTALL_PATH', "Gemfile install path (default: $(dir
   opts[:gem_install_path] = s
 }
 
+op.on('--conf-encoding ENCODING', "specify configuration file encoding") { |s|
+  opts[:conf_encoding] = s
+}
+
 if Fluent.windows?
   require 'windows/library'
   include Windows::Library
