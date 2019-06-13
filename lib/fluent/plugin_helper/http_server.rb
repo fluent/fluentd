@@ -55,11 +55,11 @@ module Fluent
       end
 
       def stop
-        super
-
         if @_http_server
           @_http_server.stop
         end
+
+        super
       end
 
       private
