@@ -230,10 +230,6 @@ module Fluent::Plugin
       end
     end
 
-    def shutdown
-      super
-    end
-
     MONITOR_INFO = {
       'output_plugin' => ->(){ is_a?(::Fluent::Plugin::Output) },
       'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil? && @buffer.is_a?(::Fluent::Plugin::Buffer); @buffer.queue.size },
