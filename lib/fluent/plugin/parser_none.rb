@@ -27,8 +27,7 @@ module Fluent
       config_param :message_key, :string, default: 'message'
 
       def parse(text)
-        record = {}
-        record[@message_key] = text
+        record = {@message_key => text}
         time = @estimate_current_event ? Fluent::EventTime.now : nil
         yield time, record
       end
