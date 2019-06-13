@@ -56,7 +56,7 @@ module Fluent
           Protocol::HTTP::Response[*resp]
         rescue => e
           @logger.error(e)
-          Protocol::HTTP::Response[500, { 'Content-Type' => 'text/http' }, 'Internal Server Error']
+          Protocol::HTTP::Response[500, { 'Content-Type' => 'text/plain' }, 'Internal Server Error']
         end
 
         HttpServer::Methods::ALL.map { |e| e.downcase.to_sym }.each do |name|
