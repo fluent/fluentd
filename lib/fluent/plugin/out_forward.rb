@@ -1081,8 +1081,9 @@ module Fluent::Plugin
                end
 
         if block_given?
+          ret = nil
           begin
-            yield(sock)
+            ret = yield(sock)
           rescue
             @socket_cache.revoke if @keepalive
             raise
@@ -1091,6 +1092,8 @@ module Fluent::Plugin
           ensure
             sock.close unless @keepalive
           end
+
+          ret
         else
           sock
         end
