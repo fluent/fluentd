@@ -274,6 +274,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     params['log_path'] = 'test/tmp/supervisor/log'
     params['suppress_repeated_stacktrace'] = true
     params['log_level'] = Fluent::Log::LEVEL_INFO
+    params['conf_encoding'] = 'utf-8'
     load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_dir, params) }
 
     # first call
@@ -340,6 +341,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     params['suppress_repeated_stacktrace'] = true
     params['log_level'] = Fluent::Log::LEVEL_INFO
     params['daemonize'] = './fluentd.pid'
+    params['conf_encoding'] = 'utf-8'
     load_config_proc = Proc.new { Fluent::Supervisor.load_config(tmp_dir, params) }
 
     # first call
@@ -414,6 +416,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     params['log_path'] = 'test/tmp/supervisor/log'
     params['suppress_repeated_stacktrace'] = true
     params['log_level'] = Fluent::Log::LEVEL_INFO
+    params['conf_encoding'] = 'utf-8'
     load_config_proc =  Proc.new { Fluent::Supervisor.load_config(tmp_path, params) }
 
     se_config = load_config_proc.call
