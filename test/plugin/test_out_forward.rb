@@ -649,7 +649,55 @@ EOL
     assert_equal(['test', time, records[1]], events[1])
   end
 
-  test 'authentication_with_user_auth' do
+  test 'keepalive + shared_key' do
+    input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                 ]
+    target_input_driver = create_target_input_driver(conf: input_conf)
+
+    output_conf = %[
+      send_timeout 51
+      keepalive true
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ]
+    @d = d = create_driver(output_conf)
+
+    time = event_time('2011-01-02 13:14:15 UTC')
+    records = [{ 'a' => 1 }, { 'a' => 2 }]
+    records2 = [{ 'b' => 1}, { 'b' => 2}]
+    target_input_driver.run(expect_records: 4, timeout: 15) do
+      d.run(default_tag: 'test') do
+        records.each do |record|
+          d.feed(time, record)
+        end
+
+        d.flush # emit buffer to reuse same socket later
+        records2.each do |record|
+          d.feed(time, record)
+        end
+      end
+    end
+
+    events = target_input_driver.events
+    assert{ events != [] }
+    assert_equal(['test', time, records[0]], events[0])
+    assert_equal(['test', time, records[1]], events[1])
+    assert_equal(['test', time, records2[0]], events[2])
+    assert_equal(['test', time, records2[1]], events[3])
+  end
+
+   test 'authentication_with_user_auth' do
     input_conf = TARGET_CONFIG + %[
                    <security>
                      self_hostname in.localhost
