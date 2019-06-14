@@ -770,8 +770,7 @@ module Fluent::Plugin
       end
 
       def verify_connection
-        connect do |sock|
-          ri = RequestInfo.new(@sender.security ? :helo : :established)
+        connect do |sock, ri|
           if ri.state != :established
             establish_connection(sock, ri)
             raise if ri.state != :established
@@ -810,11 +809,6 @@ module Fluent::Plugin
       end
 
       def send_data_actual(sock, tag, chunk)
-        ri = RequestInfo.new(@sender.security ? :helo : :established)
-        if ri.state != :established
-          establish_connection(sock, ri)
-        end
-
         unless available?
           raise ConnectionClosedError, "failed to establish connection with node #{@name}"
         end
@@ -841,7 +835,10 @@ module Fluent::Plugin
       end
 
       def send_data(tag, chunk)
-        sock = connect
+        sock, ri = connect
+        if ri.state != :established
+          establish_connection(sock, ri)
+        end
 
         begin
           send_data_actual(sock, tag, chunk)
@@ -1073,26 +1070,36 @@ module Fluent::Plugin
       private
 
       def connect(host = nil)
-        sock = if @keepalive
-                 @socket_cache.fetch_or { @sender.create_transfer_socket(host || resolved_host, port, @hostname) }
-               else
-                 @log.debug('connect new socket')
-                 @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-               end
+        socket, request_info =
+                if @keepalive
+                  ri = RequestInfo.new(:established)
+                  sock = @socket_cache.fetch_or do
+                    s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+                    ri = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
+                    s
+                  end
+                  [sock, ri]
+                else
+                  @log.debug('connect new socket')
+                  [@sender.create_transfer_socket(host || resolved_host, port, @hostname), RequestInfo.new(@sender.security ? :helo : :established)]
+                end
 
         if block_given?
+          ret = nil
           begin
-            yield(sock)
+            ret = yield(socket, request_info)
           rescue
             @socket_cache.revoke if @keepalive
             raise
           else
             @socket_cache.dec_ref if @keepalive
           ensure
-            sock.close unless @keepalive
+            socket.close unless @keepalive
           end
+
+          ret
         else
-          sock
+          [socket, request_info]
         end
       end
     end
