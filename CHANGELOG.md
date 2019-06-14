@@ -1,5 +1,12 @@
 # v1.5
 
+## Release v1.5.2 - 2019/06/13
+
+### Bug fixes
+
+* out_forward: Fix duplicated handshake bug in keepalive
+  https://github.com/fluent/fluentd/pull/2456
+
 ## Release v1.5.1 - 2019/06/05
 
 ### Enhancement
