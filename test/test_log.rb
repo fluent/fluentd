@@ -12,7 +12,7 @@ class LogTest < Test::Unit::TestCase
     FileUtils.rm_rf(TMP_DIR)
     FileUtils.mkdir_p(TMP_DIR)
     @log_device = Fluent::Test::DummyLogDevice.new
-    @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
+    @timestamp = Time.parse("2016-04-21 02:58:41 +0000")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
     Timecop.freeze(@timestamp)
   end
@@ -540,7 +540,7 @@ end
 class PluginLoggerTest < Test::Unit::TestCase
   def setup
     @log_device = Fluent::Test::DummyLogDevice.new
-    @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
+    @timestamp = Time.parse("2016-04-21 02:58:41 +0000")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
     Timecop.freeze(@timestamp)
     dl_opts = {}
