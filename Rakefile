@@ -34,7 +34,7 @@ Rake::TestTask.new(:base_test) do |t|
   t.test_files = if ENV["WIN_RAPID"]
                    ["test/test_event.rb", "test/test_supervisor.rb", "test/plugin_helper/test_event_loop.rb"]
                  else
-                   tests = Dir["test/**/test_*.rb"]
+                   tests = Dir["test/**/test_*.rb"].sort
                    if Process.uid.zero?
                      puts "test_file_util.rb for non-root user env. Disable this test on root environment"
                      tests.delete("test/plugin/test_file_util.rb")
