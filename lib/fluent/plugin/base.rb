@@ -29,6 +29,7 @@ module Fluent
       attr_accessor :under_plugin_development
 
       def initialize
+        @log = nil
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil

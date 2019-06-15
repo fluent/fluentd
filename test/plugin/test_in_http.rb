@@ -707,7 +707,6 @@ class HttpInputTest < Test::Unit::TestCase
       ["tag2", time, {"a"=>2}],
     ]
     res_codes = []
-    res_headers = []
 
     d.run do
       events.each do |tag, time, record|
@@ -731,7 +730,6 @@ class HttpInputTest < Test::Unit::TestCase
       ["tag2", time, {"a"=>2}],
     ]
     res_codes = []
-    res_headers = []
 
     d.run do
       events.each do |tag, time, record|
@@ -803,10 +801,9 @@ class HttpInputTest < Test::Unit::TestCase
         # Send two requests the second one has no Content-Type in Keep-Alive
         Net::HTTP.start("127.0.0.1", PORT) do |http|
           req = Net::HTTP::Post.new("/foodb/bartbl", {"connection" => "keepalive", "Content-Type" => "application/json"})
-          res = http.request(req)
-
+          http.request(req)
           req = Net::HTTP::Get.new("/foodb/bartbl", {"connection" => "keepalive"})
-          res = http.request(req)
+          http.request(req)
         end
 
       end

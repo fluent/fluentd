@@ -457,8 +457,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       prev_write_count = @i.write_count
       prev_num_errors = @i.num_errors
 
-      chunks = @i.buffer.queue.dup
-
       20.times do |i| # large times enough
         now = @i.next_flush_time
 

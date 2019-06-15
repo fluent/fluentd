@@ -135,7 +135,7 @@ module Fluent::Plugin
           if client.host
             begin
               source = IPSocket.getaddress(client.host)
-            rescue SocketError => e
+            rescue SocketError
               raise Fluent::ConfigError, "host '#{client.host}' cannot be resolved"
             end
           end

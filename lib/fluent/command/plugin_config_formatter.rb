@@ -174,9 +174,9 @@ class FluentPluginConfigFormatter
     end
     dumped << "\n"
     sections.each do |section_name, sub_section|
-      required = sub_section.delete(:required)
-      multi = sub_section.delete(:multi)
-      alias_name = sub_section.delete(:alias)
+      sub_section.delete(:required)
+      sub_section.delete(:multi)
+      sub_section.delete(:alias)
       sub_section.delete(:section)
       template = template_path("section.md.erb").read
       dumped <<
