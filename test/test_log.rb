@@ -796,13 +796,15 @@ class PluginLoggerTest < Test::Unit::TestCase
     end
 
     data(
-      text: [:text, "2016-04-21 11:58:41 +0900 [info]: yaaay\n"],
-      json: [:json, %Q({"time":"2016-04-21 11:58:41 +0900","level":"info","message":"yaaay"}\n)],
+      text: [:text, "2016-04-21 02:58:41 +0000 [info]: yaaay\n"],
+      json: [:json, %Q({"time":"2016-04-21 02:58:41 +0000","level":"info","message":"yaaay"}\n)],
     )
     def test_format(data)
       fmt, expected_log_line = data
-      @log.format = fmt
-      @log.info "yaaay"
+      with_timezone('utc') {
+        @log.format = fmt
+        @log.info "yaaay"
+      }
       assert{ @log_device.logs.include? expected_log_line }
     end
 
