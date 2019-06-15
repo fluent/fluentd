@@ -141,7 +141,7 @@ module Fluent::Plugin
           end
           source_addr = begin
                           IPAddr.new(source || client.network)
-                        rescue ArgumentError => e
+                        rescue ArgumentError
                           raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
                         end
           @nodes.push({
