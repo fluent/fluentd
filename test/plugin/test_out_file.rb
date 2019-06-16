@@ -72,10 +72,12 @@ class FileOutputTest < Test::Unit::TestCase
         create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
       end
 
-      assert_raise(Fluent::ConfigError) do
-        FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
-        File.chmod(0555, "#{TMP_DIR}/test_dir")
-        create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+      if Process.uid.nonzero?
+        assert_raise(Fluent::ConfigError) do
+          FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+          File.chmod(0555, "#{TMP_DIR}/test_dir")
+          create_driver %[path #{TMP_DIR}/test_dir/foo/bar/baz]
+        end
       end
     end
 
@@ -102,15 +104,17 @@ class FileOutputTest < Test::Unit::TestCase
       end
     end
 
-    test 'configuration error raised if specified directory via template is not writable' do
-      Timecop.freeze(Time.parse("2016-10-04 21:33:27 UTC")) do
-        conf = config_element('match', '**', {
+    if Process.uid.nonzero?
+      test 'configuration error raised if specified directory via template is not writable' do
+        Timecop.freeze(Time.parse("2016-10-04 21:33:27 UTC")) do
+          conf = config_element('match', '**', {
             'path' => "#{TMP_DIR}/prohibited/${tag}/file.%Y%m%d.log",
           }, [ config_element('buffer', 'time,tag', {'timekey' => 86400, 'timekey_zone' => '+0000'}) ])
-        FileUtils.mkdir_p("#{TMP_DIR}/prohibited")
-        File.chmod(0555, "#{TMP_DIR}/prohibited")
-        assert_raise Fluent::ConfigError.new("out_file: `#{TMP_DIR}/prohibited/a/file.20161004.log_**.log` is not writable") do
-          create_driver(conf)
+          FileUtils.mkdir_p("#{TMP_DIR}/prohibited")
+          File.chmod(0555, "#{TMP_DIR}/prohibited")
+          assert_raise Fluent::ConfigError.new("out_file: `#{TMP_DIR}/prohibited/a/file.20161004.log_**.log` is not writable") do
+            create_driver(conf)
+          end
         end
       end
     end
