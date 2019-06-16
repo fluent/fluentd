@@ -194,7 +194,6 @@ class UdpInputTest < Test::Unit::TestCase
       end
     end
 
-    expected = {'message' => 'test'}
     assert_equal 1, d.events.size
     assert_equal "udp", d.events[0][0]
     assert d.events[0][1].is_a?(Fluent::EventTime)
@@ -214,7 +213,6 @@ class UdpInputTest < Test::Unit::TestCase
       end
     end
 
-    expected = {'message' => 'test'}
     assert_equal 1, d.events.size
     assert_equal "udp", d.events[0][0]
     assert d.events[0][1].is_a?(Fluent::EventTime)

@@ -230,16 +230,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(
       'server_create udp' => [:server_create, :udp],
     )
-    test 'raise error if tcp/tls/unix options specified for udp' do |(m, proto)|
+    test 'raise error if tcp/tls/unix backlog options specified for udp' do |(m, proto)|
       assert_raise(ArgumentError.new("BUG: backlog is available for tcp/tls")) do
         @d.__send__(m, :myserver, PORT, proto: proto, backlog: 500){|x| x }
       end
-    end
-
-    data(
-      'server_create udp' => [:server_create, :udp],
-    )
-    test 'raise error if tcp/tls/unix options specified for udp' do |(m, proto)|
       assert_raise(ArgumentError.new("BUG: send_keepalive_packet is available for tcp")) do
         @d.__send__(m, :myserver, PORT, proto: proto, send_keepalive_packet: true){|x| x }
       end

@@ -207,6 +207,10 @@ class BufferedOutputTest < Test::Unit::TestCase
     end
   end
 
+  setup do
+    @i = nil
+  end
+
   teardown do
     if @i
       @i.stop unless @i.stopped?

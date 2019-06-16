@@ -741,8 +741,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ @i.num_errors > 0 }
 
       prev_write_count = @i.write_count
-      prev_num_errors = @i.num_errors
-
       first_failure = @i.retry.start
 
       20.times do |i| # large enough
@@ -757,7 +755,6 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
         break if @i.buffer.queue.size == 0
 
         prev_write_count = @i.write_count
-        prev_num_errors = @i.num_errors
       end
 
       # retry_timeout == 60(sec), retry_secondary_threshold == 0.8

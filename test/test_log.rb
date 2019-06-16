@@ -12,7 +12,7 @@ class LogTest < Test::Unit::TestCase
     FileUtils.rm_rf(TMP_DIR)
     FileUtils.mkdir_p(TMP_DIR)
     @log_device = Fluent::Test::DummyLogDevice.new
-    @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
+    @timestamp = Time.parse("2016-04-21 02:58:41 +0000")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
     Timecop.freeze(@timestamp)
   end
@@ -540,7 +540,7 @@ end
 class PluginLoggerTest < Test::Unit::TestCase
   def setup
     @log_device = Fluent::Test::DummyLogDevice.new
-    @timestamp = Time.parse("2016-04-21 11:58:41 +0900")
+    @timestamp = Time.parse("2016-04-21 02:58:41 +0000")
     @timestamp_str = @timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
     Timecop.freeze(@timestamp)
     dl_opts = {}
@@ -796,13 +796,15 @@ class PluginLoggerTest < Test::Unit::TestCase
     end
 
     data(
-      text: [:text, "2016-04-21 11:58:41 +0900 [info]: yaaay\n"],
-      json: [:json, %Q({"time":"2016-04-21 11:58:41 +0900","level":"info","message":"yaaay"}\n)],
+      text: [:text, "2016-04-21 02:58:41 +0000 [info]: yaaay\n"],
+      json: [:json, %Q({"time":"2016-04-21 02:58:41 +0000","level":"info","message":"yaaay"}\n)],
     )
     def test_format(data)
       fmt, expected_log_line = data
-      @log.format = fmt
-      @log.info "yaaay"
+      with_timezone('utc') {
+        @log.format = fmt
+        @log.info "yaaay"
+      }
       assert{ @log_device.logs.include? expected_log_line }
     end
 

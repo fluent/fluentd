@@ -135,13 +135,13 @@ module Fluent::Plugin
           if client.host
             begin
               source = IPSocket.getaddress(client.host)
-            rescue SocketError => e
+            rescue SocketError
               raise Fluent::ConfigError, "host '#{client.host}' cannot be resolved"
             end
           end
           source_addr = begin
                           IPAddr.new(source || client.network)
-                        rescue ArgumentError => e
+                        rescue ArgumentError
                           raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
                         end
           @nodes.push({

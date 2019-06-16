@@ -912,7 +912,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal mode, staged[m].state
     end
 
-     def compare_queued_chunk(queued, id, num, mode)
+    def compare_queued_chunk(queued, id, num, mode)
       assert_equal 1, queued.size
       assert_equal id, queued[0].unique_id
       assert_equal num, queued[0].size

@@ -215,7 +215,7 @@ EOM
             parsed = nil
             begin
               parsed = JSON.parse(buffer + line_buffer.rstrip.sub(/,$/, '') + (is_array ? "]" : "}"))
-            rescue JSON::ParserError => e
+            rescue JSON::ParserError
               # This '#' is in json string literals
             end
 
@@ -243,7 +243,7 @@ EOM
           line_buffer << char
           begin
             result = JSON.parse(buffer + line_buffer)
-          rescue JSON::ParserError => e
+          rescue JSON::ParserError
             # Incomplete json string yet
           end
         end

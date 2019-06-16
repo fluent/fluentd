@@ -635,7 +635,6 @@ class FileOutputTest < Test::Unit::TestCase
 
   test '${chunk_id}' do
     time = event_time("2011-01-02 13:14:15 UTC")
-    formatted_lines = %[2011-01-02T13:14:15Z\ttest\t{"a":1}\n] + %[2011-01-02T13:14:15Z\ttest\t{"a":2}\n]
 
     write_once = ->(){
       d = create_driver %[
