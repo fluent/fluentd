@@ -22,11 +22,12 @@ module Fluent
     module HttpServer
       module Compat
         class Server
-          # @param logger [Logger] ignored option. only for compat
+          # @param logger [Logger]
           # @param default_app [Object] ignored option. only for compat
           def initialize(addr:, port:, logger:, default_app: nil)
             @addr = addr
             @port = port
+            @logger = logger
             @server = WEBrick::HTTPServer.new(
               BindAddress: @bind,
               Port: @port,
@@ -45,6 +46,7 @@ module Fluent
           def start(notify = nil)
             build_handler
             notify.push(:ready)
+            @logger.debug('Start webrick HTTP server listening')
             @server.start
           end
 

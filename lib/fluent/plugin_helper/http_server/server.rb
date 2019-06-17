@@ -47,7 +47,7 @@ module Fluent
         end
 
         def start(notify = nil)
-          @logger.debug("Start HTTP server listening #{@uri}")
+          @logger.debug("Start async HTTP server listening #{@uri}")
           task = @reactor.run do
             @server.run
 
