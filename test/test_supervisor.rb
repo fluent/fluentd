@@ -238,6 +238,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     server.enable_get_dump = sys_conf.enable_get_dump
 
     server.run_rpc_server
+    Thread.pass
 
     sv.send(:install_main_process_signal_handlers)
     Net::HTTP.get URI.parse('http://0.0.0.0:24447/api/plugins.flushBuffers')
