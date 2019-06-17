@@ -498,6 +498,34 @@ class ParserFilterTest < Test::Unit::TestCase
     assert_equal({"data.xxx"=>"first","data.yyy"=>"second"}, record['parsed'])
   end
 
+  CONFIG_HASH_VALUE_FIELD_EMPTY = %[
+    key_name data
+    hash_value_field
+    <parse>
+      @type json
+    </parse>
+  ]
+  data(:event_time => lambda { |time| Fluent::EventTime.from_time(time) },
+       :int_time => lambda { |time| time.to_i })
+  def test_filter_hash_value_field_empty(time_parse)
+    original = {'data' => '{"xxx":"first","yyy":"second"}', 'xxx' => 'x', 'yyy' => 'y'}
+
+    d = create_driver(CONFIG_HASH_VALUE_FIELD_EMPTY)
+    time = time_parse.call(@default_time)
+    d.run do
+      d.feed(@tag, time, original)
+    end
+    filtered = d.filtered
+    assert_equal 1, filtered.length
+
+    first = filtered[0]
+    assert_equal_parsed_time time, first[0]
+
+    record = first[1]
+    assert_equal 2, record.keys.size
+    assert_equal({"xxx"=>"first","yyy"=>"second"}, record)
+  end
+
   CONFIG_DONT_PARSE_TIME = %[
     key_name data
     reserve_time true

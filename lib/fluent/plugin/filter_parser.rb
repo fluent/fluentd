@@ -120,7 +120,7 @@ module Fluent::Plugin
       if values && @inject_key_prefix
         values = Hash[values.map { |k, v| [@inject_key_prefix + k, v] }]
       end
-      r = @hash_value_field ? {@hash_value_field => values} : values
+      r = @hash_value_field && @hash_value_field != '' ? {@hash_value_field => values} : values
       if @reserve_data
         r = r ? record.merge(r) : record
       end
