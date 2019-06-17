@@ -58,7 +58,7 @@ module Fluent::Plugin
         opts = build_option(req)
         obj = build_object(opts)
 
-        render_json({ 'plugins' => obj }, opts)
+        render_json({ 'plugins' => obj }, pretty_json: opts[:pretty_json])
       end
 
       def config_ltsv(_req)
@@ -77,7 +77,7 @@ module Fluent::Plugin
         }.merge(@agent.fluentd_opts)
         opts = build_option(req)
 
-        render_json(obj, opts)
+        render_json(obj, pretty_json: opts[:pretty_json])
       end
 
       private
@@ -87,9 +87,9 @@ module Fluent::Plugin
         render_json(resp, code: code, pretty_json: pretty_json)
       end
 
-      def render_json(obj, code: 200, **opts)
+      def render_json(obj, code: 200, pretty_json: nil)
         body =
-          if opts[:pretty_json]
+          if pretty_json
             JSON.pretty_generate(obj)
           else
             obj.to_json
