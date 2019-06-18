@@ -184,6 +184,8 @@ module Fluent
         @emit_records = 0
         @write_count = 0
         @rollback_count = 0
+        @flush_time_count = 0
+        @slow_flush_count = 0
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
         if implement?(:synchronous)
@@ -1202,7 +1204,9 @@ module Fluent
 
       def check_slow_flush(start)
         elapsed_time = Fluent::Clock.now - start
+        @counters_monitor.synchronize { @flush_time_count += elapsed_time }
         if elapsed_time > @slow_flush_log_threshold
+          @counters_monitor.synchronize { @slow_flush_count += 1 }
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                    elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold, plugin_id: self.plugin_id
         end
@@ -1467,6 +1471,8 @@ module Fluent
           'emit_count' => @emit_count,
           'write_count' => @write_count,
           'rollback_count' => @rollback_count,
+          'slow_flush_count' => @slow_flush_count,
+          'flush_time_count' => @flush_time_count,
         }
 
         if @buffer && @buffer.respond_to?(:statistics)
