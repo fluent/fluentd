@@ -1173,7 +1173,10 @@ module Fluent
               @dequeued_chunks.delete_if{|d| d.chunk_id == chunk.unique_id }
             end
           end
-          @buffer.takeback_chunk(chunk.unique_id)
+
+          if @buffer.takeback_chunk(chunk.unique_id)
+            @counters_monitor.synchronize { @rollback_count += 1 }
+          end
 
           update_retry_state(chunk.unique_id, using_secondary, e)
 
