@@ -29,7 +29,7 @@ module Fluent
             @port = port
             @logger = logger
             @server = WEBrick::HTTPServer.new(
-              BindAddress: @bind,
+              BindAddress: @addr,
               Port: @port,
               Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
               AccessLog: [],
