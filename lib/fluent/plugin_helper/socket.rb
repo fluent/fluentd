@@ -55,8 +55,14 @@ module Fluent
         end
       end
 
-      def socket_create_tcp(host, port, resolve_name: false, **kwargs, &block)
-        sock = WrappedSocket::TCP.new(host, port)
+      def socket_create_tcp(host, port, resolve_name: false, connect_timeout: nil, **kwargs, &block)
+        sock = if connect_timeout
+                 s = ::Socket.tcp(host, port, connect_timeout: connect_timeout)
+                 s.autoclose = false # avoid GC triggered close
+                 WrappedSocket::TCP.for_fd(s.fileno)
+               else
+                 WrappedSocket::TCP.new(host, port)
+               end
         socket_option_set(sock, resolve_name: resolve_name, **kwargs)
         if block
           begin

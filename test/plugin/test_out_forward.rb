@@ -78,6 +78,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 60, d.instance.send_timeout
     assert_equal :transport, d.instance.heartbeat_type
     assert_equal 1, nodes.length
+    assert_nil d.instance.connect_timeout
     node = nodes.first
     assert_equal "test", node.name
     assert_equal '127.0.0.1', node.host
@@ -100,6 +101,23 @@ EOL
     assert_equal [], instance.chunk_keys
     assert{ instance.buffer.is_a?(Fluent::Plugin::MemoryBuffer) }
     assert_equal( 10*1024*1024, instance.buffer.chunk_limit_size )
+  end
+
+  test 'configure timeouts' do
+    @d = d = create_driver(%[
+      send_timeout 30
+      connect_timeout 10
+      hard_timeout 15
+      ack_response_timeout 20
+      <server>
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ])
+    assert_equal 30, d.instance.send_timeout
+    assert_equal 10, d.instance.connect_timeout
+    assert_equal 15, d.instance.hard_timeout
+    assert_equal 20, d.instance.ack_response_timeout
   end
 
   test 'configure_udp_heartbeat' do

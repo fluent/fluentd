@@ -39,6 +39,8 @@ module Fluent::Plugin
 
     desc 'The timeout time when sending event logs.'
     config_param :send_timeout, :time, default: 60
+    desc 'The timeout time for socket connect'
+    config_param :connect_timeout, :time, default: nil
     # TODO: add linger_timeout, recv_timeout
 
     desc 'The protocol to use for heartbeats (default is the same with "transport").'
@@ -376,6 +378,7 @@ module Fluent::Plugin
           linger_timeout: Fluent.windows? ? nil : @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
+          connect_timeout: @connect_timeout,
           &block
         )
       when :tcp
@@ -384,6 +387,7 @@ module Fluent::Plugin
           linger_timeout: @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
+          connect_timeout: @connect_timeout,
           &block
         )
       else
