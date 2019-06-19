@@ -36,6 +36,12 @@ module Fluent
       desc 'Set the buffer size that Yajl will use when parsing streaming input'
       config_param :stream_buffer_size, :integer, default: 8192
 
+      desc 'Whether to flatten nested JSON.'
+      config_param :flatten_json, :bool, default: false
+
+      desc 'The delimiter character (or string) of key when flatten nested JSON.'
+      config_param :flatten_key_delimiter, :string, default: '.'
+
       config_set_default :time_type, :float
 
       def configure(conf)
@@ -72,7 +78,7 @@ module Fluent
 
       def parse(text)
         r = @load_proc.call(text)
-        time, record = convert_values(parse_time(r), r)
+        time, record = convert_values(parse_time(r), @flatten_json ? flatten_hash_from(r) : r)
         yield time, record
       rescue @error_class, EncodingError # EncodingError is for oj 3.x or later
         yield nil, nil
@@ -88,6 +94,21 @@ module Fluent
           block.call(parse_time(record), record)
         }
         y.parse(io, @stream_buffer_size)
+      end
+
+      private
+      def flatten_hash_from(hash_or_array)
+        if hash_or_array.is_a?(Array)
+          tmp_hash = {}
+          hash_or_array.each_with_index { |value, index| tmp_hash["#{index}"] = value }
+        end
+        hash = hash_or_array.is_a?(Array) ? tmp_hash : hash_or_array
+        hash.each_with_object({}) do |(key, value), flat_hash|
+          next flatten_hash_from(value).each do |k, v|
+            flat_hash["#{key}#{@flatten_key_delimiter}#{k}"] = v
+          end if value.is_a?(Hash) || value.is_a?(Array)
+          flat_hash[key] = value
+        end
       end
     end
   end

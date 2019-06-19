@@ -22,6 +22,57 @@ class JsonParserTest < ::Test::Unit::TestCase
   end
 
   data('oj' => 'oj', 'yajl' => 'yajl')
+  def test_parse_with_nested_json(data)
+    @parser.configure(
+                       'flatten_json' => 'true',
+                       'json_parser' => data
+                     )
+    nested_json = '{"time": 1552109400, "nested_param": {
+      "hash_hash": {"a": {"a": 0}, "b": {"b": 1, "c": 2}},
+      "array_array": [[3], [4, 5], [6, 7, 8]],
+      "hash_array": {"a": [[9], [10, 11], [12, 13, 14]]},
+      "array_hash": [{"a": 15}, {"b": 16, "c": 17}]
+    }}'
+    @parser.instance.parse(nested_json) { |time, record|
+      assert_equal(event_time('2019-03-09 14:30:00 +0900').to_i, time)
+      assert_equal({
+                     'nested_param.hash_hash.a.a'    =>   0,
+                     'nested_param.hash_hash.b.b'    =>   1,
+                     'nested_param.hash_hash.b.c'    =>   2,
+                     'nested_param.array_array.0.0'  =>   3,
+                     'nested_param.array_array.1.0'  =>   4,
+                     'nested_param.array_array.1.1'  =>   5,
+                     'nested_param.array_array.2.0'  =>   6,
+                     'nested_param.array_array.2.1'  =>   7,
+                     'nested_param.array_array.2.2'  =>   8,
+                     'nested_param.hash_array.a.0.0' =>   9,
+                     'nested_param.hash_array.a.1.0' =>  10,
+                     'nested_param.hash_array.a.1.1' =>  11,
+                     'nested_param.hash_array.a.2.0' =>  12,
+                     'nested_param.hash_array.a.2.1' =>  13,
+                     'nested_param.hash_array.a.2.2' =>  14,
+                     'nested_param.array_hash.0.a'   =>  15,
+                     'nested_param.array_hash.1.b'   =>  16,
+                     'nested_param.array_hash.1.c'   =>  17
+                   }, record)
+    }
+
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::JSONParser)
+    parser.configure('json_parser' => data)
+    parser.instance.parse(nested_json) { |time, record|
+      assert_equal(event_time('2019-03-09 14:30:00 +0900').to_i, time)
+      assert_equal({
+                     'nested_param' => {
+                         'hash_hash'   => {'a' => {'a' => 0}, 'b' => {'b' => 1, 'c' => 2}},
+                         'array_array' => [[3], [4, 5], [6, 7, 8]],
+                         'hash_array'  => {'a' => [[9], [10, 11], [12, 13, 14]]},
+                         'array_hash'  => [{'a' => 15}, {'b' => 16, 'c' => 17}]
+                      }
+                   }, record)
+    }
+  end
+
+  data('oj' => 'oj', 'yajl' => 'yajl')
   def test_parse_with_large_float(data)
     @parser.configure('json_parser' => data)
     @parser.instance.parse('{"num":999999999999999999999999999999.99999}') { |time, record|
