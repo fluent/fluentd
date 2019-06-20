@@ -69,6 +69,19 @@ module Fluent
       @sec.to_s
     end
 
+    begin
+      # ruby 2.5 or later
+      Time.at(0, 0, :nanosecond)
+
+      def to_time
+        Time.at(@sec, @nsec, :nanosecond)
+      end
+    rescue
+      def to_time
+        Time.at(@sec, @nsec / 1000.0)
+      end
+    end
+
     def to_json(*args)
       @sec.to_s
     end
