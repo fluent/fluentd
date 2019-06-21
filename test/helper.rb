@@ -49,6 +49,7 @@ require 'fluent/plugin_helper'
 require 'fluent/msgpack_factory'
 require 'fluent/time'
 require 'serverengine'
+require 'helpers/fuzzy_assert'
 
 module Fluent
   module Plugin
