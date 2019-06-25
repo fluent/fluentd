@@ -1204,8 +1204,8 @@ module Fluent
 
       def check_slow_flush(start)
         elapsed_time = Fluent::Clock.now - start
-        # millsec precision
-        @counters_monitor.synchronize { @flush_time_count += (elapsed_time * 1000).to_i }
+        elapsed_millsec = (elapsed_time * 1000).to_i
+        @counters_monitor.synchronize { @flush_time_count += elapsed_millsec }
         if elapsed_time > @slow_flush_log_threshold
           @counters_monitor.synchronize { @slow_flush_count += 1 }
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
