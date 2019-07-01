@@ -230,6 +230,7 @@ module Fluent::Plugin
       end
     end
 
+    # They are deprecated but remain for compatibility
     MONITOR_INFO = {
       'output_plugin' => ->(){ is_a?(::Fluent::Plugin::Output) },
       'buffer_queue_length' => ->(){ throw(:skip) unless instance_variable_defined?(:@buffer) && !@buffer.nil? && @buffer.is_a?(::Fluent::Plugin::Buffer); @buffer.queue.size },
@@ -330,6 +331,10 @@ module Fluent::Plugin
           log.warn "unexpected error in monitoring plugins", key: key, plugin: pe.class, error: e
         end
       }
+
+      if pe.respond_to?(:statistics)
+        obj.merge!(pe.statistics['output'] || {})
+      end
 
       obj['retry'] = get_retry_info(pe.retry) if opts[:with_retry] and pe.instance_variable_defined?(:@retry)
 

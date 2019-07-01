@@ -740,6 +740,28 @@ module Fluent
         enqueue_chunk(metadata) if enqueue_chunk_before_retry
         retry
       end
+
+      def statistics
+        buffer_space = 1.0 - ((@stage_size + @queue_size * 1.0) / @total_limit_size).round
+        stats = {
+          'stage_length' => @stage.size,
+          'stage_byte_size' => @stage_size,
+          'queue_length' => @queue.size,
+          'queue_byte_size' => @queue_size,
+          'available_buffer_space_ratios' => buffer_space * 100,
+          'total_queued_size' => @stage_size + @queue_size,
+        }
+
+        if (m = timekeys.min)
+          stats['oldest_timekey'] = m
+        end
+
+        if (m = timekeys.max)
+          stats['newest_timekey'] = m
+        end
+
+        { 'buffer' => stats }
+      end
     end
   end
 end
