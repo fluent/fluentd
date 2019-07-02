@@ -1,3 +1,32 @@
+# v1.6
+
+## Release v1.6.0 - 2019/07/01
+
+### New feature
+
+* plugin: Add http_server helper and in_monitor_agent use it
+  https://github.com/fluent/fluentd/pull/2447
+
+### Enhancement
+
+* in_monitor_agent: Add more metrics for buffer/output
+  https://github.com/fluent/fluentd/pull/2450
+* time/plugin: Add `EventTime#to_time` method for fast conversion
+  https://github.com/fluent/fluentd/pull/2469
+* socket helper/out_forward: Add connect_timeout parameter
+  https://github.com/fluent/fluentd/pull/2467
+* command: Add `--conf-encoding` option
+  https://github.com/fluent/fluentd/pull/2453
+* parser_none: Small performance optimization
+  https://github.com/fluent/fluentd/pull/2455
+
+### Bug fixes
+
+* cert: Fix cert match pattern
+  https://github.com/fluent/fluentd/pull/2466
+* output: Fix forget to increment rollback count
+  https://github.com/fluent/fluentd/pull/2462
+
 # v1.5
 
 ## Release v1.5.2 - 2019/06/13
