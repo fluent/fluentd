@@ -18,6 +18,15 @@ require 'tzinfo'
 
 require 'fluent/config/error'
 
+# For v0.12. Will be removed after v2
+module IntegerExt
+  refine Integer do
+    def to_time
+      Time.at(self)
+    end
+  end
+end
+
 module Fluent
   class Timezone
     # [+-]HH:MM, [+-]HHMM, [+-]HH
@@ -84,6 +93,8 @@ module Fluent
       end
     end
 
+    using IntegerExt
+
     # Create a formatter for a timezone and optionally a format.
     #
     # An Proc object is returned. If the given timezone is invalid,
@@ -100,15 +111,15 @@ module Fluent
         case
         when format.is_a?(String)
           return Proc.new {|time|
-            Time.at(time).localtime(offset).strftime(format)
+            time.to_time.localtime(offset).strftime(format)
           }
         when format.is_a?(Strftime)
           return Proc.new {|time|
-            format.exec(Time.at(time).localtime(offset))
+            format.exec(time.to_time.localtime(offset))
           }
         else
           return Proc.new {|time|
-            Time.at(time).localtime(offset).iso8601
+            time.to_time.localtime(offset).iso8601
           }
         end
       end
@@ -124,15 +135,18 @@ module Fluent
         case
         when format.is_a?(String)
           return Proc.new {|time|
-            Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset).strftime(format)
+            time = time.to_time
+            time.localtime(tz.period_for_utc(time).utc_total_offset).strftime(format)
           }
         when format.is_a?(Strftime)
           return Proc.new {|time|
-            format.exec(Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset))
+            time = time.to_time
+            format.exec(time.localtime(tz.period_for_utc(time).utc_total_offset))
           }
         else
           return Proc.new {|time|
-            Time.at(time).localtime(tz.period_for_utc(time).utc_total_offset).iso8601
+            time = time.to_time
+            time.localtime(tz.period_for_utc(time).utc_total_offset).iso8601
           }
         end
       end
@@ -149,7 +163,7 @@ module Fluent
       when NAME_PATTERN
         tz = TZInfo::Timezone.get(timezone)
         ->(time) {
-          tz.period_for_utc(time).utc_total_offset
+          tz.period_for_utc(time.to_time).utc_total_offset
         }
       end
     end
