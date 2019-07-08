@@ -32,8 +32,8 @@ class FluentPluginConfigFormatter
     "buffer", "parser", "formatter", "storage"
   ]
 
-  DOCS_BASE_URL = "https://docs.fluentd.org/v1.0/articles/quickstart"
-  DOCS_ARTICLE_BASE_URL = "https://docs.fluentd.org/v1.0/articles/"
+  DOCS_BASE_URL = "https://docs.fluentd.org/v/1.0"
+  DOCS_PLUGIN_HELPER_BASE_URL = "#{DOCS_BASE_URL}/plugin-helper-overview/"
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -198,7 +198,7 @@ class FluentPluginConfigFormatter
   end
 
   def plugin_helper_url(plugin_helper)
-    "#{DOCS_ARTICLE_BASE_URL}api-plugin-helper-#{plugin_helper}"
+    "#{DOCS_PLUGIN_HELPER_BASE_URL}api-plugin-helper-#{plugin_helper}"
   end
 
   def plugin_helper_markdown_link(plugin_helper)
@@ -207,7 +207,7 @@ class FluentPluginConfigFormatter
 
   def plugin_overview_url(class_name)
     plugin_type = class_name.slice(/::(\w+)\z/, 1).downcase
-    "#{DOCS_ARTICLE_BASE_URL}#{plugin_type}-plugin-overview"
+    "#{DOCS_BASE_URL}/#{plugin_type}#overview"
   end
 
   def plugin_overview_markdown_link(class_name)
