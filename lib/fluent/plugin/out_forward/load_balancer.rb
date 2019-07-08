@@ -19,11 +19,12 @@ require 'fluent/output'
 module Fluent::Plugin
   class ForwardOutput < Output
     class LoadBalancer
+      class NoNodesAvailable < StandardError; end
+
       def initialize(log)
         @log = log
         @weight_array = []
         @rand_seed = Random.new.seed
-
         @rr = 0
       end
 
@@ -60,7 +61,7 @@ module Fluent::Plugin
             lost_weight += n.weight
           end
         }
-        @log.debug "rebuilding weight array", lost_weight: lost_weight
+        @log.debug("rebuilding weight array", lost_weight: lost_weight)
 
         if lost_weight > 0
           standby_nodes.each {|n|
