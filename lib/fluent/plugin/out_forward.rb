@@ -20,6 +20,7 @@ require 'fluent/clock'
 require 'base64'
 
 require 'fluent/compat/socket_util'
+require 'fluent/plugin/out_forward/load_balancer'
 
 module Fluent::Plugin
   class ForwardOutput < Output
@@ -258,9 +259,8 @@ module Fluent::Plugin
         @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
       end
 
-      @rand_seed = Random.new.seed
-      rebuild_weight_array
-      @rr = 0
+      @load_balancer = LoadBalancer.new(log)
+      @load_balancer.rebuild_weight_array(@nodes)
 
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
@@ -310,7 +310,8 @@ module Fluent::Plugin
     def write(chunk)
       return if chunk.empty?
       tag = chunk.metadata.tag
-      select_a_healthy_node{|node| node.send_data(tag, chunk) }
+
+      @load_balancer.select_a_healthy_node{|node| node.send_data(tag, chunk) }
     end
 
     ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
@@ -326,35 +327,13 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      sock, node = select_a_healthy_node{|n| n.send_data(tag, chunk) }
+      sock, node = @load_balancer.select_a_healthy_node{|n| n.send_data(tag, chunk) }
       chunk_id_base64 = Base64.encode64(chunk.unique_id)
       current_time = Fluent::Clock.now
       info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting << info
       end
-    end
-
-    def select_a_healthy_node
-      error = nil
-
-      wlen = @weight_array.length
-      wlen.times do
-        @rr = (@rr + 1) % wlen
-        node = @weight_array[@rr]
-        next unless node.available?
-
-        begin
-          ret = yield node
-          return ret, node
-        rescue
-          # for load balancing during detecting crashed servers
-          error = $!  # use the latest error
-        end
-      end
-
-      raise error if error
-      raise NoNodesAvailable, "no nodes are available"
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -403,61 +382,13 @@ module Fluent::Plugin
 
     private
 
-    def rebuild_weight_array
-      standby_nodes, regular_nodes = @nodes.partition {|n|
-        n.standby?
-      }
-
-      lost_weight = 0
-      regular_nodes.each {|n|
-        unless n.available?
-          lost_weight += n.weight
-        end
-      }
-      log.debug "rebuilding weight array", lost_weight: lost_weight
-
-      if lost_weight > 0
-        standby_nodes.each {|n|
-          if n.available?
-            regular_nodes << n
-            log.warn "using standby node #{n.host}:#{n.port}", weight: n.weight
-            lost_weight -= n.weight
-            break if lost_weight <= 0
-          end
-        }
-      end
-
-      weight_array = []
-      if regular_nodes.empty?
-        log.warn('No nodes are available')
-        @weight_array = weight_array
-        return @weight_array
-      end
-
-      gcd = regular_nodes.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
-      regular_nodes.each {|n|
-        (n.weight / gcd).times {
-          weight_array << n
-        }
-      }
-
-      # for load balancing during detecting crashed servers
-      coe = (regular_nodes.size * 6) / weight_array.size
-      weight_array *= coe if coe > 1
-
-      r = Random.new(@rand_seed)
-      weight_array.sort_by! { r.rand }
-
-      @weight_array = weight_array
-    end
-
     def on_timer
       @nodes.each {|n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
           if n.send_heartbeat
-            rebuild_weight_array
+            @load_balancer.rebuild_weight_array
           end
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
@@ -465,7 +396,7 @@ module Fluent::Plugin
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         end
         if n.tick
-          rebuild_weight_array
+          @load_balancer.rebuild_weight_array
         end
       }
     end
@@ -474,7 +405,7 @@ module Fluent::Plugin
       if node = @nodes.find {|n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          rebuild_weight_array
+          @load_balancer.rebuild_weight_array
         end
       end
     end
