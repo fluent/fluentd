@@ -27,7 +27,7 @@ module Fluent::Plugin
         @rr = 0
       end
 
-      def select_a_healthy_node
+      def select_healthy_node
         error = nil
 
         wlen = @weight_array.length

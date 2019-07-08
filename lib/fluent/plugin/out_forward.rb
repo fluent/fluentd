@@ -311,7 +311,7 @@ module Fluent::Plugin
       return if chunk.empty?
       tag = chunk.metadata.tag
 
-      @load_balancer.select_a_healthy_node{|node| node.send_data(tag, chunk) }
+      @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
     end
 
     ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
@@ -327,7 +327,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      sock, node = @load_balancer.select_a_healthy_node{|n| n.send_data(tag, chunk) }
+      sock, node = @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
       chunk_id_base64 = Base64.encode64(chunk.unique_id)
       current_time = Fluent::Clock.now
       info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
