@@ -620,6 +620,19 @@ module Fluent::Plugin
           [true, nil]
         end
 
+        def check_helo(ri, message)
+          @log.debug "checking helo"
+          # ['HELO', options(hash)]
+          unless message.size == 2 && message[0] == 'HELO'
+            return false
+          end
+          opts = message[1] || {}
+          # make shared_key_check failed (instead of error) if protocol version mismatch exist
+          ri.shared_key_nonce = opts['nonce'] || ''
+          ri.auth = opts['auth'] || ''
+          true
+        end
+
         private
 
         def generate_salt
@@ -829,19 +842,6 @@ module Fluent::Plugin
         end
       end
 
-      def check_helo(ri, message)
-        @log.debug "checking helo"
-        # ['HELO', options(hash)]
-        unless message.size == 2 && message[0] == 'HELO'
-          return false
-        end
-        opts = message[1] || {}
-        # make shared_key_check failed (instead of error) if protocol version mismatch exist
-        ri.shared_key_nonce = opts['nonce'] || ''
-        ri.auth = opts['auth'] || ''
-        true
-      end
-
       def generate_ping(ri)
         @log.debug "generating ping"
         # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
@@ -866,7 +866,7 @@ module Fluent::Plugin
 
         case ri.state
         when :helo
-          unless check_helo(ri, data)
+          unless @handshake.check_helo(ri, data)
             @log.warn "received invalid helo message from #{@name}"
             disable! # shutdown
             return
