@@ -76,7 +76,7 @@ module Fluent
       end
 
       def cert_option_load(cert_path, private_key_path, private_key_passphrase)
-        key = OpenSSL::PKey::RSA.new(File.read(private_key_path), private_key_passphrase)
+        key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase)
         certs = cert_option_certificates_from_file(cert_path)
         cert = certs.shift
         return cert, key, certs
@@ -137,7 +137,7 @@ module Fluent
       end
 
       def cert_option_generate_server_pair_by_ca(ca_cert_path, ca_key_path, ca_key_passphrase, generate_opts)
-        ca_key = OpenSSL::PKey::RSA.new(File.read(ca_key_path), ca_key_passphrase)
+        ca_key = OpenSSL::PKey::read(File.read(ca_key_path), ca_key_passphrase)
         ca_cert = OpenSSL::X509::Certificate.new(File.read(ca_cert_path))
         cert, key = cert_option_generate_pair(generate_opts, ca_cert.subject)
         raise "BUG: certificate digest algorithm not set" unless generate_opts[:digest]
