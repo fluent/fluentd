@@ -1010,6 +1010,20 @@ EOL
     end
   end
 
+  test 'if no available node' do
+    # do not create output driver
+    d = create_driver(%[
+    <server>
+      name test
+      standby
+      host #{TARGET_HOST}
+      port #{TARGET_PORT}
+    </server>
+    ])
+    d.instance_start
+    assert_nothing_raised { d.run }
+  end
+
   sub_test_case 'keepalive' do
     test 'Do not create connection per send_data' do
       target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)

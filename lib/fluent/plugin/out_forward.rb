@@ -428,6 +428,12 @@ module Fluent::Plugin
       end
 
       weight_array = []
+      if regular_nodes.empty?
+        log.warn('No nodes are available')
+        @weight_array = weight_array
+        return @weight_array
+      end
+
       gcd = regular_nodes.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
       regular_nodes.each {|n|
         (n.weight / gcd).times {
