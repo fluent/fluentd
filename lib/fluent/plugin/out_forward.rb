@@ -606,7 +606,7 @@ module Fluent::Plugin
           @username = username
         end
 
-        def on_read(sock, ri, data)
+        def invoke(sock, ri, data)
           @log.trace __callee__
 
           case ri.state
@@ -705,7 +705,7 @@ module Fluent::Plugin
               next
             end
             @unpacker.feed_each(buf) do |data|
-              if @handshake.on_read(sock, ri, data) == :established
+              if @handshake.invoke(sock, ri, data) == :established
                 @log.debug "connection established", host: @host, port: @port
               end
             end
