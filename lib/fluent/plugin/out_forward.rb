@@ -607,15 +607,15 @@ module Fluent::Plugin
 
           case ri.state
           when :helo
-            unless @handshake.check_helo(ri, data)
+            unless check_helo(ri, data)
               @log.warn "received invalid helo message from #{@name}"
               disable! # shutdown
               return
             end
-            sock.write(@handshake.generate_ping(ri).to_msgpack)
+            sock.write(generate_ping(ri).to_msgpack)
             ri.state = :pingpong
           when :pingpong
-            succeeded, reason = @handshake.check_pong(ri, data)
+            succeeded, reason = check_pong(ri, data)
             unless succeeded
               @log.warn "connection refused to #{@name || @host}: #{reason}"
               disable! # shutdown
@@ -628,6 +628,7 @@ module Fluent::Plugin
           end
         end
 
+        private
 
         def check_pong(ri, message)
           @log.debug('checking pong')
@@ -686,8 +687,6 @@ module Fluent::Plugin
           end
           ping
         end
-
-        private
 
         def generate_salt
           SecureRandom.hex(16)
