@@ -537,7 +537,7 @@ module Fluent::Plugin
         @username = server.username
         @password = server.password
         @shared_key = server.shared_key || (sender.security && sender.security.shared_key) || ""
-        @shared_key_salt = generate_salt
+        @handshake = HandshakeProtocol.new
 
         @unpacker = Fluent::Engine.msgpack_unpacker
 
@@ -582,6 +582,20 @@ module Fluent::Plugin
             establish_connection(sock, ri)
             raise if ri.state != :established
           end
+        end
+      end
+
+      class HandshakeProtocol
+        attr_reader :shared_key_salt
+
+        def initialize
+          @shared_key_salt = generate_salt
+        end
+
+        private
+
+        def generate_salt
+          SecureRandom.hex(16)
         end
       end
 
@@ -787,10 +801,6 @@ module Fluent::Plugin
         end
       end
 
-      def generate_salt
-        SecureRandom.hex(16)
-      end
-
       def check_helo(ri, message)
         @log.debug "checking helo"
         # ['HELO', options(hash)]
@@ -808,12 +818,12 @@ module Fluent::Plugin
         @log.debug "generating ping"
         # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
         #  username || '', sha512\_hex(auth\_salt + username + password) || '']
-        shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt)
+        shared_key_hexdigest = Digest::SHA512.new.update(@handshake.shared_key_salt)
           .update(@sender.security.self_hostname)
           .update(ri.shared_key_nonce)
           .update(@shared_key)
           .hexdigest
-        ping = ['PING', @sender.security.self_hostname, @shared_key_salt, shared_key_hexdigest]
+        ping = ['PING', @sender.security.self_hostname, @handshake.shared_key_salt, shared_key_hexdigest]
         if !ri.auth.empty?
           password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
           ping.push(@username, password_hexdigest)
@@ -840,7 +850,7 @@ module Fluent::Plugin
           return false, 'same hostname between input and output: invalid configuration'
         end
 
-        clientside = Digest::SHA512.new.update(@shared_key_salt).update(hostname).update(ri.shared_key_nonce).update(@shared_key).hexdigest
+        clientside = Digest::SHA512.new.update(@handshake.shared_key_salt).update(hostname).update(ri.shared_key_nonce).update(@shared_key).hexdigest
         unless shared_key_hexdigest == clientside
           return false, 'shared key mismatch'
         end
