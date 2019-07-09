@@ -537,7 +537,7 @@ module Fluent::Plugin
 
         @handshake = HandshakeProtocol.new(
           log: @log,
-          security: @sender.security,
+          hostname: sender.security && sender.security.self_hostname,
           shared_key: server.shared_key || (sender.security && sender.security.shared_key) || '',
           password: server.password,
           username: server.username,

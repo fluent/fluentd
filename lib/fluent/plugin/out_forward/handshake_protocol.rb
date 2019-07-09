@@ -25,9 +25,9 @@ module Fluent::Plugin
 
       attr_reader :shared_key_salt
 
-      def initialize(log:, security:, shared_key:, password:, username:)
+      def initialize(log:, hostname:, shared_key:, password:, username:)
         @log = log
-        @security = security
+        @hostname = hostname
         @shared_key = shared_key
         @password = password
         @username = username
@@ -72,7 +72,7 @@ module Fluent::Plugin
           return false, 'authentication failed: ' + reason
         end
 
-        if hostname == @security.self_hostname
+        if hostname == @hostname
           return false, 'same hostname between input and output: invalid configuration'
         end
 
@@ -103,11 +103,11 @@ module Fluent::Plugin
         # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
         #  username || '', sha512\_hex(auth\_salt + username + password) || '']
         shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt)
-          .update(@security.self_hostname)
+          .update(@hostname)
           .update(ri.shared_key_nonce)
           .update(@shared_key)
           .hexdigest
-        ping = ['PING', @security.self_hostname, @shared_key_salt, shared_key_hexdigest]
+        ping = ['PING', @hostname, @shared_key_salt, shared_key_hexdigest]
         if !ri.auth.empty?
           password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
           ping.push(@username, password_hexdigest)
