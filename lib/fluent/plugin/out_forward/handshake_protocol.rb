@@ -23,8 +23,6 @@ module Fluent::Plugin
       class HeloError < HandshakeError; end
       class PingpongError < HandshakeError; end
 
-      attr_reader :shared_key_salt
-
       def initialize(log:, hostname:, shared_key:, password:, username:)
         @log = log
         @hostname = hostname
