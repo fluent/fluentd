@@ -133,7 +133,7 @@ module Fluent
           context.cert_store = cert_store
           context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
           context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
-          context.key = OpenSSL::PKey::RSA.new(File.read(private_key_path), private_key_passphrase) if private_key_path
+          context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
         end
 
         tcpsock = socket_create_tcp(host, port, **kwargs)
