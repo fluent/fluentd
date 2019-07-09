@@ -534,10 +534,15 @@ module Fluent::Plugin
 
         @usock = nil
 
-        @username = server.username
-        @password = server.password
         @shared_key = server.shared_key || (sender.security && sender.security.shared_key) || ""
-        @handshake = HandshakeProtocol.new(log: @log, security: @sender.security, shared_key: @shared_key)
+
+        @handshake = HandshakeProtocol.new(
+          log: @log,
+          security: @sender.security,
+          shared_key: @shared_key,
+          password: server.password,
+          username: server.username,
+        )
 
         @unpacker = Fluent::Engine.msgpack_unpacker
 
@@ -588,11 +593,13 @@ module Fluent::Plugin
       class HandshakeProtocol
         attr_reader :shared_key_salt
 
-        def initialize(log:, security:, shared_key:)
+        def initialize(log:, security:, shared_key:, password:, username:)
           @log = log
           @security = security
           @shared_key = shared_key
           @shared_key_salt = generate_salt
+          @password = password
+          @username = username
         end
 
         def check_pong(ri, message)
@@ -635,20 +642,20 @@ module Fluent::Plugin
         end
 
         def generate_ping(ri)
-          @log.debug "generating ping"
+          @log.debug('generating ping')
           # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
           #  username || '', sha512\_hex(auth\_salt + username + password) || '']
-          shared_key_hexdigest = Digest::SHA512.new.update(@handshake.shared_key_salt)
-            .update(@sender.security.self_hostname)
+          shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt)
+            .update(@security.self_hostname)
             .update(ri.shared_key_nonce)
             .update(@shared_key)
             .hexdigest
-          ping = ['PING', @sender.security.self_hostname, @handshake.shared_key_salt, shared_key_hexdigest]
+          ping = ['PING', @security.self_hostname, @shared_key_salt, shared_key_hexdigest]
           if !ri.auth.empty?
             password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
             ping.push(@username, password_hexdigest)
           else
-            ping.push('','')
+            ping.push('', '')
           end
           ping
         end
