@@ -591,6 +591,10 @@ module Fluent::Plugin
       end
 
       class HandshakeProtocol
+        class HandshakeError < StandardError; end
+        class HeloError < HandshakeError; end
+        class PingpongError < HandshakeError; end
+
         attr_reader :shared_key_salt
 
         def initialize(log:, security:, shared_key:, password:, username:)
@@ -608,19 +612,17 @@ module Fluent::Plugin
           case ri.state
           when :helo
             unless check_helo(ri, data)
-              @log.warn "received invalid helo message from #{@name}"
-              disable! # shutdown
-              return
+              raise HeloError, 'received invalid helo message'
             end
+
             sock.write(generate_ping(ri).to_msgpack)
             ri.state = :pingpong
           when :pingpong
             succeeded, reason = check_pong(ri, data)
             unless succeeded
-              @log.warn "connection refused to #{@name || @host}: #{reason}"
-              disable! # shutdown
-              return
+              raise PingpongError, reason
             end
+
             ri.state = :established
             @log.debug "connection established", host: @host, port: @port
           else
@@ -717,6 +719,14 @@ module Fluent::Plugin
             break
           rescue EOFError
             @log.warn "disconnected", host: @host, port: @port
+            disable!
+            break
+          rescue HandshakeProtocol::HeloError => e
+            @log.warn "received invalid helo message from #{@name}"
+            disable!
+            break
+          rescue HandshakeProtocol::PingpongError => e
+            @log.warn "connection refused to #{@name || @host}: #{e.messag}"
             disable!
             break
           end
