@@ -621,11 +621,12 @@ module Fluent::Plugin
         end
 
         def check_helo(ri, message)
-          @log.debug "checking helo"
+          @log.debug('checking helo')
           # ['HELO', options(hash)]
           unless message.size == 2 && message[0] == 'HELO'
             return false
           end
+
           opts = message[1] || {}
           # make shared_key_check failed (instead of error) if protocol version mismatch exist
           ri.shared_key_nonce = opts['nonce'] || ''
