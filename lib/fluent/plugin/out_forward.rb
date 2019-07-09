@@ -624,7 +624,6 @@ module Fluent::Plugin
             end
 
             ri.state = :established
-            @log.debug "connection established", host: @host, port: @port
           else
             raise "BUG: unknown session state: #{ri.state}"
           end
@@ -706,7 +705,9 @@ module Fluent::Plugin
               next
             end
             @unpacker.feed_each(buf) do |data|
-              @handshake.on_read(sock, ri, data)
+              if @handshake.on_read(sock, ri, data) == :established
+                @log.debug "connection established", host: @host, port: @port
+              end
             end
           rescue IO::WaitReadable
             # If the exception is Errno::EWOULDBLOCK or Errno::EAGAIN, it is extended by IO::WaitReadable.
