@@ -634,6 +634,25 @@ module Fluent::Plugin
           true
         end
 
+        def generate_ping(ri)
+          @log.debug "generating ping"
+          # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
+          #  username || '', sha512\_hex(auth\_salt + username + password) || '']
+          shared_key_hexdigest = Digest::SHA512.new.update(@handshake.shared_key_salt)
+            .update(@sender.security.self_hostname)
+            .update(ri.shared_key_nonce)
+            .update(@shared_key)
+            .hexdigest
+          ping = ['PING', @sender.security.self_hostname, @handshake.shared_key_salt, shared_key_hexdigest]
+          if !ri.auth.empty?
+            password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
+            ping.push(@username, password_hexdigest)
+          else
+            ping.push('','')
+          end
+          ping
+        end
+
         private
 
         def generate_salt
@@ -843,25 +862,6 @@ module Fluent::Plugin
         end
       end
 
-      def generate_ping(ri)
-        @log.debug "generating ping"
-        # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
-        #  username || '', sha512\_hex(auth\_salt + username + password) || '']
-        shared_key_hexdigest = Digest::SHA512.new.update(@handshake.shared_key_salt)
-          .update(@sender.security.self_hostname)
-          .update(ri.shared_key_nonce)
-          .update(@shared_key)
-          .hexdigest
-        ping = ['PING', @sender.security.self_hostname, @handshake.shared_key_salt, shared_key_hexdigest]
-        if !ri.auth.empty?
-          password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
-          ping.push(@username, password_hexdigest)
-        else
-          ping.push('','')
-        end
-        ping
-      end
-
       def on_read(sock, ri, data)
         @log.trace __callee__
 
@@ -872,7 +872,7 @@ module Fluent::Plugin
             disable! # shutdown
             return
           end
-          sock.write(generate_ping(ri).to_msgpack)
+          sock.write(@handshake.generate_ping(ri).to_msgpack)
           ri.state = :pingpong
         when :pingpong
           succeeded, reason = @handshake.check_pong(ri, data)
