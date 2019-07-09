@@ -535,12 +535,10 @@ module Fluent::Plugin
 
         @usock = nil
 
-        @shared_key = server.shared_key || (sender.security && sender.security.shared_key) || ""
-
         @handshake = HandshakeProtocol.new(
           log: @log,
           security: @sender.security,
-          shared_key: @shared_key,
+          shared_key: server.shared_key || (sender.security && sender.security.shared_key) || '',
           password: server.password,
           username: server.username,
         )
