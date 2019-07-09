@@ -602,6 +602,33 @@ module Fluent::Plugin
           @username = username
         end
 
+        def on_read(sock, ri, data)
+          @log.trace __callee__
+
+          case ri.state
+          when :helo
+            unless @handshake.check_helo(ri, data)
+              @log.warn "received invalid helo message from #{@name}"
+              disable! # shutdown
+              return
+            end
+            sock.write(@handshake.generate_ping(ri).to_msgpack)
+            ri.state = :pingpong
+          when :pingpong
+            succeeded, reason = @handshake.check_pong(ri, data)
+            unless succeeded
+              @log.warn "connection refused to #{@name || @host}: #{reason}"
+              disable! # shutdown
+              return
+            end
+            ri.state = :established
+            @log.debug "connection established", host: @host, port: @port
+          else
+            raise "BUG: unknown session state: #{ri.state}"
+          end
+        end
+
+
         def check_pong(ri, message)
           @log.debug('checking pong')
           # ['PONG', bool(authentication result), 'reason if authentication failed',
@@ -678,7 +705,7 @@ module Fluent::Plugin
               next
             end
             @unpacker.feed_each(buf) do |data|
-              on_read(sock, ri, data)
+              @handshake.on_read(sock, ri, data)
             end
           rescue IO::WaitReadable
             # If the exception is Errno::EWOULDBLOCK or Errno::EAGAIN, it is extended by IO::WaitReadable.
@@ -866,32 +893,6 @@ module Fluent::Plugin
           true
         else
           nil
-        end
-      end
-
-      def on_read(sock, ri, data)
-        @log.trace __callee__
-
-        case ri.state
-        when :helo
-          unless @handshake.check_helo(ri, data)
-            @log.warn "received invalid helo message from #{@name}"
-            disable! # shutdown
-            return
-          end
-          sock.write(@handshake.generate_ping(ri).to_msgpack)
-          ri.state = :pingpong
-        when :pingpong
-          succeeded, reason = @handshake.check_pong(ri, data)
-          unless succeeded
-            @log.warn "connection refused to #{@name || @host}: #{reason}"
-            disable! # shutdown
-            return
-          end
-          ri.state = :established
-          @log.debug "connection established", host: @host, port: @port
-        else
-          raise "BUG: unknown session state: #{ri.state}"
         end
       end
 
