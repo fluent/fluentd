@@ -592,6 +592,31 @@ module Fluent::Plugin
           @shared_key_salt = generate_salt
         end
 
+        def check_pong(ri, message)
+          @log.debug "checking pong"
+          # ['PONG', bool(authentication result), 'reason if authentication failed',
+          #  self_hostname, sha512\_hex(salt + self_hostname + nonce + sharedkey)]
+          unless message.size == 5 && message[0] == 'PONG'
+            return false, 'invalid format for PONG message'
+          end
+          _pong, auth_result, reason, hostname, shared_key_hexdigest = message
+
+          unless auth_result
+            return false, 'authentication failed: ' + reason
+          end
+
+          if hostname == @sender.security.self_hostname
+            return false, 'same hostname between input and output: invalid configuration'
+          end
+
+          clientside = Digest::SHA512.new.update(@handshake.shared_key_salt).update(hostname).update(ri.shared_key_nonce).update(@shared_key).hexdigest
+          unless shared_key_hexdigest == clientside
+            return false, 'shared key mismatch'
+          end
+
+          return true, nil
+        end
+
         private
 
         def generate_salt
@@ -833,31 +858,6 @@ module Fluent::Plugin
         ping
       end
 
-      def check_pong(ri, message)
-        @log.debug "checking pong"
-        # ['PONG', bool(authentication result), 'reason if authentication failed',
-        #  self_hostname, sha512\_hex(salt + self_hostname + nonce + sharedkey)]
-        unless message.size == 5 && message[0] == 'PONG'
-          return false, 'invalid format for PONG message'
-        end
-        _pong, auth_result, reason, hostname, shared_key_hexdigest = message
-
-        unless auth_result
-          return false, 'authentication failed: ' + reason
-        end
-
-        if hostname == @sender.security.self_hostname
-          return false, 'same hostname between input and output: invalid configuration'
-        end
-
-        clientside = Digest::SHA512.new.update(@handshake.shared_key_salt).update(hostname).update(ri.shared_key_nonce).update(@shared_key).hexdigest
-        unless shared_key_hexdigest == clientside
-          return false, 'shared key mismatch'
-        end
-
-        return true, nil
-      end
-
       def on_read(sock, ri, data)
         @log.trace __callee__
 
@@ -871,7 +871,7 @@ module Fluent::Plugin
           sock.write(generate_ping(ri).to_msgpack)
           ri.state = :pingpong
         when :pingpong
-          succeeded, reason = check_pong(ri, data)
+          succeeded, reason = @handshake.check_pong(ri, data)
           unless succeeded
             @log.warn "connection refused to #{@name || @host}: #{reason}"
             disable! # shutdown
