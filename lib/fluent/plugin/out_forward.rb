@@ -812,6 +812,33 @@ module Fluent::Plugin
         end
       end
 
+      class ConnectionManager
+        def initialize(log:, secure:, connection_factory:)
+          @log = log
+          @secure = secure
+          @connection_factory = connection_factory
+        end
+
+        def connect(host:, port:, hostname:)
+          @log.debug('connect new socket')
+          socket = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+          request_info = RequestInfo.new(@sender.security ? :helo : :established)
+
+          unless block_given?
+            return [socket, request_info]
+          end
+
+          begin
+            yield(socket, request_info)
+          ensure
+            unless require_ack
+              socket.close_write rescue nil
+              socket.close rescue nil
+            end
+          end
+        end
+      end
+
       def connect_keepalive(host = nil, require_ack: false)
         request_info = RequestInfo.new(:established)
         socket = @socket_cache.fetch_or do
