@@ -679,10 +679,7 @@ module Fluent::Plugin
       end
 
       def purge_obsolete_socks
-        unless @keepalive
-          raise "Don not call this method without keepalive option"
-        end
-        @socket_cache.purge_obsolete_socks
+        @connection_manager.purge_obsolete_socks
       end
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
@@ -829,6 +826,13 @@ module Fluent::Plugin
               socket.close rescue nil
             end
           end
+        end
+
+        def purge_obsolete_socks
+          unless @keepalive
+            raise "Do not call this method without keepalive option"
+          end
+          @socket_cache.purge_obsolete_socks
         end
 
         private
