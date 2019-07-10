@@ -91,7 +91,7 @@ HELP
     def self.generate_server_pair(opts={})
       key = OpenSSL::PKey::RSA.generate(opts[:private_key_length])
 
-      ca_key = OpenSSL::PKey::RSA.new(File.read(opts[:ca_key_path]), opts[:ca_key_passphrase])
+      ca_key = OpenSSL::PKey::read(File.read(opts[:ca_key_path]), opts[:ca_key_passphrase])
       ca_cert = OpenSSL::X509::Certificate.new(File.read(opts[:ca_cert_path]))
       issuer = ca_cert.issuer
 
