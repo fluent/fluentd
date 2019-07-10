@@ -845,32 +845,18 @@ module Fluent::Plugin
       end
 
       def send_data(tag, chunk)
-        sock, ri = connect
-        if ri.state != :established
-          establish_connection(sock, ri)
-        end
-
-        begin
-          send_data_actual(sock, tag, chunk)
-        rescue
-          if @keepalive
-            @socket_cache.revoke
-          else
-            sock.close rescue nil
+        connect(nil, require_ack: @sender.require_ack_response) do |sock, ri|
+          if ri.state != :established
+            establish_connection(sock, ri)
           end
-          raise
+
+          send_data_actual(sock, tag, chunk)
+
+          if @sender.require_ack_response
+            return sock # to read ACK from socket
+          end
         end
 
-        if @sender.require_ack_response
-          return sock # to read ACK from socket
-        end
-
-        if @keepalive
-          @socket_cache.dec_ref
-        else
-          sock.close_write rescue nil
-          sock.close rescue nil
-        end
         heartbeat(false)
         nil
       end
@@ -1079,9 +1065,9 @@ module Fluent::Plugin
 
       private
 
-      def connect(host = nil, &block)
+      def connect(host = nil, require_ack: false, &block)
         if @keepalive
-          return connect_keepalive(host, &block)
+          return connect_keepalive(host, require_ack: require_ack, &block)
         end
 
         @log.debug('connect new socket')
@@ -1095,12 +1081,14 @@ module Fluent::Plugin
         begin
           yield(socket, request_info)
         ensure
-          socket.close_write rescue nil
-          socket.close rescue nil
+          unless require_ack
+            socket.close_write rescue nil
+            socket.close rescue nil
+          end
         end
       end
 
-      def connect_keepalive(host = nil)
+      def connect_keepalive(host = nil, require_ack: false)
         request_info = RequestInfo.new(:established)
         socket = @socket_cache.fetch_or do
           s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
@@ -1119,7 +1107,9 @@ module Fluent::Plugin
             @socket_cache.revoke
             raise
           else
-            @socket_cache.dec_ref
+            unless require_ack
+              @socket_cache.dec_ref
+            end
           end
 
         ret
