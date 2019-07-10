@@ -1079,38 +1079,49 @@ module Fluent::Plugin
 
       private
 
-      def connect(host = nil)
-        socket, request_info =
-                if @keepalive
-                  ri = RequestInfo.new(:established)
-                  sock = @socket_cache.fetch_or do
-                    s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-                    ri = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
-                    s
-                  end
-                  [sock, ri]
-                else
-                  @log.debug('connect new socket')
-                  [@sender.create_transfer_socket(host || resolved_host, port, @hostname), RequestInfo.new(@sender.security ? :helo : :established)]
-                end
+      def connect(host = nil, &block)
+        if @keepalive
+          return connect_keepalive(host, &block)
+        end
 
-        if block_given?
-          ret = nil
+        @log.debug('connect new socket')
+        socket = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+        request_info = RequestInfo.new(@sender.security ? :helo : :established)
+
+        unless block_given?
+          return [socket, request_info]
+        end
+
+        begin
+          yield(socket, request_info)
+        ensure
+          socket.close
+        end
+      end
+
+      def connect_keepalive(host = nil)
+        request_info = RequestInfo.new(:established)
+        socket = @socket_cache.fetch_or do
+          s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+          request_info = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
+          s
+        end
+
+        unless block_given?
+          return [socket, request_info]
+        end
+
+        ret =
           begin
-            ret = yield(socket, request_info)
+            yield(socket, request_info)
           rescue
-            @socket_cache.revoke if @keepalive
+            @socket_cache.revoke
             raise
           else
-            @socket_cache.dec_ref if @keepalive
-          ensure
-            socket.close unless @keepalive
+            @socket_cache.dec_ref
           end
 
-          ret
-        else
-          [socket, request_info]
-        end
+        ret
       end
     end
 
