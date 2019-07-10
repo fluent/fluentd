@@ -741,6 +741,17 @@ module Fluent
         retry
       end
 
+      STATS_KEYS = [
+        'stage_length',
+        'stage_byte_size',
+        'queue_length',
+        'queue_byte_size',
+        'available_buffer_space_ratios',
+        'total_queued_size',
+        'oldest_timekey',
+        'newest_timekey'
+      ]
+
       def statistics
         stage_size, queue_size = @stage_size, @queue_size
         buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size).round
