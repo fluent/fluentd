@@ -901,7 +901,7 @@ module Fluent::Plugin
 
         case @sender.heartbeat_type
         when :transport
-          connect(dest_addr) do |sock|
+          connect(dest_addr) do |_ri, _sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
