@@ -622,7 +622,7 @@ module Fluent::Plugin
             disable!
             break
           rescue HandshakeProtocol::PingpongError => e
-            @log.warn "connection refused to #{@name || @host}: #{e.messag}"
+            @log.warn "connection refused to #{@name || @host}: #{e.message}"
             disable!
             break
           end
