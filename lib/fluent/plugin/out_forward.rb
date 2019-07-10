@@ -794,22 +794,8 @@ module Fluent::Plugin
           return connect_keepalive(host, require_ack: require_ack, &block)
         end
 
-        @log.debug('connect new socket')
-        socket = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-        request_info = RequestInfo.new(@sender.security ? :helo : :established)
-
-        unless block_given?
-          return [socket, request_info]
-        end
-
-        begin
-          yield(socket, request_info)
-        ensure
-          unless require_ack
-            socket.close_write rescue nil
-            socket.close rescue nil
-          end
-        end
+        @cm ||= ConnectionManager.new(log: @log, secure: @sender.security, connection_factory: @sender)
+        @cm.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
       end
 
       class ConnectionManager
@@ -819,10 +805,10 @@ module Fluent::Plugin
           @connection_factory = connection_factory
         end
 
-        def connect(host:, port:, hostname:)
+        def connect(host:, port:, hostname:, require_ack:)
           @log.debug('connect new socket')
-          socket = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-          request_info = RequestInfo.new(@sender.security ? :helo : :established)
+          socket = @connection_factory.create_transfer_socket(host, port, hostname)
+          request_info = RequestInfo.new(@secure ? :helo : :established)
 
           unless block_given?
             return [socket, request_info]
