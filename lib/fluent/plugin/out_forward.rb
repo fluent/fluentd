@@ -1095,7 +1095,8 @@ module Fluent::Plugin
         begin
           yield(socket, request_info)
         ensure
-          socket.close
+          socket.close_write rescue nil
+          socket.close rescue nil
         end
       end
 
