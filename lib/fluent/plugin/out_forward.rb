@@ -790,22 +790,24 @@ module Fluent::Plugin
       private
 
       def connect(host = nil, require_ack: false, &block)
-        if @keepalive
-          return connect_keepalive(host, require_ack: require_ack, &block)
-        end
-
-        @cm ||= ConnectionManager.new(log: @log, secure: @sender.security, connection_factory: @sender)
+        @cm ||= ConnectionManager.new(log: @log, secure: @sender.security, connection_factory: @sender, keepalive: @keepalive, socket_cache: @socket_cache)
         @cm.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
       end
 
       class ConnectionManager
-        def initialize(log:, secure:, connection_factory:)
+        def initialize(log:, secure:, connection_factory:, keepalive:, socket_cache:)
           @log = log
           @secure = secure
           @connection_factory = connection_factory
+          @keepalive = keepalive
+          @socket_cache = socket_cache
         end
 
-        def connect(host:, port:, hostname:, require_ack:)
+        def connect(host:, port:, hostname:, require_ack:, &block)
+          if @keepalive
+            return connect_keepalive(host: host, port: port, hostname: hostname, require_ack: require_ack, &block)
+          end
+
           @log.debug('connect new socket')
           socket = @connection_factory.create_transfer_socket(host, port, hostname)
           request_info = RequestInfo.new(@secure ? :helo : :established)
@@ -826,11 +828,11 @@ module Fluent::Plugin
 
         private
 
-        def connect_keepalive(host = nil, require_ack: false)
+        def connect_keepalive(host:, port:, hostname:, require_ack:)
           request_info = RequestInfo.new(:established)
           socket = @socket_cache.fetch_or do
-            s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-            request_info = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
+            s = @connection_factory.create_transfer_socket(host, port, hostname)
+            request_info = RequestInfo.new(@secure ? :helo : :established) # overwrite if new connection
             s
           end
 
@@ -838,47 +840,20 @@ module Fluent::Plugin
             return [socket, request_info]
           end
 
-          ret =
-            begin
-              yield(socket, request_info)
-            rescue
-              @socket_cache.revoke
-              raise
-            else
-              unless require_ack
-                @socket_cache.dec_ref
-              end
+          ret = nil
+          begin
+            ret = yield(socket, request_info)
+          rescue
+            @socket_cache.revoke
+            raise
+          else
+            unless require_ack
+              @socket_cache.dec_ref
             end
+          end
 
           ret
         end
-      end
-
-      def connect_keepalive(host = nil, require_ack: false)
-        request_info = RequestInfo.new(:established)
-        socket = @socket_cache.fetch_or do
-          s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-          request_info = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
-          s
-        end
-
-        unless block_given?
-          return [socket, request_info]
-        end
-
-        ret = nil
-        begin
-          ret = yield(socket, request_info)
-        rescue
-          @socket_cache.revoke
-          raise
-        else
-          unless require_ack
-            @socket_cache.dec_ref
-          end
-        end
-
-        ret
       end
     end
 
