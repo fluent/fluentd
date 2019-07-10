@@ -553,6 +553,8 @@ module Fluent::Plugin
         if @keepalive
           @socket_cache = ForwardOutput::SocketCache.new(keepalive_timeout, @log)
         end
+
+        @connection_manager = ConnectionManager.new(log: @log, secure: @sender.security, connection_factory: @sender, keepalive: @keepalive, socket_cache: @socket_cache)
       end
 
       attr_accessor :usock
@@ -673,7 +675,7 @@ module Fluent::Plugin
       end
 
       def clear
-        @keepalive && @socket_cache.clear
+        @connection_manager.stop
       end
 
       def purge_obsolete_socks
@@ -790,8 +792,7 @@ module Fluent::Plugin
       private
 
       def connect(host = nil, require_ack: false, &block)
-        @cm ||= ConnectionManager.new(log: @log, secure: @sender.security, connection_factory: @sender, keepalive: @keepalive, socket_cache: @socket_cache)
-        @cm.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
+        @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
       end
 
       class ConnectionManager
@@ -801,6 +802,10 @@ module Fluent::Plugin
           @connection_factory = connection_factory
           @keepalive = keepalive
           @socket_cache = socket_cache
+        end
+
+        def stop
+          @keepalive && @socket_cache.clear
         end
 
         def connect(host:, port:, hostname:, require_ack:, &block)
