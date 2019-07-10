@@ -823,6 +823,35 @@ module Fluent::Plugin
             end
           end
         end
+
+        private
+
+        def connect_keepalive(host = nil, require_ack: false)
+          request_info = RequestInfo.new(:established)
+          socket = @socket_cache.fetch_or do
+            s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+            request_info = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
+            s
+          end
+
+          unless block_given?
+            return [socket, request_info]
+          end
+
+          ret =
+            begin
+              yield(socket, request_info)
+            rescue
+              @socket_cache.revoke
+              raise
+            else
+              unless require_ack
+                @socket_cache.dec_ref
+              end
+            end
+
+          ret
+        end
       end
 
       def connect_keepalive(host = nil, require_ack: false)
