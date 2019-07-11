@@ -25,6 +25,7 @@ require 'fluent/plugin/out_forward/load_balancer'
 require 'fluent/plugin/out_forward/socket_cache'
 require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
+require 'fluent/plugin/out_forward/connection_manager'
 
 module Fluent::Plugin
   class ForwardOutput < Output
@@ -212,7 +213,7 @@ module Fluent::Plugin
           else
             nil
           end
-        connection_manager = Node::ConnectionManager.new(
+        connection_manager = ConnectionManager.new(
           log: @log,
           secure: !!@security,
           connection_factory: method(:create_transfer_socket),
@@ -561,8 +562,6 @@ module Fluent::Plugin
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
 
-      RequestInfo = Struct.new(:state, :shared_key_nonce, :auth)
-
       def validate_host_resolution!
         resolved_host
       end
@@ -791,87 +790,6 @@ module Fluent::Plugin
 
       def connect(host = nil, require_ack: false, &block)
         @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
-      end
-
-      class ConnectionManager
-        def initialize(log:, secure:, connection_factory:, socket_cache:)
-          @log = log
-          @secure = secure
-          @connection_factory = connection_factory
-          @socket_cache = socket_cache
-        end
-
-        def stop
-          @socket_cache && @socket_cache.clear
-        end
-
-        def connect(host:, port:, hostname:, require_ack:, &block)
-          if @socket_cache
-            return connect_keepalive(host: host, port: port, hostname: hostname, require_ack: require_ack, &block)
-          end
-
-          @log.debug('connect new socket')
-          socket = @connection_factory.call(host, port, hostname)
-          request_info = RequestInfo.new(@secure ? :helo : :established)
-
-          unless block_given?
-            return [socket, request_info]
-          end
-
-          begin
-            yield(socket, request_info)
-          ensure
-            unless require_ack
-              socket.close_write rescue nil
-              socket.close rescue nil
-            end
-          end
-        end
-
-        def purge_obsolete_socks
-          unless @socket_cache
-            raise "Do not call this method without keepalive option"
-          end
-          @socket_cache.purge_obsolete_socks
-        end
-
-        def close(sock)
-          if @socket_cache
-            @socket_cache.dec_ref_by_value(sock)
-          else
-            sock.close_write rescue nil
-            sock.close rescue nil
-          end
-        end
-
-        private
-
-        def connect_keepalive(host:, port:, hostname:, require_ack:)
-          request_info = RequestInfo.new(:established)
-          socket = @socket_cache.fetch_or do
-            s = @connection_factory.call(host, port, hostname)
-            request_info = RequestInfo.new(@secure ? :helo : :established) # overwrite if new connection
-            s
-          end
-
-          unless block_given?
-            return [socket, request_info]
-          end
-
-          ret = nil
-          begin
-            ret = yield(socket, request_info)
-          rescue
-            @socket_cache.revoke
-            raise
-          else
-            unless require_ack
-              @socket_cache.dec_ref
-            end
-          end
-
-          ret
-        end
       end
     end
 
