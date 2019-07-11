@@ -448,13 +448,7 @@ module Fluent::Plugin
       log.error "unexpected error while receiving ack message", error: e
       log.error_backtrace
     ensure
-      if @keepalive
-        info.node.socket_cache.dec_ref_by_value(info.sock)
-      else
-        info.sock.close_write rescue nil
-        info.sock.close rescue nil
-      end
-
+      info.node.close(info.sock)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting.delete(info)
       end
@@ -482,10 +476,7 @@ module Fluent::Plugin
                 # (2) the node does support sending response but responses have not arrived for some reasons.
                 log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
-                if @keepalive
-                  info.node.socket_cache.revoke_by_value(info.sock)
-                end
-                info.sock.close rescue nil
+                info.node.close(info.sock)
                 rollback_write(info.chunk_id, update_retry: false)
               else
                 sockets << info.sock
@@ -682,6 +673,10 @@ module Fluent::Plugin
         @connection_manager.purge_obsolete_socks
       end
 
+      def close(sock)
+        @connection_manager.close(sock)
+      end
+
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
       def send_heartbeat
         begin
@@ -833,6 +828,15 @@ module Fluent::Plugin
             raise "Do not call this method without keepalive option"
           end
           @socket_cache.purge_obsolete_socks
+        end
+
+        def close(sock)
+          if @keepalive
+            @socket_cache.dec_ref_by_value(sock)
+          else
+            sock.close_write rescue nil
+            sock.close rescue nil
+          end
         end
 
         private
