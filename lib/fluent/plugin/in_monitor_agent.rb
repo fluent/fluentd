@@ -208,7 +208,7 @@ module Fluent::Plugin
 
       log.debug "listening monitoring http server on http://#{@bind}:#{@port}/api/plugins for worker#{fluentd_worker_id}"
       api_handler = APIHandler.new(self)
-      create_http_server(addr: @bind, port: @port, logger: log, default_app: NotFoundJson) do |serv|
+      create_http_server(title: :in_monitor_http_server_helper, addr: @bind, port: @port, logger: log, default_app: NotFoundJson) do |serv|
         serv.get('/api/plugins') { |req| api_handler.plugins_ltsv(req) }
         serv.get('/api/plugins.json') { |req| api_handler.plugins_json(req) }
         serv.get('/api/config') { |req| api_handler.config_ltsv(req) }
