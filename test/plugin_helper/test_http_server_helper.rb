@@ -50,7 +50,8 @@ class HtttpHelperTest < Test::Unit::TestCase
   %w[get head].each do |n|
     define_method(n) do |uri, header = {}|
       url = URI.parse(uri)
-      req = Net::HTTP.const_get(n.capitalize).new(url, header)
+      headers = { 'Content-Type' => 'application/x-www-form-urlencoded/' }.merge(header)
+      req = Net::HTTP.const_get(n.capitalize).new(url, headers)
       Net::HTTP.start(url.host, url.port) do |http|
         http.request(req)
       end
@@ -60,7 +61,8 @@ class HtttpHelperTest < Test::Unit::TestCase
   %w[post put patch delete options trace].each do |n|
     define_method(n) do |uri, body = '', header = {}|
       url = URI.parse(uri)
-      req = Net::HTTP.const_get(n.capitalize).new(url, header)
+      headers = { 'Content-Type' => 'application/x-www-form-urlencoded/' }.merge(header)
+      req = Net::HTTP.const_get(n.capitalize).new(url, headers)
       req.body = body
       Net::HTTP.start(url.host, url.port) do |http|
         http.request(req)
