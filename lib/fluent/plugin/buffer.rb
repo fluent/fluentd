@@ -741,15 +741,27 @@ module Fluent
         retry
       end
 
+      STATS_KEYS = [
+        'stage_length',
+        'stage_byte_size',
+        'queue_length',
+        'queue_byte_size',
+        'available_buffer_space_ratios',
+        'total_queued_size',
+        'oldest_timekey',
+        'newest_timekey'
+      ]
+
       def statistics
-        buffer_space = 1.0 - ((@stage_size + @queue_size * 1.0) / @total_limit_size).round
+        stage_size, queue_size = @stage_size, @queue_size
+        buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size).round
         stats = {
           'stage_length' => @stage.size,
-          'stage_byte_size' => @stage_size,
+          'stage_byte_size' => stage_size,
           'queue_length' => @queue.size,
-          'queue_byte_size' => @queue_size,
+          'queue_byte_size' => queue_size,
           'available_buffer_space_ratios' => buffer_space * 100,
-          'total_queued_size' => @stage_size + @queue_size,
+          'total_queued_size' => stage_size + queue_size,
         }
 
         if (m = timekeys.min)

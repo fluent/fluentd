@@ -16,6 +16,7 @@
 
 require 'fluent/error'
 require 'fluent/plugin/base'
+require 'fluent/plugin/buffer'
 require 'fluent/plugin_helper/record_accessor'
 require 'fluent/log'
 require 'fluent/plugin_id'
@@ -1466,6 +1467,11 @@ module Fluent
         end
       end
 
+      BUFFER_STATS_KEYS = {}
+      Fluent::Plugin::Buffer::STATS_KEYS.each { |key|
+        BUFFER_STATS_KEYS[key] = "buffer_#{key}"
+      }
+
       def statistics
         stats = {
           'emit_records' => @emit_records,
@@ -1481,7 +1487,7 @@ module Fluent
 
         if @buffer && @buffer.respond_to?(:statistics)
           (@buffer.statistics['buffer'] || {}).each do |k, v|
-            stats["buffer_#{k}"] = v
+            stats[BUFFER_STATS_KEYS[k]] = v
           end
         end
 
