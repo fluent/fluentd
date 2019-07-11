@@ -552,7 +552,6 @@ module Fluent::Plugin
       attr_reader :name, :host, :port, :weight, :standby, :state
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
-      attr_reader :socket_cache        # for ack
 
       RequestInfo = Struct.new(:state, :shared_key_nonce, :auth)
 
