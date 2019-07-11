@@ -206,11 +206,16 @@ module Fluent::Plugin
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
         name = server.name || "#{server.host}:#{server.port}"
 
+        if @keepalive
+          socket_cache = Node::SocketCache.new(@keepalive_timeout, @log)
+        end
+        connection_manager = Node::ConnectionManager.new(log: @log, secure: !!@security, connection_factory: self, keepalive: @keepalive, socket_cache: socket_cache)
+
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
+          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: connection_manager)
         else
-          node = Node.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
+          node = Node.new(self, server, failure: failure, connection_manager: connection_manager)
           begin
             node.validate_host_resolution!
           rescue => e
@@ -501,9 +506,8 @@ module Fluent::Plugin
     end
 
     class Node
-      # @param keepalive [Bool]
-      # @param keepalive_timeout [Integer | nil]
-      def initialize(sender, server, failure:, keepalive: false, keepalive_timeout: nil)
+      # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
+      def initialize(sender, server, failure:, connection_manager:)
         @sender = sender
         @log = sender.log
         @compress = sender.compress
@@ -540,12 +544,7 @@ module Fluent::Plugin
         @resolved_time = 0
         @resolved_once = false
 
-        @keepalive = keepalive
-        if @keepalive
-          @socket_cache = ForwardOutput::SocketCache.new(keepalive_timeout, @log)
-        end
-
-        @connection_manager = ConnectionManager.new(log: @log, secure: @sender.security, connection_factory: @sender, keepalive: @keepalive, socket_cache: @socket_cache)
+        @connection_manager = connection_manager
       end
 
       attr_accessor :usock
