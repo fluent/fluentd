@@ -206,10 +206,13 @@ module Fluent::Plugin
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
         name = server.name || "#{server.host}:#{server.port}"
 
-        if @keepalive
-          socket_cache = Node::SocketCache.new(@keepalive_timeout, @log)
-        end
-        connection_manager = Node::ConnectionManager.new(log: @log, secure: !!@security, connection_factory: self, keepalive: @keepalive, socket_cache: socket_cache)
+        socket_cache =
+          if @keepalive
+            Node::SocketCache.new(@keepalive_timeout, @log)
+          else
+            nil
+          end
+        connection_manager = Node::ConnectionManager.new(log: @log, secure: !!@security, connection_factory: self, socket_cache: socket_cache)
 
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
@@ -786,20 +789,19 @@ module Fluent::Plugin
       end
 
       class ConnectionManager
-        def initialize(log:, secure:, connection_factory:, keepalive:, socket_cache:)
+        def initialize(log:, secure:, connection_factory:, socket_cache:)
           @log = log
           @secure = secure
           @connection_factory = connection_factory
-          @keepalive = keepalive
           @socket_cache = socket_cache
         end
 
         def stop
-          @keepalive && @socket_cache.clear
+          @socket_cache && @socket_cache.clear
         end
 
         def connect(host:, port:, hostname:, require_ack:, &block)
-          if @keepalive
+          if @socket_cache
             return connect_keepalive(host: host, port: port, hostname: hostname, require_ack: require_ack, &block)
           end
 
@@ -822,14 +824,14 @@ module Fluent::Plugin
         end
 
         def purge_obsolete_socks
-          unless @keepalive
+          unless @socket_cache
             raise "Do not call this method without keepalive option"
           end
           @socket_cache.purge_obsolete_socks
         end
 
         def close(sock)
-          if @keepalive
+          if @socket_cache
             @socket_cache.dec_ref_by_value(sock)
           else
             sock.close_write rescue nil
