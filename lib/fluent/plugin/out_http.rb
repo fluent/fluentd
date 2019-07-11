@@ -8,6 +8,8 @@ module Fluent::Plugin
   class HTTPOutput < Output
     Fluent::Plugin.register_output('http', self)
 
+    class RetryableResponse < StandardError; end
+
     helpers :formatter
 
     desc 'The endpoint for HTTP request, e.g. http://example.com/api'
@@ -45,6 +47,8 @@ module Fluent::Plugin
 
     desc 'Raise UnrecoverableError when the response is non success, 4xx/5xx'
     config_param :error_response_as_unrecoverable, :bool, default: true
+    desc 'The list of retryable response code'
+    config_param :retryable_response_codes, :array, value_type: :integer, default: [503]
 
     config_section :format do
       config_set_default :@type, 'json'
@@ -190,9 +194,13 @@ module Fluent::Plugin
             end
 
       if res.is_a?(Net::HTTPSuccess)
-        log.debug { "#{res.code} #{res.message} #{res.body}" }
+        log.debug { "#{res.code} #{res.message}#{res.body}" }
       else
-        msg = "#{res.code} #{res.message} #{res.body}"
+        msg = "#{res.code} #{res.message}#{res.body}"
+
+        if @retryable_response_codes.include?(res.code.to_i)
+          raise RetryableResponse, msg
+        end
 
         if @error_response_as_unrecoverable
           raise Fluent::UnrecoverableError, msg
