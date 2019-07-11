@@ -212,7 +212,12 @@ module Fluent::Plugin
           else
             nil
           end
-        connection_manager = Node::ConnectionManager.new(log: @log, secure: !!@security, connection_factory: self, socket_cache: socket_cache)
+        connection_manager = Node::ConnectionManager.new(
+          log: @log,
+          secure: !!@security,
+          connection_factory: method(:create_transfer_socket),
+          socket_cache: socket_cache,
+        )
 
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
@@ -806,7 +811,7 @@ module Fluent::Plugin
           end
 
           @log.debug('connect new socket')
-          socket = @connection_factory.create_transfer_socket(host, port, hostname)
+          socket = @connection_factory.call(host, port, hostname)
           request_info = RequestInfo.new(@secure ? :helo : :established)
 
           unless block_given?
@@ -844,7 +849,7 @@ module Fluent::Plugin
         def connect_keepalive(host:, port:, hostname:, require_ack:)
           request_info = RequestInfo.new(:established)
           socket = @socket_cache.fetch_or do
-            s = @connection_factory.create_transfer_socket(host, port, hostname)
+            s = @connection_factory.call(host, port, hostname)
             request_info = RequestInfo.new(@secure ? :helo : :established) # overwrite if new connection
             s
           end

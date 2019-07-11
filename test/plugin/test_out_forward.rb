@@ -995,7 +995,7 @@ EOL
 
     begin
       chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-      mock.proxy(d.instance).create_transfer_socket(TARGET_HOST, TARGET_PORT, 'test') { |sock| mock(sock).close.once; sock }.twice
+      mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
 
       target_input_driver.run(timeout: 15) do
         d.run(shutdown: false) do
@@ -1036,7 +1036,7 @@ EOL
 
       begin
         chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-        mock.proxy(d.instance).create_transfer_socket(TARGET_HOST, TARGET_PORT, 'test') { |sock| mock(sock).close.once; sock }.once
+        mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.once
 
         target_input_driver.run(timeout: 15) do
           d.run(shutdown: false) do
@@ -1064,7 +1064,7 @@ EOL
 
         begin
           chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-          mock.proxy(d.instance).create_transfer_socket(TARGET_HOST, TARGET_PORT, 'test') { |sock| mock(sock).close.once; sock }.once
+          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.once
 
           target_input_driver.run(timeout: 15) do
             d.run(shutdown: false) do
