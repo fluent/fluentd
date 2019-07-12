@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 require 'fluent/plugin/out_forward/error'
 
 module Fluent::Plugin
