@@ -26,6 +26,9 @@ require 'fluent/plugin/out_forward/socket_cache'
 require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
 
+require 'resolv'
+require 'socket'
+
 module Fluent::Plugin
   class ForwardOutput < Output
     Fluent::Plugin.register_output('forward', self)
@@ -134,6 +137,12 @@ module Fluent::Plugin
       config_param :standby, :bool, default: false
       desc "The load balancing weight."
       config_param :weight, :integer, default: 60
+      desc 'Enable name resolution in DNS SRV records.'
+      config_param :enable_dns_srv, :bool, default: false
+      desc 'Configure the SRV service name.'
+      config_param :srv_service_name, :string, default: 'fluentd'
+      desc 'Configure the SRV protocol.'
+      config_param :srv_service_protocol, :string, default: 'tcp'
     end
 
     attr_reader :nodes
@@ -542,6 +551,12 @@ module Fluent::Plugin
           password: server.password,
           username: server.username,
         )
+        @enable_dns_srv = server.enable_dns_srv
+        @srv_service_name = server.srv_service_name
+        @srv_service_protocol = server.srv_service_protocol
+        @using_srv = false
+        @original_host = nil
+        @original_port = nil
 
         @unpacker = Fluent::Engine.msgpack_unpacker
 
@@ -557,7 +572,7 @@ module Fluent::Plugin
 
       attr_accessor :usock
 
-      attr_reader :name, :host, :port, :weight, :standby, :state
+      attr_reader :name, :host, :port, :weight, :standby, :state, :enable_dns_srv, :srv_service_name, :srv_service_protocol
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
       attr_reader :socket_cache        # for ack
@@ -751,7 +766,168 @@ module Fluent::Plugin
         end
       end
 
+      SRV = Struct.new(
+          :priority,
+          :weight,
+          :port,
+          :target
+      ) do
+        def available?
+          begin
+            sock = TCPSocket.open(target, port)
+            true
+          rescue SocketError, SystemCallError
+            false
+          ensure
+            sock.close rescue nil
+          end
+        end
+      end
+
+      # @param host string
+      # @return [SRV]
+      def resolve_srv(host)
+        res = []
+        adders = Resolv::DNS.new.getresources(host, Resolv::DNS::Resource::IN::SRV)
+        adders.each do |addr|
+          srv = SRV.new(addr.priority, addr.weight, addr.port, addr.target.to_s)
+          res.push(srv)
+        end
+        res
+      end
+
+      # @param [SRV] srv_list
+      # @return [SRV]
+      def srv_list_sort_priority_weight(srv_list)
+        return [] if srv_list.nil? || srv_list.empty?
+
+        # If the reply is NOERROR, ANCOUNT>0 and there is at least one
+        # SRV RR which specifies the requested Service and Protocol in
+        # the reply
+        sum = srv_list.inject(0) { |sum, srv| sum + srv.weight}
+        return srv_list if sum.zero?
+
+        # Sort the list by priority (lowest number first)
+        last = 0
+        current = 1
+
+        ret = []
+        srv_list.sort_by!(&:priority)
+        until (srv_list.size - 1) < current
+          if srv_list[last].priority != srv_list[current].priority
+            ret += weight_by_shuffle srv_list[last...current]
+            last = current
+          end
+          current += 1
+        end
+        ret += weight_by_shuffle srv_list[last...current]
+        ret
+      end
+
+      # @param [SRV] srv_list
+      # @return [SRV]
+      def weight_shuffle(srv_list)
+        return [] if srv_list.nil? || srv_list.empty?
+
+        # To select a target to be contacted next, arrange all SRV RRs
+        #  (that have not been ordered yet) in any order, except that all
+        # those with weight 0 are placed at the beginning of the list.
+        shuffle_start = nil
+        srv_list.sort_by!(&:weight)
+        srv_list.each_index do |index|
+          if srv_list[index].weight != 0
+            if shuffle_start.nil?
+              shuffle_start = index
+            end
+            if !shuffle_start.nil? && srv_list[index].weight != 0
+              shuffle_end = index
+              target = srv_list.dup
+              srv_list[shuffle_start..shuffle_end] = target[shuffle_start..shuffle_end].shuffle!
+            end
+          end
+        end
+
+        srv_list
+      end
+
+      # @param [SRV] srv_list
+      # @return [SRV]
+      def weight_by_shuffle(srv_list)
+        return [] if srv_list.nil? || srv_list.empty?
+
+        # Compute the sum of the weights of those RRs, and with each RR
+        # associate the running sum in the selected order
+        sum = srv_list.inject(0) { |sum, srv| sum + srv.weight}
+
+        srv_list = weight_shuffle(srv_list)
+        ret = []
+        # Then choose a uniform random number between 0 and the sum computed (inclusive),
+        # and select the RR whose running sum value is the first in the selected order which is greater than or equal to the random number selected.
+        until sum <= 0 || srv_list.empty?
+          selector = Integer(rand(sum))
+          running_sum = 0
+
+          srv_list.each_index do |index|
+            running_sum += srv_list[index].weight
+            next unless running_sum > selector
+            ret.push srv_list[index]
+            sum -= srv_list[index].weight
+            srv_list.delete_at index
+            break
+          end
+        end
+        ret
+      end
+
+      def switch_original_host!
+        @host = @original_host
+        @port = @original_port
+        @using_srv = false
+      end
+
+      def resolve_srv!
+        if @using_srv
+          switch_original_host!
+        end
+
+        host = "_#{@srv_service_name}._#{@srv_service_protocol}.#{@host}"
+        @log.info "srv try resolve hostname" , host: host
+        resp = resolve_srv(host)
+
+        if resp.empty?
+          # empty response is tried original host.
+          if @using_srv
+            switch_original_host!
+          end
+          @log.warn 'srv record empty response', host: host
+          return
+        end
+
+        resp = srv_list_sort_priority_weight(resp)
+        available = resp.find {|s| s.available?}
+
+        if available.nil?
+          # unavailable is tried original host.
+          if @using_srv
+            switch_original_host!
+          end
+          @log.warn 'srv record does not available node. try using A record', host: host
+          return
+        end
+
+        # swap config host to srv response host.
+        @using_srv = true
+        @original_host = @host
+        @original_port = @port
+        @host = available.target
+        @port = available.port
+        @log.info "using srv record response '#{@name}'", host: available.target, port: available.port
+      end
+
       def resolve_dns!
+        if @enable_dns_srv
+          resolve_srv!
+        end
         addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
         addrinfo = @sender.dns_round_robin ? addrinfo_list.sample : addrinfo_list.first
         @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_heartbeat
