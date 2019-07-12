@@ -15,12 +15,11 @@
 #
 
 require 'fluent/output'
+require 'fluent/plugin/out_forward/error'
 
 module Fluent::Plugin
   class ForwardOutput < Output
     class LoadBalancer
-      class NoNodesAvailable < StandardError; end
-
       def initialize(log)
         @log = log
         @weight_array = []
@@ -47,7 +46,7 @@ module Fluent::Plugin
         end
 
         raise error if error
-        raise NoNodesAvailable, "no nodes are available"
+        raise Error::NoNodesAvailable, "no nodes are available"
       end
 
       def rebuild_weight_array(nodes)
@@ -76,7 +75,7 @@ module Fluent::Plugin
 
         weight_array = []
         if regular_nodes.empty?
-          log.warn('No nodes are available')
+          @log.warn('No nodes are available')
           @weight_array = weight_array
           return @weight_array
         end

@@ -23,13 +23,10 @@ require 'fluent/compat/socket_util'
 require 'fluent/plugin/out_forward/load_balancer'
 require 'fluent/plugin/out_forward/socket_cache'
 require 'fluent/plugin/out_forward/failure_detector'
+require 'fluent/plugin/out_forward/error'
 
 module Fluent::Plugin
   class ForwardOutput < Output
-    class Error < StandardError; end
-    class NoNodesAvailable < Error; end
-    class ConnectionClosedError < Error; end
-
     Fluent::Plugin.register_output('forward', self)
 
     helpers :socket, :server, :timer, :thread, :compat_parameters
@@ -314,9 +311,9 @@ module Fluent::Plugin
       tag = chunk.metadata.tag
 
       @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
-    rescue LoadBalancer::NoNodesAvailable => e
+    rescue Error::NoNodesAvailable => e
       # for compatibility
-      raise NoNodesAvailable, e.message
+      raise Error::NoNodesAvailable, e.message
     end
 
     ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
@@ -340,9 +337,9 @@ module Fluent::Plugin
         @sock_ack_waiting << info
       end
 
-    rescue LoadBalancer::NoNodesAvailable => e
+    rescue Error::NoNodesAvailable => e
       # for compatibility
-      raise NoNodesAvailable, e.message
+      raise Error::NoNodesAvailable, e.message
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -627,7 +624,7 @@ module Fluent::Plugin
 
       def send_data_actual(sock, tag, chunk)
         unless available?
-          raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+          raise Error::ConnectionClosedError, "failed to establish connection with node #{@name}"
         end
 
         option = { 'size' => chunk.size, 'compressed' => @compress }
