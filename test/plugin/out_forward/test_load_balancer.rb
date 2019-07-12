@@ -52,7 +52,7 @@ class LoadBalancerTest < Test::Unit::TestCase
     test 'raise an error if all node are unavialble' do
       lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
       lb.rebuild_weight_array([flexmock('node', 'standby?': false, 'available?': false, weight: 1)])
-      assert_raise(Fluent::Plugin::ForwardOutput::Error::NoNodesAvailable) do
+      assert_raise(Fluent::Plugin::ForwardOutput::NoNodesAvailable) do
         lb.select_healthy_node
       end
     end

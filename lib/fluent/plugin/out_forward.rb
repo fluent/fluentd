@@ -311,9 +311,9 @@ module Fluent::Plugin
       tag = chunk.metadata.tag
 
       @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
-    rescue Error::NoNodesAvailable => e
+    rescue NoNodesAvailable => e
       # for compatibility
-      raise Error::NoNodesAvailable, e.message
+      raise NoNodesAvailable, e.message
     end
 
     ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
@@ -337,9 +337,9 @@ module Fluent::Plugin
         @sock_ack_waiting << info
       end
 
-    rescue Error::NoNodesAvailable => e
+    rescue NoNodesAvailable => e
       # for compatibility
-      raise Error::NoNodesAvailable, e.message
+      raise NoNodesAvailable, e.message
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -624,7 +624,7 @@ module Fluent::Plugin
 
       def send_data_actual(sock, tag, chunk)
         unless available?
-          raise Error::ConnectionClosedError, "failed to establish connection with node #{@name}"
+          raise ConnectionClosedError, "failed to establish connection with node #{@name}"
         end
 
         option = { 'size' => chunk.size, 'compressed' => @compress }

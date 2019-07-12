@@ -18,10 +18,8 @@ require 'fluent/plugin/output'
 
 module Fluent::Plugin
   class ForwardOutput < Output
-    module Error
-      class Error < StandardError; end
-      class NoNodesAvailable < Error; end
-      class ConnectionClosedError < Error; end
-    end
+    class Error < StandardError; end
+    class NoNodesAvailable < Error; end
+    class ConnectionClosedError < Error; end
   end
 end

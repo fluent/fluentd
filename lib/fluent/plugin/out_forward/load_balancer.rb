@@ -46,7 +46,7 @@ module Fluent::Plugin
         end
 
         raise error if error
-        raise Error::NoNodesAvailable, "no nodes are available"
+        raise NoNodesAvailable, "no nodes are available"
       end
 
       def rebuild_weight_array(nodes)
