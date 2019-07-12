@@ -20,13 +20,13 @@ require 'fluent/clock'
 require 'base64'
 
 require 'fluent/compat/socket_util'
+require 'fluent/plugin/out_forward/load_balancer'
+require 'fluent/plugin/out_forward/socket_cache'
+require 'fluent/plugin/out_forward/failure_detector'
+require 'fluent/plugin/out_forward/error'
 
 module Fluent::Plugin
   class ForwardOutput < Output
-    class Error < StandardError; end
-    class NoNodesAvailable < Error; end
-    class ConnectionClosedError < Error; end
-
     Fluent::Plugin.register_output('forward', self)
 
     helpers :socket, :server, :timer, :thread, :compat_parameters
@@ -258,9 +258,8 @@ module Fluent::Plugin
         @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
       end
 
-      @rand_seed = Random.new.seed
-      rebuild_weight_array
-      @rr = 0
+      @load_balancer = LoadBalancer.new(log)
+      @load_balancer.rebuild_weight_array(@nodes)
 
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
@@ -310,7 +309,8 @@ module Fluent::Plugin
     def write(chunk)
       return if chunk.empty?
       tag = chunk.metadata.tag
-      select_a_healthy_node{|node| node.send_data(tag, chunk) }
+
+      @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
     end
 
     ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
@@ -326,35 +326,13 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      sock, node = select_a_healthy_node{|n| n.send_data(tag, chunk) }
+      sock, node = @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
       chunk_id_base64 = Base64.encode64(chunk.unique_id)
       current_time = Fluent::Clock.now
       info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting << info
       end
-    end
-
-    def select_a_healthy_node
-      error = nil
-
-      wlen = @weight_array.length
-      wlen.times do
-        @rr = (@rr + 1) % wlen
-        node = @weight_array[@rr]
-        next unless node.available?
-
-        begin
-          ret = yield node
-          return ret, node
-        rescue
-          # for load balancing during detecting crashed servers
-          error = $!  # use the latest error
-        end
-      end
-
-      raise error if error
-      raise NoNodesAvailable, "no nodes are available"
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -403,61 +381,13 @@ module Fluent::Plugin
 
     private
 
-    def rebuild_weight_array
-      standby_nodes, regular_nodes = @nodes.partition {|n|
-        n.standby?
-      }
-
-      lost_weight = 0
-      regular_nodes.each {|n|
-        unless n.available?
-          lost_weight += n.weight
-        end
-      }
-      log.debug "rebuilding weight array", lost_weight: lost_weight
-
-      if lost_weight > 0
-        standby_nodes.each {|n|
-          if n.available?
-            regular_nodes << n
-            log.warn "using standby node #{n.host}:#{n.port}", weight: n.weight
-            lost_weight -= n.weight
-            break if lost_weight <= 0
-          end
-        }
-      end
-
-      weight_array = []
-      if regular_nodes.empty?
-        log.warn('No nodes are available')
-        @weight_array = weight_array
-        return @weight_array
-      end
-
-      gcd = regular_nodes.map {|n| n.weight }.inject(0) {|r,w| r.gcd(w) }
-      regular_nodes.each {|n|
-        (n.weight / gcd).times {
-          weight_array << n
-        }
-      }
-
-      # for load balancing during detecting crashed servers
-      coe = (regular_nodes.size * 6) / weight_array.size
-      weight_array *= coe if coe > 1
-
-      r = Random.new(@rand_seed)
-      weight_array.sort_by! { r.rand }
-
-      @weight_array = weight_array
-    end
-
     def on_timer
       @nodes.each {|n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
           if n.send_heartbeat
-            rebuild_weight_array
+            @load_balancer.rebuild_weight_array
           end
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
@@ -465,7 +395,7 @@ module Fluent::Plugin
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         end
         if n.tick
-          rebuild_weight_array
+          @load_balancer.rebuild_weight_array
         end
       }
     end
@@ -474,7 +404,7 @@ module Fluent::Plugin
       if node = @nodes.find {|n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          rebuild_weight_array
+          @load_balancer.rebuild_weight_array
         end
       end
     end
@@ -579,139 +509,6 @@ module Fluent::Plugin
     end
 
     class Node
-      class SocketCache
-        TimedSocket = Struct.new(:timeout, :sock, :ref)
-
-        def initialize(timeout, log)
-          @log = log
-          @timeout = timeout
-          @active_socks = {}
-          @inactive_socks = {}
-          @mutex = Mutex.new
-        end
-
-        def revoke(key = Thread.current.object_id)
-          @mutex.synchronize do
-            if @active_socks[key]
-              @inactive_socks[key] = @active_socks.delete(key)
-              @inactive_socks[key].ref = 0
-            end
-          end
-        end
-
-        def clear
-          @mutex.synchronize do
-            @inactive_socks.values.each do |s|
-              s.sock.close rescue nil
-            end
-            @inactive_socks.clear
-
-            @active_socks.values.each do |s|
-              s.sock.close rescue nil
-            end
-            @active_socks.clear
-          end
-        end
-
-        def purge_obsolete_socks
-          @mutex.synchronize do
-            @inactive_socks.keys.each do |k|
-              # 0 means sockets stored in this class received all acks
-              if @inactive_socks[k].ref <= 0
-                s = @inactive_socks.delete(k)
-                s.sock.close  rescue nil
-                @log.debug("purged obsolete socket #{s.sock}")
-              end
-            end
-
-            @active_socks.keys.each do |k|
-              if expired?(k) && @active_socks[k].ref <= 0
-                @inactive_socks[k] = @active_socks.delete(k)
-              end
-            end
-          end
-        end
-
-        # We expect that `yield` returns a unique object in this class
-        def fetch_or(key = Thread.current.object_id)
-          @mutex.synchronize do
-            unless @active_socks[key]
-              @active_socks[key] = TimedSocket.new(timeout, yield, 1)
-              @log.debug("connect new socket #{@active_socks[key]}")
-              return @active_socks[key].sock
-            end
-
-            if expired?(key)
-              # Do not close this socket here in case of it will be used by other place (e.g. wait for receiving ack)
-              @inactive_socks[key] = @active_socks.delete(key)
-              @log.debug("connection #{@inactive_socks[key]} is expired. reconnecting...")
-              @active_socks[key] = TimedSocket.new(timeout, yield, 0)
-            end
-
-            @active_socks[key].ref += 1
-            @active_socks[key].sock
-          end
-        end
-
-        def dec_ref(key = Thread.current.object_id)
-          @mutex.synchronize do
-            if @active_socks[key]
-              @active_socks[key].ref -= 1
-            elsif @inactive_socks[key]
-              @inactive_socks[key].ref -= 1
-            else
-              @log.warn("Not found key for dec_ref: #{key}")
-            end
-          end
-        end
-
-        # This method is expected to be called in class which doesn't call #inc_ref
-        def dec_ref_by_value(val)
-          @mutex.synchronize do
-            sock = @active_socks.detect { |_, v| v.sock == val }
-            if sock
-              key = sock.first
-              @active_socks[key].ref -= 1
-              return
-            end
-
-            sock = @inactive_socks.detect { |_, v| v.sock == val }
-            if sock
-              key = sock.first
-              @inactive_socks[key].ref -= 1
-              return
-            else
-              @log.warn("Not found key for dec_ref_by_value: #{key}")
-            end
-          end
-        end
-
-        # This method is expected to be called in class which doesn't call #fetch_or
-        def revoke_by_value(val)
-          @mutex.synchronize do
-            sock = @active_socks.detect { |_, v| v.sock == val }
-            if sock
-              key = sock.first
-              @inactive_socks[key] = @active_socks.delete(key)
-              @inactive_socks[key].ref = 0
-            else
-              @log.debug("Not found for revoke_by_value :#{val}")
-            end
-          end
-        end
-
-        private
-
-        def timeout
-          @timeout && Time.now + @timeout
-        end
-
-        # This method is thread unsafe
-        def expired?(key = Thread.current.object_id)
-           @active_socks[key].timeout ? @active_socks[key].timeout < Time.now : false
-        end
-      end
-
       # @param keepalive [Bool]
       # @param keepalive_timeout [Integer | nil]
       def initialize(sender, server, failure:, keepalive: false, keepalive_timeout: nil)
@@ -750,7 +547,7 @@ module Fluent::Plugin
 
         @keepalive = keepalive
         if @keepalive
-          @socket_cache = SocketCache.new(keepalive_timeout, @log)
+          @socket_cache = ForwardOutput::SocketCache.new(keepalive_timeout, @log)
         end
       end
 
@@ -1126,69 +923,6 @@ module Fluent::Plugin
 
       def heartbeat(detect=true)
         true
-      end
-    end
-
-    class FailureDetector
-      PHI_FACTOR = 1.0 / Math.log(10.0)
-      SAMPLE_SIZE = 1000
-
-      def initialize(heartbeat_interval, hard_timeout, init_last)
-        @heartbeat_interval = heartbeat_interval
-        @last = init_last
-        @hard_timeout = hard_timeout
-
-        # microsec
-        @init_gap = (heartbeat_interval * 1e6).to_i
-        @window = [@init_gap]
-      end
-
-      def hard_timeout?(now)
-        now - @last > @hard_timeout
-      end
-
-      def add(now)
-        if @window.empty?
-          @window << @init_gap
-          @last = now
-        else
-          gap = now - @last
-          @window << (gap * 1e6).to_i
-          @window.shift if @window.length > SAMPLE_SIZE
-          @last = now
-        end
-      end
-
-      def phi(now)
-        size = @window.size
-        return 0.0 if size == 0
-
-        # Calculate weighted moving average
-        mean_usec = 0
-        fact = 0
-        @window.each_with_index {|gap,i|
-          mean_usec += gap * (1+i)
-          fact += (1+i)
-        }
-        mean_usec = mean_usec / fact
-
-        # Normalize arrive intervals into 1sec
-        mean = (mean_usec.to_f / 1e6) - @heartbeat_interval + 1
-
-        # Calculate phi of the phi accrual failure detector
-        t = now - @last - @heartbeat_interval + 1
-        phi = PHI_FACTOR * t / mean
-
-        return phi
-      end
-
-      def sample_size
-        @window.size
-      end
-
-      def clear
-        @window.clear
-        @last = 0
       end
     end
   end
