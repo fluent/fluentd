@@ -10,6 +10,10 @@ GitLab CI:
 
 [![pipeline status](https://gitlab.com/fluent/fluentd/badges/master/pipeline.svg)](https://gitlab.com/fluent/fluentd/commits/master)
 
+Drone CI for Arm64:
+
+[![pipeline status](https://cloud.drone.io/api/badges/fluent/fluentd/status.svg?branch=pr_drone)](https://cloud.drone.io/fluent/fluentd)
+
 [Fluentd](https://www.fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](https://www.fluentd.org/blog/unified-logging-layer)).
 
 <p align="center">
