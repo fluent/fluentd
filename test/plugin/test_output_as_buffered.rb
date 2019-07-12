@@ -1093,7 +1093,7 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.after_start
     end
 
-    test '#configure raises config error if timekey is not specified' do
+    test 'writes event in proper interval' do
       Timecop.freeze( Time.parse('2019-02-08 00:01:00 +0900') )
       ary = []
       @i.register(:write){|chunk| ary << chunk.read }
