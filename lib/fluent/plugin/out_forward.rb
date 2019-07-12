@@ -20,6 +20,7 @@ require 'fluent/clock'
 require 'base64'
 
 require 'fluent/compat/socket_util'
+require 'fluent/plugin/out_forward/handshake_protocol'
 require 'fluent/plugin/out_forward/load_balancer'
 require 'fluent/plugin/out_forward/socket_cache'
 require 'fluent/plugin/out_forward/failure_detector'
@@ -534,10 +535,13 @@ module Fluent::Plugin
 
         @usock = nil
 
-        @username = server.username
-        @password = server.password
-        @shared_key = server.shared_key || (sender.security && sender.security.shared_key) || ""
-        @shared_key_salt = generate_salt
+        @handshake = HandshakeProtocol.new(
+          log: @log,
+          hostname: sender.security && sender.security.self_hostname,
+          shared_key: server.shared_key || (sender.security && sender.security.shared_key) || '',
+          password: server.password,
+          username: server.username,
+        )
 
         @unpacker = Fluent::Engine.msgpack_unpacker
 
@@ -596,7 +600,9 @@ module Fluent::Plugin
               next
             end
             @unpacker.feed_each(buf) do |data|
-              on_read(sock, ri, data)
+              if @handshake.invoke(sock, ri, data) == :established
+                @log.debug "connection established", host: @host, port: @port
+              end
             end
           rescue IO::WaitReadable
             # If the exception is Errno::EWOULDBLOCK or Errno::EAGAIN, it is extended by IO::WaitReadable.
@@ -609,6 +615,14 @@ module Fluent::Plugin
             break
           rescue EOFError
             @log.warn "disconnected", host: @host, port: @port
+            disable!
+            break
+          rescue HeloError => e
+            @log.warn "received invalid helo message from #{@name}"
+            disable!
+            break
+          rescue PingpongError => e
+            @log.warn "connection refused to #{@name || @host}: #{e.message}"
             disable!
             break
           end
@@ -784,93 +798,6 @@ module Fluent::Plugin
           true
         else
           nil
-        end
-      end
-
-      def generate_salt
-        SecureRandom.hex(16)
-      end
-
-      def check_helo(ri, message)
-        @log.debug "checking helo"
-        # ['HELO', options(hash)]
-        unless message.size == 2 && message[0] == 'HELO'
-          return false
-        end
-        opts = message[1] || {}
-        # make shared_key_check failed (instead of error) if protocol version mismatch exist
-        ri.shared_key_nonce = opts['nonce'] || ''
-        ri.auth = opts['auth'] || ''
-        true
-      end
-
-      def generate_ping(ri)
-        @log.debug "generating ping"
-        # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + nonce + shared_key),
-        #  username || '', sha512\_hex(auth\_salt + username + password) || '']
-        shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt)
-          .update(@sender.security.self_hostname)
-          .update(ri.shared_key_nonce)
-          .update(@shared_key)
-          .hexdigest
-        ping = ['PING', @sender.security.self_hostname, @shared_key_salt, shared_key_hexdigest]
-        if !ri.auth.empty?
-          password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
-          ping.push(@username, password_hexdigest)
-        else
-          ping.push('','')
-        end
-        ping
-      end
-
-      def check_pong(ri, message)
-        @log.debug "checking pong"
-        # ['PONG', bool(authentication result), 'reason if authentication failed',
-        #  self_hostname, sha512\_hex(salt + self_hostname + nonce + sharedkey)]
-        unless message.size == 5 && message[0] == 'PONG'
-          return false, 'invalid format for PONG message'
-        end
-        _pong, auth_result, reason, hostname, shared_key_hexdigest = message
-
-        unless auth_result
-          return false, 'authentication failed: ' + reason
-        end
-
-        if hostname == @sender.security.self_hostname
-          return false, 'same hostname between input and output: invalid configuration'
-        end
-
-        clientside = Digest::SHA512.new.update(@shared_key_salt).update(hostname).update(ri.shared_key_nonce).update(@shared_key).hexdigest
-        unless shared_key_hexdigest == clientside
-          return false, 'shared key mismatch'
-        end
-
-        return true, nil
-      end
-
-      def on_read(sock, ri, data)
-        @log.trace __callee__
-
-        case ri.state
-        when :helo
-          unless check_helo(ri, data)
-            @log.warn "received invalid helo message from #{@name}"
-            disable! # shutdown
-            return
-          end
-          sock.write(generate_ping(ri).to_msgpack)
-          ri.state = :pingpong
-        when :pingpong
-          succeeded, reason = check_pong(ri, data)
-          unless succeeded
-            @log.warn "connection refused to #{@name || @host}: #{reason}"
-            disable! # shutdown
-            return
-          end
-          ri.state = :established
-          @log.debug "connection established", host: @host, port: @port
-        else
-          raise "BUG: unknown session state: #{ri.state}"
         end
       end
 

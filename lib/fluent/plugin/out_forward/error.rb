@@ -21,5 +21,8 @@ module Fluent::Plugin
     class Error < StandardError; end
     class NoNodesAvailable < Error; end
     class ConnectionClosedError < Error; end
+    class HandshakeError < Error; end
+    class HeloError < HandshakeError; end
+    class PingpongError < HandshakeError; end
   end
 end
