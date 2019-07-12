@@ -57,7 +57,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:helo)
 
       sock = StringIO.new('')
-      assert_raise(Fluent::Plugin::ForwardOutput::HandshakeProtocol::HeloError) do
+      assert_raise(Fluent::Plugin::ForwardOutput::HeloError) do
         handshake.invoke(sock, ri, msg)
       end
 
@@ -92,7 +92,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake.instance_variable_set(:@shared_key_salt, 'ce1897b0d3dbd76b90d7fb96010dcac3') # to fix salt
 
       ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:pingpong, '', '')
-      assert_raise(Fluent::Plugin::ForwardOutput::HandshakeProtocol::PingpongError) do
+      assert_raise(Fluent::Plugin::ForwardOutput::PingpongError) do
         handshake.invoke('', ri, msg)
       end
 

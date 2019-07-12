@@ -617,11 +617,11 @@ module Fluent::Plugin
             @log.warn "disconnected", host: @host, port: @port
             disable!
             break
-          rescue HandshakeProtocol::HeloError => e
+          rescue HeloError => e
             @log.warn "received invalid helo message from #{@name}"
             disable!
             break
-          rescue HandshakeProtocol::PingpongError => e
+          rescue PingpongError => e
             @log.warn "connection refused to #{@name || @host}: #{e.message}"
             disable!
             break

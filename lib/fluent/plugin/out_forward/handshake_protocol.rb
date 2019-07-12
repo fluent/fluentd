@@ -15,15 +15,12 @@
 #
 
 require 'fluent/plugin/output'
+require 'fluent/plugin/out_forward/error'
 require 'digest'
 
 module Fluent::Plugin
   class ForwardOutput < Output
     class HandshakeProtocol
-      class HandshakeError < StandardError; end
-      class HeloError < HandshakeError; end
-      class PingpongError < HandshakeError; end
-
       def initialize(log:, hostname:, shared_key:, password:, username:)
         @log = log
         @hostname = hostname
