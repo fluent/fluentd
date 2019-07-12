@@ -15,6 +15,7 @@
 #
 
 require 'fluent/output'
+require 'digest'
 
 module Fluent::Plugin
   class ForwardOutput < Output
