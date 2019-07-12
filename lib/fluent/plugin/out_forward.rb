@@ -311,9 +311,6 @@ module Fluent::Plugin
       tag = chunk.metadata.tag
 
       @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
-    rescue NoNodesAvailable => e
-      # for compatibility
-      raise NoNodesAvailable, e.message
     end
 
     ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
@@ -336,10 +333,6 @@ module Fluent::Plugin
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting << info
       end
-
-    rescue NoNodesAvailable => e
-      # for compatibility
-      raise NoNodesAvailable, e.message
     end
 
     def create_transfer_socket(host, port, hostname, &block)
