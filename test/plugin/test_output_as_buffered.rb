@@ -1095,8 +1095,6 @@ class BufferedOutputTest < Test::Unit::TestCase
 
     test 'writes event in proper interval' do
       Timecop.freeze( Time.parse('2019-02-08 00:01:00 +0900') )
-      ary = []
-      @i.register(:write){|chunk| ary << chunk.read }
       @i.thread_wait_until_start
       events = [
         [event_time('2019-02-08 00:02:00 +0900'), {"message" => "foobar"}]
