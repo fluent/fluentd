@@ -39,7 +39,7 @@ module Fluent
       # @param port [String] Listen port
       # @param logger [Logger] logger used in this server
       # @param default_app [Object] This method must have #call.
-      def create_http_server(title:, addr:, port:, logger:, default_app: nil)
+      def create_http_server(title, addr:, port:, logger:, default_app: nil)
         unless block_given?
           raise ArgumentError, 'BUG: callback not specified'
         end
