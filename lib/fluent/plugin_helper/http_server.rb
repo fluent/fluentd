@@ -34,11 +34,12 @@ module Fluent
       # close    : correct stopped threads
       # terminate: kill thread
 
+      # @param title [Symbol] the thread name. this value should be unique.
       # @param addr [String] Listen address
       # @param port [String] Listen port
       # @param logger [Logger] logger used in this server
       # @param default_app [Object] This method must have #call.
-      def create_http_server(addr:, port:, logger:, default_app: nil)
+      def create_http_server(title, addr:, port:, logger:, default_app: nil)
         unless block_given?
           raise ArgumentError, 'BUG: callback not specified'
         end
@@ -48,7 +49,7 @@ module Fluent
         end
 
         _block_until_http_server_start do |notify|
-          thread_create(:plugin_helper_http_server) do
+          thread_create(title) do
             @_http_server.start(notify)
           end
         end

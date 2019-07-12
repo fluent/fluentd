@@ -50,7 +50,8 @@ class HtttpHelperTest < Test::Unit::TestCase
   %w[get head].each do |n|
     define_method(n) do |uri, header = {}|
       url = URI.parse(uri)
-      req = Net::HTTP.const_get(n.capitalize).new(url, header)
+      headers = { 'Content-Type' => 'application/x-www-form-urlencoded/' }.merge(header)
+      req = Net::HTTP.const_get(n.capitalize).new(url, headers)
       Net::HTTP.start(url.host, url.port) do |http|
         http.request(req)
       end
@@ -60,7 +61,8 @@ class HtttpHelperTest < Test::Unit::TestCase
   %w[post put patch delete options trace].each do |n|
     define_method(n) do |uri, body = '', header = {}|
       url = URI.parse(uri)
-      req = Net::HTTP.const_get(n.capitalize).new(url, header)
+      headers = { 'Content-Type' => 'application/x-www-form-urlencoded/' }.merge(header)
+      req = Net::HTTP.const_get(n.capitalize).new(url, headers)
       req.body = body
       Net::HTTP.start(url.host, url.port) do |http|
         http.request(req)
@@ -71,7 +73,7 @@ class HtttpHelperTest < Test::Unit::TestCase
   sub_test_case 'Create a HTTP server' do
     test 'monunt given path' do
       on_driver do |driver|
-        driver.create_http_server(addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
           s.post('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello post'] }
           s.head('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello head'] }
@@ -106,7 +108,7 @@ class HtttpHelperTest < Test::Unit::TestCase
 
     test 'when path does not start with `/` or ends with `/`' do
       on_driver do |driver|
-        driver.create_http_server(addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
           s.get('example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
           s.get('/example/hello2/') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
         end
@@ -121,7 +123,7 @@ class HtttpHelperTest < Test::Unit::TestCase
 
     test 'when error raised' do
       on_driver do |driver|
-        driver.create_http_server(addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { raise 'error!' }
         end
 
@@ -132,7 +134,7 @@ class HtttpHelperTest < Test::Unit::TestCase
 
     test 'when path is not found' do
       on_driver do |driver|
-        driver.create_http_server(addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') { [200, { 'Content-Type' => 'text/plain' }, 'hello get'] }
         end
 
@@ -143,7 +145,7 @@ class HtttpHelperTest < Test::Unit::TestCase
 
     test 'params and body' do
       on_driver do |driver|
-        driver.create_http_server(addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
+        driver.create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do |s|
           s.get('/example/hello') do |req|
             assert_equal(req.query_string, nil)
             assert_equal(req.body, nil)
@@ -193,7 +195,7 @@ class HtttpHelperTest < Test::Unit::TestCase
         end
 
         stub(Fluent::PluginHelper::HttpServer::Server).new(anything) { server }
-        driver.create_http_server(addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do
+        driver.create_http_server(:http_server_helper_test, addr: '127.0.0.1', port: PORT, logger: NULL_LOGGER) do
           # nothing
         end
         driver.stop
