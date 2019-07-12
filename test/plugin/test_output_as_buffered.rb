@@ -1088,26 +1088,26 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_thread_burst_interval' => 0.01,
       }
       @i = create_output(:buffered)
-      @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer',chunk_key,hash)]))
       @i.start
       @i.after_start
     end
 
     test 'writes event in proper interval' do
-      Timecop.freeze( Time.parse('2019-02-08 00:01:00 +0900') )
+      Timecop.freeze(Time.parse('2019-02-08 00:01:00 +0900'))
       @i.thread_wait_until_start
       events = [
-        [event_time('2019-02-08 00:02:00 +0900'), {"message" => "foobar"}]
+        [event_time('2019-02-08 00:02:00 +0900'), { "message" => "foobar" }]
       ]
       @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
       @i.enqueue_thread_wait
       assert{ @i.write_count == 0 }
 
-      Timecop.freeze( Time.parse('2019-02-09 00:00:08 +0900') )
+      Timecop.freeze(Time.parse('2019-02-09 00:00:08 +0900'))
       @i.enqueue_thread_wait
       assert{ @i.write_count == 0 }
 
-      Timecop.freeze( Time.parse('2019-02-09 00:00:12 +0900') )
+      Timecop.freeze(Time.parse('2019-02-09 00:00:12 +0900'))
       # wirte should be called in few seconds since
       # running interval of enque thread is timekey_wait / 11.0.
       waiting(5){ sleep 0.1 until @i.write_count == 1 }
