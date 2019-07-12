@@ -1,5 +1,12 @@
 # v1.6
 
+## Release v1.6.2 - 2019/07/11
+
+### Bug fixes
+
+* http_server helper: Add title argument to support multiple servers
+  https://github.com/fluent/fluentd/pull/2493
+
 ## Release v1.6.1 - 2019/07/10
 
 ### Enhancement
