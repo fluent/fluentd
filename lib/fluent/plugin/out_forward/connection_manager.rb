@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/output'
+require 'fluent/plugin/output'
 
 module Fluent::Plugin
   class ForwardOutput < Output
