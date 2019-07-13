@@ -766,12 +766,7 @@ module Fluent::Plugin
         end
       end
 
-      SRV = Struct.new(
-          :priority,
-          :weight,
-          :port,
-          :target
-      ) do
+      SRV = Struct.new(:priority, :weight, :port, :target) do
         def available?
           begin
             sock = TCPSocket.open(target, port)
@@ -815,18 +810,18 @@ module Fluent::Plugin
         srv_list.sort_by!(&:priority)
         until (srv_list.size - 1) < current
           if srv_list[last].priority != srv_list[current].priority
-            ret += weight_by_shuffle srv_list[last...current]
+            ret += shuffle_by_weight_srv_servers srv_list[last...current]
             last = current
           end
           current += 1
         end
-        ret += weight_by_shuffle srv_list[last...current]
+        ret += shuffle_by_weight_srv_servers srv_list[last...current]
         ret
       end
 
       # @param [SRV] srv_list
       # @return [SRV]
-      def weight_shuffle(srv_list)
+      def random_order_with_weight(srv_list)
         return [] if srv_list.nil? || srv_list.empty?
 
         # To select a target to be contacted next, arrange all SRV RRs
@@ -852,14 +847,14 @@ module Fluent::Plugin
 
       # @param [SRV] srv_list
       # @return [SRV]
-      def weight_by_shuffle(srv_list)
+      def shuffle_by_weight_srv_servers(srv_list)
         return [] if srv_list.nil? || srv_list.empty?
 
         # Compute the sum of the weights of those RRs, and with each RR
         # associate the running sum in the selected order
         sum = srv_list.inject(0) { |sum, srv| sum + srv.weight}
 
-        srv_list = weight_shuffle(srv_list)
+        srv_list = random_order_with_weight(srv_list)
         ret = []
         # Then choose a uniform random number between 0 and the sum computed (inclusive),
         # and select the RR whose running sum value is the first in the selected order which is greater than or equal to the random number selected.
@@ -891,7 +886,7 @@ module Fluent::Plugin
         end
 
         host = "_#{@srv_service_name}._#{@srv_service_protocol}.#{@host}"
-        @log.info "srv try resolve hostname" , host: host
+        @log.info 'srv try resolve hostname' , host: host
         resp = resolve_srv(host)
 
         if resp.empty?
@@ -904,11 +899,11 @@ module Fluent::Plugin
         end
 
         resp = srv_list_sort_priority_weight(resp)
-        available = resp.find {|s| s.available?}
+        available = resp.find(&:available?)
 
         if available.nil?
           # unavailable is tried original host.
-          if @using_srv
+          if @using_srvs
             switch_original_host!
           end
           @log.warn 'srv record does not available node. try using A record', host: host
@@ -923,6 +918,7 @@ module Fluent::Plugin
         @port = available.port
         @log.info "using srv record response '#{@name}'", host: available.target, port: available.port
       end
+      private :resolve_srv!
 
       def resolve_dns!
         if @enable_dns_srv
