@@ -361,4 +361,31 @@ EOS
       msgs
     end
   end
+
+  def test_emit_unmatched_lines
+    d = create_driver([CONFIG, 'emit_unmatched_lines true'].join("\n"))
+    tests = [
+      # valid message
+      {'msg' => '<6>Sep 10 00:00:00 localhost logger: xxx', 'expected' => {'host'=>'localhost', 'ident'=>'logger', 'message'=>'xxx'}},
+      # missing priority
+      {'msg' => 'hello world', 'expected' => {'unmatched_line' => 'hello world'}},
+      # timestamp parsing failure
+      {'msg' => '<6>ZZZ 99 99:99:99 localhost logger: xxx', 'expected' => {'unmatched_line' => '<6>ZZZ 99 99:99:99 localhost logger: xxx'}},
+    ]
+
+    d.run(expect_emits: 3) do
+      u = UDPSocket.new
+      u.do_not_reverse_lookup = false
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size == tests.size)
+    tests.size.times do |i|
+      assert(tests[i]['expected'] == d.events[i][2])
+      assert('syslog.unmatched' == d.events[i][0]) unless i==0
+    end
+  end
 end
