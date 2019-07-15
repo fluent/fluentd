@@ -95,6 +95,8 @@ module Fluent::Plugin
     config_param :priority_key, :string, default: nil
     desc 'The field name of the facility.'
     config_param :facility_key, :string, default: nil
+    desc 'The field name of the entire original message.'
+    config_param :original_message_key, :string, default: nil
 
     desc "The max bytes of message"
     config_param :message_length_limit, :size, default: 2048
@@ -232,6 +234,7 @@ module Fluent::Plugin
         record[@facility_key] = facility if @facility_key
         record[@source_address_key] = sock.remote_addr if @source_address_key
         record[@source_hostname_key] = sock.remote_host if @source_hostname_key
+        record[@original_message_key] = text if @original_message_key
 
         tag = "#{@tag}.#{facility}.#{priority}"
         emit(tag, time, record)

@@ -388,4 +388,23 @@ EOS
       assert('syslog.unmatched' == d.events[i][0]) unless i==0
     end
   end
+
+  def test_original_message_key
+    d = create_driver([CONFIG, 'original_message_key raw'].join("\n"))
+    tests = create_test_case
+
+    d.run(expect_emits: 2) do
+      u = UDPSocket.new
+      u.connect('127.0.0.1', PORT)
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert(d.events.size > 0)
+    d.events.each_index do |i|
+      assert_equal(tests[i]['expected'], d.events[i][2]['message'])
+      assert_equal(tests[i]['msg'], d.events[i][2]['raw'] + "\n")
+    end
+  end
 end
