@@ -1100,17 +1100,17 @@ module Fluent::Plugin
           return [socket, request_info]
         end
 
-        ret =
-          begin
-            yield(socket, request_info)
-          rescue
-            @socket_cache.revoke
-            raise
-          else
-            unless require_ack
-              @socket_cache.dec_ref
-            end
+        ret = nil
+        begin
+          ret = yield(socket, request_info)
+        rescue
+          @socket_cache.revoke
+          raise
+        else
+          unless require_ack
+            @socket_cache.dec_ref
           end
+        end
 
         ret
       end
