@@ -656,32 +656,18 @@ module Fluent::Plugin
       end
 
       def send_data(tag, chunk)
-        sock, ri = connect
-        if ri.state != :established
-          establish_connection(sock, ri)
-        end
-
-        begin
-          send_data_actual(sock, tag, chunk)
-        rescue
-          if @keepalive
-            @socket_cache.revoke
-          else
-            sock.close rescue nil
+        connect(nil, require_ack: @sender.require_ack_response) do |sock, ri|
+          if ri.state != :established
+            establish_connection(sock, ri)
           end
-          raise
+
+          send_data_actual(sock, tag, chunk)
+
+          if @sender.require_ack_response
+            return sock # to read ACK from socket
+          end
         end
 
-        if @sender.require_ack_response
-          return sock # to read ACK from socket
-        end
-
-        if @keepalive
-          @socket_cache.dec_ref
-        else
-          sock.close_write rescue nil
-          sock.close rescue nil
-        end
         heartbeat(false)
         nil
       end
@@ -712,7 +698,7 @@ module Fluent::Plugin
 
         case @sender.heartbeat_type
         when :transport
-          connect(dest_addr) do |sock|
+          connect(dest_addr) do |_ri, _sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
@@ -803,38 +789,54 @@ module Fluent::Plugin
 
       private
 
-      def connect(host = nil)
-        socket, request_info =
-                if @keepalive
-                  ri = RequestInfo.new(:established)
-                  sock = @socket_cache.fetch_or do
-                    s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-                    ri = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
-                    s
-                  end
-                  [sock, ri]
-                else
-                  @log.debug('connect new socket')
-                  [@sender.create_transfer_socket(host || resolved_host, port, @hostname), RequestInfo.new(@sender.security ? :helo : :established)]
-                end
-
-        if block_given?
-          ret = nil
-          begin
-            ret = yield(socket, request_info)
-          rescue
-            @socket_cache.revoke if @keepalive
-            raise
-          else
-            @socket_cache.dec_ref if @keepalive
-          ensure
-            socket.close unless @keepalive
-          end
-
-          ret
-        else
-          [socket, request_info]
+      def connect(host = nil, require_ack: false, &block)
+        if @keepalive
+          return connect_keepalive(host, require_ack: require_ack, &block)
         end
+
+        @log.debug('connect new socket')
+        socket = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+        request_info = RequestInfo.new(@sender.security ? :helo : :established)
+
+        unless block_given?
+          return [socket, request_info]
+        end
+
+        begin
+          yield(socket, request_info)
+        ensure
+          unless require_ack
+            socket.close_write rescue nil
+            socket.close rescue nil
+          end
+        end
+      end
+
+      def connect_keepalive(host = nil, require_ack: false)
+        request_info = RequestInfo.new(:established)
+        socket = @socket_cache.fetch_or do
+          s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
+          request_info = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
+          s
+        end
+
+        unless block_given?
+          return [socket, request_info]
+        end
+
+        ret = nil
+        begin
+          ret = yield(socket, request_info)
+        rescue
+          @socket_cache.revoke
+          raise
+        else
+          unless require_ack
+            @socket_cache.dec_ref
+          end
+        end
+
+        ret
       end
     end
 
