@@ -388,7 +388,7 @@ module Fluent::Plugin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
           if n.send_heartbeat
-            @load_balancer.rebuild_weight_array
+            @load_balancer.rebuild_weight_array(@nodes)
           end
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
@@ -396,7 +396,7 @@ module Fluent::Plugin
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         end
         if n.tick
-          @load_balancer.rebuild_weight_array
+          @load_balancer.rebuild_weight_array(@nodes)
         end
       }
     end
@@ -405,7 +405,7 @@ module Fluent::Plugin
       if node = @nodes.find {|n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          @load_balancer.rebuild_weight_array
+          @load_balancer.rebuild_weight_array(@nodes)
         end
       end
     end
