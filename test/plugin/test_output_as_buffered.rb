@@ -1089,12 +1089,12 @@ class BufferedOutputTest < Test::Unit::TestCase
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT', '', {}, [config_element('buffer',chunk_key,hash)]))
-      @i.start
-      @i.after_start
     end
 
     test 'writes event in proper interval' do
       Timecop.freeze(Time.parse('2019-02-08 00:01:00 +0900'))
+      @i.start
+      @i.after_start
       @i.thread_wait_until_start
       assert_equal(0, @i.write_count)
       @i.interrupt_flushes
