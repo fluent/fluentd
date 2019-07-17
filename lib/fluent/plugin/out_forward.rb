@@ -209,7 +209,7 @@ module Fluent::Plugin
 
         socket_cache =
           if @keepalive
-            Node::SocketCache.new(@keepalive_timeout, @log)
+            SocketCache.new(@keepalive_timeout, @log)
           else
             nil
           end
