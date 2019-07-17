@@ -1096,16 +1096,19 @@ class BufferedOutputTest < Test::Unit::TestCase
     test 'writes event in proper interval' do
       Timecop.freeze(Time.parse('2019-02-08 00:01:00 +0900'))
       @i.thread_wait_until_start
+      assert_equal(0, @i.write_count)
+      @i.interrupt_flushes
+
       events = [
         [event_time('2019-02-08 00:02:00 +0900'), { "message" => "foobar" }]
       ]
       @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
       @i.enqueue_thread_wait
-      assert{ @i.write_count == 0 }
+      assert_equal(0, @i.write_count)
 
       Timecop.freeze(Time.parse('2019-02-09 00:00:08 +0900'))
       @i.enqueue_thread_wait
-      assert{ @i.write_count == 0 }
+      assert_equal(0, @i.write_count)
 
       Timecop.freeze(Time.parse('2019-02-09 00:00:12 +0900'))
       # wirte should be called in few seconds since
