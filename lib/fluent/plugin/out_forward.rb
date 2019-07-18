@@ -263,7 +263,7 @@ module Fluent::Plugin
           @usock = socket_create_udp(@nodes.first.host, @nodes.first.port, nonblock: true)
           server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
         end
-        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_timer))
+        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
       end
 
       if @require_ack_response
@@ -375,7 +375,7 @@ module Fluent::Plugin
 
     private
 
-    def on_timer
+    def on_heartbeat_timer
       @nodes.each {|n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
