@@ -25,6 +25,7 @@ require 'fluent/plugin/out_forward/load_balancer'
 require 'fluent/plugin/out_forward/socket_cache'
 require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
+require 'fluent/plugin/out_forward/connection_manager'
 
 module Fluent::Plugin
   class ForwardOutput < Output
@@ -206,11 +207,24 @@ module Fluent::Plugin
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
         name = server.name || "#{server.host}:#{server.port}"
 
+        socket_cache =
+          if @keepalive
+            SocketCache.new(@keepalive_timeout, @log)
+          else
+            nil
+          end
+        connection_manager = ConnectionManager.new(
+          log: @log,
+          secure: !!@security,
+          connection_factory: method(:create_transfer_socket),
+          socket_cache: socket_cache,
+        )
+
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
+          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: connection_manager)
         else
-          node = Node.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
+          node = Node.new(self, server, failure: failure, connection_manager: connection_manager)
           begin
             node.validate_host_resolution!
           rescue => e
@@ -448,13 +462,7 @@ module Fluent::Plugin
       log.error "unexpected error while receiving ack message", error: e
       log.error_backtrace
     ensure
-      if @keepalive
-        info.node.socket_cache.dec_ref_by_value(info.sock)
-      else
-        info.sock.close_write rescue nil
-        info.sock.close rescue nil
-      end
-
+      info.node.close(info.sock)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting.delete(info)
       end
@@ -482,10 +490,7 @@ module Fluent::Plugin
                 # (2) the node does support sending response but responses have not arrived for some reasons.
                 log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
-                if @keepalive
-                  info.node.socket_cache.revoke_by_value(info.sock)
-                end
-                info.sock.close rescue nil
+                info.node.close(info.sock)
                 rollback_write(info.chunk_id, update_retry: false)
               else
                 sockets << info.sock
@@ -510,9 +515,8 @@ module Fluent::Plugin
     end
 
     class Node
-      # @param keepalive [Bool]
-      # @param keepalive_timeout [Integer | nil]
-      def initialize(sender, server, failure:, keepalive: false, keepalive_timeout: nil)
+      # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
+      def initialize(sender, server, failure:, connection_manager:)
         @sender = sender
         @log = sender.log
         @compress = sender.compress
@@ -549,10 +553,7 @@ module Fluent::Plugin
         @resolved_time = 0
         @resolved_once = false
 
-        @keepalive = keepalive
-        if @keepalive
-          @socket_cache = ForwardOutput::SocketCache.new(keepalive_timeout, @log)
-        end
+        @connection_manager = connection_manager
       end
 
       attr_accessor :usock
@@ -560,9 +561,6 @@ module Fluent::Plugin
       attr_reader :name, :host, :port, :weight, :standby, :state
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
-      attr_reader :socket_cache        # for ack
-
-      RequestInfo = Struct.new(:state, :shared_key_nonce, :auth)
 
       def validate_host_resolution!
         resolved_host
@@ -673,14 +671,15 @@ module Fluent::Plugin
       end
 
       def clear
-        @keepalive && @socket_cache.clear
+        @connection_manager.stop
       end
 
       def purge_obsolete_socks
-        unless @keepalive
-          raise "Don not call this method without keepalive option"
-        end
-        @socket_cache.purge_obsolete_socks
+        @connection_manager.purge_obsolete_socks
+      end
+
+      def close(sock)
+        @connection_manager.close(sock)
       end
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
@@ -790,53 +789,7 @@ module Fluent::Plugin
       private
 
       def connect(host = nil, require_ack: false, &block)
-        if @keepalive
-          return connect_keepalive(host, require_ack: require_ack, &block)
-        end
-
-        @log.debug('connect new socket')
-        socket = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-        request_info = RequestInfo.new(@sender.security ? :helo : :established)
-
-        unless block_given?
-          return [socket, request_info]
-        end
-
-        begin
-          yield(socket, request_info)
-        ensure
-          unless require_ack
-            socket.close_write rescue nil
-            socket.close rescue nil
-          end
-        end
-      end
-
-      def connect_keepalive(host = nil, require_ack: false)
-        request_info = RequestInfo.new(:established)
-        socket = @socket_cache.fetch_or do
-          s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-          request_info = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
-          s
-        end
-
-        unless block_given?
-          return [socket, request_info]
-        end
-
-        ret = nil
-        begin
-          ret = yield(socket, request_info)
-        rescue
-          @socket_cache.revoke
-          raise
-        else
-          unless require_ack
-            @socket_cache.dec_ref
-          end
-        end
-
-        ret
+        @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
       end
     end
 
