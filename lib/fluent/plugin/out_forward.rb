@@ -143,6 +143,8 @@ module Fluent::Plugin
       config_param :srv_service_name, :string, default: 'fluentd'
       desc 'Configure the SRV protocol.'
       config_param :srv_service_protocol, :string, default: 'tcp'
+      desc 'Period to expire the result of name resolve'
+      config_param :srv_expire_resolve_cache, :integer, default: 30
     end
 
     attr_reader :nodes
@@ -554,6 +556,10 @@ module Fluent::Plugin
         @enable_dns_srv = server.enable_dns_srv
         @srv_service_name = server.srv_service_name
         @srv_service_protocol = server.srv_service_protocol
+        @srv_expire_resolve_cache = server.srv_expire_resolve_cache
+        @srv_resolved_host = nil
+        @srv_resolved_time = 0
+        @srv_host_mutex = Mutex.new
         @using_srv = false
         @original_host = nil
         @original_port = nil
@@ -782,12 +788,18 @@ module Fluent::Plugin
       # @param host string
       # @return [SRV]
       def resolve_srv(host)
+        now = Fluent::Engine.now
+        use_cache = @srv_expire_resolve_cache.zero? || now - @srv_resolved_time < @srv_expire_resolve_cache
+        return @srv_resolved_host if use_cache && !@srv_resolved_host.nil?
+
         res = []
         adders = Resolv::DNS.new.getresources(host, Resolv::DNS::Resource::IN::SRV)
         adders.each do |addr|
           srv = SRV.new(addr.priority, addr.weight, addr.port, addr.target.to_s)
           res.push(srv)
         end
+        @srv_resolved_time = now
+        @srv_resolved_host = res
         res
       end
 
@@ -875,9 +887,13 @@ module Fluent::Plugin
       end
 
       def switch_original_host!
-        @host = @original_host
-        @port = @original_port
-        @using_srv = false
+        @srv_host_mutex.synchronize do
+          if @using_srv
+          @host = @original_host
+          @port = @original_port
+          @using_srv = false
+          end
+        end
       end
 
       def resolve_srv!
@@ -886,15 +902,15 @@ module Fluent::Plugin
         end
 
         host = "_#{@srv_service_name}._#{@srv_service_protocol}.#{@host}"
-        @log.info 'srv try resolve hostname' , host: host
+        @log.info 'srv try resolve hostname', host: host
         resp = resolve_srv(host)
 
         if resp.empty?
           # empty response is tried original host.
+          @log.warn 'srv record empty response', host: host
           if @using_srv
             switch_original_host!
           end
-          @log.warn 'srv record empty response', host: host
           return
         end
 
@@ -903,7 +919,7 @@ module Fluent::Plugin
 
         if available.nil?
           # unavailable is tried original host.
-          if @using_srvs
+          if @using_srv
             switch_original_host!
           end
           @log.warn 'srv record does not available node. try using A record', host: host
@@ -911,12 +927,17 @@ module Fluent::Plugin
         end
 
         # swap config host to srv response host.
-        @using_srv = true
-        @original_host = @host
-        @original_port = @port
-        @host = available.target
-        @port = available.port
-        @log.info "using srv record response '#{@name}'", host: available.target, port: available.port
+        @srv_host_mutex.synchronize do
+          unless @using_srv
+            @using_srv = true
+            @original_host = @host
+            @original_port = @port
+            @host = available.target
+            @port = available.port
+          end
+        end
+
+        @log.info "using srv record response '#{@host}'", host: available.target, port: available.port
       end
       private :resolve_srv!
 
