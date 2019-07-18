@@ -889,9 +889,9 @@ module Fluent::Plugin
       def switch_original_host!
         @srv_host_mutex.synchronize do
           if @using_srv
-          @host = @original_host
-          @port = @original_port
-          @using_srv = false
+            @host = @original_host
+            @port = @original_port
+            @using_srv = false
           end
         end
       end
