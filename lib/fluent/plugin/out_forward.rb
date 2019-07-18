@@ -185,8 +185,6 @@ module Fluent::Plugin
         # socket helper adds CA cert or signed certificate to same cert store internally so unify it in this place.
         if @tls_cert_path && !@tls_cert_path.empty?
           @tls_ca_cert_path = @tls_cert_path
-        end
-        if @tls_ca_cert_path && !@tls_ca_cert_path.empty?
           @tls_ca_cert_path.each do |path|
             raise Fluent::ConfigError, "specified cert path does not exist:#{path}" unless File.exist?(path)
             raise Fluent::ConfigError, "specified cert path is not readable:#{path}" unless File.readable?(path)
