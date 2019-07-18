@@ -177,10 +177,8 @@ module Fluent::Plugin
         @heartbeat_type = :transport
       end
 
-      if @dns_round_robin
-        if @heartbeat_type == :udp
-          raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
-        end
+      if @dns_round_robin && @heartbeat_type == :udp
+        raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
       end
 
       if @transport == :tls
