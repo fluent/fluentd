@@ -19,135 +19,118 @@ require 'fluent/plugin/output'
 module Fluent::Plugin
   class ForwardOutput < Output
     class SocketCache
-      TimedSocket = Struct.new(:timeout, :sock, :ref)
+      TimedSocket = Struct.new(:timeout, :key, :sock)
 
       def initialize(timeout, log)
         @log = log
         @timeout = timeout
-        @active_socks = {}
-        @inactive_socks = {}
+        @available_sockets = Hash.new { |obj, k| obj[k] = [] }
+        @inflight_sockets = {}
+        @inactive_sockets = []
         @mutex = Mutex.new
       end
 
-      def revoke(key = Thread.current.object_id)
+      def checkout_or(key)
         @mutex.synchronize do
-          if @active_socks[key]
-            @inactive_socks[key] = @active_socks.delete(key)
-            @inactive_socks[key].ref = 0
+          tsock = pick_socket(key)
+
+          unless tsock
+            val = yield
+            new_tsock = TimedSocket.new(timeout, key, val)
+            @log.debug("connect new socket #{new_tsock}")
+
+            @inflight_sockets[val] = new_tsock
+            return new_tsock.sock
+          end
+          tsock.sock
+        end
+      end
+
+      def checkin(sock)
+        @mutex.synchronize do
+          if (s = @inflight_sockets.delete(sock))
+            @available_sockets[s.key] << s
+          else
+            @log.debug("there is no socket #{sock}")
           end
         end
       end
 
-      def clear
+      def revoke(sock)
         @mutex.synchronize do
-          @inactive_socks.values.each do |s|
-            s.sock.close rescue nil
+          if (s = @inflight_sockets.delete(sock))
+            @inactive_sockets << s
+          else
+            @log.debug("there is no socket #{sock}")
           end
-          @inactive_socks.clear
-
-          @active_socks.values.each do |s|
-            s.sock.close rescue nil
-          end
-          @active_socks.clear
         end
       end
 
       def purge_obsolete_socks
+        sockets = []
+
         @mutex.synchronize do
-          @inactive_socks.keys.each do |k|
-            # 0 means sockets stored in this class received all acks
-            if @inactive_socks[k].ref <= 0
-              s = @inactive_socks.delete(k)
-              s.sock.close  rescue nil
-              @log.debug("purged obsolete socket #{s.sock}")
+          # don't touch @inflight_sockets
+
+          @available_sockets.each do |_, socks|
+            socks.each do |sock|
+              if expired_socket?(sock)
+                sockets << sock
+                socks.delete(sock)
+              end
             end
           end
+          @available_sockets = @available_sockets.select { |_, v| !v.empty? }
 
-          @active_socks.keys.each do |k|
-            if expired?(k) && @active_socks[k].ref <= 0
-              @inactive_socks[k] = @active_socks.delete(k)
-            end
-          end
+          sockets += @inactive_sockets
+          @inactive_sockets.clear
+        end
+
+        while (s = sockets.pop)
+          s.sock.close rescue nil
         end
       end
 
-      # We expect that `yield` returns a unique object in this class
-      def fetch_or(key = Thread.current.object_id)
+      def clear
+        sockets = []
         @mutex.synchronize do
-          unless @active_socks[key]
-            @active_socks[key] = TimedSocket.new(timeout, yield, 1)
-            @log.debug("connect new socket #{@active_socks[key]}")
-            return @active_socks[key].sock
-          end
+          sockets += @available_sockets.values.flat_map { |v| v }
+          sockets += @inflight_sockets.values
+          sockets += @inactive_sockets
 
-          if expired?(key)
-            # Do not close this socket here in case of it will be used by other place (e.g. wait for receiving ack)
-            @inactive_socks[key] = @active_socks.delete(key)
-            @log.debug("connection #{@inactive_socks[key]} is expired. reconnecting...")
-            @active_socks[key] = TimedSocket.new(timeout, yield, 0)
-          end
-
-          @active_socks[key].ref += 1
-          @active_socks[key].sock
+          @available_sockets.clear
+          @inflight_sockets.clear
+          @inactive_sockets.clear
         end
-      end
 
-      def dec_ref(key = Thread.current.object_id)
-        @mutex.synchronize do
-          if @active_socks[key]
-            @active_socks[key].ref -= 1
-          elsif @inactive_socks[key]
-            @inactive_socks[key].ref -= 1
-          else
-            @log.warn("Not found key for dec_ref: #{key}")
-          end
-        end
-      end
-
-      # This method is expected to be called in class which doesn't call #inc_ref
-      def dec_ref_by_value(val)
-        @mutex.synchronize do
-          sock = @active_socks.detect { |_, v| v.sock == val }
-          if sock
-            key = sock.first
-            @active_socks[key].ref -= 1
-            return
-          end
-
-          sock = @inactive_socks.detect { |_, v| v.sock == val }
-          if sock
-            key = sock.first
-            @inactive_socks[key].ref -= 1
-            return
-          else
-            @log.warn("Not found key for dec_ref_by_value: #{key}")
-          end
-        end
-      end
-
-      # This method is expected to be called in class which doesn't call #fetch_or
-      def revoke_by_value(val)
-        @mutex.synchronize do
-          sock = @active_socks.detect { |_, v| v.sock == val }
-          if sock
-            key = sock.first
-            @inactive_socks[key] = @active_socks.delete(key)
-            @inactive_socks[key].ref = 0
-          else
-            @log.debug("Not found for revoke_by_value :#{val}")
-          end
+        while (s = sockets.pop)
+          s.sock.close rescue nil
         end
       end
 
       private
 
+      # this method is not thread safe
+      def pick_socket(key)
+        if @available_sockets[key].empty?
+          return nil
+        end
+
+        t = Time.now
+        if (s = @available_sockets[key].find { |sock| !expired_socket?(sock, time: t) })
+          @inflight_sockets[s.sock] = @available_sockets[key].delete(s)
+          s
+        else
+          nil
+        end
+      end
+
       def timeout
         @timeout && Time.now + @timeout
       end
 
-      # This method is thread unsafe
-      def expired?(key = Thread.current.object_id)
-        @active_socks[key].timeout ? @active_socks[key].timeout < Time.now : false
+      def expired_socket?(sock, time: Time.now)
+        sock.timeout ? sock.timeout < time : false
       end
     end
   end

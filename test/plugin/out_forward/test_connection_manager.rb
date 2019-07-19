@@ -82,7 +82,7 @@ class ConnectionManager < Test::Unit::TestCase
     sub_test_case 'when socket_cache exists' do
       test 'calls connect_keepalive' do
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
-        mock(cache).dec_ref.never
+        mock(cache).checkin('sock').never
 
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
@@ -100,7 +100,7 @@ class ConnectionManager < Test::Unit::TestCase
 
       test 'calls connect_keepalive and closes socket with block' do
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
-        mock(cache).dec_ref.once
+        mock(cache).checkin('sock').once
 
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
@@ -119,7 +119,7 @@ class ConnectionManager < Test::Unit::TestCase
 
       test 'does not call dec_ref when require_ack is true' do
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
-        mock(cache).dec_ref.never
+        mock(cache).checkin('sock').never
 
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,

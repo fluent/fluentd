@@ -1052,7 +1052,7 @@ EOL
     end
 
     sub_test_case 'with require_ack_response' do
-      test 'Do not create connection per send_data' do
+      test 'Create connection per send_data' do
         target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
         output_conf = CONFIG + %[
           require_ack_response true
@@ -1064,7 +1064,7 @@ EOL
 
         begin
           chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.once
+          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
 
           target_input_driver.run(timeout: 15) do
             d.run(shutdown: false) do

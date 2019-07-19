@@ -21,6 +21,10 @@ module Fluent::Plugin
     class ConnectionManager
       RequestInfo = Struct.new(:state, :shared_key_nonce, :auth)
 
+      # @param log [Logger]
+      # @param secure [Boolean]
+      # @param connection_factory [Proc]
+      # @param SocketCache [Fluent::ForwardOutput::SocketCache]
       def initialize(log:, secure:, connection_factory:, socket_cache:)
         @log = log
         @secure = secure
@@ -64,7 +68,7 @@ module Fluent::Plugin
 
       def close(sock)
         if @socket_cache
-          @socket_cache.dec_ref_by_value(sock)
+          @socket_cache.checkin(sock)
         else
           sock.close_write rescue nil
           sock.close rescue nil
@@ -75,7 +79,7 @@ module Fluent::Plugin
 
       def connect_keepalive(host:, port:, hostname:, require_ack:)
         request_info = RequestInfo.new(:established)
-        socket = @socket_cache.fetch_or do
+        socket = @socket_cache.checkout_or([host, port, hostname]) do
           s = @connection_factory.call(host, port, hostname)
           request_info = RequestInfo.new(@secure ? :helo : :established) # overwrite if new connection
           s
@@ -89,11 +93,11 @@ module Fluent::Plugin
         begin
           ret = yield(socket, request_info)
         rescue
-          @socket_cache.revoke
+          @socket_cache.revoke(socket)
           raise
         else
           unless require_ack
-            @socket_cache.dec_ref
+            @socket_cache.checkin(socket)
           end
         end
 
