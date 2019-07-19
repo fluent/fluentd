@@ -36,9 +36,10 @@ module Fluent::Plugin
         @socket_cache && @socket_cache.clear
       end
 
-      def connect(host:, port:, hostname:, require_ack:, &block)
+      # @param ack [Fluent::Plugin::ForwardOutput::AckHander::Ack|nil]
+      def connect(host:, port:, hostname:, ack: nil, &block)
         if @socket_cache
-          return connect_keepalive(host: host, port: port, hostname: hostname, require_ack: require_ack, &block)
+          return connect_keepalive(host: host, port: port, hostname: hostname, ack: ack, &block)
         end
 
         @log.debug('connect new socket')
@@ -52,7 +53,9 @@ module Fluent::Plugin
         begin
           yield(socket, request_info)
         ensure
-          unless require_ack
+          if ack
+            ack.enqueue(socket)
+          else
             socket.close_write rescue nil
             socket.close rescue nil
           end
@@ -77,7 +80,7 @@ module Fluent::Plugin
 
       private
 
-      def connect_keepalive(host:, port:, hostname:, require_ack:)
+      def connect_keepalive(host:, port:, hostname:, ack: nil)
         request_info = RequestInfo.new(:established)
         socket = @socket_cache.checkout_or([host, port, hostname]) do
           s = @connection_factory.call(host, port, hostname)
@@ -96,7 +99,9 @@ module Fluent::Plugin
           @socket_cache.revoke(socket)
           raise
         else
-          unless require_ack
+          if ack
+            ack.enqueue(socket)
+          else
             @socket_cache.checkin(socket)
           end
         end

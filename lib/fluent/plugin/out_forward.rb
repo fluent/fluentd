@@ -199,6 +199,7 @@ module Fluent::Plugin
         end
       end
 
+      @ack_handler = @require_ack_response ? AckHandler.new(@ack_response_timeout) : nil
       socket_cache = @keepalive ? SocketCache.new(@keepalive_timeout, @log) : nil
       @connection_manager = ConnectionManager.new(
         log: @log,
@@ -213,9 +214,9 @@ module Fluent::Plugin
 
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager)
+          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
         else
-          node = Node.new(self, server, failure: failure, connection_manager: @connection_manager)
+          node = Node.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
           begin
             node.validate_host_resolution!
           rescue => e
@@ -276,7 +277,6 @@ module Fluent::Plugin
           @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
         end
 
-        @ack_handler = AckHandler.new(@ack_response_timeout)
         thread_create(:out_forward_receiving_ack, &method(:ack_reader))
       end
 
@@ -318,8 +318,17 @@ module Fluent::Plugin
         end
       end
 
-      def enqueue(node, sock, chunk)
-        cid = chunk.unique_id
+      Ack = Struct.new(:id, :handler, :node) do
+        def enqueue(sock)
+          handler.enqueue(node, sock, id)
+        end
+      end
+
+      def create_ack(id, node)
+        Ack.new(id, self, node)
+      end
+
+      def enqueue(node, sock, cid)
         info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now, @timeout)
         @mutex.synchronize do
           @ack_waitings << info
@@ -377,8 +386,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      sock, node = @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
-      @ack_handler.enqueue(node, sock, chunk)
+      @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -551,7 +559,8 @@ module Fluent::Plugin
 
     class Node
       # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
-      def initialize(sender, server, failure:, connection_manager:)
+      # @param ack_handler [Fluent::Plugin::ForwardOutput::AckHandler]
+      def initialize(sender, server, failure:, connection_manager:, ack_handler:)
         @sender = sender
         @log = sender.log
         @compress = sender.compress
@@ -589,6 +598,7 @@ module Fluent::Plugin
         @resolved_once = false
 
         @connection_manager = connection_manager
+        @ack_handler = ack_handler
       end
 
       attr_accessor :usock
@@ -670,7 +680,7 @@ module Fluent::Plugin
         end
 
         option = { 'size' => chunk.size, 'compressed' => @compress }
-        option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
+        option['chunk'] = Base64.encode64(chunk.unique_id) if @ack_handler
 
         # https://github.com/fluent/fluentd/wiki/Forward-Protocol-Specification-v1#packedforward-mode
         # out_forward always uses str32 type for entries.
@@ -691,16 +701,13 @@ module Fluent::Plugin
       end
 
       def send_data(tag, chunk)
-        connect(nil, require_ack: @sender.require_ack_response) do |sock, ri|
+        ack = @ack_handler && @ack_handler.create_ack(chunk.unique_id, self)
+        connect(nil, ack: ack) do |sock, ri|
           if ri.state != :established
             establish_connection(sock, ri)
           end
 
           send_data_actual(sock, tag, chunk)
-
-          if @sender.require_ack_response
-            return sock # to read ACK from socket
-          end
         end
 
         heartbeat(false)
@@ -820,8 +827,8 @@ module Fluent::Plugin
 
       private
 
-      def connect(host = nil, require_ack: false, &block)
-        @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
+      def connect(host = nil, ack: false, &block)
+        @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, ack: ack, &block)
       end
     end
 
