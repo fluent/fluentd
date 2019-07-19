@@ -276,7 +276,7 @@ module Fluent::Plugin
           @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
         end
 
-        @ack_handler = AckHandler.new
+        @ack_handler = AckHandler.new(@ack_response_timeout)
         thread_create(:out_forward_receiving_ack, &method(:ack_reader))
       end
 
@@ -297,9 +297,10 @@ module Fluent::Plugin
     end
 
     class AckHandler
-      def initialize
+      def initialize(timeout)
         @mutex = Mutex.new
         @ack_waitings = []
+        @timeout = timeout
       end
 
       # thread unsafe
@@ -311,7 +312,15 @@ module Fluent::Plugin
         end
       end
 
-      def enqueue(info)
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
+        def expired?(now)
+          time + timeout < now
+        end
+      end
+
+      def enqueue(node, sock, chunk)
+        cid = chunk.unique_id
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now, @timeout)
         @mutex.synchronize do
           @ack_waitings << info
         end
@@ -361,12 +370,6 @@ module Fluent::Plugin
       @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
     end
 
-    ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
-      def expired?(now)
-        time + timeout < now
-      end
-    end
-
     def try_write(chunk)
       log.trace "writing a chunk to destination", chunk_id: dump_unique_id_hex(chunk.unique_id)
       if chunk.empty?
@@ -375,10 +378,7 @@ module Fluent::Plugin
       end
       tag = chunk.metadata.tag
       sock, node = @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
-      chunk_id_base64 = Base64.encode64(chunk.unique_id)
-      current_time = Fluent::Clock.now
-      info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
-      @ack_handler.enqueue(info)
+      @ack_handler.enqueue(node, sock, chunk)
     end
 
     def create_transfer_socket(host, port, hostname, &block)
