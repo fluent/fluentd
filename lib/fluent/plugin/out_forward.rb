@@ -156,8 +156,6 @@ module Fluent::Plugin
       @thread = nil
 
       @usock = nil
-      @sock_ack_waiting = nil
-      @sock_ack_waiting_mutex = nil
       @keep_alive_watcher_interval = 5 # TODO
     end
 
@@ -278,8 +276,7 @@ module Fluent::Plugin
           @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
         end
 
-        @sock_ack_waiting_mutex = Mutex.new
-        @sock_ack_waiting = []
+        @ack_handler = AckHandler.new
         thread_create(:out_forward_receiving_ack, &method(:ack_reader))
       end
 
@@ -296,6 +293,47 @@ module Fluent::Plugin
 
       if @keepalive && @keepalive_timeout
         timer_execute(:out_forward_keep_alived_socket_watcher, @keep_alive_watcher_interval, &method(:on_purge_obsolete_socks))
+      end
+    end
+
+    class AckHandler
+      def initialize
+        @mutex = Mutex.new
+        @ack_waitings = []
+      end
+
+      # thread unsafe
+      attr_writer :ack_waitings
+
+      def synchronize
+        @mutex.synchronize do
+          yield
+        end
+      end
+
+      def enqueue(info)
+        @mutex.synchronize do
+          @ack_waitings << info
+        end
+      end
+
+      def find(sock)
+        @mutex.synchronize do
+          @ack_waitings.find { |info| info.sock == sock }
+        end
+      end
+
+      def delete(info)
+        @mutex.synchronize do
+          @ack_waitings.delete(info)
+        end
+      end
+
+      # thread unsafe
+      def each
+        @ack_waitings.each do |e|
+          yield(e)
+        end
       end
     end
 
@@ -340,9 +378,7 @@ module Fluent::Plugin
       chunk_id_base64 = Base64.encode64(chunk.unique_id)
       current_time = Fluent::Clock.now
       info = ACKWaitingSockInfo.new(sock, chunk.unique_id, chunk_id_base64, node, current_time, @ack_response_timeout)
-      @sock_ack_waiting_mutex.synchronize do
-        @sock_ack_waiting << info
-      end
+      @ack_handler.enqueue(info)
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -435,7 +471,8 @@ module Fluent::Plugin
       rescue Errno::ECONNRESET, EOFError # ECONNRESET for #recv, #EOFError for #readpartial
         raw_data = ""
       end
-      info = @sock_ack_waiting_mutex.synchronize{ @sock_ack_waiting.find{|i| i.sock == sock } }
+
+      info = @ack_handler.find(sock)
 
       # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
       # If this happens we assume the data wasn't delivered and retry it.
@@ -463,9 +500,7 @@ module Fluent::Plugin
       log.error_backtrace
     ensure
       info.node.close(info.sock)
-      @sock_ack_waiting_mutex.synchronize do
-        @sock_ack_waiting.delete(info)
-      end
+      @ack_handler.delete(info)
     end
 
     def ack_reader
@@ -481,9 +516,9 @@ module Fluent::Plugin
         now = Fluent::Clock.now
         sockets = []
         begin
-          @sock_ack_waiting_mutex.synchronize do
-            new_list = []
-            @sock_ack_waiting.each do |info|
+          new_list = []
+          @ack_handler.synchronize do
+            @ack_handler.each do |info|
               if info.expired?(now)
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
@@ -497,7 +532,7 @@ module Fluent::Plugin
                 new_list << info
               end
             end
-            @sock_ack_waiting = new_list
+            @ack_handler.ack_waitings = new_list
           end
 
           readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
