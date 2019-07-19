@@ -404,7 +404,7 @@ module Fluent::Plugin
           @load_balancer.rebuild_weight_array(@nodes)
         end
       else
-        log.warn("Unknown heartbeat response received host: #{soc.remote_host}, port: #{sock.remote_port}")
+        log.warn("Unknown heartbeat response received from #{soc.remote_host}:#{sock.remote_port}")
       end
     end
 
