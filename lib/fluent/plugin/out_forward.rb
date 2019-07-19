@@ -259,13 +259,6 @@ module Fluent::Plugin
     def start
       super
 
-      # Output#start sets @delayed_commit_timeout by @buffer_config.delayed_commit_timeout
-      # But it should be overwritten by ack_response_timeout to rollback chunks after timeout
-      if @ack_response_timeout && @delayed_commit_timeout != @ack_response_timeout
-        log.info "delayed_commit_timeout is overwritten by ack_response_timeout"
-        @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
-      end
-
       @load_balancer = LoadBalancer.new(log)
       @load_balancer.rebuild_weight_array(@nodes)
 
@@ -278,6 +271,13 @@ module Fluent::Plugin
       end
 
       if @require_ack_response
+        # Output#start sets @delayed_commit_timeout by @buffer_config.delayed_commit_timeout
+        # But it should be overwritten by ack_response_timeout to rollback chunks after timeout
+        if @delayed_commit_timeout != @ack_response_timeout
+          log.info "delayed_commit_timeout is overwritten by ack_response_timeout"
+          @delayed_commit_timeout = @ack_response_timeout + 2 # minimum ack_reader IO.select interval is 1s
+        end
+
         @sock_ack_waiting_mutex = Mutex.new
         @sock_ack_waiting = []
         thread_create(:out_forward_receiving_ack, &method(:ack_reader))
