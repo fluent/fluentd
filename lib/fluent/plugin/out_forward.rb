@@ -178,10 +178,8 @@ module Fluent::Plugin
         @heartbeat_type = :transport
       end
 
-      if @dns_round_robin
-        if @heartbeat_type == :udp
-          raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
-        end
+      if @dns_round_robin && @heartbeat_type == :udp
+        raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
       end
 
       if @transport == :tls
@@ -279,12 +277,9 @@ module Fluent::Plugin
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
           @usock = socket_create_udp(@nodes.first.host, @nodes.first.port, nonblock: true)
-          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length) do |data, sock|
-            sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
-            on_heartbeat(sockaddr, data)
-          end
+          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
         end
-        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_timer))
+        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
       end
 
       if @require_ack_response
@@ -396,7 +391,7 @@ module Fluent::Plugin
 
     private
 
-    def on_timer
+    def on_heartbeat_timer
       @nodes.each {|n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
@@ -415,12 +410,15 @@ module Fluent::Plugin
       }
     end
 
-    def on_heartbeat(sockaddr, msg)
-      if node = @nodes.find {|n| n.sockaddr == sockaddr }
+    def on_udp_heatbeat_response_recv(data, sock)
+      sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
+      if node = @nodes.find { |n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
           @load_balancer.rebuild_weight_array(@nodes)
         end
+      else
+        log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}")
       end
     end
 
@@ -559,7 +557,7 @@ module Fluent::Plugin
       attr_accessor :usock
 
       attr_reader :name, :host, :port, :weight, :standby, :state
-      attr_reader :sockaddr  # used by on_heartbeat
+      attr_reader :sockaddr  # used by on_udp_heatbeat_response_recv
       attr_reader :failure, :available # for test
 
       def validate_host_resolution!
@@ -707,6 +705,7 @@ module Fluent::Plugin
           end
         when :udp
           @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
+          # response is going to receive at on_udp_heatbeat_response_recv
           nil
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
@@ -739,7 +738,7 @@ module Fluent::Plugin
       def resolve_dns!
         addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
         addrinfo = @sender.dns_round_robin ? addrinfo_list.sample : addrinfo_list.first
-        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_heartbeat
+        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_udp_heatbeat_response_recv
         addrinfo[3]
       end
       private :resolve_dns!
