@@ -310,8 +310,8 @@ module Fluent::Plugin
         sockets = []
         begin
           new_list = []
-          @ack_handler.synchronize do
-            @ack_handler.each do |info|
+          @mutex.synchronize do
+            @ack_waitings.each do |info|
               if info.expired?(now)
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
@@ -325,14 +325,14 @@ module Fluent::Plugin
                 new_list << info
               end
             end
-            @ack_handler.ack_waitings = new_list
+            @ack_waitings = new_list
           end
 
           readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
           next unless readable_sockets
 
           readable_sockets.each do |sock|
-            chunk_id, success = @ack_handler.read_ack_from_sock(sock, unpacker)
+            chunk_id, success = read_ack_from_sock(sock, unpacker)
             next if chunk_id.nil?
 
             if success
@@ -385,9 +385,6 @@ module Fluent::Plugin
         delete(info)
       end
 
-      # thread unsafe
-      attr_writer :ack_waitings
-
       def synchronize
         @mutex.synchronize do
           yield
@@ -414,13 +411,6 @@ module Fluent::Plugin
         info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now, @timeout)
         @mutex.synchronize do
           @ack_waitings << info
-        end
-      end
-
-      # thread unsafe
-      def each
-        @ack_waitings.each do |e|
-          yield(e)
         end
       end
 
