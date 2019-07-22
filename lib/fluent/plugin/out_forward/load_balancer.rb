@@ -25,15 +25,21 @@ module Fluent::Plugin
         @weight_array = []
         @rand_seed = Random.new.seed
         @rr = 0
+        @mutex = Mutex.new
       end
 
       def select_healthy_node
         error = nil
 
-        wlen = @weight_array.length
+        # Don't care about the change of @weight_array's size while looping since
+        # it's only used for determining the number of loops and it is not so important.
+        wlen = @weight_array.size
         wlen.times do
-          @rr = (@rr + 1) % wlen
-          node = @weight_array[@rr]
+          node = @mutex.synchronize do
+            r = @rr
+            @rr = (@rr + 1) % @weight_array.size
+            @weight_array[r]
+          end
           next unless node.available?
 
           begin
@@ -76,7 +82,9 @@ module Fluent::Plugin
         weight_array = []
         if regular_nodes.empty?
           @log.warn('No nodes are available')
-          @weight_array = weight_array
+          @mutex.synchronize do
+            @weight_array = weight_array
+          end
           return @weight_array
         end
 
@@ -94,7 +102,9 @@ module Fluent::Plugin
         r = Random.new(@rand_seed)
         weight_array.sort_by! { r.rand }
 
-        @weight_array = weight_array
+        @mutex.synchronize do
+          @weight_array = weight_array
+        end
       end
     end
   end
