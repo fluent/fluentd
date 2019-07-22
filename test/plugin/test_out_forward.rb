@@ -1143,4 +1143,33 @@ EOL
       end
     end
   end
+  test 'dns srv record test' do
+    target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
+    output_conf = %[
+    send_timeout 51
+    heartbeat_type udp
+
+    <server>
+      enable_dns_srv true
+      name test
+      host bootjp.me
+      port #{TARGET_PORT}
+    </server>
+  ]
+    d = create_driver(output_conf)
+    d.instance_start
+
+    begin
+      target_input_driver.run(timeout: 15) do
+        d.run(shutdown: false) do
+          node = d.instance.nodes.first
+          mock.proxy(d.instance).resolve_srv('eample.com') { |res|}.once
+          # puts res
+       end
+      end
+    ensure
+      d.instance_shutdown
+    end
+  end
+
 end

@@ -169,6 +169,7 @@ module Fluent::Plugin
       @sock_ack_waiting = nil
       @sock_ack_waiting_mutex = nil
       @keep_alive_watcher_interval = 5 # TODO
+
     end
 
     def configure(conf)
@@ -560,6 +561,7 @@ module Fluent::Plugin
         @srv_resolved_host = nil
         @srv_resolved_time = 0
         @srv_host_mutex = Mutex.new
+        @srv_resolved_once = false
         @using_srv = false
         @original_host = nil
         @original_port = nil
@@ -904,6 +906,7 @@ module Fluent::Plugin
         host = "_#{@srv_service_name}._#{@srv_service_protocol}.#{@host}"
         @log.info 'srv try resolve hostname', host: host
         resp = resolve_srv(host)
+        @srv_resolved_once = true
 
         if resp.empty?
           # empty response is tried original host.
@@ -942,7 +945,7 @@ module Fluent::Plugin
       private :resolve_srv!
 
       def resolve_dns!
-        if @enable_dns_srv
+        if @enable_dns_srv && !@srv_resolved_once
           resolve_srv!
         end
         addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
