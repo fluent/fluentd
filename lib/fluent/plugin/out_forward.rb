@@ -199,7 +199,7 @@ module Fluent::Plugin
         end
       end
 
-      @ack_handler = @require_ack_response ? AckHandler.new(@ack_response_timeout) : nil
+      @ack_handler = @require_ack_response ? AckHandler.new(@ack_response_timeout, log: @log) : nil
       socket_cache = @keepalive ? SocketCache.new(@keepalive_timeout, @log) : nil
       @connection_manager = ConnectionManager.new(
         log: @log,
@@ -297,10 +297,11 @@ module Fluent::Plugin
     end
 
     class AckHandler
-      def initialize(timeout)
+      def initialize(timeout, log:)
         @mutex = Mutex.new
         @ack_waitings = []
         @timeout = timeout
+        @log = log
       end
 
       def read_ack_from_sock(sock, unpacker)
@@ -315,27 +316,27 @@ module Fluent::Plugin
         # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
         # If this happens we assume the data wasn't delivered and retry it.
         if raw_data.empty?
-          log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
+          @log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
           info.node.disable!
           rollback_write(info.chunk_id, update_retry: false)
           return nil
         else
           unpacker.feed(raw_data)
           res = unpacker.read
-          log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
+          @log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
-            log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
+            @log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
             rollback_write(info.chunk_id, update_retry: false)
             return nil
           else
-            log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
+            @log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
           end
           return info.chunk_id
         end
       rescue => e
-        log.error "unexpected error while receiving ack message", error: e
-        log.error_backtrace
+        @log.error "unexpected error while receiving ack message", error: e
+        @log.error_backtrace
       ensure
         info.node.close(info.sock)
         @ack_handler.delete(info)
