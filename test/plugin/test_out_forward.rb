@@ -276,7 +276,7 @@ EOL
       [tag_in_ascii, time, {"a" => 2}],
     ]
 
-    stub(d.instance.ack_handler).read_ack_from_sock(anything, anything).never
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run do
         emit_events.each do |tag, t, record|
@@ -306,7 +306,7 @@ EOL
       {"a" => 2}
     ]
 
-    stub(d.instance.ack_handler).read_ack_from_sock(anything, anything).never
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -336,7 +336,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    stub(d.instance.ack_handler).read_ack_from_sock(anything, anything).never
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -394,7 +394,7 @@ EOL
       {"a" => 2}
     ]
     # not attempt to receive responses, so it's empty
-    stub(d.instance.ack_handler).read_ack_from_sock(anything, anything).never
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -420,7 +420,7 @@ EOL
       {"a" => 2}
     ]
     # not attempt to receive responses, so it's empty
-    stub(d.instance.ack_handler).read_ack_from_sock(anything, anything).never
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -451,9 +451,9 @@ EOL
     time = event_time("2011-01-02 13:14:15 UTC")
 
     acked_chunk_ids = []
-    mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything, anything) do |chunk_id, success|
+    mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything) do |info, success|
       if success
-        acked_chunk_ids << chunk_id
+        acked_chunk_ids << info.chunk_id
       end
       [chunk_id, success]
     end

@@ -421,10 +421,8 @@ module Fluent::Plugin
                           @delayed_commit_timeout / 3.0
                         end
 
-      unpacker = Fluent::Engine.msgpack_unpacker
-
       while thread_current_running?
-        @ack_handler.ack_reader(unpacker, select_interval) do |chunk_id, succ|
+        @ack_handler.ack_reader(select_interval) do |chunk_id, succ|
           if succ
             commit_write(chunk_id)
           else

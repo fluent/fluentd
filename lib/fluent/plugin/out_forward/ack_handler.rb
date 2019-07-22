@@ -26,9 +26,10 @@ module Fluent::Plugin
         @timeout = timeout
         @log = log
         @read_length = read_length
+        @unpacker = Fluent::Engine.msgpack_unpacker
       end
 
-      def ack_reader(unpacker, select_interval)
+      def ack_reader(select_interval)
         now = Fluent::Clock.now
         sockets = []
         begin
@@ -57,7 +58,7 @@ module Fluent::Plugin
           readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
           if readable_sockets
             readable_sockets.each do |sock|
-              chunk_id, success = read_ack_from_sock(sock, unpacker)
+              chunk_id, success = read_ack_from_sock(sock)
               next if chunk_id.nil?
 
               if success
@@ -106,7 +107,7 @@ module Fluent::Plugin
 
       private
 
-      def read_ack_from_sock(sock, unpacker)
+      def read_ack_from_sock(sock)
         begin
           raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
         rescue Errno::ECONNRESET, EOFError # ECONNRESET for #recv, #EOFError for #readpartial
@@ -122,9 +123,9 @@ module Fluent::Plugin
           info.node.disable!
           return info.chunk_id, false
         else
-          unpacker.feed(raw_data)
-          res = unpacker.read
-          @log.trace 'getting response from destination', host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
+          @unpacker.feed(raw_data)
+          res = @unpacker.read
+          @log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
             @log.warn 'ack in response and chunk id in sent data are different', chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
