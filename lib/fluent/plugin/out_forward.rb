@@ -199,7 +199,7 @@ module Fluent::Plugin
         end
       end
 
-      @ack_handler = @require_ack_response ? AckHandler.new(@ack_response_timeout, log: @log) : nil
+      @ack_handler = @require_ack_response ? AckHandler.new(@ack_response_timeout, log: @log, read_length: @read_length) : nil
       socket_cache = @keepalive ? SocketCache.new(@keepalive_timeout, @log) : nil
       @connection_manager = ConnectionManager.new(
         log: @log,
@@ -297,11 +297,12 @@ module Fluent::Plugin
     end
 
     class AckHandler
-      def initialize(timeout, log:)
+      def initialize(timeout, log:, read_length:)
         @mutex = Mutex.new
         @ack_waitings = []
         @timeout = timeout
         @log = log
+        @read_length = read_length
       end
 
       def read_ack_from_sock(sock, unpacker)
@@ -318,8 +319,7 @@ module Fluent::Plugin
         if raw_data.empty?
           @log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
           info.node.disable!
-          rollback_write(info.chunk_id, update_retry: false)
-          return nil
+          return info, false
         else
           unpacker.feed(raw_data)
           res = unpacker.read
@@ -327,12 +327,12 @@ module Fluent::Plugin
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
             @log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
-            rollback_write(info.chunk_id, update_retry: false)
-            return nil
+            return info, false
           else
             @log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
           end
-          return info.chunk_id
+
+          return info, true
         end
       rescue => e
         @log.error "unexpected error while receiving ack message", error: e
@@ -382,6 +382,10 @@ module Fluent::Plugin
       end
 
       private
+
+      def dump_unique_id_hex(unique_id)
+        Fluent::UniqueId.hex(unique_id)
+      end
 
       def find(sock)
         @mutex.synchronize do
@@ -515,7 +519,16 @@ module Fluent::Plugin
 
     # return chunk id to be committed
     def read_ack_from_sock(sock, unpacker)
-      @ack_handler.read_ack_from_sock(sock, unpacker)
+      info, success = @ack_handler.read_ack_from_sock(sock, unpacker)
+      if success
+        info.chunk_id
+      else
+        if info
+          rollback_write(info.chunk_id, update_retry: false)
+        end
+
+        nil
+      end
     end
 
     def ack_reader
