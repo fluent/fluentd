@@ -111,13 +111,15 @@ module Fluent
         @null_value_regexp = @null_value_pattern && Regexp.new(@null_value_pattern)
         @type_converters = build_type_converters(@types)
         @execute_convert_values = @type_converters || @null_value_regexp || @null_empty_string
-        if @timeout
-          class << self
-            alias_method :parse_orig, :parse
-            alias_method :parse, :parse_with_timeout
-          end
-          @timeout_checker = TimeoutChecker.new(@timeout)
-        end
+        @timeout_checker = if @timeout
+                             class << self
+                               alias_method :parse_orig, :parse
+                               alias_method :parse, :parse_with_timeout
+                             end
+                             TimeoutChecker.new(@timeout)
+                           else
+                             nil
+                           end
       end
 
       def start
