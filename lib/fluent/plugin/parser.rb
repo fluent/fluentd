@@ -45,7 +45,7 @@ module Fluent
                 @map.keys.each { |th|
                   time = @map[th]
                   if now - time > @timeout
-                    th.raise UnrecoverableError, "parsing timed out"
+                    th.raise UncatchableError, "parsing timed out"
                     @map.delete(th)
                   end
                 }
@@ -142,7 +142,7 @@ module Fluent
         @timeout_checker.execute {
           parse_orig(text, &block)
         }
-      rescue UnrecoverableError
+      rescue UncatchableError
         log.warn "parsing timed out with #{self.class}: text = #{text}"
         # Return nil instead of raising error. in_tail or other plugin can emit broken line.
         yield nil, nil
