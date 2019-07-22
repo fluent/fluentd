@@ -305,6 +305,48 @@ module Fluent::Plugin
         @read_length = read_length
       end
 
+      def ack_reader(unpacker, select_interval)
+        now = Fluent::Clock.now
+        sockets = []
+        begin
+          new_list = []
+          @ack_handler.synchronize do
+            @ack_handler.each do |info|
+              if info.expired?(now)
+                # There are 2 types of cases when no response has been received from socket:
+                # (1) the node does not support sending responses
+                # (2) the node does support sending response but responses have not arrived for some reasons.
+                log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
+                info.node.disable!
+                info.node.close(info.sock)
+                rollback_write(info.chunk_id, update_retry: false)
+              else
+                sockets << info.sock
+                new_list << info
+              end
+            end
+            @ack_handler.ack_waitings = new_list
+          end
+
+          readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
+          next unless readable_sockets
+
+          readable_sockets.each do |sock|
+            chunk_id, success = @ack_handler.read_ack_from_sock(sock, unpacker)
+            next if chunk_id.nil?
+
+            if success
+              commit_write(chunk_id)
+            else
+              rollback_write(chunk_id, update_retry: false)
+            end
+          end
+        rescue => e
+          log.error "unexpected error while receiving ack", error: e
+          log.error_backtrace
+        end
+      end
+
       def read_ack_from_sock(sock, unpacker)
         begin
           raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
@@ -528,45 +570,7 @@ module Fluent::Plugin
       unpacker = Fluent::Engine.msgpack_unpacker
 
       while thread_current_running?
-        now = Fluent::Clock.now
-        sockets = []
-        begin
-          new_list = []
-          @ack_handler.synchronize do
-            @ack_handler.each do |info|
-              if info.expired?(now)
-                # There are 2 types of cases when no response has been received from socket:
-                # (1) the node does not support sending responses
-                # (2) the node does support sending response but responses have not arrived for some reasons.
-                log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
-                info.node.disable!
-                info.node.close(info.sock)
-                rollback_write(info.chunk_id, update_retry: false)
-              else
-                sockets << info.sock
-                new_list << info
-              end
-            end
-            @ack_handler.ack_waitings = new_list
-          end
-
-          readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
-          next unless readable_sockets
-
-          readable_sockets.each do |sock|
-            chunk_id, success = @ack_handler.read_ack_from_sock(sock, unpacker)
-            next if chunk_id.nil?
-
-            if success
-              commit_write(chunk_id)
-            else
-              rollback_write(chunk_id, update_retry: false)
-            end
-          end
-        rescue => e
-          log.error "unexpected error while receiving ack", error: e
-          log.error_backtrace
-        end
+        @ack_handler.ack_reader(unpacker, select_interval)
       end
     end
 
