@@ -374,6 +374,15 @@ module Fluent::Plugin
         end
       end
 
+      # thread unsafe
+      def each
+        @ack_waitings.each do |e|
+          yield(e)
+        end
+      end
+
+      private
+
       def find(sock)
         @mutex.synchronize do
           @ack_waitings.find { |info| info.sock == sock }
@@ -383,13 +392,6 @@ module Fluent::Plugin
       def delete(info)
         @mutex.synchronize do
           @ack_waitings.delete(info)
-        end
-      end
-
-      # thread unsafe
-      def each
-        @ack_waitings.each do |e|
-          yield(e)
         end
       end
     end
