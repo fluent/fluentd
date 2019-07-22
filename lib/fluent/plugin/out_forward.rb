@@ -309,6 +309,9 @@ module Fluent::Plugin
         now = Fluent::Clock.now
         sockets = []
         begin
+          invalid_sockets = []
+          valid_sockets = []
+
           new_list = []
           @mutex.synchronize do
             @ack_waitings.each do |info|
@@ -319,7 +322,7 @@ module Fluent::Plugin
                 @log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
                 info.node.close(info.sock)
-                rollback_write(info.chunk_id, update_retry: false)
+                invalid_sockets << info.chunk_id
               else
                 sockets << info.sock
                 new_list << info
@@ -336,10 +339,18 @@ module Fluent::Plugin
             next if chunk_id.nil?
 
             if success
-              commit_write(chunk_id)
+              valid_sockets << chunk_id
             else
-              rollback_write(chunk_id, update_retry: false)
+              invalid_sockets << chunk_id
             end
+          end
+
+          invalid_sockets.each do |chunk_id|
+            yield chunk_id, false
+          end
+
+          valid_sockets.each do |chunk_id|
+            yield chunk_id, true
           end
         rescue => e
           @log.error "unexpected error while receiving ack", error: e
@@ -560,7 +571,13 @@ module Fluent::Plugin
       unpacker = Fluent::Engine.msgpack_unpacker
 
       while thread_current_running?
-        @ack_handler.ack_reader(unpacker, select_interval)
+        @ack_handler.ack_reader(unpacker, select_interval) do |chunk_id, succ|
+          if succ
+            commit_write(chunk_id)
+          else
+            rollback_write(chunk_id, update_retry: false)
+          end
+        end
       end
     end
 
