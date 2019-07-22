@@ -319,7 +319,7 @@ module Fluent::Plugin
         if raw_data.empty?
           @log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
           info.node.disable!
-          return info, false
+          return info.chunk_id, false
         else
           unpacker.feed(raw_data)
           res = unpacker.read
@@ -327,16 +327,17 @@ module Fluent::Plugin
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
             @log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
-            return info, false
+            return info.chunk_id, false
           else
             @log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
           end
 
-          return info, true
+          return info.chunk_id, true
         end
       rescue => e
         @log.error "unexpected error while receiving ack message", error: e
         @log.error_backtrace
+        [nil, false]
       ensure
         info.node.close(info.sock)
         delete(info)
@@ -517,20 +518,6 @@ module Fluent::Plugin
       @connection_manager.purge_obsolete_socks
     end
 
-    # return chunk id to be committed
-    def read_ack_from_sock(sock, unpacker)
-      info, success = @ack_handler.read_ack_from_sock(sock, unpacker)
-      if success
-        info.chunk_id
-      else
-        if info
-          rollback_write(info.chunk_id, update_retry: false)
-        end
-
-        nil
-      end
-    end
-
     def ack_reader
       select_interval = if @delayed_commit_timeout > 3
                           1
@@ -567,8 +554,14 @@ module Fluent::Plugin
           next unless readable_sockets
 
           readable_sockets.each do |sock|
-            chunk_id = read_ack_from_sock(sock, unpacker)
-            commit_write(chunk_id) if chunk_id
+            chunk_id, success = @ack_handler.read_ack_from_sock(sock, unpacker)
+            next if chunk_id.nil?
+
+            if success
+              commit_write(chunk_id)
+            else
+              rollback_write(chunk_id, update_retry: false)
+            end
           end
         rescue => e
           log.error "unexpected error while receiving ack", error: e
