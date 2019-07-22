@@ -332,16 +332,16 @@ module Fluent::Plugin
           end
 
           readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
-          next unless readable_sockets
+          if readable_sockets
+            readable_sockets.each do |sock|
+              chunk_id, success = read_ack_from_sock(sock, unpacker)
+              next if chunk_id.nil?
 
-          readable_sockets.each do |sock|
-            chunk_id, success = read_ack_from_sock(sock, unpacker)
-            next if chunk_id.nil?
-
-            if success
-              valid_sockets << chunk_id
-            else
-              invalid_sockets << chunk_id
+              if success
+                valid_sockets << chunk_id
+              else
+                invalid_sockets << chunk_id
+              end
             end
           end
 
