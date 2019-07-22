@@ -20,6 +20,12 @@ require 'fluent/clock'
 module Fluent::Plugin
   class ForwardOutput < Output
     class AckHandler
+      module Result
+        SUCCESS = :success
+        FAILED = :failed
+        CHUNKID_UNMATCHED = :chunkid_unmatched
+      end
+
       def initialize(timeout, log:, read_length:)
         @mutex = Mutex.new
         @ack_waitings = []
@@ -32,10 +38,8 @@ module Fluent::Plugin
       def ack_reader(select_interval)
         now = Fluent::Clock.now
         sockets = []
+        results = []
         begin
-          invalid_sockets = []
-          valid_sockets = []
-
           new_list = []
           @mutex.synchronize do
             @ack_waitings.each do |info|
@@ -44,9 +48,7 @@ module Fluent::Plugin
                 # (1) the node does not support sending responses
                 # (2) the node does support sending response but responses have not arrived for some reasons.
                 @log.warn 'no response from node. regard it as unavailable.', host: info.node.host, port: info.node.port
-                info.node.disable!
-                info.node.close(info.sock)
-                invalid_sockets << info.chunk_id
+                results << [info, Result::FAILED]
               else
                 sockets << info.sock
                 new_list << info
@@ -58,23 +60,16 @@ module Fluent::Plugin
           readable_sockets, _, _ = IO.select(sockets, nil, nil, select_interval)
           if readable_sockets
             readable_sockets.each do |sock|
-              chunk_id, success = read_ack_from_sock(sock)
-              next if chunk_id.nil?
-
-              if success
-                valid_sockets << chunk_id
-              else
-                invalid_sockets << chunk_id
-              end
+              results << read_ack_from_sock(sock)
             end
           end
 
-          invalid_sockets.each do |chunk_id|
-            yield chunk_id, false
-          end
-
-          valid_sockets.each do |chunk_id|
-            yield chunk_id, true
+          results.each do |info, ret|
+            if info.nil?
+              yield nil, nil, nil, ret
+            else
+              yield info.chunk_id, info.node, info.sock, ret
+            end
           end
         rescue => e
           @log.error 'unexpected error while receiving ack', error: e
@@ -120,8 +115,8 @@ module Fluent::Plugin
         # If this happens we assume the data wasn't delivered and retry it.
         if raw_data.empty?
           @log.warn 'destination node closed the connection. regard it as unavailable.', host: info.node.host, port: info.node.port
-          info.node.disable!
-          return info.chunk_id, false
+          # info.node.disable!
+          return info, Result::FAILED
         else
           @unpacker.feed(raw_data)
           res = @unpacker.read
@@ -129,19 +124,18 @@ module Fluent::Plugin
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
             @log.warn 'ack in response and chunk id in sent data are different', chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
-            return info.chunk_id, false
+            return info, Result::CHUNKID_UNMATCHED
           else
             @log.trace 'got a correct ack response', chunk_id: dump_unique_id_hex(info.chunk_id)
           end
 
-          return info.chunk_id, true
+          return info, Result::SUCCESS
         end
       rescue => e
         @log.error 'unexpected error while receiving ack message', error: e
         @log.error_backtrace
-        [nil, false]
+        [nil, Result::FAILED]
       ensure
-        info.node.close(info.sock)
         delete(info)
       end
 

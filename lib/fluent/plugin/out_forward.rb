@@ -422,11 +422,23 @@ module Fluent::Plugin
                         end
 
       while thread_current_running?
-        @ack_handler.ack_reader(select_interval) do |chunk_id, succ|
-          if succ
+        @ack_handler.ack_reader(select_interval) do |chunk_id, node, sock, result|
+          @connection_manager.close(sock)
+
+          case result
+          when AckHandler::Result::SUCCESS
             commit_write(chunk_id)
-          else
+          when AckHandler::Result::FAILED
+            node.disable!
             rollback_write(chunk_id, update_retry: false)
+          when AckHandler::Result::CHUNKID_UNMATCHED
+            rollback_write(chunk_id, update_retry: false)
+          else
+            log.warn("invalid status #{result} #{chunk_id}")
+
+            if chunk_id
+              rollback_write(chunk_id, update_retry: false)
+            end
           end
         end
       end
@@ -587,10 +599,6 @@ module Fluent::Plugin
 
         heartbeat(false)
         nil
-      end
-
-      def close(sock)
-        @connection_manager.close(sock)
       end
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
