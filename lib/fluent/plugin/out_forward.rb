@@ -311,7 +311,7 @@ module Fluent::Plugin
           raw_data = ""
         end
 
-        info = @ack_handler.find(sock)
+        info = find(sock)
 
         # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
         # If this happens we assume the data wasn't delivered and retry it.
@@ -339,7 +339,7 @@ module Fluent::Plugin
         @log.error_backtrace
       ensure
         info.node.close(info.sock)
-        @ack_handler.delete(info)
+        delete(info)
       end
 
       # thread unsafe
