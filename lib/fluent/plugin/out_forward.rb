@@ -316,7 +316,7 @@ module Fluent::Plugin
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
                 # (2) the node does support sending response but responses have not arrived for some reasons.
-                log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
+                @log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
                 info.node.close(info.sock)
                 rollback_write(info.chunk_id, update_retry: false)
@@ -342,8 +342,8 @@ module Fluent::Plugin
             end
           end
         rescue => e
-          log.error "unexpected error while receiving ack", error: e
-          log.error_backtrace
+          @log.error "unexpected error while receiving ack", error: e
+          @log.error_backtrace
         end
       end
 
