@@ -706,7 +706,7 @@ module Fluent::Plugin
             heartbeat(true)
           end
         when :udp
-          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
+          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, dest_addr)
           nil
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
