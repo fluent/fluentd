@@ -704,7 +704,7 @@ module Fluent::Plugin
             heartbeat(true)
           end
         when :udp
-          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
+          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, dest_addr)
           # response is going to receive at on_udp_heatbeat_response_recv
           nil
         when :none # :none doesn't use this class
