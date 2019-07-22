@@ -303,6 +303,44 @@ module Fluent::Plugin
         @timeout = timeout
       end
 
+      def read_ack_from_sock(sock, unpacker)
+        begin
+          raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
+        rescue Errno::ECONNRESET, EOFError # ECONNRESET for #recv, #EOFError for #readpartial
+          raw_data = ""
+        end
+
+        info = @ack_handler.find(sock)
+
+        # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
+        # If this happens we assume the data wasn't delivered and retry it.
+        if raw_data.empty?
+          log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
+          info.node.disable!
+          rollback_write(info.chunk_id, update_retry: false)
+          return nil
+        else
+          unpacker.feed(raw_data)
+          res = unpacker.read
+          log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
+          if res['ack'] != info.chunk_id_base64
+            # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
+            log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
+            rollback_write(info.chunk_id, update_retry: false)
+            return nil
+          else
+            log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
+          end
+          return info.chunk_id
+        end
+      rescue => e
+        log.error "unexpected error while receiving ack message", error: e
+        log.error_backtrace
+      ensure
+        info.node.close(info.sock)
+        @ack_handler.delete(info)
+      end
+
       # thread unsafe
       attr_writer :ack_waitings
 
@@ -474,41 +512,7 @@ module Fluent::Plugin
 
     # return chunk id to be committed
     def read_ack_from_sock(sock, unpacker)
-      begin
-        raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
-      rescue Errno::ECONNRESET, EOFError # ECONNRESET for #recv, #EOFError for #readpartial
-        raw_data = ""
-      end
-
-      info = @ack_handler.find(sock)
-
-      # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
-      # If this happens we assume the data wasn't delivered and retry it.
-      if raw_data.empty?
-        log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
-        info.node.disable!
-        rollback_write(info.chunk_id, update_retry: false)
-        return nil
-      else
-        unpacker.feed(raw_data)
-        res = unpacker.read
-        log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
-        if res['ack'] != info.chunk_id_base64
-          # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
-          log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
-          rollback_write(info.chunk_id, update_retry: false)
-          return nil
-        else
-          log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
-        end
-        return info.chunk_id
-      end
-    rescue => e
-      log.error "unexpected error while receiving ack message", error: e
-      log.error_backtrace
-    ensure
-      info.node.close(info.sock)
-      @ack_handler.delete(info)
+      @ack_handler.read_ack_from_sock(sock, unpacker)
     end
 
     def ack_reader
