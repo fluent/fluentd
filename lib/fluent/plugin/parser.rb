@@ -40,8 +40,8 @@ module Fluent
         def start
           @thread = ::Thread.new {
             until @flag.wait_for_set(0.5)
+              now = Time.now
               @mutex.synchronize {
-                now = Time.now
                 @map.keys.each { |th|
                   time = @map[th]
                   if now - time > @timeout
