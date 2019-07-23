@@ -918,7 +918,7 @@ EOL
       ]
       @d = d = create_driver(output_conf)
 
-      target_input_driver.run(expect_records: 1, timeout: 15) do
+      target_input_driver.run(expect_records: 1, timeout: 1) do
         assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
