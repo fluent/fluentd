@@ -906,8 +906,7 @@ EOL
       output_conf = %[
         send_timeout 30
         heartbeat_type transport
-        transport tls
-        tls_verify_hostname false
+        transport tcp
         verify_connection_at_startup true
         require_ack_response true
         ack_response_timeout 5s
