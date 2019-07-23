@@ -904,23 +904,12 @@ EOL
                  ]
       target_input_driver = create_target_input_driver(conf: input_conf)
       output_conf = %[
-        send_timeout 30
-        heartbeat_type transport
         transport tcp
         verify_connection_at_startup true
-        require_ack_response true
-        ack_response_timeout 5s
         <security>
           self_hostname localhost
           shared_key key_miss_match
         </security>
-        <buffer tag>
-          flush_mode immediate
-          retry_type periodic
-          retry_wait 30s
-          flush_at_shutdown false # suppress errors in d.instance_shutdown
-          flush_thread_interval 31s
-        </buffer>
 
         <server>
           host #{TARGET_HOST}
