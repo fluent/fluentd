@@ -34,15 +34,16 @@ module Fluent::Plugin
         @mutex.synchronize do
           tsock = pick_socket(key)
 
-          unless tsock
+          if tsock
+            tsock.sock
+          else
             val = yield
             new_tsock = TimedSocket.new(timeout, key, val)
             @log.debug("connect new socket #{new_tsock}")
 
             @inflight_sockets[val] = new_tsock
-            return new_tsock.sock
+            new_tsock.sock
           end
-          tsock.sock
         end
       end
 
