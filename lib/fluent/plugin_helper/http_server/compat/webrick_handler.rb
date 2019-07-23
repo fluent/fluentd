@@ -44,10 +44,10 @@ module Fluent
                   headers.each { |k, v| response[k] = v }
                   response.body = body
                 end
+              end
 
-                def render_json(code, obj)
-                  [code, { 'Content-Type' => 'application/json' }, obj.to_json]
-                end
+              def render_json(code, obj)
+                [code, { 'Content-Type' => 'application/json' }, obj.to_json]
               end
             end
           end
