@@ -87,7 +87,7 @@ module Fluent::Plugin
           @inactive_sockets.clear
         end
 
-        while (s = sockets.pop)
+        sockets.each do |s|
           s.sock.close rescue nil
         end
       end
@@ -104,7 +104,7 @@ module Fluent::Plugin
           @inactive_sockets.clear
         end
 
-        while (s = sockets.pop)
+        sockets.each do |s|
           s.sock.close rescue nil
         end
       end
