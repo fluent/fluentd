@@ -981,10 +981,7 @@ EOL
       @d = d = create_driver(output_conf)
 
       time = event_time("2011-01-02 13:14:15 UTC")
-      records = [
-          {"a" => 1},
-          {"a" => 2}
-      ]
+      records = [{ "a" => 1 }, { "a" => 2 }]
 
       target_input_driver.run(expect_records: 2, timeout: 3) do
         d.run(default_tag: 'test') do
@@ -995,7 +992,7 @@ EOL
       end
 
       events = target_input_driver.events
-      assert{ events != [] }
+      assert_false events.empty?
       assert_equal(['test', time, records[0]], events[0])
       assert_equal(['test', time, records[1]], events[1])
     end
