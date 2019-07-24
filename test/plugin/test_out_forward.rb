@@ -889,9 +889,11 @@ EOL
           flush_at_shutdown false # suppress errors in d.instance_shutdown
         </buffer>
       ])
-      assert_raise Fluent::UnrecoverableError do
+      e = assert_raise Fluent::UnrecoverableError do
         d.instance_start
       end
+      assert_match(/Connection refused/, e.message)
+
       d.instance_shutdown
     end
 
@@ -919,9 +921,10 @@ EOL
       @d = d = create_driver(output_conf)
 
       target_input_driver.run(expect_records: 1, timeout: 1) do
-        assert_raise Fluent::UnrecoverableError do
+        e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
+        assert_match(/Failed to establish connection/, e.message)
       end
     end
 
@@ -953,9 +956,11 @@ EOL
       @d = d = create_driver(output_conf)
 
       target_input_driver.run(expect_records: 1, timeout: 1) do
-        assert_raise Fluent::UnrecoverableError do
+        e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
+
+        assert_match(/Failed to establish connection/, e.message)
       end
     end
 
