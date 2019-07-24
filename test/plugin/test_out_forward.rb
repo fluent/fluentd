@@ -882,12 +882,6 @@ EOL
     test 'nodes are not available' do
       @d = d = create_driver(CONFIG + %[
         verify_connection_at_startup true
-        <buffer tag>
-          flush_mode immediate
-          retry_type periodic
-          retry_wait 30s
-          flush_at_shutdown false # suppress errors in d.instance_shutdown
-        </buffer>
       ])
       e = assert_raise Fluent::UnrecoverableError do
         d.instance_start
