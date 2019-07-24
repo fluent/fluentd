@@ -963,15 +963,10 @@ EOL
                        <security>
                          self_hostname in.localhost
                          shared_key fluentd-sharedkey
-                         <client>
-                           host 127.0.0.1
-                         </client>
                        </security>
                      ]
       target_input_driver = create_target_input_driver(conf: input_conf)
-
       output_conf = %[
-          send_timeout 51
           verify_connection_at_startup true
           <security>
             self_hostname localhost
@@ -981,7 +976,6 @@ EOL
             name test
             host #{TARGET_HOST}
             port #{TARGET_PORT}
-            shared_key fluentd-sharedkey
           </server>
       ]
       @d = d = create_driver(output_conf)
