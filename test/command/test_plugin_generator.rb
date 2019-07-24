@@ -16,6 +16,14 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
     FileUtils.rm_rf(TEMP_DIR)
   end
 
+  def stub_git_process(target)
+    stub(target).spawn do |cmd, arg1, arg2|
+      assert_equal %w[git init .], [cmd, arg1, arg2]
+      -1
+    end
+    stub(Process).wait { |pid| assert_equal(pid, -1) }
+  end
+
   sub_test_case "generate plugin" do
     data(input: ["input", "in"],
          output: ["output", "out"],
@@ -23,8 +31,10 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
          parser: ["parser", "parser"],
          formatter: ["formatter", "formatter"])
     test "generate plugin" do |(type, part)|
+      generator = FluentPluginGenerator.new([type, "fake"])
+      stub_git_process(generator)
       capture_stdout do
-        FluentPluginGenerator.new([type, "fake"]).call
+        generator.call
       end
       plugin_base_dir = Pathname("fluent-plugin-fake")
       assert { plugin_base_dir.directory? }
@@ -49,8 +59,10 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
     end
 
     test "no license" do
+      generator = FluentPluginGenerator.new(["--no-license", "filter", "fake"])
+      stub_git_process(generator)
       capture_stdout do
-        FluentPluginGenerator.new(["--no-license", "filter", "fake"]).call
+        generator.call
       end
       assert { !Pathname("fluent-plugin-fake/LICENSE").exist? }
       assert { Pathname("fluent-plugin-fake/Gemfile").exist? }
@@ -72,6 +84,8 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
          "dash" => ["rewrite-tag-filter", "rewrite_tag_filter"])
     test "plugin_name" do |(name, plugin_name)|
       generator = FluentPluginGenerator.new(["filter", name])
+      stub_git_process(generator)
+      stub(Process).wait { |pid| assert_equal(pid, -1) }
       capture_stdout do
         generator.call
       end
@@ -83,6 +97,8 @@ class TestFluentPluginGenerator < Test::Unit::TestCase
          "dash" => ["rewrite-tag-filter", "fluent-plugin-rewrite-tag-filter"])
     test "gem_name" do |(name, gem_name)|
       generator = FluentPluginGenerator.new(["output", name])
+      stub_git_process(generator)
+      stub(Process).wait { |pid| assert_equal(pid, -1) }
       capture_stdout do
         generator.call
       end
