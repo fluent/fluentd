@@ -904,24 +904,12 @@ EOL
                  ]
       target_input_driver = create_target_input_driver(conf: input_conf)
       output_conf = %[
-        send_timeout 30
-        heartbeat_type transport
-        transport tls
-        tls_verify_hostname false
+        transport tcp
         verify_connection_at_startup true
-        require_ack_response true
-        ack_response_timeout 5s
         <security>
           self_hostname localhost
           shared_key key_miss_match
         </security>
-        <buffer tag>
-          flush_mode immediate
-          retry_type periodic
-          retry_wait 30s
-          flush_at_shutdown false # suppress errors in d.instance_shutdown
-          flush_thread_interval 31s
-        </buffer>
 
         <server>
           host #{TARGET_HOST}
@@ -930,11 +918,44 @@ EOL
       ]
       @d = d = create_driver(output_conf)
 
-      target_input_driver.run(expect_records: 1, timeout: 15) do
+      target_input_driver.run(expect_records: 1, timeout: 1) do
         assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
-        d.instance_shutdown
+      end
+    end
+
+    test 'nodes_shared_key_miss_match with TLS' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                   <transport tls>
+                     insecure true
+                   </transport>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        transport tls
+        tls_insecure_mode true
+        verify_connection_at_startup true
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 1) do
+        assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
       end
     end
 
