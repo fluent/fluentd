@@ -37,11 +37,11 @@ module Fluent::Plugin
           if tsock
             tsock.sock
           else
-            val = yield
-            new_tsock = TimedSocket.new(timeout, key, val)
+            sock = yield
+            new_tsock = TimedSocket.new(timeout, key, sock)
             @log.debug("connect new socket #{new_tsock}")
 
-            @inflight_sockets[val] = new_tsock
+            @inflight_sockets[sock] = new_tsock
             new_tsock.sock
           end
         end
