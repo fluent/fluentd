@@ -986,7 +986,7 @@ EOL
           {"a" => 2}
       ]
 
-      target_input_driver.run(expect_records: 2, timeout: 15) do
+      target_input_driver.run(expect_records: 2, timeout: 3) do
         d.run(default_tag: 'test') do
           records.each do |record|
             d.feed(time, record)
