@@ -392,22 +392,24 @@ module Fluent::Plugin
     private
 
     def on_heartbeat_timer
-      @nodes.each {|n|
+      need_rebuild = false
+      @nodes.each do |n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
-          if n.send_heartbeat
-            @load_balancer.rebuild_weight_array(@nodes)
-          end
+          need_rebuild = n.send_heartbeat || need_rebuild
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         rescue => e
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         end
-        if n.tick
-          @load_balancer.rebuild_weight_array(@nodes)
-        end
-      }
+
+        need_rebuild = n.tick || need_rebuild
+      end
+
+      if need_rebuild
+        @load_balancer.rebuild_weight_array(@nodes)
+      end
     end
 
     def on_udp_heatbeat_response_recv(data, sock)
