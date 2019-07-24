@@ -681,6 +681,8 @@ module Fluent::Plugin
       end
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
+      #
+      # @return [Boolean] return true if it needs to rebuild nodes
       def send_heartbeat
         begin
           dest_addr = resolved_host
@@ -688,7 +690,7 @@ module Fluent::Plugin
         rescue ::SocketError => e
           if !@resolved_once && @sender.ignore_network_errors_at_startup
             @log.warn "failed to resolve node name in heartbeating", server: @name || @host, error: e
-            return
+            return false
           end
           raise
         end
@@ -706,7 +708,7 @@ module Fluent::Plugin
         when :udp
           @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, dest_addr)
           # response is going to receive at on_udp_heatbeat_response_recv
-          nil
+          false
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
         else
