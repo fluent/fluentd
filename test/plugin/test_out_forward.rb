@@ -922,7 +922,6 @@ EOL
         assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
-        d.instance_shutdown
       end
     end
 
