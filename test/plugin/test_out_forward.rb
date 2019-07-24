@@ -882,16 +882,12 @@ EOL
     test 'nodes are not available' do
       @d = d = create_driver(CONFIG + %[
         verify_connection_at_startup true
-        <buffer tag>
-          flush_mode immediate
-          retry_type periodic
-          retry_wait 30s
-          flush_at_shutdown false # suppress errors in d.instance_shutdown
-        </buffer>
       ])
-      assert_raise Fluent::UnrecoverableError do
+      e = assert_raise Fluent::UnrecoverableError do
         d.instance_start
       end
+      assert_match(/Connection refused/, e.message)
+
       d.instance_shutdown
     end
 
@@ -919,9 +915,10 @@ EOL
       @d = d = create_driver(output_conf)
 
       target_input_driver.run(expect_records: 1, timeout: 1) do
-        assert_raise Fluent::UnrecoverableError do
+        e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
+        assert_match(/Failed to establish connection/, e.message)
       end
     end
 
@@ -953,9 +950,11 @@ EOL
       @d = d = create_driver(output_conf)
 
       target_input_driver.run(expect_records: 1, timeout: 1) do
-        assert_raise Fluent::UnrecoverableError do
+        e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
+
+        assert_match(/Failed to establish connection/, e.message)
       end
     end
 
@@ -964,15 +963,10 @@ EOL
                        <security>
                          self_hostname in.localhost
                          shared_key fluentd-sharedkey
-                         <client>
-                           host 127.0.0.1
-                         </client>
                        </security>
                      ]
       target_input_driver = create_target_input_driver(conf: input_conf)
-
       output_conf = %[
-          send_timeout 51
           verify_connection_at_startup true
           <security>
             self_hostname localhost
@@ -982,18 +976,14 @@ EOL
             name test
             host #{TARGET_HOST}
             port #{TARGET_PORT}
-            shared_key fluentd-sharedkey
           </server>
       ]
       @d = d = create_driver(output_conf)
 
       time = event_time("2011-01-02 13:14:15 UTC")
-      records = [
-          {"a" => 1},
-          {"a" => 2}
-      ]
+      records = [{ "a" => 1 }, { "a" => 2 }]
 
-      target_input_driver.run(expect_records: 2, timeout: 15) do
+      target_input_driver.run(expect_records: 2, timeout: 3) do
         d.run(default_tag: 'test') do
           records.each do |record|
             d.feed(time, record)
@@ -1002,7 +992,7 @@ EOL
       end
 
       events = target_input_driver.events
-      assert{ events != [] }
+      assert_false events.empty?
       assert_equal(['test', time, records[0]], events[0])
       assert_equal(['test', time, records[1]], events[1])
     end

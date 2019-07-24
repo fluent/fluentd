@@ -580,7 +580,9 @@ module Fluent::Plugin
         connect do |sock, ri|
           if ri.state != :established
             establish_connection(sock, ri)
-            raise if ri.state != :established
+            if ri.state != :established
+              raise "Failed to establish connection to #{@host}:#{@port}"
+            end
           end
         end
       end
