@@ -27,4 +27,8 @@ module Fluent
 
   class InvalidRootDirectory < UnrecoverableError
   end
+
+  # For internal use
+  class UncatchableError < Exception
+  end
 end
