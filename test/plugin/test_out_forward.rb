@@ -925,6 +925,40 @@ EOL
       end
     end
 
+    test 'nodes_shared_key_miss_match with TLS' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                   <transport tls>
+                     insecure true
+                   </transport>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        transport tls
+        tls_insecure_mode true
+        verify_connection_at_startup true
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 1) do
+        assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
+      end
+    end
+
     test 'nodes_shared_key_match' do
       input_conf = TARGET_CONFIG + %[
                        <security>
