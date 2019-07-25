@@ -393,7 +393,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    # not attempt to receive responses, so it's empty
+    # not attempt to receive responses
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
@@ -419,7 +419,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
-    # not attempt to receive responses, so it's empty
+    # not attempt to receive responses
     stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do

@@ -18,7 +18,7 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-        sock, ri = cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: false)
+        sock, ri = cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: nil)
         assert_equal(sock, 'sock')
         assert_equal(ri.state, :established)
       end
@@ -37,7 +37,7 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-        cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: false) do |sock, ri|
+        cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: nil) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
         end
@@ -52,17 +52,17 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-        sock, ri = cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: false)
+        sock, ri = cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: nil)
         assert_equal(sock, 'sock')
         assert_equal(ri.state, :helo)
       end
 
-      test 'when require_ack is true' do
+      test 'when passed ack' do
+        sock = 'sock'
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
           connection_factory: -> (_, _, _) {
-            sock = 'sock'
             mock(sock).close.never
             mock(sock).close_write.never
             sock
@@ -71,8 +71,8 @@ class ConnectionManager < Test::Unit::TestCase
         )
 
         mock.proxy(cm).connect_keepalive(anything).never
-
-        cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: true) do |sock, ri|
+        ack = mock('ack').enqueue(sock).once.subject
+        cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
         end
@@ -91,9 +91,9 @@ class ConnectionManager < Test::Unit::TestCase
           socket_cache: cache,
         )
 
-        mock.proxy(cm).connect_keepalive(host: 'host', port: 1234, hostname: 'hostname', require_ack: false).once
+        mock.proxy(cm).connect_keepalive(host: 'host', port: 1234, hostname: 'hostname', ack: nil).once
 
-        sock, ri = cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: false)
+        sock, ri = cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: nil)
         assert_equal(sock, 'sock')
         assert_equal(ri.state, :established)
       end
@@ -109,23 +109,24 @@ class ConnectionManager < Test::Unit::TestCase
           socket_cache: cache,
         )
 
-        mock.proxy(cm).connect_keepalive(host: 'host', port: 1234, hostname: 'hostname', require_ack: false).once
+        mock.proxy(cm).connect_keepalive(host: 'host', port: 1234, hostname: 'hostname', ack: nil).once
 
-        cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: false) do |sock, ri|
+        cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: nil) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
         end
       end
 
-      test 'does not call dec_ref when require_ack is true' do
+      test 'does not call dec_ref when ack is passed' do
         cache = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
         mock(cache).checkin('sock').never
+        sock = 'sock'
+        ack = stub('ack').enqueue(sock).once.subject
 
         cm = Fluent::Plugin::ForwardOutput::ConnectionManager.new(
           log: $log,
           secure: false,
           connection_factory: -> (_, _, _) {
-            sock = 'sock'
             mock(sock).close.never
             mock(sock).close_write.never
             sock
@@ -133,8 +134,8 @@ class ConnectionManager < Test::Unit::TestCase
           socket_cache: cache,
         )
 
-        mock.proxy(cm).connect_keepalive(host: 'host', port: 1234, hostname: 'hostname', require_ack: true).once
-        cm.connect(host: 'host', port: 1234, hostname: 'hostname', require_ack: true) do |sock, ri|
+        mock.proxy(cm).connect_keepalive(host: 'host', port: 1234, hostname: 'hostname', ack: ack).once
+        cm.connect(host: 'host', port: 1234, hostname: 'hostname', ack: ack) do |sock, ri|
           assert_equal(sock, 'sock')
           assert_equal(ri.state, :established)
         end
