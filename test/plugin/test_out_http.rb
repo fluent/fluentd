@@ -82,7 +82,9 @@ class HTTPOutputTest < Test::Unit::TestCase
         }
       when 'text/plain'
         # Use single_value in this test
-        data = req.body.lines(chomp: true)
+        req.body.each_line { |line|
+          data << line.chomp
+        }
       else
         data << req.body
       end
