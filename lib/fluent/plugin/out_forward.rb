@@ -319,7 +319,7 @@ module Fluent::Plugin
                 # There are 2 types of cases when no response has been received from socket:
                 # (1) the node does not support sending responses
                 # (2) the node does support sending response but responses have not arrived for some reasons.
-                @log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
+                @log.warn 'no response from node. regard it as unavailable.', host: info.node.host, port: info.node.port
                 info.node.disable!
                 info.node.close(info.sock)
                 invalid_sockets << info.chunk_id
@@ -353,7 +353,7 @@ module Fluent::Plugin
             yield chunk_id, true
           end
         rescue => e
-          @log.error "unexpected error while receiving ack", error: e
+          @log.error 'unexpected error while receiving ack', error: e
           @log.error_backtrace
         end
       end
@@ -387,7 +387,7 @@ module Fluent::Plugin
         begin
           raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
         rescue Errno::ECONNRESET, EOFError # ECONNRESET for #recv, #EOFError for #readpartial
-          raw_data = ""
+          raw_data = ''
         end
 
         info = find(sock)
@@ -395,25 +395,25 @@ module Fluent::Plugin
         # When connection is closed by remote host, socket is ready to read and #recv returns an empty string that means EOF.
         # If this happens we assume the data wasn't delivered and retry it.
         if raw_data.empty?
-          @log.warn "destination node closed the connection. regard it as unavailable.", host: info.node.host, port: info.node.port
+          @log.warn 'destination node closed the connection. regard it as unavailable.', host: info.node.host, port: info.node.port
           info.node.disable!
           return info.chunk_id, false
         else
           unpacker.feed(raw_data)
           res = unpacker.read
-          @log.trace "getting response from destination", host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
+          @log.trace 'getting response from destination', host: info.node.host, port: info.node.port, chunk_id: dump_unique_id_hex(info.chunk_id), response: res
           if res['ack'] != info.chunk_id_base64
             # Some errors may have occurred when ack and chunk id is different, so send the chunk again.
-            @log.warn "ack in response and chunk id in sent data are different", chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
+            @log.warn 'ack in response and chunk id in sent data are different', chunk_id: dump_unique_id_hex(info.chunk_id), ack: res['ack']
             return info.chunk_id, false
           else
-            @log.trace "got a correct ack response", chunk_id: dump_unique_id_hex(info.chunk_id)
+            @log.trace 'got a correct ack response', chunk_id: dump_unique_id_hex(info.chunk_id)
           end
 
           return info.chunk_id, true
         end
       rescue => e
-        @log.error "unexpected error while receiving ack message", error: e
+        @log.error 'unexpected error while receiving ack message', error: e
         @log.error_backtrace
         [nil, false]
       ensure
