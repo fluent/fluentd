@@ -117,6 +117,8 @@ module Fluent::Plugin
       send_request(uri, req)
     end
 
+    private
+
     def setup_content_type
       case @formatter_configs.first[:@type]
       when 'json'
@@ -135,7 +137,7 @@ module Fluent::Plugin
     end
 
     def setup_http_option
-      use_ssl = URI.parse(@endpoint).scheme == 'https'
+      use_ssl = @endpoint.start_with?('https')
       opt = {
         open_timeout: @open_timeout,
         read_timeout: @read_timeout,
@@ -154,7 +156,7 @@ module Fluent::Plugin
         end
         if @tls_private_key_path
           raise Fluent::ConfigError, "tls_private_key_path is wrong: #{@tls_private_key_path}" unless File.file?(@tls_private_key_path)
-          opt[:key] = OpenSSL::PKey::read(File.read(@tls_private_key_path), @tls_private_key_passphrase)
+          opt[:key] = OpenSSL::PKey.read(File.read(@tls_private_key_path), @tls_private_key_passphrase)
         end
         opt[:verify_mode] = case @tls_verify_mode
                             when :none
