@@ -83,14 +83,14 @@ module Fluent::Plugin
         end
       end
 
-      Ack = Struct.new(:id, :handler, :node) do
+      Ack = Struct.new(:chunk_id, :node, :handler) do
         def enqueue(sock)
-          handler.enqueue(node, sock, id)
+          handler.enqueue(node, sock, chunk_id)
         end
       end
 
-      def create_ack(id, node)
-        Ack.new(id, self, node)
+      def create_ack(chunk_id, node)
+        Ack.new(chunk_id, node, self)
       end
 
       def enqueue(node, sock, cid)
