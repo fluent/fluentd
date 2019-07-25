@@ -358,6 +358,31 @@ module Fluent::Plugin
         end
       end
 
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
+        def expired?(now)
+          time + timeout < now
+        end
+      end
+
+      Ack = Struct.new(:id, :handler, :node) do
+        def enqueue(sock)
+          handler.enqueue(node, sock, id)
+        end
+      end
+
+      def create_ack(id, node)
+        Ack.new(id, self, node)
+      end
+
+      def enqueue(node, sock, cid)
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now, @timeout)
+        @mutex.synchronize do
+          @ack_waitings << info
+        end
+      end
+
+      private
+
       def read_ack_from_sock(sock, unpacker)
         begin
           raw_data = sock.instance_of?(Fluent::PluginHelper::Socket::WrappedSocket::TLS) ? sock.readpartial(@read_length) : sock.recv(@read_length)
@@ -395,37 +420,6 @@ module Fluent::Plugin
         info.node.close(info.sock)
         delete(info)
       end
-
-      def synchronize
-        @mutex.synchronize do
-          yield
-        end
-      end
-
-      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
-        def expired?(now)
-          time + timeout < now
-        end
-      end
-
-      Ack = Struct.new(:id, :handler, :node) do
-        def enqueue(sock)
-          handler.enqueue(node, sock, id)
-        end
-      end
-
-      def create_ack(id, node)
-        Ack.new(id, self, node)
-      end
-
-      def enqueue(node, sock, cid)
-        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now, @timeout)
-        @mutex.synchronize do
-          @ack_waitings << info
-        end
-      end
-
-      private
 
       def dump_unique_id_hex(unique_id)
         Fluent::UniqueId.hex(unique_id)
