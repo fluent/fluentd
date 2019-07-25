@@ -130,17 +130,17 @@ module Fluent::Plugin
       when 'out_file', 'single_value', 'stdout', 'hash'
         'text/plain'
       else
-        raise Fluent::ConfigError, "can't determind Content-Type from formatter type. Set content_type parameter explicitly"
+        raise Fluent::ConfigError, "can't determine Content-Type from formatter type. Set content_type parameter explicitly"
       end
     end
 
     def setup_http_option
       use_ssl = URI.parse(@endpoint).scheme == 'https'
       opt = {
-        :open_timeout => @open_timeout,
-        :read_timeout => @read_timeout,
-        :ssl_timeout => @ssl_timeout,
-        :use_ssl => use_ssl
+        open_timeout: @open_timeout,
+        read_timeout: @read_timeout,
+        ssl_timeout: @ssl_timeout,
+        use_ssl: use_ssl
       }
 
       if use_ssl

@@ -1,4 +1,3 @@
-# coding: utf-8
 require_relative "../helper"
 require 'fluent/test/driver/output'
 require 'fluent/plugin/out_http'
@@ -12,7 +11,7 @@ require 'json'
 # WEBrick's ProcHandler doesn't handle PUT by default
 module WEBrick::HTTPServlet
   class ProcHandler < AbstractServlet
-    alias do_PUT  do_GET
+    alias do_PUT do_GET
   end
 end
 
@@ -46,7 +45,7 @@ class HTTPOutputTest < Test::Unit::TestCase
   end
 
   def server_config
-    config = {:BindAddress => '127.0.0.1', :Port => server_port}
+    config = {BindAddress: '127.0.0.1', Port: server_port}
     # Suppress webrick logs
     config[:Logger] = DEFAULT_LOGGER
     config[:AccessLog] = []
@@ -255,7 +254,7 @@ class HTTPOutputTest < Test::Unit::TestCase
     d.instance_shutdown
   end
 
-  sub_test_case 'basie auth' do
+  sub_test_case 'basic auth' do
     setup do
       FileUtils.mkdir_p(TMP_DIR)
       htpd = WEBrick::HTTPAuth::Htpasswd.new(File.join(TMP_DIR, 'dot.htpasswd'))
