@@ -25,6 +25,7 @@ require 'fluent/plugin/out_forward/load_balancer'
 require 'fluent/plugin/out_forward/socket_cache'
 require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
+require 'fluent/plugin/out_forward/connection_manager'
 
 require 'resolv'
 require 'socket'
@@ -189,10 +190,8 @@ module Fluent::Plugin
         @heartbeat_type = :transport
       end
 
-      if @dns_round_robin
-        if @heartbeat_type == :udp
-          raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
-        end
+      if @dns_round_robin && @heartbeat_type == :udp
+        raise Fluent::ConfigError, "forward output heartbeat type must be 'transport' or 'none' to use dns_round_robin option"
       end
 
       if @transport == :tls
@@ -214,15 +213,23 @@ module Fluent::Plugin
         end
       end
 
+      socket_cache = @keepalive ? SocketCache.new(@keepalive_timeout, @log) : nil
+      @connection_manager = ConnectionManager.new(
+        log: @log,
+        secure: !!@security,
+        connection_factory: method(:create_transfer_socket),
+        socket_cache: socket_cache,
+      )
+
       @servers.each do |server|
         failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
         name = server.name || "#{server.host}:#{server.port}"
 
         log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
         if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
+          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager)
         else
-          node = Node.new(self, server, failure: failure, keepalive: @keepalive, keepalive_timeout: @keepalive_timeout)
+          node = Node.new(self, server, failure: failure, connection_manager: @connection_manager)
           begin
             node.validate_host_resolution!
           rescue => e
@@ -277,12 +284,9 @@ module Fluent::Plugin
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
           @usock = socket_create_udp(@nodes.first.host, @nodes.first.port, nonblock: true)
-          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length) do |data, sock|
-            sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
-            on_heartbeat(sockaddr, data)
-          end
+          server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
         end
-        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_timer))
+        timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
       end
 
       if @require_ack_response
@@ -313,10 +317,15 @@ module Fluent::Plugin
         @usock.close rescue nil
       end
 
-      if @keepalive && @keepalive_timeout
-        @nodes.each(&:clear)
-      end
       super
+    end
+
+    def stop
+      super
+
+      if @keepalive
+        @connection_manager.stop
+      end
     end
 
     def write(chunk)
@@ -394,36 +403,41 @@ module Fluent::Plugin
 
     private
 
-    def on_timer
-      @nodes.each {|n|
+    def on_heartbeat_timer
+      need_rebuild = false
+      @nodes.each do |n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
-          if n.send_heartbeat
-            @load_balancer.rebuild_weight_array
-          end
+          need_rebuild = n.send_heartbeat || need_rebuild
         rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
           log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         rescue => e
           log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
         end
-        if n.tick
-          @load_balancer.rebuild_weight_array
-        end
-      }
+
+        need_rebuild = n.tick || need_rebuild
+      end
+
+      if need_rebuild
+        @load_balancer.rebuild_weight_array(@nodes)
+      end
     end
 
-    def on_heartbeat(sockaddr, msg)
-      if node = @nodes.find {|n| n.sockaddr == sockaddr }
+    def on_udp_heatbeat_response_recv(data, sock)
+      sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
+      if node = @nodes.find { |n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          @load_balancer.rebuild_weight_array
+          @load_balancer.rebuild_weight_array(@nodes)
         end
+      else
+        log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}")
       end
     end
 
     def on_purge_obsolete_socks
-      @nodes.each(&:purge_obsolete_socks)
+      @connection_manager.purge_obsolete_socks
     end
 
     # return chunk id to be committed
@@ -460,13 +474,7 @@ module Fluent::Plugin
       log.error "unexpected error while receiving ack message", error: e
       log.error_backtrace
     ensure
-      if @keepalive
-        info.node.socket_cache.dec_ref_by_value(info.sock)
-      else
-        info.sock.close_write rescue nil
-        info.sock.close rescue nil
-      end
-
+      info.node.close(info.sock)
       @sock_ack_waiting_mutex.synchronize do
         @sock_ack_waiting.delete(info)
       end
@@ -494,10 +502,7 @@ module Fluent::Plugin
                 # (2) the node does support sending response but responses have not arrived for some reasons.
                 log.warn "no response from node. regard it as unavailable.", host: info.node.host, port: info.node.port
                 info.node.disable!
-                if @keepalive
-                  info.node.socket_cache.revoke_by_value(info.sock)
-                end
-                info.sock.close rescue nil
+                info.node.close(info.sock)
                 rollback_write(info.chunk_id, update_retry: false)
               else
                 sockets << info.sock
@@ -522,9 +527,8 @@ module Fluent::Plugin
     end
 
     class Node
-      # @param keepalive [Bool]
-      # @param keepalive_timeout [Integer | nil]
-      def initialize(sender, server, failure:, keepalive: false, keepalive_timeout: nil)
+      # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
+      def initialize(sender, server, failure:, connection_manager:)
         @sender = sender
         @log = sender.log
         @compress = sender.compress
@@ -572,20 +576,13 @@ module Fluent::Plugin
         @resolved_time = 0
         @resolved_once = false
 
-        @keepalive = keepalive
-        if @keepalive
-          @socket_cache = ForwardOutput::SocketCache.new(keepalive_timeout, @log)
-        end
+        @connection_manager = connection_manager
       end
 
       attr_accessor :usock
-
       attr_reader :name, :host, :port, :weight, :standby, :state, :enable_dns_srv, :srv_service_name, :srv_service_protocol
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
-      attr_reader :socket_cache        # for ack
-
-      RequestInfo = Struct.new(:state, :shared_key_nonce, :auth)
 
       def validate_host_resolution!
         resolved_host
@@ -607,7 +604,9 @@ module Fluent::Plugin
         connect do |sock, ri|
           if ri.state != :established
             establish_connection(sock, ri)
-            raise if ri.state != :established
+            if ri.state != :established
+              raise "Failed to establish connection to #{@host}:#{@port}"
+            end
           end
         end
       end
@@ -679,48 +678,29 @@ module Fluent::Plugin
       end
 
       def send_data(tag, chunk)
-        sock, ri = connect
-        if ri.state != :established
-          establish_connection(sock, ri)
-        end
-
-        begin
-          send_data_actual(sock, tag, chunk)
-        rescue
-          if @keepalive
-            @socket_cache.revoke
-          else
-            sock.close rescue nil
+        connect(nil, require_ack: @sender.require_ack_response) do |sock, ri|
+          if ri.state != :established
+            establish_connection(sock, ri)
           end
-          raise
+
+          send_data_actual(sock, tag, chunk)
+
+          if @sender.require_ack_response
+            return sock # to read ACK from socket
+          end
         end
 
-        if @sender.require_ack_response
-          return sock # to read ACK from socket
-        end
-
-        if @keepalive
-          @socket_cache.dec_ref
-        else
-          sock.close_write rescue nil
-          sock.close rescue nil
-        end
         heartbeat(false)
         nil
       end
 
-      def clear
-        @keepalive && @socket_cache.clear
-      end
-
-      def purge_obsolete_socks
-        unless @keepalive
-          raise "Don not call this method without keepalive option"
-        end
-        @socket_cache.purge_obsolete_socks
+      def close(sock)
+        @connection_manager.close(sock)
       end
 
       # FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
+      #
+      # @return [Boolean] return true if it needs to rebuild nodes
       def send_heartbeat
         begin
           dest_addr = resolved_host
@@ -728,14 +708,14 @@ module Fluent::Plugin
         rescue ::SocketError => e
           if !@resolved_once && @sender.ignore_network_errors_at_startup
             @log.warn "failed to resolve node name in heartbeating", server: @name || @host, error: e
-            return
+            return false
           end
           raise
         end
 
         case @sender.heartbeat_type
         when :transport
-          connect(dest_addr) do |sock|
+          connect(dest_addr) do |_ri, _sock|
             ## don't send any data to not cause a compatibility problem
             # sock.write FORWARD_TCP_HEARTBEAT_DATA
 
@@ -744,8 +724,9 @@ module Fluent::Plugin
             heartbeat(true)
           end
         when :udp
-          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, resolved_host)
-          nil
+          @usock.send "\0", 0, Socket.pack_sockaddr_in(@port, dest_addr)
+          # response is going to receive at on_udp_heatbeat_response_recv
+          false
         when :none # :none doesn't use this class
           raise "BUG: heartbeat_type none must not use Node"
         else
@@ -950,7 +931,7 @@ module Fluent::Plugin
         end
         addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
         addrinfo = @sender.dns_round_robin ? addrinfo_list.sample : addrinfo_list.first
-        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_heartbeat
+        @sockaddr = Socket.pack_sockaddr_in(addrinfo[1], addrinfo[3]) # used by on_udp_heatbeat_response_recv
         addrinfo[3]
       end
       private :resolve_dns!
@@ -999,38 +980,8 @@ module Fluent::Plugin
 
       private
 
-      def connect(host = nil)
-        socket, request_info =
-                if @keepalive
-                  ri = RequestInfo.new(:established)
-                  sock = @socket_cache.fetch_or do
-                    s = @sender.create_transfer_socket(host || resolved_host, port, @hostname)
-                    ri = RequestInfo.new(@sender.security ? :helo : :established) # overwrite if new connection
-                    s
-                  end
-                  [sock, ri]
-                else
-                  @log.debug('connect new socket')
-                  [@sender.create_transfer_socket(host || resolved_host, port, @hostname), RequestInfo.new(@sender.security ? :helo : :established)]
-                end
-
-        if block_given?
-          ret = nil
-          begin
-            ret = yield(socket, request_info)
-          rescue
-            @socket_cache.revoke if @keepalive
-            raise
-          else
-            @socket_cache.dec_ref if @keepalive
-          ensure
-            socket.close unless @keepalive
-          end
-
-          ret
-        else
-          [socket, request_info]
-        end
+      def connect(host = nil, require_ack: false, &block)
+        @connection_manager.connect(host: host || resolved_host, port: port, hostname: @hostname, require_ack: require_ack, &block)
       end
     end
 
