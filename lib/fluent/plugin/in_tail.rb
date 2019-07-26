@@ -700,7 +700,14 @@ module Fluent::Plugin
 
         def next_line
           idx = @buffer.index(@eol)
-          convert(@buffer.slice!(0, idx + 1)) unless idx.nil?
+
+          unless idx.nil?
+            # Using freeze and slice is faster than slice!
+            @buffer.freeze
+            rbuf = @buffer.slice(0, idx + 1)
+            @buffer = @buffer.slice(idx + 1, @buffer.size)
+            convert(rbuf)
+          end
         end
 
         def bytesize
