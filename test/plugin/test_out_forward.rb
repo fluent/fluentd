@@ -919,7 +919,7 @@ EOL
     assert timers.include?(:out_forward_heartbeat_request)
 
     mock(usock).send("\0", 0, Socket.pack_sockaddr_in(TARGET_PORT, '127.0.0.1')).once
-    d.instance.send(:on_timer)
+    d.instance.send(:on_heartbeat_timer)
   end
 
   test 'acts_as_secondary' do
@@ -945,16 +945,12 @@ EOL
     test 'nodes are not available' do
       @d = d = create_driver(CONFIG + %[
         verify_connection_at_startup true
-        <buffer tag>
-          flush_mode immediate
-          retry_type periodic
-          retry_wait 30s
-          flush_at_shutdown false # suppress errors in d.instance_shutdown
-        </buffer>
       ])
-      assert_raise Fluent::UnrecoverableError do
+      e = assert_raise Fluent::UnrecoverableError do
         d.instance_start
       end
+      assert_match(/Connection refused/, e.message)
+
       d.instance_shutdown
     end
 
@@ -967,24 +963,12 @@ EOL
                  ]
       target_input_driver = create_target_input_driver(conf: input_conf)
       output_conf = %[
-        send_timeout 30
-        heartbeat_type transport
-        transport tls
-        tls_verify_hostname false
+        transport tcp
         verify_connection_at_startup true
-        require_ack_response true
-        ack_response_timeout 5s
         <security>
           self_hostname localhost
           shared_key key_miss_match
         </security>
-        <buffer tag>
-          flush_mode immediate
-          retry_type periodic
-          retry_wait 30s
-          flush_at_shutdown false # suppress errors in d.instance_shutdown
-          flush_thread_interval 31s
-        </buffer>
 
         <server>
           host #{TARGET_HOST}
@@ -993,11 +977,47 @@ EOL
       ]
       @d = d = create_driver(output_conf)
 
-      target_input_driver.run(expect_records: 1, timeout: 15) do
-        assert_raise Fluent::UnrecoverableError do
+      target_input_driver.run(expect_records: 1, timeout: 1) do
+        e = assert_raise Fluent::UnrecoverableError do
           d.instance_start
         end
-        d.instance_shutdown
+        assert_match(/Failed to establish connection/, e.message)
+      end
+    end
+
+    test 'nodes_shared_key_miss_match with TLS' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                   <transport tls>
+                     insecure true
+                   </transport>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        transport tls
+        tls_insecure_mode true
+        verify_connection_at_startup true
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 1) do
+        e = assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
+
+        assert_match(/Failed to establish connection/, e.message)
       end
     end
 
@@ -1006,15 +1026,10 @@ EOL
                        <security>
                          self_hostname in.localhost
                          shared_key fluentd-sharedkey
-                         <client>
-                           host 127.0.0.1
-                         </client>
                        </security>
                      ]
       target_input_driver = create_target_input_driver(conf: input_conf)
-
       output_conf = %[
-          send_timeout 51
           verify_connection_at_startup true
           <security>
             self_hostname localhost
@@ -1024,18 +1039,14 @@ EOL
             name test
             host #{TARGET_HOST}
             port #{TARGET_PORT}
-            shared_key fluentd-sharedkey
           </server>
       ]
       @d = d = create_driver(output_conf)
 
       time = event_time("2011-01-02 13:14:15 UTC")
-      records = [
-          {"a" => 1},
-          {"a" => 2}
-      ]
+      records = [{ "a" => 1 }, { "a" => 2 }]
 
-      target_input_driver.run(expect_records: 2, timeout: 15) do
+      target_input_driver.run(expect_records: 2, timeout: 3) do
         d.run(default_tag: 'test') do
           records.each do |record|
             d.feed(time, record)
@@ -1044,7 +1055,7 @@ EOL
       end
 
       events = target_input_driver.events
-      assert{ events != [] }
+      assert_false events.empty?
       assert_equal(['test', time, records[0]], events[0])
       assert_equal(['test', time, records[1]], events[1])
     end
@@ -1058,7 +1069,7 @@ EOL
 
     begin
       chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-      mock.proxy(d.instance).create_transfer_socket(TARGET_HOST, TARGET_PORT, 'test') { |sock| mock(sock).close.once; sock }.twice
+      mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
 
       target_input_driver.run(timeout: 15) do
         d.run(shutdown: false) do
@@ -1099,7 +1110,7 @@ EOL
 
       begin
         chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-        mock.proxy(d.instance).create_transfer_socket(TARGET_HOST, TARGET_PORT, 'test') { |sock| mock(sock).close.once; sock }.once
+        mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.once
 
         target_input_driver.run(timeout: 15) do
           d.run(shutdown: false) do
@@ -1115,7 +1126,7 @@ EOL
     end
 
     sub_test_case 'with require_ack_response' do
-      test 'Do not create connection per send_data' do
+      test 'Create connection per send_data' do
         target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
         output_conf = CONFIG + %[
           require_ack_response true
@@ -1127,7 +1138,7 @@ EOL
 
         begin
           chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
-          mock.proxy(d.instance).create_transfer_socket(TARGET_HOST, TARGET_PORT, 'test') { |sock| mock(sock).close.once; sock }.once
+          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
 
           target_input_driver.run(timeout: 15) do
             d.run(shutdown: false) do

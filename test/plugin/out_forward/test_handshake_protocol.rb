@@ -3,13 +3,14 @@ require 'flexmock/test_unit'
 
 require 'fluent/plugin/out_forward'
 require 'fluent/plugin/out_forward/handshake_protocol'
+require 'fluent/plugin/out_forward/connection_manager'
 
 class HandshakeProtocolTest < Test::Unit::TestCase
   sub_test_case '#invok when helo state' do
     test 'sends PING message and change state to pingpong' do
       hostname = 'hostname'
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: hostname, shared_key: 'shared_key', password: nil, username: nil)
-      ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:helo)
+      ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
 
       sock = StringIO.new('')
       handshake.invoke(sock, ri, ['HELO', {}])
@@ -31,7 +32,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       username = 'username'
       pass = 'pass'
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: hostname, shared_key: 'shared_key', password: pass, username: username)
-      ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:helo)
+      ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
 
       sock = StringIO.new('')
       handshake.invoke(sock, ri, ['HELO', { 'auth' => 'auth' }])
@@ -54,7 +55,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
     )
     test 'raises an error when message is' do |msg|
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: nil, username: nil)
-      ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:helo)
+      ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:helo)
 
       sock = StringIO.new('')
       assert_raise(Fluent::Plugin::ForwardOutput::HeloError) do
@@ -70,7 +71,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: nil, username: nil)
       handshake.instance_variable_set(:@shared_key_salt, 'ce1897b0d3dbd76b90d7fb96010dcac3') # to fix salt
 
-      ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:pingpong, '', '')
+      ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:pingpong, '', '')
       handshake.invoke(
         '',
         ri,
@@ -91,7 +92,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake = Fluent::Plugin::ForwardOutput::HandshakeProtocol.new(log: $log, hostname: 'hostname', shared_key: 'shared_key', password: nil, username: nil)
       handshake.instance_variable_set(:@shared_key_salt, 'ce1897b0d3dbd76b90d7fb96010dcac3') # to fix salt
 
-      ri = Fluent::Plugin::ForwardOutput::Node::RequestInfo.new(:pingpong, '', '')
+      ri = Fluent::Plugin::ForwardOutput::ConnectionManager::RequestInfo.new(:pingpong, '', '')
       assert_raise(Fluent::Plugin::ForwardOutput::PingpongError) do
         handshake.invoke('', ri, msg)
       end

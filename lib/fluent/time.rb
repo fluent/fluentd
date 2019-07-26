@@ -78,7 +78,7 @@ module Fluent
       end
     rescue
       def to_time
-        Time.at(@sec, @nsec / 1000.0)
+        Time.at(Rational(@sec * 1_000_000_000 + @nsec, 1_000_000_000))
       end
     end
 
