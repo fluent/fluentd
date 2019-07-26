@@ -200,7 +200,7 @@ module Fluent::Plugin
         end
       end
 
-      @ack_handler = @require_ack_response ? AckHandler.new(@ack_response_timeout, log: @log, read_length: @read_length) : nil
+      @ack_handler = @require_ack_response ? AckHandler.new(timeout: @ack_response_timeout, log: @log, read_length: @read_length) : nil
       socket_cache = @keepalive ? SocketCache.new(@keepalive_timeout, @log) : nil
       @connection_manager = ConnectionManager.new(
         log: @log,

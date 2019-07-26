@@ -13,7 +13,7 @@ class AckHandlerTest < Test::Unit::TestCase
   )
   test 'returns chunk_id, node, sock and result status' do |args|
     receved, state = args
-    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(10, log: $log, read_length: 100)
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: $log, read_length: 100)
 
     node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
     chunk_id = 'chunk_id 111'
@@ -42,7 +42,7 @@ class AckHandlerTest < Test::Unit::TestCase
   end
 
   test 'returns nil if raise an error' do
-    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(10, log: $log, read_length: 100)
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 10, log: $log, read_length: 100)
 
     node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
     chunk_id = 'chunk_id 111'
@@ -71,7 +71,7 @@ class AckHandlerTest < Test::Unit::TestCase
   end
 
   test 'when ack is expired' do
-    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(0, log: $log, read_length: 100)
+    ack_handler = Fluent::Plugin::ForwardOutput::AckHandler.new(timeout: 0, log: $log, read_length: 100)
 
     node = flexmock('node', host: '127.0.0.1', port: '1000') # for log
     chunk_id = 'chunk_id 111'

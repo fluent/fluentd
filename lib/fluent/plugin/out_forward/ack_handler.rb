@@ -28,7 +28,7 @@ module Fluent::Plugin
         CHUNKID_UNMATCHED = :chunkid_unmatched
       end
 
-      def initialize(timeout, log:, read_length:)
+      def initialize(timeout:, log:, read_length:)
         @mutex = Mutex.new
         @ack_waitings = []
         @timeout = timeout
