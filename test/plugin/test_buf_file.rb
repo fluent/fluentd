@@ -57,20 +57,30 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal File.join(@dir, 'buffer.*.file'), p.path
     end
 
-    test 'existing directory will be used with additional default file name' do
+    data('default' => [nil, 'log'],
+         'conf' => ['.buf', 'buf'])
+    test 'existing directory will be used with additional default file name' do |params|
+      conf, suffix = params
       d = FluentPluginFileBufferTest::DummyOutputPlugin.new
       p = Fluent::Plugin::FileBuffer.new
       p.owner = d
-      p.configure(config_element('buffer', '', {'path' => @dir}))
-      assert_equal File.join(@dir, 'buffer.*.log'), p.path
+      c = {'path' => @dir}
+      c['path_suffix'] = conf if conf
+      p.configure(config_element('buffer', '', c))
+      assert_equal File.join(@dir, "buffer.*.#{suffix}"), p.path
     end
 
-    test 'unexisting path without * handled as directory' do
+    data('default' => [nil, 'log'],
+         'conf' => ['.buf', 'buf'])
+    test 'unexisting path without * handled as directory' do |params|
+      conf, suffix = params
       d = FluentPluginFileBufferTest::DummyOutputPlugin.new
       p = Fluent::Plugin::FileBuffer.new
       p.owner = d
-      p.configure(config_element('buffer', '', {'path' => File.join(@dir, 'buffer')}))
-      assert_equal File.join(@dir, 'buffer', 'buffer.*.log'), p.path
+      c = {'path' => File.join(@dir, 'buffer')}
+      c['path_suffix'] = conf if conf
+      p.configure(config_element('buffer', '', c))
+      assert_equal File.join(@dir, 'buffer', "buffer.*.#{suffix}"), p.path
     end
   end
 
@@ -312,10 +322,6 @@ class FileBufferTest < Test::Unit::TestCase
       @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
       @p = Fluent::Plugin::FileBuffer.new
       @p.owner = @d
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => @root_dir) do
-        @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}))
-        @p.configure(config_element('buffer', ''))
-      end
     end
 
     teardown do
@@ -329,8 +335,18 @@ class FileBufferTest < Test::Unit::TestCase
       end
     end
 
-    test '#start creates directory for buffer chunks' do
-      expected_buffer_path = File.join(@root_dir, 'worker0', 'dummy_output_with_buf', 'buffer', 'buffer.*.log')
+    data('default' => [nil, 'log'],
+         'conf' => ['.buf', 'buf'])
+    test '#start creates directory for buffer chunks' do |params|
+      conf, suffix = params
+      c = {}
+      c['path_suffix'] = conf if conf
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => @root_dir) do
+        @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}))
+        @p.configure(config_element('buffer', '', c))
+      end
+
+      expected_buffer_path = File.join(@root_dir, 'worker0', 'dummy_output_with_buf', 'buffer', "buffer.*.#{suffix}")
       expected_buffer_dir = File.dirname(expected_buffer_path)
       assert_equal expected_buffer_path, @p.path
       assert_false Dir.exist?(expected_buffer_dir)
