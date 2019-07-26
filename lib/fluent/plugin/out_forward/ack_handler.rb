@@ -15,6 +15,8 @@
 #
 
 require 'fluent/plugin/output'
+require 'fluent/plugin_helper/socket'
+require 'fluent/engine'
 require 'fluent/clock'
 
 module Fluent::Plugin
