@@ -74,6 +74,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
       assert_equal false, d.instance.ignore_repeated_permission_error
+      assert_false d.instance.switch_io_after_read
     end
 
     data("empty" => config_element,
@@ -1061,7 +1062,7 @@ class TailInputTest < Test::Unit::TestCase
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any).once.and_return do
+          watcherclass.should_receive(:new).with(path, EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any, any).once.and_return do
             flexmock('TailWatcher') { |watcher|
               watcher.should_receive(:attach).once
               watcher.should_receive(:unwatched=).zero_or_more_times
@@ -1079,7 +1080,7 @@ class TailInputTest < Test::Unit::TestCase
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any).once.and_return do
+        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any, any).once.and_return do
           flexmock('TailWatcher') do |watcher|
             watcher.should_receive(:attach).once
             watcher.should_receive(:unwatched=).zero_or_more_times

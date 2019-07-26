@@ -92,6 +92,8 @@ module Fluent::Plugin
     config_param :open_on_every_update, :bool, default: false
     desc 'Limit the watching files that the modification time is within the specified time range (when use \'*\' in path).'
     config_param :limit_recently_modified, :time, default: nil
+    desc 'After read lines, switch IO operation to other file'
+    config_param :switch_io_after_read, :bool, default: false  # TODO: set true in fluentd v2
     desc 'Enable the option to skip the refresh of watching list on startup.'
     config_param :skip_refresh_on_startup, :bool, default: false
     desc 'Ignore repeated permission error logs'
@@ -272,7 +274,7 @@ module Fluent::Plugin
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, @switch_io_after_read, &method(:receive_lines))
       tw.attach do |watcher|
         event_loop_attach(watcher.timer_trigger) if watcher.timer_trigger
         event_loop_attach(watcher.stat_trigger) if watcher.stat_trigger
@@ -483,7 +485,8 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
+      # TODO: Use struct to reduce the number of argument
+      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, switch_io_after_read, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
@@ -505,10 +508,11 @@ module Fluent::Plugin
         @from_encoding = from_encoding
         @encoding = encoding
         @open_on_every_update = open_on_every_update
+        @read_more = !switch_io_after_read
       end
 
       attr_reader :path
-      attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
+      attr_reader :log, :pe, :read_lines_limit, :open_on_every_update, :read_more
       attr_reader :from_encoding, :encoding
       attr_reader :stat_trigger, :enable_watch_timer, :enable_stat_watcher
       attr_accessor :timer_trigger
@@ -738,7 +742,7 @@ module Fluent::Plugin
                     end
                     if @lines.size >= @watcher.read_lines_limit
                       # not to use too much memory in case the file is very large
-                      read_more = true
+                      read_more = @watcher.read_more
                       break
                     end
                   end
