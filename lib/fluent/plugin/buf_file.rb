@@ -34,6 +34,8 @@ module Fluent
 
       desc 'The path where buffer chunks are stored.'
       config_param :path, :string, default: nil
+      desc 'The suffix of buffer chunks'
+      config_param :path_suffix, :string, default: '.log'
 
       config_set_default :chunk_limit_size, DEFAULT_CHUNK_LIMIT_SIZE
       config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
@@ -78,12 +80,12 @@ module Fluent
 
         if specified_directory_exists || unexisting_path_for_directory # directory
           if using_plugin_root_dir || !multi_workers_configured
-            @path = File.join(@path, 'buffer.*.log')
+            @path = File.join(@path, "buffer.*#{@path_suffix}")
           else
-            @path = File.join(@path, "worker#{fluentd_worker_id}", 'buffer.*.log')
+            @path = File.join(@path, "worker#{fluentd_worker_id}", "buffer.*#{@path_suffix}")
             if fluentd_worker_id == 0
               # worker 0 always checks unflushed buffer chunks to be resumed (might be created while non-multi-worker configuration)
-              @additional_resume_path = File.join(File.expand_path("../../", @path), 'buffer.*.log')
+              @additional_resume_path = File.join(File.expand_path("../../", @path), "buffer.*#{@path_suffix}")
             end
           end
           @multi_workers_available = true
@@ -91,10 +93,10 @@ module Fluent
           if File.basename(@path).include?('.*.')
             # valid file path
           elsif File.basename(@path).end_with?('.*')
-            @path = @path + '.log'
+            @path = @path + @path_suffix
           else
             # existing file will be ignored
-            @path = @path + '.*.log'
+            @path = @path + ".*#{@path_suffix}"
           end
           @multi_workers_available = false
         end
