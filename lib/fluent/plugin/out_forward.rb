@@ -83,6 +83,11 @@ module Fluent::Plugin
     desc 'Ignore DNS resolution and errors at startup time.'
     config_param :ignore_network_errors_at_startup, :bool, default: false
 
+    desc 'Enable name resolution in DNS SRV records.'
+    config_param :enable_dns_srv, :bool, default: false
+    desc 'Period to expire the result of name resolve'
+    config_param :srv_expire_resolve_cache, :integer, default: 10
+
     desc 'Verify that a connection can be made with one of out_forward nodes at the time of startup.'
     config_param :verify_connection_at_startup, :bool, default: false
 
@@ -138,14 +143,10 @@ module Fluent::Plugin
       config_param :standby, :bool, default: false
       desc "The load balancing weight."
       config_param :weight, :integer, default: 60
-      desc 'Enable name resolution in DNS SRV records.'
-      config_param :enable_dns_srv, :bool, default: false
       desc 'Configure the SRV service name.'
       config_param :srv_service_name, :string, default: 'fluentd'
       desc 'Configure the SRV protocol.'
       config_param :srv_service_protocol, :string, default: 'tcp'
-      desc 'Period to expire the result of name resolve'
-      config_param :srv_expire_resolve_cache, :integer, default: 30
     end
 
     attr_reader :nodes
@@ -309,6 +310,11 @@ module Fluent::Plugin
       if @keepalive && @keepalive_timeout
         timer_execute(:out_forward_keep_alived_socket_watcher, @keep_alive_watcher_interval, &method(:on_purge_obsolete_socks))
       end
+
+      if @enable_dns_srv
+        timer_execute(:out_forward_resolve_srv_host_timer, @srv_expire_resolve_cache, &method(:srv_resolver))
+      end
+
     end
 
     def close
@@ -440,6 +446,19 @@ module Fluent::Plugin
       @connection_manager.purge_obsolete_socks
     end
 
+    def srv_resolver
+      @nodes.each do |n|
+
+        begin
+          n.resolve_srv!
+        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
+          # log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+        rescue => e
+          # log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+        end
+      end
+    end
+
     # return chunk id to be committed
     def read_ack_from_sock(sock, unpacker)
       begin
@@ -558,10 +577,6 @@ module Fluent::Plugin
           password: server.password,
           username: server.username,
         )
-        @enable_dns_srv = server.enable_dns_srv
-        @srv_service_name = server.srv_service_name
-        @srv_service_protocol = server.srv_service_protocol
-        @srv_expire_resolve_cache = server.srv_expire_resolve_cache
         @srv_resolved_host = nil
         @srv_resolved_time = 0
         @srv_host_mutex = Mutex.new
@@ -569,7 +584,6 @@ module Fluent::Plugin
         @using_srv = false
         @original_host = nil
         @original_port = nil
-
         @unpacker = Fluent::Engine.msgpack_unpacker
 
         @resolved_host = nil
@@ -577,10 +591,12 @@ module Fluent::Plugin
         @resolved_once = false
 
         @connection_manager = connection_manager
+        @srv_service_protocol = server.srv_service_protocol
+        @srv_service_name = server.srv_service_name
       end
 
       attr_accessor :usock
-      attr_reader :name, :host, :port, :weight, :standby, :state, :enable_dns_srv, :srv_service_name, :srv_service_protocol
+      attr_reader :name, :host, :port, :weight, :standby, :state, :srv_service_name, :srv_service_protocol
       attr_reader :sockaddr  # used by on_heartbeat
       attr_reader :failure, :available # for test
 
@@ -772,7 +788,7 @@ module Fluent::Plugin
       # @return [SRV]
       def resolve_srv(host)
         now = Fluent::Engine.now
-        use_cache = @srv_expire_resolve_cache.zero? || now - @srv_resolved_time < @srv_expire_resolve_cache
+        use_cache = @sender.srv_expire_resolve_cache.zero? || now - @srv_resolved_time < @sender.srv_expire_resolve_cache
         return @srv_resolved_host if use_cache && !@srv_resolved_host.nil?
 
         res = []
@@ -883,7 +899,6 @@ module Fluent::Plugin
         if @using_srv
           switch_original_host!
         end
-
         host = "_#{@srv_service_name}._#{@srv_service_protocol}.#{@host}"
         @log.info 'srv try resolve hostname', host: host
         resp = resolve_srv(host)
@@ -926,7 +941,7 @@ module Fluent::Plugin
       private :resolve_srv!
 
       def resolve_dns!
-        if @enable_dns_srv && !@srv_resolved_once
+        if @sender.enable_dns_srv && !@srv_resolved_once
           resolve_srv!
         end
         addrinfo_list = Socket.getaddrinfo(@host, @port, nil, Socket::SOCK_STREAM)
