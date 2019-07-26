@@ -26,7 +26,7 @@ class AckHandlerTest < Test::Unit::TestCase
       ack.enqueue(r)
 
       a1 = a2 = a3 = a4 = nil
-      ack_handler.ack_reader(1) do |cid, n, s, ret|
+      ack_handler.collect_response(1) do |cid, n, s, ret|
         # This block is rescued by ack_handler so it needs to invoke assetion outside of this block
         a1 = cid; a2 = n; a3 = s; a4 = ret
       end
@@ -55,7 +55,7 @@ class AckHandlerTest < Test::Unit::TestCase
       ack.enqueue(r)
 
       a1 = a2 = a3 = a4 = nil
-      ack_handler.ack_handler(1) do |cid, n, s, ret|
+      ack_handler.collect_response(1) do |cid, n, s, ret|
         # This block is rescued by ack_handler so it needs to invoke assetion outside of this block
         a1 = cid; a2 = n; a3 = s; a4 = ret
       end
@@ -84,7 +84,7 @@ class AckHandlerTest < Test::Unit::TestCase
       ack.enqueue(r)
 
       a1 = a2 = a3 = a4 = nil
-      ack_handler.ack_handler(1) do |cid, n, s, ret|
+      ack_handler.collect_response(1) do |cid, n, s, ret|
         # This block is rescued by ack_handler so it needs to invoke assetion outside of this block
         a1 = cid; a2 = n; a3 = s; a4 = ret
       end

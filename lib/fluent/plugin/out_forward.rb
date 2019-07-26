@@ -422,7 +422,7 @@ module Fluent::Plugin
                         end
 
       while thread_current_running?
-        @ack_handler.ack_reader(select_interval) do |chunk_id, node, sock, result|
+        @ack_handler.collect_response(select_interval) do |chunk_id, node, sock, result|
           @connection_manager.close(sock)
 
           case result

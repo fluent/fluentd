@@ -37,7 +37,7 @@ module Fluent::Plugin
         @unpacker = Fluent::Engine.msgpack_unpacker
       end
 
-      def ack_reader(select_interval)
+      def collect_response(select_interval)
         now = Fluent::Clock.now
         sockets = []
         results = []
