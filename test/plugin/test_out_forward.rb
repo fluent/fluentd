@@ -623,20 +623,18 @@ EOL
 
   test 'enable_dns_srv is disabled in default' do
     @d = d = create_driver(CONFIG)
-    node = d.instance.nodes.first
-    assert_false node.enable_dns_srv
+    assert_false d.instance.enable_dns_srv
   end
 
   test 'enable_dns_srv can be enabled' do
     @d = d = create_driver(%[
+      enable_dns_srv true
       <server>
-        enable_dns_srv true
         host #{TARGET_HOST}
         port #{TARGET_PORT}
       </server>
     ])
-    node = d.instance.nodes.first
-    assert_true node.enable_dns_srv
+    assert_true d.instance.enable_dns_srv
   end
 
   test 'srv_service_name is default fluentd' do

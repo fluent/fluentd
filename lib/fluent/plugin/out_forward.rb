@@ -85,8 +85,10 @@ module Fluent::Plugin
 
     desc 'Enable name resolution in DNS SRV records.'
     config_param :enable_dns_srv, :bool, default: false
-    desc 'Period to expire the result of name resolve'
-    config_param :srv_expire_resolve_cache, :integer, default: 10
+    desc 'Period to expire the cache of name resolve'
+    config_param :expire_dns_srv_cache, :integer, default: 120
+    desc 'Update interval of DNS SRV records from the second time'
+    config_param :dns_srv_fetch_interval, :integer, default: 60
 
     desc 'Verify that a connection can be made with one of out_forward nodes at the time of startup.'
     config_param :verify_connection_at_startup, :bool, default: false
@@ -313,7 +315,7 @@ module Fluent::Plugin
       end
 
       if @enable_dns_srv
-        timer_execute(:out_forward_resolve_srv_host_timer, @srv_expire_resolve_cache, &method(:srv_resolver))
+        timer_execute(:out_forward_resolve_srv_host_timer, @dns_srv_fetch_interval, &method(:srv_resolver))
       end
 
     end
@@ -449,15 +451,7 @@ module Fluent::Plugin
 
     def srv_resolver
       @srv_host_mutex.synchronize do
-        @nodes.each do |n|
-          begin
-            n.resolve_srv!
-          rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
-            # log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
-          rescue => e
-            # log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
-          end
-        end
+        @nodes.each(&:resolve_srv!)
       end
     end
 
@@ -789,7 +783,7 @@ module Fluent::Plugin
       # @return [SRV]
       def resolve_srv(host)
         now = Fluent::Engine.now
-        use_cache = @sender.srv_expire_resolve_cache.zero? || now - @srv_resolved_time < @sender.srv_expire_resolve_cache
+        use_cache = @sender.expire_dns_srv_cache.zero? || now - @srv_resolved_time < @sender.expire_dns_srv_cache
         return @srv_resolved_host if use_cache && !@srv_resolved_host.nil?
 
         res = []
@@ -935,7 +929,6 @@ module Fluent::Plugin
 
         @log.info "using srv record response '#{@host}'", host: available.target, port: available.port
       end
-      private :resolve_srv!
 
       def resolve_dns!
         if @sender.enable_dns_srv && !@srv_resolved_once
