@@ -171,6 +171,7 @@ module Fluent::Plugin
       @sock_ack_waiting = nil
       @sock_ack_waiting_mutex = nil
       @keep_alive_watcher_interval = 5 # TODO
+      @srv_host_mutex = Mutex.new
 
     end
 
@@ -447,14 +448,15 @@ module Fluent::Plugin
     end
 
     def srv_resolver
-      @nodes.each do |n|
-
-        begin
-          n.resolve_srv!
-        rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
-          # log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
-        rescue => e
-          # log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+      @srv_host_mutex.synchronize do
+        @nodes.each do |n|
+          begin
+            n.resolve_srv!
+          rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNREFUSED, Errno::ETIMEDOUT => e
+            # log.debug "failed to send heartbeat packet", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+          rescue => e
+            # log.debug "unexpected error happen during heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type, error: e
+          end
         end
       end
     end
@@ -579,7 +581,6 @@ module Fluent::Plugin
         )
         @srv_resolved_host = nil
         @srv_resolved_time = 0
-        @srv_host_mutex = Mutex.new
         @srv_resolved_once = false
         @using_srv = false
         @original_host = nil
@@ -886,12 +887,10 @@ module Fluent::Plugin
       end
 
       def switch_original_host!
-        @srv_host_mutex.synchronize do
-          if @using_srv
-            @host = @original_host
-            @port = @original_port
-            @using_srv = false
-          end
+        if @using_srv
+          @host = @original_host
+          @port = @original_port
+          @using_srv = false
         end
       end
 
@@ -926,14 +925,12 @@ module Fluent::Plugin
         end
 
         # swap config host to srv response host.
-        @srv_host_mutex.synchronize do
-          unless @using_srv
-            @using_srv = true
-            @original_host = @host
-            @original_port = @port
-            @host = available.target
-            @port = available.port
-          end
+        unless @using_srv
+          @using_srv = true
+          @original_host = @host
+          @original_port = @port
+          @host = available.target
+          @port = available.port
         end
 
         @log.info "using srv record response '#{@host}'", host: available.target, port: available.port
