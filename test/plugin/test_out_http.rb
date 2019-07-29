@@ -241,7 +241,6 @@ class HTTPOutputTest < Test::Unit::TestCase
     d.instance_shutdown
   end
 
-  # basic auth test includes "error_response_as_unrecoverable true" case
   def test_write_with_disabled_unrecoverable
     d = create_driver(%[
       endpoint #{base_endpoint}/404
@@ -294,6 +293,7 @@ class HTTPOutputTest < Test::Unit::TestCase
       assert_not_empty result.headers
     end
 
+    # This test includes `error_response_as_unrecoverable true` behaviour check
     def test_basic_auth_with_invalid_auth
       d = create_driver(config + %[
         <auth>
