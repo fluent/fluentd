@@ -1,5 +1,21 @@
 # v1.6
 
+## Release v1.6.3 - 2019/07/29
+
+### Enhancement
+
+* in_syslog: Add `emit_unmatched_lines` parameter
+  https://github.com/fluent/fluentd/pull/2499
+* buf_file: Add `path_suffix` parameter
+  https://github.com/fluent/fluentd/pull/2524
+* in_tail: Improve the performance of split lines
+  https://github.com/fluent/fluentd/pull/2527
+
+### Bug fixes
+
+* http_server: Fix re-define render_json method
+  https://github.com/fluent/fluentd/pull/2517
+
 ## Release v1.6.2 - 2019/07/11
 
 ### Bug fixes
