@@ -698,9 +698,18 @@ module Fluent::Plugin
           s.encode!(@encoding, @from_encoding, :invalid => :replace, :undef => :replace)
         end
 
-        def next_line
+        def read_lines(lines)
           idx = @buffer.index(@eol)
-          convert(@buffer.slice!(0, idx + 1)) unless idx.nil?
+
+          until idx.nil?
+            # Using freeze and slice is faster than slice!
+            # See https://github.com/fluent/fluentd/pull/2527
+            @buffer.freeze
+            rbuf = @buffer.slice(0, idx + 1)
+            @buffer = @buffer.slice(idx + 1, @buffer.size)
+            idx = @buffer.index(@eol)
+            lines << convert(rbuf)
+          end
         end
 
         def bytesize
@@ -733,9 +742,7 @@ module Fluent::Plugin
                 begin
                   while true
                     @fifo << io.readpartial(8192, @iobuf)
-                    while (line = @fifo.next_line)
-                      @lines << line
-                    end
+                    @fifo.read_lines(@lines)
                     if @lines.size >= @watcher.read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true
