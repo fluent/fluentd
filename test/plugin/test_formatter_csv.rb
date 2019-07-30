@@ -108,4 +108,20 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     d = create_driver('fields' => data)
     assert_equal %w(one two three), d.instance.fields
   end
+
+  def test_format_with_multiple_records
+    d = create_driver("fields" => "message,message2")
+    r = {'message' => 'hello', 'message2' => 'fluentd'}
+
+    formatted = d.instance.format(tag, @time, r)
+    assert_equal("\"hello\",\"fluentd\"\n", formatted)
+
+    r = {'message' => 'hey', 'message2' => 'ho'}
+    formatted = d.instance.format(tag, @time, r)
+    assert_equal("\"hey\",\"ho\"\n", formatted)
+
+    r = {'message' => 'longer message', 'message2' => 'longer longer message'}
+    formatted = d.instance.format(tag, @time, r)
+    assert_equal("\"longer message\",\"longer longer message\"\n", formatted)
+  end
 end

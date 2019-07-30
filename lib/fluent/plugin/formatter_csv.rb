@@ -33,18 +33,22 @@ module Fluent
 
       def configure(conf)
         super
+
         @fields = fields.select{|f| !f.empty? }
         raise ConfigError, "empty value is specified in fields parameter" if @fields.empty?
 
-        @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes}
+        @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes, headers: @fields,
+                          row_sep: @add_newline ? :auto : "".force_encoding(Encoding::ASCII_8BIT)}
+        # Cache CSV object per thread to avoid internal state sharing
+        @cache = {}
       end
 
       def format(tag, time, record)
-        row = @fields.map do |key|
-          record[key]
-        end
-        line = CSV.generate_line(row, @generate_opts)
-        line.chomp! unless @add_newline
+        csv = (@cache[Thread.current] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), @generate_opts))
+        line = (csv << record).string.dup
+        # Need manual cleanup because CSV writer doesn't provide such method.
+        csv.rewind
+        csv.truncate(0)
         line
       end
     end
