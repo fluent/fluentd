@@ -79,9 +79,9 @@ module Fluent::Plugin
         end
       end
 
-      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :time, :timeout) do
+      ACKWaitingSockInfo = Struct.new(:sock, :chunk_id, :chunk_id_base64, :node, :expired_time) do
         def expired?(now)
-          time + timeout < now
+          expired_time < now
         end
       end
 
@@ -96,7 +96,7 @@ module Fluent::Plugin
       end
 
       def enqueue(node, sock, cid)
-        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now, @timeout)
+        info = ACKWaitingSockInfo.new(sock, cid, Base64.encode64(cid), node, Fluent::Clock.now + @timeout)
         @mutex.synchronize do
           @ack_waitings << info
         end
