@@ -560,7 +560,7 @@ module Fluent::Plugin
 
       attr_reader :name, :host, :port, :weight, :standby, :state
       attr_reader :sockaddr  # used by on_udp_heatbeat_response_recv
-      attr_reader :failure, :available # for test
+      attr_reader :failure # for test
 
       def validate_host_resolution!
         resolved_host

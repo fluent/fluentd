@@ -235,14 +235,14 @@ EOL
     node = d.instance.nodes.first
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
-    assert_equal node.available, true
+    assert_true node.available?
   end
 
   test 'phi_failure_detector enabled' do
     @d = d = create_driver(CONFIG + %[phi_failure_detector true \n phi_threshold 0])
     node = d.instance.nodes.first
     node.tick
-    assert_equal node.available, false
+    assert_false node.available?
   end
 
   test 'require_ack_response is disabled in default' do
@@ -555,7 +555,7 @@ EOL
       {"a" => 2}
     ]
     target_input_driver.end_if{ d.instance.rollback_count > 0 }
-    target_input_driver.end_if{ !node.available }
+    target_input_driver.end_if{ !node.available? }
     target_input_driver.run(expect_records: 2, timeout: 25) do
       d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false) do
         delayed_commit_timeout_value = d.instance.delayed_commit_timeout
@@ -600,7 +600,7 @@ EOL
       {"a" => 2}
     ]
     target_input_driver.end_if{ d.instance.rollback_count > 0 }
-    target_input_driver.end_if{ !node.available }
+    target_input_driver.end_if{ !node.available? }
     target_input_driver.run(expect_records: 2, timeout: 25) do
       d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false) do
         delayed_commit_timeout_value = d.instance.delayed_commit_timeout
@@ -840,7 +840,7 @@ EOL
 
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
-    assert_equal node.available, true
+    assert_true node.available?
   end
 
   test 'heartbeat_type_udp' do
