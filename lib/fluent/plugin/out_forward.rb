@@ -630,10 +630,6 @@ module Fluent::Plugin
       end
 
       def send_data_actual(sock, tag, chunk)
-        unless available?
-          raise ConnectionClosedError, "failed to establish connection with node #{@name}"
-        end
-
         option = { 'size' => chunk.size, 'compressed' => @compress }
         option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
 
@@ -659,6 +655,10 @@ module Fluent::Plugin
         connect(nil, require_ack: @sender.require_ack_response) do |sock, ri|
           if ri.state != :established
             establish_connection(sock, ri)
+
+            if ri.state != :established
+              raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+            end
           end
 
           send_data_actual(sock, tag, chunk)
