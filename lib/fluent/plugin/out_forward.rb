@@ -590,7 +590,7 @@ module Fluent::Plugin
       end
 
       def establish_connection(sock, ri)
-        while available? && ri.state != :established
+        while ri.state != :established
           begin
             # TODO: On Ruby 2.2 or earlier, read_nonblock doesn't work expectedly.
             # We need rewrite around here using new socket/server plugin helper.
