@@ -39,28 +39,17 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def create_driver(conf=CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
-      attr_reader :response_chunk_ids, :exceptions, :sent_chunk_ids
+      attr_reader :sent_chunk_ids, :ack_handler
 
       def initialize
         super
         @sent_chunk_ids = []
-        @response_chunk_ids = []
-        @exceptions = []
       end
 
       def try_write(chunk)
         retval = super
         @sent_chunk_ids << chunk.unique_id
         retval
-      end
-
-      def read_ack_from_sock(sock, unpacker)
-        retval = super
-        @response_chunk_ids << retval
-        retval
-      rescue => e
-        @exceptions << e
-        raise e
       end
     }.configure(conf)
   end
@@ -287,6 +276,7 @@ EOL
       [tag_in_ascii, time, {"a" => 2}],
     ]
 
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run do
         emit_events.each do |tag, t, record|
@@ -302,8 +292,6 @@ EOL
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test.ascii', time, emit_events[1][2]], events[1]
     assert_equal Encoding::UTF_8, events[1][0].encoding
-
-    assert_empty d.instance.exceptions
   end
 
   test 'send_with_time_as_integer' do
@@ -317,6 +305,8 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -330,8 +320,6 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.exceptions
   end
 
   test 'send_without_time_as_integer' do
@@ -348,6 +336,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -361,8 +350,6 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.exceptions
   end
 
   test 'send_comprssed_message_pack_stream_if_compress_is_gzip' do
@@ -406,6 +393,8 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+    # not attempt to receive responses
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -417,9 +406,6 @@ EOL
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.response_chunk_ids # not attempt to receive responses, so it's empty
-    assert_empty d.instance.exceptions
   end
 
   test 'send_to_a_node_not_supporting_responses' do
@@ -433,6 +419,8 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+    # not attempt to receive responses
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -444,9 +432,6 @@ EOL
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.response_chunk_ids # not attempt to receive responses, so it's empty
-    assert_empty d.instance.exceptions
   end
 
   test 'a node supporting responses' do
@@ -465,12 +450,20 @@ EOL
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
+    acked_chunk_ids = []
+    mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything) do |info, success|
+      if success
+        acked_chunk_ids << info.chunk_id
+      end
+      [chunk_id, success]
+    end
+
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
     target_input_driver.run(expect_records: 2) do
-      d.end_if{ d.instance.response_chunk_ids.length > 0 }
+      d.end_if { acked_chunk_ids.size > 0 }
       d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         d.feed([[time, records[0]], [time,records[1]]])
       end
@@ -480,9 +473,8 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal 1, d.instance.response_chunk_ids.size
-    assert_equal d.instance.sent_chunk_ids.first, d.instance.response_chunk_ids.first
-    assert_empty d.instance.exceptions
+    assert_equal 1, acked_chunk_ids.size
+    assert_equal d.instance.sent_chunk_ids.first, acked_chunk_ids.first
   end
 
   data('ack true' => true,
