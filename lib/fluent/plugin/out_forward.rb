@@ -434,7 +434,7 @@ module Fluent::Plugin
           when AckHandler::Result::CHUNKID_UNMATCHED
             rollback_write(chunk_id, update_retry: false)
           else
-            log.warn("invalid status #{result} #{chunk_id}")
+            log.warn("BUG: invalid status #{result} #{chunk_id}")
 
             if chunk_id
               rollback_write(chunk_id, update_retry: false)
