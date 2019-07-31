@@ -100,4 +100,45 @@ class CSVParserTest < ::Test::Unit::TestCase
       assert_equal record['c'], '789'
     end
   end
+
+  sub_test_case 'parser' do
+    data('normal' => 'normal',
+         'fast' => 'fast')
+    def test_compatibility_between_normal_and_fast_parser(param)
+      d = create_driver(
+        'keys' => 'time,key1,key2,key3,key4,key5',
+        'time_key' => 'time',
+        'time_format' => "%d/%b/%Y:%H:%M:%S %z",
+        'keep_time_key' => 'false',
+        'parser_type' => param
+      )
+
+      # non quoted
+      text = '28/Feb/2013:12:00:00 +0900,value1,value2,value3,value4,value5'
+      expected = {'key1' => 'value1', 'key2' => 'value2', 'key3' => "value3",
+                  'key4' => 'value4', 'key5' => "value5"}
+      d.instance.parse(text) do |time, record|
+        assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal expected, record
+      end
+
+      # quoted
+      text = '28/Feb/2013:12:00:00 +0900,"value1","val,ue2","va,lu,e3","val ue4",""'
+      expected = {'key1' => 'value1', 'key2' => 'val,ue2', 'key3' => "va,lu,e3",
+                  'key4' => 'val ue4', 'key5' => ""}
+      d.instance.parse(text) do |time, record|
+        assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal expected, record
+      end
+
+      # mixed
+      text = '28/Feb/2013:12:00:00 +0900,message,"mes,sage","me,ssa,ge",mess age,""'
+      expected = {'key1' => 'message', 'key2' => 'mes,sage', 'key3' => "me,ssa,ge",
+                  'key4' => 'mess age', 'key5' => ""}
+      d.instance.parse(text) do |time, record|
+        assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal expected, record
+      end
+    end
+  end
 end
