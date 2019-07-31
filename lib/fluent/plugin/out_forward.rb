@@ -560,7 +560,7 @@ module Fluent::Plugin
 
       attr_reader :name, :host, :port, :weight, :standby, :state
       attr_reader :sockaddr  # used by on_udp_heatbeat_response_recv
-      attr_reader :failure, :available # for test
+      attr_reader :failure # for test
 
       def validate_host_resolution!
         resolved_host
@@ -590,7 +590,7 @@ module Fluent::Plugin
       end
 
       def establish_connection(sock, ri)
-        while available? && ri.state != :established
+        while ri.state != :established
           begin
             # TODO: On Ruby 2.2 or earlier, read_nonblock doesn't work expectedly.
             # We need rewrite around here using new socket/server plugin helper.
@@ -630,10 +630,6 @@ module Fluent::Plugin
       end
 
       def send_data_actual(sock, tag, chunk)
-        unless available?
-          raise ConnectionClosedError, "failed to establish connection with node #{@name}"
-        end
-
         option = { 'size' => chunk.size, 'compressed' => @compress }
         option['chunk'] = Base64.encode64(chunk.unique_id) if @sender.require_ack_response
 
@@ -659,6 +655,10 @@ module Fluent::Plugin
         connect(nil, require_ack: @sender.require_ack_response) do |sock, ri|
           if ri.state != :established
             establish_connection(sock, ri)
+
+            if ri.state != :established
+              raise ConnectionClosedError, "failed to establish connection with node #{@name}"
+            end
           end
 
           send_data_actual(sock, tag, chunk)
@@ -743,7 +743,7 @@ module Fluent::Plugin
 
       def tick
         now = Time.now.to_f
-        if !@available
+        unless available?
           if @failure.hard_timeout?(now)
             @failure.clear
           end
@@ -752,7 +752,7 @@ module Fluent::Plugin
 
         if @failure.hard_timeout?(now)
           @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, hard_timeout: true
-          @available = false
+          disable!
           @resolved_host = nil  # expire cached host
           @failure.clear
           return true
@@ -762,7 +762,7 @@ module Fluent::Plugin
           phi = @failure.phi(now)
           if phi > @sender.phi_threshold
             @log.warn "detached forwarding server '#{@name}'", host: @host, port: @port, phi: phi, phi_threshold: @sender.phi_threshold
-            @available = false
+            disable!
             @resolved_host = nil  # expire cached host
             @failure.clear
             return true
@@ -774,7 +774,7 @@ module Fluent::Plugin
       def heartbeat(detect=true)
         now = Time.now.to_f
         @failure.add(now)
-        if detect && !@available && @failure.sample_size > @sender.recover_sample_size
+        if detect && !available? && @failure.sample_size > @sender.recover_sample_size
           @available = true
           @log.warn "recovered forwarding server '#{@name}'", host: @host, port: @port
           true
