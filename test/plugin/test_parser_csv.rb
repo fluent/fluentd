@@ -139,6 +139,15 @@ class CSVParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
         assert_equal expected, record
       end
+
+      # escaped
+      text = '28/Feb/2013:12:00:00 +0900,"message","mes""sage","""message""",,""""""'
+      expected = {'key1' => 'message', 'key2' => 'mes"sage', 'key3' => '"message"',
+                  'key4' => nil, 'key5' => '""'}
+      d.instance.parse(text) do |time, record|
+        assert_equal(event_time("28/Feb/2013:12:00:00 +0900", format: '%d/%b/%Y:%H:%M:%S %z'), time)
+        assert_equal expected, record
+      end
     end
   end
 end

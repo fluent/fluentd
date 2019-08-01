@@ -34,6 +34,8 @@ module Fluent
         super
 
         @quote_char = '"'
+        @escape_pattern = Regexp.compile(@quote_char * 2)
+
         if @parser_type == :fast
           m = method(:parse_fast)
           self.singleton_class.module_eval do
@@ -71,11 +73,14 @@ module Fluent
         j = 0
         while j < num_columns
           column = columns[j]
-          if column.empty?
-            column = nil
-          else
-            num_quote = column.count(@quote_char)
-            if num_quote == 1 && column.start_with?(@quote_char)
+
+          case column.count(@quote_char)
+          when 0
+            if column.empty?
+              column = nil
+            end
+          when 1
+            if column.start_with?(@quote_char)
               to_merge = [column]
               j += 1
               while j < num_columns
@@ -85,10 +90,18 @@ module Fluent
                 j += 1
               end
               column = to_merge.join(@delimiter)[1..-2]
-            elsif num_quote == 2 && column.start_with?(@quote_char) && column.end_with?(@quote_char)
+            end
+          when 2
+            if column.start_with?(@quote_char) && column.end_with?(@quote_char)
               column = column[1..-2]
             end
+          else
+            if column.start_with?(@quote_char) && column.end_with?(@quote_char)
+              column = column[1..-2]
+            end
+            column.gsub!(@escape_pattern, @quote_char)
           end
+
           record[@keys[i]] = column
           j += 1
           i += 1
