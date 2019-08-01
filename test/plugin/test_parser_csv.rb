@@ -149,5 +149,38 @@ class CSVParserTest < ::Test::Unit::TestCase
         assert_equal expected, record
       end
     end
+
+    def test_incompatibility_between_normal_and_fast_parser
+      normal = create_driver(
+        'keys' => 'key1,key2',
+        'parser_type' => 'normal'
+      )
+      fast = create_driver(
+        'keys' => 'key1,key2',
+        'parser_type' => 'fast'
+      )
+
+      # unexpected quote position
+      text = 'a"b,"a"""c"'
+      assert_raise(CSV::MalformedCSVError) {
+        normal.instance.parse(text) { |t, r| }
+      } 
+      assert_nothing_raised {
+        # generate broken record
+        fast.instance.parse(text) { |t, r| }
+      }
+
+      # incorrect the number of column
+      text = 'a,b,c'
+      expected = {"key1" => 'a', "key2" => 'b'}
+      normal.instance.parse(text) { |t, r|
+        assert_equal expected, r
+      }
+      fast.instance.parse(text) { |t, r|
+        assert_not_equal expected, r
+      }
+
+      # And more...
+    end
   end
 end
