@@ -18,6 +18,7 @@ require 'fluent/output'
 require 'fluent/config/error'
 require 'fluent/clock'
 require 'base64'
+require 'forwardable'
 
 require 'fluent/compat/socket_util'
 require 'fluent/plugin/out_forward/handshake_protocol'
@@ -225,19 +226,32 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
-      @servers.each do |server|
-        node = build_node(server)
+      static = conf.elements(name: 'server').map do |c|
+        sd = Fluent::Plugin.new_sd(:static)
+        sd.configure(c)
+        sd
+      end
+
+      @sd_manager = Fluent::Plugin::ServiceDiscoveryManager.new(
+        load_balancer: LoadBalancer.new(log),
+        log: log,
+        custom_build_method: method(:build_node),
+        static: static,
+      )
+
+      @sd_manager.configure
+
+      @sd_manager.services.each do |server|
+        @nodes << server
         unless @heartbeat_type == :none
           begin
-            node.validate_host_resolution!
+            server.validate_host_resolution!
           rescue => e
             raise unless @ignore_network_errors_at_startup
             log.warn "failed to resolve node name when configured", server: (server.name || server.host), error: e
-            node.disable!
+            server.disable!
           end
         end
-
-        @nodes << node
       end
 
       unless @as_secondary
@@ -251,12 +265,6 @@ module Fluent::Plugin
       if @nodes.empty?
         raise Fluent::ConfigError, "forward output plugin requires at least one <server> is required"
       end
-
-      @sd_manager = Fluent::Plugin::ServiceDiscoveryManager.new(
-        load_balancer: LoadBalancer.new(log),
-        services: @nodes,
-        log: log,
-      )
 
       if !@keepalive && @keepalive_timeout
         log.warn('The value of keepalive_timeout is ignored. if you want to use keepalive, please add `keepalive true` to your conf.')
@@ -474,12 +482,16 @@ module Fluent::Plugin
     end
 
     class Node
+      extend Forwardable
+      def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby, :username, :password, :shared_key
+
       # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
       # @param ack_handler [Fluent::Plugin::ForwardOutput::AckHandler]
       def initialize(sender, server, failure:, connection_manager:, ack_handler:)
         @sender = sender
         @log = sender.log
         @compress = sender.compress
+        @server = server
 
         @name = server.name
         @host = server.host
@@ -519,7 +531,7 @@ module Fluent::Plugin
 
       attr_accessor :usock
 
-      attr_reader :name, :host, :port, :weight, :standby, :state
+      attr_reader :state
       attr_reader :sockaddr  # used by on_udp_heatbeat_response_recv
       attr_reader :failure # for test
 

@@ -17,16 +17,28 @@
 module Fluent
   module Plugin
     class ServiceDiscoveryManager
-      def initialize(load_balancer:, services:, log:)
+      def initialize(load_balancer:, log:, static:, custom_build_method: nil)
         @log = log
         @load_balancer = load_balancer
-        @services = services
+        @custom_build_method = custom_build_method
+        @services = {}
+        @static = static
+
+        @queue = Queue.new
+      end
+
+      def configure
+        @static.each do |s|
+          # TODO
+          service = s.service
+          @services[service.discovery_id] = build_node(service)
+        end
 
         rebalance
       end
 
       def rebalance
-        @load_balancer.rebuild_weight_array(@services)
+        @load_balancer.rebuild_weight_array(services)
       end
 
       def select_node(&block)
@@ -34,7 +46,13 @@ module Fluent
       end
 
       def services
-        @services.dup
+        @services.values
+      end
+
+      private
+
+      def build_node(n)
+        @custom_build_method ? @custom_build_method.call(n) : n
       end
     end
   end
