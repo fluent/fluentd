@@ -27,6 +27,7 @@ require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
 require 'fluent/plugin/out_forward/connection_manager'
 require 'fluent/plugin/out_forward/ack_handler'
+require 'fluent/plugin/service_discovery_manager'
 
 module Fluent::Plugin
   class ForwardOutput < Output
@@ -256,6 +257,12 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "forward output plugin requires at least one <server> is required"
       end
 
+      @sd_manager = Fluent::Plugin::ServiceDiscoveryManager.new(
+        load_balancer: LoadBalancer.new(log),
+        services: @nodes,
+        log: log,
+      )
+
       if !@keepalive && @keepalive_timeout
         log.warn('The value of keepalive_timeout is ignored. if you want to use keepalive, please add `keepalive true` to your conf.')
       end
@@ -274,12 +281,9 @@ module Fluent::Plugin
     def start
       super
 
-      @load_balancer = LoadBalancer.new(log)
-      @load_balancer.rebuild_weight_array(@nodes)
-
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
-          @usock = socket_create_udp(@nodes.first.host, @nodes.first.port, nonblock: true)
+          @usock = socket_create_udp(@sd_manager.services.first.host, @sd_manager.services.first.port, nonblock: true)
           server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
         end
         timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
@@ -297,7 +301,7 @@ module Fluent::Plugin
       end
 
       if @verify_connection_at_startup
-        @nodes.each do |node|
+        @sd_manager.services.each do |node|
           begin
             node.verify_connection
           rescue StandardError => e
@@ -333,7 +337,7 @@ module Fluent::Plugin
       return if chunk.empty?
       tag = chunk.metadata.tag
 
-      @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
+      @sd_manager.select_node { |node| node.send_data(tag, chunk) }
     end
 
     def try_write(chunk)
@@ -343,7 +347,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
+      @sd_manager.select_node { |node| node.send_data(tag, chunk) }
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -397,7 +401,7 @@ module Fluent::Plugin
 
     def on_heartbeat_timer
       need_rebuild = false
-      @nodes.each do |n|
+      @sd_manager.services.each do |n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
@@ -412,16 +416,16 @@ module Fluent::Plugin
       end
 
       if need_rebuild
-        @load_balancer.rebuild_weight_array(@nodes)
+        @sd_manager.rebalance
       end
     end
 
     def on_udp_heatbeat_response_recv(data, sock)
       sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
-      if node = @nodes.find { |n| n.sockaddr == sockaddr }
+      if node = @sd_manager.services.find { |n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          @load_balancer.rebuild_weight_array(@nodes)
+          @sd_manager.rebalance
         end
       else
         log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}")
