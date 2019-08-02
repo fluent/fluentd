@@ -226,14 +226,8 @@ module Fluent::Plugin
       )
 
       @servers.each do |server|
-        failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
-        name = server.name || "#{server.host}:#{server.port}"
-
-        log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
-        if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
-        else
-          node = Node.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
+        node = build_node(server)
+        unless @heartbeat_type == :none
           begin
             node.validate_host_resolution!
           rescue => e
@@ -241,8 +235,9 @@ module Fluent::Plugin
             log.warn "failed to resolve node name when configured", server: (server.name || server.host), error: e
             node.disable!
           end
-          @nodes << node
         end
+
+        @nodes << node
       end
 
       unless @as_secondary
@@ -398,6 +393,18 @@ module Fluent::Plugin
     end
 
     private
+
+    def build_node(server)
+      name = server.name || "#{server.host}:#{server.port}"
+      log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
+
+      failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
+      if @heartbeat_type == :none
+        NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
+      else
+        Node.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
+      end
+    end
 
     def on_heartbeat_timer
       need_rebuild = false
