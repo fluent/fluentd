@@ -146,6 +146,10 @@ module Fluent::Plugin
       config_param :weight, :integer, default: 60
     end
 
+    config_section :service_discovery do
+      config_param :@type, :string
+    end
+
     attr_reader :nodes
 
     config_param :port, :integer, default: LISTEN_PORT, obsoleted: "User <server> section instead."
@@ -226,20 +230,17 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
-      static = conf.elements(name: 'server').map do |c|
-        sd = Fluent::Plugin.new_sd(:static)
-        sd.configure(c)
-        sd
-      end
-
       @sd_manager = Fluent::Plugin::ServiceDiscoveryManager.new(
         load_balancer: LoadBalancer.new(log),
         log: log,
         custom_build_method: method(:build_node),
-        static: static,
       )
 
-      @sd_manager.configure
+      configs = conf.elements(name: 'server').map { |c| { type: :static, conf: c } }
+      conf.elements(name: 'service_discovery').each_with_index do |c, i|
+        configs << { type: @service_discovery[i][:@type], conf: c }
+      end
+      @sd_manager.configure(configs)
 
       @sd_manager.services.each do |server|
         @nodes << server
@@ -283,6 +284,14 @@ module Fluent::Plugin
 
     def start
       super
+
+      @sd_manager.start
+      if @sd_manager.need_timer
+        # TODO: interval
+        timer_execute(:out_forward_service_discovery_watcher, 3) do
+          @sd_manager.run_once
+        end
+      end
 
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp

@@ -40,22 +40,16 @@ module Fluent
       desc 'The load balancing weight.'
       config_param :weight, :integer, default: 60
 
-      def initialize
-        @service = nil
-
-        super
-      end
-
       def configure(conf)
         super
-        @service = ServiceDiscovery::Service.new(:staic, @host, @port, @name, @weight, @standby, @username, @password, @shared_key)
+
+        @services << ServiceDiscovery::Service.new(:staic, @host, @port, @name, @weight, @standby, @username, @password, @shared_key)
       end
 
-      # TODO
-      attr_reader :service
-
       def start(queue)
-        queue.push(@service)
+        super()
+
+        # nothing
       end
     end
   end

@@ -14,24 +14,66 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin'
+require 'fluent/plugin/service_discovery/discovery_message'
+
 module Fluent
   module Plugin
     class ServiceDiscoveryManager
-      def initialize(load_balancer:, log:, static:, custom_build_method: nil)
+      def initialize(load_balancer:, log:, custom_build_method: nil)
         @log = log
         @load_balancer = load_balancer
         @custom_build_method = custom_build_method
-        @services = {}
-        @static = static
 
+        @discoveries = []
+        @services = {}
+        @draining_services = {}
         @queue = Queue.new
+        @need_timer = false
       end
 
-      def configure
-        @static.each do |s|
-          # TODO
-          service = s.service
-          @services[service.discovery_id] = build_node(service)
+      attr_reader :need_timer
+
+      def configure(opts)
+        opts.each do |opt|
+          sd = Fluent::Plugin.new_sd(opt[:type])
+          sd.configure(opt[:conf])
+
+          sd.services.each do |s|
+            @services[s.discovery_id] = build_node(s)
+          end
+          @discoveries << sd
+
+          if !@need_timer && opt[:type] != :static
+            @need_timer = true
+          end
+        end
+
+        rebalance
+      end
+
+      def start
+        @discoveries.each do |d|
+          d.start(@queue)
+        end
+      end
+
+      def run_once
+        # Don't care race in this loop intentionally
+        s = @queue.size
+
+        if s == 0
+          return
+        end
+
+        s.times do
+          msg = @queue.pop
+
+          unless msg.is_a?(Fluent::Plugin::ServiceDiscovery::DiscoveryMessage)
+            @log.warn("BUG: #{msg}")
+            next
+          end
+          handle_message(msg)
         end
 
         rebalance
@@ -50,6 +92,26 @@ module Fluent
       end
 
       private
+
+      def handle_message(msg)
+        service = msg.service
+
+        case msg.type
+        when :service_in
+          @log.info("service_in")
+          @services[service.discovery_id] = build_node(service)
+        when :service_out
+          @log.info("service_out")
+
+          if (s = @services.delete(service.discovery_id))
+            @draining_services[service.discovery_id] = s
+          else
+            @log.warn("Not found service: #{service}")
+          end
+        else
+          @log.error("BUG: unknow message type: #{msg.type}")
+        end
+      end
 
       def build_node(n)
         @custom_build_method ? @custom_build_method.call(n) : n
