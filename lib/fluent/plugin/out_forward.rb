@@ -403,6 +403,23 @@ module Fluent::Plugin
       end
     end
 
+    def statistics
+      stats = super
+      services = @sd_manager.services
+      healty_nodes_count = 0
+      registed_nodes_count = services.size
+      services.each do |s|
+        if s.available?
+          healty_nodes_count += 1
+        end
+      end
+
+      stats.merge(
+        'healty_nodes_count' => healty_nodes_count,
+        'registered_nodes_count' => registed_nodes_count,
+      )
+    end
+
     # MessagePack FixArray length is 3
     FORWARD_HEADER = [0x93].pack('C').freeze
     def forward_header
