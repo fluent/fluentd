@@ -106,6 +106,9 @@ module Fluent::Plugin
           @weight_array = weight_array
         end
       end
+
+      alias select_node select_healthy_node
+      alias rebalance rebuild_weight_array
     end
   end
 end

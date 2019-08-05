@@ -59,6 +59,10 @@ module Fluent
 
         super
       end
+
+      def start(queue = nil)
+        super()
+      end
     end
   end
 end

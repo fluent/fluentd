@@ -43,13 +43,11 @@ module Fluent
       def configure(conf)
         super
 
-        @services << ServiceDiscovery::Service.new(:staic, @host, @port, @name, @weight, @standby, @username, @password, @shared_key)
+        @services << ServiceDiscovery::Service.new(:static, @host, @port, @name, @weight, @standby, @username, @password, @shared_key)
       end
 
-      def start(queue)
+      def start(queue = nil)
         super()
-
-        # nothing
       end
     end
   end

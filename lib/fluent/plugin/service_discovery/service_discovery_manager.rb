@@ -35,7 +35,7 @@ module Fluent
           @need_timer = false
         end
 
-        def configure(opts, parent:)
+        def configure(opts, parent: nil)
           opts.each do |opt|
             sd = Fluent::Plugin.new_sd(opt[:type], parent: parent)
             sd.configure(opt[:conf])
@@ -86,11 +86,11 @@ module Fluent
         end
 
         def rebalance
-          @load_balancer.rebuild_weight_array(services)
+          @load_balancer.rebalance(services)
         end
 
         def select_node(&block)
-          @load_balancer.select_healthy_node(&block)
+          @load_balancer.select_node(&block)
         end
 
         def services
