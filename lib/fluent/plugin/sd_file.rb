@@ -22,7 +22,8 @@ module Fluent
     class SdFile < ServiceDiscovery
       Plugin.register_sd('file', self)
 
-      DEFAULT_FILE_TYPE = 'default'.freeze
+      DEFAULT_FILE_TYPE = :yaml
+      DEFAUT_WEIGHT = 60
 
       helpers :timer
 
@@ -30,16 +31,13 @@ module Fluent
 
       config_param :path, :string, default: DEFAULT_SD_FILE_PATH
       config_param :conf_encoding, :string, default: 'utf-8'
-      config_param :refresh_interval, :time, default: 3
+      config_param :refresh_interval, :integer, default: 5
 
       def initialize
         super
 
-        @paths = []
         @file_type = nil
         @last_modified = nil
-        @diff = []
-        @stop = false
       end
 
       def configure(conf)
@@ -55,20 +53,14 @@ module Fluent
         end
 
         @services = fetch_server_info
-        @log.debug("sd_file will watch #{@paths.join(', ')}")
       end
 
       def start(queue)
         super()
 
-        timer_execute(:sd_file_timer, @refresh_interval) do
+        timer_execute(:"service_discovery_timer_fd_file_#{Time.now.to_i}_#{rand(10)}", @refresh_interval) do
           refresh_file(queue)
         end
-      end
-
-      def stop
-        @stop = true
-        super
       end
 
       private
@@ -82,11 +74,6 @@ module Fluent
           when :json
             require 'json'
             -> (v) { JSON.parse(v) }
-          else
-            require 'fluent/config'
-            config_fname = File.basename(@path)
-            config_basedir = File.dirname(@path)
-            -> (v) { Fluent::Config.parse(v, config_fname, config_basedir, :v1) }
           end
       end
 
@@ -95,10 +82,11 @@ module Fluent
           begin
             fetch_server_info
           rescue => e
-            @log.warn("sd_file: #{e}")
+            @log.error("sd_file: #{e}")
           end
 
         if s.nil?
+          # if any error occurs, skip this turn
           return
         end
 
@@ -123,18 +111,17 @@ module Fluent
 
       def fetch_server_info
         if File.mtime(@path) == @last_modified
-          @log.info('skip refresh server since not modified_chunks')
+          @log.debug('Skip to refresh server since not modified')
           return nil
         end
 
-        log.info('fetch_server_info!!!!!!!!')
         @last_modified = File.mtime(@path)
 
         config_data =
           begin
-            File.open(path, "r:#{@conf_encoding}:utf-8", &:read)
+            File.open(@path, "r:#{@conf_encoding}:utf-8", &:read)
           rescue => e
-            raise Fluent::ConfigError, "sd_file: path=#{path} can not open #{e}"
+            raise Fluent::ConfigError, "sd_file: path=#{@path} couldn't open #{e}"
           end
 
         parser.call(config_data).map do |s|
@@ -143,7 +130,7 @@ module Fluent
             s.fetch('host'),
             s.fetch('port'),
             s['name'],
-            s['weight'],
+            s.fetch('weight', DEFAUT_WEIGHT),
             s['standby'],
             s['username'],
             s['password'],
@@ -151,6 +138,8 @@ module Fluent
           )
         end
       end
+    rescue KeyError => e
+      raise Fluent::ConfigError, e
     end
   end
 end
