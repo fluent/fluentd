@@ -28,7 +28,7 @@ require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
 require 'fluent/plugin/out_forward/connection_manager'
 require 'fluent/plugin/out_forward/ack_handler'
-require 'fluent/plugin/service_discovery_manager'
+require 'fluent/plugin/service_discovery/service_discovery_manager'
 
 module Fluent::Plugin
   class ForwardOutput < Output
@@ -230,7 +230,7 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
-      @sd_manager = Fluent::Plugin::ServiceDiscoveryManager.new(
+      @sd_manager = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(
         load_balancer: LoadBalancer.new(log),
         log: log,
         custom_build_method: method(:build_node),
@@ -240,7 +240,7 @@ module Fluent::Plugin
       conf.elements(name: 'service_discovery').each_with_index do |c, i|
         configs << { type: @service_discovery[i][:@type], conf: c }
       end
-      @sd_manager.configure(configs)
+      @sd_manager.configure(configs, parent: self)
 
       @sd_manager.services.each do |server|
         @nodes << server
@@ -452,7 +452,7 @@ module Fluent::Plugin
           @sd_manager.rebalance
         end
       else
-        log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}")
+        log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}. It may service out")
       end
     end
 
