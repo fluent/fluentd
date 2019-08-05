@@ -16,6 +16,7 @@
 
 require 'fluent/plugin'
 require 'fluent/plugin/service_discovery'
+require 'fluent/plugin/service_discovery/round_robin_balancer'
 require 'fluent/plugin/service_discovery/discovery_message'
 
 module Fluent
@@ -24,9 +25,9 @@ module Fluent
       class ServiceDiscoveryManager
         attr_reader :need_timer
 
-        def initialize(load_balancer:, log:, custom_build_method: nil)
+        def initialize(log:, load_balancer: nil, custom_build_method: nil)
           @log = log
-          @load_balancer = load_balancer
+          @load_balancer = load_balancer || RoundRobinBalancer.new
           @custom_build_method = custom_build_method
 
           @discoveries = []

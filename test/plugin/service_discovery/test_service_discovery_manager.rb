@@ -10,23 +10,6 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
     @sd_file_dir = File.expand_path('../data/sd_file', __dir__)
   end
 
-  class TestSDLoadBalancer
-    def initialize
-      @i = 0
-      @nodes = []
-    end
-
-    def rebalance(nodes)
-      @nodes = nodes
-    end
-
-    def select_node
-      n = @nodes[@i]
-      @i = (@i + 1) % @node.size
-      n
-    end
-  end
-
   class TestSdPlugin < Fluent::Plugin::ServiceDiscovery
     Fluent::Plugin.register_sd('test_sd', self)
 
@@ -53,7 +36,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
 
   sub_test_case '#configure' do
     test 'build sd plugins and services' do
-      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(load_balancer: TestSDLoadBalancer.new, log: $log)
+      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(log: $log)
       sdm.configure(
         [
           { type: :file, conf: config_element('service_discovery', '', { 'path' => File.join(@sd_file_dir, 'config.yml') }) },
@@ -75,7 +58,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
     end
 
     test 'no need to timer if only static' do
-      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(load_balancer: TestSDLoadBalancer.new, log: $log)
+      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(log: $log)
       sdm.configure(
         [{ type: :static, conf: config_element('server', '', { 'host' => '127.0.0.2', 'port' => '5432' }) }],
       )
@@ -90,7 +73,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
 
   sub_test_case '#run_once' do
     test 'if new service added and deleted' do
-      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(load_balancer: TestSDLoadBalancer.new, log: $log)
+      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(log: $log)
       t = TestSdPlugin.new
       mock(Fluent::Plugin).new_sd(:sd_test, anything) { t }
       sdm.configure([{ type: :sd_test, conf: config_element('service_discovery', '', {})}])
