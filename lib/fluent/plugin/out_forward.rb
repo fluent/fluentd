@@ -286,7 +286,7 @@ module Fluent::Plugin
       super
 
       @sd_manager.start
-      if @sd_manager.need_timer
+      unless @sd_manager.static_config?
         # TODO: interval
         timer_execute(:out_forward_service_discovery_watcher, 3) do
           @sd_manager.run_once

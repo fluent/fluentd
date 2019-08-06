@@ -54,7 +54,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
       assert_equal 5432, sdm.services[2].port
       assert_equal '127.0.0.2', sdm.services[2].host
 
-      assert_true sdm.need_timer
+      assert_false sdm.static_config?
     end
 
     test 'no need to timer if only static' do
@@ -67,7 +67,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
       assert_equal 5432, sdm.services[0].port
       assert_equal '127.0.0.2', sdm.services[0].host
 
-      assert_false sdm.need_timer
+      assert_true sdm.static_config?
     end
   end
 

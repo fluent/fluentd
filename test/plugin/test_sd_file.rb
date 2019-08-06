@@ -118,7 +118,7 @@ class SdFileTest < ::Test::Unit::TestCase
       end
     end
 
-    test 'skip if not change' do
+    test 'Skip if file is not updated' do
       @sd_file.extend(TestStatEventHelperWrapper)
 
       create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
@@ -133,7 +133,7 @@ class SdFileTest < ::Test::Unit::TestCase
       assert_empty queue
     end
 
-    test 'skip if invalid contents' do
+    test 'Skip if file is invalid contents' do
       @sd_file.extend(TestStatEventHelperWrapper)
 
       create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))

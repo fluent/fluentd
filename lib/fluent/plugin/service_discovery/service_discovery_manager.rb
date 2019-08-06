@@ -23,8 +23,6 @@ module Fluent
   module Plugin
     class ServiceDiscovery
       class ServiceDiscoveryManager
-        attr_reader :need_timer
-
         def initialize(log:, load_balancer: nil, custom_build_method: nil)
           @log = log
           @load_balancer = load_balancer || RoundRobinBalancer.new
@@ -33,7 +31,7 @@ module Fluent
           @discoveries = []
           @services = {}
           @queue = Queue.new
-          @need_timer = false
+          @static_config = true
         end
 
         def configure(opts, parent: nil)
@@ -46,12 +44,16 @@ module Fluent
             end
             @discoveries << sd
 
-            if !@need_timer && opt[:type] != :static
-              @need_timer = true
+            if @static_config && opt[:type] != :static
+              @static_config = false
             end
           end
 
           rebalance
+        end
+
+        def static_config?
+          @static_config
         end
 
         def start
