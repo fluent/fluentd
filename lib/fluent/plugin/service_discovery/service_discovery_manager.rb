@@ -111,7 +111,7 @@ module Fluent
               @log.info("Service in: name=#{service.name} #{service.host}:#{service.port}")
               @services[service.discovery_id] = n
             else
-              raise "failed to service in name=#{service.name} #{service.host}:#{service.port}"
+              raise "failed to build service in name=#{service.name} #{service.host}:#{service.port}"
             end
           when Fluent::Plugin::ServiceDiscovery::SERVICE_OUT
             s = @services.delete(service.discovery_id)
