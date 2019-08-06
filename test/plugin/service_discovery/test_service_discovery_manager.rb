@@ -1,9 +1,5 @@
 require_relative '../../helper'
 require 'fluent/plugin/service_discovery/service_discovery_manager'
-require 'fluent/plugin/service_discovery'
-require 'fileutils'
-require 'json'
-require 'timecop'
 
 class TestServiceDiscoveryManager < ::Test::Unit::TestCase
   setup do
