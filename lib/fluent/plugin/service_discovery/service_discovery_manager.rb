@@ -104,14 +104,14 @@ module Fluent
           service = msg.service
 
           case msg.type
-          when :service_in
+          when Fluent::Plugin::ServiceDiscovery::SERVICE_IN
             if (n = build_service(service))
               @log.info("Service in: name=#{service.name} #{service.host}:#{service.port}")
               @services[service.discovery_id] = n
             else
               raise "failed to service in name=#{service.name} #{service.host}:#{service.port}"
             end
-          when :service_out
+          when Fluent::Plugin::ServiceDiscovery::SERVICE_OUT
             s = @services.delete(service.discovery_id)
             if s
               @log.info("Service out: name=#{service.name} #{service.host}:#{service.port}")

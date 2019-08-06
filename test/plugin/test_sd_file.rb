@@ -163,11 +163,11 @@ class SdFileTest < ::Test::Unit::TestCase
       assert_equal 2, queue.size
       join = queue.shift
       drain = queue.shift
-      assert_equal :service_in, join.type
+      assert_equal Fluent::Plugin::ServiceDiscovery::SERVICE_IN, join.type
       assert_equal 1234, join.service.port
       assert_equal '127.0.0.1', join.service.host
 
-      assert_equal :service_out, drain.type
+      assert_equal Fluent::Plugin::ServiceDiscovery::SERVICE_OUT, drain.type
       assert_equal 1233, drain.service.port
       assert_equal '127.0.0.1', drain.service.host
     end
@@ -185,7 +185,7 @@ class SdFileTest < ::Test::Unit::TestCase
 
       assert_equal 1, queue.size
       drain = queue.shift
-      assert_equal :service_out, drain.type
+      assert_equal Fluent::Plugin::ServiceDiscovery::SERVICE_OUT, drain.type
       assert_equal 1234, drain.service.port
       assert_equal '127.0.0.2', drain.service.host
     end
@@ -203,7 +203,7 @@ class SdFileTest < ::Test::Unit::TestCase
 
       assert_equal 1, queue.size
       join = queue.shift
-      assert_equal :service_in, join.type
+      assert_equal Fluent::Plugin::ServiceDiscovery::SERVICE_IN, join.type
       assert_equal 1234, join.service.port
       assert_equal '127.0.0.2', join.service.host
     end

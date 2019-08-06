@@ -20,13 +20,16 @@ module Fluent
   module Plugin
     class ServiceDiscovery # already loaded
       DiscoveryMessage = Struct.new(:type, :service) do
+        SERVICE_IN = :service_in
+        SERVICE_OUT = :service_out
+
         class << self
           def service_in(service)
-            DiscoveryMessage.new(:service_in, service)
+            DiscoveryMessage.new(SERVICE_IN, service)
           end
 
           def service_out(service)
-            DiscoveryMessage.new(:service_out, service)
+            DiscoveryMessage.new(SERVICE_OUT, service)
           end
         end
       end
