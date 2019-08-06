@@ -2,7 +2,6 @@ require_relative '../helper'
 require 'fluent/plugin/sd_file'
 require 'fileutils'
 require 'json'
-require 'timecop'
 
 class SdFileTest < ::Test::Unit::TestCase
   setup do
@@ -61,26 +60,40 @@ class SdFileTest < ::Test::Unit::TestCase
   end
 
   sub_test_case '#start' do
-    module TestTimerHelperWrapper
-      # easy to control timer
-      def timer_execute(_name, _interval)
-        @test_timer_helper_wrapper_context = Fiber.new do
-          until Fiber.yield(yield) == :finish
-          end
+    module TestStatEventHelperWrapper
+      # easy to control statsevent
+      def event_loop_attach(watcher)
+        unless watcher.is_a?(Fluent::Plugin::SdFile::StatWatcher)
+          super
+          return
         end
 
+        @test_stat_event_helper_wrapper_watchers ||= []
+        @test_stat_event_helper_wrapper_watchers << watcher
+
+        @test_stat_event_helper_wrapper_context = Fiber.new do
+          loop do
+            @test_stat_event_helper_wrapper_watchers.each do |w|
+              w.on_change('old', 'new')
+            end
+
+            if Fiber.yield == :finish
+              break
+            end
+          end
+        end
         resume
       end
 
       def resume
-        @test_timer_helper_wrapper_context.resume(:resume)
+        @test_stat_event_helper_wrapper_context.resume(:resume)
       end
 
       def shutdown
         super
 
-        if @test_timer_helper_wrapper_context
-          @test_timer_helper_wrapper_context.resume(:finish)
+        if @test_stat_event_helper_wrapper_context
+          @test_stat_event_helper_wrapper_context.resume(:finish)
         end
       end
     end
@@ -105,15 +118,8 @@ class SdFileTest < ::Test::Unit::TestCase
       end
     end
 
-    test 'should be called timer_execute' do
-      create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
-      @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.yml') }))
-      stub(@sd_file).timer_execute(anything, 5).once # 5 is default
-      @sd_file.start([])
-    end
-
     test 'skip if not change' do
-      @sd_file.extend(TestTimerHelperWrapper)
+      @sd_file.extend(TestStatEventHelperWrapper)
 
       create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
       @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.yml') }))
@@ -128,36 +134,33 @@ class SdFileTest < ::Test::Unit::TestCase
     end
 
     test 'skip if invalid contents' do
-      @sd_file.extend(TestTimerHelperWrapper)
+      @sd_file.extend(TestStatEventHelperWrapper)
 
-      Timecop.freeze
       create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
       @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.yml') }))
 
-      Timecop.freeze(Time.now + 10)
-      create_tmp_config('test.json', 'invalid contents')
-
       queue = []
-      mock.proxy(@sd_file).refresh_file(queue).once
-
       @sd_file.start(queue)
+
+      mock.proxy(@sd_file).refresh_file(queue).once
+      create_tmp_config('test.json', 'invalid contents')
+      @sd_file.resume
+
       assert_empty queue
     end
 
     test 'if service is updated, service_in and service_out event happen' do
-      @sd_file.extend(TestTimerHelperWrapper)
+      @sd_file.extend(TestStatEventHelperWrapper)
 
-      Timecop.freeze
       create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
       @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'tmp/test.json') }))
 
-      Timecop.freeze(Time.now + 10)
-      create_tmp_config('test.json', JSON.generate([{ port: 1234, host: '127.0.0.1' }]))
-
       queue = []
       @sd_file.start(queue)
-      assert_equal 2, queue.size
+      create_tmp_config('test.json', JSON.generate([{ port: 1234, host: '127.0.0.1' }]))
+      @sd_file.resume
 
+      assert_equal 2, queue.size
       join = queue.shift
       drain = queue.shift
       assert_equal :service_in, join.type
@@ -170,19 +173,17 @@ class SdFileTest < ::Test::Unit::TestCase
     end
 
     test 'if service is deleted, service_out event happens' do
-      @sd_file.extend(TestTimerHelperWrapper)
+      @sd_file.extend(TestStatEventHelperWrapper)
 
-      Timecop.freeze
       create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }, { port: 1234, host: '127.0.0.2' }]))
       @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'tmp/test.json') }))
 
-      Timecop.freeze(Time.now + 10)
-      create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
-
       queue = []
       @sd_file.start(queue)
-      assert_equal 1, queue.size
+      create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
+      @sd_file.resume
 
+      assert_equal 1, queue.size
       drain = queue.shift
       assert_equal :service_out, drain.type
       assert_equal 1234, drain.service.port
@@ -190,19 +191,17 @@ class SdFileTest < ::Test::Unit::TestCase
     end
 
     test 'if new service is added, service_in event happens' do
-      @sd_file.extend(TestTimerHelperWrapper)
+      @sd_file.extend(TestStatEventHelperWrapper)
 
-      Timecop.freeze
       create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
       @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'tmp/test.json') }))
 
-      Timecop.freeze(Time.now + 10)
-      create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }, { port: 1234, host: '127.0.0.2' }]))
-
       queue = []
       @sd_file.start(queue)
-      assert_equal 1, queue.size
+      create_tmp_config('test.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }, { port: 1234, host: '127.0.0.2' }]))
+      @sd_file.resume
 
+      assert_equal 1, queue.size
       join = queue.shift
       assert_equal :service_in, join.type
       assert_equal 1234, join.service.port

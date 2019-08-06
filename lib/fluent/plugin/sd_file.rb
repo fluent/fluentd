@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+require 'cool.io'
+
 require 'fluent/plugin/service_discovery'
 require 'fluent/plugin/service_discovery/discovery_message'
 
@@ -24,20 +26,17 @@ module Fluent
 
       DEFAULT_FILE_TYPE = :yaml
       DEFAUT_WEIGHT = 60
-
-      helpers :timer
-
       DEFAULT_SD_FILE_PATH = ENV['DEFAULT_SD_FILE_PATH'] || '/etc/fluent/sd.yaml'
+
+      helpers :event_loop
 
       config_param :path, :string, default: DEFAULT_SD_FILE_PATH
       config_param :conf_encoding, :string, default: 'utf-8'
-      config_param :refresh_interval, :integer, default: 5
 
       def initialize
         super
 
         @file_type = nil
-        @last_modified = nil
       end
 
       def configure(conf)
@@ -56,11 +55,12 @@ module Fluent
       end
 
       def start(queue)
-        super()
-
-        timer_execute(:"service_discovery_timer_fd_file_#{Time.now.to_i}_#{rand(10)}", @refresh_interval) do
+        watcher = StatWatcher.new(@path, @log) do |_prev, _cur|
           refresh_file(queue)
         end
+        event_loop_attach(watcher)
+
+        super()
       end
 
       private
@@ -92,7 +92,7 @@ module Fluent
 
         diff = []
         join = s - @services
-        # Need service_in first to ensure that server exist as least one.
+        # Need service_in first to guarantee that server exist at least one all time.
         join.each do |j|
           diff << ServiceDiscovery::DiscoveryMessage.service_in(j)
         end
@@ -110,13 +110,6 @@ module Fluent
       end
 
       def fetch_server_info
-        if File.mtime(@path) == @last_modified
-          @log.debug('Skip to refresh server since not modified')
-          return nil
-        end
-
-        @last_modified = File.mtime(@path)
-
         config_data =
           begin
             File.open(@path, "r:#{@conf_encoding}:utf-8", &:read)
@@ -137,9 +130,24 @@ module Fluent
             s['shared_key'],
           )
         end
+      rescue KeyError => e
+        raise Fluent::ConfigError, e
       end
-    rescue KeyError => e
-      raise Fluent::ConfigError, e
+
+      class StatWatcher < Coolio::StatWatcher
+        def initialize(path, log, &callback)
+          @path = path
+          @log = log
+          @callback = callback
+          super(@path)
+        end
+
+        def on_change(prev_stat, cur_stat)
+          @callback.call(prev_stat, cur_stat)
+        rescue => e
+          @log.error(e)
+        end
+      end
     end
   end
 end
