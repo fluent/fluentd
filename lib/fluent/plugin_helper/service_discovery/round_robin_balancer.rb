@@ -14,11 +14,9 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/service_discovery'
-
 module Fluent
-  module Plugin
-    class ServiceDiscovery
+  module PluginHelper
+    module ServiceDiscovery
       class RoundRobinBalancer
         def initialize
           @services = []

@@ -16,12 +16,15 @@
 
 require 'cool.io'
 
+require 'fluent/plugin_helper'
 require 'fluent/plugin/service_discovery'
 require 'fluent/plugin/service_discovery/discovery_message'
 
 module Fluent
   module Plugin
     class FileServiceDiscovery < ServiceDiscovery
+      include PluginHelper::Mixin
+
       Plugin.register_sd('file', self)
 
       DEFAULT_FILE_TYPE = :yaml

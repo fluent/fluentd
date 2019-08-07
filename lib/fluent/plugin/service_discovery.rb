@@ -32,7 +32,6 @@
 require 'fluent/plugin/base'
 
 require 'fluent/log'
-require 'fluent/plugin_helper'
 require 'fluent/unique_id'
 require 'fluent/plugin_id'
 
@@ -41,7 +40,6 @@ module Fluent
     class ServiceDiscovery < Base
       include PluginId
       include PluginLoggerMixin
-      include PluginHelper::Mixin
       include UniqueId::Mixin
 
       configured_in :service_discovery

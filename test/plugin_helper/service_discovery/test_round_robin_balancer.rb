@@ -1,9 +1,9 @@
 require_relative '../../helper'
-require 'fluent/plugin/service_discovery/round_robin_balancer'
+require 'fluent/plugin_helper/service_discovery/round_robin_balancer'
 
 class TestRoundRobinBalancer < ::Test::Unit::TestCase
   test 'select_service' do
-    rrb = Fluent::Plugin::ServiceDiscovery::RoundRobinBalancer.new
+    rrb = Fluent::PluginHelper::ServiceDiscovery::RoundRobinBalancer.new
     rrb.rebalance([1, 2, 3])
 
     rrb.select_service { |n| assert_equal 1, n }

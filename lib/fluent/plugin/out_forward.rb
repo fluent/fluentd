@@ -28,13 +28,12 @@ require 'fluent/plugin/out_forward/failure_detector'
 require 'fluent/plugin/out_forward/error'
 require 'fluent/plugin/out_forward/connection_manager'
 require 'fluent/plugin/out_forward/ack_handler'
-require 'fluent/plugin/service_discovery/service_discovery_manager'
 
 module Fluent::Plugin
   class ForwardOutput < Output
     Fluent::Plugin.register_output('forward', self)
 
-    helpers :socket, :server, :timer, :thread, :compat_parameters
+    helpers :socket, :server, :timer, :thread, :compat_parameters, :service_discovery
 
     LISTEN_PORT = 24224
 
@@ -230,19 +229,19 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
-      @sd_manager = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(
-        load_balancer: LoadBalancer.new(log),
-        log: log,
-        custom_build_method: method(:build_node),
-      )
-
       configs = conf.elements(name: 'server').map { |c| { type: :static, conf: c } }
       conf.elements(name: 'service_discovery').each_with_index do |c, i|
         configs << { type: @service_discovery[i][:@type], conf: c }
       end
-      @sd_manager.configure(configs, parent: self)
 
-      @sd_manager.services.each do |server|
+      create_service_discovery_manager(
+        :out_forward_service_discovery_watcher,
+        configurations: configs,
+        load_balancer: LoadBalancer.new(log),
+        custom_build_method: method(:build_node),
+      )
+
+      discovery_manager.services.each do |server|
         @nodes << server
         unless @heartbeat_type == :none
           begin
@@ -285,17 +284,9 @@ module Fluent::Plugin
     def start
       super
 
-      @sd_manager.start
-      unless @sd_manager.static_config?
-        # TODO: interval
-        timer_execute(:out_forward_service_discovery_watcher, 3) do
-          @sd_manager.run_once
-        end
-      end
-
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
-          @usock = socket_create_udp(@sd_manager.services.first.host, @sd_manager.services.first.port, nonblock: true)
+          @usock = socket_create_udp(discovery_manager.services.first.host, discovery_manager.services.first.port, nonblock: true)
           server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
         end
         timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
@@ -313,7 +304,7 @@ module Fluent::Plugin
       end
 
       if @verify_connection_at_startup
-        @sd_manager.services.each do |node|
+        discovery_manager.services.each do |node|
           begin
             node.verify_connection
           rescue StandardError => e
@@ -349,7 +340,7 @@ module Fluent::Plugin
       return if chunk.empty?
       tag = chunk.metadata.tag
 
-      @sd_manager.select_service { |node| node.send_data(tag, chunk) }
+      discovery_manager.select_service { |node| node.send_data(tag, chunk) }
     end
 
     def try_write(chunk)
@@ -359,7 +350,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      @sd_manager.select_service { |node| node.send_data(tag, chunk) }
+      discovery_manager.select_service { |node| node.send_data(tag, chunk) }
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -405,7 +396,7 @@ module Fluent::Plugin
 
     def statistics
       stats = super
-      services = @sd_manager.services
+      services = discovery_manager.services
       healty_nodes_count = 0
       registed_nodes_count = services.size
       services.each do |s|
@@ -442,7 +433,7 @@ module Fluent::Plugin
 
     def on_heartbeat_timer
       need_rebuild = false
-      @sd_manager.services.each do |n|
+      discovery_manager.services.each do |n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
@@ -457,16 +448,16 @@ module Fluent::Plugin
       end
 
       if need_rebuild
-        @sd_manager.rebalance
+        discovery_manager.rebalance
       end
     end
 
     def on_udp_heatbeat_response_recv(data, sock)
       sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
-      if node = @sd_manager.services.find { |n| n.sockaddr == sockaddr }
+      if node = discovery_manager.services.find { |n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          @sd_manager.rebalance
+          discovery_manager.rebalance
         end
       else
         log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}. It may service out")

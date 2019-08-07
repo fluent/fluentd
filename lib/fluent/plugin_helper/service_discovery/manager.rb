@@ -14,15 +14,13 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin'
-require 'fluent/plugin/service_discovery'
-require 'fluent/plugin/service_discovery/round_robin_balancer'
 require 'fluent/plugin/service_discovery/discovery_message'
+require 'fluent/plugin_helper/service_discovery/round_robin_balancer'
 
 module Fluent
-  module Plugin
-    class ServiceDiscovery
-      class ServiceDiscoveryManager
+  module PluginHelper
+    module ServiceDiscovery
+      class Manager
         def initialize(log:, load_balancer: nil, custom_build_method: nil)
           @log = log
           @load_balancer = load_balancer || RoundRobinBalancer.new

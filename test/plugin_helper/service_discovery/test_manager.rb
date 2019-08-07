@@ -1,9 +1,9 @@
 require_relative '../../helper'
-require 'fluent/plugin/service_discovery/service_discovery_manager'
+require 'fluent/plugin_helper/service_discovery/manager'
 
 class TestServiceDiscoveryManager < ::Test::Unit::TestCase
   setup do
-    @sd_file_dir = File.expand_path('../data/sd_file', __dir__)
+    @sd_file_dir = File.expand_path('../../plugin/data/sd_file', __dir__)
   end
 
   class TestSdPlugin < Fluent::Plugin::ServiceDiscovery
@@ -32,7 +32,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
 
   sub_test_case '#configure' do
     test 'build sd plugins and services' do
-      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(log: $log)
+      sdm = Fluent::PluginHelper::ServiceDiscovery::Manager.new(log: $log)
       sdm.configure(
         [
           { type: :file, conf: config_element('service_discovery', '', { 'path' => File.join(@sd_file_dir, 'config.yml') }) },
@@ -54,7 +54,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
     end
 
     test 'no need to timer if only static' do
-      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(log: $log)
+      sdm = Fluent::PluginHelper::ServiceDiscovery::Manager.new(log: $log)
       sdm.configure(
         [{ type: :static, conf: config_element('server', '', { 'host' => '127.0.0.2', 'port' => '5432' }) }],
       )
@@ -69,7 +69,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
 
   sub_test_case '#run_once' do
     test 'if new service added and deleted' do
-      sdm = Fluent::Plugin::ServiceDiscovery::ServiceDiscoveryManager.new(log: $log)
+      sdm = Fluent::PluginHelper::ServiceDiscovery::Manager.new(log: $log)
       t = TestSdPlugin.new
       mock(Fluent::Plugin).new_sd(:sd_test, anything) { t }
       sdm.configure([{ type: :sd_test, conf: config_element('service_discovery', '', {})}])
