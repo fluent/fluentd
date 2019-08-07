@@ -40,7 +40,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
 
     d.create_service_discovery_manager(
       :service_discovery_helper_test,
-      configurations: [{ type: :static, conf: config_element('server', '', { 'host' => '127.0.0.1', 'port' => '1234' }) }],
+      configurations: [{ type: :static, conf:  config_element('root', '', {}, [config_element('service', '', { 'host' => '127.0.0.1', 'port' => '1234' })]) }],
     )
 
     assert_true !!d.discovery_manager
@@ -61,7 +61,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
 
     d.create_service_discovery_manager(
       :service_discovery_helper_test,
-      configurations: [{ type: :file, conf: config_element('server', '', { 'path' => File.join(@sd_file_dir, 'config.yml') }) }],
+      configurations: [{ type: :file, conf: config_element('file_config', '', { 'path' => File.join(@sd_file_dir, 'config.yml') }) }],
     )
 
     assert_true !!d.discovery_manager

@@ -23,27 +23,31 @@ module Fluent
 
       LISTEN_PORT = 24224
 
-      desc 'The IP address or host name of the server.'
-      config_param :host, :string
-      desc 'The name of the server. Used for logging and certificate verification in TLS transport (when host is address).'
-      config_param :name, :string, default: nil
-      desc 'The port number of the host.'
-      config_param :port, :integer, default: LISTEN_PORT
-      desc 'The shared key per server.'
-      config_param :shared_key, :string, default: nil, secret: true
-      desc 'The username for authentication.'
-      config_param :username, :string, default: ''
-      desc 'The password for authentication.'
-      config_param :password, :string, default: '', secret: true
-      desc 'Marks a node as the standby node for an Active-Standby model between Fluentd nodes.'
-      config_param :standby, :bool, default: false
-      desc 'The load balancing weight.'
-      config_param :weight, :integer, default: 60
+      config_section :service, param_name: :service_configs do
+        desc 'The IP address or host name of the server.'
+        config_param :host, :string
+        desc 'The name of the server. Used for logging and certificate verification in TLS transport (when host is address).'
+        config_param :name, :string, default: nil
+        desc 'The port number of the host.'
+        config_param :port, :integer, default: LISTEN_PORT
+        desc 'The shared key per server.'
+        config_param :shared_key, :string, default: nil, secret: true
+        desc 'The username for authentication.'
+        config_param :username, :string, default: ''
+        desc 'The password for authentication.'
+        config_param :password, :string, default: '', secret: true
+        desc 'Marks a node as the standby node for an Active-Standby model between Fluentd nodes.'
+        config_param :standby, :bool, default: false
+        desc 'The load balancing weight.'
+        config_param :weight, :integer, default: 60
+      end
 
       def configure(conf)
         super
 
-        @services << ServiceDiscovery::Service.new(:static, @host, @port, @name, @weight, @standby, @username, @password, @shared_key)
+        @services = @service_configs.map do |s|
+          ServiceDiscovery::Service.new(:static, s.host, s.port, s.name, s.weight, s.standby, s.username, s.password, s.shared_key)
+        end
       end
 
       def start(queue = nil)

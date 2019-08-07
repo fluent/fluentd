@@ -229,7 +229,17 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
-      configs = conf.elements(name: 'server').map { |c| { type: :static, conf: c } }
+      configs = []
+
+      # rewrite for using server as sd_static
+      conf.elements(name: 'server').each do |s|
+        s.name = 'service'
+      end
+
+      unless conf.elements(name: 'service').empty?
+        configs << { type: :static, conf: conf }
+      end
+
       conf.elements(name: 'service_discovery').each_with_index do |c, i|
         configs << { type: @service_discovery[i][:@type], conf: c }
       end
@@ -242,6 +252,7 @@ module Fluent::Plugin
       )
 
       discovery_manager.services.each do |server|
+        # it's only for test
         @nodes << server
         unless @heartbeat_type == :none
           begin
@@ -262,8 +273,8 @@ module Fluent::Plugin
         end
       end
 
-      if @nodes.empty?
-        raise Fluent::ConfigError, "forward output plugin requires at least one <server> is required"
+      if discovery_manager.services.empty?
+        raise Fluent::ConfigError, "forward output plugin requires at least one node is required. Add <server> or <service_discovery>"
       end
 
       if !@keepalive && @keepalive_timeout

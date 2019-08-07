@@ -36,7 +36,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
       sdm.configure(
         [
           { type: :file, conf: config_element('service_discovery', '', { 'path' => File.join(@sd_file_dir, 'config.yml') }) },
-          { type: :static, conf: config_element('server', '', { 'host' => '127.0.0.2', 'port' => '5432' }) },
+          { type: :static, conf: config_element('root', '', {}, [config_element('service', '', { 'host' => '127.0.0.2', 'port' => '5432' })]) },
         ],
       )
 
@@ -56,7 +56,7 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
     test 'no need to timer if only static' do
       sdm = Fluent::PluginHelper::ServiceDiscovery::Manager.new(log: $log)
       sdm.configure(
-        [{ type: :static, conf: config_element('server', '', { 'host' => '127.0.0.2', 'port' => '5432' }) }],
+        [{ type: :static, conf: config_element('root', '', {}, [config_element('service', '', { 'host' => '127.0.0.2', 'port' => '5432' })]) }]
       )
 
       assert_equal 1, sdm.services.size
