@@ -33,10 +33,11 @@ module Fluent
       def configure(conf)
         super
 
-        @quote_char = '"'
-        @escape_pattern = Regexp.compile(@quote_char * 2)
 
         if @parser_type == :fast
+          @quote_char = '"'
+          @escape_pattern = Regexp.compile(@quote_char * 2)
+
           m = method(:parse_fast)
           self.singleton_class.module_eval do
             define_method(:parse, m)
