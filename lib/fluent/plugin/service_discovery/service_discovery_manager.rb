@@ -92,8 +92,8 @@ module Fluent
           @load_balancer.rebalance(services)
         end
 
-        def select_node(&block)
-          @load_balancer.select_node(&block)
+        def select_service(&block)
+          @load_balancer.select_service(&block)
         end
 
         def services

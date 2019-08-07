@@ -349,7 +349,7 @@ module Fluent::Plugin
       return if chunk.empty?
       tag = chunk.metadata.tag
 
-      @sd_manager.select_node { |node| node.send_data(tag, chunk) }
+      @sd_manager.select_service { |node| node.send_data(tag, chunk) }
     end
 
     def try_write(chunk)
@@ -359,7 +359,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      @sd_manager.select_node { |node| node.send_data(tag, chunk) }
+      @sd_manager.select_service { |node| node.send_data(tag, chunk) }
     end
 
     def create_transfer_socket(host, port, hostname, &block)

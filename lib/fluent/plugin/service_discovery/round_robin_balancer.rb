@@ -31,7 +31,7 @@ module Fluent
           end
         end
 
-        def select_node
+        def select_service
           s = @mutex.synchronize do
             s = @services.shift
             @services.push(s)
