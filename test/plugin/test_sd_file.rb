@@ -3,7 +3,7 @@ require 'fluent/plugin/sd_file'
 require 'fileutils'
 require 'json'
 
-class SdFileTest < ::Test::Unit::TestCase
+class FileServiceDiscoveryTest < ::Test::Unit::TestCase
   setup do
     @dir = File.expand_path('data/sd_file', __dir__)
     FileUtils.mkdir_p(File.join(@dir, 'tmp'))
@@ -15,35 +15,35 @@ class SdFileTest < ::Test::Unit::TestCase
 
   sub_test_case 'configure' do
     test 'load yml' do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.yml') }))
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24224, 'test1', 1, false, 'user1', 'pass1', 'key1'), sdf.services[0]
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24225, nil, 1), sdf.services[1]
     end
 
     test 'load yaml' do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.yaml') }))
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24224, 'test1', 1, false, 'user1', 'pass1', 'key1'), sdf.services[0]
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24225, nil, 1), sdf.services[1]
     end
 
     test 'load json' do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.json') }))
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24224, 'test1', 1, false, 'user1', 'pass1', 'key1'), sdf.services[0]
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24225, nil, 1), sdf.services[1]
     end
 
     test 'regard as yaml if ext is not givened' do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config') }))
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24224, 'test1', 1, false, 'user1', 'pass1', 'key1'), sdf.services[0]
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:file, '127.0.0.1', 24225, nil, 1), sdf.services[1]
     end
 
     test 'raise an error if config has error' do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       e = assert_raise Fluent::ConfigError do
         sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'invalid_config.yaml') }))
       end
@@ -51,7 +51,7 @@ class SdFileTest < ::Test::Unit::TestCase
     end
 
     test 'raise an error if config file does not exist' do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       e = assert_raise Fluent::ConfigError do
         sdf.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'invalid_not_found.json') }))
       end
@@ -63,7 +63,7 @@ class SdFileTest < ::Test::Unit::TestCase
     module TestStatEventHelperWrapper
       # easy to control statsevent
       def event_loop_attach(watcher)
-        unless watcher.is_a?(Fluent::Plugin::SdFile::StatWatcher)
+        unless watcher.is_a?(Fluent::Plugin::FileServiceDiscovery::StatWatcher)
           super
           return
         end
@@ -103,7 +103,7 @@ class SdFileTest < ::Test::Unit::TestCase
     end
 
     setup do
-      sdf = Fluent::Plugin::SdFile.new
+      sdf = Fluent::Plugin::FileServiceDiscovery.new
       @sd_file = sdf
     end
 

@@ -21,7 +21,7 @@ require 'fluent/plugin/service_discovery/discovery_message'
 
 module Fluent
   module Plugin
-    class SdFile < ServiceDiscovery
+    class FileServiceDiscovery < ServiceDiscovery
       Plugin.register_sd('file', self)
 
       DEFAULT_FILE_TYPE = :yaml

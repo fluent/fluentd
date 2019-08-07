@@ -18,7 +18,7 @@ require 'fluent/plugin/service_discovery'
 
 module Fluent
   module Plugin
-    class SdStatic < ServiceDiscovery
+    class StaticServiceDiscovery < ServiceDiscovery
       Plugin.register_sd('static', self)
 
       LISTEN_PORT = 24224
