@@ -131,7 +131,7 @@ module Fluent
           )
         end
       rescue KeyError => e
-        raise Fluent::ConfigError, e
+        raise Fluent::ConfigError, "#{e}. Service must have `host` and `port`"
       end
 
       class StatWatcher < Coolio::StatWatcher
