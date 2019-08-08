@@ -145,10 +145,6 @@ module Fluent::Plugin
       config_param :weight, :integer, default: 60
     end
 
-    config_section :service_discovery do
-      config_param :@type, :string
-    end
-
     attr_reader :nodes
 
     config_param :port, :integer, default: LISTEN_PORT, obsoleted: "User <server> section instead."

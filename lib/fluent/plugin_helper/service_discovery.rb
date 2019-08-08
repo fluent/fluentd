@@ -21,6 +21,9 @@ module Fluent
   module PluginHelper
     module ServiceDiscovery
       include Fluent::PluginHelper::Timer
+      def self.included(mod)
+        mod.include ServiceDiscoveryParams
+      end
 
       def start
         unless @discovery_manager
@@ -62,6 +65,14 @@ module Fluent
 
       def discovery_manager
         @discovery_manager
+      end
+
+      module ServiceDiscoveryParams
+        include Fluent::Configurable
+
+        config_section :service_discovery do
+          config_param :@type, :string
+        end
       end
     end
   end
