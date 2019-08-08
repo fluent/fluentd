@@ -240,7 +240,7 @@ module Fluent::Plugin
         configs << { type: @service_discovery[i][:@type], conf: c }
       end
 
-      create_service_discovery_manager(
+      service_disovery_create_manager(
         :out_forward_service_discovery_watcher,
         configurations: configs,
         load_balancer: LoadBalancer.new(log),

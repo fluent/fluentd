@@ -48,7 +48,7 @@ module Fluent
       # @param configurations [Hash] hash which must has discivery_service type and its configuration like `{ type: :static, conf: <Fluent::Config::Element> }`
       # @param load_balancer [Object] object which has two methods #rebalance and #select_service
       # @param custom_build_method [Proc]
-      def create_service_discovery_manager(title, configurations:, load_balancer: nil, custom_build_method: nil, interval: 3)
+      def service_disovery_create_manager(title, configurations:, load_balancer: nil, custom_build_method: nil, interval: 3)
         @_plugin_helper_service_discovery_title = title
         @_plugin_helper_service_discovery_iterval = interval
 
