@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/service_discovery/discovery_message'
+require 'fluent/plugin/service_discovery'
 require 'fluent/plugin_helper/service_discovery/round_robin_balancer'
 
 module Fluent

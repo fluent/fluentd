@@ -18,7 +18,6 @@ require 'cool.io'
 
 require 'fluent/plugin_helper'
 require 'fluent/plugin/service_discovery'
-require 'fluent/plugin/service_discovery/discovery_message'
 
 module Fluent
   module Plugin
@@ -97,12 +96,12 @@ module Fluent
         join = s - @services
         # Need service_in first to guarantee that server exist at least one all time.
         join.each do |j|
-          diff << ServiceDiscovery::DiscoveryMessage.service_in(j)
+          diff << ServiceDiscovery.service_in_msg(j)
         end
 
         drain = @services - s
         drain.each do |d|
-          diff << ServiceDiscovery::DiscoveryMessage.service_out(d)
+          diff << ServiceDiscovery.service_out_msg(d)
         end
 
         @services = s

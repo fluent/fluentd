@@ -21,6 +21,7 @@ module Fluent
   module PluginHelper
     module ServiceDiscovery
       include Fluent::PluginHelper::Timer
+
       def self.included(mod)
         mod.include ServiceDiscoveryParams
       end

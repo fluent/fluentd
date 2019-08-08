@@ -52,6 +52,20 @@ module Fluent
         end
       end
 
+      SERVICE_IN = :service_in
+      SERVICE_OUT = :service_out
+      DiscoveryMessage = Struct.new(:type, :service)
+
+      class << self
+        def service_in_msg(service)
+          DiscoveryMessage.new(SERVICE_IN, service)
+        end
+
+        def service_out_msg(service)
+          DiscoveryMessage.new(SERVICE_OUT, service)
+        end
+      end
+
       def initialize
         @services = []
 

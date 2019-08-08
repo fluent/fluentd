@@ -15,12 +15,12 @@ class TestServiceDiscoveryManager < ::Test::Unit::TestCase
 
     def service_in(host, port)
       s = Fluent::Plugin::ServiceDiscovery::Service.new(:sd_test, host, port)
-      @queue << Fluent::Plugin::ServiceDiscovery::DiscoveryMessage.service_in(s)
+      @queue << Fluent::Plugin::ServiceDiscovery.service_in_msg(s)
     end
 
     def service_out(host, port)
       s = Fluent::Plugin::ServiceDiscovery::Service.new(:sd_test, host, port)
-      @queue << Fluent::Plugin::ServiceDiscovery::DiscoveryMessage.service_out(s)
+      @queue << Fluent::Plugin::ServiceDiscovery.service_out_msg(s)
     end
 
     def start(queue)
