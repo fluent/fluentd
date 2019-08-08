@@ -64,9 +64,11 @@ module Fluent
           unused = gz.unused
           gz.finish
 
-          break if unused.nil?
-          adjust = unused.length
-          io.pos -= adjust
+          unless unused.nil?
+            adjust = unused.length
+            input.pos -= adjust
+          end
+          break if io.eof?
         end
 
         out
@@ -80,9 +82,11 @@ module Fluent
           unused = gz.unused
           gz.finish
 
-          break if unused.nil?
-          adjust = unused.length
-          input.pos -= adjust
+          unless unused.nil?
+            adjust = unused.length
+            input.pos -= adjust
+          end
+          break if input.eof?
         end
 
         output
