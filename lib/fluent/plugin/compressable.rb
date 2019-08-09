@@ -66,7 +66,7 @@ module Fluent
 
           unless unused.nil?
             adjust = unused.length
-            input.pos -= adjust
+            io.pos -= adjust
           end
           break if io.eof?
         end
