@@ -14,7 +14,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
     @now = Fluent::EventTime.now
   end
 
-  shutdown do
+  teardown do
     Timecop.return
   end
 
