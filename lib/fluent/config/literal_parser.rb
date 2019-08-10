@@ -112,7 +112,7 @@ module Fluent
           elsif s = scan(/./)
             string << s
           else
-            parse_error! "unexpected end of file in a signle quoted string"
+            parse_error! "unexpected end of file in a single quoted string"
           end
         end
       end
