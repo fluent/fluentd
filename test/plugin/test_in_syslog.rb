@@ -362,9 +362,8 @@ EOS
     end
   end
 
-  def test_emit_unmatched_lines
-    d = create_driver([CONFIG, 'emit_unmatched_lines true'].join("\n"))
-    tests = [
+  def create_unmatched_lines_test_case
+    [
       # valid message
       {'msg' => '<6>Sep 10 00:00:00 localhost logger: xxx', 'expected' => {'host'=>'localhost', 'ident'=>'logger', 'message'=>'xxx'}},
       # missing priority
@@ -372,6 +371,22 @@ EOS
       # timestamp parsing failure
       {'msg' => '<6>ZZZ 99 99:99:99 localhost logger: xxx', 'expected' => {'unmatched_line' => '<6>ZZZ 99 99:99:99 localhost logger: xxx'}},
     ]
+  end
+
+  def compare_unmatched_lines_test_result(events, tests, options = {})
+    events.each_index { |i|
+      tests[i]['expected'].each { |k,v|
+        assert_equal v, events[i][2][k], "No key <#{k}> in response or value mismatch"
+      }
+      assert_equal('syslog.unmatched', events[i][0], 'tag does not match syslog.unmatched') unless i==0
+      assert_equal(options[:address], events[i][2]['source_address'], 'response has no source_address or mismatch') if options[:address]
+      assert_equal(options[:hostname], events[i][2]['source_hostname'], 'response has no source_hostname or mismatch') if options[:hostname]
+    }
+  end
+
+  def test_emit_unmatched_lines
+    d = create_driver([CONFIG, 'emit_unmatched_lines true'].join("\n"))
+    tests = create_unmatched_lines_test_case
 
     d.run(expect_emits: 3) do
       u = UDPSocket.new
@@ -383,9 +398,44 @@ EOS
     end
 
     assert_equal tests.size, d.events.size
-    tests.size.times do |i|
-      assert_equal tests[i]['expected'], d.events[i][2]
-      assert_equal 'syslog.unmatched', d.events[i][0] unless i==0
+    compare_unmatched_lines_test_result(d.events, tests)
+  end
+
+  def test_emit_unmatched_lines_with_hostname
+    d = create_driver([CONFIG, 'emit_unmatched_lines true', 'source_hostname_key source_hostname'].join("\n"))
+    tests = create_unmatched_lines_test_case
+
+    hostname = nil
+    d.run(expect_emits: 3) do
+      u = UDPSocket.new
+      u.do_not_reverse_lookup = false
+      u.connect('127.0.0.1', PORT)
+      hostname = u.peeraddr[2]
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
     end
+
+    assert_equal tests.size, d.events.size
+    compare_unmatched_lines_test_result(d.events, tests, {hostname: hostname})
+  end
+
+  def test_emit_unmatched_lines_with_address
+    d = create_driver([CONFIG, 'emit_unmatched_lines true', 'source_address_key source_address'].join("\n"))
+    tests = create_unmatched_lines_test_case
+
+    address = nil
+    d.run(expect_emits: 3) do
+      u = UDPSocket.new
+      u.do_not_reverse_lookup = false
+      u.connect('127.0.0.1', PORT)
+      address = u.peeraddr[3]
+      tests.each {|test|
+        u.send(test['msg'], 0)
+      }
+    end
+
+    assert_equal tests.size, d.events.size
+    compare_unmatched_lines_test_result(d.events, tests, {address: address})
   end
 end
