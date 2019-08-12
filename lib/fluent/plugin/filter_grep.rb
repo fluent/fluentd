@@ -110,7 +110,7 @@ module Fluent::Plugin
       end
 
       if @regexps.size > 1
-        log.info "Top level multiple <regexp> is intepreted as 'and' condition"
+        log.info "Top level multiple <regexp> is interpreted as 'and' condition"
       end
       @regexps.each do |e|
         raise Fluent::ConfigError, "Duplicate key: #{e.key}" if regexp_and_conditions.key?(e.key)
@@ -118,7 +118,7 @@ module Fluent::Plugin
       end
 
       if @excludes.size > 1
-        log.info "Top level multiple <exclude> is intepreted as 'or' condition"
+        log.info "Top level multiple <exclude> is interpreted as 'or' condition"
       end
       @excludes.each do |e|
         raise Fluent::ConfigError, "Duplicate key: #{e.key}" if exclude_or_conditions.key?(e.key)
