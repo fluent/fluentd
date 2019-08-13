@@ -52,7 +52,7 @@ module Fluent
       end
 
       class TcpHandler < Coolio::Socket
-        PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+        PEERADDR_FAILED = ["?", "?", "name resolution failed", "?"]
 
         def initialize(io, log, delimiter, callback)
           super(io)
