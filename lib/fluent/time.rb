@@ -111,7 +111,8 @@ module Fluent
     end
 
     def self.now
-      from_time(Time.now)
+      now = Fluent::Clock.real_now(:nanosecond)
+      Fluent::EventTime.new(now / 1_000_000_000, now % 1_000_000_000)
     end
 
     def self.parse(*args)
