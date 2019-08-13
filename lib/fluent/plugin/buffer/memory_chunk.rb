@@ -43,7 +43,8 @@ module Fluent
           @chunk_bytes += @adding_bytes
 
           @adding_bytes = @adding_size = 0
-          @modified_at = Time.now
+          @modified_at = Fluent::Clock.real_now
+          @modified_at_object = nil
           true
         end
 

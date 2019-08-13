@@ -74,7 +74,8 @@ module Fluent
           @size += @adding_size
           @bytesize += @adding_bytes
           @adding_bytes = @adding_size = 0
-          @modified_at = Time.now
+          @modified_at = Fluent::Clock.real_now
+          @modified_at_object = nil
 
           true
         end
@@ -216,12 +217,12 @@ module Fluent
         def restore_metadata(bindata)
           data = msgpack_unpacker(symbolize_keys: true).feed(bindata).read rescue {}
 
-          now = Time.now
+          now = Fluent::Clock.real_now
 
           @unique_id = data[:id] || self.class.unique_id_from_path(@path) || @unique_id
           @size = data[:s] || 0
-          @created_at = Time.at(data.fetch(:c, now.to_i))
-          @modified_at = Time.at(data.fetch(:m, now.to_i))
+          @created_at = data.fetch(:c, now.to_i)
+          @modified_at = data.fetch(:m, now.to_i)
 
           @metadata.timekey = data[:timekey]
           @metadata.tag = data[:tag]
@@ -231,8 +232,8 @@ module Fluent
         def restore_metadata_partially(chunk)
           @unique_id = self.class.unique_id_from_path(chunk.path) || @unique_id
           @size = 0
-          @created_at = chunk.ctime # birthtime isn't supported on Windows (and Travis?)
-          @modified_at = chunk.mtime
+          @created_at = chunk.ctime.to_i # birthtime isn't supported on Windows (and Travis?)
+          @modified_at = chunk.mtime.to_i
 
           @metadata.timekey = nil
           @metadata.tag = nil
@@ -243,8 +244,8 @@ module Fluent
           data = @metadata.to_h.merge({
               id: @unique_id,
               s: (update ? @size + @adding_size : @size),
-              c: @created_at.to_i,
-              m: (update ? Time.now : @modified_at).to_i,
+              c: @created_at,
+              m: (update ? Fluent::Clock.real_now : @modified_at),
           })
           bin = msgpack_packer.pack(data).to_s
           @meta.seek(0, IO::SEEK_SET)
