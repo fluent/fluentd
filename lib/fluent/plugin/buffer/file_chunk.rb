@@ -47,6 +47,7 @@ module Fluent
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil
+          @adding_chunk = ''.force_encoding(Encoding::ASCII_8BIT)
 
           case mode
           when :create then create_new_chunk(path, @permission)
@@ -61,7 +62,7 @@ module Fluent
           raise "BUG: concatenating to unwritable chunk, now '#{self.state}'" unless self.writable?
 
           bulk.force_encoding(Encoding::ASCII_8BIT)
-          @chunk.write bulk
+          @adding_chunk << bulk
           @adding_bytes += bulk.bytesize
           @adding_size += bulk_size
           true
@@ -70,6 +71,7 @@ module Fluent
         def commit
           write_metadata # this should be at first: of course, this operation may fail
 
+          @chunk.write(@adding_chunk)
           @commit_position = @chunk.pos
           @size += @adding_size
           @bytesize += @adding_bytes
@@ -80,10 +82,7 @@ module Fluent
         end
 
         def rollback
-          if @chunk.pos != @commit_position
-            @chunk.seek(@commit_position, IO::SEEK_SET)
-            @chunk.truncate(@commit_position)
-          end
+          @adding_chunk.clear
           @adding_bytes = @adding_size = 0
           true
         end
