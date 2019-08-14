@@ -50,7 +50,7 @@ module Fluent
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
 
-    def each(&block)
+    def each(unapcker: nil, &block)
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
 
@@ -107,7 +107,7 @@ module Fluent
       end
     end
 
-    def each(&block)
+    def each(unpacker: nil, &block)
       block.call(@time, @record)
       nil
     end
@@ -143,7 +143,7 @@ module Fluent
       ArrayEventStream.new(@entries.slice(index, num))
     end
 
-    def each(&block)
+    def each(unpacker: nil, &block)
       @entries.each(&block)
       nil
     end
@@ -190,7 +190,7 @@ module Fluent
       MultiEventStream.new(@time_array.slice(index, num), @record_array.slice(index, num))
     end
 
-    def each(&block)
+    def each(unpacker: nil, &block)
       time_array = @time_array
       record_array = @record_array
       for i in 0..time_array.length-1
@@ -234,11 +234,11 @@ module Fluent
       true
     end
 
-    def ensure_unpacked!
+    def ensure_unpacked!(unpacker: nil)
       return if @unpacked_times && @unpacked_records
       @unpacked_times = []
       @unpacked_records = []
-      msgpack_unpacker.feed_each(@data) do |time, record|
+      (unpacker || msgpack_unpacker).feed_each(@data) do |time, record|
         @unpacked_times << time
         @unpacked_records << record
       end
@@ -254,7 +254,7 @@ module Fluent
       MultiEventStream.new(@unpacked_times.slice(index, num), @unpacked_records.slice(index, num))
     end
 
-    def each(&block)
+    def each(unpacker: nil, &block)
       if @unpacked_times
         @unpacked_times.each_with_index do |time, i|
           block.call(time, @unpacked_records[i])
@@ -262,7 +262,7 @@ module Fluent
       else
         @unpacked_times = []
         @unpacked_records = []
-        msgpack_unpacker.feed_each(@data) do |time, record|
+        (unpacker || msgpack_unpacker).feed_each(@data) do |time, record|
           @unpacked_times << time
           @unpacked_records << record
           block.call(time, record)
@@ -290,12 +290,12 @@ module Fluent
       super
     end
 
-    def ensure_unpacked!
+    def ensure_unpacked!(unpacker: nil)
       ensure_decompressed!
       super
     end
 
-    def each(&block)
+    def each(unpacker: nil, &block)
       ensure_decompressed!
       super
     end
@@ -322,9 +322,9 @@ module Fluent
     include MessagePackFactory::Mixin
     # chunk.extend(ChunkEventStreamer)
     #  => chunk.each{|time, record| ... }
-    def each(&block)
+    def each(unpacker: nil, &block)
       open do |io|
-        msgpack_unpacker(io).each(&block)
+        (unpacker || msgpack_unpacker(io)).each(&block)
       end
       nil
     end

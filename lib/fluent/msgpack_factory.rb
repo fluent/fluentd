@@ -62,5 +62,9 @@ module Fluent
     def self.thread_local_msgpack_packer
       Thread.current[:local_msgpack_packer] ||= MessagePackFactory.engine_factory.packer
     end
+
+    def self.thread_local_msgpack_unpacker
+      Thread.current[:local_msgpack_unpacker] ||= MessagePackFactory.engine_factory.unpacker
+    end
   end
 end
