@@ -352,7 +352,7 @@ module Fluent
           write_guard do
             @buffer.write({meta => data}, format: ->(_data){ _data }, size: ->(){ size }, enqueue: enqueue)
           end
-          @counters_monitor.synchronize{ @emit_records += size }
+          @counter_mutex.synchronize{ @emit_records += size }
           return [meta]
         end
 
@@ -363,7 +363,7 @@ module Fluent
           write_guard do
             @buffer.write({meta => bulk}, format: ->(_data){ _data }, size: ->(){ size }, enqueue: enqueue)
           end
-          @counters_monitor.synchronize{ @emit_records += size }
+          @counter_mutex.synchronize{ @emit_records += size }
           return [meta]
         end
 
@@ -373,7 +373,7 @@ module Fluent
         write_guard do
           @buffer.write({meta => data}, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += size }
+        @counter_mutex.synchronize{ @emit_records += size }
         [meta]
       end
 
