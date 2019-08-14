@@ -58,5 +58,9 @@ module Fluent
       factory.register_type(Fluent::EventTime::TYPE, Fluent::EventTime)
       @@engine_factory = factory
     end
+
+    def self.thread_local_msgpack_packer
+      Thread.current[:local_msgpack_packer] ||= MessagePackFactory.engine_factory.packer
+    end
   end
 end

@@ -54,26 +54,26 @@ module Fluent
       raise NotImplementedError, "DO NOT USE THIS CLASS directly."
     end
 
-    def to_msgpack_stream(time_int: false)
-      return to_msgpack_stream_forced_integer if time_int
-      out = msgpack_packer
+    def to_msgpack_stream(time_int: false, packer: nil)
+      return to_msgpack_stream_forced_integer(packer: packer) if time_int
+      out = packer || msgpack_packer
       each {|time,record|
         out.write([time,record])
       }
-      out.to_s
+      out.full_pack
     end
 
-    def to_compressed_msgpack_stream(time_int: false)
-      packed = to_msgpack_stream(time_int: time_int)
+    def to_compressed_msgpack_stream(time_int: false, packer: nil)
+      packed = to_msgpack_stream(time_int: time_int, packer: packer)
       compress(packed)
     end
 
-    def to_msgpack_stream_forced_integer
-      out = msgpack_packer
+    def to_msgpack_stream_forced_integer(packer: nil)
+      out = packer || msgpack_packer
       each {|time,record|
         out.write([time.to_i,record])
       }
-      out.to_s
+      out.full_pack
     end
   end
 
@@ -272,7 +272,7 @@ module Fluent
       nil
     end
 
-    def to_msgpack_stream(time_int: false)
+    def to_msgpack_stream(time_int: false, packer: nil)
       # time_int is always ignored because @data is always packed binary in this class
       @data
     end
@@ -300,7 +300,7 @@ module Fluent
       super
     end
 
-    def to_msgpack_stream(time_int: false)
+    def to_msgpack_stream(time_int: false, packer: nil)
       ensure_decompressed!
       super
     end
@@ -330,7 +330,7 @@ module Fluent
     end
     alias :msgpack_each :each
 
-    def to_msgpack_stream(time_int: false)
+    def to_msgpack_stream(time_int: false, packer: nil)
       # time_int is always ignored because data is already packed and written in chunk
       read
     end
