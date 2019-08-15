@@ -111,7 +111,8 @@ module Fluent
     end
 
     def self.now
-      now = Fluent::Clock.real_now(:nanosecond)
+      # This method is called many time. so call Process.clock_gettime directly instead of Fluent::Clock.real_now
+      now = Process.clock_gettime(Process::CLOCK_REALTIME, :nanosecond)
       Fluent::EventTime.new(now / 1_000_000_000, now % 1_000_000_000)
     end
 
