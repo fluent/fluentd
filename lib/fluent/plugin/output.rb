@@ -857,15 +857,8 @@ module Fluent
       def chunk_for_test(tag, time, record)
         require 'fluent/plugin/buffer/memory_chunk'
 
-        m = metadata_for_test(tag, time, record)
-        Fluent::Plugin::Buffer::MemoryChunk.new(m)
-      end
-
-      def metadata_for_test(tag, time, record)
-        raise "BUG: #metadata_for_test is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
         m = metadata(tag, time, record)
-        @buffer.metadata_list_clear!
-        m
+        Fluent::Plugin::Buffer::MemoryChunk.new(m)
       end
 
       def execute_chunking(tag, es, enqueue: false)

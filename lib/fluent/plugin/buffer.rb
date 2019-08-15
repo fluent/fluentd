@@ -232,16 +232,6 @@ module Fluent
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def metadata_list
-        # for compat
-        []
-      end
-
-      # it's too dangerous, and use it so carefully to remove metadata for tests
-      def metadata_list_clear!
-        # for compat
-      end
-
       def new_metadata(timekey: nil, tag: nil, variables: nil)
         Metadata.new(timekey, tag, variables)
       end
