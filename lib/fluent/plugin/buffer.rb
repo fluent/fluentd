@@ -155,7 +155,6 @@ module Fluent
 
         @stage_size = @queue_size = 0
         @timekeys = Hash.new(0)
-        @metadata_list = [] # keys of @stage
       end
 
       def persistent?
@@ -175,12 +174,10 @@ module Fluent
 
         @stage, @queue = resume
         @stage.each_pair do |metadata, chunk|
-          @metadata_list << metadata unless @metadata_list.include?(metadata)
           @stage_size += chunk.bytesize
           add_timekey(metadata)
         end
         @queue.each do |chunk|
-          @metadata_list << chunk.metadata unless @metadata_list.include?(chunk.metadata)
           @queued_num[chunk.metadata] ||= 0
           @queued_num[chunk.metadata] += 1
           @queue_size += chunk.bytesize
@@ -207,7 +204,7 @@ module Fluent
 
       def terminate
         super
-        @dequeued = @stage = @queue = @queued_num = @metadata_list = nil
+        @dequeued = @stage = @queue = @queued_num = nil
         @stage_size = @queue_size = 0
         @timekeys.clear
       end
@@ -231,39 +228,21 @@ module Fluent
       end
 
       def metadata_list
-        synchronize do
-          @metadata_list.dup
-        end
+        # for compat
+        []
       end
 
       # it's too dangerous, and use it so carefully to remove metadata for tests
       def metadata_list_clear!
-        synchronize do
-          @metadata_list.clear
-        end
+        # for compat
       end
 
       def new_metadata(timekey: nil, tag: nil, variables: nil)
         Metadata.new(timekey, tag, variables)
       end
 
-      def add_metadata(metadata)
-        log.on_trace { log.trace "adding metadata", instance: self.object_id, metadata: metadata }
-
-        synchronize do
-          if i = @metadata_list.index(metadata)
-            @metadata_list[i]
-          else
-            @metadata_list << metadata
-            add_timekey(metadata)
-            metadata
-          end
-        end
-      end
-
       def metadata(timekey: nil, tag: nil, variables: nil)
         meta = new_metadata(timekey: timekey, tag: tag, variables: variables)
-        add_metadata(meta)
       end
 
       def add_timekey(metadata)
@@ -532,7 +511,6 @@ module Fluent
 
           @dequeued_num[chunk.metadata] -= 1
           if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1) && @dequeued_num[metadata].zero?
-            @metadata_list.delete(metadata)
             @queued_num.delete(metadata)
             @dequeued_num.delete(metadata)
             del_timekey(metadata)
