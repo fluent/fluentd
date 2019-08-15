@@ -173,7 +173,7 @@ module Fluent
 
       def initialize
         super
-        @counters_monitor = Monitor.new
+        @counter_mutex = Mutex.new
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
@@ -780,18 +780,18 @@ module Fluent
       end
 
       def emit_sync(tag, es)
-        @counters_monitor.synchronize{ @emit_count += 1 }
+        @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          @counters_monitor.synchronize{ @emit_records += es.size }
+          @counter_mutex.synchronize{ @emit_records += es.size }
         rescue
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           raise
         end
       end
 
       def emit_buffered(tag, es)
-        @counters_monitor.synchronize{ @emit_count += 1 }
+        @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           execute_chunking(tag, es, enqueue: (@flush_mode == :immediate))
           if !@retry && @buffer.queued?
@@ -799,7 +799,7 @@ module Fluent
           end
         rescue
           # TODO: separate number of errors into emit errors and write/flush errors
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           raise
         end
       end
@@ -956,7 +956,7 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_records += records }
         true
       end
 
@@ -973,7 +973,7 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_records += records }
         true
       end
 
@@ -998,7 +998,7 @@ module Fluent
         write_guard do
           @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_records += records }
         true
       end
 
@@ -1036,7 +1036,7 @@ module Fluent
         #         false if chunk was already flushed and couldn't be rollbacked unexpectedly
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
-          @counters_monitor.synchronize{ @rollback_count += 1 }
+          @counter_mutex.synchronize{ @rollback_count += 1 }
           if update_retry
             primary = @as_secondary ? @primary_instance : self
             primary.update_retry_state(chunk_id, @as_secondary)
@@ -1052,7 +1052,7 @@ module Fluent
           while @dequeued_chunks.first && @dequeued_chunks.first.expired?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
-              @counters_monitor.synchronize{ @rollback_count += 1 }
+              @counter_mutex.synchronize{ @rollback_count += 1 }
               log.warn "failed to flush the buffer chunk, timeout to commit.", chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
               primary = @as_secondary ? @primary_instance : self
               primary.update_retry_state(info.chunk_id, @as_secondary)
@@ -1067,7 +1067,7 @@ module Fluent
           until @dequeued_chunks.empty?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
-              @counters_monitor.synchronize{ @rollback_count += 1 }
+              @counter_mutex.synchronize{ @rollback_count += 1 }
               log.info "delayed commit for buffer chunks was cancelled in shutdown", chunk_id: dump_unique_id_hex(info.chunk_id)
               primary = @as_secondary ? @primary_instance : self
               primary.update_retry_state(info.chunk_id, @as_secondary)
@@ -1110,7 +1110,7 @@ module Fluent
 
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
-            @counters_monitor.synchronize{ @write_count += 1 }
+            @counter_mutex.synchronize{ @write_count += 1 }
             @dequeued_chunks_mutex.synchronize do
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
@@ -1122,7 +1122,7 @@ module Fluent
             chunk_id = chunk.unique_id
             dump_chunk_id = dump_unique_id_hex(chunk_id)
             log.trace "adding write count", instance: self.object_id
-            @counters_monitor.synchronize{ @write_count += 1 }
+            @counter_mutex.synchronize{ @write_count += 1 }
             log.trace "executing sync write", chunk: dump_chunk_id
 
             output.write(chunk)
@@ -1178,7 +1178,7 @@ module Fluent
           end
 
           if @buffer.takeback_chunk(chunk.unique_id)
-            @counters_monitor.synchronize { @rollback_count += 1 }
+            @counter_mutex.synchronize { @rollback_count += 1 }
           end
 
           update_retry_state(chunk.unique_id, using_secondary, e)
@@ -1209,9 +1209,9 @@ module Fluent
       def check_slow_flush(start)
         elapsed_time = Fluent::Clock.now - start
         elapsed_millsec = (elapsed_time * 1000).to_i
-        @counters_monitor.synchronize { @flush_time_count += elapsed_millsec }
+        @counter_mutex.synchronize { @flush_time_count += elapsed_millsec }
         if elapsed_time > @slow_flush_log_threshold
-          @counters_monitor.synchronize { @slow_flush_count += 1 }
+          @counter_mutex.synchronize { @slow_flush_count += 1 }
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                    elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold, plugin_id: self.plugin_id
         end
@@ -1219,7 +1219,7 @@ module Fluent
 
       def update_retry_state(chunk_id, using_secondary, error = nil)
         @retry_mutex.synchronize do
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           chunk_id_hex = dump_unique_id_hex(chunk_id)
 
           unless @retry
