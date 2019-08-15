@@ -61,13 +61,15 @@ module Fluent::Plugin
     def start
       super
 
+      del_size = @delimiter.length
       if @_extract_enabled && @_extract_tag_key
         server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
           conn.buffer << data
+          buf = conn.buffer
           pos = 0
-          while i = conn.buffer.index(@delimiter, pos)
-            msg = conn.buffer[pos...i]
-            pos = i + @delimiter.length
+          while i = buf.index(@delimiter, pos)
+            msg = buf[pos...i]
+            pos = i + del_size
 
             @parser.parse(msg) do |time, record|
               unless time && record
@@ -83,16 +85,17 @@ module Fluent::Plugin
               router.emit(tag, time, record)
             end
           end
-          conn.buffer.slice!(0, pos) if pos > 0
+          buf.slice!(0, pos) if pos > 0
         end
       else
         server_create(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
           conn.buffer << data
+          buf = conn.buffer
           pos = 0
           es = Fluent::MultiEventStream.new
-          while i = conn.buffer.index(@delimiter, pos)
-            msg = conn.buffer[pos...i]
-            pos = i + @delimiter.length
+          while i = buf.index(@delimiter, pos)
+            msg = buf[pos...i]
+            pos = i + del_size
 
             @parser.parse(msg) do |time, record|
               unless time && record
@@ -107,7 +110,7 @@ module Fluent::Plugin
             end
           end
           router.emit_stream(@tag, es)
-          conn.buffer.slice!(0, pos) if pos > 0
+          buf.slice!(0, pos) if pos > 0
         end
       end
     end
