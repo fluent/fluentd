@@ -87,6 +87,10 @@ module Fluent
       OneEventStream.new(@time, @record.dup)
     end
 
+    def empty?
+      false
+    end
+
     def size
       1
     end
