@@ -273,7 +273,7 @@ module Fluent
         nil
       end
       private :add_timekey
-      
+
       def del_timekey(metadata)
         if t = metadata.timekey
           if @timekeys[t] <= 1
@@ -408,13 +408,12 @@ module Fluent
         synchronize { @queue.reduce(0){|r, chunk| r + chunk.size } }
       end
 
-      def queued?(metadata=nil)
-        synchronize do
-          if metadata
-            n = @queued_num[metadata]
-            n && n.nonzero?
-          else
-            !@queue.empty?
+      def queued?(metadata = nil, optimistic: false)
+        if optimistic
+          optimistic_queued?(metadata)
+        else
+          synchronize do
+            optimistic_queued?(metadata)
           end
         end
       end
@@ -773,6 +772,17 @@ module Fluent
         end
 
         { 'buffer' => stats }
+      end
+
+      private
+
+      def optimistic_queued?(metadata = nil)
+        if metadata
+          n = @queued_num[metadata]
+          n && n.nonzero?
+        else
+          !@queue.empty?
+        end
       end
     end
   end
