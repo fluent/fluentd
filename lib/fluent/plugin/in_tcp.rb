@@ -61,9 +61,9 @@ module Fluent::Plugin
     def start
       super
 
-      server_create(:in_tcp_server, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
-        conn.buffer << data
-        begin
+      if @_extract_enabled && @_extract_tag_key
+        server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
+          conn.buffer << data
           pos = 0
           while i = conn.buffer.index(@delimiter, pos)
             msg = conn.buffer[pos...i]
@@ -83,6 +83,30 @@ module Fluent::Plugin
               router.emit(tag, time, record)
             end
           end
+          conn.buffer.slice!(0, pos) if pos > 0
+        end
+      else
+        server_create(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
+          conn.buffer << data
+          pos = 0
+          es = Fluent::MultiEventStream.new
+          while i = conn.buffer.index(@delimiter, pos)
+            msg = conn.buffer[pos...i]
+            pos = i + @delimiter.length
+
+            @parser.parse(msg) do |time, record|
+              unless time && record
+                log.warn "pattern not matched", message: msg
+                next
+              end
+
+              time ||= extract_time_from_record(record) || Fluent::EventTime.now
+              record[@source_address_key] = conn.remote_addr if @source_address_key
+              record[@source_hostname_key] = conn.remote_host if @source_hostname_key
+              es.add(time, record)
+            end
+          end
+          router.emit_stream(@tag, es)
           conn.buffer.slice!(0, pos) if pos > 0
         end
       end
