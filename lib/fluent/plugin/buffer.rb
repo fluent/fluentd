@@ -498,7 +498,7 @@ module Fluent
         end
 
         if metadata && metadata.timekey
-          @mutex.synchronize { del_timekey(metadata.timekey) }
+          del_timekey(metadata.timekey)
         end
 
         nil
