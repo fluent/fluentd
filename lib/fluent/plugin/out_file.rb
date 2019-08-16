@@ -125,7 +125,7 @@ module Fluent::Plugin
 
       if conf.has_key?('utc') || conf.has_key?('localtime')
         param_name = conf.has_key?('utc') ? 'utc' : 'localtime'
-        log.warn "'#{param_name}' is deperecated for output plugin. This parameter is used for formatter plugin in compatibility layer. If you want to use same feature, use timekey_use_utc parameter in <buffer> directive instead"
+        log.warn "'#{param_name}' is deprecated for output plugin. This parameter is used for formatter plugin in compatibility layer. If you want to use same feature, use timekey_use_utc parameter in <buffer> directive instead"
       end
 
       super
