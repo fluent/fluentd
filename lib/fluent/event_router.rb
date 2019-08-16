@@ -144,7 +144,6 @@ module Fluent
         @filters = []
         @output = nil
         @optimizer = FilterOptimizer.new
-        @unpacker = Fluent::MessagePackFactory.unpacker
       end
 
       def add_filter(filter)
@@ -184,7 +183,7 @@ module Fluent
 
         def optimized_filter_stream(tag, es)
           new_es = MultiEventStream.new
-          es.each(unpacker: @unpacker) do |time, record|
+          es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
             filtered_record = record
             filtered_time = time
 
