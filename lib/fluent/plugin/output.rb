@@ -1376,7 +1376,7 @@ module Fluent
                 # This block should be done by integer values.
                 # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
                 # If we use integered values for this comparison, expected actual flush timing is 1.0s.
-                @buffer.enqueue_all{ |metadata, chunk| chunk.created_at.to_i + flush_interval <= now_int }
+                @buffer.enqueue_all{ |metadata, chunk| chunk.raw_create_at + flush_interval <= now_int }
               end
 
               if @chunk_key_time
