@@ -237,7 +237,7 @@ module Fluent
       end
 
       def metadata(timekey: nil, tag: nil, variables: nil)
-        meta = new_metadata(timekey: timekey, tag: tag, variables: variables)
+        meta = Metadata.new(timekey, tag, variables)
         if (t = meta.timekey)
           add_timekey(t)
         end
