@@ -24,6 +24,8 @@ module Fluent
       class FileChunk < Chunk
         class FileChunkError < StandardError; end
 
+        BUFFER_HEADER = "\xc1\x00".force_encoding(Encoding::ASCII_8BIT).freeze
+
         ### buffer path user specified : /path/to/directory/user_specified_prefix.*.log
         ### buffer chunk path          : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log
         ### buffer chunk metadata path : /path/to/directory/user_specified_prefix.b513b61c9791029c2513b61c9791029c2.log.meta
@@ -215,7 +217,12 @@ module Fluent
         end
 
         def restore_metadata(bindata)
-          data = msgpack_unpacker(symbolize_keys: true).feed(bindata).read rescue {}
+          data = restore_metadata_with_new_format(bindata)
+
+          unless data
+            # old type of restore
+            data = msgpack_unpacker(symbolize_keys: true).feed(bindata).read rescue {}
+          end
 
           now = Fluent::Clock.real_now
 
@@ -248,9 +255,9 @@ module Fluent
               m: (update ? Fluent::Clock.real_now : @modified_at),
           })
           bin = msgpack_packer.pack(data).to_s
+          size = [bin.bytesize].pack('N')
           @meta.seek(0, IO::SEEK_SET)
-          @meta.write(bin)
-          @meta.truncate(bin.bytesize)
+          @meta.write(BUFFER_HEADER + size + bin)
         end
 
         def file_rename(file, old_path, new_path, callback=nil)
@@ -377,6 +384,23 @@ module Fluent
             restore_metadata_partially(@chunk)
           end
           @state = :queued
+        end
+
+        private
+
+        def restore_metadata_with_new_format(chunk)
+          if chunk.size <= 6 # size of BUFFER_HEADER (2) + size of data size(4)
+            return nil
+          end
+
+          if chunk.slice(0, 2) == BUFFER_HEADER
+            size = chunk.slice(2, 4).unpack('N').first
+            if size
+              return msgpack_unpacker(symbolize_keys: true).feed(chunk.slice(6, size)).read rescue nil
+            end
+          end
+
+          nil
         end
       end
     end

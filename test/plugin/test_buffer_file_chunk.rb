@@ -27,7 +27,25 @@ class BufferFileChunkTest < Test::Unit::TestCase
   end
 
   def read_metadata_file(path)
-    File.open(path, 'rb'){|f| MessagePack.unpack(f.read, symbolize_keys: true) }
+    File.open(path, 'rb') do |f|
+      chunk = f.read
+      if chunk.size <= 6 # size of BUFFER_HEADER (2) + size of data(4)
+        return nil
+      end
+
+      data = nil
+      if chunk.slice(0, 2) == Fluent::Plugin::Buffer::FileChunk::BUFFER_HEADER
+        size = chunk.slice(2, 4).unpack('N').first
+        if size
+          data = MessagePack.unpack(chunk.slice(6, size), symbolize_keys: true)
+        end
+      else
+        # old type
+        data = MessagePack.unpack(chunk, symbolize_keys: true)
+      end
+
+      data
+    end
   end
 
   def gen_path(path)
