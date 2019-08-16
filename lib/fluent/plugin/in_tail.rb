@@ -695,7 +695,7 @@ module Fluent::Plugin
             s
           end
         rescue
-          s.encode!(@encoding, @from_encoding, :invalid => :replace, :undef => :replace)
+          s.encode!(@encoding, @from_encoding, :invalid => :replace, :undef => :replace, :replace => "")
         end
 
         def read_lines(lines)
