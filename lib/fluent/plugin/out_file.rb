@@ -72,16 +72,14 @@ module Fluent::Plugin
     attr_accessor :last_written_path # for tests
 
     module SymlinkBufferMixin
-      def initialize
-        super
-        @latest_metadata = Metadata.new(0, nil, nil)
-      end
-
       def metadata(timekey: nil, tag: nil, variables: nil)
         metadata = super
-        if metadata.timekey && (metadata.timekey > @latest_metadata.timekey)
+
+        @latest_metadata ||= new_metadata(timekey: 0)
+        if metadata.timekey && (metadata.timekey >= @latest_metadata.timekey)
           @latest_metadata = metadata
         end
+
         metadata
       end
 
