@@ -22,6 +22,8 @@ Check [CONTRIBUTING guideline](https://github.com/fluent/fluentd/blob/master/CON
 - Operating system: `cat /etc/os-release`
 - Kernel version: `uname -r`
 
+If you hit the problem with older fluentd version, try latest version first.
+
 **Your Configuration**
 
 ```
