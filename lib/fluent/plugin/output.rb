@@ -18,6 +18,7 @@ require 'fluent/error'
 require 'fluent/plugin/base'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin_helper/record_accessor'
+require 'fluent/msgpack_factory'
 require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
@@ -912,10 +913,10 @@ module Fluent
         end
       end
 
-      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream }
-      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream }
-      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true) }
-      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true) }
+      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream(packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream(packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true, packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true, packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
 
       def generate_format_proc
         if @buffer && @buffer.compress == :gzip
@@ -937,7 +938,7 @@ module Fluent
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
-        es.each do |time, record|
+        es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= []
           res = format(tag, time, record)
@@ -957,7 +958,7 @@ module Fluent
         format_proc = generate_format_proc
         meta_and_data = {}
         records = 0
-        es.each do |time, record|
+        es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= MultiEventStream.new
           meta_and_data[meta].add(time, record)
@@ -977,7 +978,7 @@ module Fluent
         if @custom_format
           records = 0
           data = []
-          es.each do |time, record|
+          es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
             res = format(tag, time, record)
             if res
               data << res
