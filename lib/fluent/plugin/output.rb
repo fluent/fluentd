@@ -795,7 +795,7 @@ module Fluent
         @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           execute_chunking(tag, es, enqueue: (@flush_mode == :immediate))
-          if !@retry && @buffer.queued?
+          if !@retry && @buffer.queued?(nil, optimistic: true)
             submit_flush_once
           end
         rescue
