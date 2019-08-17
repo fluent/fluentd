@@ -436,7 +436,7 @@ module Fluent::Plugin
           end
         }
       rescue => e
-        log.warn line.dump, error: e.to_s
+        log.warn 'invalid line found', file: tail_watcher.path, line: line, error: e.to_s
         log.debug_backtrace(e.backtrace)
       end
     end
