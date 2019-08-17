@@ -192,10 +192,17 @@ module ConfigurableSpec
   class ExampleWithCustomSection
     include Fluent::Configurable
     config_param :name_param, :string
+    config_section :normal_section  do
+      config_param :normal_section_param, :string
+    end
 
     class CustomSection
       include Fluent::Configurable
       config_param :custom_section_param, :string
+    end
+
+    class AnotherElement
+      include Fluent::Configurable
     end
 
     def configure(conf)
@@ -1338,7 +1345,7 @@ module Fluent::Config
         }
       end
 
-      test 'get false when the section is defined without using config_section' do
+      test 'get an empty array when the section is defined without using config_section' do
         conf = config_element('ROOT', '',
                               {
                                 'name_param' => 'name',
@@ -1347,7 +1354,21 @@ module Fluent::Config
         example = ConfigurableSpec::ExampleWithCustomSection.new
         example.configure(conf)
         conf.elements.each { |e|
-          assert_equal(false, e.unused_in)
+          assert_equal([], e.unused_in)
+        }
+      end
+
+      test 'get an empty array when the configuration is used in another element without any sections' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('normal_section', '', {'normal_section_param' => 'normal'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        ConfigurableSpec::ExampleWithCustomSection::AnotherElement.new.configure(conf)
+        conf.elements.each { |e|
+          assert_equal([], e.unused_in)
         }
       end
     end

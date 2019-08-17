@@ -31,7 +31,7 @@ module Fluent
         @unused = unused || attrs.keys
         @v1_config = false
         @corresponding_proxies = [] # some plugins use flat parameters, e.g. in_http doesn't provide <format> section for parser.
-        @unused_in = false # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
+        @unused_in = nil # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
 
         # it's global logger, not plugin logger: deprecated message should be global warning, not plugin level.
         @logger = defined?($log) ? $log : nil
@@ -110,13 +110,13 @@ module Fluent
       end
 
       def has_key?(key)
-        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
+        @unused_in = [] # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
         @unused.delete(key)
         super
       end
 
       def [](key)
-        @unused_in = false # ditto
+        @unused_in = [] # ditto
         @unused.delete(key)
 
         if RESERVED_PARAMETERS.include?(key) && !has_key?(key) && has_key?(RESERVED_PARAMETERS_COMPAT[key])
