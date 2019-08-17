@@ -27,7 +27,7 @@ class FileBufferTest < Test::Unit::TestCase
     Fluent::Plugin::Buffer::Metadata.new(timekey, tag, variables)
   end
 
-  def write_metadata(path, chunk_id, metadata, size, ctime, mtime)
+  def write_metadata_old(path, chunk_id, metadata, size, ctime, mtime)
     metadata = {
       timekey: metadata.timekey, tag: metadata.tag, variables: metadata.variables,
       id: chunk_id,
@@ -37,6 +37,22 @@ class FileBufferTest < Test::Unit::TestCase
     }
     File.open(path, 'wb') do |f|
       f.write metadata.to_msgpack
+    end
+  end
+
+  def write_metadata(path, chunk_id, metadata, size, ctime, mtime)
+    metadata = {
+      timekey: metadata.timekey, tag: metadata.tag, variables: metadata.variables,
+      id: chunk_id,
+      s: size,
+      c: ctime,
+      m: mtime,
+    }
+
+    data = metadata.to_msgpack
+    size = [data.size].pack('N')
+    File.open(path, 'wb') do |f|
+      f.write(Fluent::Plugin::Buffer::FileChunk::BUFFER_HEADER + size + data)
     end
   end
 
@@ -683,7 +699,107 @@ class FileBufferTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'there are some existing file chunks without metadata file' do
+  sub_test_case 'there are some existing file chunks with old format metadta' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
+      FileUtils.mkdir_p @bufdir unless File.exist?(@bufdir)
+
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c1id)}.log")
+      File.open(p1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata_old(
+        p1 + '.meta', @c1id, metadata(timekey: event_time('2016-04-17 13:58:00 -0700').to_i),
+        4, event_time('2016-04-17 13:58:00 -0700').to_i, event_time('2016-04-17 13:58:22 -0700').to_i
+      )
+
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c2id)}.log")
+      File.open(p2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata_old(
+        p2 + '.meta', @c2id, metadata(timekey: event_time('2016-04-17 13:59:00 -0700').to_i),
+        3, event_time('2016-04-17 13:59:00 -0700').to_i, event_time('2016-04-17 13:59:23 -0700').to_i
+      )
+
+      @c3id = Fluent::UniqueId.generate
+      p3 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c3id)}.log")
+      File.open(p3, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata_old(
+        p3 + '.meta', @c3id, metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i),
+        4, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i
+      )
+
+      @c4id = Fluent::UniqueId.generate
+      p4 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c4id)}.log")
+      File.open(p4, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+        f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata_old(
+        p4 + '.meta', @c4id, metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i),
+        3, event_time('2016-04-17 14:01:00 -0700').to_i, event_time('2016-04-17 14:01:25 -0700').to_i
+      )
+
+      @bufpath = File.join(@bufdir, 'etest.*.log')
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
+    end
+
+    test '#resume returns staged/queued chunks with metadata' do
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
+
+      stage = @p.stage
+
+      m3 = metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i)
+      assert_equal @c3id, stage[m3].unique_id
+      assert_equal 4, stage[m3].size
+      assert_equal :staged, stage[m3].state
+
+      m4 = metadata(timekey: event_time('2016-04-17 14:01:00 -0700').to_i)
+      assert_equal @c4id, stage[m4].unique_id
+      assert_equal 3, stage[m4].size
+      assert_equal :staged, stage[m4].state
+    end
+  end
+
+  sub_test_case 'there are some existing file chunks with old format metadata file' do
     setup do
       @bufdir = File.expand_path('../../tmp/buffer_file', __FILE__)
 

@@ -377,7 +377,7 @@ module Fluent
       end
 
       # Use string "?" for port, not integer or nil. "?" is clear than -1 or nil in the log.
-      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+      PEERADDR_FAILED = ["?", "?", "name resolution failed", "?"]
 
       class CallbackSocket
         def initialize(server_type, sock, enabled_events = [], close_socket: true)

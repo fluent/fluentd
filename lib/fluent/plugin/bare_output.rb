@@ -40,7 +40,7 @@ module Fluent
 
       def initialize
         super
-        @counters_monitor = Monitor.new
+        @counter_mutex = Mutex.new
         # TODO: well organized counters
         @num_errors = 0
         @emit_count = 0
@@ -48,12 +48,12 @@ module Fluent
       end
 
       def emit_sync(tag, es)
-        @counters_monitor.synchronize{ @emit_count += 1 }
+        @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          @counters_monitor.synchronize{ @emit_records += es.size }
+          @counter_mutex.synchronize{ @emit_records += es.size }
         rescue
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           raise
         end
       end

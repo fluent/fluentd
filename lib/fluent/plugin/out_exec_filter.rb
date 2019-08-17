@@ -284,6 +284,7 @@ module Fluent::Plugin
     end
 
     def run(io)
+      io.set_encoding(Encoding::ASCII_8BIT)
       case
       when @parser.implement?(:parse_io)
         @parser.parse_io(io, &method(:on_record))

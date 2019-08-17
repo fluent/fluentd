@@ -155,7 +155,7 @@ module Fluent
 
         @stage_size = @queue_size = 0
         @timekeys = Hash.new(0)
-        @metadata_list = [] # keys of @stage
+        @mutex = Mutex.new
       end
 
       def persistent?
@@ -175,16 +175,18 @@ module Fluent
 
         @stage, @queue = resume
         @stage.each_pair do |metadata, chunk|
-          @metadata_list << metadata unless @metadata_list.include?(metadata)
           @stage_size += chunk.bytesize
-          add_timekey(metadata)
+          if chunk.metadata && chunk.metadata.timekey
+            add_timekey(metadata.timekey)
+          end
         end
         @queue.each do |chunk|
-          @metadata_list << chunk.metadata unless @metadata_list.include?(chunk.metadata)
           @queued_num[chunk.metadata] ||= 0
           @queued_num[chunk.metadata] += 1
           @queue_size += chunk.bytesize
-          add_timekey(chunk.metadata)
+          if chunk.metadata && chunk.metadata.timekey
+            add_timekey(chunk.metadata.timekey)
+          end
         end
         log.debug "buffer started", instance: self.object_id, stage_size: @stage_size, queue_size: @queue_size
       end
@@ -207,7 +209,7 @@ module Fluent
 
       def terminate
         super
-        @dequeued = @stage = @queue = @queued_num = @metadata_list = nil
+        @dequeued = @stage = @queue = @queued_num = nil
         @stage_size = @queue_size = 0
         @timekeys.clear
       end
@@ -230,61 +232,17 @@ module Fluent
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def metadata_list
-        synchronize do
-          @metadata_list.dup
-        end
-      end
-
-      # it's too dangerous, and use it so carefully to remove metadata for tests
-      def metadata_list_clear!
-        synchronize do
-          @metadata_list.clear
-        end
-      end
-
       def new_metadata(timekey: nil, tag: nil, variables: nil)
         Metadata.new(timekey, tag, variables)
       end
 
-      def add_metadata(metadata)
-        log.on_trace { log.trace "adding metadata", instance: self.object_id, metadata: metadata }
-
-        synchronize do
-          if i = @metadata_list.index(metadata)
-            @metadata_list[i]
-          else
-            @metadata_list << metadata
-            add_timekey(metadata)
-            metadata
-          end
-        end
-      end
-
       def metadata(timekey: nil, tag: nil, variables: nil)
-        meta = new_metadata(timekey: timekey, tag: tag, variables: variables)
-        add_metadata(meta)
-      end
-
-      def add_timekey(metadata)
-        if t = metadata.timekey
-          @timekeys[t] += 1
+        meta = Metadata.new(timekey, tag, variables)
+        if (t = meta.timekey)
+          add_timekey(t)
         end
-        nil
+        meta
       end
-      private :add_timekey
-
-      def del_timekey(metadata)
-        if t = metadata.timekey
-          if @timekeys[t] <= 1
-            @timekeys.delete(t)
-          else
-            @timekeys[t] -= 1
-          end
-        end
-        nil
-      end
-      private :del_timekey
 
       def timekeys
         @timekeys.keys
@@ -513,6 +471,7 @@ module Fluent
       end
 
       def purge_chunk(chunk_id)
+        metadata = nil
         synchronize do
           chunk = @dequeued.delete(chunk_id)
           return nil unless chunk # purged by other threads
@@ -531,13 +490,16 @@ module Fluent
 
           @dequeued_num[chunk.metadata] -= 1
           if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1) && @dequeued_num[metadata].zero?
-            @metadata_list.delete(metadata)
             @queued_num.delete(metadata)
             @dequeued_num.delete(metadata)
-            del_timekey(metadata)
           end
           log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
         end
+
+        if metadata && metadata.timekey
+          del_timekey(metadata.timekey)
+        end
+
         nil
       end
 
@@ -783,6 +745,24 @@ module Fluent
         else
           !@queue.empty?
         end
+      end
+
+      def add_timekey(t)
+        @mutex.synchronize do
+          @timekeys[t] += 1
+        end
+        nil
+      end
+
+      def del_timekey(t)
+        @mutex.synchronize do
+          if @timekeys[t] <= 1
+            @timekeys.delete(t)
+          else
+            @timekeys[t] -= 1
+          end
+        end
+        nil
       end
     end
   end
