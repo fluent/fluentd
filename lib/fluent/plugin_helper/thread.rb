@@ -92,7 +92,7 @@ module Fluent
           end
         end
         thread.abort_on_exception = true
-        thread.name = title.to_s
+        thread.name = title.to_s if thread.respond_to?(:name)
         @_threads_mutex.synchronize do
           @_threads[thread.object_id] = thread
         end
