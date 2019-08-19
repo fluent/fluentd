@@ -353,10 +353,6 @@ class FileSingleBufferTest < Test::Unit::TestCase
         f.write ["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}].to_json + "\n"
         f.write ["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}].to_json + "\n"
       end
-
-      @d = create_driver
-      @p = @d.instance.buffer
-      @p.start
     end
 
     teardown do
@@ -377,6 +373,62 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
 
     test '#resume returns staged/queued chunks with metadata' do
+      @d = create_driver
+      @p = @d.instance.buffer
+      @p.start
+
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
+
+      stage = @p.stage
+
+      m3 = metadata()
+      assert_equal @c3id, stage[m3].unique_id
+      assert_equal 4, stage[m3].size
+      assert_equal :staged, stage[m3].state
+
+      m4 = metadata(tag: 'foo')
+      assert_equal @c4id, stage[m4].unique_id
+      assert_equal 3, stage[m4].size
+      assert_equal :staged, stage[m4].state
+    end
+
+    test '#resume returns queued chunks ordered by last modified time (FIFO)' do
+      @d = create_driver
+      @p = @d.instance.buffer
+      @p.start
+
+      assert_equal 2, @p.stage.size
+      assert_equal 2, @p.queue.size
+
+      queue = @p.queue
+
+      assert{ queue[0].modified_at <= queue[1].modified_at }
+
+      assert_equal @c1id, queue[0].unique_id
+      assert_equal :queued, queue[0].state
+      assert_equal 'testing', queue[0].metadata.tag
+      assert_nil queue[0].metadata.variables
+      assert_equal 4, queue[0].size
+
+      assert_equal @c2id, queue[1].unique_id
+      assert_equal :queued, queue[1].state
+      assert_equal 'testing', queue[1].metadata.tag
+      assert_nil queue[1].metadata.variables
+      assert_equal 3, queue[1].size
+    end
+
+    test '#resume returns staged/queued chunks but skip size calculation by calc_num_records' do
+      @d = create_driver(%[
+        <buffer tag>
+         @type file_single
+         path #{PATH}
+         calc_num_records false
+        </buffer>
+      ])
+      @p = @d.instance.buffer
+      @p.start
+
       assert_equal 2, @p.stage.size
       assert_equal 2, @p.queue.size
 
@@ -392,26 +444,96 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert_equal 0, stage[m4].size
       assert_equal :staged, stage[m4].state
     end
+  end
 
-    test '#resume returns queued chunks ordered by last modified time (FIFO)' do
+  sub_test_case 'there are some existing msgpack file chunks' do
+    setup do
+      packer = Fluent::MessagePackFactory.packer
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "fsb.testing.q#{Fluent::UniqueId.hex(@c1id)}.buf")
+      File.open(p1, 'wb') do |f|
+        packer.write(["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t2.test", event_time('2016-04-17 13:58:17 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t3.test", event_time('2016-04-17 13:58:21 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t4.test", event_time('2016-04-17 13:58:22 -0700').to_i, {"message" => "yay"}])
+        f.write packer.full_pack
+      end
+      t = Time.now - 50000
+      File.utime(t, t, p1)
+
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@bufdir, "fsb.testing.q#{Fluent::UniqueId.hex(@c2id)}.buf")
+      File.open(p2, 'wb') do |f|
+        packer.write(["t1.test", event_time('2016-04-17 13:59:15 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t2.test", event_time('2016-04-17 13:59:17 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t3.test", event_time('2016-04-17 13:59:21 -0700').to_i, {"message" => "yay"}])
+        f.write packer.full_pack
+      end
+      t = Time.now - 40000
+      File.utime(t, t, p2)
+
+      @c3id = Fluent::UniqueId.generate
+      p3 = File.join(@bufdir, "fsb.testing.b#{Fluent::UniqueId.hex(@c3id)}.buf")
+      File.open(p3, 'wb') do |f|
+        packer.write(["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t2.test", event_time('2016-04-17 14:00:17 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t3.test", event_time('2016-04-17 14:00:21 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay"}])
+        f.write packer.full_pack
+      end
+
+      @c4id = Fluent::UniqueId.generate
+      p4 = File.join(@bufdir, "fsb.foo.b#{Fluent::UniqueId.hex(@c4id)}.buf")
+      File.open(p4, 'wb') do |f|
+        packer.write(["t1.test", event_time('2016-04-17 14:01:15 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t2.test", event_time('2016-04-17 14:01:17 -0700').to_i, {"message" => "yay"}])
+        packer.write(["t3.test", event_time('2016-04-17 14:01:21 -0700').to_i, {"message" => "yay"}])
+        f.write packer.full_pack
+      end
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      if @bufdir
+        Dir.glob(File.join(@bufdir, '*')).each do |path|
+          next if ['.', '..'].include?(File.basename(path))
+          File.delete(path)
+        end
+      end
+    end
+
+    test '#resume returns staged/queued chunks with msgpack format' do
+      @d = create_driver(%[
+        <buffer tag>
+         @type file_single
+         path #{PATH}
+         chunk_format msgpack
+        </buffer>
+      ])
+      @p = @d.instance.buffer
+      @p.start
+
       assert_equal 2, @p.stage.size
       assert_equal 2, @p.queue.size
 
-      queue = @p.queue
+      stage = @p.stage
 
-      assert{ queue[0].modified_at <= queue[1].modified_at }
+      m3 = metadata()
+      assert_equal @c3id, stage[m3].unique_id
+      assert_equal 4, stage[m3].size
+      assert_equal :staged, stage[m3].state
 
-      assert_equal @c1id, queue[0].unique_id
-      assert_equal :queued, queue[0].state
-      assert_equal 'testing', queue[0].metadata.tag
-      assert_nil queue[0].metadata.variables
-      assert_equal 0, queue[0].size
-
-      assert_equal @c2id, queue[1].unique_id
-      assert_equal :queued, queue[1].state
-      assert_equal 'testing', queue[1].metadata.tag
-      assert_nil queue[1].metadata.variables
-      assert_equal 0, queue[1].size
+      m4 = metadata(tag: 'foo')
+      assert_equal @c4id, stage[m4].unique_id
+      assert_equal 3, stage[m4].size
+      assert_equal :staged, stage[m4].state
     end
   end
 
@@ -506,18 +628,18 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
       m1 = metadata(tag: 'testing')
       assert_equal @worker_dir_chunk_2, stage[m1].unique_id
-      assert_equal 0, stage[m1].size
+      assert_equal 4, stage[m1].size
       assert_equal :staged, stage[m1].state
 
       m2 = metadata(tag: 'bar')
       assert_equal @worker_dir_chunk_3, stage[m2].unique_id
-      assert_equal 0, stage[m2].size
+      assert_equal 3, stage[m2].size
       assert_equal :staged, stage[m2].state
 
       queue = @p.queue
 
       assert_equal [@bufdir_chunk_1, @bufdir_chunk_2, @worker_dir_chunk_1].sort, queue.map(&:unique_id).sort
-      assert_equal [0, 0, 0], queue.map(&:size).sort
+      assert_equal [3, 4, 4], queue.map(&:size).sort
       assert_equal [:queued, :queued, :queued], queue.map(&:state)
     end
 
@@ -538,18 +660,18 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
       m1 = metadata(tag: 'foo')
       assert_equal @worker_dir_chunk_2, stage[m1].unique_id
-      assert_equal 0, stage[m1].size
+      assert_equal 4, stage[m1].size
       assert_equal :staged, stage[m1].state
 
       m2 = metadata(tag: 'baz')
       assert_equal @worker_dir_chunk_3, stage[m2].unique_id
-      assert_equal 0, stage[m2].size
+      assert_equal 3, stage[m2].size
       assert_equal :staged, stage[m2].state
 
       queue = @p.queue
 
       assert_equal @worker_dir_chunk_1, queue[0].unique_id
-      assert_equal 0, queue[0].size
+      assert_equal 3, queue[0].size
       assert_equal :queued, queue[0].state
     end
   end

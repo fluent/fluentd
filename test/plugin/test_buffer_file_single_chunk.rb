@@ -400,6 +400,9 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_nil @c.metadata.variables
       assert_equal 0, @c.size
       assert_equal @d, @c.read
+
+      @c.restore_size(:text)
+      assert_equal 4, @c.size
     end
 
     test 'can be enqueued' do
@@ -420,6 +423,9 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
 
       assert_equal 0, @c.size
       assert_equal @d, File.read(@c.path)
+
+      @c.restore_size(:text)
+      assert_equal 4, @c.size
     end
 
     test '#file_rename can rename chunk files even in windows, and call callback with file size' do
@@ -491,6 +497,9 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal @d.bytesize, @c.bytesize
       assert_equal @d, @c.read
 
+      @c.restore_size(:text)
+      assert_equal 4, @c.size
+
       assert_raise RuntimeError.new("BUG: concatenating to unwritable chunk, now 'queued'") do
         @c.append(["queued chunk is read only"])
       end
@@ -522,7 +531,7 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       File.unlink(@chunk_path) if File.exist?(@chunk_path)
     end
 
-    test 'can load as queued chunk from file without metadata' do
+    test 'can load as queued chunk' do
       assert @c
       assert_equal :queued, @c.state
       assert_equal @chunk_id, @c.unique_id

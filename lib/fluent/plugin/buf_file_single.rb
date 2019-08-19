@@ -35,6 +35,10 @@ module Fluent
 
       desc 'The path where buffer chunks are stored.'
       config_param :path, :string, default: nil
+      desc 'Calculate the number of record in chunk during resume'
+      config_param :calc_num_records, :bool, default: true
+      desc 'The format of chunk. This is used to calculate the number of record'
+      config_param :chunk_format, :enum, list: [:msgpack, :text, :auto], default: :auto
 
       config_set_default :chunk_limit_size, DEFAULT_CHUNK_LIMIT_SIZE
       config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
@@ -53,6 +57,10 @@ module Fluent
 
       def configure(conf)
         super
+
+        if @chunk_format == :auto
+          @chunk_format = owner.formatted_to_msgpack_binary? ? :msgpack : :text
+        end
 
         @key_in_path = nil
         if owner.chunk_keys.empty?
@@ -159,6 +167,7 @@ module Fluent
 
           begin
             chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path) # file chunk resumes contents of metadata
+            chunk.restore_size(@chunk_format) if @calc_num_records
           rescue Fluent::Plugin::Buffer::FileSingleChunk::FileChunkError => e
             handle_broken_files(path, mode, e)
             next
