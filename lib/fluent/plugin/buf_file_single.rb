@@ -70,6 +70,8 @@ module Fluent
         else
           if owner.chunk_key_tag
             raise Fluent::ConfigError, "chunk keys must be tag or one field"
+          elsif owner.chunk_keys.size > 1
+            raise Fluent::ConfigError, "2 or more chunk keys is not allowed"
           else
             @key_in_path = owner.chunk_keys.first.to_sym
           end
@@ -110,8 +112,9 @@ module Fluent
           @multi_workers_available = true
         else # specified path is file path
           if File.basename(@path).include?('.*.')
-            log.warn "file_single doesn't allow user specified 'prefix.*.suffix' style path. Use 'fsb.*#{PATH_SUFFIX}' instead: #{@path}"
-            @path = "fsb.*#{PATH_SUFFIX}"
+            new_path = File.join(File.dirname(@path), "fsb.*#{PATH_SUFFIX}")
+            log.warn "file_single doesn't allow user specified 'prefix.*.suffix' style path. Use '#{new_path}' for file instead: #{@path}"
+            @path = new_path
           elsif File.basename(@path).end_with?('.*')
             @path = @path + PATH_SUFFIX
           else
@@ -131,7 +134,7 @@ module Fluent
       # This method is called only when multi worker is configured
       def multi_workers_ready?
         unless @multi_workers_available
-          log.error "file buffer with multi workers should be configured to use directory 'path', or system root_dir and plugin id"
+          log.error "file_single buffer with multi workers should be configured to use directory 'path', or system root_dir and plugin id"
         end
         @multi_workers_available
       end
