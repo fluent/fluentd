@@ -70,7 +70,7 @@ module Fluent
         using_plugin_root_dir = false
         unless @path
           if root_dir = owner.plugin_root_dir
-            @path = File.join(root_dir, 'fsb')
+            @path = File.join(root_dir, 'buffer')
             using_plugin_root_dir = true # plugin_root_dir path contains worker id
           else
             raise Fluent::ConfigError, "buffer path is not configured. specify 'path' in <buffer>"
@@ -102,7 +102,7 @@ module Fluent
         else # specified path is file path
           if File.basename(@path).include?('.*.')
             # valid file path
-            log.warn "file_single doesn't allow user specified 'prefix.*.suffix' style path. Use 'fsb.*#{PATH_SUFFIX}' instead: #{path}"
+            log.warn "file_single doesn't allow user specified 'prefix.*.suffix' style path. Use 'fsb.*#{PATH_SUFFIX}' instead: #{@path}"
             @path = "fsb.*#{PATH_SUFFIX}"
           elsif File.basename(@path).end_with?('.*')
             @path = @path + PATH_SUFFIX

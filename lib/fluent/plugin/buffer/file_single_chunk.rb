@@ -32,7 +32,7 @@ module Fluent
 
         PATH_EXT = 'buf'
         PATH_SUFFIX = ".#{PATH_EXT}"
-        PATH_REGEXP = /\.(b|q)([0-9a-f]+)\.#{PATH_EXT}*\Z/n
+        PATH_REGEXP = /\.(b|q)([0-9a-f]+)\.#{PATH_EXT}*\Z/n  # //n switch means explicit 'ASCII-8BIT' pattern
         FILE_PERMISSION = 0644
 
         attr_reader :path, :permission
@@ -148,9 +148,9 @@ module Fluent
         end
 
         def self.assume_chunk_state(path)
-          return :unknown unless path.end_with?(".#{PATH_EXT}")
+          return :unknown unless path.end_with?(PATH_SUFFIX)
 
-          if  /\.(b|q)([0-9a-f]+)\.#{PATH_EXT}*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern
+          if PATH_REGEXP =~ path
             $1 == 'b' ? :staged : :queued
           else
             # files which matches to glob of buffer file pattern
@@ -161,20 +161,13 @@ module Fluent
 
         def self.unique_id_and_key_from_path(path)
           base = File.basename(path)
-          res = /\.(b|q)([0-9a-f]+)\.buf\Z/n =~ base # //n switch means explicit 'ASCII-8BIT' pattern
+          res = PATH_REGEXP =~ base
           return nil unless res
 
           key = base[4..res - 1]  # remove 'sfb.' and '.'
           hex_id = base[res + 2..-5] # remove '.' and '.bug' 
           unique_id = hex_id.scan(/../).map {|x| x.to_i(16) }.pack('C*')
           [unique_id, key]
-        end
-
-        def self.unique_id_from_path(path)
-          if /\.(b|q)([0-9a-f]+)\.#{PATH_EXT}*\Z/n =~ path # //n switch means explicit 'ASCII-8BIT' pattern
-            return $2.scan(/../).map{|x| x.to_i(16) }.pack('C*')
-          end
-          nil
         end
 
         def self.generate_stage_chunk_path(path, key, unique_id)
@@ -218,10 +211,6 @@ module Fluent
           @modified_at = stat.mtime.to_i
         end
 
-        def restore_size
-
-        end
-
         def file_rename(file, old_path, new_path, callback = nil)
           pos = file.pos
           if Fluent.windows?
@@ -245,7 +234,7 @@ module Fluent
         def encode_key(metadata)
           k = @key ? metadata.variables[@key] : metadata.tag
           k ||= ''
-          URI_PARSER.escape(k, ESCAPE_REGEXP) # //n switch means exp
+          URI_PARSER.escape(k, ESCAPE_REGEXP)
         end
 
         def decode_key(key)
@@ -274,9 +263,8 @@ module Fluent
 
         def load_existing_staged_chunk(path)
           @path = path
+          raise FileChunkError, "staged file chunk is empty" if File.size(@path).zero?
 
-          # staging buffer chunk without metadata is classic buffer chunk file
-          # and it should be enqueued immediately
           @chunk = File.open(@path, 'rb+')
           @chunk.set_encoding(Encoding::ASCII_8BIT)
           @chunk.sync = true
