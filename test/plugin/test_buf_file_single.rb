@@ -21,6 +21,22 @@ module FluentPluginFileSingleBufferTest
       # drop
     end
   end
+
+  class DummyOutputMPPlugin < Fluent::Plugin::Output
+    Fluent::Plugin.register_output('buf_file_single_mp_test', self)
+    config_section :buffer do
+      config_set_default :@type, 'file_single'
+    end
+    def formatted_to_msgpack_binary?
+      true
+    end
+    def multi_workers_ready?
+      true
+    end
+    def write(chunk)
+      # drop
+    end
+  end
 end
 
 class FileSingleBufferTest < Test::Unit::TestCase
@@ -55,13 +71,33 @@ class FileSingleBufferTest < Test::Unit::TestCase
     FileUtils.rm_r(@bufdir) rescue nil
   end
 
-  def create_driver(conf = TAG_CONF)
-    Fluent::Test::Driver::Output.new(FluentPluginFileSingleBufferTest::DummyOutputPlugin).configure(conf)
+  def create_driver(conf = TAG_CONF, klass = FluentPluginFileSingleBufferTest::DummyOutputPlugin)
+    Fluent::Test::Driver::Output.new(klass).configure(conf)
   end
 
-  sub_test_case 'non configured buffer plugin instance' do
-    test 'path has "fsb" prefix and "buf" suffix' do
+  sub_test_case 'configuration' do
+    test 'path has "fsb" prefix and "buf" suffix by default' do
       @d = create_driver
+      p = @d.instance.buffer
+      assert_equal File.join(@bufdir, 'fsb.*.buf'), p.path
+    end
+
+    data('text based chunk' => [FluentPluginFileSingleBufferTest::DummyOutputPlugin, :text],
+        'msgpack based chunk' => [FluentPluginFileSingleBufferTest::DummyOutputMPPlugin, :msgpack])
+    test 'detect chunk_format' do |param|
+      klass, expected = param
+      @d = create_driver(TAG_CONF, klass)
+      p = @d.instance.buffer
+      assert_equal expected, p.chunk_format
+    end
+
+    test '"prefix.*.suffix" path will be replaced with default' do
+      @d = create_driver(%[
+        <buffer tag>
+          @type file_single
+          path #{@bufdir}/foo.*.bar
+        </buffer>
+      ])
       p = @d.instance.buffer
       assert_equal File.join(@bufdir, 'fsb.*.buf'), p.path
     end
@@ -119,12 +155,6 @@ class FileSingleBufferTest < Test::Unit::TestCase
         @p.after_shutdown unless @p.after_shutdown?
         @p.close unless @p.closed?
         @p.terminate unless @p.terminated?
-      end
-      if @bufdir
-        Dir.glob(File.join(@bufdir, '*')).each do |path|
-          next if ['.', '..'].include?(File.basename(path))
-          File.delete(path)
-        end
       end
     end
 
@@ -276,6 +306,32 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
       @p.start
       assert Dir.exist?(expected_buffer_dir)
+    end
+  end
+
+  sub_test_case 'buffer plugin configuration errors' do
+    data('tag and key' => 'tag,key',
+         'multiple keys' => 'key1,key2')
+    test 'invalid chunk keys' do |param|
+      assert_raise Fluent::ConfigError do
+        @d = create_driver(%[
+          <buffer #{param}>
+            @type file_single
+            path #{PATH}
+            calc_num_records false
+          </buffer>
+        ])
+      end
+    end
+
+    test 'path is not specified' do
+      assert_raise Fluent::ConfigError do
+        @d = create_driver(%[
+          <buffer tag>
+            @type file_single
+          </buffer>
+        ])
+      end
     end
   end
 
