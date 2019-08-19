@@ -26,7 +26,7 @@ module Fluent
         class FileChunkError < StandardError; end
 
         ## buffer path user specified : /path/to/directory
-        ## buffer chunk path          : /path/to/directory/sfb.b513b61c9791029c2513b61c9791029c2.buf
+        ## buffer chunk path          : /path/to/directory/fsb.key.b513b61c9791029c2513b61c9791029c2.buf
         ## state: b/q - 'b'(on stage), 'q'(enqueued)
 
         include SystemConfig::Mixin
@@ -166,8 +166,8 @@ module Fluent
           res = PATH_REGEXP =~ base
           return nil unless res
 
-          key = base[4..res - 1]  # remove 'sfb.' and '.'
-          hex_id = base[res + 2..-5] # remove '.' and '.bug' 
+          key = base[4..res - 1]  # remove 'fsb.' and '.'
+          hex_id = base[res + 2..-5] # remove '.' and '.buf'
           unique_id = hex_id.scan(/../).map {|x| x.to_i(16) }.pack('C*')
           [unique_id, key]
         end
@@ -180,8 +180,7 @@ module Fluent
           suffix = path[(pos + 3)..-1]
 
           chunk_id = Fluent::UniqueId.hex(unique_id)
-          state = 'b'
-          "#{prefix}.#{key}.#{state}#{chunk_id}.#{suffix}"
+          "#{prefix}.#{key}.b#{chunk_id}.#{suffix}"
         end
 
         def self.generate_queued_chunk_path(path, unique_id)

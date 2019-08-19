@@ -44,14 +44,15 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
   setup do
     Fluent::Test.setup
-    @d = nil
 
+    @d = nil
     @bufdir = PATH
     FileUtils.rm_r(@bufdir) rescue nil
     FileUtils.mkdir_p(@bufdir)
   end
 
   teardown do
+    FileUtils.rm_r(@bufdir) rescue nil
   end
 
   def create_driver(conf = TAG_CONF)
@@ -157,14 +158,12 @@ class FileSingleBufferTest < Test::Unit::TestCase
       ])
       @p = @d.instance.buffer
 
-      FileUtils.rm_r bufdir if File.exist?(@bufdir)
+      FileUtils.rm_r(@bufdir) if File.exist?(@bufdir)
       assert !File.exist?(@bufdir)
 
       @p.start
       assert File.exist?(@bufdir)
       assert { File.stat(@bufdir).mode.to_s(8).end_with?('700') }
-
-      FileUtils.rm_r(@bufdir)
     end
 
     test '#start creates directory for buffer chunks with specified permission via system config' do
@@ -181,8 +180,6 @@ class FileSingleBufferTest < Test::Unit::TestCase
         @p.start
         assert File.exist?(@bufdir)
         assert { File.stat(@bufdir).mode.to_s(8).end_with?('700') }
-
-        FileUtils.rm_r @bufdir
       end
     end
 
@@ -418,7 +415,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert_equal 3, queue[1].size
     end
 
-    test '#resume returns staged/queued chunks but skip size calculation by calc_num_records' do
+    test '#resume returns staged/queued chunks but skips size calculation by calc_num_records' do
       @d = create_driver(%[
         <buffer tag>
          @type file_single

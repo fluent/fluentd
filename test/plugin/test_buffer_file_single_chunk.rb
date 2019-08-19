@@ -6,7 +6,6 @@ require 'fluent/unique_id'
 require 'fileutils'
 require 'msgpack'
 require 'time'
-require 'timecop'
 
 class BufferFileSingleChunkTest < Test::Unit::TestCase
   include Fluent::Plugin::Compressable
@@ -16,10 +15,6 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
     @chunkdir = File.expand_path('../../tmp/buffer_file_single_chunk', __FILE__)
     FileUtils.rm_r(@chunkdir) rescue nil
     FileUtils.mkdir_p(@chunkdir)
-  end
-
-  teardown do
-    Timecop.return
   end
 
   Metadata = Struct.new(:timekey, :tag, :variables)
@@ -114,7 +109,7 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
     end
 
     test 'creates new files for chunk and metadata with specified path & permission' do
-      assert { @c.unique_id.size == 16 }
+      assert_equal 16, @c.unique_id.size
       assert_equal gen_chunk_path('b', @c.unique_id), @c.path
 
       assert File.exist?(gen_chunk_path('b', @c.unique_id))

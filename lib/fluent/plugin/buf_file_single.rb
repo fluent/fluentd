@@ -73,8 +73,7 @@ module Fluent
           end
         end
 
-        multi_workers_configured = owner.system_config.workers > 1 ? true : false
-
+        multi_workers_configured = owner.system_config.workers > 1
         using_plugin_root_dir = false
         unless @path
           if root_dir = owner.plugin_root_dir
@@ -88,7 +87,7 @@ module Fluent
         type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
         if @@buffer_paths.has_key?(@path) && !called_in_test?
           type_using_this_path = @@buffer_paths[@path]
-          raise ConfigError, "Other '#{type_using_this_path}' plugin already use same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
+          raise Fluent::ConfigError, "Other '#{type_using_this_path}' plugin already uses same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
         end
 
         @@buffer_paths[@path] = type_of_owner
@@ -109,7 +108,6 @@ module Fluent
           @multi_workers_available = true
         else # specified path is file path
           if File.basename(@path).include?('.*.')
-            # valid file path
             log.warn "file_single doesn't allow user specified 'prefix.*.suffix' style path. Use 'fsb.*#{PATH_SUFFIX}' instead: #{@path}"
             @path = "fsb.*#{PATH_SUFFIX}"
           elsif File.basename(@path).end_with?('.*')
