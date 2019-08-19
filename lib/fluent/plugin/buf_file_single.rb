@@ -160,8 +160,7 @@ module Fluent
 
           log.debug { "restoring buffer file: path = #{path}" }
 
-          m = new_metadata() # this metadata will be overwritten by resuming .meta file content
-                             # so it should not added into @metadata_list for now
+          m = new_metadata() # this metadata will be updated in FileSingleChunk.new
           mode = Fluent::Plugin::Buffer::FileSingleChunk.assume_chunk_state(path)
           if mode == :unknown
             log.debug "unknown state chunk found", path: path
@@ -169,7 +168,7 @@ module Fluent
           end
 
           begin
-            chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path) # file chunk resumes contents of metadata
+            chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path)
             chunk.restore_size(@chunk_format) if @calc_num_records
           rescue Fluent::Plugin::Buffer::FileSingleChunk::FileChunkError => e
             handle_broken_files(path, mode, e)
@@ -184,7 +183,7 @@ module Fluent
           end
         end
 
-        queue.sort_by! { |chunk| chunk.modified_at }
+        queue.sort_by!(&:modified_at)
 
         return stage, queue
       end
@@ -203,7 +202,7 @@ module Fluent
       end
 
       def handle_broken_files(path, mode, e)
-        log.error "found broken chunk file during resume. Delete corresponding files:", :path => path, :mode => mode, :err_msg => e.message
+        log.error "found broken chunk file during resume. Delete corresponding files:", path: path, mode: mode, err_msg: e.message
         # After support 'backup_dir' feature, these files are moved to backup_dir instead of unlink.
         File.unlink(path) rescue nil
       end
