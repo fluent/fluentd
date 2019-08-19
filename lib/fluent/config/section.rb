@@ -207,8 +207,11 @@ module Fluent
         elems = conf.respond_to?(:elements) ? conf.elements : []
         elems.each { |e|
           next if plugin_class.nil? && Fluent::Config::V1Parser::ELEM_SYMBOLS.include?(e.name) # skip pre-defined non-plugin elements because it doens't have proxy section
+          next if e.unused_in && e.unused_in.empty? # the section is used at least once
 
-          unless proxy.sections.any? { |name, subproxy| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
+          if proxy.sections.any? { |name, subproxy| e.name == subproxy.name.to_s || e.name == subproxy.alias.to_s }
+            e.unused_in = []
+          else
             parent_name = if conf.arg.empty?
                             conf.name
                           else
