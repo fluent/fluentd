@@ -83,8 +83,12 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       )
     end
 
-    test '.unique_id_and_key_from_path recreates unique_id and key from file path' do
-      assert_equal [gen_test_chunk_id, 'test.log'], @klass.unique_id_and_key_from_path(gen_path("fsb.test.log.q52fde6425d7406bdb19b936e1a1ba98c.buf"))
+    data('1 word tag' => 'foo',
+         '2 words tag' => 'test.log',
+         'empty' => '')
+    test '.unique_id_and_key_from_path recreates unique_id and key from file path' do |key|
+      path = @klass.unique_id_and_key_from_path(gen_path("fsb.#{key}.q52fde6425d7406bdb19b936e1a1ba98c.buf"))
+      assert_equal [gen_test_chunk_id, key], path
     end
   end
 

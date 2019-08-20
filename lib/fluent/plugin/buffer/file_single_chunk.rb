@@ -17,7 +17,6 @@
 require 'uri'
 require 'fluent/plugin/buffer/chunk'
 require 'fluent/unique_id'
-require 'fluent/msgpack_factory'
 
 module Fluent
   module Plugin
@@ -30,7 +29,6 @@ module Fluent
         ## state: b/q - 'b'(on stage), 'q'(enqueued)
 
         include SystemConfig::Mixin
-        include MessagePackFactory::Mixin
 
         PATH_EXT = 'buf'
         PATH_SUFFIX = ".#{PATH_EXT}"
@@ -166,8 +164,8 @@ module Fluent
           res = PATH_REGEXP =~ base
           return nil unless res
 
-          key = base[4..res - 1]  # remove 'fsb.' and '.'
-          hex_id = base[res + 2..-5] # remove '.' and '.buf'
+          key = base[4..res - 1] # remove 'fsb.' and '.'
+          hex_id = $2            # remove '.' and '.buf'
           unique_id = hex_id.scan(/../).map {|x| x.to_i(16) }.pack('C*')
           [unique_id, key]
         end
@@ -306,7 +304,7 @@ module Fluent
 
           @state = :queued
           @bytesize = @chunk.size
-          @commit_position = @chunk.size
+          @commit_position = @chunk.pos
         end
       end
     end
