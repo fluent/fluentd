@@ -63,12 +63,12 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
     @d = nil
     @bufdir = PATH
-    FileUtils.rm_r(@bufdir) rescue nil
+    FileUtils.rm_rf(@bufdir) rescue nil
     FileUtils.mkdir_p(@bufdir)
   end
 
   teardown do
-    FileUtils.rm_r(@bufdir) rescue nil
+    FileUtils.rm_rf(@bufdir) rescue nil
   end
 
   def create_driver(conf = TAG_CONF, klass = FluentPluginFileSingleBufferTest::DummyOutputPlugin)
@@ -141,7 +141,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
   sub_test_case 'buffer plugin configured only with path' do
     setup do
       @bufpath = File.join(@bufdir, 'testbuf.*.buf')
-      FileUtils.rm_r(@bufdir) if File.exist?(@bufdir)
+      FileUtils.rm_rf(@bufdir) if File.exist?(@bufdir)
 
       @d = create_driver
       @p = @d.instance.buffer
@@ -166,14 +166,12 @@ class FileSingleBufferTest < Test::Unit::TestCase
       @d = create_driver
       @p = @d.instance.buffer
 
-      FileUtils.rm_r(@bufdir) if File.exist?(@bufdir)
+      FileUtils.rm_rf(@bufdir) if File.exist?(@bufdir)
       assert !File.exist?(@bufdir)
 
       @p.start
       assert File.exist?(@bufdir)
       assert { File.stat(@bufdir).mode.to_s(8).end_with?('755') }
-
-      FileUtils.rm_r(@bufdir)
     end
 
     test '#start creates directory for buffer chunks with specified permission' do
@@ -188,7 +186,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       ])
       @p = @d.instance.buffer
 
-      FileUtils.rm_r(@bufdir) if File.exist?(@bufdir)
+      FileUtils.rm_rf(@bufdir) if File.exist?(@bufdir)
       assert !File.exist?(@bufdir)
 
       @p.start
@@ -213,7 +211,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       end
     end
 
-    test '#generate_chunk generates blank file chunk on path with unique_id' do
+    test '#generate_chunk generates blank file chunk on path with unique_id and tag' do
       FileUtils.mkdir_p(@bufdir) unless File.exist?(@bufdir)
 
       m1 = metadata()
@@ -226,19 +224,25 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert_equal File.join(@bufdir, "fsb.testing.b#{Fluent::UniqueId.hex(c1.unique_id)}.buf"), c1.path
       assert{ File.stat(c1.path).mode.to_s(8).end_with?('644') }
 
-      m2 = metadata(timekey: event_time('2016-04-17 11:15:00 -0700').to_i)
-      c2 = @p.generate_chunk(m2)
-      assert c2.is_a? Fluent::Plugin::Buffer::FileSingleChunk
-      assert_equal m2, c2.metadata
-      assert c2.empty?
-      assert_equal :unstaged, c2.state
-      assert_equal Fluent::Plugin::Buffer::FileSingleChunk::FILE_PERMISSION, c2.permission
-      assert_equal File.join(@bufdir, "fsb.testing.b#{Fluent::UniqueId.hex(c2.unique_id)}.buf"), c2.path
-      assert { File.stat(c2.path).mode.to_s(8).end_with?('644') }
+      c1.purge
+    end
+
+    test '#generate_chunk generates blank file chunk on path with unique_id and field key' do
+      FileUtils.mkdir_p(@bufdir) unless File.exist?(@bufdir)
+
+      @d = create_driver(FIELD_CONF)
+      @p = @d.instance.buffer
+
+      m1 = metadata(tag: nil, variables: {:k => 'foo_bar'})
+      c1 = @p.generate_chunk(m1)
+      assert c1.is_a? Fluent::Plugin::Buffer::FileSingleChunk
+      assert_equal m1, c1.metadata
+      assert c1.empty?
+      assert_equal :unstaged, c1.state
+      assert_equal Fluent::Plugin::Buffer::FileSingleChunk::FILE_PERMISSION, c1.permission
+      assert_equal File.join(@bufdir, "fsb.foo_bar.b#{Fluent::UniqueId.hex(c1.unique_id)}.buf"), c1.path
 
       c1.purge
-      c2.purge
-      FileUtils.rm_rf(@bufdir)
     end
 
     test '#generate_chunk generates blank file chunk with specified permission' do
@@ -269,7 +273,6 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert{ File.stat(c.path).mode.to_s(8).end_with?('600') }
 
       c.purge
-      FileUtils.rm_r(@bufdir)
     end
   end
 
@@ -337,7 +340,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
   sub_test_case 'there are no existing file chunks' do
     setup do
-      FileUtils.rm_r(@bufdir) if File.exist?(@bufdir)
+      FileUtils.rm_rf(@bufdir) if File.exist?(@bufdir)
 
       @d = create_driver
       @p = @d.instance.buffer
