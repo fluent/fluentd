@@ -17,6 +17,7 @@
 require 'uri'
 require 'fluent/plugin/buffer/chunk'
 require 'fluent/unique_id'
+require 'fluent/msgpack_factory'
 
 module Fluent
   module Plugin
@@ -29,6 +30,7 @@ module Fluent
         ## state: b/q - 'b'(on stage), 'q'(enqueued)
 
         include SystemConfig::Mixin
+        include MessagePackFactory::Mixin
 
         PATH_EXT = 'buf'
         PATH_SUFFIX = ".#{PATH_EXT}"
