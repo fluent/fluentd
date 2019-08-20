@@ -201,7 +201,7 @@ module Fluent
     def start
       lifecycle(desc: true) do |i| # instance
         i.start unless i.started?
-        # Input#start sometimes emits lots of evetns with in_tail/`read_from_head true` case
+        # Input#start sometimes emits lots of events with in_tail/`read_from_head true` case
         # and it causes deadlock for small buffer/queue output. To avoid such problem,
         # buffer related output threads should be run before `Input#start`.
         # This is why after_start should be called immediately after start call.
