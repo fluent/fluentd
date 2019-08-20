@@ -1011,7 +1011,7 @@ class TailInputTest < Test::Unit::TestCase
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
 
       # Previous implementation has an infinite watcher creation bug.
-      # Following code checks such unexpected bug by couting  actual object allocation.
+      # Following code checks such unexpected bug by counting actual object allocation.
       base_num = count_timer_object
       2.times {
         sleep 1

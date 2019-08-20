@@ -807,7 +807,7 @@ CONF
       )
     end
 
-    test 'success to start workers when configured plugins as a chidren of MultiOutput only for specific worker do not support multi worker configuration' do
+    test 'success to start workers when configured plugins as a children of MultiOutput only for specific worker do not support multi worker configuration' do
       script = <<-EOC
 require 'fluent/plugin/output'
 module Fluent::Plugin

@@ -606,7 +606,7 @@ module Fluent
     end
   end
 
-  # This class delegetes some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
+  # This class delegates some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
   # https://github.com/ruby/ruby/blob/7b2d47132ff8ee950b0f978ab772dee868d9f1b0/lib/logger.rb#L661
   class LogDeviceIO < ::Logger::LogDevice
     def flush
