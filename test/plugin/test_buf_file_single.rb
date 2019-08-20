@@ -83,7 +83,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
 
     data('text based chunk' => [FluentPluginFileSingleBufferTest::DummyOutputPlugin, :text],
-        'msgpack based chunk' => [FluentPluginFileSingleBufferTest::DummyOutputMPPlugin, :msgpack])
+         'msgpack based chunk' => [FluentPluginFileSingleBufferTest::DummyOutputMPPlugin, :msgpack])
     test 'detect chunk_format' do |param|
       klass, expected = param
       @d = create_driver(TAG_CONF, klass)

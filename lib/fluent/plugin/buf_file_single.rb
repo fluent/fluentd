@@ -44,9 +44,9 @@ module Fluent
       config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
 
       desc 'The permission of chunk file. If no specified, <system> setting or 0644 is used'
-      config_param :file_permission, :string, default: nil # '0644'
-      desc 'The permission of chunk directory. If no specified, <system> setting or 0644 is used'
-      config_param :dir_permission, :string, default: nil # '0755'
+      config_param :file_permission, :string, default: nil
+      desc 'The permission of chunk directory. If no specified, <system> setting or 0755 is used'
+      config_param :dir_permission, :string, default: nil
 
       @@buffer_paths = {}
 
