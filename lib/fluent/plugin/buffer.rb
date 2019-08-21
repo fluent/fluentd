@@ -133,6 +133,15 @@ module Fluent
               cmp_variables(variables, variables2)
           end
         end
+
+        # This is an optimization code. Current Struct's implementation is comparing all data.
+        # https://github.com/ruby/ruby/blob/0623e2b7cc621b1733a760b72af246b06c30cf96/struct.c#L1200-L1203
+        # Actually this overhead is very small but this class is generated *per chunk* (and used in hash object).
+        # This means that this class is one of the most called object in Fluentd.
+        # See https://github.com/fluent/fluentd/pull/2560
+        def hash
+          timekey.object_id
+        end
       end
 
       # for tests
