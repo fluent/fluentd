@@ -1,3 +1,61 @@
+# v1.7
+
+## Release v1.7.0 - 2019/08/20
+
+### New feature
+
+* buffer: Add file_single buffer
+  https://github.com/fluent/fluentd/pull/2479
+
+### Enhancement
+
+* buffer: Improve the performance of buffer routine
+  https://github.com/fluent/fluentd/pull/2560
+  https://github.com/fluent/fluentd/pull/2563
+  https://github.com/fluent/fluentd/pull/2564
+* output: Use Mutext instead of Monitor
+  https://github.com/fluent/fluentd/pull/2561
+* event: Add `OneEvent#empty?` method
+  https://github.com/fluent/fluentd/pull/2565
+* thread: Set thread name for ruby 2.3 or later
+  https://github.com/fluent/fluentd/pull/2574
+* core: Cache msgpack packer/unpacker to avoid the object allocation
+  https://github.com/fluent/fluentd/pull/2559
+* time: Use faster way to get sec and nsec
+  https://github.com/fluent/fluentd/pull/2557
+* buf_file: Reduce IO flush by removing `IO#truncate`
+  https://github.com/fluent/fluentd/pull/2551
+* in_tcp: Improve the performance for multiple event case
+  https://github.com/fluent/fluentd/pull/2567
+* in_syslog: support `source_hostname_key` and `source_address_key` for unmatched event
+  https://github.com/fluent/fluentd/pull/2553
+* formatter_csv: Improve the format performance.
+  https://github.com/fluent/fluentd/pull/2529
+* parser_csv: Add fast parser for typical cases
+  https://github.com/fluent/fluentd/pull/2535
+* out_forward: Refactor code
+  https://github.com/fluent/fluentd/pull/2516
+  https://github.com/fluent/fluentd/pull/2532
+
+### Bug fixes
+
+* output: fix data lost on decompression
+  https://github.com/fluent/fluentd/pull/2547
+* out_exec_filter: fix non-ascii encoding issue
+  https://github.com/fluent/fluentd/pull/2539
+* in_tail: Don't call parser's configure twice
+  https://github.com/fluent/fluentd/pull/2569
+* Fix unused message handling for <section> parameters
+  https://github.com/fluent/fluentd/pull/2578
+* Fix comment/message typos
+  https://github.com/fluent/fluentd/pull/2549
+  https://github.com/fluent/fluentd/pull/2554
+  https://github.com/fluent/fluentd/pull/2556
+  https://github.com/fluent/fluentd/pull/2566
+  https://github.com/fluent/fluentd/pull/2573
+  https://github.com/fluent/fluentd/pull/2576
+  https://github.com/fluent/fluentd/pull/2583
+
 # v1.6
 
 ## Release v1.6.3 - 2019/07/29
