@@ -266,7 +266,7 @@ module Fluent
             # If other cases are possible, we will change erorr handling with proper classes.
             raise BufferOverflowError, "can't create buffer file for #{path}. Stop creating buffer files: error = #{e}"
           end
-          
+
           @state = :unstaged
           @bytesize = 0
           @commit_position = @chunk.pos # must be 0
@@ -306,7 +306,7 @@ module Fluent
 
           @state = :queued
           @bytesize = @chunk.size
-          @commit_position = @chunk.pos
+          @commit_position = @chunk.size
         end
       end
     end
