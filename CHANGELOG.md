@@ -5,7 +5,7 @@
 ### New feature
 
 * buffer: Add file_single buffer
-  https://github.com/fluent/fluentd/pull/2479
+  https://github.com/fluent/fluentd/pull/2579
 
 ### Enhancement
 
