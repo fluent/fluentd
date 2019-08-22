@@ -13,9 +13,9 @@
   https://github.com/fluent/fluentd/pull/2560
   https://github.com/fluent/fluentd/pull/2563
   https://github.com/fluent/fluentd/pull/2564
-* output: Use Mutext instead of Monitor
+* output: Use Mutex instead of Monitor
   https://github.com/fluent/fluentd/pull/2561
-* event: Add `OneEvent#empty?` method
+* event: Add `OneEventStrea#empty?` method
   https://github.com/fluent/fluentd/pull/2565
 * thread: Set thread name for ruby 2.3 or later
   https://github.com/fluent/fluentd/pull/2574
