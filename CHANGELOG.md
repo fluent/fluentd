@@ -4,8 +4,10 @@
 
 ### New feature
 
-* buffer: Add file_single buffer
+* buffer: Add file_single buffer plugin
   https://github.com/fluent/fluentd/pull/2579
+* output: Add http output plugin
+  https://github.com/fluent/fluentd/pull/2488
 
 ### Enhancement
 
