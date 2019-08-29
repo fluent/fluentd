@@ -37,6 +37,7 @@ Gem::Specification.new do |gem|
     gem.add_runtime_dependency("win32-ipc", ["~> 0.6.1"])
     gem.add_runtime_dependency("win32-event", ["~> 0.6.1"])
     gem.add_runtime_dependency("windows-pr", ["~> 1.2.5"])
+    gem.add_runtime_dependency("certstore_c", ["~> 0.1.2"])
   end
 
   gem.add_development_dependency("rake", ["~> 11.0"])
