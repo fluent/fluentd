@@ -17,6 +17,9 @@
 require 'socket'
 require 'ipaddr'
 require 'openssl'
+if Fluent.windows?
+  require 'certstore'
+end
 
 require_relative 'socket_option'
 
@@ -96,7 +99,8 @@ module Fluent
           host, port,
           version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
           enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
-          cert_path: nil, private_key_path: nil, private_key_passphrase: nil, **kwargs, &block)
+          cert_path: nil, private_key_path: nil, private_key_passphrase: nil,
+          cert_thumbprint: nil, cert_store_name: nil, cert_logical_store_name: nil, **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
@@ -113,6 +117,13 @@ module Fluent
           end
           begin
             if enable_system_cert_store
+              if Fluent.windows? && cert_logical_store_name
+                log.trace "loading Windows system certificate store"
+                loader = Certstore::OpenSSL::Loader.new(log, cert_store, cert_logical_store_name)
+                loader.load_cert_store
+                cert_store = loader.cert_store
+                context.cert = loader.get_certificate(cert_thumbprint) if cert_thumbprint
+              end
               log.trace "loading system default certificate store"
               cert_store.set_default_paths
             end
