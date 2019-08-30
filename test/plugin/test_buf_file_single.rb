@@ -502,6 +502,54 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'there are some existing file chunks with placeholders path' do
+    setup do
+      @buf_ph_dir = File.expand_path('../../tmp/buffer_${test}_file_single_dir', __FILE__)
+      FileUtils.rm_rf(@buf_ph_dir)
+      FileUtils.mkdir_p(@buf_ph_dir)
+
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@buf_ph_dir, "fsb.testing.q#{Fluent::UniqueId.hex(@c1id)}.buf")
+      File.open(p1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      t = Time.now - 50000
+      File.utime(t, t, p1)
+
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@buf_ph_dir, "fsb.testing.b#{Fluent::UniqueId.hex(@c2id)}.buf")
+      File.open(p2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      FileUtils.rm_rf(@buf_ph_dir)
+    end
+
+    test '#resume returns staged/queued chunks with metadata' do
+      @d = create_driver(%[
+        <buffer tag>
+          @type file_single
+          path #{@buf_ph_dir}
+        </buffer>
+      ])
+      @p = @d.instance.buffer
+      @p.start
+
+      assert_equal 1, @p.stage.size
+      assert_equal 1, @p.queue.size
+    end
+  end
+
   sub_test_case 'there are some existing msgpack file chunks' do
     setup do
       packer = Fluent::MessagePackFactory.packer

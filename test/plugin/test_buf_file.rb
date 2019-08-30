@@ -537,6 +537,60 @@ class FileBufferTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'there are some existing file chunks with placeholders path' do
+    setup do
+      @bufdir = File.expand_path('../../tmp/buffer_${test}_file', __FILE__)
+      FileUtils.rm_rf(@bufdir)
+      FileUtils.mkdir_p(@bufdir)
+
+      @c1id = Fluent::UniqueId.generate
+      p1 = File.join(@bufdir, "etest.q#{Fluent::UniqueId.hex(@c1id)}.log")
+      File.open(p1, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 13:58:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        p1 + '.meta', @c1id, metadata(timekey: event_time('2016-04-17 13:58:00 -0700').to_i),
+        1, event_time('2016-04-17 13:58:00 -0700').to_i, event_time('2016-04-17 13:58:22 -0700').to_i
+      )
+
+      @c2id = Fluent::UniqueId.generate
+      p2 = File.join(@bufdir, "etest.b#{Fluent::UniqueId.hex(@c2id)}.log")
+      File.open(p2, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay"}].to_json + "\n"
+      end
+      write_metadata(
+        p2 + '.meta', @c2id, metadata(timekey: event_time('2016-04-17 14:00:00 -0700').to_i),
+        1, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i
+      )
+
+      @bufpath = File.join(@bufdir, 'etest.*.log')
+
+      Fluent::Test.setup
+      @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
+      @p = Fluent::Plugin::FileBuffer.new
+      @p.owner = @d
+      @p.configure(config_element('buffer', '', {'path' => @bufpath}))
+      @p.start
+    end
+
+    teardown do
+      if @p
+        @p.stop unless @p.stopped?
+        @p.before_shutdown unless @p.before_shutdown?
+        @p.shutdown unless @p.shutdown?
+        @p.after_shutdown unless @p.after_shutdown?
+        @p.close unless @p.closed?
+        @p.terminate unless @p.terminated?
+      end
+      FileUtils.rm_rf(@bufdir)
+    end
+
+    test '#resume returns staged/queued chunks with metadata' do
+      assert_equal 1, @p.stage.size
+      assert_equal 1, @p.queue.size
+    end
+  end
+
   sub_test_case 'there are some existing file chunks, both in specified path and per-worker directory under specified path, configured as multi workers' do
     setup do
       @bufdir = File.expand_path('../../tmp/buffer_file/path', __FILE__)
