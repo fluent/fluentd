@@ -155,7 +155,7 @@ module Fluent
 
         patterns = [@path]
         patterns.unshift @additional_resume_path if @additional_resume_path
-        Dir.glob(patterns) do |path|
+        Dir.glob(escaped_patterns(patterns)) do |path|
           next unless File.file?(path)
 
           log.debug { "restoring buffer file: path = #{path}" }
@@ -205,6 +205,15 @@ module Fluent
         log.error "found broken chunk file during resume. Delete corresponding files:", path: path, mode: mode, err_msg: e.message
         # After support 'backup_dir' feature, these files are moved to backup_dir instead of unlink.
         File.unlink(path) rescue nil
+      end
+
+      private
+
+      def escaped_patterns(patterns)
+        patterns.map { |pattern|
+          # '{' '}' are special character in Dir.glob
+          pattern.gsub(/[\{\}]/) { |c| "\\#{c}" }
+        }
       end
     end
   end
