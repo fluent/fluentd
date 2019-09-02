@@ -100,7 +100,8 @@ module Fluent
           version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
           enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
           cert_path: nil, private_key_path: nil, private_key_passphrase: nil,
-          cert_thumbprint: nil, cert_store_name: nil, cert_logical_store_name: nil, **kwargs, &block)
+          cert_thumbprint: nil, cert_logical_store_name: nil, cert_use_enterprise_store: true,
+          **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
@@ -119,7 +120,8 @@ module Fluent
             if enable_system_cert_store
               if Fluent.windows? && cert_logical_store_name
                 log.trace "loading Windows system certificate store"
-                loader = Certstore::OpenSSL::Loader.new(log, cert_store, cert_logical_store_name)
+                loader = Certstore::OpenSSL::Loader.new(log, cert_store, cert_logical_store_name,
+                                                        enterprise: cert_use_enterprise_store)
                 loader.load_cert_store
                 cert_store = loader.cert_store
                 context.cert = loader.get_certificate(cert_thumbprint) if cert_thumbprint
