@@ -36,6 +36,15 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data('regexp' => 'regexp', 'string' => 'string')
+  def test_parse_with_subsecond_time(param)
+    @parser.configure('time_format' => '%b %d %H:%M:%S.%N', 'parser_type' => param)
+    @parser.instance.parse('Feb 28 12:00:00.456 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+      assert_equal(event_time('Feb 28 12:00:00.456', format: '%b %d %H:%M:%S.%N'), time)
+      assert_equal(@expected, record)
+    }
+  end
+
+  data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_with_priority(param)
     @parser.configure('with_priority' => true, 'parser_type' => param)
     @parser.instance.parse('<6>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
@@ -88,6 +97,52 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected.merge('pri' => 6, 'ident' => ident), record)
     }
+  end
+
+  sub_test_case 'Check the difference of regexp and string parser' do
+    # examples from rfc3164
+    data('regexp' => 'regexp', 'string' => 'string')
+    test 'wrong result with no ident message by default' do |param|
+      @parser.configure('parser_type' => param)
+      @parser.instance.parse('Feb  5 17:32:18 10.0.0.99 Use the BFG!') { |time, record|
+        assert_equal({'host' => '10.0.0.99', 'ident' => 'Use', 'message' => 'the BFG!'}, record)
+      }
+    end
+
+    test "proper result with no ident message by 'support_colonless_ident false'" do
+      @parser.configure('parser_type' => 'string', 'support_colonless_ident' => false)
+      @parser.instance.parse('Feb  5 17:32:18 10.0.0.99 Use the BFG!') { |time, record|
+        assert_equal({'host' => '10.0.0.99', 'message' => 'Use the BFG!'}, record)
+      }
+    end
+
+    data('regexp' => 'regexp', 'string' => 'string')
+    test "both parsers can't parse broken syslog message" do |param|
+      @parser.configure('parser_type' => param)
+      if param == 'string'
+        @parser.instance.parse("1990 Oct 22 10:52:01 TZ-6 scapegoat.dmz.example.org 10.1.2.32 sched[0]: That's All Folks!") { |time, record|
+          expected = {'host' => 'scapegoat.dmz.example.org', 'ident' => 'sched', 'pid' => '0', 'message' => "That's All Folks!"}
+          assert_not_equal(expected, record)
+        }
+      else
+        assert_raise(Fluent::TimeParser::TimeParseError) {
+          @parser.instance.parse("1990 Oct 22 10:52:01 TZ-6 scapegoat.dmz.example.org 10.1.2.32 sched[0]: That's All Folks!") { |time, record| }
+        }
+      end
+    end
+
+    data('regexp' => 'regexp', 'string' => 'string')
+    test "':' included message breaks regexp parser" do |param|
+      @parser.configure('parser_type' => param)
+      @parser.instance.parse('Aug 10 12:00:00 127.0.0.1 test foo:bar') { |time, record|
+        expected = {'host' => '127.0.0.1', 'ident' => 'test', 'message' => 'foo:bar'}
+        if param == 'string'
+          assert_equal(expected, record)
+        else
+          assert_not_equal(expected, record)
+        end
+      }
+    end
   end
 
   class TestRFC5424Regexp < self
