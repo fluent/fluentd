@@ -88,14 +88,6 @@ module Fluent
           end
         end
 
-        type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
-        if @@buffer_paths.has_key?(@path) && !called_in_test?
-          type_using_this_path = @@buffer_paths[@path]
-          raise Fluent::ConfigError, "Other '#{type_using_this_path}' plugin already uses same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
-        end
-
-        @@buffer_paths[@path] = type_of_owner
-
         specified_directory_exists = File.exist?(@path) && File.directory?(@path)
         unexisting_path_for_directory = !File.exist?(@path) && !@path.include?('.*')
 
@@ -124,6 +116,13 @@ module Fluent
           @multi_workers_available = false
         end
 
+        type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
+        if @@buffer_paths.has_key?(@path) && !called_in_test?
+          type_using_this_path = @@buffer_paths[@path]
+          raise Fluent::ConfigError, "Other '#{type_using_this_path}' plugin already uses same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
+        end
+
+        @@buffer_paths[@path] = type_of_owner
         @dir_permission = if @dir_permission
                             @dir_permission.to_i(8)
                           else
