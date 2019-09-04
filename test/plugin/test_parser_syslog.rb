@@ -116,19 +116,19 @@ class SyslogParserTest < ::Test::Unit::TestCase
       }
     end
 
-    data('regexp' => 'regexp', 'string' => 'string')
-    test "both parsers can't parse broken syslog message" do |param|
-      @parser.configure('parser_type' => param)
-      if param == 'string'
-        @parser.instance.parse("1990 Oct 22 10:52:01 TZ-6 scapegoat.dmz.example.org 10.1.2.32 sched[0]: That's All Folks!") { |time, record|
-          expected = {'host' => 'scapegoat.dmz.example.org', 'ident' => 'sched', 'pid' => '0', 'message' => "That's All Folks!"}
-          assert_not_equal(expected, record)
-        }
-      else
-        assert_raise(Fluent::TimeParser::TimeParseError) {
-          @parser.instance.parse("1990 Oct 22 10:52:01 TZ-6 scapegoat.dmz.example.org 10.1.2.32 sched[0]: That's All Folks!") { |time, record| }
-        }
-      end
+    test "string parsers can't parse broken syslog message and generate wrong record" do
+      @parser.configure('parser_type' => 'string')
+      @parser.instance.parse("1990 Oct 22 10:52:01 TZ-6 scapegoat.dmz.example.org 10.1.2.32 sched[0]: That's All Folks!") { |time, record|
+        expected = {'host' => 'scapegoat.dmz.example.org', 'ident' => 'sched', 'pid' => '0', 'message' => "That's All Folks!"}
+        assert_not_equal(expected, record)
+      }
+    end
+
+    test "regexp parsers can't parse broken syslog message and raises an error" do
+      @parser.configure('parser_type' => 'regexp')
+      assert_raise(Fluent::TimeParser::TimeParseError) {
+        @parser.instance.parse("1990 Oct 22 10:52:01 TZ-6 scapegoat.dmz.example.org 10.1.2.32 sched[0]: That's All Folks!") { |time, record| }
+      }
     end
 
     data('regexp' => 'regexp', 'string' => 'string')
