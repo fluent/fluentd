@@ -138,6 +138,25 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
   end
 
+  test 'raise config error when using same file path' do
+    d = FluentPluginFileSingleBufferTest::DummyOutputPlugin.new
+    d2 = FluentPluginFileSingleBufferTest::DummyOutputPlugin.new
+    Fluent::SystemConfig.overwrite_system_config({}) do
+      d.configure(config_element('ROOT', '', {}, [config_element('buffer', '', { 'path' => File.join(PATH, 'foo.*.bar') })]))
+    end
+
+    any_instance_of(Fluent::Plugin::FileSingleBuffer) do |klass|
+      stub(klass).called_in_test? { false }
+    end
+
+    err = assert_raise(Fluent::ConfigError) do
+      Fluent::SystemConfig.overwrite_system_config({}) do
+        d2.configure(config_element('ROOT', '', {}, [config_element('buffer', '', { 'path' => PATH })]))
+      end
+    end
+    assert_match(/plugin already uses same buffer path/, err.message)
+  end
+
   sub_test_case 'buffer plugin configured only with path' do
     setup do
       @bufpath = File.join(@bufdir, 'testbuf.*.buf')
