@@ -300,6 +300,13 @@ module Fluent
             # This case is easier than enqueued!. Just removing pre-create buffer file
             @chunk.close rescue nil
             File.unlink(@path) rescue nil
+
+            if @meta
+              # ensure to unlink when #write_metadata fails
+              @meta.close rescue nil
+              File.unlink(@meta_path) rescue nil
+            end
+
             # Same as @chunk case. See above
             raise BufferOverflowError, "can't create buffer metadata for #{path}. Stop creating buffer files: error = #{e}"
           end
