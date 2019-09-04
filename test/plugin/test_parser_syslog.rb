@@ -143,6 +143,21 @@ class SyslogParserTest < ::Test::Unit::TestCase
         end
       }
     end
+
+    data('regexp' => 'regexp', 'string' => 'string')
+    test "Only no whitespace content in MSG causes different result" do |param|
+      @parser.configure('parser_type' => param)
+      @parser.instance.parse('Aug 10 12:00:00 127.0.0.1 value1,value2,value3,value4') { |time, record|
+        # 'message' is correct but regexp set it as 'ident'
+        if param == 'string'
+          expected = {'host' => '127.0.0.1', 'message' => 'value1,value2,value3,value4'}
+          assert_equal(expected, record)
+        else
+          expected = {'host' => '127.0.0.1', 'ident' => 'value1,value2,value3,value4', 'message' => ''}
+          assert_equal(expected, record)
+        end
+      }
+    end
   end
 
   class TestRFC5424Regexp < self

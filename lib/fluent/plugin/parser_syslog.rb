@@ -200,34 +200,33 @@ module Fluent
         record['pri'] = pri if pri
 
         i = text.index(SPLIT_CHAR, cursor)
-        if i.nil?
-          yield nil, nil
-          return
-        end
-        diff = i - cursor
 
         # message part
-        msg = if text[i - 1] == ':'.freeze
-                if text[i - 2] == ']'.freeze
-                  j = text.index('['.freeze, cursor)
-                  record['ident'] = text.slice(cursor, j - cursor)
-                  record['pid'] = text.slice(j + 1, i - j - 3) # remove '[' / ']:'
-                else
-                  record['ident'] = text.slice(cursor, i - cursor - 1)
-                end
-                text.slice(i + 1, text.bytesize)
+        msg = if i.nil?  # for 'only non-space content case'
+                text.slice(cursor, text.bytesize)
               else
-                if @support_colonless_ident
-                  if text[i - 1] == ']'.freeze
+                if text[i - 1] == ':'.freeze
+                  if text[i - 2] == ']'.freeze
                     j = text.index('['.freeze, cursor)
                     record['ident'] = text.slice(cursor, j - cursor)
-                    record['pid'] = text.slice(j + 1, i - j - 2) # remove '[' / ']'
+                    record['pid'] = text.slice(j + 1, i - j - 3) # remove '[' / ']:'
                   else
-                    record['ident'] = text.slice(cursor, i - cursor)
+                    record['ident'] = text.slice(cursor, i - cursor - 1)
                   end
                   text.slice(i + 1, text.bytesize)
                 else
-                  text.slice(cursor, text.bytesize)
+                  if @support_colonless_ident
+                    if text[i - 1] == ']'.freeze
+                      j = text.index('['.freeze, cursor)
+                      record['ident'] = text.slice(cursor, j - cursor)
+                      record['pid'] = text.slice(j + 1, i - j - 2) # remove '[' / ']'
+                    else
+                      record['ident'] = text.slice(cursor, i - cursor)
+                    end
+                    text.slice(i + 1, text.bytesize)
+                  else
+                    text.slice(cursor, text.bytesize)
+                  end
                 end
               end
         msg.chomp!
