@@ -232,7 +232,7 @@ module Fluent
         msg.chomp!
         record['message'] = msg
 
-        time = @time_parser.parse(time_str.squeeze(SPLIT_CHAR))
+        time = @time_parser.parse(time_str)
         record['time'] = time_str if @keep_time_key
 
         yield time, record
