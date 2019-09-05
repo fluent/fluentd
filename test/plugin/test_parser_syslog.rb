@@ -56,6 +56,15 @@ class SyslogParserTest < ::Test::Unit::TestCase
   end
 
   data('regexp' => 'regexp', 'string' => 'string')
+  def test_parse_with_empty_priority(param)
+    @parser.configure('with_priority' => true, 'parser_type' => param)
+    @parser.instance.parse('<>Feb 28 12:00:00 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+      assert_nil time
+      assert_nil record
+    }
+  end
+
+  data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_without_colon(param)
     @parser.configure({'parser_type' => param})
     @parser.instance.parse('Feb 28 12:00:00 192.168.0.1 fluentd[11111] [error] Syslog test') { |time, record|

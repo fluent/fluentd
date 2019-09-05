@@ -155,14 +155,17 @@ module Fluent
       end
 
       SPLIT_CHAR = ' '.freeze
-      PRI_START_CHAR = '<'.freeze
 
       def parse_rfc3164(text, &block)
         pri = nil
         cursor = 0
         if @with_priority
-          if text.start_with?(PRI_START_CHAR)
+          if text.start_with?('<'.freeze)
             i = text.index('>'.freeze, 1)
+            if i < 2
+              yield nil, nil
+              return
+            end
             pri = text.slice(1, i - 1).to_i
             cursor = i + 1
           else
