@@ -175,14 +175,14 @@ module Fluent
         end
 
         # header part
-        time_diff = 15 # skip Mmm dd hh:mm:ss
-        time_end = text[cursor + time_diff]
+        time_size = 15 # skip Mmm dd hh:mm:ss
+        time_end = text[cursor + time_size]
         if time_end == SPLIT_CHAR
-          time_str = text.slice(cursor, time_diff)
+          time_str = text.slice(cursor, time_size)
           cursor += 16 # time + ' '
         elsif time_end == '.'.freeze
           # support subsecond time
-          i = text.index(SPLIT_CHAR, time_diff)
+          i = text.index(SPLIT_CHAR, time_size)
           time_str = text.slice(cursor, i - cursor)
           cursor = i + 1
         else
@@ -195,9 +195,9 @@ module Fluent
           yield nil, nil
           return
         end
-        host_diff = i - cursor
-        host = text.slice(cursor, host_diff)
-        cursor += (host_diff + 1)
+        host_size = i - cursor
+        host = text.slice(cursor, host_size)
+        cursor += host_size + 1
 
         record = {'host' => host}
         record['pri'] = pri if pri
@@ -210,9 +210,9 @@ module Fluent
               else
                 if text[i - 1] == ':'.freeze
                   if text[i - 2] == ']'.freeze
-                    j = text.index('['.freeze, cursor)
-                    record['ident'] = text.slice(cursor, j - cursor)
-                    record['pid'] = text.slice(j + 1, i - j - 3) # remove '[' / ']:'
+                    left_braket_pos = text.index('['.freeze, cursor)
+                    record['ident'] = text.slice(cursor, left_braket_pos - cursor)
+                    record['pid'] = text.slice(left_braket_pos + 1, i - left_braket_pos - 3) # remove '[' / ']:'
                   else
                     record['ident'] = text.slice(cursor, i - cursor - 1)
                   end
@@ -220,9 +220,9 @@ module Fluent
                 else
                   if @support_colonless_ident
                     if text[i - 1] == ']'.freeze
-                      j = text.index('['.freeze, cursor)
-                      record['ident'] = text.slice(cursor, j - cursor)
-                      record['pid'] = text.slice(j + 1, i - j - 2) # remove '[' / ']'
+                      left_braket_pos = text.index('['.freeze, cursor)
+                      record['ident'] = text.slice(cursor, left_braket_pos - cursor)
+                      record['pid'] = text.slice(left_braket_pos + 1, i - left_braket_pos - 2) # remove '[' / ']'
                     else
                       record['ident'] = text.slice(cursor, i - cursor)
                     end
