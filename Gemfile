@@ -2,6 +2,8 @@ source 'https://rubygems.org/'
 
 gemspec
 
+gem 'chunkio', path: '/Users/yuta.iwama/src/github.com/ganmacs/chunkio'
+
 # https://github.com/socketry/async-io/blob/v1.23.1/async-io.gemspec#L21
 if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('2.3.0')
   gem 'async-http', '~> 0.42'
