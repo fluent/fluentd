@@ -1,5 +1,28 @@
 # v1.7
 
+## Release v1.7.1 - 2019/09/08
+
+### Enhancement
+
+* socket helper/out_forward: Support Windows certstore to load certificates
+  https://github.com/fluent/fluentd/pull/2601
+* parser_syslog: Add faster parser for rfc3164 message
+  https://github.com/fluent/fluentd/pull/2599
+
+### Bug fixes
+
+* buf_file/buf_file_single: fix to ignore placeholder based path.
+  https://github.com/fluent/fluentd/pull/2594
+* server helper: Ignore ETIMEDOUT error in SSL_accept
+  https://github.com/fluent/fluentd/pull/2595
+* buf_file: ensure to remove metadata after buffer creation failure
+  https://github.com/fluent/fluentd/pull/2598
+* buf_file_single: fix duplicated path setting check
+  https://github.com/fluent/fluentd/pull/2600
+* fix msgpack-ruby depedency to use recent feature
+  https://github.com/fluent/fluentd/pull/2606
+
+
 ## Release v1.7.0 - 2019/08/20
 
 ### New feature
