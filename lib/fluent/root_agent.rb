@@ -240,7 +240,7 @@ module Fluent
         lifecycle do |instance, kind|
           begin
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-            instance.send(method) unless instance.send(checker)
+            instance.__send__(method) unless instance.__send__(checker)
           rescue Exception => e
             log.warn "unexpected error while calling #{method} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
@@ -270,17 +270,17 @@ module Fluent
                 operation = "preparing shutdown" # for logging
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
                 begin
-                  instance.send(:before_shutdown) unless instance.send(:before_shutdown?)
+                  instance.__send__(:before_shutdown) unless instance.__send__(:before_shutdown?)
                 rescue Exception => e
                   log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
                   log.warn_backtrace
                 end
                 operation = "shutting down"
                 log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(:shutdown) unless instance.send(:shutdown?)
+                instance.__send__(:shutdown) unless instance.__send__(:shutdown?)
               else
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(method) unless instance.send(checker)
+                instance.__send__(method) unless instance.__send__(checker)
               end
             rescue Exception => e
               log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
