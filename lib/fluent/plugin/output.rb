@@ -310,6 +310,9 @@ module Fluent
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
             @timekey = @buffer_config.timekey
+            if @timekey <= 0
+              raise Fluent::ConfigError, "timekey should be greater than 0. current timekey: #{@timekey}"
+            end
             @timekey_use_utc = @buffer_config.timekey_use_utc
             @offset = Fluent::Timezone.utc_offset(@timekey_zone)
             @calculate_offset = @offset.respond_to?(:call) ? @offset : nil
