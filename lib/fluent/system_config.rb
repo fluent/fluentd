@@ -136,7 +136,7 @@ module Fluent
             supervisor_value = instance_variable_get("@#{param}")
             next if supervisor_value.nil? # it's not configured by command line options
 
-            system.send("#{param}=", supervisor_value)
+            system.__send__("#{param}=", supervisor_value)
           end
         end
       }
@@ -179,7 +179,7 @@ module Fluent
           @_system_config = (defined?($_system_config) && $_system_config ? $_system_config : Fluent::Engine.system_config).dup
         end
         opts.each_pair do |key, value|
-          @_system_config.send(:"#{key.to_s}=", value)
+          @_system_config.__send__(:"#{key.to_s}=", value)
         end
       end
     end

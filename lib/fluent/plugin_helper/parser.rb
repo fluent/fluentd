@@ -103,7 +103,7 @@ module Fluent
       def parser_operate(method_name, &block)
         @_parsers.each_pair do |usage, parser|
           begin
-            parser.send(method_name)
+            parser.__send__(method_name)
             block.call(parser) if block_given?
           rescue => e
             log.error "unexpected error while #{method_name}", usage: usage, parser: parser, error: e
