@@ -868,6 +868,23 @@ class OutputTest < Test::Unit::TestCase
     end
   end
 
+  test 'raises an error if timekey is less than equal 0' do
+    i = create_output(:delayed)
+    assert_raise Fluent::ConfigError.new('timekey should be greater than 0. current timekey: 0.0') do
+      i.configure(config_element('ROOT','',{},[config_element('buffer', 'time', { "timekey" => nil })]))
+    end
+
+    i = create_output(:delayed)
+    assert_raise Fluent::ConfigError.new('timekey should be greater than 0. current timekey: 0.0') do
+      i.configure(config_element('ROOT','',{},[config_element('buffer', 'time', { "timekey" => 0 })]))
+    end
+
+    i = create_output(:delayed)
+    assert_raise Fluent::ConfigError.new('timekey should be greater than 0. current timekey: -1.0') do
+      i.configure(config_element('ROOT','',{},[config_element('buffer', 'time', { "timekey" => -1 })]))
+    end
+  end
+
   sub_test_case 'sync output feature' do
     setup do
       @i = create_output(:sync)
