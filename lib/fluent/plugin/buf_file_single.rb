@@ -167,7 +167,7 @@ module Fluent
           end
 
           begin
-            chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path)
+            chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(m, path, mode, @key_in_path, compress: @compress)
             chunk.restore_size(@chunk_format) if @calc_num_records
           rescue Fluent::Plugin::Buffer::FileSingleChunk::FileChunkError => e
             handle_broken_files(path, mode, e)
