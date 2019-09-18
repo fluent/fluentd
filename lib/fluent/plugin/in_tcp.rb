@@ -41,6 +41,16 @@ module Fluent::Plugin
     desc 'The payload is read up to this character.'
     config_param :delimiter, :string, default: "\n" # syslog family add "\n" to each message and this seems only way to split messages in tcp stream
 
+    # in_forward like host/network restriction
+    config_section :security, required: false, multi: false do
+      config_section :client, param_name: :clients, required: true, multi: true do
+        desc 'The IP address or host name of the client'
+        config_param :host, :string, default: nil
+        desc 'Network address specification'
+        config_param :network, :string, default: nil
+      end
+    end
+
     def configure(conf)
       compat_parameters_convert(conf, :parser)
       parser_config = conf.elements('parse').first
@@ -50,6 +60,33 @@ module Fluent::Plugin
       super
       @_event_loop_blocking_timeout = @blocking_timeout
       @source_hostname_key ||= @source_host_key if @source_host_key
+
+      @nodes = nil
+      if @security
+        @nodes = []
+        @security.clients.each do |client|
+          if client.host && client.network
+            raise Fluent::ConfigError, "both of 'host' and 'network' are specified for client"
+          end
+          if !client.host && !client.network
+            raise Fluent::ConfigError, "Either of 'host' and 'network' must be specified for client"
+          end
+          source = nil
+          if client.host
+            begin
+              source = IPSocket.getaddress(client.host)
+            rescue SocketError
+              raise Fluent::ConfigError, "host '#{client.host}' cannot be resolved"
+            end
+          end
+          source_addr = begin
+                          IPAddr.new(source || client.network)
+                        rescue ArgumentError
+                          raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
+                        end
+          @nodes.push(source_addr)
+        end
+      end
 
       @parser = parser_create(conf: parser_config)
     end
@@ -64,6 +101,11 @@ module Fluent::Plugin
       del_size = @delimiter.length
       if @_extract_enabled && @_extract_tag_key
         server_create(:in_tcp_server_single_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
+          unless check_client(conn)
+            conn.close
+            next
+          end
+
           conn.buffer << data
           buf = conn.buffer
           pos = 0
@@ -89,6 +131,11 @@ module Fluent::Plugin
         end
       else
         server_create(:in_tcp_server_batch_emit, @port, bind: @bind, resolve_name: !!@source_hostname_key) do |data, conn|
+          unless check_client(conn)
+            conn.close
+            next
+          end
+
           conn.buffer << data
           buf = conn.buffer
           pos = 0
@@ -113,6 +160,21 @@ module Fluent::Plugin
           buf.slice!(0, pos) if pos > 0
         end
       end
+    end
+
+    private
+
+    def check_client(conn)
+      if @nodes
+        remote_addr = conn.remote_addr
+        node = @nodes.find { |n| n.include?(remote_addr) rescue false }
+        unless node
+          log.warn "anonymous client '#{remote_addr}' denied"
+          return false
+        end
+      end
+
+      true
     end
   end
 end
