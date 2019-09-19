@@ -163,6 +163,46 @@ class TcpInputTest < Test::Unit::TestCase
     assert_equal address, event[2]['addr']
   end
 
+  sub_test_case '<security>' do
+    test 'accept from allowed client' do
+      d = create_driver(CONFIG + %!
+        <security>
+          <client>
+            network 127.0.0.1
+          </client>
+        </security>
+      !)
+      d.run(expect_records: 1) do
+        create_tcp_socket('127.0.0.1', PORT) do |sock|
+          sock.send("hello\n", 0)
+        end
+      end
+
+      assert_equal 1, d.events.size
+      event = d.events[0]
+      assert_equal 'tcp', event[0]
+      assert_equal 'hello', event[2]['message']
+    end
+
+    test 'deny from disallowed client' do
+      d = create_driver(CONFIG + %!
+        <security>
+          <client>
+            network 200.0.0.0
+          </client>
+        </security>
+      !)
+      d.run(shutdown: false, expect_records: 1, timeout: 2) do
+        create_tcp_socket('127.0.0.1', PORT) do |sock|
+          sock.send("hello\n", 0)
+        end
+      end
+
+      assert_equal 1, d.instance.log.logs.count { |l| l =~ /anonymous client/ }
+      assert_equal 0, d.events.size
+    end
+  end
+
   sub_test_case '<extract>' do
     test 'extract tag from record field' do
       d = create_driver(BASE_CONFIG + %!
