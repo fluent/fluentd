@@ -1,5 +1,22 @@
 # v1.7
 
+## Release v1.7.2 - 2019/09/19
+
+### Enhancement
+
+* in_tcp: Add security/client to restrict access
+  https://github.com/fluent/fluentd/pull/2622
+
+### Bug fixes
+
+* buf_file/buf_file_single: fix to handle compress data during restart
+  https://github.com/fluent/fluentd/pull/2620
+* plugin: Use `__send__` to avoid conflict with user defined `send`
+  https://github.com/fluent/fluentd/pull/2614
+* buffer: reject invalid timekey at configure phase
+  https://github.com/fluent/fluentd/pull/2615
+
+
 ## Release v1.7.1 - 2019/09/08
 
 ### Enhancement
