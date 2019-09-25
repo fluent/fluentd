@@ -495,7 +495,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
     end
   end
 
-  test 'ensure to remove metadata file if #write_metadata raise an error becuase of disk full' do
+  test 'ensure to remove metadata file if #write_metadata raise an error because of disk full' do
     chunk_path = File.join(@chunkdir, 'test.*.log')
     stub(Fluent::UniqueId).hex(anything) { 'id' } # to fix chunk id
 

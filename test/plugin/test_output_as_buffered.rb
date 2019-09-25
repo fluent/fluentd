@@ -1112,7 +1112,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         assert_equal(0, @i.write_count)
 
         Timecop.freeze(Time.parse('2019-02-09 00:00:12 +0900'))
-        # wirte should be called in few seconds since
+        # write should be called in few seconds since
         # running interval of enque thread is timekey_wait / 11.0.
         waiting(5){ sleep 0.1 until @i.write_count == 1 }
       end
