@@ -5,7 +5,7 @@ require 'timecop'
 
 class SocketCacheTest < Test::Unit::TestCase
   sub_test_case 'checkout_or' do
-    test 'when gived key does not exist' do
+    test 'when given key does not exist' do
       c = Fluent::Plugin::ForwardOutput::SocketCache.new(10, $log)
       sock = mock!.open { 'socket' }.subject
       assert_equal('socket', c.checkout_or('key') { sock.open })
