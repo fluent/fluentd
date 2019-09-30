@@ -81,7 +81,9 @@ module Fluent::Plugin
               end
             end
           end
-          @available_sockets = @available_sockets.select { |_, v| !v.empty? }
+
+          # reuse same object (@available_sockets)
+          @available_sockets.reject! { |_, v| v.empty? }
 
           sockets += @inactive_sockets
           @inactive_sockets.clear
