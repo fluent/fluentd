@@ -217,11 +217,15 @@ EOS
     compare_test_result(d.events, tests, {host: host})
   end
 
-  def test_msg_size_with_priority_key
-    d = create_driver([CONFIG, 'priority_key priority'].join("\n"))
+  data(
+    severity_key: 'severity_key',
+    priority_key: 'priority_key',
+  )
+  def test_msg_size_with_severity_key(param_name)
+    d = create_driver([CONFIG, "#{param_name} severity"].join("\n"))
     tests = create_test_case
 
-    priority = 'info'
+    severity = 'info'
     d.run(expect_emits: 2) do
       u = UDPSocket.new
       u.connect('127.0.0.1', PORT)
@@ -231,7 +235,7 @@ EOS
     end
 
     assert(d.events.size > 0)
-    compare_test_result(d.events, tests, {priority: priority})
+    compare_test_result(d.events, tests, {severity: severity})
   end
 
   def test_msg_size_with_facility_key
@@ -311,7 +315,7 @@ EOS
       assert_equal(options[:host], events[i][2]['source_host']) if options[:host]
       assert_equal(options[:address], events[i][2]['source_address']) if options[:address]
       assert_equal(options[:hostname], events[i][2]['source_hostname']) if options[:hostname]
-      assert_equal(options[:priority], events[i][2]['priority']) if options[:priority]
+      assert_equal(options[:severity], events[i][2]['severity']) if options[:severity]
       assert_equal(options[:facility], events[i][2]['facility']) if options[:facility]
     }
   end
