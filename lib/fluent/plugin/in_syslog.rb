@@ -56,7 +56,7 @@ module Fluent::Plugin
       23  => 'local7'
     }
 
-    PRIORITY_MAP = {
+    SEVERITY_MAP = {
       0  => 'emerg',
       1  => 'alert',
       2  => 'crit',
@@ -91,8 +91,8 @@ module Fluent::Plugin
     config_param :resolve_hostname, :bool, default: nil
     desc 'The field name of source address of sender.'
     config_param :source_address_key, :string, default: nil
-    desc 'The field name of the priority.'
-    config_param :priority_key, :string, default: nil
+    desc 'The field name of the severity.'
+    config_param :severity_key, :string, default: nil, alias: :priority_key
     desc 'The field name of the facility.'
     config_param :facility_key, :string, default: nil
 
@@ -118,6 +118,10 @@ module Fluent::Plugin
       compat_parameters_convert(conf, :parser)
 
       super
+
+      if conf.has_key?('priority_key')
+        log.warn "priority_key is deprecated. Use severity_key instead"
+      end
 
       @use_default = false
 
@@ -233,14 +237,14 @@ module Fluent::Plugin
 
         pri ||= record.delete('pri')
         facility = FACILITY_MAP[pri >> 3]
-        priority = PRIORITY_MAP[pri & 0b111]
+        severity = SEVERITY_MAP[pri & 0b111]
 
-        record[@priority_key] = priority if @priority_key
+        record[@severity_key] = severity if @severity_key
         record[@facility_key] = facility if @facility_key
         record[@source_address_key] = sock.remote_addr if @source_address_key
         record[@source_hostname_key] = sock.remote_host if @source_hostname_key
 
-        tag = "#{@tag}.#{facility}.#{priority}"
+        tag = "#{@tag}.#{facility}.#{severity}"
         emit(tag, time, record)
       end
     rescue => e
