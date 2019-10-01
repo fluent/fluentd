@@ -18,6 +18,7 @@ require 'fluent/output'
 require 'fluent/config/error'
 require 'fluent/clock'
 require 'base64'
+require 'forwardable'
 
 require 'fluent/compat/socket_util'
 require 'fluent/plugin/out_forward/handshake_protocol'
@@ -32,7 +33,7 @@ module Fluent::Plugin
   class ForwardOutput < Output
     Fluent::Plugin.register_output('forward', self)
 
-    helpers :socket, :server, :timer, :thread, :compat_parameters
+    helpers :socket, :server, :timer, :thread, :compat_parameters, :service_discovery
 
     LISTEN_PORT = 24224
 
@@ -224,23 +225,39 @@ module Fluent::Plugin
         socket_cache: socket_cache,
       )
 
-      @servers.each do |server|
-        failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
-        name = server.name || "#{server.host}:#{server.port}"
+      configs = []
 
-        log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
-        if @heartbeat_type == :none
-          @nodes << NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
-        else
-          node = Node.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
+      # rewrite for using server as sd_static
+      conf.elements(name: 'server').each do |s|
+        s.name = 'service'
+      end
+
+      unless conf.elements(name: 'service').empty?
+        configs << { type: :static, conf: conf }
+      end
+
+      conf.elements(name: 'service_discovery').each_with_index do |c, i|
+        configs << { type: @service_discovery[i][:@type], conf: c }
+      end
+
+      service_disovery_create_manager(
+        :out_forward_service_discovery_watcher,
+        configurations: configs,
+        load_balancer: LoadBalancer.new(log),
+        custom_build_method: method(:build_node),
+      )
+
+      discovery_manager.services.each do |server|
+        # it's only for test
+        @nodes << server
+        unless @heartbeat_type == :none
           begin
-            node.validate_host_resolution!
+            server.validate_host_resolution!
           rescue => e
             raise unless @ignore_network_errors_at_startup
             log.warn "failed to resolve node name when configured", server: (server.name || server.host), error: e
-            node.disable!
+            server.disable!
           end
-          @nodes << node
         end
       end
 
@@ -252,8 +269,8 @@ module Fluent::Plugin
         end
       end
 
-      if @nodes.empty?
-        raise Fluent::ConfigError, "forward output plugin requires at least one <server> is required"
+      if discovery_manager.services.empty?
+        raise Fluent::ConfigError, "forward output plugin requires at least one node is required. Add <server> or <service_discovery>"
       end
 
       if !@keepalive && @keepalive_timeout
@@ -274,12 +291,9 @@ module Fluent::Plugin
     def start
       super
 
-      @load_balancer = LoadBalancer.new(log)
-      @load_balancer.rebuild_weight_array(@nodes)
-
       unless @heartbeat_type == :none
         if @heartbeat_type == :udp
-          @usock = socket_create_udp(@nodes.first.host, @nodes.first.port, nonblock: true)
+          @usock = socket_create_udp(discovery_manager.services.first.host, discovery_manager.services.first.port, nonblock: true)
           server_create_udp(:out_forward_heartbeat_receiver, 0, socket: @usock, max_bytes: @read_length, &method(:on_udp_heatbeat_response_recv))
         end
         timer_execute(:out_forward_heartbeat_request, @heartbeat_interval, &method(:on_heartbeat_timer))
@@ -297,7 +311,7 @@ module Fluent::Plugin
       end
 
       if @verify_connection_at_startup
-        @nodes.each do |node|
+        discovery_manager.services.each do |node|
           begin
             node.verify_connection
           rescue StandardError => e
@@ -333,7 +347,7 @@ module Fluent::Plugin
       return if chunk.empty?
       tag = chunk.metadata.tag
 
-      @load_balancer.select_healthy_node { |node| node.send_data(tag, chunk) }
+      discovery_manager.select_service { |node| node.send_data(tag, chunk) }
     end
 
     def try_write(chunk)
@@ -343,7 +357,7 @@ module Fluent::Plugin
         return
       end
       tag = chunk.metadata.tag
-      @load_balancer.select_healthy_node { |n| n.send_data(tag, chunk) }
+      discovery_manager.select_service { |node| node.send_data(tag, chunk) }
     end
 
     def create_transfer_socket(host, port, hostname, &block)
@@ -387,6 +401,23 @@ module Fluent::Plugin
       end
     end
 
+    def statistics
+      stats = super
+      services = discovery_manager.services
+      healty_nodes_count = 0
+      registed_nodes_count = services.size
+      services.each do |s|
+        if s.available?
+          healty_nodes_count += 1
+        end
+      end
+
+      stats.merge(
+        'healty_nodes_count' => healty_nodes_count,
+        'registered_nodes_count' => registed_nodes_count,
+      )
+    end
+
     # MessagePack FixArray length is 3
     FORWARD_HEADER = [0x93].pack('C').freeze
     def forward_header
@@ -395,9 +426,21 @@ module Fluent::Plugin
 
     private
 
+    def build_node(server)
+      name = server.name || "#{server.host}:#{server.port}"
+      log.info "adding forwarding server '#{name}'", host: server.host, port: server.port, weight: server.weight, plugin_id: plugin_id
+
+      failure = FailureDetector.new(@heartbeat_interval, @hard_timeout, Time.now.to_i.to_f)
+      if @heartbeat_type == :none
+        NoneHeartbeatNode.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
+      else
+        Node.new(self, server, failure: failure, connection_manager: @connection_manager, ack_handler: @ack_handler)
+      end
+    end
+
     def on_heartbeat_timer
       need_rebuild = false
-      @nodes.each do |n|
+      discovery_manager.services.each do |n|
         begin
           log.trace "sending heartbeat", host: n.host, port: n.port, heartbeat_type: @heartbeat_type
           n.usock = @usock if @usock
@@ -412,19 +455,19 @@ module Fluent::Plugin
       end
 
       if need_rebuild
-        @load_balancer.rebuild_weight_array(@nodes)
+        discovery_manager.rebalance
       end
     end
 
     def on_udp_heatbeat_response_recv(data, sock)
       sockaddr = Socket.pack_sockaddr_in(sock.remote_port, sock.remote_host)
-      if node = @nodes.find { |n| n.sockaddr == sockaddr }
+      if node = discovery_manager.services.find { |n| n.sockaddr == sockaddr }
         # log.trace "heartbeat arrived", name: node.name, host: node.host, port: node.port
         if node.heartbeat
-          @load_balancer.rebuild_weight_array(@nodes)
+          discovery_manager.rebalance
         end
       else
-        log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}")
+        log.warn("Unknown heartbeat response received from #{sock.remote_host}:#{sock.remote_port}. It may service out")
       end
     end
 
@@ -463,12 +506,16 @@ module Fluent::Plugin
     end
 
     class Node
+      extend Forwardable
+      def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby, :username, :password, :shared_key
+
       # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
       # @param ack_handler [Fluent::Plugin::ForwardOutput::AckHandler]
       def initialize(sender, server, failure:, connection_manager:, ack_handler:)
         @sender = sender
         @log = sender.log
         @compress = sender.compress
+        @server = server
 
         @name = server.name
         @host = server.host
@@ -508,7 +555,7 @@ module Fluent::Plugin
 
       attr_accessor :usock
 
-      attr_reader :name, :host, :port, :weight, :standby, :state
+      attr_reader :state
       attr_reader :sockaddr  # used by on_udp_heatbeat_response_recv
       attr_reader :failure # for test
 

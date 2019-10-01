@@ -39,7 +39,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def create_driver(conf=CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
-      attr_reader :sent_chunk_ids, :ack_handler
+      attr_reader :sent_chunk_ids, :ack_handler, :discovery_manager
 
       def initialize
         super
@@ -258,6 +258,30 @@ EOL
       assert_equal "Root", d.instance.tls_cert_logical_store_name
       assert_equal "a909502dd82ae41433e6f83886b00d4277a32a7b", d.instance.tls_cert_thumbprint
     end
+  end
+
+  test 'server is an abbreviation of static type of service_discovery' do
+    @d = d = create_driver(%[
+<server>
+  host 127.0.0.1
+  port 1234
+</server>
+
+<service_discovery>
+  @type static
+
+  <service>
+    host 127.0.0.1
+    port 1235
+  </service>
+</service_discovery>
+    ])
+
+    assert_equal 2, d.instance.discovery_manager.services.size
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
+    assert_equal 1234, d.instance.discovery_manager.services[0].port
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[1].host
+    assert_equal 1235, d.instance.discovery_manager.services[1].port
   end
 
   test 'compress_default_value' do

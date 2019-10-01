@@ -36,8 +36,8 @@ module Fluent::Plugin
         wlen = @weight_array.size
         wlen.times do
           node = @mutex.synchronize do
-            r = @rr
-            @rr = (@rr + 1) % @weight_array.size
+            r = @rr % @weight_array.size
+            @rr = (r + 1) % @weight_array.size
             @weight_array[r]
           end
           next unless node.available?
@@ -106,6 +106,9 @@ module Fluent::Plugin
           @weight_array = weight_array
         end
       end
+
+      alias select_service select_healthy_node
+      alias rebalance rebuild_weight_array
     end
   end
 end
