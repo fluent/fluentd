@@ -1,5 +1,19 @@
 # v1.7
 
+## Release v1.7.3 - 2019/10/01
+
+### Enhancement
+
+* in_syslog: Replace priority_key with severity_key
+  https://github.com/fluent/fluentd/pull/2636
+
+### Bug fixes
+
+* out_forward: Fix nil error after purge obsoleted sockets in socket cache
+  https://github.com/fluent/fluentd/pull/2635
+* fix typo in ChangeLog
+  https://github.com/fluent/fluentd/pull/2633
+
 ## Release v1.7.2 - 2019/09/19
 
 ### Enhancement
