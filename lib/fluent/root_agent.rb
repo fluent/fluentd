@@ -293,6 +293,9 @@ module Fluent
 
       lifecycle_safe_sequence.call(:stop, :stopped?)
 
+      # Wait close sequence by client side
+      sleep Fluent::Engine.system_config.delay_enter_shutdown
+
       # before_shutdown does force_flush for output plugins: it should block, so it's unsafe operation
       lifecycle_unsafe_sequence.call(:shutdown, :shutdown?)
 

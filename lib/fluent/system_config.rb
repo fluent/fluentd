@@ -40,6 +40,7 @@ module Fluent
     config_param :rpc_endpoint,    :string, default: nil
     config_param :enable_get_dump, :bool, default: nil
     config_param :process_name,    :string, default: nil
+    config_param :delay_enter_shutdown, :time, default: 0
     config_param :file_permission, default: nil do |v|
       v.to_i(8)
     end

@@ -327,6 +327,13 @@ module Fluent
           end
         end
 
+        @_server_connections.each do |conn|
+          # We have to call IO#close_write to send peer FIN(TCP Control bit) which tells its peer "no more data to send"
+          # so that the peer can detect fluentd is quiting.
+          # Don't call IO#close or IO#close_read in here because the data may be sent by the peer at this time.
+          conn.close_write rescue nil
+        end
+
         super
       end
 
@@ -624,6 +631,13 @@ module Fluent
             @log.error_backtrace
             close rescue nil
             raise if @under_plugin_development
+          end
+
+          def close_write
+            @_handler_socket.close_write
+          rescue => e
+            @log.error("failed close_write: #{e}")
+            raise
           end
 
           def close
