@@ -152,7 +152,7 @@ module Fluent::Plugin
           if @respond_with_empty_img
             return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
-            return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+            return ["204 No Content", {}]
           end
         end
 
@@ -219,7 +219,7 @@ module Fluent::Plugin
       if @respond_with_empty_img
         return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
-        return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+        return ["204 No Content", {}]
       end
     end
 
