@@ -140,7 +140,7 @@ module Fluent::Plugin
       super
     end
 
-    def on_request(path_info, params)
+    def on_request(path_info, params, use_204_response=false)
       begin
         path = path_info[1..-1]  # remove /
         tag = path.split('/').join('.')
@@ -152,7 +152,11 @@ module Fluent::Plugin
           if @respond_with_empty_img
             return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
-            return ["204 No Content", {}]
+            if use_204_response
+              return  ["204 No Content", {}]
+            else
+              return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+            end
           end
         end
 
@@ -219,7 +223,11 @@ module Fluent::Plugin
       if @respond_with_empty_img
         return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
-        return ["204 No Content", {}]
+        if use_204_response
+          return  ["204 No Content", {}]
+        else
+          return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+        end
       end
     end
 

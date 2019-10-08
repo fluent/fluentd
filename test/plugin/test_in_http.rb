@@ -596,7 +596,7 @@ class HttpInputTest < Test::Unit::TestCase
         res_codes << res.code
       end
     end
-    assert_equal ["204", "204"], res_codes
+    assert_equal ["200", "200"], res_codes
     assert_equal [], res_bodies
     assert_equal events, d.events
     assert_equal_event_time time, d.events[0][1]
