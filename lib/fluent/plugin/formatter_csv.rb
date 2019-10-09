@@ -14,6 +14,7 @@
 #    limitations under the License.
 #
 
+require 'fluent/plugin_helper'
 require 'fluent/plugin/formatter'
 require 'csv'
 
@@ -21,6 +22,9 @@ module Fluent
   module Plugin
     class CsvFormatter < Formatter
       Plugin.register_formatter('csv', self)
+
+      include PluginHelper::Mixin
+      helpers :record_accessor
 
       config_param :delimiter, default: ',' do |val|
         ['\t', 'TAB'].include?(val) ? "\t" : val
@@ -37,6 +41,14 @@ module Fluent
         @fields = fields.select{|f| !f.empty? }
         raise ConfigError, "empty value is specified in fields parameter" if @fields.empty?
 
+        if @fields.any? { |f| record_accessor_nested?(f) }
+          @accessors = @fields.map { |f| record_accessor_create(f) }
+          mformat = method(:format_with_nested_fields)
+          singleton_class.module_eval do
+            define_method(:format, mformat)
+          end
+        end
+
         @generate_opts = {col_sep: @delimiter, force_quotes: @force_quotes, headers: @fields,
                           row_sep: @add_newline ? :auto : "".force_encoding(Encoding::ASCII_8BIT)}
         # Cache CSV object per thread to avoid internal state sharing
@@ -46,6 +58,16 @@ module Fluent
       def format(tag, time, record)
         csv = (@cache[Thread.current] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), @generate_opts))
         line = (csv << record).string.dup
+        # Need manual cleanup because CSV writer doesn't provide such method.
+        csv.rewind
+        csv.truncate(0)
+        line
+      end
+
+      def format_with_nested_fields(tag, time, record)
+        csv = (@cache[Thread.current] ||= CSV.new("".force_encoding(Encoding::ASCII_8BIT), @generate_opts))
+        values = @accessors.map { |a| a.call(record) }
+        line = (csv << values).string.dup
         # Need manual cleanup because CSV writer doesn't provide such method.
         csv.rewind
         csv.truncate(0)
