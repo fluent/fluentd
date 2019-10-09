@@ -32,7 +32,8 @@ class FluentPluginConfigFormatter
     "buffer", "parser", "formatter", "storage"
   ]
 
-  DOCS_BASE_URL = "https://docs.fluentd.org/v1.0/articles/"
+  DOCS_BASE_URL = "https://docs.fluentd.org/v/1.0"
+  DOCS_PLUGIN_HELPER_BASE_URL = "#{DOCS_BASE_URL}/plugin-helper-overview/"
 
   def initialize(argv = ARGV)
     @argv = argv
@@ -163,7 +164,13 @@ class FluentPluginConfigFormatter
     params.each do |name, config|
       next if name == :section
       template_name = @compact ? "param.md-compact.erb" : "param.md.erb"
-      dumped << ERB.new(template_path(template_name).read, nil, "-").result(binding)
+      template = template_path(template_name).read
+      dumped <<
+        if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+
+          ERB.new(template, trim_mode: "-")
+        else
+          ERB.new(template, nil, "-")
+        end.result(binding)
     end
     dumped << "\n"
     sections.each do |section_name, sub_section|
@@ -171,7 +178,13 @@ class FluentPluginConfigFormatter
       multi = sub_section.delete(:multi)
       alias_name = sub_section.delete(:alias)
       sub_section.delete(:section)
-      dumped << ERB.new(template_path("section.md.erb").read, nil, "-").result(binding)
+      template = template_path("section.md.erb").read
+      dumped <<
+        if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+
+          ERB.new(template, trim_mode: "-")
+        else
+          ERB.new(template, nil, "-")
+        end.result(binding)
     end
     dumped
   end
@@ -185,7 +198,7 @@ class FluentPluginConfigFormatter
   end
 
   def plugin_helper_url(plugin_helper)
-    "#{DOCS_BASE_URL}api-plugin-helper-#{plugin_helper}"
+    "#{DOCS_PLUGIN_HELPER_BASE_URL}api-plugin-helper-#{plugin_helper}"
   end
 
   def plugin_helper_markdown_link(plugin_helper)
@@ -194,7 +207,7 @@ class FluentPluginConfigFormatter
 
   def plugin_overview_url(class_name)
     plugin_type = class_name.slice(/::(\w+)\z/, 1).downcase
-    "#{DOCS_BASE_URL}#{plugin_type}-plugin-overview"
+    "#{DOCS_BASE_URL}/#{plugin_type}#overview"
   end
 
   def plugin_overview_markdown_link(class_name)

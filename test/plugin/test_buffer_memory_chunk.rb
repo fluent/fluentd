@@ -331,6 +331,7 @@ class BufferMemoryChunkTest < Test::Unit::TestCase
       assert_equal @gzipped_src, c.read(compressed: :gzip)
 
       io = StringIO.new
+      io.set_encoding(Encoding::ASCII_8BIT)
       c.write_to(io, compressed: :gzip)
       assert_equal @gzipped_src, io.string
     end

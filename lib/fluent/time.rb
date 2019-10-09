@@ -69,6 +69,19 @@ module Fluent
       @sec.to_s
     end
 
+    begin
+      # ruby 2.5 or later
+      Time.at(0, 0, :nanosecond)
+
+      def to_time
+        Time.at(@sec, @nsec, :nanosecond)
+      end
+    rescue
+      def to_time
+        Time.at(Rational(@sec * 1_000_000_000 + @nsec, 1_000_000_000))
+      end
+    end
+
     def to_json(*args)
       @sec.to_s
     end
@@ -98,7 +111,9 @@ module Fluent
     end
 
     def self.now
-      from_time(Time.now)
+      # This method is called many time. so call Process.clock_gettime directly instead of Fluent::Clock.real_now
+      now = Process.clock_gettime(Process::CLOCK_REALTIME, :nanosecond)
+      Fluent::EventTime.new(now / 1_000_000_000, now % 1_000_000_000)
     end
 
     def self.parse(*args)
@@ -203,7 +218,13 @@ module Fluent
       # unixtime_in_expected_tz = unixtime_in_localtime + offset_diff
       offset_diff = case
                     when format_with_timezone then nil
-                    when timezone  then Time.now.localtime.utc_offset - Time.zone_offset(timezone)
+                    when timezone  then
+                      offset = Fluent::Timezone.utc_offset(timezone)
+                      if offset.respond_to?(:call)
+                        ->(t) { Time.now.localtime.utc_offset - offset.call(t) }
+                      else
+                        Time.now.localtime.utc_offset - offset
+                      end
                     when localtime then 0
                     else Time.now.localtime.utc_offset # utc
                     end
@@ -214,8 +235,18 @@ module Fluent
                when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
                when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
                when format == '%iso8601'             then ->(v){ Fluent::EventTime.from_time(Time.iso8601(v)) }
-               when strptime then ->(v){ t = strptime.exec(v);         Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
-               when format   then ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+               when strptime then
+                 if offset_diff.respond_to?(:call)
+                   ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
+                 else
+                   ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+                 end
+               when format   then
+                 if offset_diff.respond_to?(:call)
+                   ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
+                 else
+                   ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
+                 end
                else ->(v){ Fluent::EventTime.parse(v) }
                end
     end

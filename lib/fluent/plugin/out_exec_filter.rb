@@ -69,7 +69,7 @@ module Fluent::Plugin
     desc 'The number of spawned process for command.'
     config_param :num_children, :integer, default: 1
 
-    desc 'Respawn command when command exit. ["none", "inf" or positive integer for times to respawn (defaut: none)]'
+    desc 'Respawn command when command exit. ["none", "inf" or positive integer for times to respawn (default: none)]'
     # nil, 'none' or 0: no respawn, 'inf' or -1: infinite times, positive integer: try to respawn specified times only
     config_param :child_respawn, :string, default: nil
 
@@ -95,6 +95,7 @@ module Fluent::Plugin
     COMPAT_PARSE_PARAMS = {
       'out_format' => '@type',
       'out_keys' => 'keys',
+      'out_stream_buffer_size' => 'stream_buffer_size',
     }
     COMPAT_EXTRACT_PARAMS = {
       'out_tag_key' => 'tag_key',
@@ -283,6 +284,7 @@ module Fluent::Plugin
     end
 
     def run(io)
+      io.set_encoding(Encoding::ASCII_8BIT)
       case
       when @parser.implement?(:parse_io)
         @parser.parse_io(io, &method(:on_record))

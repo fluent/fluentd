@@ -123,6 +123,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_interval' => 1,
         'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -252,6 +253,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_timeout' => 3600,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -342,6 +344,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'flush_thread_burst_interval' => 0.1,
         'retry_randomize' => false,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -454,8 +457,6 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
       prev_write_count = @i.write_count
       prev_num_errors = @i.num_errors
 
-      chunks = @i.buffer.queue.dup
-
       20.times do |i| # large times enough
         now = @i.next_flush_time
 
@@ -485,6 +486,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_type' => :periodic,
         'retry_wait' => 3,
         'retry_randomize' => false,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -531,6 +533,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 30,
         'retry_randomize' => false,
         'retry_timeout' => 120,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -626,6 +629,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 3,
         'retry_randomize' => false,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -700,16 +704,20 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
   end
 
   sub_test_case 'buffered output configured as retry_forever' do
-    test 'configuration error will be raised if secondary section is configured' do
+    setup do
+      Fluent::Plugin.register_output('output_retries_secondary_test', FluentPluginOutputAsBufferedRetryTest::DummyFullFeatureOutput2)
+    end
+
+    test 'warning logs are generated if secondary section is configured' do
       chunk_key = 'tag'
       hash = {
         'retry_forever' => true,
         'retry_randomize' => false,
       }
       i = create_output()
-      assert_raise Fluent::ConfigError do
-        i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash),config_element('secondary','')]))
-      end
+      i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash),config_element('secondary','', {'@type' => 'output_retries_secondary_test'})]))
+      logs = i.log.out.logs
+      assert { logs.any? { |l| l.include?("<secondary> with 'retry_forever', only unrecoverable errors are moved to secondary") } }
     end
 
     test 'retry_timeout and retry_max_times will be ignored if retry_forever is true for exponential backoff' do
@@ -724,6 +732,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_randomize' => false,
         'retry_timeout' => 3600,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }
@@ -795,6 +804,7 @@ class BufferedOutputRetryTest < Test::Unit::TestCase
         'retry_wait' => 30,
         'retry_timeout' => 360,
         'retry_max_times' => 10,
+        'queued_chunks_limit_size' => 100
       }
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))
       @i.register(:prefer_buffered_processing){ true }

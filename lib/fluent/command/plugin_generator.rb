@@ -72,7 +72,12 @@ class FluentPluginGenerator
 
   def template(source, dest)
     dest.dirname.mkpath
-    contents = ERB.new(source.read, nil, "-").result(binding)
+    contents =
+      if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+
+        ERB.new(source.read, trim_mode: "-")
+      else
+        ERB.new(source.read, nil, "-")
+      end.result(binding)
     label = create_label(dest, contents)
     puts "\t#{label} #{dest}"
     if label == "conflict"

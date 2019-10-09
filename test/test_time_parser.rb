@@ -80,6 +80,14 @@ class TimeParserTest < ::Test::Unit::TestCase
     assert_equal_event_time(time, event_time("2016-09-02 18:42:31.123456789 -07:00", format: '%Y-%m-%d %H:%M:%S.%N %z'))
   end
 
+  def test_parse_time_with_expected_timezone_name
+    time = with_timezone("UTC-09") do
+      parser = Fluent::TimeParser.new("%Y-%m-%d %H:%M:%S.%N", nil, "Europe/Zurich")
+      parser.parse("2016-12-02 18:42:31.123456789")
+    end
+    assert_equal_event_time(time, event_time("2016-12-02 18:42:31.123456789 +01:00", format: '%Y-%m-%d %H:%M:%S.%N %z'))
+  end
+
   sub_test_case 'TimeMixin::Parser' do
     class DummyForTimeParser
       include Fluent::Configurable

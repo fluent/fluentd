@@ -249,7 +249,7 @@ module Fluent
       config_fname = File.basename(path)
       config_basedir = File.dirname(path)
       # Assume fluent.conf encoding is UTF-8
-      config_data = File.open(path, "r:utf-8:utf-8") {|f| f.read }
+      config_data = File.open(path, "r:#{params['conf_encoding']}:utf-8") {|f| f.read }
       inline_config = params['inline_config']
       if inline_config == '-'
         config_data << "\n" << STDIN.read
@@ -422,6 +422,7 @@ module Fluent
         supervise: true,
         standalone_worker: false,
         signame: nil,
+        conf_encoding: 'utf-8'
       }
     end
 
@@ -440,6 +441,7 @@ module Fluent
       @config_path = opt[:config_path]
       @inline_config = opt[:inline_config]
       @use_v1_config = opt[:use_v1_config]
+      @conf_encoding = opt[:conf_encoding]
       @log_path = opt[:log_path]
       @dry_run = opt[:dry_run]
       @show_plugin_config = opt[:show_plugin_config]
@@ -588,7 +590,7 @@ module Fluent
 
     def show_plugin_config
       name, type = @show_plugin_config.split(":") # input:tail
-      $log.info "Use fluent-plugin-config-format --format=txt #{name} #{type}"
+      $log.info "show_plugin_config option is deprecated. Use fluent-plugin-config-format --format=txt #{name} #{type}"
       exit 0
     end
 
@@ -618,6 +620,7 @@ module Fluent
       params['chuser'] = @chuser
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
+      params['conf_encoding'] = @conf_encoding
 
       # system config parameters
       params['workers'] = @workers
@@ -716,7 +719,13 @@ module Fluent
     end
 
     def main_process(&block)
-      Process.setproctitle("worker:#{@process_name}") if @process_name
+      if @process_name
+        if @workers > 1
+          Process.setproctitle("worker:#{@process_name}#{ENV['SERVERENGINE_WORKER_ID']}")
+        else
+          Process.setproctitle("worker:#{@process_name}")
+        end
+      end
 
       unrecoverable_error = false
 
@@ -757,7 +766,7 @@ module Fluent
     def read_config
       @config_fname = File.basename(@config_path)
       @config_basedir = File.dirname(@config_path)
-      @config_data = File.open(@config_path, "r:utf-8:utf-8") {|f| f.read }
+      @config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
       if @inline_config == '-'
         @config_data << "\n" << STDIN.read
       elsif @inline_config

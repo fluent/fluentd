@@ -356,4 +356,44 @@ class ParserTest < ::Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case 'timeout' do
+    class SleepParser < Fluent::Plugin::Parser
+      attr :test_value
+
+      def configure(conf)
+        super
+
+        @test_value = nil
+      end
+
+      def parse(data)
+        sleep 10
+        @test_value = :passed
+        yield JSON.parse(data), Fluent::EventTime.now
+      end
+    end
+
+    setup do
+      @i = SleepParser.new
+      @i.instance_variable_set(:@log, Fluent::Test::TestLogger.new)
+      @i.configure(config_element('parse', '', {'timeout' => '1.0'}))
+      @i.start
+    end
+
+    teardown do
+      @i.stop
+    end
+
+    test 'stop longer processing and return nil' do
+      waiting(10) {
+        @i.parse('{"k":"v"}') do |time, record|
+          assert_nil @i.test_value
+          assert_nil time
+          assert_nil record
+        end
+        assert_true @i.log.out.logs.first.include?('parsing timed out')
+      }
+    end
+  end
 end

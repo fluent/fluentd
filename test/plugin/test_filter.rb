@@ -47,7 +47,7 @@ module FluentPluginFilterTest
     end
   end
   class InvalidPlugin < Fluent::Plugin::Filter
-    # Because of implemnting `filter_with_time` and `filter` methods
+    # Because of implementing `filter_with_time` and `filter` methods
     def filter_with_time(tag, time, record); end
     def filter(tag, time, record); end
   end
@@ -277,7 +277,7 @@ class FilterPluginTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'filter plugins that is implmented `filter_with_time`' do
+  sub_test_case 'filter plugins that is implemented `filter_with_time`' do
     setup do
       Fluent::Test.setup
       @p = FluentPluginFilterTest::NumDoublePluginWithTime.new

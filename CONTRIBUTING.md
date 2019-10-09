@@ -24,10 +24,12 @@ If you find a bug of Fluentd or a mistake in the documentation, you can help us 
 submitting an issue to Fluentd. Even better you can submit a Pull Request with a fix.
 
 * **Fluentd**: Use [fluentd](https://github.com/fluent/fluentd) repository. Fill issue template.
-* **Documentation**: Use [fluentd-docs](https://github.com/fluent/fluentd-docs) repository.
+* **Documentation**: Use [fluentd-docs](https://github.com/fluent/fluentd-docs-gitbook) repository.
 
 If you find a bug of 3rd party plugins, please submit an issue to each plugin repository.
-And use [omnibus-td-agent](https://github.com/treasure-data/omnibus-td-agent) repository for td-agent releated issues.
+And use [omnibus-td-agent](https://github.com/treasure-data/omnibus-td-agent) repository for td-agent related issues.
+
+Note: Before report the issue, check latest version first. Sometimes users report fixed bug with older version.
 
 ## Patch Guidelines
 
@@ -35,7 +37,7 @@ Here are some things that would increase a chance that your patch is accepted:
 
 * Write tests.
 * Run tests before send Pull Request by `bundle exec rake test`
-* Write a [good commit message](http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
+* Write a [good commit message](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
   * Fluentd repositories needs [DCO](https://github.com/apps/dco) on PR. Please add `Signed-off-by` to the commit(See DCO link for more detail).
 
 There are some patches which are hard to write tests, e.g. process handling, concurrency issue or etc.

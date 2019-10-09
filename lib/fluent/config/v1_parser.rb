@@ -82,7 +82,7 @@ module Fluent
           elsif skip(/\</)
             e_name = scan(ELEMENT_NAME)
             spacing
-            e_arg = scan_nonquoted_string(/(?:#{ZERO_OR_MORE_SPACING}\>)/)
+            e_arg = scan_string(/(?:#{ZERO_OR_MORE_SPACING}\>)/)
             spacing
             unless skip(/\>/)
               parse_error! "expected '>'"
@@ -174,9 +174,8 @@ module Fluent
           ss = StringScanner.new(data)
           V1Parser.new(ss, basepath, fname, @eval_context).parse_element(true, nil, attrs, elems)
         end
-
       rescue SystemCallError => e
-        cpe = ConfigParseError.new("include error #{uri}")
+        cpe = ConfigParseError.new("include error #{uri} - #{e}")
         cpe.set_backtrace(e.backtrace)
         raise cpe
       end

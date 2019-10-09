@@ -29,6 +29,7 @@ module Fluent
       attr_accessor :under_plugin_development
 
       def initialize
+        @log = nil
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil
@@ -52,7 +53,12 @@ module Fluent
 
       def configure(conf)
         if conf.respond_to?(:for_this_worker?) && conf.for_this_worker?
-          system_config_override(workers: 1)
+          workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
+                      conf.target_worker_ids.size
+                    else
+                      1
+                    end
+          system_config_override(workers: workers)
         end
         super
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
@@ -81,6 +87,12 @@ module Fluent
       end
 
       def start
+        # By initialization order, plugin logger is created before set log_event_enabled.
+        # It causes '@id' specified plugin, it uses plugin logger instead of global logger, ignores `<label @FLUENT_LOG>` setting.
+        # This is adhoc approach but impact is minimal.
+        if @log.is_a?(Fluent::PluginLogger) && $log.respond_to?(:log_event_enabled) # log_event_enabled check for tests
+          @log.log_event_enabled = $log.log_event_enabled
+        end
         @_state.start = true
         self
       end

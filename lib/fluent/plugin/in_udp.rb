@@ -33,6 +33,8 @@ module Fluent::Plugin
     config_param :source_host_key, :string, default: nil, deprecated: "use source_hostname_key instead."
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
+    desc "The field name of the client's address."
+    config_param :source_address_key, :string, default: nil
 
     desc "Deprecated parameter. Use message_length_limit instead"
     config_param :body_size_limit, :size, default: nil, deprecated: "use message_length_limit instead."
@@ -47,12 +49,16 @@ module Fluent::Plugin
 
     def configure(conf)
       compat_parameters_convert(conf, :parser)
+      parser_config = conf.elements('parse').first
+      unless parser_config
+        raise Fluent::ConfigError, "<parse> section is required."
+      end
       super
       @_event_loop_blocking_timeout = @blocking_timeout
       @source_hostname_key ||= @source_host_key if @source_host_key
       @message_length_limit = @body_size_limit if @body_size_limit
 
-      @parser = parser_create
+      @parser = parser_create(conf: parser_config)
     end
 
     def multi_workers_ready?
@@ -68,13 +74,14 @@ module Fluent::Plugin
         begin
           @parser.parse(data) do |time, record|
             unless time && record
-              log.warn "pattern not match", data: data
+              log.warn "pattern not matched", data: data
               next
             end
 
             tag = extract_tag_from_record(record)
             tag ||= @tag
             time ||= extract_time_from_record(record) || Fluent::EventTime.now
+            record[@source_address_key] = sock.remote_addr if @source_address_key
             record[@source_hostname_key] = sock.remote_host if @source_hostname_key
             router.emit(tag, time, record)
           end

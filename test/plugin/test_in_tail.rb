@@ -196,7 +196,7 @@ class TailInputTest < Test::Unit::TestCase
         config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit }) + PARSE_SINGLE_LINE_CONFIG
       end
       d = create_driver(config)
-      msg = 'test' * 500 # in_tail reads 2048 bytes at once.
+      msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|
@@ -649,6 +649,26 @@ class TailInputTest < Test::Unit::TestCase
     assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
   end
 
+  def test_encoding_with_bad_character
+    conf = config_element(
+      "", "", {
+        "format" => "/(?<message>.*)/",
+        "read_from_head" => "true",
+        "from_encoding" => "ASCII-8BIT",
+        "encoding" => "utf-8"
+      })
+    d = create_driver(conf)
+
+    d.run(expect_emits: 1) do
+      File.open("#{TMP_DIR}/tail.txt", "w") { |f|
+        f.write "te\x86st\n"
+      }
+    end
+
+    events = d.events
+    assert_equal("te\uFFFDst", events[0][2]['message'])
+    assert_equal(Encoding::UTF_8, events[0][2]['message'].encoding)
+  end
 
   sub_test_case "multiline" do
     data(flat: MULTILINE_CONFIG,
@@ -969,7 +989,7 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     # For https://github.com/fluent/fluentd/issues/1455
-    # This test is fragile because test content depends on internal implementaion.
+    # This test is fragile because test content depends on internal implementation.
     # So if you modify in_tail internal, this test may break.
     def test_unwatched_files_should_be_removed
       config = config_element("", "", {
@@ -990,8 +1010,8 @@ class TailInputTest < Test::Unit::TestCase
       waiting(20) { sleep 0.1 until Dir.glob("#{TMP_DIR}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
 
-      # Previous implementaion has an infinite watcher creation bug.
-      # Following code checks such unexpected bug by couting  actual object allocation.
+      # Previous implementation has an infinite watcher creation bug.
+      # Following code checks such unexpected bug by counting actual object allocation.
       base_num = count_timer_object
       2.times {
         sleep 1
@@ -1009,6 +1029,25 @@ class TailInputTest < Test::Unit::TestCase
       }
       num
     end
+  end
+
+  def test_pos_file_dir_creation
+    config = config_element("", "", {
+      "tag" => "tail",
+      "path" => "#{TMP_DIR}/*.txt",
+      "format" => "none",
+      "pos_file" => "#{TMP_DIR}/pos/tail.pos",
+      "read_from_head" => true,
+      "refresh_interval" => 1
+    })
+    d = create_driver(config, false)
+    d.run(expect_emits: 1, shutdown: false) do
+      File.open("#{TMP_DIR}/tail.txt", "ab") { |f| f.puts "test3\n" }
+    end
+    assert_path_exist("#{TMP_DIR}/pos/tail.pos")
+    cleanup_directory(TMP_DIR)
+
+    d.instance_shutdown
   end
 
   def test_z_refresh_watchers

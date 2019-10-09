@@ -44,7 +44,7 @@ module Fluent
           # check compressed_data(String) is 0 length
           compressed_data
         when output_io
-          # exeucte after checking compressed_data is empty or not
+          # execute after checking compressed_data is empty or not
           io = StringIO.new(compressed_data)
           io_decompress(io, output_io)
         else
@@ -64,9 +64,11 @@ module Fluent
           unused = gz.unused
           gz.finish
 
-          break if unused.nil?
-          adjust = unused.length
-          io.pos -= adjust
+          unless unused.nil?
+            adjust = unused.length
+            io.pos -= adjust
+          end
+          break if io.eof?
         end
 
         out
@@ -80,9 +82,11 @@ module Fluent
           unused = gz.unused
           gz.finish
 
-          break if unused.nil?
-          adjust = unused.length
-          input.pos -= adjust
+          unless unused.nil?
+            adjust = unused.length
+            input.pos -= adjust
+          end
+          break if input.eof?
         end
 
         output

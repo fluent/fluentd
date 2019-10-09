@@ -14,7 +14,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
     @now = Fluent::EventTime.now
   end
 
-  shutdown do
+  teardown do
     Timecop.return
   end
 
@@ -89,7 +89,7 @@ class CounterStoreTest < ::Test::Unit::TestCase
       assert_equal nil, @store.get('unknown_key')
     end
 
-    test "raise a error when when a passed key doesn't exist and raise_error option is true" do
+    test "raise a error when a passed key doesn't exist and raise_error option is true" do
       assert_raise Fluent::Counter::UnknownKey do
         @store.get('unknown_key', raise_error: true)
       end

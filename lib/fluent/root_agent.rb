@@ -64,26 +64,64 @@ module Fluent
     attr_reader :labels
 
     def configure(conf)
+      used_worker_ids = []
+      available_worker_ids = (0..Fluent::Engine.system_config.workers - 1).to_a
       # initialize <worker> elements
       conf.elements(name: 'worker').each do |e|
         target_worker_id_str = e.arg
         if target_worker_id_str.empty?
-          raise ConfigError, "Missing worker id on <worker> directive"
+          raise Fluent::ConfigError, "Missing worker id on <worker> directive"
         end
 
-        target_worker_id = target_worker_id_str.to_i
-        if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
-          raise ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
-        end
-
-        ## On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
-        target_worker_id = 0 if Fluent::Engine.dry_run_mode
-
-        e.elements.each do |elem|
-          unless ['source', 'match', 'filter', 'label'].include?(elem.name)
-            raise ConfigError, "<worker> section cannot have <#{elem.name}> directive"
+        target_worker_ids = target_worker_id_str.split("-")
+        if target_worker_ids.size == 2
+          first_worker_id = target_worker_ids.first.to_i
+          last_worker_id = target_worker_ids.last.to_i
+          if first_worker_id > last_worker_id
+            raise Fluent::ConfigError, "greater first_worker_id<#{first_worker_id}> than last_worker_id<#{last_worker_id}> specified by <worker> directive is not allowed. Available multi worker assign syntax is <smaller_worker_id>-<greater_worker_id>"
           end
-          elem.set_target_worker_id(target_worker_id)
+          target_worker_ids = []
+          first_worker_id.step(last_worker_id, 1) do |worker_id|
+            target_worker_id = worker_id.to_i
+            target_worker_ids << target_worker_id
+
+            if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
+              raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+            end
+            available_worker_ids.delete(target_worker_id) if available_worker_ids.include?(target_worker_id)
+            if used_worker_ids.include?(target_worker_id) && !Fluent::Engine.dry_run_mode
+              raise Fluent::ConfigError, "specified worker_id<#{worker_id}> collisions is detected on <worker> directive. Available worker id(s): #{available_worker_ids}"
+            end
+            used_worker_ids << target_worker_id
+
+            e.elements.each do |elem|
+              unless ['source', 'match', 'filter', 'label'].include?(elem.name)
+                raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
+              end
+            end
+
+            # On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
+            target_worker_ids = [0] if Fluent::Engine.dry_run_mode
+
+            unless target_worker_ids.empty?
+              e.set_target_worker_ids(target_worker_ids.uniq)
+            end
+          end
+        else
+          target_worker_id = target_worker_id_str.to_i
+          if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
+            raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+          end
+
+          ## On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
+          target_worker_id = 0 if Fluent::Engine.dry_run_mode
+
+          e.elements.each do |elem|
+            unless ['source', 'match', 'filter', 'label'].include?(elem.name)
+              raise Fluent::ConfigError, "<worker> section cannot have <#{elem.name}> directive"
+            end
+            elem.set_target_worker_id(target_worker_id)
+          end
         end
         conf += e
       end
@@ -163,7 +201,7 @@ module Fluent
     def start
       lifecycle(desc: true) do |i| # instance
         i.start unless i.started?
-        # Input#start sometimes emits lots of evetns with in_tail/`read_from_head true` case
+        # Input#start sometimes emits lots of events with in_tail/`read_from_head true` case
         # and it causes deadlock for small buffer/queue output. To avoid such problem,
         # buffer related output threads should be run before `Input#start`.
         # This is why after_start should be called immediately after start call.
@@ -202,7 +240,7 @@ module Fluent
         lifecycle do |instance, kind|
           begin
             log.debug "calling #{method} on #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-            instance.send(method) unless instance.send(checker)
+            instance.__send__(method) unless instance.__send__(checker)
           rescue Exception => e
             log.warn "unexpected error while calling #{method} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
             log.warn_backtrace
@@ -232,17 +270,17 @@ module Fluent
                 operation = "preparing shutdown" # for logging
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
                 begin
-                  instance.send(:before_shutdown) unless instance.send(:before_shutdown?)
+                  instance.__send__(:before_shutdown) unless instance.__send__(:before_shutdown?)
                 rescue Exception => e
                   log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
                   log.warn_backtrace
                 end
                 operation = "shutting down"
                 log.info "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(:shutdown) unless instance.send(:shutdown?)
+                instance.__send__(:shutdown) unless instance.__send__(:shutdown?)
               else
                 log.debug "#{operation} #{kind} plugin", type: Plugin.lookup_type_from_class(instance.class), plugin_id: instance.plugin_id
-                instance.send(method) unless instance.send(checker)
+                instance.__send__(method) unless instance.__send__(checker)
               end
             rescue Exception => e
               log.warn "unexpected error while #{operation} on #{kind} plugin", plugin: instance.class, plugin_id: instance.plugin_id, error: e
@@ -318,7 +356,7 @@ module Fluent
         log.warn "send an error event stream to @ERROR:", error_info
         @error_collector.emit_stream(tag, es)
       else
-        now = Time.now
+        now = Time.now.to_i
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed:", error_info
           log.warn_backtrace
@@ -347,7 +385,7 @@ module Fluent
       end
 
       def handle_emits_error(tag, es, e)
-        now = EventTime.now
+        now = EventTime.now.to_i
         if @suppress_emit_error_log_interval.zero? || now > @next_emit_error_log_time
           log.warn "emit transaction failed in @ERROR:", error: e, tag: tag
           log.warn_backtrace

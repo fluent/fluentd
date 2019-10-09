@@ -680,7 +680,7 @@ class ParserFilterTest < Test::Unit::TestCase
 
     def test_call_emit_error_event_when_pattern_is_mismached
       flexmock(@d.instance.router).should_receive(:emit_error_event).
-        with(String, Integer, Hash, ParserError.new("pattern not match with data '#{INVALID_MESSAGE}'")).once
+        with(String, Integer, Hash, ParserError.new("pattern not matched with data '#{INVALID_MESSAGE}'")).once
       @d.run do
         @d.feed(@tag, Fluent::EventTime.now.to_i, {'message' => INVALID_MESSAGE})
       end

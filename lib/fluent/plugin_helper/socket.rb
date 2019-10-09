@@ -17,6 +17,9 @@
 require 'socket'
 require 'ipaddr'
 require 'openssl'
+if Fluent.windows?
+  require 'certstore'
+end
 
 require_relative 'socket_option'
 
@@ -55,8 +58,14 @@ module Fluent
         end
       end
 
-      def socket_create_tcp(host, port, resolve_name: false, **kwargs, &block)
-        sock = WrappedSocket::TCP.new(host, port)
+      def socket_create_tcp(host, port, resolve_name: false, connect_timeout: nil, **kwargs, &block)
+        sock = if connect_timeout
+                 s = ::Socket.tcp(host, port, connect_timeout: connect_timeout)
+                 s.autoclose = false # avoid GC triggered close
+                 WrappedSocket::TCP.for_fd(s.fileno)
+               else
+                 WrappedSocket::TCP.new(host, port)
+               end
         socket_option_set(sock, resolve_name: resolve_name, **kwargs)
         if block
           begin
@@ -89,7 +98,10 @@ module Fluent
       def socket_create_tls(
           host, port,
           version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
-          enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil, **kwargs, &block)
+          enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
+          cert_path: nil, private_key_path: nil, private_key_passphrase: nil,
+          cert_thumbprint: nil, cert_logical_store_name: nil, cert_use_enterprise_store: true,
+          **kwargs, &block)
 
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
@@ -106,6 +118,14 @@ module Fluent
           end
           begin
             if enable_system_cert_store
+              if Fluent.windows? && cert_logical_store_name
+                log.trace "loading Windows system certificate store"
+                loader = Certstore::OpenSSL::Loader.new(log, cert_store, cert_logical_store_name,
+                                                        enterprise: cert_use_enterprise_store)
+                loader.load_cert_store
+                cert_store = loader.cert_store
+                context.cert = loader.get_certificate(cert_thumbprint) if cert_thumbprint
+              end
               log.trace "loading system default certificate store"
               cert_store.set_default_paths
             end
@@ -131,6 +151,8 @@ module Fluent
           context.verify_mode = OpenSSL::SSL::VERIFY_PEER
           context.cert_store = cert_store
           context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
+          context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
+          context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
         end
 
         tcpsock = socket_create_tcp(host, port, **kwargs)

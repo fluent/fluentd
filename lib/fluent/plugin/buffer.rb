@@ -133,6 +133,15 @@ module Fluent
               cmp_variables(variables, variables2)
           end
         end
+
+        # This is an optimization code. Current Struct's implementation is comparing all data.
+        # https://github.com/ruby/ruby/blob/0623e2b7cc621b1733a760b72af246b06c30cf96/struct.c#L1200-L1203
+        # Actually this overhead is very small but this class is generated *per chunk* (and used in hash object).
+        # This means that this class is one of the most called object in Fluentd.
+        # See https://github.com/fluent/fluentd/pull/2560
+        def hash
+          timekey.object_id
+        end
       end
 
       # for tests
@@ -154,7 +163,8 @@ module Fluent
         @dequeued_num = {} # metadata => int (number of dequeued chunks)
 
         @stage_size = @queue_size = 0
-        @metadata_list = [] # keys of @stage
+        @timekeys = Hash.new(0)
+        @mutex = Mutex.new
       end
 
       def persistent?
@@ -174,14 +184,18 @@ module Fluent
 
         @stage, @queue = resume
         @stage.each_pair do |metadata, chunk|
-          @metadata_list << metadata unless @metadata_list.include?(metadata)
           @stage_size += chunk.bytesize
+          if chunk.metadata && chunk.metadata.timekey
+            add_timekey(metadata.timekey)
+          end
         end
         @queue.each do |chunk|
-          @metadata_list << chunk.metadata unless @metadata_list.include?(chunk.metadata)
           @queued_num[chunk.metadata] ||= 0
           @queued_num[chunk.metadata] += 1
           @queue_size += chunk.bytesize
+          if chunk.metadata && chunk.metadata.timekey
+            add_timekey(chunk.metadata.timekey)
+          end
         end
         log.debug "buffer started", instance: self.object_id, stage_size: @stage_size, queue_size: @queue_size
       end
@@ -204,8 +218,9 @@ module Fluent
 
       def terminate
         super
-        @dequeued = @stage = @queue = @queued_num = @metadata_list = nil
+        @dequeued = @stage = @queue = @queued_num = nil
         @stage_size = @queue_size = 0
+        @timekeys.clear
       end
 
       def storable?
@@ -226,39 +241,20 @@ module Fluent
         raise NotImplementedError, "Implement this method in child class"
       end
 
-      def metadata_list
-        synchronize do
-          @metadata_list.dup
-        end
-      end
-
-      # it's too dangerous, and use it so carefully to remove metadata for tests
-      def metadata_list_clear!
-        synchronize do
-          @metadata_list.clear
-        end
-      end
-
       def new_metadata(timekey: nil, tag: nil, variables: nil)
         Metadata.new(timekey, tag, variables)
       end
 
-      def add_metadata(metadata)
-        log.on_trace { log.trace "adding metadata", instance: self.object_id, metadata: metadata }
-
-        synchronize do
-          if i = @metadata_list.index(metadata)
-            @metadata_list[i]
-          else
-            @metadata_list << metadata
-            metadata
-          end
+      def metadata(timekey: nil, tag: nil, variables: nil)
+        meta = Metadata.new(timekey, tag, variables)
+        if (t = meta.timekey)
+          add_timekey(t)
         end
+        meta
       end
 
-      def metadata(timekey: nil, tag: nil, variables: nil)
-        meta = new_metadata(timekey: timekey, tag: tag, variables: variables)
-        add_metadata(meta)
+      def timekeys
+        @timekeys.keys
       end
 
       # metadata MUST have consistent object_id for each variation
@@ -372,20 +368,19 @@ module Fluent
       end
 
       def queue_full?
-        @queued_chunks_limit_size && (synchronize { @queue.size } >= @queued_chunks_limit_size)
+        synchronize { @queue.size } >= @queued_chunks_limit_size
       end
 
       def queued_records
         synchronize { @queue.reduce(0){|r, chunk| r + chunk.size } }
       end
 
-      def queued?(metadata=nil)
-        synchronize do
-          if metadata
-            n = @queued_num[metadata]
-            n && n.nonzero?
-          else
-            !@queue.empty?
+      def queued?(metadata = nil, optimistic: false)
+        if optimistic
+          optimistic_queued?(metadata)
+        else
+          synchronize do
+            optimistic_queued?(metadata)
           end
         end
       end
@@ -485,6 +480,7 @@ module Fluent
       end
 
       def purge_chunk(chunk_id)
+        metadata = nil
         synchronize do
           chunk = @dequeued.delete(chunk_id)
           return nil unless chunk # purged by other threads
@@ -503,12 +499,16 @@ module Fluent
 
           @dequeued_num[chunk.metadata] -= 1
           if metadata && !@stage[metadata] && (!@queued_num[metadata] || @queued_num[metadata] < 1) && @dequeued_num[metadata].zero?
-            @metadata_list.delete(metadata)
             @queued_num.delete(metadata)
             @dequeued_num.delete(metadata)
           end
           log.trace "chunk purged", instance: self.object_id, chunk_id: dump_unique_id_hex(chunk_id), metadata: metadata
         end
+
+        if metadata && metadata.timekey
+          del_timekey(metadata.timekey)
+        end
+
         nil
       end
 
@@ -709,6 +709,69 @@ module Fluent
         end
         enqueue_chunk(metadata) if enqueue_chunk_before_retry
         retry
+      end
+
+      STATS_KEYS = [
+        'stage_length',
+        'stage_byte_size',
+        'queue_length',
+        'queue_byte_size',
+        'available_buffer_space_ratios',
+        'total_queued_size',
+        'oldest_timekey',
+        'newest_timekey'
+      ]
+
+      def statistics
+        stage_size, queue_size = @stage_size, @queue_size
+        buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size).round
+        stats = {
+          'stage_length' => @stage.size,
+          'stage_byte_size' => stage_size,
+          'queue_length' => @queue.size,
+          'queue_byte_size' => queue_size,
+          'available_buffer_space_ratios' => buffer_space * 100,
+          'total_queued_size' => stage_size + queue_size,
+        }
+
+        if (m = timekeys.min)
+          stats['oldest_timekey'] = m
+        end
+
+        if (m = timekeys.max)
+          stats['newest_timekey'] = m
+        end
+
+        { 'buffer' => stats }
+      end
+
+      private
+
+      def optimistic_queued?(metadata = nil)
+        if metadata
+          n = @queued_num[metadata]
+          n && n.nonzero?
+        else
+          !@queue.empty?
+        end
+      end
+
+      def add_timekey(t)
+        @mutex.synchronize do
+          @timekeys[t] += 1
+        end
+        nil
+      end
+
+      def del_timekey(t)
+        @mutex.synchronize do
+          if @timekeys[t] <= 1
+            @timekeys.delete(t)
+          else
+            @timekeys[t] -= 1
+          end
+        end
+        nil
       end
     end
   end

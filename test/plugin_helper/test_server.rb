@@ -230,9 +230,12 @@ class ServerPluginHelperTest < Test::Unit::TestCase
     data(
       'server_create udp' => [:server_create, :udp],
     )
-    test 'raise error if tcp/tls/unix options specified for udp' do |(m, proto)|
+    test 'raise error if tcp/tls/unix backlog options specified for udp' do |(m, proto)|
       assert_raise(ArgumentError.new("BUG: backlog is available for tcp/tls")) do
         @d.__send__(m, :myserver, PORT, proto: proto, backlog: 500){|x| x }
+      end
+      assert_raise(ArgumentError.new("BUG: send_keepalive_packet is available for tcp")) do
+        @d.__send__(m, :myserver, PORT, proto: proto, send_keepalive_packet: true){|x| x }
       end
     end
 
@@ -352,7 +355,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
   sub_test_case '#server_create_tcp' do
     test 'can accept all keyword arguments valid for tcp server' do
       assert_nothing_raised do
-        @d.server_create_tcp(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500) do |data, conn|
+        @d.server_create_tcp(:s, PORT, bind: '127.0.0.1', shared: false, resolve_name: true, linger_timeout: 10, backlog: 500, send_keepalive_packet: true) do |data, conn|
           # ...
         end
       end
@@ -767,7 +770,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
   def write_cert_and_key(cert_path, cert, key_path, key, passphrase)
     File.open(cert_path, "w"){|f| f.write(cert.to_pem) }
-    # Write the secret key (raw or ecnrypted by AES256) in PEM format
+    # Write the secret key (raw or encrypted by AES256) in PEM format
     key_str = passphrase ? key.export(OpenSSL::Cipher.new("AES-256-CBC"), passphrase) : key.export
     File.open(key_path, "w"){|f| f.write(key_str) }
     File.chmod(0600, cert_path, key_path)

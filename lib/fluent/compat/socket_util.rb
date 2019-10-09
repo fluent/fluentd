@@ -52,7 +52,7 @@ module Fluent
       end
 
       class TcpHandler < Coolio::Socket
-        PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+        PEERADDR_FAILED = ["?", "?", "name resolution failed", "?"]
 
         def initialize(io, log, delimiter, callback)
           super(io)
@@ -148,7 +148,7 @@ module Fluent
         def on_message(msg, addr)
           @parser.parse(msg) { |time, record|
             unless time && record
-              log.warn "pattern not match: #{msg.inspect}"
+              log.warn "pattern not matched: #{msg.inspect}"
               return
             end
 

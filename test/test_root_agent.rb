@@ -1,6 +1,7 @@
 require_relative 'helper'
 require 'fluent/event_router'
 require 'fluent/system_config'
+require 'timecop'
 require_relative 'test_plugin_classes'
 
 class RootAgentTest < ::Test::Unit::TestCase
@@ -609,6 +610,38 @@ EOC
     end
   end
 
+  sub_test_case 'configure emit_error_interval' do
+    setup do
+      system_config = SystemConfig.new
+      system_config.emit_error_log_interval = 30
+      @ra = RootAgent.new(log: $log, system_config: system_config)
+      stub(Engine).root_agent { @ra }
+      @ra.log.out.reset
+      one_minute_ago = Time.now.to_i - 60
+      Timecop.freeze(one_minute_ago)
+    end
+
+    teardown do
+      Timecop.return
+    end
+
+    test 'suppresses errors' do
+      mock(@ra.log).warn_backtrace()
+      e = StandardError.new('standard error')
+      begin
+        @ra.handle_emits_error("tag", nil, e)
+      rescue
+      end
+
+      begin
+      @ra.handle_emits_error("tag", nil, e)
+      rescue
+      end
+
+      assert_equal 1, @ra.log.out.logs.size
+    end
+  end
+
   sub_test_case 'configured at worker2 with 4 workers environment' do
     setup do
       ENV['SERVERENGINE_WORKER_ID'] = '2'
@@ -647,6 +680,54 @@ EOC
       assert_raise Fluent::ConfigError.new(errmsg) do
         conf = <<-EOC
 <worker 4>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for too big worker id on multi workers syntax' do
+      errmsg = "worker id 4 specified by <worker> directive is not allowed. Available worker id is between 0 and 3"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 1-4>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for worker id collisions on multi workers syntax' do
+      errmsg = "specified worker_id<2> collisions is detected on <worker> directive. Available worker id(s): [3]"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 0-2>
+</worker>
+<worker 2-4>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for worker id collisions on multi workers syntax when multi available worker_ids are left' do
+      errmsg = "specified worker_id<1> collisions is detected on <worker> directive. Available worker id(s): [2, 3]"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 0-1>
+</worker>
+<worker 1-3>
+</worker>
+EOC
+        configure_ra(conf)
+      end
+    end
+
+    test 'raises configuration error for too big worker id on invalid reversed multi workers syntax' do
+      errmsg = "greater first_worker_id<3> than last_worker_id<0> specified by <worker> directive is not allowed. Available multi worker assign syntax is <smaller_worker_id>-<greater_worker_id>"
+      assert_raise Fluent::ConfigError.new(errmsg) do
+        conf = <<-EOC
+<worker 3-0>
 </worker>
 EOC
         configure_ra(conf)
@@ -810,6 +891,34 @@ EOC
       assert_equal 0, ra.filters.size
       assert_equal 0, ra.labels.size
       refute ra.error_collector
+    end
+
+    test 'with plugins for workers syntax should match worker_id equals to 2' do
+      conf = <<-EOC
+<worker 0-2>
+  <source>
+    @type forward
+  </source>
+  <filter **>
+    @type test_filter
+    @id test_filter
+  </filter>
+  <match pattern>
+    @type stdout
+  </match>
+  <label @ERROR>
+    <match>
+      @type null
+    </match>
+  </label>
+</worker>
+EOC
+
+      ra = configure_ra(conf)
+      assert_kind_of Fluent::Plugin::ForwardInput, ra.inputs.first
+      assert_kind_of Fluent::Plugin::StdoutOutput, ra.outputs.first
+      assert_kind_of FluentTestFilter, ra.filters.first
+      assert ra.error_collector
     end
   end
 end

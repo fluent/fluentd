@@ -39,7 +39,7 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
     c.configure(conf)
   end
 
-  sub_test_case 'configture' do
+  sub_test_case 'configure' do
     test 'default configuration' do
       d = create_driver %[directory #{TMP_DIR}]
       assert_equal 'dump.bin', d.instance.basename
@@ -88,10 +88,12 @@ class FileOutputSecondaryTest < Test::Unit::TestCase
         create_driver %[directory #{TMP_DIR}/test_dir/foo/bar/]
       end
 
-      assert_raise Fluent::ConfigError.new("out_secondary_file: `#{TMP_DIR}/test_dir/foo/bar/` should be writable") do
-        FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
-        File.chmod(0555, "#{TMP_DIR}/test_dir")
-        create_driver %[directory #{TMP_DIR}/test_dir/foo/bar/]
+      if Process.uid.nonzero?
+        assert_raise Fluent::ConfigError.new("out_secondary_file: `#{TMP_DIR}/test_dir/foo/bar/` should be writable") do
+          FileUtils.mkdir_p("#{TMP_DIR}/test_dir")
+          File.chmod(0555, "#{TMP_DIR}/test_dir")
+          create_driver %[directory #{TMP_DIR}/test_dir/foo/bar/]
+        end
       end
     end
 

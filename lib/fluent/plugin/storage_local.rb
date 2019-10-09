@@ -87,7 +87,12 @@ module Fluent
           if File.exist?(@path)
             raise Fluent::ConfigError, "Plugin storage path '#{@path}' is not readable/writable" unless File.readable?(@path) && File.writable?(@path)
             begin
-              data = Yajl::Parser.parse(open(@path, 'r:utf-8'){ |io| io.read })
+              data = open(@path, 'r:utf-8') { |io| io.read }
+              if data.empty?
+                log.warn "detect empty plugin storage file during startup. Ignored: #{@path}"
+                return
+              end
+              data = Yajl::Parser.parse(data)
               raise Fluent::ConfigError, "Invalid contents (not object) in plugin storage file: '#{@path}'" unless data.is_a?(Hash)
             rescue => e
               log.error "failed to read data from plugin storage file", path: @path, error: e
@@ -128,7 +133,7 @@ module Fluent
         tmp_path = @path + '.tmp'
         begin
           json_string = Yajl::Encoder.encode(@store, pretty: @pretty_print)
-          open(tmp_path, 'w:utf-8', @mode){ |io| io.write json_string }
+          open(tmp_path, 'w:utf-8', @mode) { |io| io.write json_string; io.fsync }
           File.rename(tmp_path, @path)
         rescue => e
           log.error "failed to save data for plugin storage to file", path: @path, tmp: tmp_path, error: e

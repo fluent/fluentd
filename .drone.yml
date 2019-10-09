@@ -1,0 +1,35 @@
+kind: pipeline
+name: fluentd-test-arm64-2-6-3
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: fluentd-test-arm64-2-6-3
+  image: arm64v8/ruby:2.6.3
+  commands:
+  - apt update
+  - apt -y install libgmp3-dev
+  - export BUNDLE_GEMFILE=$PWD/Gemfile
+  - gem update --system
+  - bundle install --jobs=3 --retry=3 --path=${BUNDLE_PATH:-vendor/bundle}
+  - bundle exec rake test
+---
+kind: pipeline
+name: fluentd-test-arm64-latest
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: fluentd-test-arm64-latest
+  image: arm64v8/ruby:latest
+  commands:
+  - apt update
+  - apt -y install libgmp3-dev
+  - export BUNDLE_GEMFILE=$PWD/Gemfile
+  - gem update --system
+  - bundle install --jobs=3 --retry=3 --path=${BUNDLE_PATH:-vendor/bundle}
+  - bundle exec rake test

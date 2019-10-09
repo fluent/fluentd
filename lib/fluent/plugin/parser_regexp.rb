@@ -40,6 +40,10 @@ module Fluent
           @expression = Regexp.compile(@expression.source, options)
         end
         @regexp = @expression # For backward compatibility
+
+        if @expression.named_captures.empty?
+          raise Fluent::ConfigError, "No named captures in 'expression' parameter. The regexp must have at least one named capture"
+        end
       end
 
       def parse(text)

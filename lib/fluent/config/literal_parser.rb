@@ -112,7 +112,7 @@ module Fluent
           elsif s = scan(/./)
             string << s
           else
-            parse_error! "unexpected end of file in a signle quoted string"
+            parse_error! "unexpected end of file in a single quoted string"
           end
         end
       end
@@ -198,7 +198,7 @@ EOM
 
       def scan_json(is_array)
         result = nil
-        # Yajl does not raise ParseError for imcomplete json string, like '[1', '{"h"', '{"h":' or '{"h1":1'
+        # Yajl does not raise ParseError for incomplete json string, like '[1', '{"h"', '{"h":' or '{"h1":1'
         # This is the reason to use JSON module.
 
         buffer = (is_array ? "[" : "{")
@@ -215,7 +215,7 @@ EOM
             parsed = nil
             begin
               parsed = JSON.parse(buffer + line_buffer.rstrip.sub(/,$/, '') + (is_array ? "]" : "}"))
-            rescue JSON::ParserError => e
+            rescue JSON::ParserError
               # This '#' is in json string literals
             end
 
@@ -243,7 +243,7 @@ EOM
           line_buffer << char
           begin
             result = JSON.parse(buffer + line_buffer)
-          rescue JSON::ParserError => e
+          rescue JSON::ParserError
             # Incomplete json string yet
           end
         end

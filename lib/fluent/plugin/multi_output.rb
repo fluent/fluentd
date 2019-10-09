@@ -44,7 +44,7 @@ module Fluent
         @outputs = []
         @outputs_statically_created = false
 
-        @counters_monitor = Monitor.new
+        @counter_mutex = Mutex.new
         # TODO: well organized counters
         @num_errors = 0
         @emit_count = 0
@@ -94,7 +94,7 @@ module Fluent
         @outputs.each do |o|
           begin
             log.debug "calling #{method_name} on output plugin dynamically created", type: Fluent::Plugin.lookup_type_from_class(o.class), plugin_id: o.plugin_id
-            o.send(method_name) unless o.send(checker_name)
+            o.__send__(method_name) unless o.__send__(checker_name)
           rescue Exception => e
             log.warn "unexpected error while calling #{method_name} on output plugin dynamically created", plugin: o.class, plugin_id: o.plugin_id, error: e
             log.warn_backtrace
@@ -143,12 +143,12 @@ module Fluent
       end
 
       def emit_sync(tag, es)
-        @counters_monitor.synchronize{ @emit_count += 1 }
+        @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          @counters_monitor.synchronize{ @emit_records += es.size }
+          @counter_mutex.synchronize{ @emit_records += es.size }
         rescue
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           raise
         end
       end

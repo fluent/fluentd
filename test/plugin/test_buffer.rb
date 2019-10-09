@@ -170,7 +170,7 @@ class BufferTest < Test::Unit::TestCase
 
   sub_test_case 'with default configuration and dummy implementation' do
     setup do
-      @p = create_buffer({})
+      @p = create_buffer({'queued_chunks_limit_size' => 100})
       @dm0 = create_metadata(Time.parse('2016-04-11 16:00:00 +0000').to_i, nil, nil)
       @dm1 = create_metadata(Time.parse('2016-04-11 16:10:00 +0000').to_i, nil, nil)
       @dm2 = create_metadata(Time.parse('2016-04-11 16:20:00 +0000').to_i, nil, nil)
@@ -185,10 +185,10 @@ class BufferTest < Test::Unit::TestCase
       assert_equal([], plugin.queue)
       assert_equal({}, plugin.dequeued)
       assert_equal({}, plugin.queued_num)
-      assert_equal([], plugin.metadata_list)
 
       assert_equal 0, plugin.stage_size
       assert_equal 0, plugin.queue_size
+      assert_equal [], plugin.timekeys
 
       # @p is started plugin
 
@@ -206,12 +206,11 @@ class BufferTest < Test::Unit::TestCase
       assert_equal 203, @p.queue_size
 
       # staged, queued
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
       assert_equal 1, @p.queued_num[@dm0]
       assert_equal 2, @p.queued_num[@dm1]
     end
 
-    test '#close closes all chunks in in dequeued, enqueued and staged' do
+    test '#close closes all chunks in dequeued, enqueued and staged' do
       dmx = create_metadata(Time.parse('2016-04-11 15:50:00 +0000').to_i, nil, nil)
       cx = create_chunk(dmx, ["x" * 1024])
       @p.dequeued[cx.unique_id] = cx
@@ -239,43 +238,9 @@ class BufferTest < Test::Unit::TestCase
       assert_nil @p.queue
       assert_nil @p.dequeued
       assert_nil @p.queued_num
-      assert_nil @p.instance_eval{ @metadata_list } # #metadata_list does #dup for @metadata_list
       assert_equal 0, @p.stage_size
       assert_equal 0, @p.queue_size
-    end
-
-    test '#metadata_list returns list of metadata on stage or in queue' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-    end
-
-    test '#new_metadata creates metadata instance without inserting metadata_list' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-      _m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-    end
-
-    test '#add_metadata adds unknown metadata into list, or return known metadata if already exists' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-
-      m = @p.new_metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      _mx = @p.add_metadata(m)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m], @p.metadata_list
-      assert_equal m.object_id, m.object_id
-
-      my = @p.add_metadata(@dm1)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m], @p.metadata_list
-      assert_equal @dm1, my
-      assert{ @dm1.object_id != my.object_id } # 'my' is an object created in #resume
-    end
-
-    test '#metadata is utility method to create-add-and-return metadata' do
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
-
-      m1 = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m1], @p.metadata_list
-      m2 = @p.metadata(timekey: @dm3.timekey)
-      assert_equal [@dm2,@dm3,@dm0,@dm1,m1], @p.metadata_list
-      assert_equal @dm3, m2
+      assert_equal [], @p.timekeys
     end
 
     test '#queued_records returns total number of size in all chunks in queue' do
@@ -428,7 +393,6 @@ class BufferTest < Test::Unit::TestCase
     test '#purge_chunk removes a chunk specified by argument id from dequeued chunks' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m0 = @p.dequeue_chunk
       m1 = @p.dequeue_chunk
@@ -445,13 +409,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
     end
 
-    test '#purge_chunk removes an argument metadata from metadata_list if no chunks exist on stage or in queue' do
+    test '#purge_chunk removes an argument metadata if no chunks exist on stage or in queue' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m0 = @p.dequeue_chunk
 
@@ -465,13 +427,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm1], @p.metadata_list
     end
 
     test '#takeback_chunk returns false if specified chunk_id is already purged' do
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm0,@dm1], @p.metadata_list
 
       m0 = @p.dequeue_chunk
 
@@ -485,13 +445,11 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm1], @p.metadata_list
 
       assert !@p.takeback_chunk(m0.unique_id)
 
       assert_equal [@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal({}, @p.dequeued)
-      assert_equal [@dm2,@dm3,@dm1], @p.metadata_list
     end
 
     test '#clear_queue! removes all chunks in queue, but leaves staged chunks' do
@@ -569,9 +527,12 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys
 
+      timekey = Time.parse('2016-04-11 16:40:00 +0000').to_i
+      assert !@p.timekeys.include?(timekey)
+
       prev_stage_size = @p.stage_size
 
-      m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
+      m = @p.metadata(timekey: timekey)
 
       @p.write({m => ["x" * 256, "y" * 256, "z" * 256]})
 
@@ -581,6 +542,8 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
+
+      assert @p.timekeys.include?(timekey)
     end
 
     test '#write tries to enqueue and store data into a new chunk if existing chunk is full' do
@@ -689,7 +652,10 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3], @p.stage.keys
 
-      m = @p.metadata(timekey: Time.parse('2016-04-11 16:40:00 +0000').to_i)
+      timekey = Time.parse('2016-04-11 16:40:00 +0000').to_i
+      assert !@p.timekeys.include?(timekey)
+
+      m = @p.metadata(timekey: timekey)
 
       es = Fluent::ArrayEventStream.new(
         [
@@ -708,6 +674,8 @@ class BufferTest < Test::Unit::TestCase
       assert_equal [@dm0,@dm1,@dm1], @p.queue.map(&:metadata)
       assert_equal [@dm2,@dm3,m], @p.stage.keys
       assert_equal 1, @p.stage[m].append_count
+
+      assert @p.timekeys.include?(timekey)
     end
 
     test '#write w/ format tries to enqueue and store data into a new chunk if existing chunk does not have enough space' do
@@ -1027,7 +995,7 @@ class BufferTest < Test::Unit::TestCase
       ##### 900 + 9500 + 9900 * 4 == 5000 + 45000
     end
 
-    test '#write raises BufferChunkOverflowError if a record is biggar than chunk limit size' do
+    test '#write raises BufferChunkOverflowError if a record is bigger than chunk limit size' do
       assert_equal [@dm0], @p.stage.keys
       assert_equal [], @p.queue.map(&:metadata)
 

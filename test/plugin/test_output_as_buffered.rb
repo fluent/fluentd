@@ -207,6 +207,10 @@ class BufferedOutputTest < Test::Unit::TestCase
     end
   end
 
+  setup do
+    @i = nil
+  end
+
   teardown do
     if @i
       @i.stop unless @i.stopped?
@@ -217,6 +221,24 @@ class BufferedOutputTest < Test::Unit::TestCase
       @i.terminate unless @i.terminated?
     end
     Timecop.return
+  end
+
+  test 'queued_chunks_limit_size is same as flush_thread_count by default' do
+    hash = {'flush_thread_count' => 4}
+    i = create_output
+    i.register(:prefer_buffered_processing) { true }
+    i.configure(config_element('ROOT', '', {}, [config_element('buffer','tag',hash)]))
+
+    assert_equal 4, i.buffer.queued_chunks_limit_size
+  end
+
+  test 'prefer queued_chunks_limit_size parameter than flush_thread_count' do
+    hash = {'flush_thread_count' => 4, 'queued_chunks_limit_size' => 2}
+    i = create_output
+    i.register(:prefer_buffered_processing) { true }
+    i.configure(config_element('ROOT', '', {}, [config_element('buffer','tag',hash)]))
+
+    assert_equal 2, i.buffer.queued_chunks_limit_size
   end
 
   sub_test_case 'chunk feature in #write for output plugins' do
@@ -1056,6 +1078,47 @@ class BufferedOutputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case 'buffered output with large timekey and small timekey_wait' do
+    test 'writes event in proper interval' do
+      chunk_key = 'time'
+      hash = {
+        'timekey_zone' => '+0900',
+        'timekey' => 86400, # per 1 day
+        'timekey_wait' => 10, # 10 seconds delay for flush
+        'flush_thread_count' => 1,
+        'flush_thread_burst_interval' => 0.01,
+      }
+
+      with_timezone("UTC-9") do
+        Timecop.freeze(Time.parse('2019-02-08 00:01:00 +0900'))
+        @i = create_output(:buffered)
+        # timezone is set
+        @i.configure(config_element('ROOT', '', {}, [config_element('buffer',chunk_key,hash)]))
+        @i.start
+        @i.after_start
+        @i.thread_wait_until_start
+        assert_equal(0, @i.write_count)
+        @i.interrupt_flushes
+
+        events = [
+          [event_time('2019-02-08 00:02:00 +0900'), { "message" => "foobar" }]
+        ]
+        @i.emit_events("test.tag", Fluent::ArrayEventStream.new(events))
+        @i.enqueue_thread_wait
+        assert_equal(0, @i.write_count)
+
+        Timecop.freeze(Time.parse('2019-02-09 00:00:08 +0900'))
+        @i.enqueue_thread_wait
+        assert_equal(0, @i.write_count)
+
+        Timecop.freeze(Time.parse('2019-02-09 00:00:12 +0900'))
+        # write should be called in few seconds since
+        # running interval of enque thread is timekey_wait / 11.0.
+        waiting(5){ sleep 0.1 until @i.write_count == 1 }
+      end
+    end
+  end
+
   sub_test_case 'buffered output feature with tag key' do
     setup do
       chunk_key = 'tag'
@@ -1064,6 +1127,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         'flush_thread_count' => 1,
         'flush_thread_burst_interval' => 0.1,
         'chunk_limit_size' => 1024,
+        'queued_chunks_limit_size' => 100
       }
       @i = create_output(:buffered)
       @i.configure(config_element('ROOT','',{},[config_element('buffer',chunk_key,hash)]))

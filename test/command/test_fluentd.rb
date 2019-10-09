@@ -28,9 +28,9 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     end
   end
 
-  def create_conf_file(name, content)
+  def create_conf_file(name, content, ext_enc = 'utf-8')
     conf_path = File.join(TMP_DIR, name)
-    File.open(conf_path, 'w') do |file|
+    File.open(conf_path, "w:#{ext_enc}:utf-8") do |file|
       file.write content
     end
     conf_path
@@ -203,6 +203,40 @@ CONF
     end
   end
 
+  sub_test_case 'with --conf-encoding' do
+    test 'runs successfully' do
+      conf = <<CONF
+# テスト
+<source>
+  @type dummy
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<match dummy>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('shift_jis.conf', conf, 'shift_jis')
+      assert_log_matches(create_cmdline(conf_path, '--conf-encoding', 'shift_jis'), "fluentd worker is now running", 'worker=0')
+    end
+
+    test 'failed to run by invalid encoding' do
+      conf = <<CONF
+# テスト
+<source>
+  @type dummy
+  tag dummy
+  dummy {"message": "yay!"}
+</source>
+<match dummy>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('shift_jis.conf', conf, 'shift_jis')
+      assert_fluentd_fails_to_start(create_cmdline(conf_path), "invalid byte sequence in UTF-8")
+    end
+  end
+
   sub_test_case 'with system configuration about root directory' do
     setup do
       @root_path = File.join(TMP_DIR, "rootpath")
@@ -340,7 +374,7 @@ CONF
     end
   end
 
-  sub_test_case 'configured to suppress configration dump' do
+  sub_test_case 'configured to suppress configuration dump' do
     setup do
       @basic_conf = <<CONF
 <source>
@@ -442,7 +476,7 @@ CONF
 
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path, "-p", File.dirname(plugin_path)),
-        "in_buggy.rb:5: syntax error, unexpected end-of-input, expecting keyword_end (SyntaxError)"
+        "in_buggy.rb:5: syntax error, unexpected end-of-input, expecting"
       )
     end
   end
@@ -614,7 +648,7 @@ CONF
       )
     end
 
-    test 'failed to start workers when configured plugins as chidren of MultiOutput do not support multi worker configuration' do
+    test 'failed to start workers when configured plugins as children of MultiOutput do not support multi worker configuration' do
       script = <<-EOC
 require 'fluent/plugin/output'
 module Fluent::Plugin
@@ -773,7 +807,7 @@ CONF
       )
     end
 
-    test 'success to start workers when configured plugins as a chidren of MultiOutput only for specific worker do not support multi worker configuration' do
+    test 'success to start workers when configured plugins as a children of MultiOutput only for specific worker do not support multi worker configuration' do
       script = <<-EOC
 require 'fluent/plugin/output'
 module Fluent::Plugin

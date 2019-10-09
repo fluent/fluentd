@@ -1,14 +1,23 @@
 Fluentd: Open-Source Log Collector
 ===================================
+Travis CI:
 
 [<img src="https://travis-ci.org/fluent/fluentd.svg" />](https://travis-ci.org/fluent/fluentd) [![Code Climate](https://codeclimate.com/github/fluent/fluentd/badges/gpa.svg)](https://codeclimate.com/github/fluent/fluentd)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd?ref=badge_shield)
 
+GitLab CI:
+
+[![pipeline status](https://gitlab.com/fluent/fluentd/badges/master/pipeline.svg)](https://gitlab.com/fluent/fluentd/commits/master)
+
+Drone CI for Arm64:
+
+[![pipeline status](https://cloud.drone.io/api/badges/fluent/fluentd/status.svg?branch=master)](https://cloud.drone.io/fluent/fluentd)
+
 [Fluentd](https://www.fluentd.org/) collects events from various data sources and writes them to files, RDBMS, NoSQL, IaaS, SaaS, Hadoop and so on. Fluentd helps you unify your logging infrastructure (Learn more about the [Unified Logging Layer](https://www.fluentd.org/blog/unified-logging-layer)).
 
 <p align="center">
-<img src="https://docs.fluentd.org/images/fluentd-architecture.png" width="500px"/>
+<img src="https://raw.githubusercontent.com/fluent/fluentd-docs-gitbook/1.0/images/fluentd-architecture.png" width="500px"/>
 </p>
 
 An event consists of *tag*, *time* and *record*. Tag is a string separated with '.' (e.g. myapp.access). It is used to categorize events. Time is a UNIX time recorded at occurrence of an event. Record is a JSON object.
@@ -29,6 +38,11 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
     $ echo '{"json":"message"}' | fluent-cat debug.test
 
 ## Development
+
+### Branch
+
+- master: For v1 development.
+- v0.12: For v0.12. This is security maintenance mode. Only security fix is accepted.
 
 ### Prerequisites
 
@@ -53,11 +67,6 @@ You can run specified test via `TEST` environment variable:
     $ bundle exec rake test TEST=test/test_specified_path.rb
     $ bundle exec rake test TEST=test/test_*.rb
 
-## Running in Production
-
-Many enterprises run Fluentd in production to handle all of their logging needs. For enterprises requiring Security tested binaries, SLA-based support, architectural guidance, and enhanced plugin connectors see [Fluentd Enterprise](https://www.fluentd.org/enterprise).
-
-
 ## Fluentd UI: Admin GUI
 
 [Fluentd UI](https://github.com/fluent/fluentd-ui) is a graphical user interface to start/stop/configure Fluentd.
@@ -71,9 +80,9 @@ Many enterprises run Fluentd in production to handle all of their logging needs.
 - Project repository: https://github.com/fluent
 - Discussion: https://groups.google.com/group/fluentd
 - Slack / Community: https://slack.fluentd.org
-- Newsletters: https://www.fluentd.org/newsletter_signup
-- Author: Sadayuki Furuhashi
-- Copyright: 2011-2018 Fluentd Authors
+- Newsletters: https://www.fluentd.org/newsletter
+- Author: [Sadayuki Furuhashi](https://github.com/frsyuki)
+- Copyright: 2011-2019 Fluentd Authors
 - License: Apache License, Version 2.0
 
 ## Contributors:

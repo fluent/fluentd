@@ -1,0 +1,17 @@
+[
+    {
+        "host": "127.0.0.1",
+        "port": 24224,
+        "weight": 1,
+        "name": "test1",
+        "standby": false,
+        "username": "user1",
+        "password": "pass1",
+        "shared_key": "key1"
+    },
+    {
+        "host": "127.0.0.1",
+        "port": 24225,
+        "weight": 1
+    }
+]

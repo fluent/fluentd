@@ -129,7 +129,7 @@ module FluentOutputTest
     end
 
     def test_secondary_with_no_warn_log
-      # ObjectBufferedOutput doesn't implemnt `custom_filter`
+      # ObjectBufferedOutput doesn't implement `custom_filter`
       d = Fluent::Test::BufferedOutputTestDriver.new(Fluent::ObjectBufferedOutput)
 
       mock(d.instance.log).warn("secondary type should be same with primary one",

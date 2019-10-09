@@ -152,7 +152,7 @@ module ConfigurableSpec
     config_param :arrayvalue, :array
   end
 
-  class Example1
+  class ExampleWithAlias
     include Fluent::Configurable
 
     config_param :name, :string, alias: :fullname
@@ -166,22 +166,7 @@ module ConfigurableSpec
     end
   end
 
-  class Example3
-    include Fluent::Configurable
-
-    config_param :age, :integer, default: 10
-
-    config_section :appendix, required: true, multi: false, final: true do
-      config_param :type, :string
-      config_param :name, :string, default: "x"
-    end
-
-    def get_all
-      [@name, @detail]
-    end
-  end
-
-  class Example5
+  class ExampleWithSecret
     include Fluent::Configurable
 
     config_param :normal_param, :string
@@ -193,15 +178,40 @@ module ConfigurableSpec
     end
   end
 
-  class Example6
+  class ExampleWithDefaultHashAndArray
     include Fluent::Configurable
     config_param :obj1, :hash, default: {}
     config_param :obj2, :array, default: []
   end
 
-  class Example7
+  class ExampleWithSkipAccessor
     include Fluent::Configurable
     config_param :name, :string, default: 'example7', skip_accessor: true
+  end
+
+  class ExampleWithCustomSection
+    include Fluent::Configurable
+    config_param :name_param, :string
+    config_section :normal_section  do
+      config_param :normal_section_param, :string
+    end
+
+    class CustomSection
+      include Fluent::Configurable
+      config_param :custom_section_param, :string
+    end
+
+    class AnotherElement
+      include Fluent::Configurable
+    end
+
+    def configure(conf)
+      super
+      conf.elements.each do |e|
+        next if e.name != 'custom_section'
+        CustomSection.new.configure(e)
+      end
+    end
   end
 
   module Overwrite
@@ -564,12 +574,12 @@ module Fluent::Config
 
         sub_test_case 'default values should be duplicated before touched in plugin code' do
           test 'default object should be dupped for cases configured twice' do
-            x6a = ConfigurableSpec::Example6.new
+            x6a = ConfigurableSpec::ExampleWithDefaultHashAndArray.new
             assert_nothing_raised { x6a.configure(config_element("")) }
             assert_equal({}, x6a.obj1)
             assert_equal([], x6a.obj2)
 
-            x6b = ConfigurableSpec::Example6.new
+            x6b = ConfigurableSpec::ExampleWithDefaultHashAndArray.new
             assert_nothing_raised { x6b.configure(config_element("")) }
             assert_equal({}, x6b.obj1)
             assert_equal([], x6b.obj2)
@@ -577,7 +587,7 @@ module Fluent::Config
             assert { x6a.obj1.object_id != x6b.obj1.object_id }
             assert { x6a.obj2.object_id != x6b.obj2.object_id }
 
-            x6c = ConfigurableSpec::Example6.new
+            x6c = ConfigurableSpec::ExampleWithDefaultHashAndArray.new
             assert_nothing_raised { x6c.configure(config_element("")) }
             assert_equal({}, x6c.obj1)
             assert_equal([], x6c.obj2)
@@ -733,7 +743,7 @@ module Fluent::Config
           assert_nothing_raised { b4.configure(config_element('ROOT', '', BASE_ATTRS, [d1.dup, d2.dup, d3.dup, d3.dup])) }
         end
 
-        test 'constructs confuguration object tree for Base3' do
+        test 'constructs configuration object tree for Base3' do
           conf = config_element(
             'ROOT',
             '',
@@ -1032,12 +1042,12 @@ module Fluent::Config
           detail_base = base.class.merged_configure_proxy.sections[:detail]
           detail_sub = sub.class.merged_configure_proxy.sections[:detail]
           detail_base_attributes = {
-            requried: detail_base.required,
+            required: detail_base.required,
             multi: detail_base.multi,
             alias: detail_base.alias,
           }
           detail_sub_attributes = {
-            requried: detail_sub.required,
+            required: detail_sub.required,
             multi: detail_sub.multi,
             alias: detail_sub.alias,
           }
@@ -1184,7 +1194,7 @@ module Fluent::Config
     sub_test_case 'class defined with config_param/config_section having :alias' do
       sub_test_case '#initialize' do
         test 'does not create methods for alias' do
-          ex1 = ConfigurableSpec::Example1.new
+          ex1 = ConfigurableSpec::ExampleWithAlias.new
           assert_nothing_raised { ex1.name }
           assert_raise(NoMethodError) { ex1.fullname }
           assert_nothing_raised { ex1.bool }
@@ -1196,7 +1206,7 @@ module Fluent::Config
 
       sub_test_case '#configure' do
         test 'provides accessible data for alias attribute keys' do
-          ex1 = ConfigurableSpec::Example1.new
+          ex1 = ConfigurableSpec::ExampleWithAlias.new
           conf = config_element('ROOT', '', {
                                   "fullname" => "foo bar",
                                   "bool" => false
@@ -1288,7 +1298,7 @@ module Fluent::Config
                                  'secret_param' => 'secret'
                                },
                                [config_element('section', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
-        @example = ConfigurableSpec::Example5.new
+        @example = ConfigurableSpec::ExampleWithSecret.new
         @example.configure(@conf)
       end
 
@@ -1311,20 +1321,6 @@ module Fluent::Config
         }
       end
 
-      test 'get plugin name when found unknown section' do
-        @conf = config_element('ROOT', '',
-                               {
-                                 'normal_param' => 'normal',
-                                 'secret_param' => 'secret'
-                               },
-                               [config_element('unknown', '', {'normal_param2' => 'normal', 'secret_param2' => 'secret'} )])
-        @example = ConfigurableSpec::Example5.new
-        @example.configure(@conf)
-        @conf.elements.each { |e|
-          assert_equal(['ROOT', nil], e.unused_in)
-        }
-      end
-
       def assert_secret_param(key, value)
         case key
         when 'normal_param', 'normal_param2'
@@ -1335,9 +1331,51 @@ module Fluent::Config
       end
     end
 
+    sub_test_case 'unused section' do
+      test 'get plugin name when found unknown section' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('unknown', '', {'name_param' => 'normal'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        conf.elements.each { |e|
+          assert_equal(['ROOT', nil], e.unused_in)
+        }
+      end
+
+      test 'get an empty array when the section is defined without using config_section' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('custom_section', '', {'custom_section_param' => 'custom'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        conf.elements.each { |e|
+          assert_equal([], e.unused_in)
+        }
+      end
+
+      test 'get an empty array when the configuration is used in another element without any sections' do
+        conf = config_element('ROOT', '',
+                              {
+                                'name_param' => 'name',
+                              },
+                              [config_element('normal_section', '', {'normal_section_param' => 'normal'} )])
+        example = ConfigurableSpec::ExampleWithCustomSection.new
+        example.configure(conf)
+        ConfigurableSpec::ExampleWithCustomSection::AnotherElement.new.configure(conf)
+        conf.elements.each { |e|
+          assert_equal([], e.unused_in)
+        }
+      end
+    end
+
     sub_test_case ':skip_accessor option' do
       test 'it does not create accessor methods for parameters' do
-        @example = ConfigurableSpec::Example7.new
+        @example = ConfigurableSpec::ExampleWithSkipAccessor.new
         @example.configure(config_element('ROOT'))
         assert_equal 'example7', @example.instance_variable_get(:@name)
         assert_raise NoMethodError.new("undefined method `name' for #{@example}") do

@@ -9,12 +9,16 @@ require 'fluent/plugin/in_forward'
 class ForwardOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
+    FileUtils.rm_rf(TMP_DIR)
+    FileUtils.mkdir_p(TMP_DIR)
     @d = nil
   end
 
   def teardown
     @d.instance_shutdown if @d
   end
+
+  TMP_DIR = File.join(__dir__, "../tmp/out_forward#{ENV['TEST_ENV_NUMBER']}")
 
   TARGET_HOST = '127.0.0.1'
   TARGET_PORT = unused_port
@@ -35,28 +39,17 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def create_driver(conf=CONFIG)
     Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
-      attr_reader :response_chunk_ids, :exceptions, :sent_chunk_ids
+      attr_reader :sent_chunk_ids, :ack_handler, :discovery_manager
 
       def initialize
         super
         @sent_chunk_ids = []
-        @response_chunk_ids = []
-        @exceptions = []
       end
 
       def try_write(chunk)
         retval = super
         @sent_chunk_ids << chunk.unique_id
         retval
-      end
-
-      def read_ack_from_sock(sock, unpacker)
-        retval = super
-        @response_chunk_ids << retval
-        retval
-      rescue => e
-        @exceptions << e
-        raise e
       end
     }.configure(conf)
   end
@@ -74,6 +67,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 60, d.instance.send_timeout
     assert_equal :transport, d.instance.heartbeat_type
     assert_equal 1, nodes.length
+    assert_nil d.instance.connect_timeout
     node = nodes.first
     assert_equal "test", node.name
     assert_equal '127.0.0.1', node.host
@@ -96,6 +90,23 @@ EOL
     assert_equal [], instance.chunk_keys
     assert{ instance.buffer.is_a?(Fluent::Plugin::MemoryBuffer) }
     assert_equal( 10*1024*1024, instance.buffer.chunk_limit_size )
+  end
+
+  test 'configure timeouts' do
+    @d = d = create_driver(%[
+      send_timeout 30
+      connect_timeout 10
+      hard_timeout 15
+      ack_response_timeout 20
+      <server>
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ])
+    assert_equal 30, d.instance.send_timeout
+    assert_equal 10, d.instance.connect_timeout
+    assert_equal 15, d.instance.hard_timeout
+    assert_equal 20, d.instance.ack_response_timeout
   end
 
   test 'configure_udp_heartbeat' do
@@ -153,6 +164,126 @@ EOL
     assert{ logs.any?{|log| log.include?(expected_log) && log.include?(expected_detail) } }
   end
 
+  data('CA cert'     => 'tls_ca_cert_path',
+       'non CA cert' => 'tls_cert_path')
+  test 'configure tls_cert_path/tls_ca_cert_path' do |param|
+    dummy_cert_path = File.join(TMP_DIR, "dummy_cert.pem")
+    FileUtils.touch(dummy_cert_path)
+    conf = %[
+      send_timeout 5
+      transport tls
+      tls_insecure_mode true
+      #{param} #{dummy_cert_path}
+      <server>
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ]
+
+    @d = d = create_driver(conf)
+    # In the plugin, tls_ca_cert_path is used for both cases
+    assert_equal([dummy_cert_path], d.instance.tls_ca_cert_path)
+  end
+
+  sub_test_case "certstore loading parameters for Windows" do
+    test 'certstore related config parameters' do
+      omit "certstore related values raise error on not Windows" if Fluent.windows?
+      conf = %[
+        send_timeout 5
+        transport tls
+        tls_cert_logical_store_name Root
+        tls_cert_thumbprint a909502dd82ae41433e6f83886b00d4277a32a7b
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
+
+    test 'cert_logical_store_name and tls_cert_thumbprint default values' do
+      conf = %[
+        send_timeout 5
+        transport tls
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      @d = d = create_driver(conf)
+      assert_nil d.instance.tls_cert_logical_store_name
+      assert_nil d.instance.tls_cert_thumbprint
+    end
+
+    data('CA cert'     => 'tls_ca_cert_path',
+         'non CA cert' => 'tls_cert_path')
+    test 'specify tls_cert_logical_store_name and tls_cert_path should raise error' do |param|
+      omit "Loading CertStore feature works only Windows" unless Fluent.windows?
+      dummy_cert_path = File.join(TMP_DIR, "dummy_cert.pem")
+      FileUtils.touch(dummy_cert_path)
+      conf = %[
+        send_timeout 5
+        transport tls
+        #{param} #{dummy_cert_path}
+        tls_cert_logical_store_name Root
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      assert_raise(Fluent::ConfigError) do
+        create_driver(conf)
+      end
+    end
+
+    test 'configure cert_logical_store_name and tls_cert_thumbprint' do
+      omit "Loading CertStore feature works only Windows" unless Fluent.windows?
+      conf = %[
+        send_timeout 5
+        transport tls
+        tls_cert_logical_store_name Root
+        tls_cert_thumbprint a909502dd82ae41433e6f83886b00d4277a32a7b
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+
+      @d = d = create_driver(conf)
+      assert_equal "Root", d.instance.tls_cert_logical_store_name
+      assert_equal "a909502dd82ae41433e6f83886b00d4277a32a7b", d.instance.tls_cert_thumbprint
+    end
+  end
+
+  test 'server is an abbreviation of static type of service_discovery' do
+    @d = d = create_driver(%[
+<server>
+  host 127.0.0.1
+  port 1234
+</server>
+
+<service_discovery>
+  @type static
+
+  <service>
+    host 127.0.0.1
+    port 1235
+  </service>
+</service_discovery>
+    ])
+
+    assert_equal 2, d.instance.discovery_manager.services.size
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
+    assert_equal 1234, d.instance.discovery_manager.services[0].port
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[1].host
+    assert_equal 1235, d.instance.discovery_manager.services[1].port
+  end
+
   test 'compress_default_value' do
     @d = d = create_driver
     assert_equal :text, d.instance.compress
@@ -192,14 +323,14 @@ EOL
     node = d.instance.nodes.first
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
-    assert_equal node.available, true
+    assert_true node.available?
   end
 
   test 'phi_failure_detector enabled' do
     @d = d = create_driver(CONFIG + %[phi_failure_detector true \n phi_threshold 0])
     node = d.instance.nodes.first
     node.tick
-    assert_equal node.available, false
+    assert_false node.available?
   end
 
   test 'require_ack_response is disabled in default' do
@@ -217,6 +348,18 @@ EOL
     assert_equal 2, d.instance.ack_response_timeout
   end
 
+  test 'verify_connection_at_startup is disabled in default' do
+    @d = d = create_driver(CONFIG)
+    assert_false d.instance.verify_connection_at_startup
+  end
+
+  test 'verify_connection_at_startup can be enabled' do
+    @d = d = create_driver(CONFIG + %[
+      verify_connection_at_startup true
+    ])
+    assert_true d.instance.verify_connection_at_startup
+  end
+
   test 'send tags in str (utf-8 strings)' do
     target_input_driver = create_target_input_driver
 
@@ -232,6 +375,7 @@ EOL
       [tag_in_ascii, time, {"a" => 2}],
     ]
 
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run do
         emit_events.each do |tag, t, record|
@@ -247,8 +391,6 @@ EOL
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test.ascii', time, emit_events[1][2]], events[1]
     assert_equal Encoding::UTF_8, events[1][0].encoding
-
-    assert_empty d.instance.exceptions
   end
 
   test 'send_with_time_as_integer' do
@@ -262,6 +404,8 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -275,8 +419,6 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.exceptions
   end
 
   test 'send_without_time_as_integer' do
@@ -293,6 +435,7 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -306,8 +449,6 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal_event_time(time, events[1][1])
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.exceptions
   end
 
   test 'send_comprssed_message_pack_stream_if_compress_is_gzip' do
@@ -351,6 +492,8 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+    # not attempt to receive responses
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -362,9 +505,6 @@ EOL
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.response_chunk_ids # not attempt to receive responses, so it's empty
-    assert_empty d.instance.exceptions
   end
 
   test 'send_to_a_node_not_supporting_responses' do
@@ -378,6 +518,8 @@ EOL
       {"a" => 1},
       {"a" => 2}
     ]
+    # not attempt to receive responses
+    stub(d.instance.ack_handler).read_ack_from_sock(anything).never
     target_input_driver.run(expect_records: 2) do
       d.run(default_tag: 'test') do
         records.each do |record|
@@ -389,9 +531,6 @@ EOL
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
-
-    assert_empty d.instance.response_chunk_ids # not attempt to receive responses, so it's empty
-    assert_empty d.instance.exceptions
   end
 
   test 'a node supporting responses' do
@@ -410,12 +549,20 @@ EOL
 
     time = event_time("2011-01-02 13:14:15 UTC")
 
+    acked_chunk_ids = []
+    mock.proxy(d.instance.ack_handler).read_ack_from_sock(anything) do |info, success|
+      if success
+        acked_chunk_ids << info.chunk_id
+      end
+      [chunk_id, success]
+    end
+
     records = [
       {"a" => 1},
       {"a" => 2}
     ]
     target_input_driver.run(expect_records: 2) do
-      d.end_if{ d.instance.response_chunk_ids.length > 0 }
+      d.end_if { acked_chunk_ids.size > 0 }
       d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
         d.feed([[time, records[0]], [time,records[1]]])
       end
@@ -425,9 +572,8 @@ EOL
     assert_equal ['test', time, records[0]], events[0]
     assert_equal ['test', time, records[1]], events[1]
 
-    assert_equal 1, d.instance.response_chunk_ids.size
-    assert_equal d.instance.sent_chunk_ids.first, d.instance.response_chunk_ids.first
-    assert_empty d.instance.exceptions
+    assert_equal 1, acked_chunk_ids.size
+    assert_equal d.instance.sent_chunk_ids.first, acked_chunk_ids.first
   end
 
   data('ack true' => true,
@@ -500,7 +646,7 @@ EOL
       {"a" => 2}
     ]
     target_input_driver.end_if{ d.instance.rollback_count > 0 }
-    target_input_driver.end_if{ !node.available }
+    target_input_driver.end_if{ !node.available? }
     target_input_driver.run(expect_records: 2, timeout: 25) do
       d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false) do
         delayed_commit_timeout_value = d.instance.delayed_commit_timeout
@@ -545,7 +691,7 @@ EOL
       {"a" => 2}
     ]
     target_input_driver.end_if{ d.instance.rollback_count > 0 }
-    target_input_driver.end_if{ !node.available }
+    target_input_driver.end_if{ !node.available? }
     target_input_driver.run(expect_records: 2, timeout: 25) do
       d.run(default_tag: 'test', timeout: 20, wait_flush_completion: false, shutdown: false, flush: false) do
         delayed_commit_timeout_value = d.instance.delayed_commit_timeout
@@ -612,7 +758,55 @@ EOL
     assert_equal(['test', time, records[1]], events[1])
   end
 
-  test 'authentication_with_user_auth' do
+  test 'keepalive + shared_key' do
+    input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                 ]
+    target_input_driver = create_target_input_driver(conf: input_conf)
+
+    output_conf = %[
+      send_timeout 51
+      keepalive true
+      <security>
+        self_hostname localhost
+        shared_key fluentd-sharedkey
+      </security>
+      <server>
+        name test
+        host #{TARGET_HOST}
+        port #{TARGET_PORT}
+      </server>
+    ]
+    @d = d = create_driver(output_conf)
+
+    time = event_time('2011-01-02 13:14:15 UTC')
+    records = [{ 'a' => 1 }, { 'a' => 2 }]
+    records2 = [{ 'b' => 1}, { 'b' => 2}]
+    target_input_driver.run(expect_records: 4, timeout: 15) do
+      d.run(default_tag: 'test') do
+        records.each do |record|
+          d.feed(time, record)
+        end
+
+        d.flush # emit buffer to reuse same socket later
+        records2.each do |record|
+          d.feed(time, record)
+        end
+      end
+    end
+
+    events = target_input_driver.events
+    assert{ events != [] }
+    assert_equal(['test', time, records[0]], events[0])
+    assert_equal(['test', time, records[1]], events[1])
+    assert_equal(['test', time, records2[0]], events[2])
+    assert_equal(['test', time, records2[1]], events[3])
+  end
+
+   test 'authentication_with_user_auth' do
     input_conf = TARGET_CONFIG + %[
                    <security>
                      self_hostname in.localhost
@@ -737,7 +931,7 @@ EOL
 
     stub(node.failure).phi { raise 'Should not be called' }
     node.tick
-    assert_equal node.available, true
+    assert_true node.available?
   end
 
   test 'heartbeat_type_udp' do
@@ -753,7 +947,7 @@ EOL
     assert timers.include?(:out_forward_heartbeat_request)
 
     mock(usock).send("\0", 0, Socket.pack_sockaddr_in(TARGET_PORT, '127.0.0.1')).once
-    d.instance.send(:on_timer)
+    d.instance.send(:on_heartbeat_timer)
   end
 
   test 'acts_as_secondary' do
@@ -772,6 +966,220 @@ EOL
     )
     assert_nothing_raised do
       i.configure(conf)
+    end
+  end
+
+  sub_test_case 'verify_connection_at_startup' do
+    test 'nodes are not available' do
+      @d = d = create_driver(CONFIG + %[
+        verify_connection_at_startup true
+      ])
+      e = assert_raise Fluent::UnrecoverableError do
+        d.instance_start
+      end
+      assert_match(/Connection refused/, e.message)
+
+      d.instance_shutdown
+    end
+
+    test 'nodes_shared_key_miss_match' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        transport tcp
+        verify_connection_at_startup true
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 1) do
+        e = assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
+        assert_match(/Failed to establish connection/, e.message)
+      end
+    end
+
+    test 'nodes_shared_key_miss_match with TLS' do
+      input_conf = TARGET_CONFIG + %[
+                   <security>
+                     self_hostname in.localhost
+                     shared_key fluentd-sharedkey
+                   </security>
+                   <transport tls>
+                     insecure true
+                   </transport>
+                 ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+        transport tls
+        tls_insecure_mode true
+        verify_connection_at_startup true
+        <security>
+          self_hostname localhost
+          shared_key key_miss_match
+        </security>
+
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      target_input_driver.run(expect_records: 1, timeout: 1) do
+        e = assert_raise Fluent::UnrecoverableError do
+          d.instance_start
+        end
+
+        assert_match(/Failed to establish connection/, e.message)
+      end
+    end
+
+    test 'nodes_shared_key_match' do
+      input_conf = TARGET_CONFIG + %[
+                       <security>
+                         self_hostname in.localhost
+                         shared_key fluentd-sharedkey
+                       </security>
+                     ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+      output_conf = %[
+          verify_connection_at_startup true
+          <security>
+            self_hostname localhost
+            shared_key fluentd-sharedkey
+          </security>
+          <server>
+            name test
+            host #{TARGET_HOST}
+            port #{TARGET_PORT}
+          </server>
+      ]
+      @d = d = create_driver(output_conf)
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      records = [{ "a" => 1 }, { "a" => 2 }]
+
+      target_input_driver.run(expect_records: 2, timeout: 3) do
+        d.run(default_tag: 'test') do
+          records.each do |record|
+            d.feed(time, record)
+          end
+        end
+      end
+
+      events = target_input_driver.events
+      assert_false events.empty?
+      assert_equal(['test', time, records[0]], events[0])
+      assert_equal(['test', time, records[1]], events[1])
+    end
+  end
+
+  test 'Create new connection per send_data' do
+    target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
+    output_conf = CONFIG
+    d = create_driver(output_conf)
+    d.instance_start
+
+    begin
+      chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+      mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
+
+      target_input_driver.run(timeout: 15) do
+        d.run(shutdown: false) do
+          node = d.instance.nodes.first
+          2.times do
+            node.send_data('test', chunk) rescue nil
+          end
+        end
+      end
+    ensure
+      d.instance_shutdown
+    end
+  end
+
+  test 'if no available node' do
+    # do not create output driver
+    d = create_driver(%[
+    <server>
+      name test
+      standby
+      host #{TARGET_HOST}
+      port #{TARGET_PORT}
+    </server>
+    ])
+    d.instance_start
+    assert_nothing_raised { d.run }
+  end
+
+  sub_test_case 'keepalive' do
+    test 'Do not create connection per send_data' do
+      target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
+      output_conf = CONFIG + %[
+        keepalive true
+        keepalive_timeout 2
+      ]
+      d = create_driver(output_conf)
+      d.instance_start
+
+      begin
+        chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+        mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.once
+
+        target_input_driver.run(timeout: 15) do
+          d.run(shutdown: false) do
+            node = d.instance.nodes.first
+            2.times do
+              node.send_data('test', chunk) rescue nil
+            end
+          end
+        end
+      ensure
+        d.instance_shutdown
+      end
+    end
+
+    sub_test_case 'with require_ack_response' do
+      test 'Create connection per send_data' do
+        target_input_driver = create_target_input_driver(conf: TARGET_CONFIG)
+        output_conf = CONFIG + %[
+          require_ack_response true
+          keepalive true
+          keepalive_timeout 2
+        ]
+        d = create_driver(output_conf)
+        d.instance_start
+
+        begin
+          chunk = Fluent::Plugin::Buffer::MemoryChunk.new(Fluent::Plugin::Buffer::Metadata.new(nil, nil, nil))
+          mock.proxy(d.instance).socket_create_tcp(TARGET_HOST, TARGET_PORT, anything) { |sock| mock(sock).close.once; sock }.twice
+
+          target_input_driver.run(timeout: 15) do
+            d.run(shutdown: false) do
+              node = d.instance.nodes.first
+              2.times do
+                node.send_data('test', chunk) rescue nil
+              end
+            end
+          end
+        ensure
+          d.instance_shutdown
+        end
+      end
     end
   end
 end

@@ -22,6 +22,7 @@ require 'fluent/plugin_helper/child_process'
 require 'fluent/plugin_helper/storage'
 require 'fluent/plugin_helper/parser'
 require 'fluent/plugin_helper/formatter'
+require 'fluent/plugin_helper/http_server'
 require 'fluent/plugin_helper/inject'
 require 'fluent/plugin_helper/extract'
 require 'fluent/plugin_helper/socket'
@@ -30,6 +31,7 @@ require 'fluent/plugin_helper/counter'
 require 'fluent/plugin_helper/retry_state'
 require 'fluent/plugin_helper/record_accessor'
 require 'fluent/plugin_helper/compat_parameters'
+require 'fluent/plugin_helper/service_discovery'
 
 module Fluent
   module PluginHelper

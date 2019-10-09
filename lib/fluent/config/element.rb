@@ -31,17 +31,17 @@ module Fluent
         @unused = unused || attrs.keys
         @v1_config = false
         @corresponding_proxies = [] # some plugins use flat parameters, e.g. in_http doesn't provide <format> section for parser.
-        @unused_in = false # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
+        @unused_in = nil # if this element is not used in plugins, correspoing plugin name and parent element name is set, e.g. [source, plugin class].
 
         # it's global logger, not plugin logger: deprecated message should be global warning, not plugin level.
         @logger = defined?($log) ? $log : nil
 
-        @target_worker_id = nil
+        @target_worker_ids = []
       end
 
       attr_accessor :name, :arg, :unused, :v1_config, :corresponding_proxies, :unused_in
       attr_writer :elements
-      attr_reader :target_worker_id
+      attr_reader :target_worker_ids
 
       RESERVED_PARAMETERS_COMPAT = {
         '@type' => 'type',
@@ -110,13 +110,13 @@ module Fluent
       end
 
       def has_key?(key)
-        @unused_in = false # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
+        @unused_in = [] # some sections, e.g. <store> in copy, is not defined by config_section so clear unused flag for better warning message in check_not_fetched.
         @unused.delete(key)
         super
       end
 
       def [](key)
-        @unused_in = false # ditto
+        @unused_in = [] # ditto
         @unused.delete(key)
 
         if RESERVED_PARAMETERS.include?(key) && !has_key?(key) && has_key?(RESERVED_PARAMETERS_COMPAT[key])
@@ -223,22 +223,29 @@ module Fluent
       end
 
       def set_target_worker_id(worker_id)
-        @target_worker_id = worker_id
+        @target_worker_ids = [worker_id]
         @elements.each { |e|
           e.set_target_worker_id(worker_id)
         }
       end
 
+      def set_target_worker_ids(worker_ids)
+        @target_worker_ids = worker_ids.uniq
+        @elements.each { |e|
+          e.set_target_worker_ids(worker_ids.uniq)
+        }
+      end
+
       def for_every_workers?
-        @target_worker_id == nil
+        @target_worker_ids.empty?
       end
 
       def for_this_worker?
-        @target_worker_id == Fluent::Engine.worker_id
+        @target_worker_ids.include?(Fluent::Engine.worker_id)
       end
 
       def for_another_worker?
-        @target_worker_id != nil && @target_worker_id != Fluent::Engine.worker_id
+        !@target_worker_ids.empty? && !@target_worker_ids.include?(Fluent::Engine.worker_id)
       end
     end
   end

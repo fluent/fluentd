@@ -34,6 +34,8 @@ module Fluent
 
       desc 'The path where buffer chunks are stored.'
       config_param :path, :string, default: nil
+      desc 'The suffix of buffer chunks'
+      config_param :path_suffix, :string, default: '.log'
 
       config_set_default :chunk_limit_size, DEFAULT_CHUNK_LIMIT_SIZE
       config_set_default :total_limit_size, DEFAULT_TOTAL_LIMIT_SIZE
@@ -78,12 +80,12 @@ module Fluent
 
         if specified_directory_exists || unexisting_path_for_directory # directory
           if using_plugin_root_dir || !multi_workers_configured
-            @path = File.join(@path, 'buffer.*.log')
+            @path = File.join(@path, "buffer.*#{@path_suffix}")
           else
-            @path = File.join(@path, "worker#{fluentd_worker_id}", 'buffer.*.log')
+            @path = File.join(@path, "worker#{fluentd_worker_id}", "buffer.*#{@path_suffix}")
             if fluentd_worker_id == 0
               # worker 0 always checks unflushed buffer chunks to be resumed (might be created while non-multi-worker configuration)
-              @additional_resume_path = File.join(File.expand_path("../../", @path), 'buffer.*.log')
+              @additional_resume_path = File.join(File.expand_path("../../", @path), "buffer.*#{@path_suffix}")
             end
           end
           @multi_workers_available = true
@@ -91,10 +93,10 @@ module Fluent
           if File.basename(@path).include?('.*.')
             # valid file path
           elsif File.basename(@path).end_with?('.*')
-            @path = @path + '.log'
+            @path = @path + @path_suffix
           else
             # existing file will be ignored
-            @path = @path + '.*.log'
+            @path = @path + ".*#{@path_suffix}"
           end
           @multi_workers_available = false
         end
@@ -130,19 +132,21 @@ module Fluent
 
         patterns = [@path]
         patterns.unshift @additional_resume_path if @additional_resume_path
-        Dir.glob(patterns) do |path|
+        Dir.glob(escaped_patterns(patterns)) do |path|
           next unless File.file?(path)
+
+          log.debug { "restoring buffer file: path = #{path}" }
 
           m = new_metadata() # this metadata will be overwritten by resuming .meta file content
                              # so it should not added into @metadata_list for now
           mode = Fluent::Plugin::Buffer::FileChunk.assume_chunk_state(path)
           if mode == :unknown
-            log.debug "uknown state chunk found", path: path
+            log.debug "unknown state chunk found", path: path
             next
           end
 
           begin
-            chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode) # file chunk resumes contents of metadata
+            chunk = Fluent::Plugin::Buffer::FileChunk.new(m, path, mode, compress: @compress) # file chunk resumes contents of metadata
           rescue Fluent::Plugin::Buffer::FileChunk::FileChunkError => e
             handle_broken_files(path, mode, e)
             next
@@ -178,6 +182,15 @@ module Fluent
         log.error "found broken chunk file during resume. Deleted corresponding files:", :path => path, :mode => mode, :err_msg => e.message
         # After support 'backup_dir' feature, these files are moved to backup_dir instead of unlink.
         File.unlink(path, path + '.meta') rescue nil
+      end
+
+      private
+
+      def escaped_patterns(patterns)
+        patterns.map { |pattern|
+          # '{' '}' are special character in Dir.glob
+          pattern.gsub(/[\{\}]/) { |c| "\\#{c}" }
+        }
       end
     end
   end

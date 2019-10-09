@@ -213,8 +213,10 @@ module Fluent
         socket_option_setter.call(sock)
         close_callback = ->(conn){ @_server_mutex.synchronize{ @_server_connections.delete(conn) } }
         server = Coolio::TCPServer.new(sock, nil, EventHandler::TCPServer, socket_option_setter, close_callback, @log, @under_plugin_development, block) do |conn|
-          @_server_mutex.synchronize do
-            @_server_connections << conn
+          unless conn.closing
+            @_server_mutex.synchronize do
+              @_server_connections << conn
+            end
           end
         end
         server.listen(backlog) if backlog
@@ -227,8 +229,10 @@ module Fluent
         socket_option_setter.call(sock)
         close_callback = ->(conn){ @_server_mutex.synchronize{ @_server_connections.delete(conn) } }
         server = Coolio::TCPServer.new(sock, nil, EventHandler::TLSServer, context, socket_option_setter, close_callback, @log, @under_plugin_development, block) do |conn|
-          @_server_mutex.synchronize do
-            @_server_connections << conn
+          unless conn.closing
+            @_server_mutex.synchronize do
+              @_server_connections << conn
+            end
           end
         end
         server.listen(backlog) if backlog
@@ -373,7 +377,7 @@ module Fluent
       end
 
       # Use string "?" for port, not integer or nil. "?" is clear than -1 or nil in the log.
-      PEERADDR_FAILED = ["?", "?", "name resolusion failed", "?"]
+      PEERADDR_FAILED = ["?", "?", "name resolution failed", "?"]
 
       class CallbackSocket
         def initialize(server_type, sock, enabled_events = [], close_socket: true)
@@ -402,6 +406,10 @@ module Fluent
 
         def write(data)
           raise "not implemented here"
+        end
+
+        def close_after_write_complete
+          @sock.close_after_write_complete = true
         end
 
         def close
@@ -488,6 +496,8 @@ module Fluent
 
       module EventHandler
         class UDPServer < Coolio::IO
+          attr_writer :close_after_write_complete # dummy for consistent method call in callbacks
+
           def initialize(sock, max_bytes, flags, close_socket, log, under_plugin_development, &callback)
             raise ArgumentError, "socket must be a UDPSocket: sock = #{sock}" unless sock.is_a?(UDPSocket)
 
@@ -513,7 +523,7 @@ module Fluent
           def on_readable_without_sock
             begin
               data = @sock.recv(@max_bytes, @flags)
-            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
+            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET, IOError, Errno::EBADF
               return
             end
             @callback.call(data)
@@ -526,7 +536,7 @@ module Fluent
           def on_readable_with_sock
             begin
               data, addr = @sock.recvfrom(@max_bytes)
-            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET
+            rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::EINTR, Errno::ECONNRESET, IOError, Errno::EBADF
               return
             end
             @callback.call(data, UDPCallbackSocket.new(@sock, addr, close_socket: @close_socket))
@@ -538,6 +548,9 @@ module Fluent
         end
 
         class TCPServer < Coolio::TCPSocket
+          attr_reader :closing
+          attr_writer :close_after_write_complete
+
           def initialize(sock, socket_option_setter, close_callback, log, under_plugin_development, connect_callback)
             raise ArgumentError, "socket must be a TCPSocket: sock=#{sock}" unless sock.is_a?(TCPSocket)
 
@@ -554,6 +567,7 @@ module Fluent
             @close_callback = close_callback
 
             @callback_connection = nil
+            @close_after_write_complete = false
             @closing = false
 
             @mutex = Mutex.new # to serialize #write and #close
@@ -581,6 +595,11 @@ module Fluent
             end
           end
 
+          def on_writable
+            super
+            close if @close_after_write_complete
+          end
+
           def on_connect
             @callback_connection = TCPCallbackSocket.new(self)
             @connect_callback.call(@callback_connection)
@@ -594,7 +613,7 @@ module Fluent
           rescue => e
             @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.trace_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
@@ -603,7 +622,7 @@ module Fluent
           rescue => e
             @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.trace_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
@@ -618,6 +637,9 @@ module Fluent
         end
 
         class TLSServer < Coolio::Socket
+          attr_reader :closing
+          attr_writer :close_after_write_complete
+
           # It can't use Coolio::TCPSocket, because Coolio::TCPSocket checks that underlying socket (1st argument of super) is TCPSocket.
           def initialize(sock, context, socket_option_setter, close_callback, log, under_plugin_development, connect_callback)
             raise ArgumentError, "socket must be a TCPSocket: sock=#{sock}" unless sock.is_a?(TCPSocket)
@@ -637,6 +659,7 @@ module Fluent
             @close_callback = close_callback
 
             @callback_connection = nil
+            @close_after_write_complete = false
             @closing = false
 
             @mutex = Mutex.new # to serialize #write and #close
@@ -699,7 +722,7 @@ module Fluent
 
                 return true
               end
-            rescue OpenSSL::SSL::SSLError => e
+            rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ETIMEDOUT, OpenSSL::SSL::SSLError => e
               @log.trace "unexpected error before accepting TLS connection", error: e
               close rescue nil
             end
@@ -728,8 +751,16 @@ module Fluent
                 # Consider write_nonblock with {exception: false} when IO::WaitWritable error happens frequently.
                 written_bytes = @_handler_socket.write_nonblock(@_handler_write_buffer)
                 @_handler_write_buffer.slice!(0, written_bytes)
-                super
               end
+
+              # No need to call `super` in a synchronized context because TLSServer doesn't use the inner buffer(::IO::Buffer) of Coolio::IO.
+              # Instead of using Coolio::IO's inner buffer, TLSServer has own buffer(`@_handler_write_buffer`). See also TLSServer#write.
+              # Actually, the only reason calling `super` here is call Coolio::IO#disable_write_watcher.
+              # If `super` is called in a synchronized context, it could cause a mutex recursive locking since Coolio::IO#on_write_complete
+              # eventually calls TLSServer#close which try to get a lock.
+              super
+
+              close if @close_after_write_complete
             rescue IO::WaitWritable, IO::WaitReadable
               return
             rescue Errno::EINTR
@@ -748,7 +779,7 @@ module Fluent
           rescue => e
             @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.trace_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 
@@ -757,7 +788,7 @@ module Fluent
           rescue => e
             @log.trace "unexpected error on reading data", host: @callback_connection.remote_host, port: @callback_connection.remote_port, error: e
             @log.trace_backtrace
-            close(true) rescue nil
+            close rescue nil
             raise if @under_plugin_development
           end
 

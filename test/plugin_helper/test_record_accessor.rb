@@ -48,7 +48,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
 
     data("missing ']'" => "$['key1'",
          "missing array index with dot" => "$.hello[]",
-         "missing array index with braket" => "$[]",
+         "missing array index with bracket" => "$[]",
          "more chars" => "$.key1[0]foo",
          "whitespace char included key in dot notation" => "$.key[0].ke y",
          "empty keys with dot" => "$.",
@@ -110,6 +110,12 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       assert_equal r[param], accessor.call(r)
     end
 
+    test "access single dot key using bracket style" do
+      r = {'key1' => 'v1', 'ke y2' => 'v2', 'this.is.key3' => 'v3'}
+      accessor = @d.record_accessor_create('$["this.is.key3"]')
+      assert_equal 'v3', accessor.call(r)
+    end
+
     test "nested bracket keys with dot" do
       r = {'key1' => {'this.is.key3' => 'value'}}
       accessor = @d.record_accessor_create("$['key1']['this.is.key3']")
@@ -135,7 +141,7 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
 
     data("missing ']'" => "$['key1'",
          "missing array index with dot" => "$.hello[]",
-         "missing array index with braket" => "$['hello'][]",
+         "missing array index with bracket" => "$['hello'][]",
          "whitespace char included key in dot notation" => "$.key[0].ke y",
          "more chars" => "$.key1[0]foo",
          "empty keys with dot" => "$.",
@@ -162,6 +168,13 @@ class RecordAccessorHelperTest < Test::Unit::TestCase
       accessor = @d.record_accessor_create(param)
       accessor.delete(r)
       assert_not_include(r, param)
+    end
+
+    test "delete top key using bracket style" do
+      r = {'key1' => 'v1', 'ke y2' => 'v2', 'this.is.key3' => 'v3'}
+      accessor = @d.record_accessor_create('$["this.is.key3"]')
+      accessor.delete(r)
+      assert_not_include(r, 'this.is.key3')
     end
 
     data('bracket' => "$['key1'][0]['ke y2']",

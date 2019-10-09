@@ -10,6 +10,8 @@ require 'json'
 require_relative '../test_plugin_classes'
 
 class MonitorAgentInputTest < Test::Unit::TestCase
+  include FuzzyAssert
+
   def setup
     Fluent::Test.setup
   end
@@ -118,24 +120,41 @@ EOC
         "plugin_category" => "output",
         "plugin_id"       => "test_out",
         "retry_count"     => 0,
-        "type"            => "test_out"
+        "type"            => "test_out",
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
       }
       output_info.merge!("config" => {"@id" => "test_out", "@type" => "test_out"}) if with_config
       error_label_info = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => Float,
+        "buffer_queue_byte_size" => Integer,
+        "buffer_stage_byte_size" => Integer,
+        "buffer_stage_length" => Integer,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
       }
       error_label_info.merge!("config" => {"@id"=>"null", "@type" => "null"}) if with_config
       opts = {with_config: with_config}
       assert_equal(input_info, d.instance.get_monitor_info(@ra.inputs.first, opts))
-      assert_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first, opts))
-      assert_equal(output_info, d.instance.get_monitor_info(test_label.outputs.first, opts))
-      assert_equal(error_label_info, d.instance.get_monitor_info(error_label.outputs.first, opts))
+      assert_fuzzy_equal(filter_info, d.instance.get_monitor_info(@ra.filters.first, opts))
+      assert_fuzzy_equal(output_info, d.instance.get_monitor_info(test_label.outputs.first, opts))
+      assert_fuzzy_equal(error_label_info, d.instance.get_monitor_info(error_label.outputs.first, opts))
     end
 
     test "fluentd opts" do
@@ -185,16 +204,29 @@ EOC
         "plugin_category" => "output",
         "type"            => "relabel",
         "output_plugin"   => true,
-        "retry_count"     => 0}
+        "retry_count"     => 0,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
+      }
       expect_test_out_record = {
         "plugin_id"       => "test_out",
         "plugin_category" => "output",
         "type"            => "test_out",
         "output_plugin"   => true,
-        "retry_count"     => 0
+        "retry_count"     => 0,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
       }
-      assert_equal(expect_relabel_record, d.events[1][2])
-      assert_equal(expect_test_out_record, d.events[3][2])
+      assert_fuzzy_equal(expect_relabel_record, d.events[1][2])
+      assert_fuzzy_equal(expect_test_out_record, d.events[3][2])
     end
   end
 
@@ -296,12 +328,23 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => Float,
+        "buffer_queue_byte_size" => Integer,
+        "buffer_stage_byte_size" => Integer,
+        "buffer_stage_length" => Integer,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       expected_null_response.merge!("retry" => {}) if with_retry
@@ -309,7 +352,21 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
-      assert_equal(expected_null_response, null_response)
+      assert_fuzzy_equal(expected_null_response, null_response)
+    end
+
+    test "/api/plugins.json/not_found" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      resp = get("http://127.0.0.1:#{@port}/api/plugins.json/not_found")
+      assert_equal('404', resp.code)
+      body = JSON.parse(resp.body)
+      assert_equal(body['message'], 'Not found')
     end
 
     data(:with_config_and_retry_yes => [true, true, "?with_config=yes&with_retry"],
@@ -333,12 +390,23 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       expected_test_in_response.merge!("config" => {"@id" => "test_in", "@type" => "test_in"}) if with_config
       expected_null_response = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
-        "type"            => "null"
+        "type"            => "null",
+        "buffer_available_buffer_space_ratios" => Float,
+        "buffer_queue_byte_size" => Integer,
+        "buffer_stage_byte_size" => Integer,
+        "buffer_stage_length" => Integer,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
       }
       expected_null_response.merge!("config" => {"@id" => "null", "@type" => "null"}) if with_config
       expected_null_response.merge!("retry" => {}) if with_retry
@@ -346,7 +414,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
-      assert_equal(expected_null_response, null_response)
+      assert_fuzzy_include(expected_null_response, null_response)
     end
 
     test "/api/plugins.json with 'with_ivars'. response contains specified instance variables of each plugin" do
@@ -367,19 +435,30 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       }
       expected_null_response = {
         "buffer_queue_length" => 0,
+        "buffer_timekeys" => [],
         "buffer_total_queued_size" => 0,
         "output_plugin"   => true,
         "plugin_category" => "output",
         "plugin_id"       => "null",
         "retry_count"     => 0,
         "type"            => "null",
-        "instance_variables" => {"id" => "null", "num_errors" => 0}
+        "instance_variables" => {"id" => "null", "num_errors" => 0},
+        "buffer_available_buffer_space_ratios" => Float,
+        "buffer_queue_byte_size" => Integer,
+        "buffer_stage_byte_size" => Integer,
+        "buffer_stage_length" => Integer,
+        "emit_count"      => Integer,
+        "emit_records"    => Integer,
+        "write_count"     => Integer,
+        "rollback_count"  => Integer,
+        "slow_flush_count" => Integer,
+        "flush_time_count" => Integer,
       }
       response = JSON.parse(get("http://127.0.0.1:#{@port}/api/plugins.json?with_config=no&with_retry=no&with_ivars=id,num_errors").body)
       test_in_response = response["plugins"][0]
       null_response = response["plugins"][5]
       assert_equal(expected_test_in_response, test_in_response)
-      assert_equal(expected_null_response, null_response)
+      assert_fuzzy_equal(expected_null_response, null_response)
     end
 
     test "/api/config" do
@@ -390,7 +469,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   tag monitor
 ")
       d.instance.start
-      expected_response_regex = /pid:\d+\tppid:\d+\tconfig_path:\/etc\/fluent\/fluent.conf\tpid_file:\tplugin_dirs:\[\"\/etc\/fluent\/plugin\"\]\tlog_path:/
+      expected_response_regex = /pid:\d+\tppid:\d+\tconfig_path:\/etc\/fluent\/fluent.conf\tpid_file:\tplugin_dirs:\/etc\/fluent\/plugin\tlog_path:/
 
       assert_match(expected_response_regex,
                    get("http://127.0.0.1:#{@port}/api/config").body)
@@ -409,6 +488,33 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_nil(res["pid_file"])
       assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
       assert_nil(res["log_path"])
+    end
+
+    test "/api/config.json?debug=1" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      # To check pretty print
+      assert_true !get("http://127.0.0.1:#{@port}/api/config.json").body.include?("\n")
+      assert_true get("http://127.0.0.1:#{@port}/api/config.json?debug=1").body.include?("\n")
+    end
+
+    test "/api/config.json/not_found" do
+      d = create_driver("
+  @type monitor_agent
+  bind '127.0.0.1'
+  port #{@port}
+  tag monitor
+")
+      d.instance.start
+      resp = get("http://127.0.0.1:#{@port}/api/config.json/not_found")
+      assert_equal('404', resp.code)
+      body = JSON.parse(resp.body)
+      assert_equal(body['message'], 'Not found')
     end
   end
 
@@ -434,7 +540,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 <match **>
   @type test_out_fail_write
   @id test_out_fail_write
-  <buffer>
+  <buffer time>
+    timekey 1m
     flush_mode immediate
   </buffer>
 </match>
@@ -453,17 +560,30 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   include_config no
 ")
       d.instance.start
+      output = @ra.outputs[0]
+      output.start
+      output.after_start
       expected_test_out_fail_write_response = {
           "buffer_queue_length" => 1,
+          "buffer_timekeys" => [output.calculate_timekey(event_time)],
           "buffer_total_queued_size" => 40,
           "output_plugin" => true,
           "plugin_category" => "output",
           "plugin_id" => "test_out_fail_write",
           "type" => "test_out_fail_write",
+          "buffer_newest_timekey" => output.calculate_timekey(event_time),
+          "buffer_oldest_timekey" => output.calculate_timekey(event_time),
+          "buffer_available_buffer_space_ratios" => Float,
+          "buffer_queue_byte_size" => Integer,
+          "buffer_stage_byte_size" => Integer,
+          "buffer_stage_length" => Integer,
+          "emit_count" => Integer,
+          "emit_records" => Integer,
+          "write_count" => Integer,
+          "rollback_count" => Integer,
+          'slow_flush_count' => Integer,
+          'flush_time_count' => Integer,
       }
-      output = @ra.outputs[0]
-      output.start
-      output.after_start
       output.emit_events('test.tag', Fluent::ArrayEventStream.new([[event_time, {"message" => "test failed flush 1"}]]))
       # flush few times to check steps
       2.times do
@@ -478,7 +598,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       # remove dynamic keys
       response_retry_count = test_out_fail_write_response.delete("retry_count")
       response_retry = test_out_fail_write_response.delete("retry")
-      assert_equal(expected_test_out_fail_write_response, test_out_fail_write_response)
+      assert_fuzzy_equal(expected_test_out_fail_write_response, test_out_fail_write_response)
       assert{ response_retry.has_key?("steps") }
       # it's very hard to check exact retry count (because retries are called by output flush thread scheduling)
       assert{ response_retry_count >= 1 && response_retry["steps"] >= 0 }

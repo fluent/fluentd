@@ -97,6 +97,10 @@ module Fluent::Plugin
     desc 'Ignore repeated permission error logs'
     config_param :ignore_repeated_permission_error, :bool, default: false
 
+    config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
+      config_argument :usage, :string, default: 'in_tail_parser'
+    end
+
     attr_reader :paths
 
     @@pos_file_paths = {}
@@ -148,7 +152,8 @@ module Fluent::Plugin
                            method(:parse_singleline)
                          end
       @file_perm = system_config.file_permission || FILE_PERMISSION
-      @parser = parser_create(conf: parser_config)
+      # parser is already created by parser helper
+      @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
     end
 
     def configure_tag
@@ -171,6 +176,9 @@ module Fluent::Plugin
 
       @encoding = parse_encoding_param(@encoding) if @encoding
       @from_encoding = parse_encoding_param(@from_encoding) if @from_encoding
+      if @encoding && (@encoding == @from_encoding)
+        log.warn "'encoding' and 'from_encoding' are same encoding. No effect"
+      end
     end
 
     def parse_encoding_param(encoding_name)
@@ -185,6 +193,8 @@ module Fluent::Plugin
       super
 
       if @pos_file
+        pos_file_dir = File.dirname(@pos_file)
+        FileUtils.mkdir_p(pos_file_dir) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
         @pf = PositionFile.parse(@pf_file)
@@ -234,6 +244,7 @@ module Fluent::Plugin
                 false
               end
             rescue Errno::ENOENT
+              log.debug("#{p} is missing after refresh file list")
               false
             end
           }
@@ -255,6 +266,8 @@ module Fluent::Plugin
       target_paths = expand_paths
       existence_paths = @tails.keys
 
+      log.debug { "tailing paths: target = #{target_paths.join(",")} | existing = #{existence_paths.join(",")}" }
+
       unwatched = existence_paths - target_paths
       added = target_paths - existence_paths
 
@@ -266,13 +279,16 @@ module Fluent::Plugin
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
       tw.attach do |watcher|
-        watcher.timer_trigger = timer_execute(:in_tail_timer_trigger, 1, &watcher.method(:on_notify)) if watcher.enable_watch_timer
-        event_loop_attach(watcher.stat_trigger) if watcher.enable_stat_watcher
+        event_loop_attach(watcher.timer_trigger) if watcher.timer_trigger
+        event_loop_attach(watcher.stat_trigger) if watcher.stat_trigger
       end
       tw
     rescue => e
       if tw
-        tw.detach
+        tw.detach { |watcher|
+          event_loop_detach(watcher.timer_trigger) if watcher.timer_trigger
+          event_loop_detach(watcher.stat_trigger) if watcher.stat_trigger
+        }
         tw.close
       end
       raise e
@@ -329,7 +345,7 @@ module Fluent::Plugin
     def update_watcher(path, pe)
       if @pf
         unless pe.read_inode == @pf[path].read_inode
-          log.trace "Skip update_watcher because watcher has been already updated by other inotify event"
+          log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
           return
         end
       end
@@ -343,7 +359,10 @@ module Fluent::Plugin
     # so adding close_io argument to avoid this problem.
     # At shutdown, IOHandler's io will be released automatically after detached the event loop
     def detach_watcher(tw, close_io = true)
-      tw.detach
+      tw.detach { |watcher|
+        event_loop_detach(watcher.timer_trigger) if watcher.timer_trigger
+        event_loop_detach(watcher.stat_trigger) if watcher.stat_trigger
+      }
       tw.close if close_io
       flush_buffer(tw)
       if tw.unwatched && @pf
@@ -352,6 +371,8 @@ module Fluent::Plugin
     end
 
     def detach_watcher_after_rotate_wait(tw)
+      # Call event_loop_attach/event_loop_detach is high-cost for short-live object.
+      # If this has a problem with large number of files, use @_event_loop directly instead of timer_execute.
       timer_execute(:in_tail_close_watcher, @rotate_wait, repeat: false) do
         detach_watcher(tw)
       end
@@ -411,11 +432,11 @@ module Fluent::Plugin
               record[@path_key] ||= tail_watcher.path unless @path_key.nil?
               es.add(Fluent::EventTime.now, record)
             end
-            log.warn "pattern not match: #{line.inspect}"
+            log.warn "pattern not matched: #{line.inspect}"
           end
         }
       rescue => e
-        log.warn line.dump, error: e.to_s
+        log.warn 'invalid line found', file: tail_watcher.path, line: line, error: e.to_s
         log.debug_backtrace(e.backtrace)
       end
     end
@@ -479,7 +500,7 @@ module Fluent::Plugin
         @update_watcher = update_watcher
 
         @stat_trigger = @enable_stat_watcher ? StatWatcher.new(self, &method(:on_notify)) : nil
-        @timer_trigger = nil
+        @timer_trigger = @enable_watch_timer ? TimerTrigger.new(1, log, &method(:on_notify)) : nil
 
         @rotate_handler = RotateHandler.new(self, &method(:on_rotate))
         @io_handler = nil
@@ -513,8 +534,7 @@ module Fluent::Plugin
       end
 
       def detach
-        @timer_trigger.detach if @enable_watch_timer && @timer_trigger && @timer_trigger.attached?
-        @stat_trigger.detach if @enable_stat_watcher && @stat_trigger && @stat_trigger.attached?
+        yield self
         @io_handler.on_notify if @io_handler
       end
 
@@ -613,6 +633,21 @@ module Fluent::Plugin
         pe # This pe will be updated in on_rotate after TailWatcher is initialized
       end
 
+      class TimerTrigger < Coolio::TimerWatcher
+        def initialize(interval, log, &callback)
+          @callback = callback
+          @log = log
+          super(interval, true)
+        end
+
+        def on_timer
+          @callback.call
+        rescue => e
+          @log.error e.to_s
+          @log.error_backtrace
+        end
+      end
+
       class StatWatcher < Coolio::StatWatcher
         def initialize(watcher, &callback)
           @watcher = watcher
@@ -629,11 +664,11 @@ module Fluent::Plugin
         end
       end
 
-
       class FIFO
         def initialize(from_encoding, encoding)
           @from_encoding = from_encoding
           @encoding = encoding
+          @need_enc = from_encoding != encoding
           @buffer = ''.force_encoding(from_encoding)
           @eol = "\n".encode(from_encoding).freeze
         end
@@ -659,16 +694,27 @@ module Fluent::Plugin
         end
 
         def convert(s)
-          if @from_encoding == @encoding
-            s
+          if @need_enc
+            s.encode!(@encoding, @from_encoding)
           else
-            s.encode(@encoding, @from_encoding)
+            s
           end
+        rescue
+          s.encode!(@encoding, @from_encoding, :invalid => :replace, :undef => :replace)
         end
 
-        def next_line
+        def read_lines(lines)
           idx = @buffer.index(@eol)
-          convert(@buffer.slice!(0, idx + 1)) unless idx.nil?
+
+          until idx.nil?
+            # Using freeze and slice is faster than slice!
+            # See https://github.com/fluent/fluentd/pull/2527
+            @buffer.freeze
+            rbuf = @buffer.slice(0, idx + 1)
+            @buffer = @buffer.slice(idx + 1, @buffer.size)
+            idx = @buffer.index(@eol)
+            lines << convert(rbuf)
+          end
         end
 
         def bytesize
@@ -700,10 +746,8 @@ module Fluent::Plugin
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    @fifo << io.readpartial(2048, @iobuf)
-                    while (line = @fifo.next_line)
-                      @lines << line
-                    end
+                    @fifo << io.readpartial(8192, @iobuf)
+                    @fifo.read_lines(@lines)
                     if @lines.size >= @watcher.read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true
@@ -848,8 +892,9 @@ module Fluent::Plugin
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
 
-      def initialize(file, map, last_pos)
+      def initialize(file, file_mutex, map, last_pos)
         @file = file
+        @file_mutex = file_mutex
         @map = map
         @last_pos = last_pos
       end
@@ -859,31 +904,34 @@ module Fluent::Plugin
           return m
         end
 
-        @file.pos = @last_pos
-        @file.write path
-        @file.write "\t"
-        seek = @file.pos
-        @file.write "0000000000000000\t0000000000000000\n"
-        @last_pos = @file.pos
-
-        @map[path] = FilePositionEntry.new(@file, seek, 0, 0)
+        @file_mutex.synchronize {
+          @file.pos = @last_pos
+          @file.write "#{path}\t0000000000000000\t0000000000000000\n"
+          seek = @last_pos + path.bytesize + 1
+          @last_pos = @file.pos
+          @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
+        }
       end
 
       def self.parse(file)
         compact(file)
 
+        file_mutex = Mutex.new
         map = {}
         file.pos = 0
         file.each_line {|line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
-          next unless m
+          unless m
+            $log.warn "Unparsable line in pos_file: #{line}"
+            next
+          end
           path = m[1]
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
           seek = file.pos - line.bytesize + path.bytesize + 1
-          map[path] = FilePositionEntry.new(file, seek, pos, ino)
+          map[path] = FilePositionEntry.new(file, file_mutex, seek, pos, ino)
         }
-        new(file, map, file.pos)
+        new(file, file_mutex, map, file.pos)
       end
 
       # Clean up unwatched file entries
@@ -891,7 +939,10 @@ module Fluent::Plugin
         file.pos = 0
         existent_entries = file.each_line.map { |line|
           m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
-          next unless m
+          unless m
+            $log.warn "Unparsable line in pos_file: #{line}"
+            next
+          end
           path = m[1]
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
@@ -914,23 +965,28 @@ module Fluent::Plugin
       LN_OFFSET = 33
       SIZE = 34
 
-      def initialize(file, seek, pos, inode)
+      def initialize(file, file_mutex, seek, pos, inode)
         @file = file
+        @file_mutex = file_mutex
         @seek = seek
-        @pos = pos 
+        @pos = pos
         @inode = inode
       end
 
       def update(ino, pos)
-        @file.pos = @seek
-        @file.write "%016x\t%016x" % [pos, ino]
+        @file_mutex.synchronize {
+          @file.pos = @seek
+          @file.write "%016x\t%016x" % [pos, ino]
+        }
         @pos = pos
         @inode = ino
       end
 
       def update_pos(pos)
-        @file.pos = @seek
-        @file.write "%016x" % pos
+        @file_mutex.synchronize {
+          @file.pos = @seek
+          @file.write "%016x" % pos
+        }
         @pos = pos
       end
 

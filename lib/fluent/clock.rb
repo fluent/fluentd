@@ -43,6 +43,10 @@ module Fluent
       Process.clock_gettime(CLOCK_ID)
     end
 
+    def self.real_now(unit = :second)
+      Process.clock_gettime(Process::CLOCK_REALTIME, unit)
+    end
+
     def self.dst_clock_from_time(time)
       diff_sec = Time.now - time
       now_raw - diff_sec

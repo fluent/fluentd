@@ -36,9 +36,7 @@ module Fluent::Plugin
   class HttpInput < Input
     Fluent::Plugin.register_input('http', self)
 
-    # TODO: update this plugin implementation to use server plugin helper, after adding keepalive feature on it
-
-    helpers :parser, :compat_parameters, :event_loop
+    helpers :parser, :compat_parameters, :event_loop, :server
 
     EMPTY_GIF_IMAGE = "GIF89a\u0001\u0000\u0001\u0000\x80\xFF\u0000\xFF\xFF\xFF\u0000\u0000\u0000,\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000\u0000\u0002\u0002D\u0001\u0000;".force_encoding("UTF-8")
 
@@ -60,6 +58,8 @@ module Fluent::Plugin
     config_param :cors_allow_origins, :array, default: nil
     desc 'Respond with empty gif image of 1x1 pixel.'
     config_param :respond_with_empty_img, :bool, default: false
+    desc 'Respond status code with 204.'
+    config_param :use_204_response, :bool, default: false
 
     config_section :parse do
       config_set_default :@type, 'in_http'
@@ -130,28 +130,15 @@ module Fluent::Plugin
 
       log.debug "listening http", bind: @bind, port: @port
 
-      socket_manager_path = ENV['SERVERENGINE_SOCKETMANAGER_PATH']
-      if Fluent.windows?
-        socket_manager_path = socket_manager_path.to_i
-      end
-      client = ServerEngine::SocketManager::Client.new(socket_manager_path)
-      lsock = client.listen_tcp(@bind, @port)
-
       @km = KeepaliveManager.new(@keepalive_timeout)
-      @lsock = Coolio::TCPServer.new(
-        lsock, nil, Handler, @km, method(:on_request),
-        @body_size_limit, @format_name, log,
-        @cors_allow_origins
-      )
-      @lsock.listen(@backlog) unless @backlog.nil?
       event_loop_attach(@km)
-      event_loop_attach(@lsock)
 
+      server_create_connection(:in_http, @port, bind: @bind, backlog: @backlog, &method(:on_server_connect))
       @float_time_parser = Fluent::NumericTimeParser.new(:float)
     end
 
     def close
-      @lsock.close
+      server_wait_until_stop
       super
     end
 
@@ -163,10 +150,15 @@ module Fluent::Plugin
 
         # Skip nil record
         if record.nil?
+          log.debug { "incoming event is invalid: path=#{path_info} params=#{params.to_json}" }
           if @respond_with_empty_img
             return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
           else
-            return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+            if @use_204_response
+              return  ["204 No Content", {}]
+            else
+              return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+            end
           end
         end
 
@@ -233,11 +225,31 @@ module Fluent::Plugin
       if @respond_with_empty_img
         return ["200 OK", {'Content-Type'=>'image/gif; charset=utf-8'}, EMPTY_GIF_IMAGE]
       else
-        return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+        if @use_204_response
+          return  ["204 No Content", {}]
+        else
+          return ["200 OK", {'Content-Type'=>'text/plain'}, ""]
+        end
       end
     end
 
     private
+
+    def on_server_connect(conn)
+      handler = Handler.new(conn, @km, method(:on_request), @body_size_limit, @format_name, log, @cors_allow_origins)
+
+      conn.on(:data) do |data|
+        handler.on_read(data)
+      end
+
+      conn.on(:write_complete) do |_|
+        handler.on_write_complete
+      end
+
+      conn.on(:close) do |_|
+        handler.on_close
+      end
+    end
 
     def parse_params_default(params)
       if msgpack = params['msgpack']
@@ -264,11 +276,11 @@ module Fluent::Plugin
       end
     end
 
-    class Handler < Coolio::Socket
+    class Handler
       attr_reader :content_type
 
       def initialize(io, km, callback, body_size_limit, format_name, log, cors_allow_origins)
-        super(io)
+        @io = io
         @km = km
         @callback = callback
         @body_size_limit = body_size_limit
@@ -279,7 +291,8 @@ module Fluent::Plugin
         @idle = 0
         @km.add(self)
 
-        @remote_port, @remote_addr = *Socket.unpack_sockaddr_in(io.getpeername) rescue nil
+        @remote_port, @remote_addr = io.remote_port, io.remote_addr
+        @parser = Http::Parser.new(self)
       end
 
       def step_idle
@@ -290,17 +303,13 @@ module Fluent::Plugin
         @km.delete(self)
       end
 
-      def on_connect
-        @parser = Http::Parser.new(self)
-      end
-
       def on_read(data)
         @idle = 0
         @parser << data
       rescue
         @log.warn "unexpected error", error: $!.to_s
         @log.warn_backtrace
-        close
+        @io.close
       end
 
       def on_message_begin
@@ -342,6 +351,10 @@ module Fluent::Plugin
             # For multiple X-Forwarded-For headers. Use first header value.
             v = v.first if v.is_a?(Array)
             @remote_addr = v.split(",").first
+          when /Access-Control-Request-Method/i
+            @access_control_request_method = v
+          when /Access-Control-Request-Headers/i
+            @access_control_request_headers = v
           end
         }
         if expect
@@ -367,15 +380,49 @@ module Fluent::Plugin
         @body << chunk
       end
 
+      # Web browsers can send an OPTIONS request before performing POST
+      # to check if cross-origin requests are supported.
+      def handle_options_request
+        # Is CORS enabled in the first place?
+        if @cors_allow_origins.nil?
+          return send_response_and_close("403 Forbidden", {}, "")
+        end
+
+        # in_http does not support HTTP methods except POST
+        if @access_control_request_method != 'POST'
+          return send_response_and_close("403 Forbidden", {}, "")
+        end
+
+        header = {
+          "Access-Control-Allow-Methods" => "POST",
+          "Access-Control-Allow-Headers" => @access_control_request_headers || "",
+        }
+
+        # Check the origin and send back a CORS response
+        if @cors_allow_origins.include?('*')
+          header["Access-Control-Allow-Origin"] = "*"
+          send_response_and_close("200 OK", header, "")
+        elsif include_cors_allow_origin
+          header["Access-Control-Allow-Origin"] = @origin
+          send_response_and_close("200 OK", header, "")
+        else
+          send_response_and_close("403 Forbidden", {}, "")
+        end
+      end
+
       def on_message_complete
         return if closing?
+
+        if @parser.http_method == 'OPTIONS'
+          return handle_options_request()
+        end
 
         # CORS check
         # ==========
         # For every incoming request, we check if we have some CORS
         # restrictions and white listed origins through @cors_allow_origins.
         unless @cors_allow_origins.nil?
-          unless @cors_allow_origins.include?(@origin)
+          unless @cors_allow_origins.include?('*') or include_cors_allow_origin
             send_response_and_close("403 Forbidden", {'Connection' => 'close'}, "")
             return
           end
@@ -422,7 +469,14 @@ module Fluent::Plugin
         code, header, body = *@callback.call(path_info, params)
         body = body.to_s
 
-        header['Access-Control-Allow-Origin'] = @origin if !@cors_allow_origins.nil? && @cors_allow_origins.include?(@origin)
+        unless @cors_allow_origins.nil?
+          if @cors_allow_origins.include?('*')
+            header['Access-Control-Allow-Origin'] = '*'
+          elsif include_cors_allow_origin
+            header['Access-Control-Allow-Origin'] = @origin
+          end
+        end
+
         if @keep_alive
           header['Connection'] = 'Keep-Alive'
           send_response(code, header, body)
@@ -431,8 +485,12 @@ module Fluent::Plugin
         end
       end
 
+      def close
+        @io.close
+      end
+
       def on_write_complete
-        close if @next_close
+        @io.close if @next_close
       end
 
       def send_response_and_close(code, header, body)
@@ -453,9 +511,9 @@ module Fluent::Plugin
           data << "#{k}: #{v}\r\n"
         }
         data << "\r\n"
-        write data
+        @io.write(data)
 
-        write body
+        @io.write(body)
       end
 
       def send_response_nobody(code, header)
@@ -464,7 +522,18 @@ module Fluent::Plugin
           data << "#{k}: #{v}\r\n"
         }
         data << "\r\n"
-        write data
+        @io.write(data)
+      end
+
+      def include_cors_allow_origin
+        if @cors_allow_origins.include?(@origin)
+          return true
+        end
+        filtered_cors_allow_origins = @cors_allow_origins.select {|origin| origin != ""}
+        return filtered_cors_allow_origins.find do |origin|
+          (start_str,end_str) = origin.split("*",2)
+          @origin.start_with?(start_str) and @origin.end_with?(end_str)
+        end != nil
       end
     end
   end

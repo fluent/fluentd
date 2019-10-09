@@ -17,6 +17,7 @@
 require 'fluent/match'
 require 'fluent/event'
 require 'fluent/filter'
+require 'fluent/msgpack_factory'
 
 module Fluent
   #
@@ -182,7 +183,7 @@ module Fluent
 
         def optimized_filter_stream(tag, es)
           new_es = MultiEventStream.new
-          es.each do |time, record|
+          es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
             filtered_record = record
             filtered_time = time
 
@@ -217,7 +218,7 @@ module Fluent
           @optimizable = if fs_filters.empty?
                            true
                          else
-                           # skip log message when filter is only 1, because its performace is same as non optimized chain.
+                           # skip log message when filter is only 1, because its performance is same as non optimized chain.
                            if @filters.size > 1 && fs_filters.size >= 1
                              $log.info "disable filter chain optimization because #{fs_filters.map(&:class)} uses `#filter_stream` method."
                            end

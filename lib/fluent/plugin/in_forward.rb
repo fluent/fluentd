@@ -47,6 +47,8 @@ module Fluent::Plugin
     config_param :resolve_hostname, :bool, default: nil
     desc 'Connections will be disconnected right after receiving first message if this value is true.'
     config_param :deny_keepalive, :bool, default: false
+    desc 'Check the remote connection is still available by sending a keepalive packet if this value is true.'
+    config_param :send_keepalive_packet, :bool, default: false
 
     desc 'Log warning if received chunk size is larger than this value.'
     config_param :chunk_size_warn_limit, :size, default: nil
@@ -59,6 +61,11 @@ module Fluent::Plugin
     config_param :source_address_key, :string, default: nil
     desc "The field name of the client's hostname."
     config_param :source_hostname_key, :string, default: nil
+
+    desc "New tag instead of incoming tag"
+    config_param :tag, :string, default: nil
+    desc "Add prefix to incoming tag"
+    config_param :add_tag_prefix, :string, default: nil
 
     config_section :security, required: false, multi: false do
       desc 'The hostname'
@@ -104,6 +111,9 @@ module Fluent::Plugin
       end
       @enable_field_injection = @source_address_key || @source_hostname_key
 
+      raise Fluent::ConfigError, "'tag' parameter must not be empty" if @tag && @tag.empty?
+      raise Fluent::ConfigError, "'add_tag_prefix' parameter must not be empty" if @add_tag_prefix && @add_tag_prefix.empty?
+
       if @security
         if @security.user_auth && @security.users.empty?
           raise Fluent::ConfigError, "<user> sections required if user_auth enabled"
@@ -125,13 +135,13 @@ module Fluent::Plugin
           if client.host
             begin
               source = IPSocket.getaddress(client.host)
-            rescue SocketError => e
+            rescue SocketError
               raise Fluent::ConfigError, "host '#{client.host}' cannot be resolved"
             end
           end
           source_addr = begin
                           IPAddr.new(source || client.network)
-                        rescue ArgumentError => e
+                        rescue ArgumentError
                           raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
                         end
           @nodes.push({
@@ -140,6 +150,10 @@ module Fluent::Plugin
               users: client.users
             })
         end
+      end
+
+      if @send_keepalive_packet && @deny_keepalive
+        raise Fluent::ConfigError, "both 'send_keepalive_packet' and 'deny_keepalive' cannot be set to true"
       end
     end
 
@@ -161,6 +175,7 @@ module Fluent::Plugin
         shared: shared_socket,
         resolve_name: @resolve_hostname,
         linger_timeout: @linger_timeout,
+        send_keepalive_packet: @send_keepalive_packet,
         backlog: @backlog,
         &method(:handle_connection)
       )
@@ -199,7 +214,7 @@ module Fluent::Plugin
         when :pingpong
           success, reason_or_salt, shared_key = check_ping(msg, conn.remote_addr, user_auth_salt, nonce)
           unless success
-            conn.on(:write_complete) { |c| c.close }
+            conn.on(:write_complete) { |c| c.close_after_write_complete }
             send_data.call(serializer, generate_pong(false, reason_or_salt, nonce, shared_key))
             next
           end
@@ -285,6 +300,9 @@ module Fluent::Plugin
       elsif @chunk_size_warn_limit && (chunk_size > @chunk_size_warn_limit)
         log.warn "Input chunk size is larger than 'chunk_size_warn_limit':", tag: tag, host: conn.remote_host, limit: @chunk_size_warn_limit, size: chunk_size
       end
+
+      tag = @tag.dup if @tag
+      tag = "#{@add_tag_prefix}.#{tag}" if @add_tag_prefix
 
       case entries
       when String

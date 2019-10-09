@@ -1,4 +1,440 @@
+# v1.7
+
+## Release v1.7.3 - 2019/10/01
+
+### Enhancement
+
+* in_syslog: Replace priority_key with severity_key
+  https://github.com/fluent/fluentd/pull/2636
+
+### Bug fixes
+
+* out_forward: Fix nil error after purge obsoleted sockets in socket cache
+  https://github.com/fluent/fluentd/pull/2635
+* fix typo in ChangeLog
+  https://github.com/fluent/fluentd/pull/2633
+
+## Release v1.7.2 - 2019/09/19
+
+### Enhancement
+
+* in_tcp: Add security/client to restrict access
+  https://github.com/fluent/fluentd/pull/2622
+
+### Bug fixes
+
+* buf_file/buf_file_single: fix to handle compress data during restart
+  https://github.com/fluent/fluentd/pull/2620
+* plugin: Use `__send__` to avoid conflict with user defined `send`
+  https://github.com/fluent/fluentd/pull/2614
+* buffer: reject invalid timekey at configure phase
+  https://github.com/fluent/fluentd/pull/2615
+
+
+## Release v1.7.1 - 2019/09/08
+
+### Enhancement
+
+* socket helper/out_forward: Support Windows certstore to load certificates
+  https://github.com/fluent/fluentd/pull/2601
+* parser_syslog: Add faster parser for rfc3164 message
+  https://github.com/fluent/fluentd/pull/2599
+
+### Bug fixes
+
+* buf_file/buf_file_single: fix to ignore placeholder based path.
+  https://github.com/fluent/fluentd/pull/2594
+* server helper: Ignore ETIMEDOUT error in SSL_accept
+  https://github.com/fluent/fluentd/pull/2595
+* buf_file: ensure to remove metadata after buffer creation failure
+  https://github.com/fluent/fluentd/pull/2598
+* buf_file_single: fix duplicated path setting check
+  https://github.com/fluent/fluentd/pull/2600
+* fix msgpack-ruby dependency to use recent feature
+  https://github.com/fluent/fluentd/pull/2606
+
+
+## Release v1.7.0 - 2019/08/20
+
+### New feature
+
+* buffer: Add file_single buffer plugin
+  https://github.com/fluent/fluentd/pull/2579
+* output: Add http output plugin
+  https://github.com/fluent/fluentd/pull/2488
+
+### Enhancement
+
+* buffer: Improve the performance of buffer routine
+  https://github.com/fluent/fluentd/pull/2560
+  https://github.com/fluent/fluentd/pull/2563
+  https://github.com/fluent/fluentd/pull/2564
+* output: Use Mutex instead of Monitor
+  https://github.com/fluent/fluentd/pull/2561
+* event: Add `OneEventStrea#empty?` method
+  https://github.com/fluent/fluentd/pull/2565
+* thread: Set thread name for ruby 2.3 or later
+  https://github.com/fluent/fluentd/pull/2574
+* core: Cache msgpack packer/unpacker to avoid the object allocation
+  https://github.com/fluent/fluentd/pull/2559
+* time: Use faster way to get sec and nsec
+  https://github.com/fluent/fluentd/pull/2557
+* buf_file: Reduce IO flush by removing `IO#truncate`
+  https://github.com/fluent/fluentd/pull/2551
+* in_tcp: Improve the performance for multiple event case
+  https://github.com/fluent/fluentd/pull/2567
+* in_syslog: support `source_hostname_key` and `source_address_key` for unmatched event
+  https://github.com/fluent/fluentd/pull/2553
+* formatter_csv: Improve the format performance.
+  https://github.com/fluent/fluentd/pull/2529
+* parser_csv: Add fast parser for typical cases
+  https://github.com/fluent/fluentd/pull/2535
+* out_forward: Refactor code
+  https://github.com/fluent/fluentd/pull/2516
+  https://github.com/fluent/fluentd/pull/2532
+
+### Bug fixes
+
+* output: fix data lost on decompression
+  https://github.com/fluent/fluentd/pull/2547
+* out_exec_filter: fix non-ascii encoding issue
+  https://github.com/fluent/fluentd/pull/2539
+* in_tail: Don't call parser's configure twice
+  https://github.com/fluent/fluentd/pull/2569
+* Fix unused message handling for <section> parameters
+  https://github.com/fluent/fluentd/pull/2578
+* Fix comment/message typos
+  https://github.com/fluent/fluentd/pull/2549
+  https://github.com/fluent/fluentd/pull/2554
+  https://github.com/fluent/fluentd/pull/2556
+  https://github.com/fluent/fluentd/pull/2566
+  https://github.com/fluent/fluentd/pull/2573
+  https://github.com/fluent/fluentd/pull/2576
+  https://github.com/fluent/fluentd/pull/2583
+
+# v1.6
+
+## Release v1.6.3 - 2019/07/29
+
+### Enhancement
+
+* in_syslog: Add `emit_unmatched_lines` parameter
+  https://github.com/fluent/fluentd/pull/2499
+* buf_file: Add `path_suffix` parameter
+  https://github.com/fluent/fluentd/pull/2524
+* in_tail: Improve the performance of split lines
+  https://github.com/fluent/fluentd/pull/2527
+
+### Bug fixes
+
+* http_server: Fix re-define render_json method
+  https://github.com/fluent/fluentd/pull/2517
+
+## Release v1.6.2 - 2019/07/11
+
+### Bug fixes
+
+* http_server helper: Add title argument to support multiple servers
+  https://github.com/fluent/fluentd/pull/2493
+
+## Release v1.6.1 - 2019/07/10
+
+### Enhancement
+
+* socket/cert: Support all private keys OpenSSL supports, not only RSA.
+  https://github.com/fluent/fluentd/pull/2487
+* output/buffer: Improve statistics method performance
+  https://github.com/fluent/fluentd/pull/2491
+
+### Bug fixes
+
+* plugin_config_formatter: update new doc URL
+  https://github.com/fluent/fluentd/pull/2481
+* out_forward: Avoid zero division error when there are no available nodes
+  https://github.com/fluent/fluentd/pull/2482
+
+## Release v1.6.0 - 2019/07/01
+
+### New feature
+
+* plugin: Add http_server helper and in_monitor_agent use it
+  https://github.com/fluent/fluentd/pull/2447
+
+### Enhancement
+
+* in_monitor_agent: Add more metrics for buffer/output
+  https://github.com/fluent/fluentd/pull/2450
+* time/plugin: Add `EventTime#to_time` method for fast conversion
+  https://github.com/fluent/fluentd/pull/2469
+* socket helper/out_forward: Add connect_timeout parameter
+  https://github.com/fluent/fluentd/pull/2467
+* command: Add `--conf-encoding` option
+  https://github.com/fluent/fluentd/pull/2453
+* parser_none: Small performance optimization
+  https://github.com/fluent/fluentd/pull/2455
+
+### Bug fixes
+
+* cert: Fix cert match pattern
+  https://github.com/fluent/fluentd/pull/2466
+* output: Fix forget to increment rollback count
+  https://github.com/fluent/fluentd/pull/2462
+
+# v1.5
+
+## Release v1.5.2 - 2019/06/13
+
+### Bug fixes
+
+* out_forward: Fix duplicated handshake bug in keepalive
+  https://github.com/fluent/fluentd/pull/2456
+
+## Release v1.5.1 - 2019/06/05
+
+### Enhancement
+
+* in_tail: Increase read block size to reduce IO call
+  https://github.com/fluent/fluentd/pull/2418
+* in_monitor_agent: Refactor code
+  https://github.com/fluent/fluentd/pull/2422
+
+### Bug fixes
+
+* out_forward: Fix socket handling of keepalive
+  https://github.com/fluent/fluentd/pull/2434
+* parser: Fix the use of name based timezone
+  https://github.com/fluent/fluentd/pull/2421
+* in_monitor_agent: Fix debug parameter handling
+  https://github.com/fluent/fluentd/pull/2423
+* command: Fix error handling of log rotation age option
+  https://github.com/fluent/fluentd/pull/2427
+* command: Fix ERB warning for ruby 2.6 or later
+  https://github.com/fluent/fluentd/pull/2430
+
+## Release v1.5.0 - 2019/05/18
+
+### New feature
+
+* out_forward: Support keepalive feature
+  https://github.com/fluent/fluentd/pull/2393
+* in_http: Support TLS via server helper
+  https://github.com/fluent/fluentd/pull/2395
+* in_syslog: Support TLS via server helper
+  https://github.com/fluent/fluentd/pull/2399
+
+### Enhancement
+
+* in_syslog: Add delimiter parameter
+  https://github.com/fluent/fluentd/pull/2378
+* in_forward: Add tag/add_tag_prefix parameters
+  https://github.com/fluent/fluentd/pull/2396
+* parser_json: Add stream_buffer_size parameter for yajl
+  https://github.com/fluent/fluentd/pull/2381
+* command: Add deprecated message to show-plugin-config option
+  https://github.com/fluent/fluentd/pull/2401
+* storage_local: Ignore empty file. Call sync after write for XFS.
+  https://github.com/fluent/fluentd/pull/2409
+
+### Bug fixes
+
+* out_forward: Don't use SO_LINGER on SSL/TLS WinSock
+  https://github.com/fluent/fluentd/pull/2398
+* server helper: Fix recursive lock issue in TLSServer
+  https://github.com/fluent/fluentd/pull/2341
+* Fix typo
+  https://github.com/fluent/fluentd/pull/2369
+
+# v1.4
+
+## Release v1.4.2 - 2019/04/02
+
+### Enhancements
+
+* in_http: subdomain support in CORS domain
+  https://github.com/fluent/fluentd/pull/2337
+* in_monitor_agent: Expose current timekey list as a buffer metrics
+  https://github.com/fluent/fluentd/pull/2343
+* in_tcp/in_udp: Add source_address_key parameter
+  https://github.com/fluent/fluentd/pull/2347
+* in_forward: Add send_keepalive_packet parameter to check the remote connection is available or not
+  https://github.com/fluent/fluentd/pull/2352
+
+### Bug fixes
+
+* out_exec_filter: Fix typo of child_respawn description
+  https://github.com/fluent/fluentd/pull/2341
+* in_tail: Create parent directories for symlink
+  https://github.com/fluent/fluentd/pull/2353
+* in_tail: Fix encoding duplication check for non-specified case
+  https://github.com/fluent/fluentd/pull/2361
+* log: Fix time format handling of plugin logger when log format is JSON
+  https://github.com/fluent/fluentd/pull/2356
+
+## Release v1.4.1 - 2019/03/18
+
+### Enhancements
+
+* system: Add worker_id to process_name when workers is larger than 1
+  https://github.com/fluent/fluentd/pull/2321
+* parser_regexp: Check named captures. When no named captures, configuration error is raised
+  https://github.com/fluent/fluentd/pull/2331
+
+### Bug fixes
+
+* out_forward: Make tls_client_private_key_passphrase secret
+  https://github.com/fluent/fluentd/pull/2324
+* in_syslog: Check message length when read from buffer in octet counting
+  https://github.com/fluent/fluentd/pull/2323
+
+## Release v1.4.0 - 2019/02/24
+
+### New features
+
+* multiprocess: Support <worker N-M> syntax
+  https://github.com/fluent/fluentd/pull/2292
+* output: Work <secondary> and retry_forever together
+  https://github.com/fluent/fluentd/pull/2276
+* out_file: Support placeholders in symlink_path
+  https://github.com/fluent/fluentd/pull/2254
+
+### Enhancements
+
+* output: Add MessagePack unpacker error to unrecoverable error list
+  https://github.com/fluent/fluentd/pull/2301
+* output: Reduce flush delay when large timekey and small timekey_wait are specified
+  https://github.com/fluent/fluentd/pull/2291
+* config: Support embedded ruby code in section argument.
+  https://github.com/fluent/fluentd/pull/2295
+* in_tail: Improve encoding parameter handling
+  https://github.com/fluent/fluentd/pull/2305
+* in_tcp/in_udp: Add <parse> section check
+  https://github.com/fluent/fluentd/pull/2267
+
+### Bug fixes
+
+* server: Ignore IOError and related errors in UDP
+  https://github.com/fluent/fluentd/pull/2310
+* server: Ignore EPIPE in TLS accept to avoid fluentd restart
+  https://github.com/fluent/fluentd/pull/2253
+
+# v1.3
+
+## Release v1.3.3 - 2019/01/06
+
+### Enhancements
+
+* parser_syslog: Use String#squeeze for performance improvement
+  https://github.com/fluent/fluentd/pull/2239
+* parser_syslog: Support RFC5424 timestamp without subseconds
+  https://github.com/fluent/fluentd/pull/2240
+
+### Bug fixes
+
+* server: Ignore ECONNRESET in TLS accept to avoid fluentd restart
+  https://github.com/fluent/fluentd/pull/2243
+* log: Fix plugin logger ignores fluentd log event setting
+  https://github.com/fluent/fluentd/pull/2252
+
+## Release v1.3.2 - 2018/12/10
+
+### Enhancements
+
+* out_forward: Support mutual TLS
+  https://github.com/fluent/fluentd/pull/2187
+* out_file: Create `pos_file` directory if it doesn't exist
+  https://github.com/fluent/fluentd/pull/2223
+
+### Bug fixes
+
+* output: Fix logs during retry
+  https://github.com/fluent/fluentd/pull/2203
+
+## Release v1.3.1 - 2018/11/27
+
+### Enhancements
+
+* out_forward: Separate parameter names for certificate
+  https://github.com/fluent/fluentd/pull/2181
+  https://github.com/fluent/fluentd/pull/2190
+* out_forward: Add `verify_connection_at_startup` parameter to check connection setting at startup phase
+  https://github.com/fluent/fluentd/pull/2184
+* config: Check right slash position in regexp type
+  https://github.com/fluent/fluentd/pull/2176
+* parser_nginx: Support multiple IPs in `http_x_forwarded_for` field
+  https://github.com/fluent/fluentd/pull/2171
+
+### Bug fixes
+
+* fluent-cat: Fix retry limit handling
+  https://github.com/fluent/fluentd/pull/2193
+* record_accessor helper: Delete top level field with bracket style
+  https://github.com/fluent/fluentd/pull/2192
+* filter_record_transformer: Keep `class` methond to avoid undefined method error
+  https://github.com/fluent/fluentd/pull/2186
+
+## Release v1.3.0 - 2018/11/10
+
+### New features
+
+* output: Change thread execution control
+  https://github.com/fluent/fluentd/pull/2170
+* in_syslog: Support octet counting frame
+  https://github.com/fluent/fluentd/pull/2147
+* Use `flush_thread_count` value for `queued_chunks_limit_size` when `queued_chunks_limit_size` is not specified
+  https://github.com/fluent/fluentd/pull/2173
+
+### Enhancements
+
+* output: Show backtrace for unrecoverable errors
+  https://github.com/fluent/fluentd/pull/2149
+* in_http: Implement support for CORS preflight requests
+  https://github.com/fluent/fluentd/pull/2144
+
+### Bug fixes
+
+* server: Fix deadlock between on_writable and close in sockets
+  https://github.com/fluent/fluentd/pull/2165
+* output: show correct error when wrong plugin is specified for secondary
+  https://github.com/fluent/fluentd/pull/2169
+
 # v1.2
+
+## Release v1.2.6 - 2018/10/03
+
+### Enhancements
+
+* output: Add `disable_chunk_backup` for ignore broken chunks.
+  https://github.com/fluent/fluentd/pull/2117
+* parser_syslog: Improve regexp for RFC5424
+  https://github.com/fluent/fluentd/pull/2141
+* in_http: Allow specifying the wildcard '*' as the CORS domain
+  https://github.com/fluent/fluentd/pull/2139
+
+### Bug fixes
+
+* in_tail: Prevent thread switching in the interval between seek and read/write operations to pos_file
+  https://github.com/fluent/fluentd/pull/2118
+* parser: Handle LoadError properly for oj
+  https://github.com/fluent/fluentd/pull/2140
+
+## Release v1.2.5 - 2018/08/22
+
+### Bug fixes
+
+* in_tail: Fix resource leak by file rotation
+  https://github.com/fluent/fluentd/pull/2105
+* fix typos
+
+## Release v1.2.4 - 2018/08/01
+
+### Bug fixes
+
+* output: Consider timezone when calculate timekey
+  https://github.com/fluent/fluentd/pull/2054
+* output: Fix bug in suppress_emit_error_log_interval
+  https://github.com/fluent/fluentd/pull/2069
+* server-helper: Fix connection leak by close timing issue.
+  https://github.com/fluent/fluentd/pull/2087
 
 ## Release v1.2.3 - 2018/07/10
 
@@ -218,7 +654,7 @@
 
 ## Release v1.0.0 - 2017/12/6
 
-See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
+See [CNCF announcement](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 ### New features / Enhancements
 
@@ -488,7 +924,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
   https://github.com/fluent/fluentd/pull/1492
 * parser: Allow escape sequence in Apache access log
   https://github.com/fluent/fluentd/pull/1479
-* config: Add actual value in the placholder error message
+* config: Add actual value in the placeholder error message
   https://github.com/fluent/fluentd/pull/1497
 * log: Add Fluent::Log#<< to support some SDKs
   https://github.com/fluent/fluentd/pull/1478
@@ -525,12 +961,12 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 * output: Secondary calculation should consider 'retry_max_times'
   https://github.com/fluent/fluentd/pull/1452
-* Fix regression of deprecatd 'process' module
+* Fix regression of deprecated 'process' module
   https://github.com/fluent/fluentd/pull/1443
 * Fix missing parser_regex require
   https://github.com/fluent/fluentd/issues/1458
   https://github.com/fluent/fluentd/pull/1453
-* Keep 'Fluent::BufferQueueLimitError' for exsting plugins
+* Keep 'Fluent::BufferQueueLimitError' for existing plugins
   https://github.com/fluent/fluentd/pull/1456
 * in_tail: Untracked files should be removed from watching list to avoid memory bloat
   https://github.com/fluent/fluentd/pull/1467
@@ -782,7 +1218,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
 
 ### Bug fixes
 
-* Raise configuration errors to clearify what's wrong when "@type" is missing
+* Raise configuration errors to clarify what's wrong when "@type" is missing
   https://github.com/fluent/fluentd/pull/1202
 * Fix the bug not to launch Fluentd when v0.12 MultiOutput plugin is configured
   https://github.com/fluent/fluentd/pull/1206
@@ -805,7 +1241,7 @@ See [CNCF announcment](https://www.cncf.io/blog/2017/12/06/fluentd-v1-0/) :)
   https://github.com/fluent/fluentd/pull/1067
 * filter_record_transformer: Fix to prevent overwriting reserved placeholder keys
   https://github.com/fluent/fluentd/pull/1176
-* Migrate some build-in plugins into v0.14 API
+* Migrate some built-in plugins into v0.14 API
   https://github.com/fluent/fluentd/pull/1149
   https://github.com/fluent/fluentd/pull/1151
 * Update dependencies

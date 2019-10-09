@@ -148,10 +148,10 @@ module Fluent
     end
 
     attr_reader :format
+    attr_reader :time_format
     attr_accessor :log_event_enabled
     attr_accessor :out
     attr_accessor :level
-    attr_accessor :time_format
     attr_accessor :optional_header, :optional_attrs
 
     def logdev=(logdev)
@@ -534,6 +534,7 @@ module Fluent
       end
 
       self.format = @logger.format
+      self.time_format = @logger.time_format
       enable_color @logger.enable_color?
     end
 
@@ -542,11 +543,17 @@ module Fluent
     end
 
     alias orig_format= format=
+    alias orig_time_format= time_format=
     alias orig_enable_color enable_color
 
     def format=(fmt)
       self.orig_format = fmt
       @logger.format = fmt
+    end
+
+    def time_format=(fmt)
+      self.orig_time_format = fmt
+      @logger.time_format = fmt
     end
 
     def enable_color(b = true)
@@ -556,9 +563,9 @@ module Fluent
 
     extend Forwardable
     def_delegators '@logger', :get_worker_id, :enable_color?, :enable_debug, :enable_event,
-      :disable_events, :log_event_enabled, :log_event_enamed=, :time_format, :time_format=,
-      :time_formatter, :time_formatter=, :event, :caller_line, :puts, :write, :<<, :flush,
-      :reset, :out, :out=, :optional_header, :optional_header=, :optional_attrs, :optional_attrs=
+      :disable_events, :log_event_enabled, :log_event_enabled=, :event, :caller_line, :puts, :write,
+      :<<, :flush, :reset, :out, :out=, :optional_header, :optional_header=, :optional_attrs,
+      :optional_attrs=
   end
 
 
@@ -601,7 +608,7 @@ module Fluent
     end
   end
 
-  # This class delegetes some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
+  # This class delegates some methods which are used in `Fluent::Logger` to a instance variable(`dev`) in `Logger::LogDevice` class
   # https://github.com/ruby/ruby/blob/7b2d47132ff8ee950b0f978ab772dee868d9f1b0/lib/logger.rb#L661
   class LogDeviceIO < ::Logger::LogDevice
     def flush

@@ -59,6 +59,12 @@ class UdpInputTest < Test::Unit::TestCase
     assert_equal nil, d.instance.receive_buffer_size
   end
 
+  test ' configure w/o parse section' do
+    assert_raise(Fluent::ConfigError.new("<parse> section is required.")) {
+      create_driver(BASE_CONFIG)
+    }
+  end
+
   data(
     'ipv4' => [CONFIG, '127.0.0.1', :ipv4],
     'ipv6' => [IPv6_CONFIG, '::1', :ipv6],
@@ -188,11 +194,29 @@ class UdpInputTest < Test::Unit::TestCase
       end
     end
 
-    expected = {'message' => 'test'}
     assert_equal 1, d.events.size
     assert_equal "udp", d.events[0][0]
     assert d.events[0][1].is_a?(Fluent::EventTime)
     assert_equal hostname, d.events[0][2]['host']
+  end
+
+  test 'source_address_key' do
+    d = create_driver(BASE_CONFIG + %!
+      format none
+      source_address_key addr
+    !)
+    address = nil
+    d.run(expect_records: 1) do
+      create_udp_socket('127.0.0.1', PORT) do |u|
+        u.send("test", 0)
+        address = u.peeraddr[3]
+      end
+    end
+
+    assert_equal 1, d.events.size
+    assert_equal "udp", d.events[0][0]
+    assert d.events[0][1].is_a?(Fluent::EventTime)
+    assert_equal address, d.events[0][2]['addr']
   end
 
   test 'receive_buffer_size' do

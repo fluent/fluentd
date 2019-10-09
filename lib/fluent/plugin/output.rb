@@ -16,7 +16,9 @@
 
 require 'fluent/error'
 require 'fluent/plugin/base'
+require 'fluent/plugin/buffer'
 require 'fluent/plugin_helper/record_accessor'
+require 'fluent/msgpack_factory'
 require 'fluent/log'
 require 'fluent/plugin_id'
 require 'fluent/plugin_helper'
@@ -92,10 +94,11 @@ module Fluent
         # k: times
         # total retry time: c + c * b^1 + (...) + c*b^k = c*b^(k+1) - 1
         config_param :retry_wait, :time, default: 1, desc: 'Seconds to wait before next retry to flush, or constant factor of exponential backoff.'
-        config_param :retry_exponential_backoff_base, :float, default: 2, desc: 'The base number of exponencial backoff for retries.'
-        config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponencial backoff between retries while failing.'
+        config_param :retry_exponential_backoff_base, :float, default: 2, desc: 'The base number of exponential backoff for retries.'
+        config_param :retry_max_interval, :time, default: nil, desc: 'The maximum interval seconds for exponential backoff between retries while failing.'
 
         config_param :retry_randomize, :bool, default: true, desc: 'If true, output plugin will retry after randomized interval not to do burst retries.'
+        config_param :disable_chunk_backup, :bool, default: false, desc: 'If true, chunks are thrown away when unrecoverable error happens'
       end
 
       config_section :secondary, param_name: :secondary_config, required: false, multi: false, final: true do
@@ -153,7 +156,7 @@ module Fluent
       end
 
       # Internal states
-      FlushThreadState = Struct.new(:thread, :next_clock)
+      FlushThreadState = Struct.new(:thread, :next_clock, :mutex, :cond_var)
       DequeuedChunkInfo = Struct.new(:chunk_id, :time, :timeout) do
         def expired?
           time + timeout < Time.now
@@ -171,7 +174,7 @@ module Fluent
 
       def initialize
         super
-        @counters_monitor = Monitor.new
+        @counter_mutex = Mutex.new
         @buffering = false
         @delayed_commit = false
         @as_secondary = false
@@ -183,6 +186,8 @@ module Fluent
         @emit_records = 0
         @write_count = 0
         @rollback_count = 0
+        @flush_time_count = 0
+        @slow_flush_count = 0
 
         # How to process events is decided here at once, but it will be decided in delayed way on #configure & #start
         if implement?(:synchronous)
@@ -304,6 +309,13 @@ module Fluent
             raise Fluent::ConfigError, "<buffer ...> argument includes 'time', but timekey is not configured" unless @buffer_config.timekey
             Fluent::Timezone.validate!(@buffer_config.timekey_zone)
             @timekey_zone = @buffer_config.timekey_use_utc ? '+0000' : @buffer_config.timekey_zone
+            @timekey = @buffer_config.timekey
+            if @timekey <= 0
+              raise Fluent::ConfigError, "timekey should be greater than 0. current timekey: #{@timekey}"
+            end
+            @timekey_use_utc = @buffer_config.timekey_use_utc
+            @offset = Fluent::Timezone.utc_offset(@timekey_zone)
+            @calculate_offset = @offset.respond_to?(:call) ? @offset : nil
             @output_time_formatter_cache = {}
           end
 
@@ -349,13 +361,19 @@ module Fluent
               log.warn "'flush_interval' is ignored because default 'flush_mode' is not 'interval': '#{@flush_mode}'"
             end
           end
+
+          if @buffer.queued_chunks_limit_size.nil?
+            @buffer.queued_chunks_limit_size = @buffer_config.flush_thread_count
+          end
         end
 
         if @secondary_config
           raise Fluent::ConfigError, "Invalid <secondary> section for non-buffered plugin" unless @buffering
           raise Fluent::ConfigError, "<secondary> section cannot have <buffer> section" if @secondary_config.buffer
           raise Fluent::ConfigError, "<secondary> section cannot have <secondary> section" if @secondary_config.secondary
-          raise Fluent::ConfigError, "<secondary> section and 'retry_forever' are exclusive" if @buffer_config.retry_forever
+          if @buffer_config.retry_forever
+            log.warn "<secondary> with 'retry_forever', only unrecoverable errors are moved to secondary"
+          end
 
           secondary_type = @secondary_config[:@type]
           unless secondary_type
@@ -363,6 +381,9 @@ module Fluent
           end
           secondary_conf = conf.elements(name: 'secondary').first
           @secondary = Plugin.new_output(secondary_type)
+          unless @secondary.respond_to?(:acts_as_secondary)
+            raise Fluent::ConfigError, "Failed to setup secondary plugin in '#{conf['@type']}'. '#{secondary_type}' plugin in not allowed due to non buffered output"
+          end
           @secondary.acts_as_secondary(self)
           @secondary.configure(secondary_conf)
           if (self.class != @secondary.class) && (@custom_format || @secondary.implement?(:custom_format))
@@ -435,7 +456,7 @@ module Fluent
 
           @buffer_config.flush_thread_count.times do |i|
             thread_title = "flush_thread_#{i}".to_sym
-            thread_state = FlushThreadState.new(nil, nil)
+            thread_state = FlushThreadState.new(nil, nil, Mutex.new, ConditionVariable.new)
             thread = thread_create(thread_title) do
               flush_thread_run(thread_state)
             end
@@ -501,9 +522,14 @@ module Fluent
           @output_flush_threads_running = false
           if @output_flush_threads && !@output_flush_threads.empty?
             @output_flush_threads.each do |state|
-              state.thread.run if state.thread.alive? # to wakeup thread and make it to stop by itself
-            end
-            @output_flush_threads.each do |state|
+              # to wakeup thread and make it to stop by itself
+              state.mutex.synchronize {
+                if state.thread && state.thread.status
+                  state.next_clock = 0
+                  state.cond_var.signal
+                end
+              }
+              Thread.pass
               state.thread.join
             end
           end
@@ -758,26 +784,26 @@ module Fluent
       end
 
       def emit_sync(tag, es)
-        @counters_monitor.synchronize{ @emit_count += 1 }
+        @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           process(tag, es)
-          @counters_monitor.synchronize{ @emit_records += es.size }
+          @counter_mutex.synchronize{ @emit_records += es.size }
         rescue
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           raise
         end
       end
 
       def emit_buffered(tag, es)
-        @counters_monitor.synchronize{ @emit_count += 1 }
+        @counter_mutex.synchronize{ @emit_count += 1 }
         begin
           execute_chunking(tag, es, enqueue: (@flush_mode == :immediate))
-          if !@retry && @buffer.queued?
+          if !@retry && @buffer.queued?(nil, optimistic: true)
             submit_flush_once
           end
         rescue
           # TODO: separate number of errors into emit errors and write/flush errors
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           raise
         end
       end
@@ -803,20 +829,17 @@ module Fluent
           if !@chunk_key_time && !@chunk_key_tag
             @buffer.metadata()
           elsif @chunk_key_time && @chunk_key_tag
-            time_int = time.to_i
-            timekey = (time_int - (time_int % @buffer_config.timekey)).to_i
+            timekey = calculate_timekey(time)
             @buffer.metadata(timekey: timekey, tag: tag)
           elsif @chunk_key_time
-            time_int = time.to_i
-            timekey = (time_int - (time_int % @buffer_config.timekey)).to_i
+            timekey = calculate_timekey(time)
             @buffer.metadata(timekey: timekey)
           else
             @buffer.metadata(tag: tag)
           end
         else
           timekey = if @chunk_key_time
-                      time_int = time.to_i
-                      (time_int - (time_int % @buffer_config.timekey)).to_i
+                      calculate_timekey(time)
                     else
                       nil
                     end
@@ -825,18 +848,21 @@ module Fluent
         end
       end
 
+      def calculate_timekey(time)
+        time_int = time.to_i
+        if @timekey_use_utc
+          (time_int - (time_int % @timekey)).to_i
+        else
+          offset = @calculate_offset ? @calculate_offset.call(time) : @offset
+          (time_int - ((time_int + offset)% @timekey)).to_i
+        end
+      end
+
       def chunk_for_test(tag, time, record)
         require 'fluent/plugin/buffer/memory_chunk'
 
-        m = metadata_for_test(tag, time, record)
-        Fluent::Plugin::Buffer::MemoryChunk.new(m)
-      end
-
-      def metadata_for_test(tag, time, record)
-        raise "BUG: #metadata_for_test is available only when no actual metadata exists" unless @buffer.metadata_list.empty?
         m = metadata(tag, time, record)
-        @buffer.metadata_list_clear!
-        m
+        Fluent::Plugin::Buffer::MemoryChunk.new(m)
       end
 
       def execute_chunking(tag, es, enqueue: false)
@@ -890,10 +916,10 @@ module Fluent
         end
       end
 
-      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream }
-      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream }
-      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true) }
-      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true) }
+      FORMAT_MSGPACK_STREAM = ->(e){ e.to_msgpack_stream(packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM = ->(e){ e.to_compressed_msgpack_stream(packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_msgpack_stream(time_int: true, packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
+      FORMAT_COMPRESSED_MSGPACK_STREAM_TIME_INT = ->(e){ e.to_compressed_msgpack_stream(time_int: true, packer: Fluent::MessagePackFactory.thread_local_msgpack_packer) }
 
       def generate_format_proc
         if @buffer && @buffer.compress == :gzip
@@ -915,7 +941,7 @@ module Fluent
       def handle_stream_with_custom_format(tag, es, enqueue: false)
         meta_and_data = {}
         records = 0
-        es.each do |time, record|
+        es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= []
           res = format(tag, time, record)
@@ -927,7 +953,7 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_records += records }
         true
       end
 
@@ -935,7 +961,7 @@ module Fluent
         format_proc = generate_format_proc
         meta_and_data = {}
         records = 0
-        es.each do |time, record|
+        es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
           meta = metadata(tag, time, record)
           meta_and_data[meta] ||= MultiEventStream.new
           meta_and_data[meta].add(time, record)
@@ -944,7 +970,7 @@ module Fluent
         write_guard do
           @buffer.write(meta_and_data, format: format_proc, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_records += records }
         true
       end
 
@@ -955,7 +981,7 @@ module Fluent
         if @custom_format
           records = 0
           data = []
-          es.each do |time, record|
+          es.each(unpacker: Fluent::MessagePackFactory.thread_local_msgpack_unpacker) do |time, record|
             res = format(tag, time, record)
             if res
               data << res
@@ -969,7 +995,7 @@ module Fluent
         write_guard do
           @buffer.write({meta => data}, format: format_proc, enqueue: enqueue)
         end
-        @counters_monitor.synchronize{ @emit_records += records }
+        @counter_mutex.synchronize{ @emit_records += records }
         true
       end
 
@@ -1007,7 +1033,7 @@ module Fluent
         #         false if chunk was already flushed and couldn't be rollbacked unexpectedly
         # in many cases, false can be just ignored
         if @buffer.takeback_chunk(chunk_id)
-          @counters_monitor.synchronize{ @rollback_count += 1 }
+          @counter_mutex.synchronize{ @rollback_count += 1 }
           if update_retry
             primary = @as_secondary ? @primary_instance : self
             primary.update_retry_state(chunk_id, @as_secondary)
@@ -1023,7 +1049,7 @@ module Fluent
           while @dequeued_chunks.first && @dequeued_chunks.first.expired?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
-              @counters_monitor.synchronize{ @rollback_count += 1 }
+              @counter_mutex.synchronize{ @rollback_count += 1 }
               log.warn "failed to flush the buffer chunk, timeout to commit.", chunk_id: dump_unique_id_hex(info.chunk_id), flushed_at: info.time
               primary = @as_secondary ? @primary_instance : self
               primary.update_retry_state(info.chunk_id, @as_secondary)
@@ -1038,7 +1064,7 @@ module Fluent
           until @dequeued_chunks.empty?
             info = @dequeued_chunks.shift
             if @buffer.takeback_chunk(info.chunk_id)
-              @counters_monitor.synchronize{ @rollback_count += 1 }
+              @counter_mutex.synchronize{ @rollback_count += 1 }
               log.info "delayed commit for buffer chunks was cancelled in shutdown", chunk_id: dump_unique_id_hex(info.chunk_id)
               primary = @as_secondary ? @primary_instance : self
               primary.update_retry_state(info.chunk_id, @as_secondary)
@@ -1057,7 +1083,7 @@ module Fluent
         end
       end
 
-      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError]
+      UNRECOVERABLE_ERRORS = [Fluent::UnrecoverableError, TypeError, ArgumentError, NoMethodError, MessagePack::UnpackError]
 
       def try_flush
         chunk = @buffer.dequeue_chunk
@@ -1081,7 +1107,7 @@ module Fluent
 
           if output.delayed_commit
             log.trace "executing delayed write and commit", chunk: dump_unique_id_hex(chunk.unique_id)
-            @counters_monitor.synchronize{ @write_count += 1 }
+            @counter_mutex.synchronize{ @write_count += 1 }
             @dequeued_chunks_mutex.synchronize do
               # delayed_commit_timeout for secondary is configured in <buffer> of primary (<secondary> don't get <buffer>)
               @dequeued_chunks << DequeuedChunkInfo.new(chunk.unique_id, Time.now, self.delayed_commit_timeout)
@@ -1093,7 +1119,7 @@ module Fluent
             chunk_id = chunk.unique_id
             dump_chunk_id = dump_unique_id_hex(chunk_id)
             log.trace "adding write count", instance: self.object_id
-            @counters_monitor.synchronize{ @write_count += 1 }
+            @counter_mutex.synchronize{ @write_count += 1 }
             log.trace "executing sync write", chunk: dump_chunk_id
 
             output.write(chunk)
@@ -1107,24 +1133,29 @@ module Fluent
           if @secondary
             if using_secondary
               log.warn "got unrecoverable error in secondary.", error: e
+              log.warn_backtrace
               backup_chunk(chunk, using_secondary, output.delayed_commit)
             else
               if (self.class == @secondary.class)
                 log.warn "got unrecoverable error in primary and secondary type is same as primary. Skip secondary", error: e
+                log.warn_backtrace
                 backup_chunk(chunk, using_secondary, output.delayed_commit)
               else
                 # Call secondary output directly without retry update.
                 # In this case, delayed commit causes inconsistent state in dequeued chunks so async output in secondary is not allowed for now.
                 if @secondary.delayed_commit
                   log.warn "got unrecoverable error in primary and secondary is async output. Skip secondary for backup", error: e
+                  log.warn_backtrace
                   backup_chunk(chunk, using_secondary, output.delayed_commit)
                 else
                   log.warn "got unrecoverable error in primary. Skip retry and flush chunk to secondary", error: e
+                  log.warn_backtrace
                   begin
                     @secondary.write(chunk)
                     commit_write(chunk_id, delayed: output.delayed_commit, secondary: true)
                   rescue => e
                     log.warn "got an error in secondary for unrecoverable error", error: e
+                    log.warn_backtrace
                     backup_chunk(chunk, using_secondary, output.delayed_commit)
                   end
                 end
@@ -1132,6 +1163,7 @@ module Fluent
             end
           else
             log.warn "got unrecoverable error in primary and no secondary", error: e
+            log.warn_backtrace
             backup_chunk(chunk, using_secondary, output.delayed_commit)
           end
         rescue => e
@@ -1141,7 +1173,10 @@ module Fluent
               @dequeued_chunks.delete_if{|d| d.chunk_id == chunk.unique_id }
             end
           end
-          @buffer.takeback_chunk(chunk.unique_id)
+
+          if @buffer.takeback_chunk(chunk.unique_id)
+            @counter_mutex.synchronize { @rollback_count += 1 }
+          end
 
           update_retry_state(chunk.unique_id, using_secondary, e)
 
@@ -1150,23 +1185,30 @@ module Fluent
       end
 
       def backup_chunk(chunk, using_secondary, delayed_commit)
-        unique_id = dump_unique_id_hex(chunk.unique_id)
-        safe_plugin_id = plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
-        backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
-        backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_plugin_id, "#{unique_id}.log")
-        backup_dir = File.dirname(backup_file)
+        if @buffer_config.disable_chunk_backup
+          log.warn "disable_chunk_backup is true. #{dump_unique_id_hex(chunk.unique_id)} chunk is thrown away"
+        else
+          unique_id = dump_unique_id_hex(chunk.unique_id)
+          safe_plugin_id = plugin_id.gsub(/[ "\/\\:;|*<>?]/, '_')
+          backup_base_dir = system_config.root_dir || DEFAULT_BACKUP_DIR
+          backup_file = File.join(backup_base_dir, 'backup', "worker#{fluentd_worker_id}", safe_plugin_id, "#{unique_id}.log")
+          backup_dir = File.dirname(backup_file)
 
-        log.warn "bad chunk is moved to #{backup_file}"
-        FileUtils.mkdir_p(backup_dir) unless Dir.exist?(backup_dir)
-        File.open(backup_file, 'ab', system_config.file_permission || 0644) { |f|
-          chunk.write_to(f)
-        }
+          log.warn "bad chunk is moved to #{backup_file}"
+          FileUtils.mkdir_p(backup_dir) unless Dir.exist?(backup_dir)
+          File.open(backup_file, 'ab', system_config.file_permission || 0644) { |f|
+            chunk.write_to(f)
+          }
+        end
         commit_write(chunk.unique_id, secondary: using_secondary, delayed: delayed_commit)
       end
 
       def check_slow_flush(start)
         elapsed_time = Fluent::Clock.now - start
+        elapsed_millsec = (elapsed_time * 1000).to_i
+        @counter_mutex.synchronize { @flush_time_count += elapsed_millsec }
         if elapsed_time > @slow_flush_log_threshold
+          @counter_mutex.synchronize { @slow_flush_count += 1 }
           log.warn "buffer flush took longer time than slow_flush_log_threshold:",
                    elapsed_time: elapsed_time, slow_flush_log_threshold: @slow_flush_log_threshold, plugin_id: self.plugin_id
         end
@@ -1174,7 +1216,7 @@ module Fluent
 
       def update_retry_state(chunk_id, using_secondary, error = nil)
         @retry_mutex.synchronize do
-          @counters_monitor.synchronize{ @num_errors += 1 }
+          @counter_mutex.synchronize{ @num_errors += 1 }
           chunk_id_hex = dump_unique_id_hex(chunk_id)
 
           unless @retry
@@ -1188,29 +1230,29 @@ module Fluent
 
           # @retry exists
 
-          if error
-            if @retry.limit?
+          if @retry.limit?
+            if error
               records = @buffer.queued_records
               msg = "failed to flush the buffer, and hit limit for retries. dropping all chunks in the buffer queue."
               log.error msg, retry_times: @retry.steps, records: records, error: error
               log.error_backtrace error.backtrace
-            elsif using_secondary
-              msg = "failed to flush the buffer with secondary output."
-              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
-              log.warn_backtrace error.backtrace
-            else
-              msg = "failed to flush the buffer."
-              log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
-              log.warn_backtrace error.backtrace
             end
-          end
-
-          if @retry.limit?
             @buffer.clear_queue!
             log.debug "buffer queue cleared"
             @retry = nil
           else
             @retry.step
+            if error
+              if using_secondary
+                msg = "failed to flush the buffer with secondary output."
+                log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+                log.warn_backtrace error.backtrace
+              else
+                msg = "failed to flush the buffer."
+                log.warn msg, retry_time: @retry.steps, next_retry_seconds: @retry.next_time, chunk: chunk_id_hex, error: error
+                log.warn_backtrace error.backtrace
+              end
+            end
           end
         end
       end
@@ -1238,12 +1280,15 @@ module Fluent
         # Without locks: it is rough but enough to select "next" writer selection
         @output_flush_thread_current_position = (@output_flush_thread_current_position + 1) % @buffer_config.flush_thread_count
         state = @output_flush_threads[@output_flush_thread_current_position]
-        state.next_clock = 0
-        if state.thread && state.thread.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
-          state.thread.run
-        else
-          log.warn "thread is already dead"
-        end
+        state.mutex.synchronize {
+          if state.thread && state.thread.status # "run"/"sleep"/"aborting" or false(successfully stop) or nil(killed by exception)
+            state.next_clock = 0
+            state.cond_var.signal
+          else
+            log.warn "thread is already dead"
+          end
+        }
+        Thread.pass
       end
 
       def force_flush
@@ -1280,8 +1325,13 @@ module Fluent
       # only for tests of output plugin
       def flush_thread_wakeup
         @output_flush_threads.each do |state|
-          state.next_clock = 0
-          state.thread.run
+          state.mutex.synchronize {
+            if state.thread && state.thread.status
+              state.next_clock = 0
+              state.cond_var.signal
+            end
+          }
+          Thread.pass
         end
       end
 
@@ -1292,7 +1342,7 @@ module Fluent
         end
         if @chunk_key_time
           if !value_for_interval || @buffer_config.timekey < value_for_interval
-            value_for_interval = @buffer_config.timekey
+            value_for_interval = [@buffer_config.timekey, @buffer_config.timekey_wait].min
           end
         end
         unless value_for_interval
@@ -1323,7 +1373,7 @@ module Fluent
                 # This block should be done by integer values.
                 # If both of flush_interval & flush_thread_interval are 1s, expected actual flush timing is 1.5s.
                 # If we use integered values for this comparison, expected actual flush timing is 1.0s.
-                @buffer.enqueue_all{ |metadata, chunk| chunk.created_at.to_i + flush_interval <= now_int }
+                @buffer.enqueue_all{ |metadata, chunk| chunk.raw_create_at + flush_interval <= now_int }
               end
 
               if @chunk_key_time
@@ -1360,6 +1410,7 @@ module Fluent
         end
         log.debug "flush_thread actually running"
 
+        state.mutex.lock
         begin
           # This thread don't use `thread_current_running?` because this thread should run in `before_shutdown` phase
           while @output_flush_threads_running
@@ -1375,23 +1426,32 @@ module Fluent
             elsif next_retry_time && next_retry_time > Time.now
               interval = next_retry_time.to_f - Time.now.to_f
             else
-              try_flush
-
-              # next_flush_time uses flush_thread_interval or flush_thread_burst_interval (or retrying)
-              interval = next_flush_time.to_f - Time.now.to_f
-              # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected
-              #       because @retry still exists (#commit_write is not called yet in #try_flush)
-              #       @retry should be cleared if delayed commit is enabled? Or any other solution?
-              state.next_clock = Fluent::Clock.now + interval
+              state.mutex.unlock
+              begin
+                try_flush
+                # next_flush_time uses flush_thread_interval or flush_thread_burst_interval (or retrying)
+                interval = next_flush_time.to_f - Time.now.to_f
+                # TODO: if secondary && delayed-commit, next_flush_time will be much longer than expected
+                #       because @retry still exists (#commit_write is not called yet in #try_flush)
+                #       @retry should be cleared if delayed commit is enabled? Or any other solution?
+                state.next_clock = Fluent::Clock.now + interval
+              ensure
+                state.mutex.lock
+              end
             end
 
             if @dequeued_chunks_mutex.synchronize{ !@dequeued_chunks.empty? && @dequeued_chunks.first.expired? }
               unless @output_flush_interrupted
-                try_rollback_write
+                state.mutex.unlock
+                begin
+                  try_rollback_write
+                ensure
+                  state.mutex.lock
+                end
               end
             end
 
-            sleep interval if interval > 0
+            state.cond_var.wait(state.mutex, interval) if interval > 0
           end
         rescue => e
           # normal errors are rescued by output plugins in #try_flush
@@ -1399,7 +1459,36 @@ module Fluent
           log.error "error on output thread", error: e
           log.error_backtrace
           raise
+        ensure
+          state.mutex.unlock
         end
+      end
+
+      BUFFER_STATS_KEYS = {}
+      Fluent::Plugin::Buffer::STATS_KEYS.each { |key|
+        BUFFER_STATS_KEYS[key] = "buffer_#{key}"
+      }
+
+      def statistics
+        stats = {
+          'emit_records' => @emit_records,
+          # Respect original name
+          # https://github.com/fluent/fluentd/blob/45c7b75ba77763eaf87136864d4942c4e0c5bfcd/lib/fluent/plugin/in_monitor_agent.rb#L284
+          'retry_count' => @num_errors,
+          'emit_count' => @emit_count,
+          'write_count' => @write_count,
+          'rollback_count' => @rollback_count,
+          'slow_flush_count' => @slow_flush_count,
+          'flush_time_count' => @flush_time_count,
+        }
+
+        if @buffer && @buffer.respond_to?(:statistics)
+          (@buffer.statistics['buffer'] || {}).each do |k, v|
+            stats[BUFFER_STATS_KEYS[k]] = v
+          end
+        end
+
+        { 'output' => stats }
       end
     end
   end

@@ -1,0 +1,10 @@
+.install-template:
+  before_script:
+    - gem update --system=2.7.8
+    - ruby -v 
+
+.test-template:
+  before_script:
+    - gem install rake
+    - bundle install 
+    - chmod 777 -R ./test

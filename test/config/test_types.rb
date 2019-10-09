@@ -79,6 +79,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'w/o slashes' do |(expected, str)|
       assert_equal(expected, Config.regexp_value(str))
     end
+
+    data("missing right slash" => "/regexp",
+         "too many options" => "/regexp/imx",)
+    test 'invalid regexp' do |(str)|
+      assert_raise(Fluent::ConfigError.new("invalid regexp: missing right slash: #{str}")) do
+        Config.regexp_value(str)
+      end
+    end
   end
 
   sub_test_case 'type converters for config_param definitions' do
