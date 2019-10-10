@@ -144,6 +144,12 @@ module Fluent
         super
       end
 
+      def stop
+        @@buffer_paths.delete(@path)
+
+        super
+      end
+
       def persistent?
         true
       end
