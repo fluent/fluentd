@@ -25,6 +25,7 @@ require 'fluent/log'
 require 'fluent/plugin'
 require 'fluent/rpc'
 require 'fluent/system_config'
+require 'fluent/msgpack_factory'
 require 'serverengine'
 
 if Fluent.windows?
@@ -546,6 +547,7 @@ module Fluent
       main_process do
         create_socket_manager if @standalone_worker
         change_privilege if @standalone_worker
+        MessagePackFactory.init
         init_engine
         run_configure
         run_engine
@@ -577,6 +579,7 @@ module Fluent
       begin
         Fluent::Engine.dry_run_mode = true
         change_privilege
+        MessagePackFactory.init
         init_engine
         run_configure
       rescue Fluent::ConfigError => e
