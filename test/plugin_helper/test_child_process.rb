@@ -124,6 +124,39 @@ class ChildProcessTest < Test::Unit::TestCase
     assert_equal expected, ary
   end
 
+  test 'can execute external command at just once, which can handle both of read and write. Ignore stderr message/no block' do
+    m = Mutex.new
+    ary = []
+    Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
+      ran = false
+      # lots of stderr message should not be blocked and message should not be printed in test.
+      cmd = "ruby -e 'while !STDIN.eof? && line = STDIN.readline; STDERR.puts line.chomp * 1000; STDOUT.puts line.chomp; STDOUT.flush rescue nil; end'"
+      @d.child_process_execute(:t2_and_ignore_stderr, cmd, mode: [:write, :read]) do |writeio, readio|
+        m.lock
+        ran = true
+
+        [[1,2],[3,4],[5,6]].each do |i,j|
+          writeio.write "my data#{i}\n"
+          writeio.write "my data#{j}\n"
+          writeio.flush
+        end
+        writeio.close
+
+        while line = readio.readline
+          ary << line
+        end
+        m.unlock
+      end
+      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
+      m.lock
+      m.unlock
+    end
+
+    assert_equal [], @d.log.out.logs
+    expected = (1..6).map{|i| "my data#{i}\n" }
+    assert_equal expected, ary
+  end
+
   test 'can execute external command at just once, which can handle all of read, write and stderr' do
     m = Mutex.new
     ary1 = []

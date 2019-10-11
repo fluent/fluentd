@@ -257,7 +257,8 @@ module Fluent
         readio = writeio = stderrio = wait_thread = nil
         readio_in_use = writeio_in_use = stderrio_in_use = false
 
-        if !mode.include?(:stderr) && !mode.include?(:read_with_stderr) && stderr != :discard # connect
+        if !mode.include?(:stderr) && !mode.include?(:read_with_stderr)
+          spawn_opts[:err] = IO::NULL if stderr == :discard
           writeio, readio, wait_thread = *Open3.popen2(*spawn_args, spawn_opts)
         elsif mode.include?(:read_with_stderr)
           writeio, readio, wait_thread = *Open3.popen2e(*spawn_args, spawn_opts)
@@ -281,7 +282,7 @@ module Fluent
           stderrio.set_encoding(external_encoding, internal_encoding, encoding_options)
           stderrio_in_use = true
         else
-          stderrio.reopen(IO::NULL) if stderrio && stderrio == :discard
+          stderrio.reopen(IO::NULL) if stderrio && stderr == :discard
         end
 
         pid = wait_thread.pid # wait_thread => Process::Waiter
