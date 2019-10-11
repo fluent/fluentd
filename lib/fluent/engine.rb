@@ -69,8 +69,6 @@ module Fluent
 
       @root_agent = RootAgent.new(log: log, system_config: @system_config)
 
-      MessagePackFactory.init
-
       self
     end
 
