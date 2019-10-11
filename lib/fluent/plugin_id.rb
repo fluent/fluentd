@@ -76,5 +76,11 @@ module Fluent
       @_plugin_root_dir = dir.freeze
       dir
     end
+
+    def stop
+      @@configured_ids.delete(@id)
+
+      super
+    end
   end
 end

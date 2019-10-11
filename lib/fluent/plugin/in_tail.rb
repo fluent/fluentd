@@ -204,6 +204,12 @@ module Fluent::Plugin
       timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
     end
 
+    def stop
+      @@pos_file_paths.delete(@pos_file)
+
+      super
+    end
+
     def shutdown
       # during shutdown phase, don't close io. It should be done in close after all threads are stopped. See close.
       stop_watchers(@tails.keys, immediate: true, remove_watcher: false)
