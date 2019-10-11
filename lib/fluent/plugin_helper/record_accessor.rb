@@ -31,6 +31,10 @@ module Fluent
         Accessor.new(param)
       end
 
+      def record_accessor_nested?(param)
+        Accessor.parse_parameter(param).is_a?(Array)
+      end
+
       class Accessor
         attr_reader :keys
 

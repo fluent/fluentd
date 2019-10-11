@@ -54,6 +54,15 @@ class CsvFormatterTest < ::Test::Unit::TestCase
     assert_equal("\"awesome\",\"awesome2\"\n", formatted)
   end
 
+  def test_format_with_nested_fields
+    d = create_driver("fields" => "message,$.nest.key")
+    formatted = d.instance.format(tag, @time, {
+                                    'message' => 'awesome',
+                                    'nest' => {'key' => 'awesome2'}
+                                  })
+    assert_equal("\"awesome\",\"awesome2\"\n", formatted)
+  end
+
   def test_format_without_newline
     d = create_driver("fields" => "message,message2", "add_newline" => false)
     formatted = d.instance.format(tag, @time, {
