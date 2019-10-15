@@ -147,9 +147,13 @@ class ChildProcessTest < Test::Unit::TestCase
         end
         m.unlock
       end
-      sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
-      m.lock
-      m.unlock
+      begin
+        sleep TEST_WAIT_INTERVAL_FOR_BLOCK_RUNNING until m.locked? || ran
+        m.lock
+      rescue
+      ensure
+        m.unlock
+      end
     end
 
     assert_equal [], @d.log.out.logs
