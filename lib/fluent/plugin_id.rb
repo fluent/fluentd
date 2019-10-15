@@ -23,6 +23,7 @@ module Fluent
     def initialize
       super
       @_plugin_root_dir = nil
+      @id = nil
     end
 
     def configure(conf)

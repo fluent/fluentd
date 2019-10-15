@@ -35,6 +35,7 @@ module Fluent
           @flag = ServerEngine::BlockingFlag.new
           @mutex = Mutex.new
           @timeout = timeout
+          @timeout_checker = nil
         end
 
         def start
