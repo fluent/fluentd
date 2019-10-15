@@ -767,15 +767,15 @@ module Fluent
     end
 
     def read_config
-      @config_fname = File.basename(@config_path)
-      @config_basedir = File.dirname(@config_path)
-      @config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
+      config_fname = File.basename(@config_path)
+      config_basedir = File.dirname(@config_path)
+      config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
       if @inline_config == '-'
-        @config_data << "\n" << STDIN.read
+        config_data << "\n" << STDIN.read
       elsif @inline_config
-        @config_data << "\n" << @inline_config.gsub("\\n","\n")
+        config_data << "\n" << @inline_config.gsub("\\n","\n")
       end
-      @conf = Fluent::Config.parse(@config_data, @config_fname, @config_basedir, @use_v1_config)
+      @conf = Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
     end
 
     def set_system_config
