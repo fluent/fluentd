@@ -61,7 +61,6 @@ module Fluent
     def init(system_config)
       @system_config = system_config
 
-      suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
 
@@ -74,11 +73,6 @@ module Fluent
 
     def log
       $log
-    end
-
-    def suppress_interval(interval_time)
-      @suppress_emit_error_log_interval = interval_time
-      @next_emit_error_log_time = Time.now.to_i
     end
 
     def parse_config(io, fname, basepath = Dir.pwd, v1_config = false)
