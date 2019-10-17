@@ -449,7 +449,6 @@ module Fluent
       @plugin_dirs = opt[:plugin_dirs]
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
-      @rpc_server = nil
       @process_name = nil
 
       @workers = opt[:workers]
