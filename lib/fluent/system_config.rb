@@ -152,8 +152,6 @@ module Fluent
           case param
           when :log_level
             @log.level = @log_level = param_value
-          when :emit_error_log_interval
-            @suppress_interval = param_value
           else
             instance_variable_set("@#{param}", param_value)
           end
