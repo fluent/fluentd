@@ -42,7 +42,6 @@ end
 module Fluent
   module ServerModule
     def before_run
-      @start_time = Time.now
       @rpc_server = nil
       @counter = nil
 
