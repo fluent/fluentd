@@ -27,16 +27,24 @@ module Fluent
       end
 
       def msgpack_packer(*args)
-        msgpack_factory.packer(*args)
+        MessagePackFactory.msgpack_packer(*args)
       end
 
       def msgpack_unpacker(*args)
-        msgpack_factory.unpacker(*args)
+        MessagePackFactory.msgpack_unpacker(*args)
       end
     end
 
     def self.engine_factory
       @@engine_factory || factory
+    end
+
+    def self.msgpack_packer(*args)
+      engine_factory.packer(*args)
+    end
+
+    def self.msgpack_unpacker(*args)
+      engine_factory.unpacker(*args)
     end
 
     def self.factory
