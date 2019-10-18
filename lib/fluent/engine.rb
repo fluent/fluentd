@@ -25,8 +25,6 @@ require 'fluent/plugin'
 
 module Fluent
   class EngineClass
-    include Fluent::MessagePackFactory::Mixin
-
     def initialize
       @root_agent = nil
       @default_loop = nil

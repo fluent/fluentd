@@ -143,7 +143,7 @@ module Fluent
           @y.on_parse_complete = @on_message
         else
           m = method(:on_read_msgpack)
-          @u = Fluent::Engine.msgpack_factory.unpacker
+          @u = Fluent::MessagePackFactory.msgpack_unpacker
         end
 
         singleton_class.module_eval do

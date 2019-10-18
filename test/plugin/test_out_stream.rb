@@ -31,10 +31,10 @@ module StreamOutputTest
     d.emit({"a"=>2}, time)
 
     expect = ["test",
-        Fluent::Engine.msgpack_factory.packer.write([time,{"a"=>1}]).to_s +
-        Fluent::Engine.msgpack_factory.packer.write([time,{"a"=>2}]).to_s
+        Fluent::MessagePackFactory.msgpack_packer.write([time,{"a"=>1}]).to_s +
+        Fluent::MessagePackFactory.msgpack_packer.write([time,{"a"=>2}]).to_s
       ]
-    expect = Fluent::Engine.msgpack_factory.packer.write(expect).to_s
+    expect = Fluent::MessagePackFactory.msgpack_packer.write(expect).to_s
 
     result = d.run
     assert_equal(expect, result)
