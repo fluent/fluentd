@@ -11,7 +11,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
     helpers :service_discovery
 
     # Make these mehtod public
-    def service_disovery_create_manager(title, configurations:, load_balancer: nil, custom_build_method: nil, interval: 3)
+    def service_discovery_create_manager(title, configurations:, load_balancer: nil, custom_build_method: nil, interval: 3)
       super
     end
 
@@ -38,7 +38,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
   test 'start discovery manager' do
     d = @d = Dummy.new
 
-    d.service_disovery_create_manager(
+    d.service_discovery_create_manager(
       :service_discovery_helper_test,
       configurations: [{ type: :static, conf:  config_element('root', '', {}, [config_element('service', '', { 'host' => '127.0.0.1', 'port' => '1234' })]) }],
     )
@@ -59,7 +59,7 @@ class ServiceDiscoveryHelper < Test::Unit::TestCase
   test 'call timer_execute if dynamic configuration' do
     d = @d = Dummy.new
 
-    d.service_disovery_create_manager(
+    d.service_discovery_create_manager(
       :service_discovery_helper_test,
       configurations: [{ type: :file, conf: config_element('file_config', '', { 'path' => File.join(@sd_file_dir, 'config.yml') }) }],
     )
