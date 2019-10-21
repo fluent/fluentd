@@ -46,25 +46,19 @@ module Fluent
             @dig_keys = @keys[0..-2]
             if @dig_keys.empty?
               @keys = @keys.first
-              mcall = method(:call_index)
-              mdelete = method(:delete_top)
             else
               mcall = method(:call_dig)
               mdelete = method(:delete_nest)
+              singleton_class.module_eval do
+                define_method(:call, mcall)
+                define_method(:delete, mdelete)
+              end
             end
-          else
-            # Call [] for single key to reduce dig overhead
-            mcall = method(:call_index)
-            mdelete = method(:delete_top)
-          end
-
-          singleton_class.module_eval do
-            define_method(:call, mcall)
-            define_method(:delete, mdelete)
           end
         end
 
         def call(r)
+          r[@keys]
         end
 
         # To optimize the performance, use class_eval with pre-expanding @keys
@@ -73,11 +67,8 @@ module Fluent
           r.dig(*@keys)
         end
 
-        def call_index(r)
-          r[@keys]
-        end
-
         def delete(r)
+          r.delete(@keys)
         end
 
         def delete_nest(r)
@@ -90,10 +81,6 @@ module Fluent
           end
         rescue
           nil
-        end
-
-        def delete_top(r)
-          r.delete(@keys)
         end
 
         def self.parse_parameter(param)
