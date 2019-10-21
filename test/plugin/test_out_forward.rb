@@ -969,6 +969,26 @@ EOL
     end
   end
 
+  test 'when out_forward has @id' do
+    # cancel https://github.com/fluent/fluentd/blob/077508ac817b7637307434d0c978d7cdc3d1c534/lib/fluent/plugin_id.rb#L43-L53
+    # it always return true in test
+    mock.proxy(Fluent::Plugin).new_sd(:static, anything) { |v|
+      stub(v).plugin_id_for_test? { false }
+    }.once
+
+    output = Fluent::Test::Driver::Output.new(Fluent::Plugin::ForwardOutput) {
+      def plugin_id_for_test?
+        false
+      end
+    }
+
+    assert_nothing_raised do
+      output.configure(CONFIG + %[
+        @id unique_out_forward
+      ])
+    end
+  end
+
   sub_test_case 'verify_connection_at_startup' do
     test 'nodes are not available' do
       @d = d = create_driver(CONFIG + %[

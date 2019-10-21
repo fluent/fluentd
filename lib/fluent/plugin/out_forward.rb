@@ -233,7 +233,9 @@ module Fluent::Plugin
       end
 
       unless conf.elements(name: 'service').empty?
-        configs << { type: :static, conf: conf }
+        # To copy `services` element only
+        new_elem = Fluent::Config::Element.new('static_service_discovery', {}, {}, conf.elements(name: 'service'))
+        configs << { type: :static, conf: new_elem }
       end
 
       conf.elements(name: 'service_discovery').each_with_index do |c, i|
