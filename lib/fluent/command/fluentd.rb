@@ -312,7 +312,6 @@ exit 0 if early_exit
 require 'fluent/supervisor'
 if opts[:supervise]
   if Fluent.windows?
-
     if opts[:log_path] && opts[:log_path] != "-"
       if opts[:log_rotate_age] || opts[:log_rotate_size]
         require 'pathname'
