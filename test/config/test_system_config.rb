@@ -74,7 +74,6 @@ module Fluent::Config
       'root_dir' => ['root_dir', File.join(TMP_DIR, 'root')],
       'log_level' => ['log_level', 'error'],
       'suppress_repeated_stacktrace' => ['suppress_repeated_stacktrace', true],
-      'emit_error_log_interval' => ['emit_error_log_interval', 60],
       'log_event_verbose' => ['log_event_verbose', true],
       'suppress_config_dump' => ['suppress_config_dump', true],
       'without_source' => ['without_source', true],

@@ -42,7 +42,6 @@ end
 module Fluent
   module ServerModule
     def before_run
-      @start_time = Time.now
       @rpc_server = nil
       @counter = nil
 
@@ -450,7 +449,6 @@ module Fluent
       @plugin_dirs = opt[:plugin_dirs]
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
-      @rpc_server = nil
       @process_name = nil
 
       @workers = opt[:workers]
