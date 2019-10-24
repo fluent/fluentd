@@ -353,13 +353,21 @@ module Fluent
         @log_rotate_size = log_rotate_size
       end
 
+      def worker_id_suffixed_path(worker_id, path)
+        require 'pathname'
+
+        Pathname(path).sub_ext("-#{worker_id}#{Pathname(path).extname}").to_s
+      end
+
       def init(process_type, worker_id)
         @opts[:process_type] = process_type
         @opts[:worker_id] = worker_id
 
         if @path && @path != "-"
           @logdev = if @log_rotate_age || @log_rotate_size
-                     Fluent::LogDeviceIO.new(@path, shift_age: @log_rotate_age, shift_size: @log_rotate_size)
+                     Fluent::LogDeviceIO.new(Fluent.windows? ?
+                                               worker_id_suffixed_path(worker_id, @path) : @path,
+                                             shift_age: @log_rotate_age, shift_size: @log_rotate_size)
                    else
                      File.open(@path, "a")
                    end
