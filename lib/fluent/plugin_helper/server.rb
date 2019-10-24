@@ -690,9 +690,9 @@ module Fluent
           end
 
           if RUBY_VERSION.to_f >= 2.3
-            NONBLOCK_ARG = {exception: false}
+            NONBLOCK_ARG = { exception: false }
             def try_handshake
-              @_handler_socket.accept_nonblock(NONBLOCK_ARG)
+              @_handler_socket.accept_nonblock(**NONBLOCK_ARG)
             end
           else
             def try_handshake

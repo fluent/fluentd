@@ -202,7 +202,7 @@ module Fluent
             if kwargs[:compressed] == :gzip
               super
             else
-              super(kwargs) do |chunk_io|
+              super(**kwargs) do |chunk_io|
                 output_io = if chunk_io.is_a?(StringIO)
                               StringIO.new
                             else

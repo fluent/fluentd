@@ -267,19 +267,19 @@ module Fluent
         end
 
         if mode.include?(:write)
-          writeio.set_encoding(external_encoding, internal_encoding, encoding_options)
+          writeio.set_encoding(external_encoding, internal_encoding, **encoding_options)
           writeio_in_use = true
         else
           writeio.reopen(IO::NULL) if writeio
         end
         if mode.include?(:read) || mode.include?(:read_with_stderr)
-          readio.set_encoding(external_encoding, internal_encoding, encoding_options)
+          readio.set_encoding(external_encoding, internal_encoding, **encoding_options)
           readio_in_use = true
         else
           readio.reopen(IO::NULL) if readio
         end
         if mode.include?(:stderr)
-          stderrio.set_encoding(external_encoding, internal_encoding, encoding_options)
+          stderrio.set_encoding(external_encoding, internal_encoding, **encoding_options)
           stderrio_in_use = true
         else
           stderrio.reopen(IO::NULL) if stderrio && stderr == :discard
