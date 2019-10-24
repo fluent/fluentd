@@ -311,6 +311,16 @@ exit 0 if early_exit
 
 require 'fluent/supervisor'
 if opts[:supervise]
+  if Fluent.windows?
+    if opts[:log_path] && opts[:log_path] != "-"
+      if opts[:log_rotate_age] || opts[:log_rotate_size]
+        require 'pathname'
+
+        log_path = Pathname(opts[:log_path]).sub_ext("-supervisor#{Pathname(opts[:log_path]).extname}").to_s
+        opts[:log_path] = log_path
+      end
+    end
+  end
   Fluent::Supervisor.new(opts).run_supervisor
 else
   if opts[:standalone_worker] && opts[:workers] && opts[:workers] > 1
