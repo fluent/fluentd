@@ -121,7 +121,7 @@ module Fluent
       }
 
       @rpc_server.mount_proc('/api/config.getDump') { |req, res|
-        $log.debug "fluentd RPC got /api/config.dump request"
+        $log.debug "fluentd RPC got /api/config.getDump request"
         $log.info "get dump in-memory config via HTTP"
         res.body = supervisor_get_dump_config_handler
         [nil, nil, res]
