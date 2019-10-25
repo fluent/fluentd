@@ -115,35 +115,11 @@ module Fluent
     def configure(conf)
       @root_agent.configure(conf)
 
-      begin
-        log_event_agent = @root_agent.find_label(Fluent::Log::LOG_EVENT_LABEL)
-        log_event_router = log_event_agent.event_router
+      @log_event_router = FluentLogEventEmitter.build(@root_agent)
 
-        # suppress mismatched tags only for <label @FLUENT_LOG> label.
-        # it's not suppressed in default event router for non-log-event events
-        log_event_router.suppress_missing_match!
-
-        @log_event_router = log_event_router
-
-        unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
-        unless unmatched_tags.empty?
-          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
-        end
-      rescue ArgumentError # ArgumentError "#{label_name} label not found"
-        # use default event router if <label @FLUENT_LOG> is missing in configuration
-        log_event_router = @root_agent.event_router
-
-        if Fluent::Log.event_tags.any?{|t| log_event_router.match?(t) }
-          @log_event_router = log_event_router
-
-          unmatched_tags = Fluent::Log.event_tags.select{|t| !@log_event_router.match?(t) }
-          unless unmatched_tags.empty?
-            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
-          end
-        end
+      if @log_event_router
+        $log.enable_event(true)
       end
-
-      $log.enable_event(true) if @log_event_router
 
       unless @suppress_config_dump
         $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
@@ -260,6 +236,48 @@ module Fluent
 
     def shutdown
       @root_agent.shutdown
+    end
+  end
+
+  class FluentLogEventEmitter
+    def self.build(root_agent)
+      log_event_router = nil
+
+      begin
+        log_event_agent = root_agent.find_label(Fluent::Log::LOG_EVENT_LABEL)
+        log_event_router = log_event_agent.event_router
+
+        # suppress mismatched tags only for <label @FLUENT_LOG> label.
+        # it's not suppressed in default event router for non-log-event events
+        log_event_router.suppress_missing_match!
+
+        log_event_router = log_event_router
+
+        unmatched_tags = Fluent::Log.event_tags.select{|t| !log_event_router.match?(t) }
+        unless unmatched_tags.empty?
+          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+        end
+
+      rescue ArgumentError # ArgumentError "#{label_name} label not found"
+        # use default event router if <label @FLUENT_LOG> is missing in configuration
+        log_event_router = root_agent.event_router
+
+        if Fluent::Log.event_tags.any?{|t| log_event_router.match?(t) }
+          log_event_router = log_event_router
+
+          unmatched_tags = Fluent::Log.event_tags.select{|t| !log_event_router.match?(t) }
+          unless unmatched_tags.empty?
+            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          end
+        end
+      end
+
+      if log_event_router
+        # FluentLogEventEmitter.new(log_event_router)
+        log_event_router
+      else
+        nil # no need to create fluent log event emitter
+      end
     end
   end
 
