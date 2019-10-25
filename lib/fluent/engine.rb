@@ -44,12 +44,7 @@ module Fluent
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
 
-    MATCH_CACHE_SIZE = 1024
-
-    attr_reader :root_agent
-    attr_reader :matches, :sources
-    attr_reader :system_config
-
+    attr_reader :root_agent, :system_config
     attr_accessor :dry_run_mode
 
     def init(system_config)
