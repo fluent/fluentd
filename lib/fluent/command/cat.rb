@@ -315,7 +315,7 @@ when 'msgpack'
   require 'fluent/engine'
 
   begin
-    u = Fluent::Engine.msgpack_factory.unpacker($stdin)
+    u = Fluent::MessagePackFactory.msgpack_unpacker($stdin)
     u.each {|record|
       w.write(record)
     }
@@ -340,4 +340,3 @@ else
   $stderr.puts "Unknown format '#{format}'"
   exit 1
 end
-

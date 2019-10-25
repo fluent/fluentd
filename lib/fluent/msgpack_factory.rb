@@ -23,20 +23,37 @@ module Fluent
 
     module Mixin
       def msgpack_factory
+        if $log
+          $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.engine_factory')
+        end
         MessagePackFactory.engine_factory
       end
 
       def msgpack_packer(*args)
-        msgpack_factory.packer(*args)
+        if $log
+          $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.msgpack_packer')
+        end
+        MessagePackFactory.msgpack_packer(*args)
       end
 
       def msgpack_unpacker(*args)
-        msgpack_factory.unpacker(*args)
+        if $log
+          $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.msgpack_unpacker')
+        end
+        MessagePackFactory.msgpack_unpacker(*args)
       end
     end
 
     def self.engine_factory
       @@engine_factory || factory
+    end
+
+    def self.msgpack_packer(*args)
+      engine_factory.packer(*args)
+    end
+
+    def self.msgpack_unpacker(*args)
+      engine_factory.unpacker(*args)
     end
 
     def self.factory

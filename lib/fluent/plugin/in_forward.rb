@@ -256,7 +256,7 @@ module Fluent::Plugin
             serializer = :to_json.to_proc
             feeder = ->(d){ parser << d }
           else # msgpack
-            parser = Fluent::Engine.msgpack_factory.unpacker
+            parser = Fluent::MessagePackFactory.msgpack_unpacker
             serializer = :to_msgpack.to_proc
             feeder = ->(d){
               parser.feed_each(d){|obj|

@@ -30,7 +30,6 @@ module Fluent
         ## state: b/q - 'b'(on stage), 'q'(enqueued)
 
         include SystemConfig::Mixin
-        include MessagePackFactory::Mixin
 
         PATH_EXT = 'buf'
         PATH_SUFFIX = ".#{PATH_EXT}"
@@ -216,7 +215,7 @@ module Fluent
           count = 0
           File.open(@path, 'rb') { |f|
             if chunk_format == :msgpack
-              msgpack_unpacker(f).each { |d| count += 1 }
+              Fluent::MessagePackFactory.msgpack_unpacker(f).each { |d| count += 1 }
             else
               f.each_line { |l| count += 1 }
             end

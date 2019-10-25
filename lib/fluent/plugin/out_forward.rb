@@ -545,7 +545,7 @@ module Fluent::Plugin
           username: server.username,
         )
 
-        @unpacker = Fluent::Engine.msgpack_unpacker
+        @unpacker = Fluent::MessagePackFactory.msgpack_unpacker
 
         @resolved_host = nil
         @resolved_time = 0

@@ -538,7 +538,7 @@ class ForwardInputTest < Test::Unit::TestCase
       chunk = ["tag1", entries, { 'compressed' => 'gzip' }].to_msgpack
 
       d.run do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
           option = d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
           assert_equal 'gzip', option['compressed']
         end
@@ -568,7 +568,7 @@ class ForwardInputTest < Test::Unit::TestCase
       mock(Fluent::CompressedMessagePackEventStream).new(entries, nil, 0)
 
       d.run do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
           option = d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
           assert_equal 'gzip', option['compressed']
         end
@@ -592,7 +592,7 @@ class ForwardInputTest < Test::Unit::TestCase
       assert chunk.size < (32 * 1024 * 1024)
 
       d.run(shutdown: false) do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
           d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
         end
       end
@@ -624,7 +624,7 @@ class ForwardInputTest < Test::Unit::TestCase
       chunk = [ "test.tag", (0...16).map{|i| [time + i, {"data" => str}] } ].to_msgpack
 
       d.run(shutdown: false) do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
           d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
         end
       end
@@ -654,7 +654,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       # d.run => send_data
       d.run(shutdown: false) do
-        Fluent::Engine.msgpack_factory.unpacker.feed_each(chunk) do |obj|
+        Fluent::MessagePackFactory.msgpack_unpacker.feed_each(chunk) do |obj|
           d.instance.send(:on_message, obj, chunk.size, DUMMY_SOCK)
         end
       end
@@ -1004,11 +1004,11 @@ class ForwardInputTest < Test::Unit::TestCase
   end
 
   def packer(*args)
-    Fluent::Engine.msgpack_factory.packer(*args)
+    Fluent::MessagePackFactory.msgpack_packer(*args)
   end
 
   def unpacker
-    Fluent::Engine.msgpack_factory.unpacker
+    Fluent::MessagePackFactory.msgpack_unpacker
   end
 
   # res
@@ -1158,9 +1158,9 @@ class ForwardInputTest < Test::Unit::TestCase
       execute_test_with_source_hostname_key(*keys) { |events|
         entries = ''
         events.each { |tag, time, record|
-          Fluent::Engine.msgpack_factory.packer(entries).write([time, record]).flush
+          Fluent::MessagePackFactory.msgpack_packer(entries).write([time, record]).flush
         }
-        send_data Fluent::Engine.msgpack_factory.packer.write(["tag1", entries]).to_s
+        send_data Fluent::MessagePackFactory.msgpack_packer.write(["tag1", entries]).to_s
       }
     end
   end

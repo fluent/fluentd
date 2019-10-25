@@ -34,7 +34,7 @@ module Fluent::Plugin
         @timeout = timeout
         @log = log
         @read_length = read_length
-        @unpacker = Fluent::Engine.msgpack_unpacker
+        @unpacker = Fluent::MessagePackFactory.msgpack_unpacker
       end
 
       def collect_response(select_interval)

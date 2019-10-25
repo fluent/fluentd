@@ -16,7 +16,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake.invoke(sock, ri, ['HELO', {}])
 
       assert_equal(ri.state, :pingpong)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(sock.string) do |ping|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(sock.string) do |ping|
         assert_equal(ping.size, 6)
         assert_equal(ping[0], 'PING')
         assert_equal(ping[1], hostname)
@@ -38,7 +38,7 @@ class HandshakeProtocolTest < Test::Unit::TestCase
       handshake.invoke(sock, ri, ['HELO', { 'auth' => 'auth' }])
 
       assert_equal(ri.state, :pingpong)
-      Fluent::Engine.msgpack_factory.unpacker.feed_each(sock.string) do |ping|
+      Fluent::MessagePackFactory.msgpack_unpacker.feed_each(sock.string) do |ping|
         assert_equal(ping.size, 6)
         assert_equal(ping[0], 'PING')
         assert_equal(ping[1], hostname)
