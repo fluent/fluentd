@@ -1,3 +1,29 @@
+# Unreleased
+
+### New feature
+
+* Add service discovery plugin and `out_forward` use it
+  https://github.com/fluent/fluentd/pull/2541
+
+### Enhancement
+
+* formatter_csv: Support nested fields
+  https://github.com/fluent/fluentd/pull/2643
+* record_accessor helper: Make code simple and bit faster
+  https://github.com/fluent/fluentd/pull/2660
+* clean up internal classes / code
+  https://github.com/fluent/fluentd/pull/2647
+  https://github.com/fluent/fluentd/pull/2648
+  https://github.com/fluent/fluentd/pull/2653
+  https://github.com/fluent/fluentd/pull/2654
+  https://github.com/fluent/fluentd/pull/2657
+
+### Bug fixes
+
+* suppress warning
+  https://github.com/fluent/fluentd/pull/2652
+
+
 # v1.7
 
 ## Release v1.7.4 - 2019/10/24
