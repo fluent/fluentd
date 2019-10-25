@@ -28,7 +28,6 @@ module Fluent
   class EngineClass
     def initialize
       @root_agent = nil
-      @default_loop = nil
       @engine_stopped = false
       @_worker_id = nil
 
