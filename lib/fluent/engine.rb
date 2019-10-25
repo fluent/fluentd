@@ -25,6 +25,9 @@ require 'fluent/plugin'
 
 module Fluent
   class EngineClass
+    # For compat. remove it in fluentd v2
+    include Fluent::MessagePackFactory::Mixin
+
     def initialize
       @root_agent = nil
       @default_loop = nil
