@@ -32,10 +32,6 @@ module Fluent
       @_worker_id = nil
 
       @log_event_router = nil
-      @log_emit_thread = nil
-      @log_event_loop_stop = false
-      @log_event_loop_graceful_stop = false
-      @log_event_queue = []
       @log_event_verbose = false
 
       @suppress_config_dump = false
@@ -48,7 +44,6 @@ module Fluent
     MAINLOOP_SLEEP_INTERVAL = 0.3
 
     MATCH_CACHE_SIZE = 1024
-    LOG_EMIT_INTERVAL = 0.1
 
     attr_reader :root_agent
     attr_reader :matches, :sources
@@ -151,37 +146,13 @@ module Fluent
       Fluent::EventTime.now
     end
 
-    def log_event_loop
-      $log.disable_events(Thread.current)
-
-      while sleep(LOG_EMIT_INTERVAL)
-        break if @log_event_loop_stop
-        break if @log_event_loop_graceful_stop && @log_event_queue.empty?
-        next if @log_event_queue.empty?
-
-        # NOTE: thead-safe of slice! depends on GVL
-        events = @log_event_queue.slice!(0..-1)
-        next if events.empty?
-
-        events.each {|tag,time,record|
-          begin
-            @log_event_router.emit(tag, time, record)
-          rescue => e
-            # This $log.error doesn't emit log events, because of `$log.disable_events(Thread.current)` above
-            $log.error "failed to emit fluentd's log event", tag: tag, event: record, error: e
-          end
-        }
-      end
-    end
-
     def run
       begin
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
         if @log_event_router
-          @log_emit_thread = Thread.new(&method(:log_event_loop))
-          @log_emit_thread.abort_on_exception = true
+          @log_event_router.start
         end
 
         $log.info "fluentd worker is now running", worker: worker_id
@@ -196,18 +167,16 @@ module Fluent
 
       unless @log_event_verbose
         $log.enable_event(false)
-        if @log_emit_thread
-          # to make sure to emit all log events into router, before shutting down
-          @log_event_loop_graceful_stop = true
-          @log_emit_thread.join
-          @log_emit_thread = nil
+
+        if @log_event_router
+          @log_event_router.graceful_stop
         end
       end
       $log.info "shutting down fluentd worker", worker: worker_id
       shutdown
-      if @log_emit_thread
-        @log_event_loop_stop = true
-        @log_emit_thread.join
+
+      if @log_event_router
+        @log_event_router.stop
       end
     end
 
@@ -217,8 +186,9 @@ module Fluent
     end
 
     def push_log_event(tag, time, record)
-      return if @log_emit_thread.nil?
-      @log_event_queue.push([tag, time, record])
+      if @log_event_router
+        @log_event_router.emit_event([tag, time, record])
+      end
     end
 
     def worker_id
@@ -240,6 +210,8 @@ module Fluent
   end
 
   class FluentLogEventEmitter
+    LOG_EMIT_INTERVAL = 0.1
+
     def self.build(root_agent)
       log_event_router = nil
 
@@ -273,11 +245,64 @@ module Fluent
       end
 
       if log_event_router
-        # FluentLogEventEmitter.new(log_event_router)
-        log_event_router
+        FluentLogEventEmitter.new(log_event_router)
       else
         nil # no need to create fluent log event emitter
       end
+    end
+
+    def initialize(event_router)
+      @event_router = event_router
+      @thread = nil
+      @graceful_stop = false
+      @stopped = false
+      @event_queue = []
+    end
+
+    def start
+      @thread = Thread.new do
+        $log.disable_events(Thread.current)
+
+        loop do
+          sleep(LOG_EMIT_INTERVAL)
+
+          break if @stop
+          break if @graceful_stop && @event_queue.empty?
+
+          next if @event_queue.empty?
+
+          # NOTE: thead-safe of slice! depends on GVL
+          events = @event_queue.slice!(0..-1)
+          next if events.empty?
+
+          events.each do |tag, time, record|
+            begin
+              @event_router.emit(tag, time, record)
+            rescue => e
+              # This $log.error doesn't emit log events, because of `$log.disable_events(Thread.current)` above
+              $log.error "failed to emit fluentd's log event", tag: tag, event: record, error: e
+            end
+          end
+        end
+      end
+
+      @thread.abort_on_exception = true
+    end
+
+    def stop
+      @stop = true
+      # there is no problem calling Thread#join multiple times.
+      @thread.join
+    end
+
+    def graceful_stop
+      # to make sure to emit all log events into router, before shutting down
+      @graceful_stop = true
+      @thread.join
+    end
+
+    def emit_event(event)
+      @event_queue.push(event)
     end
   end
 
