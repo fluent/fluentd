@@ -1,5 +1,20 @@
 # v1.7
 
+## Release v1.7.4 - 2019/10/24
+
+### Enhancement
+
+* in_http: Add `use_204_response` parameter to return proper 204 response instead of 200.
+  fluentd v2 will change this parameter to `true`.
+  https://github.com/fluent/fluentd/pull/2640
+
+### Bug fixes
+
+* child_process helper: fix stderr blocking for discard case
+  https://github.com/fluent/fluentd/pull/2649
+* log: Fix log rotation handling on Windows
+  https://github.com/fluent/fluentd/pull/2663
+
 ## Release v1.7.3 - 2019/10/01
 
 ### Enhancement
