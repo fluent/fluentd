@@ -204,7 +204,6 @@ module Fluent
         start
 
         if @log_event_router
-          $log.enable_event(true)
           @log_emit_thread = Thread.new(&method(:log_event_loop))
           @log_emit_thread.abort_on_exception = true
         end
