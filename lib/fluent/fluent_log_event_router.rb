@@ -52,10 +52,10 @@ module Fluent
 
       rescue ArgumentError # ArgumentError "#{label_name} label not found"
         # use default event router if <label @FLUENT_LOG> is missing in configuration
-        log_event_router = root_agent.event_router
+        root_log_event_router = root_agent.event_router
 
-        if Fluent::Log.event_tags.any? { |t| log_event_router.match?(t) }
-          log_event_router = log_event_router
+        if Fluent::Log.event_tags.any? { |t| root_log_event_router.match?(t) }
+          log_event_router = root_log_event_router
 
           unmatched_tags = Fluent::Log.event_tags.select { |t| !log_event_router.match?(t) }
           unless unmatched_tags.empty?
@@ -117,13 +117,13 @@ module Fluent
     def stop
       @event_queue.push(STOP)
       # there is no problem calling Thread#join multiple times.
-      @thread.join
+      @thread && @thread.join
     end
 
     def graceful_stop
       # to make sure to emit all log events into router, before shutting down
       @event_queue.push(GRACEFUL_STOP)
-      @thread.join
+      @thread && @thread.join
     end
 
     def emit_event(event)
