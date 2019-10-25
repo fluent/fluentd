@@ -17,9 +17,20 @@
 require 'fluent/log'
 
 module Fluent
+  # DO NOT write any logic here
+  class NullFluentLogEventRouter
+    def start; end
+
+    def stop; end
+
+    def graceful_stop; end
+
+    def emit_event; end
+  end
+
   # This class is for handling fluentd's inner log
   # e.g. <label @FLUNT_LOG> section and <match fluent.**> section
-  class FluentLogEventRouter
+  class FluentLogEventRouter < NullFluentLogEventRouter
     LOG_EMIT_INTERVAL = 0.1
 
     # @param root_agent [Fluent::RootAgent]
@@ -58,7 +69,8 @@ module Fluent
       if log_event_router
         FluentLogEventRouter.new(log_event_router)
       else
-        nil # no need to create fluent log event emitter
+        $log.debug('No fluent logger for internal event')
+        NullFluentLogEventRouter.new
       end
     end
 

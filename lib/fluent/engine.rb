@@ -152,9 +152,7 @@ module Fluent
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
-        if @fleunt_log_event_router
-          @fleunt_log_event_router.start
-        end
+        @fleunt_log_event_router.start
 
         $log.info "fluentd worker is now running", worker: worker_id
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
@@ -168,17 +166,12 @@ module Fluent
 
       unless @log_event_verbose
         $log.enable_event(false)
-
-        if @fleunt_log_event_router
-          @fleunt_log_event_router.graceful_stop
-        end
+        @fleunt_log_event_router.graceful_stop
       end
       $log.info "shutting down fluentd worker", worker: worker_id
       shutdown
 
-      if @fleunt_log_event_router
-        @fleunt_log_event_router.stop
-      end
+      @fleunt_log_event_router.stop
     end
 
     def stop
@@ -187,9 +180,7 @@ module Fluent
     end
 
     def push_log_event(tag, time, record)
-      if @fleunt_log_event_router
-        @fleunt_log_event_router.emit_event([tag, time, record])
-      end
+      @fleunt_log_event_router.emit_event([tag, time, record])
     end
 
     def worker_id
