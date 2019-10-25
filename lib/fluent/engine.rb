@@ -31,11 +31,11 @@ module Fluent
       @engine_stopped = false
       @_worker_id = nil
 
-      @fluent_log_event_router = nil
       @log_event_verbose = false
-
       @suppress_config_dump = false
+      @without_source = false
 
+      @fluent_log_event_router = nil
       @system_config = SystemConfig.new
 
       @dry_run_mode = false
