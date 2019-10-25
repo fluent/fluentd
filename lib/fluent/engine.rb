@@ -113,11 +113,6 @@ module Fluent
     end
 
     def configure(conf)
-      # plugins / configuration dumps
-      Gem::Specification.find_all.select{|x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/}.each do |spec|
-        $log.info :worker0, "gem '#{spec.name}' version '#{spec.version}'"
-      end
-
       @root_agent.configure(conf)
 
       begin

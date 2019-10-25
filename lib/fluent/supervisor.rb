@@ -586,7 +586,7 @@ module Fluent
         Fluent::Engine.dry_run_mode = true
         change_privilege
         MessagePackFactory.init
-        init_engine
+        init_engine(supervisor: true)
         run_configure
       rescue Fluent::ConfigError => e
         $log.error "config error", file: @config_path, error: e
@@ -794,7 +794,7 @@ module Fluent
       ServerEngine::Privilege.change(@chuser, @chgroup)
     end
 
-    def init_engine
+    def init_engine(supervisor: false)
       Fluent::Engine.init(@system_config)
 
       @libs.each {|lib|
@@ -807,6 +807,13 @@ module Fluent
           Fluent::Engine.add_plugin_dir(dir)
         end
       }
+
+      if supervisor
+        # plugins / configuration dumps
+        Gem::Specification.find_all.select { |x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/ }.each do |spec|
+          $log.info("gem '#{spec.name}' version '#{spec.version}'")
+        end
+      end
     end
 
     def run_configure
