@@ -31,8 +31,6 @@ module Fluent
   # This class is for handling fluentd's inner log
   # e.g. <label @FLUNT_LOG> section and <match fluent.**> section
   class FluentLogEventRouter < NullFluentLogEventRouter
-    LOG_EMIT_INTERVAL = 0.1
-
     # @param root_agent [Fluent::RootAgent]
     def self.build(root_agent)
       log_event_router = nil
@@ -74,13 +72,15 @@ module Fluent
       end
     end
 
+    STOP = :stop
+    GRACEFUL_STOP = :graceful_stop
+
     # @param event_router [Fluent::EventRouter]
     def initialize(event_router)
       @event_router = event_router
       @thread = nil
       @graceful_stop = false
-      @stopped = false
-      @event_queue = []
+      @event_queue = Queue.new
     end
 
     def start
@@ -88,24 +88,25 @@ module Fluent
         $log.disable_events(Thread.current)
 
         loop do
-          sleep(LOG_EMIT_INTERVAL)
+          event = @event_queue.pop
 
-          break if @stop
-          break if @graceful_stop && @event_queue.empty?
-
-          next if @event_queue.empty?
-
-          # NOTE: thead-safe of slice! depends on GVL
-          events = @event_queue.slice!(0..-1)
-          next if events.empty?
-
-          events.each do |tag, time, record|
+          case event
+          when GRACEFUL_STOP
+            @graceful_stop = true
+          when STOP
+            break
+          else
             begin
+              tag, time, record = event
               @event_router.emit(tag, time, record)
             rescue => e
               # This $log.error doesn't emit log events, because of `$log.disable_events(Thread.current)` above
               $log.error "failed to emit fluentd's log event", tag: tag, event: record, error: e
             end
+          end
+
+          if @graceful_stop && @event_queue.empty?
+            break
           end
         end
       end
@@ -114,14 +115,14 @@ module Fluent
     end
 
     def stop
-      @stop = true
+      @event_queue.push(STOP)
       # there is no problem calling Thread#join multiple times.
       @thread.join
     end
 
     def graceful_stop
       # to make sure to emit all log events into router, before shutting down
-      @graceful_stop = true
+      @event_queue.push(GRACEFUL_STOP)
       @thread.join
     end
 
