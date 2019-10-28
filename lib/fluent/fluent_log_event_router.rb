@@ -25,7 +25,7 @@ module Fluent
 
     def graceful_stop; end
 
-    def emit_event; end
+    def emit_event(_event); end
 
     def emittable?
       self.class != NullFluentLogEventRouter
