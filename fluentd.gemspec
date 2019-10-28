@@ -24,7 +24,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("serverengine", [">= 2.0.4", "< 3.0.0"])
   gem.add_runtime_dependency("http_parser.rb", [">= 0.5.1", "< 0.7.0"])
   gem.add_runtime_dependency("sigdump", ["~> 0.2.2"])
-  gem.add_runtime_dependency("tzinfo", ["~> 2.0"])
+  gem.add_runtime_dependency("tzinfo", [">= 1.0", "< 3.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
   gem.add_runtime_dependency("strptime", [">= 0.2.2", "< 1.0.0"])
   gem.add_runtime_dependency("dig_rb", ["~> 1.0.0"])
