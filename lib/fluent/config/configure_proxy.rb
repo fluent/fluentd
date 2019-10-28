@@ -117,9 +117,9 @@ module Fluent
 
         merged = if self.root?
                    options[:root] = true
-                   self.class.new(other.name, options)
+                   self.class.new(other.name, **options)
                  else
-                   self.class.new(@name, options)
+                   self.class.new(@name, **options)
                  end
 
         # configured_in MUST be kept
@@ -172,9 +172,9 @@ module Fluent
 
         merged = if self.root?
                    options[:root] = true
-                   self.class.new(other.name, options)
+                   self.class.new(other.name, **options)
                  else
-                   self.class.new(@name, options)
+                   self.class.new(@name, **options)
                  end
 
         merged.configured_in_section = self.configured_in_section || other.configured_in_section

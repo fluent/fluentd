@@ -147,7 +147,7 @@ module Fluent
     module TimeParameters
       include Fluent::Configurable
       TIME_FULL_PARAMETERS.each do |name, type, opts|
-        config_param name, type, opts
+        config_param(name, type, **opts)
       end
 
       def configure(conf)
