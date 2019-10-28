@@ -107,7 +107,7 @@ module Fluent
 
       @fleunt_log_event_router = FluentLogEventRouter.build(@root_agent)
 
-      if @fleunt_log_event_router
+      if @fleunt_log_event_router.emittable?
         $log.enable_event(true)
       end
 
