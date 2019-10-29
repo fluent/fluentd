@@ -309,7 +309,6 @@ end
 
 exit 0 if early_exit
 
-require 'fluent/supervisor'
 if opts[:supervise]
   if Fluent.windows?
     if opts[:log_path] && opts[:log_path] != "-"
