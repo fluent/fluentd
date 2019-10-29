@@ -475,8 +475,6 @@ module Fluent
     end
 
     def run_supervisor
-      $log.info :supervisor, "parsing config file is succeeded", path: @config_path
-
       if @system_config.workers < 1
         raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@system_config.workers}"
       end
@@ -561,6 +559,8 @@ module Fluent
 
       @log.level = @system_config.log_level
       @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
+
+      $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
     end
 
     private
