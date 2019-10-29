@@ -603,7 +603,7 @@ module Fluent
         Fluent::Engine.dry_run_mode = true
         ServerEngine::Privilege.change(@chuser, @chgroup)
         MessagePackFactory.init
-        Fluent::Engine.init(@system_config)
+        Fluent::Engine.init(@system_config, supervisor: true)
         Fluent::Engine.run_configure(@conf)
       rescue Fluent::ConfigError => e
         $log.error "config error", file: @config_path, error: e
