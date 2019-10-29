@@ -620,22 +620,24 @@ module Fluent
 
       $log.info "spawn command to main: ", cmdline: fluentd_spawn_cmd
 
-      params['main_cmd'] = fluentd_spawn_cmd
-      params['daemonize'] = @daemonize
-      params['inline_config'] = @inline_config
-      params['log_path'] = @log_path
-      params['log_rotate_age'] = @log_rotate_age
-      params['log_rotate_size'] = @log_rotate_size
-      params['chuser'] = @chuser
-      params['chgroup'] = @chgroup
-      params['use_v1_config'] = @use_v1_config
-      params['conf_encoding'] = @conf_encoding
-      params['signame'] = @signame
+      params = {
+        'main_cmd' => fluentd_spawn_cmd,
+        'daemonize' => @daemonize,
+        'inline_config' => @inline_config,
+        'log_path' => @log_path,
+        'log_rotate_age' => @log_rotate_age,
+        'log_rotate_size' => @log_rotate_size,
+        'chuser' => @chuser,
+        'chgroup' => @chgroup,
+        'use_v1_config' => @use_v1_config,
+        'conf_encoding' => @conf_encoding,
+        'signame' => @signame,
 
-      params['workers'] = @system_config.workers
-      params['root_dir'] = @system_config.root_dir
-      params['log_level'] = @system_config.log_level
-      params['suppress_repeated_stacktrace'] = @system_config.suppress_repeated_stacktrace
+        'workers' => @system_config.workers,
+        'root_dir' => @system_config.root_dir,
+        'log_level' => @system_config.log_level,
+        'suppress_repeated_stacktrace' => @system_config.suppress_repeated_stacktrace,
+      }
 
       se = ServerEngine.create(ServerModule, WorkerModule){
         Fluent::Supervisor.load_config(@config_path, params)
