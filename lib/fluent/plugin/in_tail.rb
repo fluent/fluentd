@@ -74,6 +74,8 @@ module Fluent::Plugin
     config_param :refresh_interval, :time, default: 60
     desc 'The number of reading lines at each IO.'
     config_param :read_lines_limit, :integer, default: 1000
+    desc 'The number of reading lines per notify'
+    config_param :read_lines_limit_per_notify, :integer, default: -1
     desc 'The interval of flushing the buffer for multiline format'
     config_param :multiline_flush_interval, :time, default: nil
     desc 'Enable the option to emit unmatched lines.'
@@ -283,7 +285,7 @@ module Fluent::Plugin
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, @read_lines_limit_per_notify, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
       tw.attach do |watcher|
         event_loop_attach(watcher.timer_trigger) if watcher.timer_trigger
         event_loop_attach(watcher.stat_trigger) if watcher.stat_trigger
@@ -494,7 +496,7 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, read_lines_limit_per_notify, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
@@ -502,6 +504,7 @@ module Fluent::Plugin
         @enable_watch_timer = enable_watch_timer
         @enable_stat_watcher = enable_stat_watcher
         @read_lines_limit = read_lines_limit
+        @read_lines_limit_per_notify = read_lines_limit_per_notify
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
@@ -519,7 +522,7 @@ module Fluent::Plugin
       end
 
       attr_reader :path
-      attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
+      attr_reader :log, :pe, :read_lines_limit, :read_lines_limit_per_notify, :open_on_every_update
       attr_reader :from_encoding, :encoding
       attr_reader :stat_trigger, :enable_watch_timer, :enable_stat_watcher
       attr_accessor :timer_trigger
@@ -754,11 +757,18 @@ module Fluent::Plugin
                   while true
                     @fifo << io.readpartial(8192, @iobuf)
                     @fifo.read_lines(@lines)
-                    if @lines.size >= @watcher.read_lines_limit
+                    limit_per_notify = @lines.size >= @watcher.read_lines_limit_per_notify and @watcher.read_lines_limit_per_notify > 0
+                    if limit_per_notify 
+                      # stop reading files when we reach the read lines limit per notify, to throttle the log ingestion
+                      read_more = false
+                    elsif @lines.size >= @watcher.read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true
+                    end
+                    if @lines.size >= @watcher.read_lines_limit or limit_per_notify 
                       break
                     end
+
                   end
                 rescue EOFError
                 end
