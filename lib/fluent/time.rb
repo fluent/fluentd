@@ -292,7 +292,7 @@ module Fluent
 
     def parse_unixtime(value)
       unless value.is_a?(String) || value.is_a?(Numeric)
-        raise TimeParseError, "value must be a string or a number: #{value}(value.class)"
+        raise TimeParseError, "value must be a string or a number: #{value}(#{value.class})"
       end
 
       if @cache1_key == value
@@ -323,7 +323,7 @@ module Fluent
     ## parse_by_to_r  (msec): 28.232856 sec
     def parse_float(value)
       unless value.is_a?(String) || value.is_a?(Numeric)
-        raise TimeParseError, "value must be a string or a number: #{value}(value.class)"
+        raise TimeParseError, "value must be a string or a number: #{value}(#{value.class})"
       end
 
       if @cache1_key == value
