@@ -444,7 +444,6 @@ module Fluent
 
     def initialize(opt)
       @daemonize = opt[:daemonize]
-      @supervise = opt[:supervise]
       @standalone_worker= opt[:standalone_worker]
       @config_path = opt[:config_path]
       @inline_config = opt[:inline_config]
