@@ -457,26 +457,16 @@ module Fluent
       @plugin_dirs = opt[:plugin_dirs]
       @chgroup = opt[:chgroup]
       @chuser = opt[:chuser]
-      @process_name = nil
 
-      @workers = opt[:workers]
-      @root_dir = opt[:root_dir]
-      @log_level = opt[:log_level]
       @log_rotate_age = opt[:log_rotate_age]
       @log_rotate_size = opt[:log_rotate_size]
-      # for system_config
-      @emit_error_log_interval = @suppress_interval = opt[:suppress_interval]
-      @suppress_config_dump = opt[:suppress_config_dump]
-      @log_event_verbose = opt[:log_event_verbose]
-      @without_source = opt[:without_source]
       @signame = opt[:signame]
 
       @cl_opt = opt
 
-      @suppress_repeated_stacktrace = opt[:suppress_repeated_stacktrace]
-      log_opts = {suppress_repeated_stacktrace: @suppress_repeated_stacktrace}
+      log_opts = { suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace] }
       @log = LoggerInitializer.new(
-        @log_path, @log_level, @chuser, @chgroup, log_opts,
+        @log_path, opt[:log_level], @chuser, @chgroup, log_opts,
         log_rotate_age: @log_rotate_age,
         log_rotate_size: @log_rotate_size
       )
@@ -486,20 +476,21 @@ module Fluent
     def run_supervisor
       $log.info :supervisor, "parsing config file is succeeded", path: @config_path
 
-      if @workers < 1
-        raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@workers}"
+      if @system_config.workers < 1
+        raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@system_config.workers}"
       end
 
-      if @root_dir
-        if File.exist?(@root_dir)
-          unless Dir.exist?(@root_dir)
-            raise Fluent::InvalidRootDirectory, "non directory entry exists:#{@root_dir}"
+      root_dir = @system_config.root_dir
+      if root_dir
+        if File.exist?(root_dir)
+          unless Dir.exist?(root_dir)
+            raise Fluent::InvalidRootDirectory, "non directory entry exists:#{root_dir}"
           end
         else
           begin
-            FileUtils.mkdir_p(@root_dir)
+            FileUtils.mkdir_p(root_dir)
           rescue => e
-            raise Fluent::InvalidRootDirectory, "failed to create root directory:#{@root_dir}, #{e.inspect}"
+            raise Fluent::InvalidRootDirectory, "failed to create root directory:#{root_dir}, #{e.inspect}"
           end
         end
       end
@@ -513,7 +504,7 @@ module Fluent
         'pid_file' => @daemonize,
         'plugin_dirs' => @plugin_dirs,
         'log_path' => @log_path,
-        'root_dir' => @root_dir,
+        'root_dir' => @system_config.root_dir,
       }
     end
 
@@ -524,10 +515,10 @@ module Fluent
         # ignore LoadError and others (related with signals): it may raise these errors in Windows
       end
 
-      Process.setproctitle("worker:#{@process_name}") if @process_name
+      Process.setproctitle("worker:#{@system_config.process_name}") if @process_name
 
-      if @standalone_worker && @workers != 1
-        raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@workers}"
+      if @standalone_worker && @system_config.workers != 1
+        raise Fluent::ConfigError, "invalid number of workers (must be 1 or unspecified) with --no-supervisor: #{@system_config.workers}"
       end
 
       install_main_process_signal_handlers
@@ -566,6 +557,8 @@ module Fluent
 
       @conf = read_config
       @system_config = build_system_config(@conf)
+
+      @log.level = @system_config.log_level
       @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
     end
 
@@ -614,7 +607,7 @@ module Fluent
       # Make dumpable conf, which is set corresponding_proxies for all elements in all worker sections
       dry_run
 
-      Process.setproctitle("supervisor:#{@process_name}") if @process_name
+      Process.setproctitle("supervisor:#{@system_config.process_name}") if @system_config.process_name
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid, ruby: RUBY_VERSION
 
       rubyopt = ENV["RUBYOPT"]
@@ -639,10 +632,10 @@ module Fluent
       params['conf_encoding'] = @conf_encoding
 
       # system config parameters
-      params['workers'] = @workers
-      params['root_dir'] = @root_dir
-      params['log_level'] = @log_level
-      params['suppress_repeated_stacktrace'] = @suppress_repeated_stacktrace
+      params['workers'] = @system_config.workers
+      params['root_dir'] = @system_config.root_dir
+      params['log_level'] = @system_config.log_level
+      params['suppress_repeated_stacktrace'] = @system_config.suppress_repeated_stacktrace
       params['signame'] = @signame
 
       se = ServerEngine.create(ServerModule, WorkerModule){
@@ -728,18 +721,18 @@ module Fluent
       unless @log.stdout?
         logger = ServerEngine::DaemonLogger.new(STDOUT)
         log = Fluent::Log.new(logger)
-        log.level = @log_level
+        log.level = @system_config.log_level
         console = log.enable_debug
         yield console
       end
     end
 
     def main_process(&block)
-      if @process_name
-        if @workers > 1
-          Process.setproctitle("worker:#{@process_name}#{ENV['SERVERENGINE_WORKER_ID']}")
+      if @system_config.process_name
+        if @system_config.workers > 1
+          Process.setproctitle("worker:#{@system_config.process_name}#{ENV['SERVERENGINE_WORKER_ID']}")
         else
-          Process.setproctitle("worker:#{@process_name}")
+          Process.setproctitle("worker:#{@system_config.process_name}")
         end
       end
 
@@ -806,7 +799,7 @@ module Fluent
         end
       end
       system_config.overwrite_variables(opt)
-      system_config.apply(self)
+      system_config
     end
 
     def change_privilege

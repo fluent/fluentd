@@ -123,25 +123,6 @@ module Fluent
       end
     end
 
-    def apply(supervisor)
-      system = self
-      supervisor.instance_eval {
-        SYSTEM_CONFIG_PARAMETERS.each do |param|
-          param_value = system.__send__(param)
-          next if param_value.nil?
-
-          case param
-          when :log_level
-            @log.level = @log_level = param_value
-          else
-            instance_variable_set("@#{param}", param_value)
-          end
-        end
-        #@counter_server = system.counter_server unless system.counter_server.nil?
-        #@counter_client = system.counter_client unless system.counter_client.nil?
-      }
-    end
-
     module Mixin
       def system_config
         require 'fluent/engine'
