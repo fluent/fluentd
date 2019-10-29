@@ -471,6 +471,8 @@ module Fluent
       @without_source = opt[:without_source]
       @signame = opt[:signame]
 
+      @cl_opt = opt
+
       @suppress_repeated_stacktrace = opt[:suppress_repeated_stacktrace]
       log_opts = {suppress_repeated_stacktrace: @suppress_repeated_stacktrace}
       @log = LoggerInitializer.new(
@@ -562,8 +564,8 @@ module Fluent
         show_plugin_config
       end
 
-      read_config
-      set_system_config
+      @conf = read_config
+      @system_config = build_system_config(@conf)
       @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
     end
 
@@ -786,13 +788,25 @@ module Fluent
       elsif @inline_config
         config_data << "\n" << @inline_config.gsub("\\n","\n")
       end
-      @conf = Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
+      Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
     end
 
-    def set_system_config
-      @system_config = SystemConfig.create(@conf) # @conf is set in read_config
-      @system_config.attach(self)
-      @system_config.apply(self)
+    def build_system_config(conf)
+      system_config = SystemConfig.create(conf)
+      opt = {}
+      Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
+        if @cl_opt.key?(param) && !@cl_opt[param].nil?
+          if param == :log_level && opt[:log_level] == Fluent::Log::LEVEL_INFO
+            # info level can't be specified via command line option.
+            # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
+            next
+          end
+
+          opt[param] = @cl_opt[param]
+        end
+      end
+      system_config.overwrite_variables(opt)
+      system_config.apply(self)
     end
 
     def change_privilege
