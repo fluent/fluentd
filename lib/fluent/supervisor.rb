@@ -620,7 +620,6 @@ module Fluent
 
       $log.info "spawn command to main: ", cmdline: fluentd_spawn_cmd
 
-      params = {}
       params['main_cmd'] = fluentd_spawn_cmd
       params['daemonize'] = @daemonize
       params['inline_config'] = @inline_config
@@ -631,13 +630,12 @@ module Fluent
       params['chgroup'] = @chgroup
       params['use_v1_config'] = @use_v1_config
       params['conf_encoding'] = @conf_encoding
+      params['signame'] = @signame
 
-      # system config parameters
       params['workers'] = @system_config.workers
       params['root_dir'] = @system_config.root_dir
       params['log_level'] = @system_config.log_level
       params['suppress_repeated_stacktrace'] = @system_config.suppress_repeated_stacktrace
-      params['signame'] = @signame
 
       se = ServerEngine.create(ServerModule, WorkerModule){
         Fluent::Supervisor.load_config(@config_path, params)
