@@ -122,8 +122,6 @@ module Fluent
           case param
           when :rpc_endpoint, :enable_get_dump, :process_name, :file_permission, :dir_permission, :counter_server, :counter_client
             next # doesn't exist in command line options
-          when :emit_error_log_interval
-            system.emit_error_log_interval = @suppress_interval if @suppress_interval
           when :log_level
             ll_value = instance_variable_get("@log_level")
             # info level can't be specified via command line option.

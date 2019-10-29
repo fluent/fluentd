@@ -464,7 +464,8 @@ module Fluent
       @log_level = opt[:log_level]
       @log_rotate_age = opt[:log_rotate_age]
       @log_rotate_size = opt[:log_rotate_size]
-      @suppress_interval = opt[:suppress_interval]
+      # for system_config
+      @emit_error_log_interval = @suppress_interval = opt[:suppress_interval]
       @suppress_config_dump = opt[:suppress_config_dump]
       @log_event_verbose = opt[:log_event_verbose]
       @without_source = opt[:without_source]
