@@ -481,12 +481,6 @@ module Fluent
     end
 
     def run_supervisor
-      @log.init(:supervisor, 0)
-      show_plugin_config if @show_plugin_config
-      read_config
-      set_system_config
-      @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
-
       $log.info :supervisor, "parsing config file is succeeded", path: @config_path
 
       if @workers < 1
@@ -506,7 +500,6 @@ module Fluent
           end
         end
       end
-
       dry_run_cmd if @dry_run
       supervise
     end
@@ -527,17 +520,6 @@ module Fluent
       rescue Exception
         # ignore LoadError and others (related with signals): it may raise these errors in Windows
       end
-      worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
-      process_type = case
-                     when @standalone_worker then :standalone
-                     when worker_id == 0 then :worker0
-                     else :workers
-                     end
-      @log.init(process_type, worker_id)
-      show_plugin_config if @show_plugin_config
-      read_config
-      set_system_config
-      @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
 
       Process.setproctitle("worker:#{@process_name}") if @process_name
 
@@ -560,6 +542,28 @@ module Fluent
         self.class.cleanup_resources if @standalone_worker
         exit 0
       end
+    end
+
+    def configure(supervisor: false)
+      if supervisor
+        @log.init(:supervisor, 0)
+      else
+        worker_id = ENV['SERVERENGINE_WORKER_ID'].to_i
+        process_type = case
+                       when @standalone_worker then :standalone
+                       when worker_id == 0 then :worker0
+                       else :workers
+                       end
+        @log.init(process_type, worker_id)
+      end
+
+      if @show_plugin_config
+        show_plugin_config
+      end
+
+      read_config
+      set_system_config
+      @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
     end
 
     private

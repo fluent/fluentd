@@ -320,11 +320,16 @@ if opts[:supervise]
       end
     end
   end
-  Fluent::Supervisor.new(opts).run_supervisor
+
+  supervisor = Fluent::Supervisor.new(opts)
+  supervisor.configure(supervisor: true)
+  supervisor.run_supervisor
 else
   if opts[:standalone_worker] && opts[:workers] && opts[:workers] > 1
     puts "Error: multi workers is not supported with --no-supervisor"
     exit 2
   end
-  Fluent::Supervisor.new(opts).run_worker
+  worker = Fluent::Supervisor.new(opts)
+  worker.configure
+  worker.run_worker
 end
