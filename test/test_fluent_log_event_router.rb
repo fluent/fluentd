@@ -9,6 +9,17 @@ class FluentLogEventRouterTest < ::Test::Unit::TestCase
     Fluent::Config.parse(config, 'fluent_log_event', '', syntax: :v1)
   end
 
+  sub_test_case 'NullFluentLogEventRouter does nothing' do
+    test 'emittable? returns false but others does nothing' do
+      null_event_router = Fluent::NullFluentLogEventRouter.new
+      null_event_router.start
+      null_event_router.stop
+      null_event_router.graceful_stop
+      null_event_router.emit_event(nil)
+      assert_false null_event_router.emittable?
+    end
+  end
+
   sub_test_case '#build' do
     test 'NullFluentLogEventRouter if root_agent have not internal logger' do
       root_agent = Fluent::RootAgent.new(log: $log, system_config: Fluent::SystemConfig.new)
