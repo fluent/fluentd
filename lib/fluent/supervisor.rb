@@ -590,7 +590,6 @@ module Fluent
 
     def dry_run_cmd
       $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
-      @system_config.suppress_config_dump = true
       dry_run
       exit 0
     rescue => e
