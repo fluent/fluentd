@@ -400,9 +400,9 @@ module Fluent
         self
       end
 
-      def apply_options(opts)
-        $log.format = opts[:format] if opts[:format]
-        $log.time_format = opts[:time_format] if opts[:time_format]
+      def apply_options(format: nil, time_format: nil)
+        $log.format = format if format
+        $log.time_format = time_format if time_format
       end
 
       def level=(level)
