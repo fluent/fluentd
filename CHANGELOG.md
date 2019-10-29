@@ -11,17 +11,26 @@
   https://github.com/fluent/fluentd/pull/2643
 * record_accessor helper: Make code simple and bit faster
   https://github.com/fluent/fluentd/pull/2660
+* Relax tzinfo dependency to accept v1
+  https://github.com/fluent/fluentd/pull/2673
 * clean up internal classes / code
   https://github.com/fluent/fluentd/pull/2647
   https://github.com/fluent/fluentd/pull/2648
   https://github.com/fluent/fluentd/pull/2653
   https://github.com/fluent/fluentd/pull/2654
   https://github.com/fluent/fluentd/pull/2657
+  https://github.com/fluent/fluentd/pull/2667
 
 ### Bug fixes
 
 * suppress warning
   https://github.com/fluent/fluentd/pull/2652
+* suppress keyword argument warning for ruby2.7
+  https://github.com/fluent/fluentd/pull/2664
+* RPC: Fix debug log text
+  https://github.com/fluent/fluentd/pull/2666
+* time: Properly show class names in error message
+  https://github.com/fluent/fluentd/pull/2671
 
 
 # v1.7
