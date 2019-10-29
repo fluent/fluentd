@@ -816,7 +816,7 @@ module Fluent
       @plugin_dirs.each {|dir|
         if Dir.exist?(dir)
           dir = File.expand_path(dir)
-          Fluent::Engine.add_plugin_dir(dir)
+          Fluent::Plugin.add_plugin_dir(dir)
         end
       }
 
