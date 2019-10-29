@@ -162,7 +162,7 @@ op.on('--conf-encoding ENCODING', "specify configuration file encoding") { |s|
 if Fluent.windows?
   require 'windows/library'
   include Windows::Library
-  
+
   opts.merge!(
     :winsvc_name => 'fluentdwinsvc',
     :winsvc_display_name => 'Fluentd Windows Service',
@@ -184,15 +184,15 @@ if Fluent.windows?
   op.on('--reg-winsvc-fluentdopt OPTION', "specify fluentd option parameters for Windows Service. (Windows only)") {|s|
     opts[:fluentdopt] = s
   }
-  
+
   op.on('--winsvc-name NAME', "The Windows Service name to run as (Windows only)") {|s|
     opts[:winsvc_name] = s
   }
-  
+
   op.on('--winsvc-display-name DISPLAY_NAME', "The Windows Service display name (Windows only)") {|s|
     opts[:winsvc_display_name] = s
   }
-  
+
   op.on('--winsvc-desc DESC', "The Windows Service description (Windows only)") {|s|
     opts[:winsvc_desc] = s
   }
@@ -268,7 +268,7 @@ if winsvcinstmode = opts[:regwinsvc]
       start_service = true
     end
 
-    
+
     Service.create(
       service_name: opts[:winsvc_name],
       host: nil,
