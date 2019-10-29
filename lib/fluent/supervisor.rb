@@ -463,6 +463,7 @@ module Fluent
       @signame = opt[:signame]
 
       @cl_opt = opt
+      @conf = nil
 
       log_opts = { suppress_repeated_stacktrace: opt[:suppress_repeated_stacktrace] }
       @log = LoggerInitializer.new(

@@ -15,20 +15,41 @@ module Fluent::Config
   class FakeSupervisor
     attr_writer :log_level
 
-    def initialize
-      @workers = nil
-      @root_dir = nil
-      @log = FakeLoggerInitializer.new
-      @log_level = Fluent::Log::LEVEL_INFO
-      @suppress_interval = nil
-      @suppress_config_dump = nil
-      @suppress_repeated_stacktrace = nil
-      @log_event_label = nil
-      @log_event_verbose = nil
-      @without_source = nil
-      @emit_error_log_interval = nil
-      @file_permission = nil
-      @dir_permission = nil
+    def initialize(**opt)
+      @system_config = nil
+      @cl_opt = {
+        wokers: nil,
+        root_dir: nil,
+        log: FakeLoggerInitializer.new,
+        log_level: Fluent::Log::LEVEL_INFO,
+        suppress_interval: nil,
+        suppress_config_dump: nil,
+        suppress_repeated_stacktrace: nil,
+        log_event_label: nil,
+        log_event_verbose: nil,
+        without_source: nil,
+        emit_error_log_interval: nil,
+        file_permission: nil,
+        dir_permission: nil,
+      }.merge(opt)
+    end
+
+    def for_system_config
+      opt = {}
+      # this is copy from Supervisor#build_system_config
+      Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
+        if @cl_opt.key?(param) && !@cl_opt[param].nil?
+          if param == :log_level && @cl_opt[:log_level] == Fluent::Log::LEVEL_INFO
+            # info level can't be specified via command line option.
+            # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
+            next
+          end
+
+          opt[param] = @cl_opt[param]
+        end
+      end
+
+      opt
     end
   end
 
@@ -47,7 +68,7 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
-      sc.apply(s)
+      sc.overwrite_variables(s.for_system_config)
       assert_equal(1, sc.workers)
       assert_nil(sc.root_dir)
       assert_nil(sc.log_level)
@@ -57,16 +78,6 @@ module Fluent::Config
       assert_nil(sc.without_source)
       assert_equal(:text, sc.log.format)
       assert_equal('%Y-%m-%d %H:%M:%S %z', sc.log.time_format)
-      assert_equal(1, s.instance_variable_get(:@workers))
-      assert_nil(s.instance_variable_get(:@root_dir))
-      assert_equal(Fluent::Log::LEVEL_INFO, s.instance_variable_get(:@log_level))
-      assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
-      assert_nil(s.instance_variable_get(:@emit_error_log_interval))
-      assert_nil(s.instance_variable_get(:@suppress_config_dump))
-      assert_nil(s.instance_variable_get(:@log_event_verbose))
-      assert_nil(s.instance_variable_get(:@without_source))
-      assert_nil(s.instance_variable_get(:@file_permission))
-      assert_nil(s.instance_variable_get(:@dir_permission))
     end
 
     data(
@@ -86,10 +97,12 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
-      sc.apply(s)
-      assert_not_nil(sc.instance_variable_get("@#{k}"))
-      key = (k == 'emit_error_log_interval' ? 'suppress_interval' : k)
-      assert_not_nil(s.instance_variable_get("@#{key}"))
+      sc.overwrite_variables(s.for_system_config)
+      if k == 'log_level'
+        assert_equal(Fluent::Log::LEVEL_ERROR, sc.__send__(k))
+      else
+        assert_equal(v, sc.__send__(k))
+      end
     end
 
     test "log parameters" do
@@ -103,48 +116,9 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
-      sc.apply(s)
+      sc.overwrite_variables(s.for_system_config)
       assert_equal(:json, sc.log.format)
       assert_equal('%Y', sc.log.time_format)
-    end
-
-    data(
-      'foo' => ['foo', 'bar'],
-      'hoge' => ['hoge', 'fuga'],
-    )
-    test "should not affect settable parameters with unknown parameters" do |(k, v)|
-      s = FakeSupervisor.new
-      sc = Fluent::SystemConfig.new({k => v})
-      sc.apply(s)
-      assert_equal(1, s.instance_variable_get(:@workers))
-      assert_nil(s.instance_variable_get(:@root_dir))
-      assert_equal(Fluent::Log::LEVEL_INFO, s.instance_variable_get(:@log_level))
-      assert_nil(s.instance_variable_get(:@suppress_repeated_stacktrace))
-      assert_nil(s.instance_variable_get(:@emit_error_log_interval))
-      assert_nil(s.instance_variable_get(:@suppress_config_dump))
-      assert_nil(s.instance_variable_get(:@log_event_verbose))
-      assert_nil(s.instance_variable_get(:@without_source))
-      assert_nil(s.instance_variable_get(:@file_permission))
-      assert_nil(s.instance_variable_get(:@dir_permission))
-    end
-
-    data('trace' => Fluent::Log::LEVEL_TRACE,
-         'debug' => Fluent::Log::LEVEL_DEBUG,
-         'info' => Fluent::Log::LEVEL_INFO,
-         'warn' => Fluent::Log::LEVEL_WARN,
-         'error' => Fluent::Log::LEVEL_ERROR,
-         'fatal' => Fluent::Log::LEVEL_FATAL)
-    test 'log_level is applied when log_level related command line option is not passed' do |level|
-      conf = parse_text(<<-EOS)
-        <system>
-          log_level #{Fluent::Log::LEVEL_TEXT[level]}
-        </system>
-      EOS
-      s = FakeSupervisor.new
-      sc = Fluent::SystemConfig.new(conf)
-      sc.attach(s)
-      sc.apply(s)
-      assert_equal(level, s.instance_variable_get("@log").level)
     end
 
     # info is removed because info level can't be specified via command line
@@ -159,27 +133,10 @@ module Fluent::Config
           log_level info
         </system>
       EOS
-      s = FakeSupervisor.new
-      s.log_level = level
+      s = FakeSupervisor.new(log_level: level)
       sc = Fluent::SystemConfig.new(conf)
-      sc.attach(s)
-      sc.apply(s)
-      assert_equal(level, s.instance_variable_get("@log").level)
-    end
-
-    test 'process global overridable variables' do
-      conf = parse_text(<<-EOS)
-        <system>
-          file_permission 0655
-          dir_permission 0765
-        </system>
-      EOS
-      s = FakeSupervisor.new
-      sc = Fluent::SystemConfig.new(conf)
-      sc.attach(s)
-      sc.apply(s)
-      assert_equal(0655, s.instance_variable_get(:@file_permission))
-      assert_equal(0765, s.instance_variable_get(:@dir_permission))
+      sc.overwrite_variables(s.for_system_config)
+      assert_equal(level, sc.log_level)
     end
   end
 end
