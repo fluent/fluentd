@@ -560,6 +560,24 @@ module Fluent
       @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
+
+      @libs.each do |lib|
+        require lib
+      end
+
+      @plugin_dirs.each do |dir|
+        if Dir.exist?(dir)
+          dir = File.expand_path(dir)
+          Fluent::Plugin.add_plugin_dir(dir)
+        end
+      end
+
+      if supervisor
+        # plugins / configuration dumps
+        Gem::Specification.find_all.select { |x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/ }.each do |spec|
+          $log.info("gem '#{spec.name}' version '#{spec.version}'")
+        end
+      end
     end
 
     private
@@ -586,7 +604,7 @@ module Fluent
         Fluent::Engine.dry_run_mode = true
         change_privilege
         MessagePackFactory.init
-        init_engine(supervisor: true)
+        init_engine
         run_configure
       rescue Fluent::ConfigError => e
         $log.error "config error", file: @config_path, error: e
@@ -806,26 +824,8 @@ module Fluent
       ServerEngine::Privilege.change(@chuser, @chgroup)
     end
 
-    def init_engine(supervisor: false)
+    def init_engine
       Fluent::Engine.init(@system_config)
-
-      @libs.each {|lib|
-        require lib
-      }
-
-      @plugin_dirs.each {|dir|
-        if Dir.exist?(dir)
-          dir = File.expand_path(dir)
-          Fluent::Plugin.add_plugin_dir(dir)
-        end
-      }
-
-      if supervisor
-        # plugins / configuration dumps
-        Gem::Specification.find_all.select { |x| x.name =~ /^fluent(d|-(plugin|mixin)-.*)$/ }.each do |spec|
-          $log.info("gem '#{spec.name}' version '#{spec.version}'")
-        end
-      end
     end
 
     def run_configure
