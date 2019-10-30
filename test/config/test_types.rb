@@ -5,59 +5,65 @@ class TestConfigTypes < ::Test::Unit::TestCase
   include Fluent
 
   sub_test_case 'Config.size_value' do
-    test 'normal case' do
-      assert_equal(2048, Config.size_value("2k"))
-      assert_equal(2048, Config.size_value("2K"))
-      assert_equal(3145728, Config.size_value("3m"))
-      assert_equal(3145728, Config.size_value("3M"))
-      assert_equal(4294967296, Config.size_value("4g"))
-      assert_equal(4294967296, Config.size_value("4G"))
-      assert_equal(5497558138880, Config.size_value("5t"))
-      assert_equal(5497558138880, Config.size_value("5T"))
-      assert_equal(6, Config.size_value("6"))
+    data("2k" => [2048, "2k"],
+         "2K" => [2048, "2K"],
+         "3m" => [3145728, "3m"],
+         "3M" => [3145728, "3M"],
+         "4g" => [4294967296, "4g"],
+         "4G" => [4294967296, "4G"],
+         "5t" => [5497558138880, "5t"],
+         "5T" => [5497558138880, "5T"],
+         "6"  => [6, "6"])
+    test 'normal case' do |(expected, val)|
+      assert_equal(expected, Config.size_value(val))
     end
 
-    test 'not assumed case' do
-      assert_equal(6, Config.size_value(6))
-      assert_equal(0, Config.size_value("hoge"))
-      assert_equal(0, Config.size_value(""))
-      assert_equal(0, Config.size_value(nil))
+    data("integer" => [6, 6],
+         "hoge" => [0, "hoge"],
+         "empty" => [0, ""],
+         "nil" => [0, nil])
+    test 'not assumed case' do |(expected, val)|
+      assert_equal(expected, Config.size_value(val))
     end
   end
 
   sub_test_case 'Config.time_value' do
-    test 'normal case' do
-      assert_equal(10, Config.time_value("10s"))
-      assert_equal(10, Config.time_value("10sec"))
-      assert_equal(120, Config.time_value("2m"))
-      assert_equal(10800, Config.time_value("3h"))
-      assert_equal(345600, Config.time_value("4d"))
+    data("10s" => [10, "10s"],
+         "10sec" => [10, "10sec"],
+         "2m" => [120, "2m"],
+         "3h" => [10800, "3h"],
+         "4d" => [345600, "4d"])
+    test 'normal case' do |(expected, val)|
+      assert_equal(expected, Config.time_value(val))
     end
 
-    test 'not assumed case' do
-      assert_equal(4.0, Config.time_value(4))
-      assert_equal(0.4, Config.time_value(0.4))
-      assert_equal(0.0, Config.time_value("hoge"))
-      assert_equal(0.0, Config.time_value(""))
-      assert_equal(0.0, Config.time_value(nil))
+    data("integer" => [4.0, 4],
+         "float" => [0.4, 0.4],
+         "hoge" => [0.0, "hoge"],
+         "empty" => [0.0, ""],
+         "nil" => [0.0, nil])
+    test 'not assumed case' do |(expected, val)|
+      assert_equal(expected, Config.time_value(val))
     end
   end
 
   sub_test_case 'Config.bool_value' do
-    test 'normal case' do
-      assert_true Config.bool_value("true")
-      assert_true Config.bool_value("yes")
-      assert_true Config.bool_value("")
-      assert_false Config.bool_value("false")
-      assert_false Config.bool_value("no")
+    data("true" => [true, "true"],
+         "yes" => [true, "yes"],
+         "empty" => [true, ""],
+         "false" => [false, "false"],
+         "no" => [false, "no"])
+    test 'normal case' do |(expected, val)|
+      assert_equal(expected, Config.bool_value(val))
     end
 
-    test 'not assumed case' do
-      assert_true Config.bool_value(true)
-      assert_false Config.bool_value(false)
-      assert_nil Config.bool_value("hoge")
-      assert_nil Config.bool_value(nil)
-      assert_nil Config.bool_value(10)
+    data("true" =>  [true,  true],
+         "false" => [false, false],
+         "hoge" => [nil, "hoge"],
+         "nil" => [nil, nil],
+         "integer" => [nil, 10])
+    test 'not assumed case' do |(expected, val)|
+      assert_equal(expected, Config.bool_value(val))
     end
   end
 
@@ -90,11 +96,12 @@ class TestConfigTypes < ::Test::Unit::TestCase
   end
 
   sub_test_case 'type converters for config_param definitions' do
-    test 'string' do
-      assert_equal 'test', Config::STRING_TYPE.call('test', {})
-      assert_equal '1', Config::STRING_TYPE.call('1', {})
-      assert_equal '   ', Config::STRING_TYPE.call('   ', {})
-      assert_equal Encoding::UTF_8, Config::STRING_TYPE.call('test', {}).encoding
+    data("test" => ['test', 'test'],
+         "1" =>  ['1',    '1'],
+         "spaces" =>  ['   ',  '   '])
+    test 'string' do |(expected, val)|
+      assert_equal expected, Config::STRING_TYPE.call(val, {})
+      assert_equal Encoding::UTF_8, Config::STRING_TYPE.call(val, {}).encoding
     end
 
     data('latin' => 'Märch',
@@ -108,58 +115,73 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal Encoding::UTF_8, actual.encoding
     end
 
-    test 'enum' do
-      assert_equal :val, Config::ENUM_TYPE.call('val', {list: [:val, :value, :v]})
-      assert_equal :v, Config::ENUM_TYPE.call('v', {list: [:val, :value, :v]})
-      assert_equal :value, Config::ENUM_TYPE.call('value', {list: [:val, :value, :v]})
-      assert_raises(Fluent::ConfigError.new("valid options are val,value,v but got x")){ Config::ENUM_TYPE.call('x', {list: [:val, :value, :v]}) }
-      assert_raises(RuntimeError.new("Plugin BUG: config type 'enum' requires :list of symbols")){ Config::ENUM_TYPE.call('val', {}) }
-      assert_raises(RuntimeError.new("Plugin BUG: config type 'enum' requires :list of symbols")){ Config::ENUM_TYPE.call('val', {list: ["val", "value", "v"]}) }
+    data("val" => [:val, 'val'],
+         "v" => [:v, 'v'],
+         "value" => [:value, 'value'])
+    test 'enum' do |(expected, val, list)|
+      assert_equal expected, Config::ENUM_TYPE.call(val, {list: [:val, :value, :v]})
     end
 
-    test 'integer' do
-      assert_equal 1, Config::INTEGER_TYPE.call('1', {})
-      assert_equal 1, Config::INTEGER_TYPE.call('1.0', {})
-      assert_equal 1000, Config::INTEGER_TYPE.call('1_000', {})
-      assert_equal 1, Config::INTEGER_TYPE.call('1x', {})
+    test 'enum: pick unknown choice' do
+      assert_raises(Fluent::ConfigError.new("valid options are val,value,v but got x")) do
+        Config::ENUM_TYPE.call('x', {list: [:val, :value, :v]})
+      end
     end
 
-    test 'float' do
-      assert_equal 1.0, Config::FLOAT_TYPE.call('1', {})
-      assert_equal 1.0, Config::FLOAT_TYPE.call('1.0', {})
-      assert_equal 1.0, Config::FLOAT_TYPE.call('1.00', {})
-      assert_equal 1.0, Config::FLOAT_TYPE.call('1e0', {})
+    data("empty list"  => {},
+         "string list" => {list: ["val", "value", "v"]})
+    test 'enum: invalid choices' do | list |
+      assert_raises(RuntimeError.new("Plugin BUG: config type 'enum' requires :list of symbols")) do
+        Config::ENUM_TYPE.call('val', list)
+      end
     end
 
-    test 'size' do
-      assert_equal 1000, Config::SIZE_TYPE.call('1000', {})
-      assert_equal 1024, Config::SIZE_TYPE.call('1k', {})
-      assert_equal 1024*1024, Config::SIZE_TYPE.call('1m', {})
+    data("1" => [1, '1'],
+         "1.0" => [1, '1.0'],
+         "1_000" => [1000, '1_000'],
+         "1x" => [1, '1x'])
+    test 'integer' do |(expected, val)|
+      assert_equal expected, Config::INTEGER_TYPE.call(val, {})
     end
 
-    test 'bool' do
-      assert_equal true, Config::BOOL_TYPE.call('true', {})
-      assert_equal true, Config::BOOL_TYPE.call('yes', {})
-      assert_equal false, Config::BOOL_TYPE.call('no', {})
-      assert_equal false, Config::BOOL_TYPE.call('false', {})
-
-      assert_equal nil, Config::BOOL_TYPE.call('TRUE', {})
-      assert_equal nil, Config::BOOL_TYPE.call('True', {})
-      assert_equal nil, Config::BOOL_TYPE.call('Yes', {})
-      assert_equal nil, Config::BOOL_TYPE.call('No', {})
-
-      assert_equal true, Config::BOOL_TYPE.call('', {})
-      assert_equal nil, Config::BOOL_TYPE.call('unexpected_string', {})
+    data("1" => [1.0, '1'],
+         "1.0" => [1.0, '1.0'],
+         "1.00" => [1.0, '1.00'],
+         "1e0" => [1.0, '1e0'])
+    test 'float' do |(expected, val)|
+      assert_equal expected, Config::FLOAT_TYPE.call(val, {})
     end
 
-    test 'time' do
-      assert_equal 0, Config::TIME_TYPE.call('0', {})
-      assert_equal 1.0, Config::TIME_TYPE.call('1', {})
-      assert_equal 1.01, Config::TIME_TYPE.call('1.01', {})
-      assert_equal 1, Config::TIME_TYPE.call('1s', {})
-      assert_equal 60, Config::TIME_TYPE.call('1m', {})
-      assert_equal 3600, Config::TIME_TYPE.call('1h', {})
-      assert_equal 86400, Config::TIME_TYPE.call('1d', {})
+    data("1000" => [1000, '1000'],
+         "1k" => [1024, '1k'],
+         "1m" => [1024*1024, '1m'])
+    test 'size' do |(expected, val)|
+      assert_equal expected, Config::SIZE_TYPE.call(val, {})
+    end
+
+    data("true" => [true, 'true'],
+         "yes" => [true, 'yes'],
+         "no" => [false, 'no'],
+         "false" => [false, 'false'],
+         "TRUE" => [nil, 'TRUE'],
+         "True" => [nil, 'True'],
+         "Yes" => [nil, 'Yes'],
+         "No" => [nil, 'No'],
+         "empty" => [true, ''],
+         "unexpected_string" => [nil, 'unexpected_string'])
+    test 'bool' do |(expected, val)|
+      assert_equal expected, Config::BOOL_TYPE.call(val, {})
+    end
+
+    data("0" => [0, '0'],
+         "1" => [1.0, '1'],
+         "1.01" => [1.01,  '1.01'],
+         "1s" => [1, '1s'],
+         "1," => [60, '1m'],
+         "1h" => [3600,  '1h'],
+         "1d" => [86400, '1d'])
+    test 'time' do |(expected, val)|
+      assert_equal expected, Config::TIME_TYPE.call(val, {})
     end
 
     data("empty" => [//, "//"],
@@ -171,23 +193,23 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(expected, Config::REGEXP_TYPE.call(str, {}))
     end
 
-    test 'hash' do
-      assert_equal({"x"=>"v","k"=>1}, Config::HASH_TYPE.call('{"x":"v","k":1}', {}))
-      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v,k:1', {}))
-      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v, k:1', {}))
-      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call(' x:v, k:1 ', {}))
-      assert_equal({"x"=>"v","k"=>"1"}, Config::HASH_TYPE.call('x:v , k:1 ', {}))
+    data("string and integer" => [{"x"=>"v","k"=>1}, '{"x":"v","k":1}', {}],
+         "strings" => [{"x"=>"v","k"=>"1"}, 'x:v,k:1', {}],
+         "w/ space" => [{"x"=>"v","k"=>"1"}, 'x:v, k:1', {}],
+         "heading space" => [{"x"=>"v","k"=>"1"}, ' x:v, k:1 ', {}],
+         "trailing space" => [{"x"=>"v","k"=>"1"}, 'x:v , k:1 ', {}],
+         "multiple colons" => [{"x"=>"v:v","k"=>"1"}, 'x:v:v, k:1', {}],
+         "symbolize keys" => [{x: "v", k: 1}, '{"x":"v","k":1}', {symbolize_keys: true}],
+         "value_type: :string" => [{x: "v", k: "1"}, 'x:v,k:1', {symbolize_keys: true, value_type: :string}],
+         "value_type: :string 2" => [{x: "v", k: "1"}, '{"x":"v","k":1}', {symbolize_keys: true, value_type: :string}],
+         "value_type: :integer" => [{x: 0, k: 1}, 'x:0,k:1', {symbolize_keys: true, value_type: :integer}],
+         "time 1" => [{"x"=>1,"y"=>60,"z"=>3600}, '{"x":"1s","y":"1m","z":"1h"}', {value_type: :time}],
+         "time 2" => [{"x"=>1,"y"=>60,"z"=>3600}, 'x:1s,y:1m,z:1h', {value_type: :time}])
+    test 'hash' do |(expected, val, opts)|
+      assert_equal(expected, Config::HASH_TYPE.call(val, opts))
+    end
 
-      assert_equal({"x"=>"v:v","k"=>"1"}, Config::HASH_TYPE.call('x:v:v, k:1', {}))
-
-      assert_equal({x: "v", k: 1},   Config::HASH_TYPE.call('{"x":"v","k":1}', {symbolize_keys: true}))
-      assert_equal({x: "v", k: "1"}, Config::HASH_TYPE.call('x:v,k:1',         {symbolize_keys: true, value_type: :string}))
-      assert_equal({x: "v", k: "1"}, Config::HASH_TYPE.call('{"x":"v","k":1}', {symbolize_keys: true, value_type: :string}))
-      assert_equal({x: 0, k: 1},     Config::HASH_TYPE.call('x:0,k:1',         {symbolize_keys: true, value_type: :integer}))
-
-      assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('{"x":"1s","y":"1m","z":"1h"}', {value_type: :time}))
-      assert_equal({"x"=>1,"y"=>60,"z"=>3600}, Config::HASH_TYPE.call('x:1s,y:1m,z:1h',               {value_type: :time}))
-
+    test 'hash w/ unknown type' do
       assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::HASH_TYPE.call("x:1,y:2", {value_type: :foo}) }
     end
 
@@ -199,29 +221,31 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(expected, Config::HASH_TYPE.call(target.b, { value_type: :string }))
     end
 
-    test 'array' do
-      assert_equal(["1","2",1], Config::ARRAY_TYPE.call('["1","2",1]', {}))
-      assert_equal(["1","2","1"], Config::ARRAY_TYPE.call('1,2,1', {}))
+    data("strings and integer" => [["1","2",1],   '["1","2",1]', {}],
+         "number strings" => [["1","2","1"], '1,2,1', {}],
+         "alphabets" => [["a","b","c"], '["a","b","c"]', {}],
+         "alphabets w/o quote" => [["a","b","c"], 'a,b,c', {}],
+         "w/ spaces" => [["a","b","c"], 'a, b, c', {}],
+         "w/ space before comma" => [["a","b","c"], 'a , b , c', {}],
+         "comma or space w/ qupte" => [["a a","b,b"," c "], '["a a","b,b"," c "]', {}],
+         "space in a value w/o qupte" => [["a a","b","c"], 'a a,b,c', {}],
+         "integers" => [[1,2,1], '[1,2,1]', {}],
+         "value_type: :integer w/ quote" => [[1,2,1], '["1","2","1"]', {value_type: :integer}],
+         "value_type: :integer w/o quote" => [[1,2,1], '1,2,1', {value_type: :integer}])
+    test 'array' do |(expected, val, opts)|
+      assert_equal(expected, Config::ARRAY_TYPE.call(val, opts))
+    end
 
-      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('["a","b","c"]', {}))
-      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('a,b,c', {}))
-      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('a, b, c', {}))
-      assert_equal(["a","b","c"], Config::ARRAY_TYPE.call('a , b , c', {}))
-
-      assert_equal(["a a","b,b"," c "], Config::ARRAY_TYPE.call('["a a","b,b"," c "]', {}))
-
-      assert_equal(["a a","b","c"], Config::ARRAY_TYPE.call('a a,b,c', {}))
-
-      assert_equal([1,2,1], Config::ARRAY_TYPE.call('[1,2,1]', {}))
-      assert_equal([1,2,1], Config::ARRAY_TYPE.call('["1","2","1"]', {value_type: :integer}))
-      assert_equal([1,2,1], Config::ARRAY_TYPE.call('1,2,1', {value_type: :integer}))
-
+    data('["1","2"]' => [["1","2"], '["1","2"]'],
+         '["3"]' => [["3"], '["3"]'])
+    test 'array w/ default values' do |(expected, val)|
       array_options = {
         default: [],
       }
-      assert_equal(["1","2"], Config::ARRAY_TYPE.call('["1","2"]', array_options))
-      assert_equal(["3"], Config::ARRAY_TYPE.call('["3"]', array_options))
+      assert_equal(expected, Config::ARRAY_TYPE.call(val, array_options))
+    end
 
+    test 'array w/ unknown type' do
       assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::ARRAY_TYPE.call("1,2", {value_type: :foo}) }
     end
   end
