@@ -171,7 +171,7 @@ EOC
         s = Fluent::Supervisor.new(opts.merge(config_path: filepath))
         s.configure
       ensure
-        FileUtils.rm_r(CONFIG_DIR) rescue StandardError
+        FileUtils.rm_r(CONFIG_DIR) rescue _
       end
 
       expected_opts = {
@@ -309,7 +309,7 @@ EOC
         @supervisor = Fluent::Supervisor.new(Fluent::Supervisor.default_options.merge(config_path: @filepath))
         @supervisor.configure
       ensure
-        FileUtils.rm_r(CONFIG_DIR) rescue StandardError
+        FileUtils.rm_r(CONFIG_DIR) rescue _
       end
     end
 
