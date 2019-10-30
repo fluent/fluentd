@@ -47,12 +47,12 @@ module Fluent
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
 
-    attr_reader :root_agent, :system_config, :supervisor_mode
-    attr_accessor :dry_run_mode
+    attr_reader :root_agent, :system_config, :supervisor_mode, :dry_run_mode
 
-    def init(system_config, supervisor_mode: false)
+    def init(system_config, supervisor_mode: false, dry_run_mode: false)
       @system_config = system_config
       @supervisor_mode = supervisor_mode
+      @dry_run_mode = dry_run_mode
 
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
