@@ -30,14 +30,6 @@ class SupervisorTest < ::Test::Unit::TestCase
     File.open(path, "w") {|f| f.write data }
   end
 
-  def test_initialize
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
-    opts.each { |k, v|
-      assert_equal v, sv.instance_variable_get("@#{k}")
-    }
-  end
-
   def test_read_config
     create_info_dummy_logger
 
@@ -61,10 +53,8 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sv.instance_variable_set(:@config_path, tmp_dir)
     sv.instance_variable_set(:@use_v1_config, use_v1_config)
-    sv.send(:read_config)
 
-    conf = sv.instance_variable_get(:@conf)
-
+    conf = sv.__send__(:read_config)
     elem = conf.elements.find { |e| e.name == 'source' }
     assert_equal "forward", elem['@type']
     assert_equal "forward_input", elem['@id']
@@ -108,9 +98,8 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     sv.instance_variable_set(:@config_path, tmp_path)
     sv.instance_variable_set(:@use_v1_config, use_v1_config)
-    sv.send(:read_config)
 
-    conf = sv.instance_variable_get(:@conf)
+    conf = sv.__send__(:read_config)
     label = conf.elements.detect {|e| e.name == "label" }
     filter = label.elements.detect {|e| e.name == "filter" }
     record_transformer = filter.elements.detect {|e| e.name = "record_transformer" }
@@ -148,9 +137,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 </system>
     EOC
     conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
-    sv.instance_variable_set(:@conf, conf)
-    sv.send(:set_system_config)
-    sys_conf = sv.instance_variable_get(:@system_config)
+    sys_conf = sv.__send__(:build_system_config, conf)
 
     assert_equal '127.0.0.1:24445', sys_conf.rpc_endpoint
     assert_equal true, sys_conf.suppress_repeated_stacktrace
@@ -229,9 +216,7 @@ class SupervisorTest < ::Test::Unit::TestCase
   </system>
     EOC
     conf = Fluent::Config.parse(conf_data, "(test)", "(test_dir)", true)
-    sv.instance_variable_set(:@conf, conf)
-    sv.send(:set_system_config)
-    sys_conf = sv.instance_variable_get(:@system_config)
+    sys_conf = sv.__send__(:build_system_config, conf)
 
     server = DummyServer.new
     server.rpc_endpoint = sys_conf.rpc_endpoint

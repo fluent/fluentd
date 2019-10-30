@@ -115,50 +115,12 @@ module Fluent
       s
     end
 
-    def attach(supervisor)
-      system = self
-      supervisor.instance_eval {
-        SYSTEM_CONFIG_PARAMETERS.each do |param|
-          case param
-          when :rpc_endpoint, :enable_get_dump, :process_name, :file_permission, :dir_permission, :counter_server, :counter_client
-            next # doesn't exist in command line options
-          when :emit_error_log_interval
-            system.emit_error_log_interval = @suppress_interval if @suppress_interval
-          when :log_level
-            ll_value = instance_variable_get("@log_level")
-            # info level can't be specified via command line option.
-            # log_level is info here, it is default value and <system>'s log_level should be applied if exists.
-            if ll_value != Fluent::Log::LEVEL_INFO
-              system.log_level = ll_value
-            end
-          else
-            next unless instance_variable_defined?("@#{param}")
-            supervisor_value = instance_variable_get("@#{param}")
-            next if supervisor_value.nil? # it's not configured by command line options
-
-            system.__send__("#{param}=", supervisor_value)
-          end
+    def overwrite_variables(**opt)
+      SYSTEM_CONFIG_PARAMETERS.each do |param|
+        if opt.key?(param) && !opt[param].nil? && instance_variable_defined?("@#{param}")
+          instance_variable_set("@#{param}", opt[param])
         end
-      }
-    end
-
-    def apply(supervisor)
-      system = self
-      supervisor.instance_eval {
-        SYSTEM_CONFIG_PARAMETERS.each do |param|
-          param_value = system.__send__(param)
-          next if param_value.nil?
-
-          case param
-          when :log_level
-            @log.level = @log_level = param_value
-          else
-            instance_variable_set("@#{param}", param_value)
-          end
-        end
-        #@counter_server = system.counter_server unless system.counter_server.nil?
-        #@counter_client = system.counter_client unless system.counter_client.nil?
-      }
+      end
     end
 
     module Mixin

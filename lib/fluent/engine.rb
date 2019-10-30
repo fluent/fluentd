@@ -120,6 +120,7 @@ module Fluent
     end
 
     def add_plugin_dir(dir)
+      $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::Plugin.add_plugin_dir')
       Plugin.add_plugin_dir(dir)
     end
 
