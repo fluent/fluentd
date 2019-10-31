@@ -18,7 +18,6 @@ require 'fileutils'
 
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/buffer/file_chunk'
-require 'fluent/system_config'
 
 module Fluent
   module Plugin

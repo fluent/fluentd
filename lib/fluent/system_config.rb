@@ -81,10 +81,6 @@ module Fluent
       SystemConfig.new(systems.first)
     end
 
-    def self.blank_system_config
-      Fluent::Config::Element.new('<SYSTEM>', '', {}, [])
-    end
-
     def self.overwrite_system_config(hash)
       older = defined?($_system_config) ? $_system_config : nil
       begin
@@ -97,7 +93,7 @@ module Fluent
 
     def initialize(conf=nil)
       super()
-      conf ||= SystemConfig.blank_system_config
+      conf ||= blank_system_config
       configure(conf)
     end
 
@@ -121,6 +117,12 @@ module Fluent
           instance_variable_set("@#{param}", opt[param])
         end
       end
+    end
+
+    private
+
+    def blank_system_config
+      Fluent::Config::Element.new('<SYSTEM>', '', {}, [])
     end
 
     module Mixin
