@@ -125,6 +125,7 @@ module Fluent
       Fluent::Config::Element.new('<SYSTEM>', '', {}, [])
     end
 
+    # TODO: Delete this fluentd 2.0
     module Mixin
       def system_config
         require 'fluent/engine'

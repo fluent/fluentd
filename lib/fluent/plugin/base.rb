@@ -22,7 +22,6 @@ module Fluent
   module Plugin
     class Base
       include Configurable
-      include SystemConfig::Mixin
 
       State = Struct.new(:configure, :start, :after_start, :stop, :before_shutdown, :shutdown, :after_shutdown, :close, :terminate)
 
@@ -186,6 +185,27 @@ module Fluent
         #   To emulate normal inspect behavior `ruby -e'o=Object.new;p o;p (o.__id__<<1).to_s(16)'`.
         #   https://github.com/ruby/ruby/blob/trunk/gc.c#L788
         "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__ << 1)]
+      end
+
+      private
+
+      def system_config
+        require 'fluent/engine'
+        unless defined?($_system_config)
+          $_system_config = nil
+        end
+        (instance_variable_defined?("@_system_config") && @_system_config) ||
+          $_system_config || Fluent::Engine.system_config
+      end
+
+      def system_config_override(opts={})
+        require 'fluent/engine'
+        if !instance_variable_defined?("@_system_config") || @_system_config.nil?
+          @_system_config = (defined?($_system_config) && $_system_config ? $_system_config : Fluent::Engine.system_config).dup
+        end
+        opts.each_pair do |key, value|
+          @_system_config.__send__(:"#{key.to_s}=", value)
+        end
       end
     end
   end
