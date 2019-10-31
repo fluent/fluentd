@@ -65,13 +65,11 @@ require 'fluent/engine'
 require 'fluent/system_config'
 require 'serverengine'
 
-include Fluent::SystemConfig::Mixin
-
 dl_opts = {}
 dl_opts[:log_level] = ServerEngine::DaemonLogger::TRACE
 logger = ServerEngine::DaemonLogger.new(STDERR, dl_opts)
 $log = Fluent::Log.new(logger)
-Fluent::Engine.init(system_config)
+Fluent::Engine.init(Fluent::SystemConfig.new)
 
 DRb::DRbObject.class_eval do
   undef_method :methods

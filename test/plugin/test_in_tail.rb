@@ -290,8 +290,6 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   class TestWithSystem < self
-    include Fluent::SystemConfig::Mixin
-
     OVERRIDE_FILE_PERMISSION = 0620
     CONFIG_SYSTEM = %[
       <system>
@@ -302,12 +300,13 @@ class TailInputTest < Test::Unit::TestCase
     def setup
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
       # Store default permission
-      @default_permission = system_config.instance_variable_get(:@file_permission)
+      @system_config = Fluent::SystemConfig.new
+      @default_permission = @system_config.instance_variable_get(:@file_permission)
     end
 
     def teardown
       # Restore default permission
-      system_config.instance_variable_set(:@file_permission, @default_permission)
+      @system_config.instance_variable_set(:@file_permission, @default_permission)
     end
 
     def parse_system(text)

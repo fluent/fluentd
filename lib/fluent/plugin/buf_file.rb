@@ -25,8 +25,6 @@ module Fluent
     class FileBuffer < Fluent::Plugin::Buffer
       Plugin.register_buffer('file', self)
 
-      include SystemConfig::Mixin
-
       DEFAULT_CHUNK_LIMIT_SIZE = 256 * 1024 * 1024        # 256MB
       DEFAULT_TOTAL_LIMIT_SIZE =  64 * 1024 * 1024 * 1024 #  64GB, same with v0.12 (TimeSlicedOutput + buf_file)
 
