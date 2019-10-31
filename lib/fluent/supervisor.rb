@@ -526,11 +526,11 @@ module Fluent
 
       main_process do
         create_socket_manager if @standalone_worker
-        change_privilege if @standalone_worker
+        ServerEngine::Privilege.change(@chuser, @chgroup) if @standalone_worker
         MessagePackFactory.init
-        init_engine
-        run_configure
-        run_engine
+        Fluent::Engine.init(@system_config)
+        Fluent::Engine.run_configure(@conf)
+        Fluent::Engine.run
         self.class.cleanup_resources if @standalone_worker
         exit 0
       end
@@ -602,10 +602,10 @@ module Fluent
     def dry_run
       begin
         Fluent::Engine.dry_run_mode = true
-        change_privilege
+        ServerEngine::Privilege.change(@chuser, @chgroup)
         MessagePackFactory.init
-        init_engine
-        run_configure
+        Fluent::Engine.init(@system_config)
+        Fluent::Engine.run_configure(@conf)
       rescue Fluent::ConfigError => e
         $log.error "config error", file: @config_path, error: e
         $log.debug_backtrace
@@ -818,22 +818,6 @@ module Fluent
       end
       system_config.overwrite_variables(opt)
       system_config
-    end
-
-    def change_privilege
-      ServerEngine::Privilege.change(@chuser, @chgroup)
-    end
-
-    def init_engine
-      Fluent::Engine.init(@system_config)
-    end
-
-    def run_configure
-      Fluent::Engine.run_configure(@conf)
-    end
-
-    def run_engine
-      Fluent::Engine.run
     end
   end
 end
