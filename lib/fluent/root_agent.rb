@@ -58,6 +58,7 @@ module Fluent
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
+      @workers = @system_config.workers
     end
 
     attr_reader :inputs
@@ -65,7 +66,7 @@ module Fluent
 
     def configure(conf)
       used_worker_ids = []
-      available_worker_ids = (0..Fluent::Engine.system_config.workers - 1).to_a
+      available_worker_ids = (0..(@workers - 1)).to_a
       # initialize <worker> elements
       conf.elements(name: 'worker').each do |e|
         target_worker_id_str = e.arg
@@ -85,8 +86,8 @@ module Fluent
             target_worker_id = worker_id.to_i
             target_worker_ids << target_worker_id
 
-            if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
-              raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+            if target_worker_id < 0 || target_worker_id > (@workers - 1)
+              raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{@workers - 1}"
             end
             available_worker_ids.delete(target_worker_id) if available_worker_ids.include?(target_worker_id)
             if used_worker_ids.include?(target_worker_id)
@@ -106,8 +107,8 @@ module Fluent
           end
         else
           target_worker_id = target_worker_id_str.to_i
-          if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
-            raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
+          if target_worker_id < 0 || target_worker_id > (@workers - 1)
+            raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{@workers - 1}"
           end
 
           e.elements.each do |elem|
