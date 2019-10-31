@@ -195,11 +195,8 @@ module Fluent
 
       def generate_chunk(metadata)
         # FileChunk generates real path with unique_id
-        if @file_permission
-          chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(metadata, @path, :create, @key_in_path, perm: @file_permission, compress: @compress)
-        else
-          chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(metadata, @path, :create, @key_in_path, compress: @compress)
-        end
+        perm = @file_permission || system_config.file_permission
+        chunk = Fluent::Plugin::Buffer::FileSingleChunk.new(metadata, @path, :create, @key_in_path, perm: perm, compress: @compress)
 
         log.debug "Created new chunk", chunk_id: dump_unique_id_hex(chunk.unique_id), metadata: metadata
 

@@ -29,8 +29,6 @@ module Fluent
         ## buffer chunk path          : /path/to/directory/fsb.key.b513b61c9791029c2513b61c9791029c2.buf
         ## state: b/q - 'b'(on stage), 'q'(enqueued)
 
-        include SystemConfig::Mixin
-
         PATH_EXT = 'buf'
         PATH_SUFFIX = ".#{PATH_EXT}"
         PATH_REGEXP = /\.(b|q)([0-9a-f]+)\.#{PATH_EXT}*\Z/n  # //n switch means explicit 'ASCII-8BIT' pattern
@@ -38,9 +36,10 @@ module Fluent
 
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, key, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
+        def initialize(metadata, path, mode, key, perm: FILE_PERMISSION, compress: :text)
           super(metadata, compress: compress)
           @key = key
+          perm ||= FILE_PERMISSION
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
 
