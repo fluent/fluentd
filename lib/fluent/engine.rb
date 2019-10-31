@@ -41,18 +41,16 @@ module Fluent
       @fluent_log_event_router = nil
       @system_config = SystemConfig.new
 
-      @dry_run_mode = false
       @supervisor_mode = false
     end
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
 
-    attr_reader :root_agent, :system_config, :supervisor_mode, :dry_run_mode
+    attr_reader :root_agent, :system_config, :supervisor_mode
 
-    def init(system_config, supervisor_mode: false, dry_run_mode: false)
+    def init(system_config, supervisor_mode: false)
       @system_config = system_config
       @supervisor_mode = supervisor_mode
-      @dry_run_mode = dry_run_mode
 
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
@@ -77,7 +75,7 @@ module Fluent
       end
     end
 
-    def run_configure(conf)
+    def run_configure(conf, dry_run: false)
       configure(conf)
       conf.check_not_fetched do |key, e|
         parent_name, plugin_name = e.unused_in
@@ -92,7 +90,7 @@ module Fluent
                   end
         next if message.nil?
 
-        if @dry_run_mode && @supervisor_mode
+        if dry_run && @supervisor_mode
           $log.warn :supervisor, message
         elsif e.for_every_workers?
           $log.warn :worker0, message

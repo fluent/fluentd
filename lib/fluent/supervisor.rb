@@ -450,7 +450,6 @@ module Fluent
       @use_v1_config = opt[:use_v1_config]
       @conf_encoding = opt[:conf_encoding]
       @log_path = opt[:log_path]
-      @dry_run = opt[:dry_run]
       @show_plugin_config = opt[:show_plugin_config]
       @libs = opt[:libs]
       @plugin_dirs = opt[:plugin_dirs]
@@ -473,8 +472,8 @@ module Fluent
       @finished = false
     end
 
-    def run_supervisor
-      if @dry_run
+    def run_supervisor(dry_run: false)
+      if dry_run
         $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
       end
 
@@ -500,15 +499,15 @@ module Fluent
       begin
         ServerEngine::Privilege.change(@chuser, @chgroup)
         MessagePackFactory.init
-        Fluent::Engine.init(@system_config, supervisor_mode: true, dry_run_mode: @dry_run)
-        Fluent::Engine.run_configure(@conf)
+        Fluent::Engine.init(@system_config, supervisor_mode: true)
+        Fluent::Engine.run_configure(@conf, dry_run: dry_run)
       rescue Fluent::ConfigError => e
         $log.error 'config error', file: @config_path, error: e
         $log.debug_backtrace
         exit!(1)
       end
 
-      if @dry_run
+      if dry_run
         $log.info 'finsihed dry run mode'
         exit 0
       else
