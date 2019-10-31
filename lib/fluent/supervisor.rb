@@ -182,9 +182,9 @@ module Fluent
       if log = config[:logger_initializer]
         # Creating new thread due to mutex can't lock
         # in main thread during trap context
-        Thread.new {
+        Thread.new do
           log.reopen!
-        }.run
+        end
       end
 
       if config[:worker_pid]
@@ -721,7 +721,7 @@ module Fluent
     def flush_buffer
       # Creating new thread due to mutex can't lock
       # in main thread during trap context
-      Thread.new {
+      Thread.new do
         begin
           $log.debug "fluentd main process get SIGUSR1"
           $log.info "force flushing buffered events"
@@ -731,7 +731,7 @@ module Fluent
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
         end
-      }.run
+      end
     end
 
     def logging_with_console_output
