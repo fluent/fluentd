@@ -474,6 +474,10 @@ module Fluent
     end
 
     def run_supervisor
+      if @dry_run
+        $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
+      end
+
       if @system_config.workers < 1
         raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@system_config.workers}"
       end
@@ -494,29 +498,22 @@ module Fluent
       end
 
       begin
-        if @dry_run
-          $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
-        end
-
         ServerEngine::Privilege.change(@chuser, @chgroup)
         MessagePackFactory.init
-        Fluent::Engine.init(@system_config, supervisor: true, dry_run_mode: @dry_run)
+        Fluent::Engine.init(@system_config, supervisor_mode: true, dry_run_mode: @dry_run)
         Fluent::Engine.run_configure(@conf)
-
-        if @dry_run
-          $log.info 'finsihed dry run mode'
-          exit 0
-        end
       rescue Fluent::ConfigError => e
         $log.error 'config error', file: @config_path, error: e
         $log.debug_backtrace
         exit!(1)
-      rescue => e
-        $log.error(e)
-        exit(1)
       end
 
-      supervise
+      if @dry_run
+        $log.info 'finsihed dry run mode'
+        exit 0
+      else
+        supervise
+      end
     end
 
     def options
