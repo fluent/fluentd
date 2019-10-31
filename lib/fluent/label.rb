@@ -15,11 +15,12 @@
 #
 
 require 'fluent/agent'
+require 'fluent/system_config'
 
 module Fluent
   class Label < Agent
-    def initialize(name, log:)
-      super(log: log)
+    def initialize(name, log:, system_config: SystemConfig.new)
+      super(log: log, system_config: system_config.dup)
 
       @context = name
       @root_agent = nil

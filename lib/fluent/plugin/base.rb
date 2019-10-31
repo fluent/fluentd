@@ -32,6 +32,7 @@ module Fluent
         super
         @_state = State.new(false, false, false, false, false, false, false, false, false)
         @_context_router = nil
+        @_system_config = nil
         @_fluentd_worker_id = nil
         @under_plugin_development = false
       end
@@ -51,13 +52,13 @@ module Fluent
       end
 
       def configure(conf)
-        if Fluent::Engine.supervisor_mode || (conf.respond_to?(:for_this_worker?) && conf.for_this_worker?)
+        if Fluent::Engine.supervisor_mode || (@_system_config && conf.respond_to?(:for_this_worker?) && conf.for_this_worker?)
           workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
                       conf.target_worker_ids.size
                     else
                       1
                     end
-          system_config_override(workers: workers)
+          @_system_config.workers = workers
         end
         super
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
@@ -75,6 +76,14 @@ module Fluent
           str = str.scrub('?')
         end
         yield str
+      end
+
+      def system_config=(system_config)
+        @_system_config = system_config
+      end
+
+      def system_config
+        @_system_config
       end
 
       def context_router=(router)
@@ -185,27 +194,6 @@ module Fluent
         #   To emulate normal inspect behavior `ruby -e'o=Object.new;p o;p (o.__id__<<1).to_s(16)'`.
         #   https://github.com/ruby/ruby/blob/trunk/gc.c#L788
         "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__ << 1)]
-      end
-
-      private
-
-      def system_config
-        require 'fluent/engine'
-        unless defined?($_system_config)
-          $_system_config = nil
-        end
-        (instance_variable_defined?("@_system_config") && @_system_config) ||
-          $_system_config || Fluent::Engine.system_config
-      end
-
-      def system_config_override(opts={})
-        require 'fluent/engine'
-        if !instance_variable_defined?("@_system_config") || @_system_config.nil?
-          @_system_config = (defined?($_system_config) && $_system_config ? $_system_config : Fluent::Engine.system_config).dup
-        end
-        opts.each_pair do |key, value|
-          @_system_config.__send__(:"#{key.to_s}=", value)
-        end
       end
     end
   end

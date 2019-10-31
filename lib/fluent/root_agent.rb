@@ -48,7 +48,7 @@ module Fluent
     ERROR_LABEL = "@ERROR".freeze # @ERROR is built-in error label
 
     def initialize(log:, system_config: SystemConfig.new)
-      super(log: log)
+      super(log: log, system_config: system_config)
 
       @labels = {}
       @inputs = []
@@ -58,7 +58,7 @@ module Fluent
 
       suppress_interval(system_config.emit_error_log_interval) unless system_config.emit_error_log_interval.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
-      @workers = @system_config.workers
+      @workers = system_config.workers
     end
 
     attr_reader :inputs
@@ -316,6 +316,7 @@ module Fluent
       # Input#configure overwrites event_router to a label's event_router if it has `@label` parameter.
       # See also 'fluentd/plugin/input.rb'
       input.context_router = @event_router
+      input.system_config = @system_config.dup
       input.configure(conf)
       @inputs << input
 
@@ -323,8 +324,8 @@ module Fluent
     end
 
     def add_label(name)
-      label = Label.new(name, log: log)
       raise ConfigError, "Section <label #{name}> appears twice" if @labels[name]
+      label = Label.new(name, log: log, system_config: @system_config)
       label.root_agent = self
       @labels[name] = label
     end

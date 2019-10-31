@@ -29,7 +29,7 @@ module Fluent
   class Agent
     include Configurable
 
-    def initialize(log:)
+    def initialize(log:, system_config:)
       super()
 
       @context = nil
@@ -48,6 +48,7 @@ module Fluent
       @log = log
       @event_router = EventRouter.new(NoMatchMatch.new(log), self)
       @error_collector = nil
+      @system_config = system_config
     end
 
     attr_reader :log
@@ -129,6 +130,7 @@ module Fluent
 
       output = Plugin.new_output(type)
       output.context_router = @event_router
+      output.system_config = @system_config.dup
       output.configure(conf)
       @outputs << output
       if output.respond_to?(:outputs) && output.respond_to?(:multi_output?) && output.multi_output?
@@ -151,6 +153,7 @@ module Fluent
 
       filter = Plugin.new_filter(type)
       filter.context_router = @event_router
+      filter.system_config = @system_config.dup
       filter.configure(conf)
       @filters << filter
       @event_router.add_rule(pattern, filter)
