@@ -1,7 +1,6 @@
 ---
 name:  Bug Report
 about: Create a report to help us improve. If you have questions about Fluentd and plugins, please direct these to https://groups.google.com/forum/#!forum/fluentd
-labels: 'bug'
 
 ---
 
