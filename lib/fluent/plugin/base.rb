@@ -52,7 +52,7 @@ module Fluent
       end
 
       def configure(conf)
-        if conf.respond_to?(:for_this_worker?) && conf.for_this_worker?
+        if Fluent::Engine.supervisor_mode || (conf.respond_to?(:for_this_worker?) && conf.for_this_worker?)
           workers = if conf.target_worker_ids && !conf.target_worker_ids.empty?
                       conf.target_worker_ids.size
                     else

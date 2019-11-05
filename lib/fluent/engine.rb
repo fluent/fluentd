@@ -41,16 +41,16 @@ module Fluent
       @fluent_log_event_router = nil
       @system_config = SystemConfig.new
 
-      @dry_run_mode = false
+      @supervisor_mode = false
     end
 
     MAINLOOP_SLEEP_INTERVAL = 0.3
 
-    attr_reader :root_agent, :system_config
-    attr_accessor :dry_run_mode
+    attr_reader :root_agent, :system_config, :supervisor_mode
 
-    def init(system_config)
+    def init(system_config, supervisor_mode: false)
       @system_config = system_config
+      @supervisor_mode = supervisor_mode
 
       @suppress_config_dump = system_config.suppress_config_dump unless system_config.suppress_config_dump.nil?
       @without_source = system_config.without_source unless system_config.without_source.nil?
@@ -75,34 +75,29 @@ module Fluent
       end
     end
 
-    def run_configure(conf)
+    def run_configure(conf, dry_run: false)
       configure(conf)
-      conf.check_not_fetched { |key, e|
+      conf.check_not_fetched do |key, e|
         parent_name, plugin_name = e.unused_in
-        if parent_name
-          message = if plugin_name
-                      "section <#{e.name}> is not used in <#{parent_name}> of #{plugin_name} plugin"
-                    else
-                      "section <#{e.name}> is not used in <#{parent_name}>"
-                    end
-          if e.for_every_workers?
-            $log.warn :worker0, message
-          elsif e.for_this_worker?
-            $log.warn message
-          end
-          next
+        message = if parent_name && plugin_name
+                    "section <#{e.name}> is not used in <#{parent_name}> of #{plugin_name} plugin"
+                  elsif parent_name
+                    "section <#{e.name}> is not used in <#{parent_name}>"
+                  elsif e.name != 'system' && !(@without_source && e.name == 'source')
+                    "parameter '#{key}' in #{e.to_s.strip} is not used."
+                  else
+                    nil
+                  end
+        next if message.nil?
+
+        if dry_run && @supervisor_mode
+          $log.warn :supervisor, message
+        elsif e.for_every_workers?
+          $log.warn :worker0, message
+        elsif e.for_this_worker?
+          $log.warn message
         end
-        unless e.name == 'system'
-          unless @without_source && e.name == 'source'
-            message = "parameter '#{key}' in #{e.to_s.strip} is not used."
-            if e.for_every_workers?
-              $log.warn :worker0, message
-            elsif e.for_this_worker?
-              $log.warn message
-            end
-          end
-        end
-      }
+      end
     end
 
     def configure(conf)
@@ -182,6 +177,10 @@ module Fluent
     end
 
     def worker_id
+      if @supervisor_mode
+        return -1
+      end
+
       return @_worker_id if @_worker_id
       # if ENV doesn't have SERVERENGINE_WORKER_ID, it is a worker under --no-supervisor or in tests
       # so it's (almost) a single worker, worker_id=0

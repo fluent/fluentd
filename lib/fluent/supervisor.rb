@@ -450,7 +450,6 @@ module Fluent
       @use_v1_config = opt[:use_v1_config]
       @conf_encoding = opt[:conf_encoding]
       @log_path = opt[:log_path]
-      @dry_run = opt[:dry_run]
       @show_plugin_config = opt[:show_plugin_config]
       @libs = opt[:libs]
       @plugin_dirs = opt[:plugin_dirs]
@@ -473,7 +472,11 @@ module Fluent
       @finished = false
     end
 
-    def run_supervisor
+    def run_supervisor(dry_run: false)
+      if dry_run
+        $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
+      end
+
       if @system_config.workers < 1
         raise Fluent::ConfigError, "invalid number of workers (must be > 0):#{@system_config.workers}"
       end
@@ -492,8 +495,24 @@ module Fluent
           end
         end
       end
-      dry_run_cmd if @dry_run
-      supervise
+
+      begin
+        ServerEngine::Privilege.change(@chuser, @chgroup)
+        MessagePackFactory.init
+        Fluent::Engine.init(@system_config, supervisor_mode: true)
+        Fluent::Engine.run_configure(@conf, dry_run: dry_run)
+      rescue Fluent::ConfigError => e
+        $log.error 'config error', file: @config_path, error: e
+        $log.debug_backtrace
+        exit!(1)
+      end
+
+      if dry_run
+        $log.info 'finsihed dry run mode'
+        exit 0
+      else
+        supervise
+      end
     end
 
     def options
@@ -588,33 +607,6 @@ module Fluent
       ENV['SERVERENGINE_SOCKETMANAGER_PATH'] = socket_manager_path.to_s
     end
 
-    def dry_run_cmd
-      $log.info "starting fluentd-#{Fluent::VERSION} as dry run mode", ruby: RUBY_VERSION
-      @system_config.suppress_config_dump = true
-      dry_run
-      exit 0
-    rescue => e
-      $log.error "dry run failed: #{e}"
-      exit 1
-    end
-
-    ## Set Engine's dry_run_mode true to override all target_id of worker sections
-    def dry_run
-      begin
-        Fluent::Engine.dry_run_mode = true
-        ServerEngine::Privilege.change(@chuser, @chgroup)
-        MessagePackFactory.init
-        Fluent::Engine.init(@system_config)
-        Fluent::Engine.run_configure(@conf)
-      rescue Fluent::ConfigError => e
-        $log.error "config error", file: @config_path, error: e
-        $log.debug_backtrace
-        exit!(1)
-      ensure
-        Fluent::Engine.dry_run_mode = false
-      end
-    end
-
     def show_plugin_config
       name, type = @show_plugin_config.split(":") # input:tail
       $log.info "show_plugin_config option is deprecated. Use fluent-plugin-config-format --format=txt #{name} #{type}"
@@ -622,9 +614,6 @@ module Fluent
     end
 
     def supervise
-      # Make dumpable conf, which is set corresponding_proxies for all elements in all worker sections
-      dry_run
-
       Process.setproctitle("supervisor:#{@system_config.process_name}") if @system_config.process_name
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid, ruby: RUBY_VERSION
 

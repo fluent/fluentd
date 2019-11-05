@@ -323,7 +323,7 @@ if opts[:supervise]
 
   supervisor = Fluent::Supervisor.new(opts)
   supervisor.configure(supervisor: true)
-  supervisor.run_supervisor
+  supervisor.run_supervisor(dry_run: opts[:dry_run])
 else
   if opts[:standalone_worker] && opts[:workers] && opts[:workers] > 1
     puts "Error: multi workers is not supported with --no-supervisor"

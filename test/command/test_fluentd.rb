@@ -625,7 +625,8 @@ CONF
   workers 2
 </system>
 <source>
-  @type single
+  @type dummy
+  tag dummy
   @id single
   @label @dummydata
 </source>
@@ -669,7 +670,8 @@ EOC
   workers 2
 </system>
 <source>
-  @type single
+  @type dummy
+  tag dummy
   @id single
   @label @dummydata
 </source>
@@ -793,7 +795,7 @@ CONF
     @id   blackhole
     <buffer>
       @type file
-      path #{File.join(@root_path, "buf", "file.*.log")}
+      path #{File.join(@root_path, "buf")}
     </buffer>
   </match>
 </worker>
@@ -863,6 +865,7 @@ module Fluent::Plugin
   class FakeInput < Input
     Fluent::Plugin.register_input('fake', self)
     config_param :secret, :string, secret: true
+    def multi_workers_ready?; true; end
   end
 end
 EOC

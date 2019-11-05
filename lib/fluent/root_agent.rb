@@ -89,7 +89,7 @@ module Fluent
               raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
             end
             available_worker_ids.delete(target_worker_id) if available_worker_ids.include?(target_worker_id)
-            if used_worker_ids.include?(target_worker_id) && !Fluent::Engine.dry_run_mode
+            if used_worker_ids.include?(target_worker_id)
               raise Fluent::ConfigError, "specified worker_id<#{worker_id}> collisions is detected on <worker> directive. Available worker id(s): #{available_worker_ids}"
             end
             used_worker_ids << target_worker_id
@@ -100,9 +100,6 @@ module Fluent
               end
             end
 
-            # On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
-            target_worker_ids = [0] if Fluent::Engine.dry_run_mode
-
             unless target_worker_ids.empty?
               e.set_target_worker_ids(target_worker_ids.uniq)
             end
@@ -112,9 +109,6 @@ module Fluent
           if target_worker_id < 0 || target_worker_id > (Fluent::Engine.system_config.workers - 1)
             raise Fluent::ConfigError, "worker id #{target_worker_id} specified by <worker> directive is not allowed. Available worker id is between 0 and #{(Fluent::Engine.system_config.workers - 1)}"
           end
-
-          ## On dry_run mode, all worker sections have to be configured on supervisor (recognized as worker_id = 0).
-          target_worker_id = 0 if Fluent::Engine.dry_run_mode
 
           e.elements.each do |elem|
             unless ['source', 'match', 'filter', 'label'].include?(elem.name)
@@ -132,7 +126,9 @@ module Fluent
       # initialize <label> elements before configuring all plugins to avoid 'label not found' in input, filter and output.
       label_configs = {}
       conf.elements(name: 'label').each { |e|
-        next if e.for_another_worker?
+        if !Fluent::Engine.supervisor_mode && e.for_another_worker?
+          next
+        end
         name = e.arg
         raise ConfigError, "Missing symbol argument on <label> directive" if name.empty?
 
@@ -154,7 +150,9 @@ module Fluent
         log.info :worker0, "'--without-source' is applied. Ignore <source> sections"
       else
         conf.elements(name: 'source').each { |e|
-          next if e.for_another_worker?
+          if !Fluent::Engine.supervisor_mode && e.for_another_worker?
+            next
+          end
           type = e['@type']
           raise ConfigError, "Missing '@type' parameter on <source> directive" unless type
           add_source(type, e)
