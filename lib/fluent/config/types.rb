@@ -20,7 +20,7 @@ require 'fluent/config/error'
 
 module Fluent
   module Config
-    def self.size_value(str)
+    def self.size_value(str, opts = {})
       case str.to_s
       when /([0-9]+)k/i
         $~[1].to_i * 1024
@@ -31,11 +31,11 @@ module Fluent
       when /([0-9]+)t/i
         $~[1].to_i * (1024 ** 4)
       else
-        str.to_i
+        INTEGER_TYPE.call(str, opts)
       end
     end
 
-    def self.time_value(str)
+    def self.time_value(str, opts = {})
       case str.to_s
       when /([0-9]+)s/
         $~[1].to_i
@@ -46,11 +46,11 @@ module Fluent
       when /([0-9]+)d/
         $~[1].to_i * 24 * 60 * 60
       else
-        str.to_f
+        FLOAT_TYPE.call(str, opts)
       end
     end
 
-    def self.bool_value(str)
+    def self.bool_value(str, opts = {})
       return nil if str.nil?
       case str.to_s
       when 'true', 'yes'
@@ -70,7 +70,7 @@ module Fluent
       end
     end
 
-    def self.regexp_value(str)
+    def self.regexp_value(str, opts = {})
       return nil unless str
       return Regexp.compile(str) unless str.start_with?("/")
       right_slash_position = str.rindex("/")
@@ -89,6 +89,7 @@ module Fluent
       v = v.frozen? ? v.dup : v # config_param can't assume incoming string is mutable
       v.force_encoding(Encoding::UTF_8)
     }
+
     ENUM_TYPE = Proc.new { |val, opts|
       s = val.to_sym
       list = opts[:list]
@@ -98,25 +99,51 @@ module Fluent
       end
       s
     }
-    INTEGER_TYPE = Proc.new { |val, opts| val.to_i }
-    FLOAT_TYPE = Proc.new { |val, opts| val.to_f }
-    SIZE_TYPE = Proc.new { |val, opts| Config.size_value(val) }
-    BOOL_TYPE = Proc.new { |val, opts| Config.bool_value(val) }
-    TIME_TYPE = Proc.new { |val, opts| Config.time_value(val) }
-    REGEXP_TYPE = Proc.new { |val, opts| Config.regexp_value(val) }
 
-    REFORMAT_VALUE = ->(type, value) {
+    INTEGER_TYPE = Proc.new { |val, opts|
+      if opts[:strict]
+        Integer(val)
+      else
+        val.to_i
+      end
+    }
+
+    FLOAT_TYPE = Proc.new { |val, opts|
+      if opts[:strict]
+        Float(val)
+      else
+        val.to_f
+      end
+    }
+
+    SIZE_TYPE = Proc.new { |val, opts|
+      Config.size_value(val, opts)
+    }
+
+    BOOL_TYPE = Proc.new { |val, opts|
+      Config.bool_value(val, opts)
+    }
+
+    TIME_TYPE = Proc.new { |val, opts|
+      Config.time_value(val, opts)
+    }
+
+    REGEXP_TYPE = Proc.new { |val, opts|
+      Config.regexp_value(val, opts)
+    }
+
+    REFORMAT_VALUE = ->(type, value, opts) {
       if value.nil?
         value
       else
         case type
         when :string  then value.to_s.force_encoding(Encoding::UTF_8)
-        when :integer then value.to_i
-        when :float   then value.to_f
-        when :size then Config.size_value(value)
-        when :bool then Config.bool_value(value)
-        when :time then Config.time_value(value)
-        when :regexp then Config.regexp_value(value)
+        when :integer then INTEGER_TYPE.call(value, opts)
+        when :float   then FLOAT_TYPE.call(value, opts)
+        when :size then Config.size_value(value, opts)
+        when :bool then Config.bool_value(value, opts)
+        when :time then Config.time_value(value, opts)
+        when :regexp then Config.regexp_value(value, opts)
         else
           raise "unknown type in REFORMAT: #{type}"
         end
@@ -138,11 +165,12 @@ module Fluent
         newparam = {}
         param.each_pair do |key, value|
           new_key = opts[:symbolize_keys] ? key.to_sym : key
-          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUE.call(opts[:value_type], value) : value
+          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUE.call(opts[:value_type], value, opts) : value
         end
         newparam
       end
     }
+
     ARRAY_TYPE = Proc.new { |val, opts|
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)
@@ -153,7 +181,7 @@ module Fluent
         raise ConfigError, "array required but got #{val.inspect}"
       end
       if opts[:value_type]
-        param.map{|v| REFORMAT_VALUE.call(opts[:value_type], v) }
+        param.map{|v| REFORMAT_VALUE.call(opts[:value_type], v, opts) }
       else
         param
       end

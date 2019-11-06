@@ -16,6 +16,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "6"  => [6, "6"])
     test 'normal case' do |(expected, val)|
       assert_equal(expected, Config.size_value(val))
+      assert_equal(expected, Config.size_value(val, { strict: true }))
     end
 
     data("integer" => [6, 6],
@@ -24,6 +25,20 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "nil" => [0, nil])
     test 'not assumed case' do |(expected, val)|
       assert_equal(expected, Config.size_value(val))
+    end
+
+    data("integer" => [6, 6],
+         "hoge" => [ArgumentError.new("invalid value for Integer(): \"hoge\""), "hoge"],
+         "empty" => [ArgumentError.new("invalid value for Integer(): \"\""), ""],
+         "nil" => [TypeError.new("can't convert nil into Integer"), nil])
+    test 'not assumed case with strict' do |(expected, val)|
+      if expected.kind_of? Exception
+        assert_raise(expected) do
+          Config.size_value(val, { strict: true })
+        end
+      else
+        assert_equal(expected, Config.size_value(val, { strict: true }))
+      end
     end
   end
 
@@ -35,6 +50,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "4d" => [345600, "4d"])
     test 'normal case' do |(expected, val)|
       assert_equal(expected, Config.time_value(val))
+      assert_equal(expected, Config.time_value(val, { strict: true }))
     end
 
     data("integer" => [4.0, 4],
@@ -44,6 +60,20 @@ class TestConfigTypes < ::Test::Unit::TestCase
          "nil" => [0.0, nil])
     test 'not assumed case' do |(expected, val)|
       assert_equal(expected, Config.time_value(val))
+    end
+
+    data("integer" => [6, 6],
+         "hoge" => [ArgumentError.new("invalid value for Float(): \"hoge\""), "hoge"],
+         "empty" => [ArgumentError.new("invalid value for Float(): \"\""), ""],
+         "nil" => [TypeError.new("can't convert nil into Float"), nil])
+    test 'not assumed case with strict' do |(expected, val)|
+      if expected.kind_of? Exception
+        assert_raise(expected) do
+          Config.time_value(val, { strict: true })
+        end
+      else
+        assert_equal(expected, Config.time_value(val, { strict: true }))
+      end
     end
   end
 
@@ -144,12 +174,56 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal expected, Config::INTEGER_TYPE.call(val, {})
     end
 
+    data("integer" => [6, 6],
+         "hoge" => [0, "hoge"],
+         "empty" => [0, ""],
+         "nil" => [0, nil])
+    test 'integer: not assumed case' do |(expected, val)|
+      assert_equal expected, Config::INTEGER_TYPE.call(val, {})
+    end
+
+    data("integer" => [6, 6],
+         "hoge" => [ArgumentError.new("invalid value for Integer(): \"hoge\""), "hoge"],
+         "empty" => [ArgumentError.new("invalid value for Integer(): \"\""), ""],
+         "nil" => [TypeError.new("can't convert nil into Integer"), nil])
+    test 'integer: not assumed case with strict' do |(expected, val)|
+      if expected.kind_of? Exception
+        assert_raise(expected) do
+          Config::INTEGER_TYPE.call(val, { strict: true })
+        end
+      else
+        assert_equal expected, Config::INTEGER_TYPE.call(val, { strict: true })
+      end
+    end
+
     data("1" => [1.0, '1'],
          "1.0" => [1.0, '1.0'],
          "1.00" => [1.0, '1.00'],
          "1e0" => [1.0, '1e0'])
     test 'float' do |(expected, val)|
       assert_equal expected, Config::FLOAT_TYPE.call(val, {})
+    end
+
+    data("integer" => [6, 6],
+         "hoge" => [0, "hoge"],
+         "empty" => [0, ""],
+         "nil" => [0, nil])
+    test 'float: not assumed case' do |(expected, val)|
+      assert_equal expected, Config::FLOAT_TYPE.call(val, {})
+    end
+
+    data("integer" => [6, 6],
+         "hoge" => [ArgumentError.new("invalid value for Float(): \"hoge\""), "hoge"],
+         "empty" => [ArgumentError.new("invalid value for Float(): \"\""), ""],
+         "nil" => [TypeError.new("can't convert nil into Float"), nil])
+    test 'float: not assumed case with strict' do |(expected, val)|
+      if expected.kind_of? Exception
+        assert_raise(expected) do
+          Config::FLOAT_TYPE.call(val, { strict: true })
+        end
+      else
+        assert_equal expected, Config::FLOAT_TYPE.call(val, { strict: true })
+      end
     end
 
     data("1000" => [1000, '1000'],
@@ -210,7 +284,15 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'hash w/ unknown type' do
-      assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::HASH_TYPE.call("x:1,y:2", {value_type: :foo}) }
+      assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")) do
+        Config::HASH_TYPE.call("x:1,y:2", {value_type: :foo})
+      end
+    end
+
+    test 'hash w/ strict option' do
+      assert_raise(ArgumentError.new("invalid value for Integer(): \"hoge\"")) do
+        Config::HASH_TYPE.call("x:1,y:hoge", {value_type: :integer, strict: true})
+      end
     end
 
     data('latin' => ['3:Märch', {"3"=>"Märch"}],
@@ -246,7 +328,15 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'array w/ unknown type' do
-      assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")){ Config::ARRAY_TYPE.call("1,2", {value_type: :foo}) }
+      assert_raise(RuntimeError.new("unknown type in REFORMAT: foo")) do
+        Config::ARRAY_TYPE.call("1,2", {value_type: :foo})
+      end
+    end
+
+    test 'array w/ strict option' do
+      assert_raise(ArgumentError.new("invalid value for Integer(): \"hoge\"")) do
+        Config::ARRAY_TYPE.call("1,hoge", {value_type: :integer, strict: true})
+      end
     end
   end
 end
