@@ -63,7 +63,7 @@ class PluginIdTest < Test::Unit::TestCase
     end
 
     test '#plugin_root_dir returns an existing directory path frozen String' do
-      root_dir = Fluent::SystemConfig.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
+      root_dir = @p.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
         @p.plugin_root_dir
       end
       assert_kind_of String, root_dir
@@ -73,10 +73,10 @@ class PluginIdTest < Test::Unit::TestCase
     end
 
     test '#plugin_root_dir returns the same value for 2nd or more call' do
-      root_dir = Fluent::SystemConfig.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
+      root_dir = @p.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
         @p.plugin_root_dir
       end
-      twice = Fluent::SystemConfig.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
+      twice = @p.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
         @p.plugin_root_dir
       end
       assert_equal root_dir.object_id, twice.object_id
@@ -86,7 +86,7 @@ class PluginIdTest < Test::Unit::TestCase
       prev_env_val = ENV['SERVERENGINE_WORKER_ID']
       begin
         ENV['SERVERENGINE_WORKER_ID'] = '7'
-        root_dir = Fluent::SystemConfig.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
+        root_dir = @p.overwrite_system_config('root_dir' => File.join(TMP_DIR, "myroot")) do
           @p.plugin_root_dir
         end
         assert_kind_of String, root_dir

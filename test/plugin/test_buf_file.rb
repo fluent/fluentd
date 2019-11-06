@@ -120,7 +120,7 @@ class FileBufferTest < Test::Unit::TestCase
 
       buf_conf = config_element('buffer', '', {'path' => @bufpath})
       assert_raise Fluent::ConfigError.new("Plugin 'file' does not support multi workers configuration (Fluent::Plugin::FileBuffer)") do
-        Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
+        @d.overwrite_system_config('workers' => 4) do
           @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
         end
       end
@@ -130,7 +130,7 @@ class FileBufferTest < Test::Unit::TestCase
       @bufpath = File.join(@bufdir, 'testbuf.*.log')
       buf_conf = config_element('buffer', '', {'path' => @bufpath})
       assert_raise Fluent::ConfigError.new("Plugin 'file' does not support multi workers configuration (Fluent::Plugin::FileBuffer)") do
-        Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
+        @d.overwrite_system_config('workers' => 4) do
           @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
         end
       end
@@ -140,7 +140,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_false File.exist?(@bufdir)
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       assert_nothing_raised do
-        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+        @d.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
           @d.configure(config_element('ROOT', '', {}, [buf_conf]))
         end
       end
@@ -150,7 +150,7 @@ class FileBufferTest < Test::Unit::TestCase
       FileUtils.mkdir_p @bufdir
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       assert_nothing_raised do
-        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+        @d.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
           @d.configure(config_element('ROOT', '', {}, [buf_conf]))
         end
       end
@@ -159,7 +159,7 @@ class FileBufferTest < Test::Unit::TestCase
     test 'enables multi worker configuration with root dir' do
       buf_conf = config_element('buffer', '')
       assert_nothing_raised do
-        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+        @d.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
           @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
         end
       end
@@ -248,25 +248,28 @@ class FileBufferTest < Test::Unit::TestCase
     test '#start creates directory for buffer chunks with specified permission via system config' do
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
 
-      sysconf = {'dir_permission' => '700'}
-      Fluent::SystemConfig.overwrite_system_config(sysconf) do
-        plugin = Fluent::Plugin::FileBuffer.new
-        plugin.owner = @d
-        rand_num = rand(0..100)
-        bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
-        bufdir = File.dirname(bufpath)
+      plugin = Fluent::Plugin::FileBuffer.new
 
-        FileUtils.rm_r bufdir if File.exist?(bufdir)
-        assert !File.exist?(bufdir)
+      plugin.owner = @d
+      rand_num = rand(0..100)
+      bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
+      bufdir = File.dirname(bufpath)
 
+      FileUtils.rm_r bufdir if File.exist?(bufdir)
+      assert !File.exist?(bufdir)
+
+      plugin.overwrite_system_config('dir_permission' => '700') do
         plugin.configure(config_element('buffer', '', {'path' => bufpath}))
-        assert !File.exist?(bufdir)
+      end
 
-        plugin.start
+      assert !File.exist?(bufdir)
+      plugin.start
+
+      begin
         assert File.exist?(bufdir)
         assert{ File.stat(bufdir).mode.to_s(8).end_with?('700') }
-
         plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
+      ensure
         FileUtils.rm_r bufdir
       end
     end
@@ -348,7 +351,7 @@ class FileBufferTest < Test::Unit::TestCase
 
         m = metadata()
         c = nil
-        Fluent::SystemConfig.overwrite_system_config("file_permission" => "700") do
+        plugin.overwrite_system_config("file_permission" => "700") do
            c = plugin.generate_chunk(m)
         end
 
@@ -397,7 +400,7 @@ class FileBufferTest < Test::Unit::TestCase
       conf, suffix = params
       c = {}
       c['path_suffix'] = conf if conf
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => @root_dir) do
+      @d.overwrite_system_config('root_dir' => @root_dir) do
         @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}))
         @p.configure(config_element('buffer', '', c))
       end
@@ -731,7 +734,7 @@ class FileBufferTest < Test::Unit::TestCase
 
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
-      with_worker_config(workers: 2, worker_id: 0) do
+      with_worker_config(instance: @d, workers: 2, worker_id: 0) do
         @d.configure(config_element('output', '', {}, [buf_conf]))
       end
 
@@ -763,7 +766,7 @@ class FileBufferTest < Test::Unit::TestCase
     test 'worker(id=1) #resume returns staged/queued chunks with metadata, only in worker dir' do
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
-      with_worker_config(workers: 2, worker_id: 1) do
+      with_worker_config(instance: @d, workers: 2, worker_id: 1) do
         @d.configure(config_element('output', '', {}, [buf_conf]))
       end
 

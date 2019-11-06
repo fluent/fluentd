@@ -51,6 +51,10 @@ require 'fluent/time'
 require 'serverengine'
 require 'helpers/fuzzy_assert'
 require 'helpers/process_extenstion'
+require 'helpers/system_config_overwritable'
+
+# inject for test
+Fluent::Plugin::Base.prepend(SystemConfigOverWritable)
 
 module Fluent
   module Plugin

@@ -57,7 +57,7 @@ EOT
         ENV['TZ'] = oldtz
       end
 
-      def with_worker_config(root_dir: nil, workers: nil, worker_id: nil, &block)
+      def with_worker_config(instance:, root_dir: nil, workers: nil, worker_id: nil, &block)
         if workers
           if worker_id
             if worker_id >= workers
@@ -73,7 +73,7 @@ EOT
         opts['workers'] = workers if workers
 
         ENV['SERVERENGINE_WORKER_ID'] = worker_id.to_s
-        Fluent::SystemConfig.overwrite_system_config(opts, &block)
+        instance.overwrite_system_config(opts, &block)
       ensure
         ENV.delete('SERVERENGINE_WORKER_ID')
       end

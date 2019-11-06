@@ -112,7 +112,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       FileUtils.rm_rf(@bufdir)
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       assert_nothing_raised do
-        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+        @d.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
           @d.configure(config_element('ROOT', '', {}, [buf_conf]))
         end
       end
@@ -122,7 +122,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       FileUtils.mkdir_p @bufdir
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       assert_nothing_raised do
-        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+        @d.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
           @d.configure(config_element('ROOT', '', {}, [buf_conf]))
         end
       end
@@ -131,7 +131,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
     test 'enables multi worker configuration with root dir' do
       buf_conf = config_element('buffer', '')
       assert_nothing_raised do
-        Fluent::SystemConfig.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
+        @d.overwrite_system_config('root_dir' => @bufdir, 'workers' => 4) do
           @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [buf_conf]))
         end
       end
@@ -141,7 +141,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
   test 'raise config error when using same file path' do
     d = FluentPluginFileSingleBufferTest::DummyOutputPlugin.new
     d2 = FluentPluginFileSingleBufferTest::DummyOutputPlugin.new
-    Fluent::SystemConfig.overwrite_system_config({}) do
+    d.overwrite_system_config({}) do
       d.configure(config_element('ROOT', '', {}, [config_element('buffer', '', { 'path' => File.join(PATH, 'foo.*.bar') })]))
     end
 
@@ -150,7 +150,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
 
     err = assert_raise(Fluent::ConfigError) do
-      Fluent::SystemConfig.overwrite_system_config({}) do
+      d2.overwrite_system_config({}) do
         d2.configure(config_element('ROOT', '', {}, [config_element('buffer', '', { 'path' => PATH })]))
       end
     end
@@ -217,8 +217,9 @@ class FileSingleBufferTest < Test::Unit::TestCase
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
 
       sysconf = {'dir_permission' => '700'}
-      Fluent::SystemConfig.overwrite_system_config(sysconf) do
-        @d = create_driver
+      @d = Fluent::Test::Driver::Output.new(FluentPluginFileSingleBufferTest::DummyOutputPlugin)
+      @d.overwrite_system_config(sysconf) do
+        @d.configure(TAG_CONF)
         @p = @d.instance.buffer
 
         FileUtils.rm_r @bufdir if File.exist?(@bufdir)
@@ -294,16 +295,19 @@ class FileSingleBufferTest < Test::Unit::TestCase
       c.purge
     end
 
-    test '#generate_chunk generates blank file chunk with specified permission with system_config' do
+    test '#generate_chunk2 generates blank file chunk with specified permission with system_config' do
       omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-
-      @d = create_driver(%[
+      @d = Fluent::Test::Driver::Output.new(FluentPluginFileSingleBufferTest::DummyOutputPlugin)
+      @d.overwrite_system_config("file_permission" => "700") do
+        @d.configure(%[
         <buffer tag>
           @type file_single
           path #{PATH}
         </buffer>
       ])
-      @p = @d.instance.buffer
+      end
+
+        @p = @d.instance.buffer
 
       FileUtils.rm_r @bufdir if File.exist?(@bufdir)
       assert !File.exist?(@bufdir)
@@ -311,10 +315,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       @p.start
 
       m = metadata()
-      c = nil
-      Fluent::SystemConfig.overwrite_system_config("file_permission" => "700") do
-        c = @p.generate_chunk(m)
-      end
+      c = @p.generate_chunk(m)
       assert c.is_a? Fluent::Plugin::Buffer::FileSingleChunk
       assert_equal m, c.metadata
       assert c.empty?
@@ -348,7 +349,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
     end
 
     test '#start creates directory for buffer chunks' do
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => @root_dir) do
+      @d.overwrite_system_config('root_dir' => @root_dir) do
         @d.configure(config_element('ROOT', '', {'@id' => 'dummy_output_with_buf'}, [config_element('buffer', '', {})]))
         @p = @d.buffer
       end
@@ -769,7 +770,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       @d = FluentPluginFileSingleBufferTest::DummyOutputPlugin.new
-      with_worker_config(workers: 2, worker_id: 0) do
+      with_worker_config(instance: @d, workers: 2, worker_id: 0) do
         @d.configure(config_element('output', '', {}, [buf_conf]))
       end
 
@@ -801,7 +802,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
     test 'worker(id=1) #resume returns staged/queued chunks with metadata, only in worker dir' do
       buf_conf = config_element('buffer', '', {'path' => @bufdir})
       @d = FluentPluginFileSingleBufferTest::DummyOutputPlugin.new
-      with_worker_config(workers: 2, worker_id: 1) do
+      with_worker_config(instance: @d, workers: 2, worker_id: 1) do
         @d.configure(config_element('output', '', {}, [buf_conf]))
       end
 

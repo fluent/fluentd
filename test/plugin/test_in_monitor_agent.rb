@@ -647,8 +647,8 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
 
     test "worker_id = 2 on multi worker environment" do
       port = unused_port
-      Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
-        d = Fluent::Test::Driver::Input.new(Fluent::Plugin::MonitorAgentInput)
+      d = Fluent::Test::Driver::Input.new(Fluent::Plugin::MonitorAgentInput)
+      d.overwrite_system_config('workers' => 4) do
         d.instance.instance_eval{ @_fluentd_worker_id = 2 }
         d.configure("
   @type monitor_agent

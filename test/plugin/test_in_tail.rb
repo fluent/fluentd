@@ -290,7 +290,7 @@ class TailInputTest < Test::Unit::TestCase
   end
 
   class TestWithSystem < self
-    OVERRIDE_FILE_PERMISSION = 0620
+    OVERRIDE_FILE_PERMISSION = 700
     CONFIG_SYSTEM = %[
       <system>
         file_permission #{OVERRIDE_FILE_PERMISSION}
@@ -314,7 +314,7 @@ class TailInputTest < Test::Unit::TestCase
       Fluent::Config.parse(text, '(test)', basepath, true).elements.find { |e| e.name == 'system' }
     end
 
-    def test_emit_with_system
+    def test_emit_with_system_via_system_config
       system_conf = parse_system(CONFIG_SYSTEM)
       sc = Fluent::SystemConfig.new(system_conf)
       Fluent::Engine.init(sc)
@@ -323,7 +323,10 @@ class TailInputTest < Test::Unit::TestCase
         f.puts "test2"
       }
 
-      d = create_driver
+      d = Fluent::Test::Driver::Input.new(Fluent::Plugin::TailInput)
+      d.overwrite_system_config('file_permission' => '700') do
+        d.configure(COMMON_CONFIG + SINGLE_LINE_CONFIG)
+      end
 
       d.run(expect_emits: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") {|f|

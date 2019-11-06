@@ -435,10 +435,10 @@ class FileOutputTest < Test::Unit::TestCase
     end
 
     test 'write to file with permission specifications' do
-      system_conf = parse_system(CONFIG_WITH_SYSTEM)
-      sc = Fluent::SystemConfig.new(system_conf)
-      Fluent::Engine.init(sc)
-      d = create_driver CONFIG_WITH_SYSTEM
+      d = Fluent::Test::Driver::Output.new(Fluent::Plugin::FileOutput)
+      d.overwrite_system_config('file_permission' => '400', 'dir_permission' => '750') do
+        d.configure(CONFIG_WITH_SYSTEM)
+      end
 
       assert_false File.exist?("#{TMP_DIR_WITH_SYSTEM}/out_file_test.20110102_0.log.gz")
 

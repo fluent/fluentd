@@ -87,7 +87,7 @@ class InjectHelperTest < Test::Unit::TestCase
   end
 
   test 'can be configured as specified' do
-    with_worker_config(workers: 1, worker_id: 0) do
+    with_worker_config(instance: @d, workers: 1, worker_id: 0) do
       @d.configure(config_inject_section(
           "hostname_key" => "hostname",
           "hostname" => "myhost.local",
@@ -144,7 +144,7 @@ class InjectHelperTest < Test::Unit::TestCase
     end
 
     test 'injects worker id' do
-      with_worker_config(workers: 3, worker_id: 2) do
+      with_worker_config(instance: @d, workers: 3, worker_id: 2) do
         @d.configure(config_inject_section("worker_id_key" => "workerid"))
       end
       @d.start

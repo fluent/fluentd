@@ -31,7 +31,29 @@ module Fluent
       class Base
         attr_reader :instance, :logs
 
+        include SystemConfigOverWritable
+
         DEFAULT_TIMEOUT = 300
+
+        def system_config
+          nil
+        end
+
+        # overwrite SystemConfigOverWritable#overwrite_system_config
+        def overwrite_system_config(hash, &block)
+          @overwrite_system_config = Fluent::SystemConfig.new(Fluent::Config::Element.new('system', '', hash, []))
+
+          if @instance
+            @instance.overwrite_system_config(hash) do
+              block.call
+            end
+          else
+            block.call
+          end
+        ensure
+          # @instance.system_config = v
+          @overwrite_system_config = nil
+        end
 
         def initialize(klass, opts: {}, &block)
           if klass.is_a?(Class)

@@ -645,12 +645,11 @@ EOC
   sub_test_case 'configured at worker2 with 4 workers environment' do
     setup do
       ENV['SERVERENGINE_WORKER_ID'] = '2'
-      @ra = RootAgent.new(log: $log)
       system_config = SystemConfig.new
       system_config.workers = 4
       stub(Engine).worker_id { 2 }
       stub(Engine).root_agent { @ra }
-      stub(Engine).system_config { system_config }
+      @ra = RootAgent.new(log: $log, system_config: system_config)
       @ra
     end
 

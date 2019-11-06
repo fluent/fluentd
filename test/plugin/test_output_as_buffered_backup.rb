@@ -183,7 +183,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
          'no method error' => NoMethodError,
          'msgpack unpack error' => MessagePack::UnpackError)
     test 'backup chunk without secondary' do |error_class|
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+      @i.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test'
         hash = {
           'flush_interval' => 1,
@@ -207,7 +207,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
     end
 
     test 'backup chunk with same type secondary' do
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+      @i.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test_with_same_secondary'
         hash = {
           'flush_interval' => 1,
@@ -232,7 +232,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
     end
 
     test 'backup chunk with different type secondary' do
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+      @i.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test_with_diff_secondary'
         hash = {
           'flush_interval' => 1,
@@ -261,7 +261,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
     end
 
     test 'backup chunk with async secondary' do
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+      @i.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test_with_diff_secondary'
         hash = {
           'flush_interval' => 1,
@@ -286,7 +286,7 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
     end
 
     test 'chunk is thrown away when disable_chunk_backup is true' do
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+      @i.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test'
         hash = {
           'flush_interval' => 1,

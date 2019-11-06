@@ -143,7 +143,7 @@ class LocalStorageTest < Test::Unit::TestCase
       root_dir = File.join(TMP_DIR, 'root')
       expected_storage_path = File.join(root_dir, 'worker0', 'local_storage_test', 'storage.json')
       conf = config_element('ROOT', '', {'@id' => 'local_storage_test'})
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => root_dir) do
+      @d.overwrite_system_config('root_dir' => root_dir) do
         @d.configure(conf)
       end
       @d.start
@@ -175,7 +175,7 @@ class LocalStorageTest < Test::Unit::TestCase
 
       # re-create to reload storage contents
       @d = MyInput.new
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => root_dir) do
+      @d.overwrite_system_config('root_dir' => root_dir) do
         @d.configure(conf)
       end
       @d.start
@@ -191,7 +191,7 @@ class LocalStorageTest < Test::Unit::TestCase
       root_dir = File.join(TMP_DIR, 'root')
       expected_storage_path = File.join(root_dir, 'worker0', 'local_storage_test', 'storage.usage.json')
       conf = config_element('ROOT', 'usage', {'@id' => 'local_storage_test'})
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => root_dir) do
+      @d.overwrite_system_config('root_dir' => root_dir) do
         @d.configure(conf)
       end
       @d.start
@@ -207,7 +207,7 @@ class LocalStorageTest < Test::Unit::TestCase
       root_dir = File.join(TMP_DIR, 'root')
       expected_storage_path = File.join(root_dir, 'worker1', 'local_storage_test', 'storage.json')
       conf = config_element('ROOT', '', {'@id' => 'local_storage_test'})
-      with_worker_config(root_dir: root_dir, workers: 2, worker_id: 1) do
+      with_worker_config(instance: @d, root_dir: root_dir, workers: 2, worker_id: 1) do
         @d.configure(conf)
       end
       @d.start
@@ -249,7 +249,7 @@ class LocalStorageTest < Test::Unit::TestCase
       root_dir = File.join(TMP_DIR, 'root')
       expected_storage_path = File.join(root_dir, 'worker0', 'local_storage_test', 'storage.json')
       conf = config_element('ROOT', '', {'@id' => 'local_storage_test'}, [config_element('storage', '', {'persistent' => 'true'})])
-      Fluent::SystemConfig.overwrite_system_config('root_dir' => root_dir) do
+      @d.overwrite_system_config('root_dir' => root_dir) do
         @d.configure(conf)
       end
       @d.start

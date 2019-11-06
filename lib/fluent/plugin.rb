@@ -164,6 +164,10 @@ module Fluent
       if parent && impl.respond_to?("owner=")
         impl.owner = parent
       end
+      if parent && impl.respond_to?("system_config=") && parent.respond_to?("system_config")
+        impl.system_config = parent.system_config
+      end
+
       impl.extend FeatureAvailabilityChecker
       impl
     end

@@ -27,8 +27,8 @@ class DebugAgentInputTest < Test::Unit::TestCase
   end
 
   def test_multi_worker_environment_with_port
-    Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
-      d = Fluent::Test::Driver::Input.new(Fluent::Plugin::DebugAgentInput)
+    d = Fluent::Test::Driver::Input.new(Fluent::Plugin::DebugAgentInput)
+    d.overwrite_system_config('workers' => 4) do
       d.instance.instance_eval { @_fluentd_worker_id = 2 }
       d.configure('port 24230')
 
@@ -38,8 +38,8 @@ class DebugAgentInputTest < Test::Unit::TestCase
   end
 
   def test_multi_worker_environment_with_unix_path
-    Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
-      d = Fluent::Test::Driver::Input.new(Fluent::Plugin::DebugAgentInput)
+    d = Fluent::Test::Driver::Input.new(Fluent::Plugin::DebugAgentInput)
+    d.overwrite_system_config('workers' => 4) do
       d.instance.instance_eval { @_fluentd_worker_id = 2 }
       d.configure("unix_path #{TMP_DIR}/test_path")
 
