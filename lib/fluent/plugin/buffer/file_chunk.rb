@@ -37,14 +37,13 @@ module Fluent
         # path_prefix: path prefix string, ended with '.'
         # path_suffix: path suffix string, like '.log' (or any other user specified)
 
-        include SystemConfig::Mixin
-
         FILE_PERMISSION = 0644
 
         attr_reader :path, :permission
 
-        def initialize(metadata, path, mode, perm: system_config.file_permission || FILE_PERMISSION, compress: :text)
+        def initialize(metadata, path, mode, perm: nil, compress: :text)
           super(metadata, compress: compress)
+          perm ||= FILE_PERMISSION
           @permission = perm.is_a?(String) ? perm.to_i(8) : perm
           @bytesize = @size = @adding_bytes = @adding_size = 0
           @meta = nil

@@ -416,17 +416,6 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal d4.to_json + "\n", lines[3]
     end
 
-    test 'can refer system config for file permission' do
-      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-
-      chunk_path = File.join(@chunkdir, 'testperm.*.log')
-      Fluent::SystemConfig.overwrite_system_config("file_permission" => "600") do
-        c = Fluent::Plugin::Buffer::FileChunk.new(gen_metadata, chunk_path, :create)
-        assert{ File.stat(c.path).mode.to_s(8).end_with?('600') }
-        assert{ File.stat(c.path + '.meta').mode.to_s(8).end_with?('600') }
-      end
-    end
-
     test '#write_metadata tries to store metadata on file' do
       d1 = {"f1" => 'v1', "f2" => 'v2', "f3" => 'v3'}
       d2 = {"f1" => 'vv1', "f2" => 'vv2', "f3" => 'vv3'}

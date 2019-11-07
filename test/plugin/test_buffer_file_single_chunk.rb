@@ -353,16 +353,6 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal d3.to_json + "\n", lines[2]
       assert_equal d4.to_json + "\n", lines[3]
     end
-
-    test 'can refer system config for file permission' do
-      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
-
-      chunk_path = File.join(@chunkdir, 'fsb.*.buf')
-      Fluent::SystemConfig.overwrite_system_config("file_permission" => "600") do
-        c = Fluent::Plugin::Buffer::FileSingleChunk.new(gen_metadata, chunk_path, :create, nil)
-        assert{ File.stat(c.path).mode.to_s(8).end_with?('600') }
-      end
-    end
   end
 
   sub_test_case 'chunk with file for staged chunk' do

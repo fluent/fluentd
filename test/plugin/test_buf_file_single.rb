@@ -293,6 +293,38 @@ class FileSingleBufferTest < Test::Unit::TestCase
 
       c.purge
     end
+
+    test '#generate_chunk generates blank file chunk with specified permission with system_config' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+      @d = create_driver(%[
+        <buffer tag>
+          @type file_single
+          path #{PATH}
+        </buffer>
+      ])
+      @p = @d.instance.buffer
+
+      FileUtils.rm_r @bufdir if File.exist?(@bufdir)
+      assert !File.exist?(@bufdir)
+
+      @p.start
+
+      m = metadata()
+      c = nil
+      Fluent::SystemConfig.overwrite_system_config("file_permission" => "700") do
+        c = @p.generate_chunk(m)
+      end
+      assert c.is_a? Fluent::Plugin::Buffer::FileSingleChunk
+      assert_equal m, c.metadata
+      assert c.empty?
+      assert_equal :unstaged, c.state
+      assert_equal 0700, c.permission
+      assert_equal File.join(@bufdir, "fsb.testing.b#{Fluent::UniqueId.hex(c.unique_id)}.buf"), c.path
+      assert{ File.stat(c.path).mode.to_s(8).end_with?('700') }
+
+      c.purge
+    end
   end
 
   sub_test_case 'configured with system root directory and plugin @id' do

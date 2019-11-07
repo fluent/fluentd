@@ -327,6 +327,46 @@ class FileBufferTest < Test::Unit::TestCase
       plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
       FileUtils.rm_r bufdir
     end
+
+    test '#generate_chunk generates blank file chunk with specified permission with system_config' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
+      begin
+        plugin = Fluent::Plugin::FileBuffer.new
+        plugin.owner = @d
+        rand_num = rand(0..100)
+        bufpath = File.join(File.expand_path("../../tmp/buffer_file_#{rand_num}", __FILE__), 'testbuf.*.log')
+        bufdir = File.dirname(bufpath)
+
+        FileUtils.rm_r bufdir if File.exist?(bufdir)
+        assert !File.exist?(bufdir)
+
+        plugin.configure(config_element('buffer', '', { 'path' => bufpath }))
+
+        assert !File.exist?(bufdir)
+        plugin.start
+
+        m = metadata()
+        c = nil
+        Fluent::SystemConfig.overwrite_system_config("file_permission" => "700") do
+           c = plugin.generate_chunk(m)
+        end
+
+        assert c.is_a? Fluent::Plugin::Buffer::FileChunk
+        assert_equal m, c.metadata
+        assert c.empty?
+        assert_equal :unstaged, c.state
+        assert_equal 0700, c.permission
+        assert_equal bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c.unique_id)}."), c.path
+        assert{ File.stat(c.path).mode.to_s(8).end_with?('700') }
+
+        c.purge
+
+        plugin.stop; plugin.before_shutdown; plugin.shutdown; plugin.after_shutdown; plugin.close; plugin.terminate
+      ensure
+        FileUtils.rm_r bufdir
+      end
+    end
   end
 
   sub_test_case 'configured with system root directory and plugin @id' do
