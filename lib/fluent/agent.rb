@@ -61,19 +61,26 @@ module Fluent
       super
 
       # initialize <match> and <filter> elements
-      conf.elements('filter', 'match').each { |e|
+      conf.elements('filter').each do |e|
         if !Fluent::Engine.supervisor_mode && e.for_another_worker?
           next
         end
         pattern = e.arg.empty? ? '**' : e.arg
         type = e['@type']
         raise ConfigError, "Missing '@type' parameter on <#{e.name}> directive" unless type
-        if e.name == 'filter'
-          add_filter(type, pattern, e)
-        else
-          add_match(type, pattern, e)
+        add_filter(type, pattern, e)
+      end
+
+      conf.elements('match').each do |e|
+        if !Fluent::Engine.supervisor_mode && e.for_another_worker?
+          next
         end
-      }
+        pattern = e.arg.empty? ? '**' : e.arg
+        type = e['@type']
+        raise ConfigError, "Missing '@type' parameter on <#{e.name}> directive" unless type
+
+        add_match(type, pattern, e)
+      end
     end
 
     def lifecycle_control_list
