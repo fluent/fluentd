@@ -51,19 +51,23 @@ module Fluent
 
         unmatched_tags = Fluent::Log.event_tags.select { |t| !log_event_router.match?(t) }
         unless unmatched_tags.empty?
-          $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          $log.warn "match for some tags of log events are not defined in @FLUENT_LOG label (to be ignored)", tags: unmatched_tags
         end
 
       rescue ArgumentError # ArgumentError "#{label_name} label not found"
         # use default event router if <label @FLUENT_LOG> is missing in configuration
         root_log_event_router = root_agent.event_router
-
-        if Fluent::Log.event_tags.any? { |t| root_log_event_router.match?(t) }
+        event_tags = Fluent::Log.event_tags
+        if event_tags.any? { |t| root_log_event_router.match?(t) }
           log_event_router = root_log_event_router
 
-          unmatched_tags = Fluent::Log.event_tags.select { |t| !log_event_router.match?(t) }
-          unless unmatched_tags.empty?
-            $log.warn "match for some tags of log events are not defined (to be ignored)", tags: unmatched_tags
+          unmatched_tags = event_tags.select { |t| !log_event_router.match?(t) }
+          if unmatched_tags.empty?
+            $log.warn "define <match fluent.**> to capture fluentd logs in top level is deprecated. Use <label @FLUENT_LOG> instead"
+          else
+            matched_sections = (event_tags - unmatched_tags).map { |tag| "<match #{tag}>" }.join(', ')
+            $log.warn "define #{matched_sections} to capture fluentd logs in top level is deprecated. Use <label @FLUENT_LOG> instead"
+            $log.warn "match for some tags of log events are not defined in top level (to be ignored)", tags: unmatched_tags
           end
         end
       end

@@ -317,7 +317,8 @@ CONF
         create_cmdline(conf_path),
         "fluentd worker is now running",
         'fluent.info: {"worker":0,"message":"fluentd worker is now running worker=0"}',
-        patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug"]'],
+        "define <match fluent.**> to capture fluentd logs in top level is deprecated. Use <label @FLUENT_LOG> instead",
+        patterns_not_match: ['[warn]: some tags for log events are not defined in top level (to be ignored) tags=["fluent.trace", "fluent.debug"]'],
       )
     end
 
@@ -331,7 +332,8 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        '[warn]: #0 match for some tags of log events are not defined (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
+        '[warn]: #0 match for some tags of log events are not defined in top level (to be ignored) tags=["fluent.trace", "fluent.debug", "fluent.info"]',
+        "define <match fluent.warn>, <match fluent.error>, <match fluent.fatal> to capture fluentd logs in top level is deprecated. Use <label @FLUENT_LOG> instead",
         '[warn]: #0 no patterns matched tag="fluent.info"',
       )
     end
@@ -349,7 +351,7 @@ CONF
         create_cmdline(conf_path),
         "fluentd worker is now running",
         'fluent.info: {"worker":0,"message":"fluentd worker is now running worker=0"}',
-        patterns_not_match: ['[warn]: some tags for log events are not defined (to be ignored)'],
+        patterns_not_match: ['[warn]: some tags for log events are not defined in @FLUENT_LOG label (to be ignored)'],
       )
     end
 
@@ -368,7 +370,7 @@ CONF
       assert_log_matches(
         create_cmdline(conf_path),
         "fluentd worker is now running",
-        '[warn]: #0 match for some tags of log events are not defined (to be ignored) tags=["fluent.info", "fluent.fatal"]',
+        '[warn]: #0 match for some tags of log events are not defined in @FLUENT_LOG label (to be ignored) tags=["fluent.info", "fluent.fatal"]',
         patterns_not_match: ['[warn]: no patterns matched tag="fluent.info"'],
       )
     end
