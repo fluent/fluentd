@@ -602,6 +602,20 @@ module Fluent::Config
             assert_equal([], x6a.obj2)
           end
         end
+
+        test 'strict value type' do
+          class InfFloatConfig
+            include Fluent::Configurable
+            config_param :int1, :integer
+            config_param :float1, :float
+          end
+
+          default = config_element("", "", {"int1" => "1", "float1" => ""})
+
+          c = InfFloatConfig.new
+          assert_nothing_raised { c.configure(default) }
+          assert_raise(ArgumentError) { c.configure(default, strict_config_value: true) }
+        end
       end
     end
 

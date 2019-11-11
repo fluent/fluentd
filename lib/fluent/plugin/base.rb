@@ -60,7 +60,7 @@ module Fluent
                     end
           system_config_override(workers: workers)
         end
-        super
+        super(conf, strict_config_value: system_config.strict_config_value)
         @_state ||= State.new(false, false, false, false, false, false, false, false, false)
         @_state.configure = true
         self

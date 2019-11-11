@@ -106,7 +106,7 @@ module Fluent
     end
 
     module SectionGenerator
-      def self.generate(proxy, conf, logger, plugin_class, stack = [])
+      def self.generate(proxy, conf, logger, plugin_class, strict_config_value = false, stack = [])
         return nil if conf.nil?
 
         section_stack = ""
@@ -124,6 +124,7 @@ module Fluent
         if proxy.argument
           unless conf.arg.empty?
             key, block, opts = proxy.argument
+            opts = opts.merge(strict: true) if strict_config_value
             section_params[key] = self.instance_exec(conf.arg, opts, name, &block)
           end
           unless section_params.has_key?(proxy.argument.first)
@@ -142,6 +143,7 @@ module Fluent
                   else
                     conf[opts[:alias].to_s]
                   end
+            opts = opts.merge(strict: true) if strict_config_value
             section_params[varname] = self.instance_exec(val, opts, name, &block)
 
             # Source of definitions of deprecated/obsoleted:
@@ -190,13 +192,13 @@ module Fluent
             raise ConfigError, "'<#{subproxy.name}>' sections are required" + section_stack
           end
           if subproxy.multi?
-            section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, stack + [subproxy.name]) }
+            section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, strict_config_value, stack + [subproxy.name]) }
           else
             if elements.size > 1
               logger.error "config error in:\n#{conf}" if logger
               raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more" + section_stack
             end
-            section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, stack + [subproxy.name])
+            section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, strict_config_value, stack + [subproxy.name])
           end
         end
 
