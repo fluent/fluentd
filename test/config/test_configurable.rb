@@ -214,6 +214,12 @@ module ConfigurableSpec
     end
   end
 
+  class ExampleWithIntFloat
+    include Fluent::Configurable
+    config_param :int1, :integer
+    config_param :float1, :float
+  end
+
   module Overwrite
     class Base
       include Fluent::Configurable
@@ -604,17 +610,11 @@ module Fluent::Config
         end
 
         test 'strict value type' do
-          class InfFloatConfig
-            include Fluent::Configurable
-            config_param :int1, :integer
-            config_param :float1, :float
-          end
-
           default = config_element("", "", {"int1" => "1", "float1" => ""})
 
-          c = InfFloatConfig.new
+          c = ConfigurableSpec::ExampleWithIntFloat.new
           assert_nothing_raised { c.configure(default) }
-          assert_raise(ArgumentError) { c.configure(default, strict_config_value: true) }
+          assert_raise(Fluent::ConfigError) { c.configure(default, strict_config_value: true) }
         end
       end
     end

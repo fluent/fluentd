@@ -20,7 +20,7 @@ require 'fluent/config/error'
 
 module Fluent
   module Config
-    def self.size_value(str, opts = {})
+    def self.size_value(str, opts = {}, name = nil)
       case str.to_s
       when /([0-9]+)k/i
         $~[1].to_i * 1024
@@ -31,11 +31,11 @@ module Fluent
       when /([0-9]+)t/i
         $~[1].to_i * (1024 ** 4)
       else
-        INTEGER_TYPE.call(str, opts)
+        INTEGER_TYPE.call(str, opts, name)
       end
     end
 
-    def self.time_value(str, opts = {})
+    def self.time_value(str, opts = {}, name = nil)
       case str.to_s
       when /([0-9]+)s/
         $~[1].to_i
@@ -46,11 +46,11 @@ module Fluent
       when /([0-9]+)d/
         $~[1].to_i * 24 * 60 * 60
       else
-        FLOAT_TYPE.call(str, opts)
+        FLOAT_TYPE.call(str, opts, name)
       end
     end
 
-    def self.bool_value(str, opts = {})
+    def self.bool_value(str, opts = {}, name = nil)
       return nil if str.nil?
       case str.to_s
       when 'true', 'yes'
@@ -70,7 +70,7 @@ module Fluent
       end
     end
 
-    def self.regexp_value(str, opts = {})
+    def self.regexp_value(str, opts = {}, name = nil)
       return nil unless str
       return Regexp.compile(str) unless str.start_with?("/")
       right_slash_position = str.rindex("/")
@@ -84,13 +84,13 @@ module Fluent
       Regexp.compile(str[1...right_slash_position], option)
     end
 
-    STRING_TYPE = Proc.new { |val, opts|
+    STRING_TYPE = Proc.new { |val, opts = {}, name = nil|
       v = val.to_s
       v = v.frozen? ? v.dup : v # config_param can't assume incoming string is mutable
       v.force_encoding(Encoding::UTF_8)
     }
 
-    ENUM_TYPE = Proc.new { |val, opts|
+    ENUM_TYPE = Proc.new { |val, opts = {}, name = nil|
       s = val.to_sym
       list = opts[:list]
       raise "Plugin BUG: config type 'enum' requires :list of symbols" unless list.is_a?(Array) && list.all?{|v| v.is_a? Symbol }
@@ -100,57 +100,65 @@ module Fluent
       s
     }
 
-    INTEGER_TYPE = Proc.new { |val, opts|
-      if opts[:strict]
-        Integer(val)
-      else
-        val.to_i
+    INTEGER_TYPE = Proc.new { |val, opts = {}, name = nil|
+      begin
+        if opts[:strict]
+          Integer(val)
+        else
+          val.to_i
+        end
+      rescue ArgumentError, TypeError => e
+        raise ConfigError, "#{name}: #{e.message}"
       end
     }
 
-    FLOAT_TYPE = Proc.new { |val, opts|
-      if opts[:strict]
-        Float(val)
-      else
-        val.to_f
+    FLOAT_TYPE = Proc.new { |val, opts = {}, name = nil|
+      begin
+        if opts[:strict]
+          Float(val)
+        else
+          val.to_f
+        end
+      rescue ArgumentError, TypeError => e
+        raise ConfigError, "#{name}: #{e.message}"
       end
     }
 
-    SIZE_TYPE = Proc.new { |val, opts|
-      Config.size_value(val, opts)
+    SIZE_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.size_value(val, opts, name)
     }
 
-    BOOL_TYPE = Proc.new { |val, opts|
-      Config.bool_value(val, opts)
+    BOOL_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.bool_value(val, opts, name)
     }
 
-    TIME_TYPE = Proc.new { |val, opts|
-      Config.time_value(val, opts)
+    TIME_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.time_value(val, opts, name)
     }
 
-    REGEXP_TYPE = Proc.new { |val, opts|
-      Config.regexp_value(val, opts)
+    REGEXP_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.regexp_value(val, opts, name)
     }
 
-    REFORMAT_VALUE = ->(type, value, opts) {
+    REFORMAT_VALUE = ->(type, value, opts = {}, name = nil) {
       if value.nil?
         value
       else
         case type
         when :string  then value.to_s.force_encoding(Encoding::UTF_8)
-        when :integer then INTEGER_TYPE.call(value, opts)
-        when :float   then FLOAT_TYPE.call(value, opts)
-        when :size then Config.size_value(value, opts)
-        when :bool then Config.bool_value(value, opts)
-        when :time then Config.time_value(value, opts)
-        when :regexp then Config.regexp_value(value, opts)
+        when :integer then INTEGER_TYPE.call(value, opts, name)
+        when :float   then FLOAT_TYPE.call(value, opts, name)
+        when :size then Config.size_value(value, opts, name)
+        when :bool then Config.bool_value(value, opts, name)
+        when :time then Config.time_value(value, opts, name)
+        when :regexp then Config.regexp_value(value, opts, name)
         else
           raise "unknown type in REFORMAT: #{type}"
         end
       end
     }
 
-    HASH_TYPE = Proc.new { |val, opts|
+    HASH_TYPE = Proc.new { |val, opts = {}, name = nil|
       param = if val.is_a?(String)
                 val.start_with?('{') ? JSON.load(val) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
               else
@@ -165,13 +173,13 @@ module Fluent
         newparam = {}
         param.each_pair do |key, value|
           new_key = opts[:symbolize_keys] ? key.to_sym : key
-          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUE.call(opts[:value_type], value, opts) : value
+          newparam[new_key] = opts[:value_type] ? REFORMAT_VALUE.call(opts[:value_type], value, opts, new_key) : value
         end
         newparam
       end
     }
 
-    ARRAY_TYPE = Proc.new { |val, opts|
+    ARRAY_TYPE = Proc.new { |val, opts = {}, name = nil|
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)
               else
@@ -181,7 +189,7 @@ module Fluent
         raise ConfigError, "array required but got #{val.inspect}"
       end
       if opts[:value_type]
-        param.map{|v| REFORMAT_VALUE.call(opts[:value_type], v, opts) }
+        param.map{|v| REFORMAT_VALUE.call(opts[:value_type], v, opts, nil) }
       else
         param
       end
