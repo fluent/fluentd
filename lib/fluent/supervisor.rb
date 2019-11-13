@@ -404,6 +404,7 @@ module Fluent
         suppress_repeated_stacktrace: true,
         without_source: nil,
         use_v1_config: true,
+        strict_config_value: nil,
         supervise: true,
         standalone_worker: false,
         signame: nil,
