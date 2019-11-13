@@ -75,12 +75,12 @@ module Fluent
       config_param :timeout, :time, default: nil
     end
 
-    def self.create(conf)
+    def self.create(conf, strict_config_value: false)
       systems = conf.elements(name: 'system')
       return SystemConfig.new if systems.empty?
       raise Fluent::ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
 
-      SystemConfig.new(systems.first)
+      SystemConfig.new(systems.first, strict_config_value)
     end
 
     def self.blank_system_config
@@ -97,13 +97,13 @@ module Fluent
       end
     end
 
-    def initialize(conf=nil)
+    def initialize(conf=nil, strict_config_value=false)
       super()
       conf ||= SystemConfig.blank_system_config
-      configure(conf)
+      configure(conf, strict_config_value: strict_config_value)
     end
 
-    def configure(conf)
+    def configure(conf, strict_config_value: false)
       super
 
       @log_level = Log.str_to_level(@log_level.to_s) if @log_level
