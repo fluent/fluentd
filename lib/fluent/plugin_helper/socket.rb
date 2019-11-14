@@ -150,7 +150,11 @@ module Fluent
           context.ciphers = ciphers
           context.verify_mode = OpenSSL::SSL::VERIFY_PEER
           context.cert_store = cert_store
-          context.verify_hostname = true if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
+          if verify_fqdn && fqdn && context.respond_to?(:verify_hostname=)
+            context.verify_hostname = true
+          else
+            context.verify_hostname = false
+          end
           context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
           context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
         end
