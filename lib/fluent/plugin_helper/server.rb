@@ -355,7 +355,10 @@ module Fluent
         sock = if shared
                  server_socket_manager_client.listen_tcp(bind, port)
                else
-                 TCPServer.new(bind, port) # this method call can create sockets for AF_INET6
+                 # TCPServer.new doesn't set IPV6_V6ONLY flag, so use tcp_server_sockets instead.
+                 tsock = ::Socket.tcp_server_sockets(bind, port).first
+                 tsock.autoclose = false
+                 TCPServer.for_fd(tsock.fileno)
                end
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
