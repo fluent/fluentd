@@ -64,6 +64,8 @@ module Fluent
         # parser should pass empty string in this case but changing behaviour may break existing environment so keep parser behaviour. Just ignore comment value in boolean handling for now.
         if str.respond_to?('start_with?') && str.start_with?('#')
           true
+        elsif opts[:strict]
+          raise Fluent::ConfigError, "#{name}: invalid bool value: #{str}"
         else
           nil
         end

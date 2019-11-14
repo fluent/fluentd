@@ -95,6 +95,21 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'not assumed case' do |(expected, val)|
       assert_equal(expected, Config.bool_value(val))
     end
+
+    data("true" =>  [true,  true],
+         "false" => [false, false],
+         "hoge" => [Fluent::ConfigError.new("name1: invalid bool value: hoge"), "hoge"],
+         "nill" => [nil, nil],
+         "integer" => [Fluent::ConfigError.new("name1: invalid bool value: 10"), 10])
+    test 'not assumed case with strict' do |(expected, val)|
+      if expected.kind_of? Exception
+        assert_raise(expected) do
+          Config.bool_value(val, { strict: true }, "name1")
+        end
+      else
+        assert_equal(expected, Config.bool_value(val, { strict: true }, "name1"))
+      end
+    end
   end
 
   sub_test_case 'Config.regexp_value' do
