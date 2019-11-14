@@ -1,3 +1,6 @@
+require 'openssl'
+require 'tempfile'
+
 require_relative '../helper'
 require 'fluent/test/driver/output'
 require 'fluent/plugin/out_forward'
@@ -621,6 +624,101 @@ EOL
     assert_equal(['test', time, records[1]], events[1])
   end
 
+  data('ack true' => true,
+       'ack false' => false)
+  test 'TLS transport client cert chain' do |ack|
+    omit "TLS and 'ack false' always fails on AppVeyor. Need to debug" if Fluent.windows? && !ack
+
+    # Cert generation based on
+    # https://ruby-doc.org/stdlib-2.4.0/libdoc/openssl/rdoc/OpenSSL/X509/Certificate.html
+    # examples
+    root = create_certificate("root-ca", 1)
+    root_ca = root[0]
+
+    root_ca_file = Tempfile.new("root-cert")
+    root_ca_file.write(root_ca.to_pem())
+    root_ca_file.close
+    # No need to write root key to file
+
+    intermediate = create_certificate("intermediate-ca", 2, root)
+    # The intermediate_ca is not written to a file - it will be in the
+    # client and service certificates' chain.
+
+    # Test both (root->cert) and (root->intermediate->cert)
+    parents = [root, intermediate]
+    parents.each do |parent|
+      client_cert, client_key = create_certificate("client-cert", 3, parent, false)
+      client_cert_file = Tempfile.new("client-cert")
+      client_cert_file.write(client_cert.to_pem())
+      if parent != root
+        client_cert_file.write(parent[0].to_pem())
+      end
+      client_cert_file.close
+
+      client_key_file = Tempfile.new("client-key")
+      client_key_file.write(client_key.to_pem())
+      client_key_file.close
+
+      server_cert, server_key = create_certificate("server-cert", 4, parent, false)
+
+      server_cert_file = Tempfile.new("server-cert")
+      server_cert_file.write(server_cert.to_pem())
+      if parent != root
+        server_cert_file.write(parent[0].to_pem())
+      end
+      server_cert_file.close
+
+      server_key_file = Tempfile.new("server-key")
+      server_key_file.write(server_key.to_pem())
+      server_key_file.close
+
+      input_conf = TARGET_CONFIG + %[
+                     <transport tls>
+                       cert_path #{server_cert_file.path}
+                       private_key_path #{server_key_file.path}
+                       client_cert_auth true
+                       ca_path #{root_ca_file.path}
+                     </transport>
+                   ]
+      target_input_driver = create_target_input_driver(conf: input_conf)
+
+      output_conf = %[
+        send_timeout 5
+        require_ack_response #{ack}
+        transport tls
+        tls_verify_hostname false
+        tls_cert_path #{root_ca_file.path}
+        tls_client_cert_path #{client_cert_file.path}
+        tls_client_private_key_path #{client_key_file.path}
+        <server>
+          host #{TARGET_HOST}
+          port #{TARGET_PORT}
+        </server>
+        <buffer>
+          #flush_mode immediate
+          flush_interval 0s
+          flush_at_shutdown false # suppress errors in d.instance_shutdown
+        </buffer>
+      ]
+      @d = d = create_driver(output_conf)
+
+      time = event_time("2011-01-02 13:14:15 UTC")
+      records = [{"a" => 1}, {"a" => 2}]
+      target_input_driver.run(expect_records: 2, timeout: 3) do
+        d.run(default_tag: 'test', wait_flush_completion: false, shutdown: false) do
+          records.each do |record|
+            d.feed(time, record)
+          end
+        end
+      end
+
+      events = target_input_driver.events
+      assert_not_equal(events, [])
+      assert_equal(['test', time, records[0]], events[0])
+      assert_equal(['test', time, records[1]], events[1])
+    end
+  end
+
   test 'a destination node not supporting responses by just ignoring' do
     target_input_driver = create_target_input_driver(response_stub: ->(_option) { nil }, disconnect: false)
 
@@ -918,6 +1016,39 @@ EOL
         end
       end
     }.configure(conf)
+  end
+
+  def create_certificate(name, serial, parent = nil, ca = true)
+    key = OpenSSL::PKey::RSA.new 2048
+    cert = OpenSSL::X509::Certificate.new
+
+    parent_cert = cert
+    parent_key = key
+    if parent
+      parent_cert = parent[0]
+      parent_key = parent[1]
+    end
+
+    cert.version = 2
+    cert.serial = serial
+    cert.subject = OpenSSL::X509::Name.parse "/CN=#{name}"
+    cert.issuer = parent_cert.subject
+    cert.public_key = key.public_key
+    cert.not_before = Time.now
+    cert.not_after = cert.not_before + 60*60 # 1 hour
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = cert
+    ef.issuer_certificate = parent_cert
+    cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
+    if ca
+      cert.add_extension(ef.create_extension("basicConstraints", "CA:TRUE", true))
+      cert.add_extension(ef.create_extension("keyUsage", "keyCertSign, cRLSign", true))
+      cert.add_extension(ef.create_extension("authorityKeyIdentifier", "keyid:always", false))
+    else
+      cert.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
+    end
+    cert.sign(parent_key, OpenSSL::Digest::SHA256.new)
+    [cert, key]
   end
 
   test 'heartbeat_type_none' do

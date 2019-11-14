@@ -38,6 +38,7 @@ module Fluent
       ### follow httpclient configuration by nahi
       # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
       CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
+      CERT_PEM_RE = Regexp.compile('-+BEGIN CERTIFICATE-+\n(?:[^-]*\n)+-+END CERTIFICATE-+\n', Regexp::MULTILINE)
 
       attr_reader :_sockets # for tests
 
@@ -155,8 +156,12 @@ module Fluent
           else
             context.verify_hostname = false
           end
-          context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
-          context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
+
+          cert_data = File.read(cert_path)
+          client_certs = []
+          cert_data.scan(CERT_PEM_RE){|match| client_certs << OpenSSL::X509::Certificate.new(match)}
+          private_key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
+          context.add_certificate(client_certs[0], private_key, client_certs[1..-1])
         end
 
         tcpsock = socket_create_tcp(host, port, **kwargs)
