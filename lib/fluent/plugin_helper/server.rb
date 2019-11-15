@@ -356,7 +356,7 @@ module Fluent
                  server_socket_manager_client.listen_tcp(bind, port)
                else
                  # TCPServer.new doesn't set IPV6_V6ONLY flag, so use tcp_server_sockets instead.
-                 tsock = ::Socket.tcp_server_sockets(bind, port).first
+                 tsock = Addrinfo.tcp(bind, port).listen(::Socket::SOMAXCONN)
                  tsock.autoclose = false
                  TCPServer.for_fd(tsock.fileno)
                end
