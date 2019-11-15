@@ -538,6 +538,19 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert_equal ["yayfoo\n", "yayfoo\n", "yayfoo\n"], lines
       assert_equal ["closed", "closed", "closed"], callback_results
     end
+
+    test 'can listen IPv4 / IPv6 together' do
+      omit "IPv6 unavailable here" unless ipv6_enabled?
+
+      assert_nothing_raised do
+        @d.server_create_tcp(:s_ipv4, PORT, bind: '0.0.0.0', shared: false) do |data, conn|
+          # ...
+        end
+        @d.server_create_tcp(:s_ipv6, PORT, bind: '::', shared: false) do |data, conn|
+          # ...
+        end
+      end
+    end
   end
 
   sub_test_case '#server_create_udp' do
