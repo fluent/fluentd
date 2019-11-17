@@ -13,16 +13,23 @@
   https://github.com/fluent/fluentd/pull/2660
 * Relax tzinfo dependency to accept v1
   https://github.com/fluent/fluentd/pull/2673
-* clean up internal classes / code
+* log: Deprecate top-level match for capturing fluentd logs
+  https://github.com/fluent/fluentd/pull/2689
+* clean up internal classes / methods / code
   https://github.com/fluent/fluentd/pull/2647
   https://github.com/fluent/fluentd/pull/2648
   https://github.com/fluent/fluentd/pull/2653
   https://github.com/fluent/fluentd/pull/2654
   https://github.com/fluent/fluentd/pull/2657
   https://github.com/fluent/fluentd/pull/2667
+  https://github.com/fluent/fluentd/pull/2674
+  https://github.com/fluent/fluentd/pull/2677
+  https://github.com/fluent/fluentd/pull/2680
 
 ### Bug fixes
 
+* Fix dry-run mode
+  https://github.com/fluent/fluentd/pull/2651
 * suppress warning
   https://github.com/fluent/fluentd/pull/2652
 * suppress keyword argument warning for ruby2.7
@@ -31,6 +38,12 @@
   https://github.com/fluent/fluentd/pull/2666
 * time: Properly show class names in error message
   https://github.com/fluent/fluentd/pull/2671
+* Fix a potential bug that ThreadError may occur on SIGUSR1
+  https://github.com/fluent/fluentd/pull/2678
+* server helper: Ignore ECONNREFUSED in TLS accept to avoid fluentd restart
+  https://github.com/fluent/fluentd/pull/2695
+* server helper: Fix IPv6 dual stack mode issue for tcp socket.
+  https://github.com/fluent/fluentd/pull/2697
 
 
 # v1.7
