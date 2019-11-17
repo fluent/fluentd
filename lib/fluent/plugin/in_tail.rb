@@ -49,6 +49,7 @@ module Fluent::Plugin
     def initialize
       super
       @paths = []
+      @threads = {}
       @tails = {}
       @pf_file = nil
       @pf = nil
@@ -203,7 +204,14 @@ module Fluent::Plugin
       end
 
       refresh_watchers unless @skip_refresh_on_startup
-      timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
+
+      @threads['in_tail_refresh_watchers'] = Thread.new(@refresh_interval) do |refresh_interval|
+        timer_execute(:in_tail_refresh_watchers, @refresh_interval, &method(:refresh_watchers))
+      end
+      
+      @threads.each { |thr| 
+        thr.join
+      }
     end
 
     def stop
@@ -304,31 +312,38 @@ module Fluent::Plugin
 
     def start_watchers(paths)
       paths.each { |path|
-        pe = nil
-        if @pf
-          pe = @pf[path]
-          if @read_from_head && pe.read_inode.zero?
-            begin
-              pe.update(Fluent::FileWrapper.stat(path).ino, 0)
-            rescue Errno::ENOENT
-              $log.warn "#{path} not found. Continuing without tailing it."
+        @threads[path] = Thread.new(path) do |path|
+          pe = nil
+          if @pf
+            pe = @pf[path]
+            if @read_from_head && pe.read_inode.zero?
+              begin
+                pe.update(Fluent::FileWrapper.stat(path).ino, 0)
+              rescue Errno::ENOENT
+                $log.warn "#{path} not found. Continuing without tailing it."
+              end
             end
           end
-        end
 
-        begin
-          tw = setup_watcher(path, pe)
-        rescue WatcherSetupError => e
-          log.warn "Skip #{path} because unexpected setup error happens: #{e}"
-          next
+          begin
+            tw = setup_watcher(path, pe)
+          rescue WatcherSetupError => e
+            log.warn "Skip #{path} because unexpected setup error happens: #{e}"
+            next
+          end
+          @tails[path] = tw
         end
-        @tails[path] = tw
       }
     end
 
     def stop_watchers(paths, immediate: false, unwatched: false, remove_watcher: true)
       paths.each { |path|
         tw = remove_watcher ? @tails.delete(path) : @tails[path]
+        if remove_watcher
+          @threads[path].exit
+          @threads.delete(path)
+        end
+
         if tw
           tw.unwatched = unwatched
           if immediate
@@ -342,6 +357,8 @@ module Fluent::Plugin
 
     def close_watcher_handles
       @tails.keys.each do |path|
+        @threads[path].exit
+        @threads.delete(path)
         tw = @tails.delete(path)
         if tw
           tw.close
@@ -750,6 +767,7 @@ module Fluent::Plugin
         def handle_notify
           with_io do |io|
             begin
+              bytes_to_read = 8192
               number_bytes_read = 0
               start_reading = Time.new
               read_more = false
@@ -757,19 +775,18 @@ module Fluent::Plugin
               if !io.nil? && @lines.empty?
                 begin
                   while true
-                    bytes_to_read = 8192
                     @fifo << io.readpartial(bytes_to_read, @iobuf)
                     @fifo.read_lines(@lines)
 
                     number_bytes_read += bytes_to_read 
-                    limit_bytes_per_second_reached = number_bytes_read >= @watcher.read_bytes_limit_per_second and @watcher.read_bytes_limit_per_second > 0
+                    limit_bytes_per_second_reached = (number_bytes_read >= @watcher.read_bytes_limit_per_second and @watcher.read_bytes_limit_per_second > 0)
 
                     if @lines.size >= @watcher.read_lines_limit or limit_bytes_per_second_reached 
                       # not to use too much memory in case the file is very large
                       read_more = true
 
                       if limit_bytes_per_second_reached 
-                        # sleep to stop reading files when we reach the read lines byte per second, to throttle the log ingestion
+                        # sleep to stop reading files when we reach the read bytes per second limit, to throttle the log ingestion
                         time_spent_reading = Time.new - start_reading 
                         @watcher.log.debug("time_spent_reading: #{time_spent_reading}")
                         if (time_spent_reading < 1)
@@ -779,11 +796,9 @@ module Fluent::Plugin
                         end
                         start_reading = Time.new
                       end
-                    end
-                    if @lines.size >= @watcher.read_lines_limit or limit_bytes_per_second_reached 
+
                       break
                     end
-
                   end
                 rescue EOFError
                 end
