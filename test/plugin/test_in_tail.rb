@@ -73,7 +73,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal 2, d.instance.rotate_wait
       assert_equal "#{TMP_DIR}/tail.pos", d.instance.pos_file
       assert_equal 1000, d.instance.read_lines_limit
-      assert_equal -1, d.instance.read_lines_limit_per_notify
+      assert_equal -1, d.instance.read_bytes_limit_per_second
       assert_equal false, d.instance.ignore_repeated_permission_error
     end
 
@@ -213,17 +213,17 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(num_events, d.emit_count)
     end
 
-    data('flat 1' => [:flat, 100, 1, 10],
-         'flat 10' => [:flat, 100, 10, 20],
-         'parse 1' => [:parse, 100, 3, 10],
-         'parse 10' => [:parse, 100, 10, 20])
-    def test_emit_with_read_lines_limit_per_notify(data)
-      config_style, limit, limit_per_notify, num_events = data
+    data('flat 1' => [:flat, 100, 8192, 10],
+         'flat 10' => [:flat, 100, (8192 * 10), 20],
+         'parse 1' => [:parse, 100, (8192 * 3), 10],
+         'parse 10' => [:parse, 100, (8192 * 10), 20])
+    def test_emit_with_read_bytes_limit_per_second(data)
+      config_style, limit, limit_bytes, num_events = data
       case config_style
       when :flat
-        config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_lines_limit_per_notify" => limit_per_notify })
+        config = CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes })
       when :parse
-        config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_lines_limit_per_notify" => limit_per_notify }) + PARSE_SINGLE_LINE_CONFIG
+        config = CONFIG_READ_FROM_HEAD + config_element("", "", { "read_lines_limit" => limit, "read_bytes_limit_per_second" => limit_bytes }) + PARSE_SINGLE_LINE_CONFIG
       end
       d = create_driver(config)
       msg = 'test' * 2000 # in_tail reads 8192 bytes at once.
