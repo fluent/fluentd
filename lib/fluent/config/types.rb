@@ -21,6 +21,7 @@ require 'fluent/config/error'
 module Fluent
   module Config
     def self.size_value(str, opts = {}, name = nil)
+      return nil if str.nil?
       case str.to_s
       when /([0-9]+)k/i
         $~[1].to_i * 1024
@@ -36,6 +37,7 @@ module Fluent
     end
 
     def self.time_value(str, opts = {}, name = nil)
+      return nil if str.nil?
       case str.to_s
       when /([0-9]+)s/
         $~[1].to_i
@@ -86,13 +88,19 @@ module Fluent
       Regexp.compile(str[1...right_slash_position], option)
     end
 
-    STRING_TYPE = Proc.new { |val, opts = {}, name = nil|
+    def self.string_value(val, opts = {}, name = nil)
+      return nil if val.nil?
       v = val.to_s
       v = v.frozen? ? v.dup : v # config_param can't assume incoming string is mutable
       v.force_encoding(Encoding::UTF_8)
+    end
+
+    STRING_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.string_value(val, opts, name)
     }
 
-    ENUM_TYPE = Proc.new { |val, opts = {}, name = nil|
+    def self.enum_value(val, opts = {}, name = nil)
+      return nil if val.nil?
       s = val.to_sym
       list = opts[:list]
       raise "Plugin BUG: config type 'enum' requires :list of symbols" unless list.is_a?(Array) && list.all?{|v| v.is_a? Symbol }
@@ -100,11 +108,17 @@ module Fluent
         raise ConfigError, "valid options are #{list.join(',')} but got #{val}"
       end
       s
+    end
+
+    ENUM_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.enum_value(val, opts, name)
     }
 
     INTEGER_TYPE = Proc.new { |val, opts = {}, name = nil|
       begin
-        if opts[:strict]
+        if val.nil?
+          nil
+        elsif opts[:strict]
           Integer(val)
         else
           val.to_i
@@ -116,7 +130,9 @@ module Fluent
 
     FLOAT_TYPE = Proc.new { |val, opts = {}, name = nil|
       begin
-        if opts[:strict]
+        if val.nil?
+          nil
+        elsif opts[:strict]
           Float(val)
         else
           val.to_f
@@ -160,7 +176,8 @@ module Fluent
       end
     }
 
-    HASH_TYPE = Proc.new { |val, opts = {}, name = nil|
+    def self.hash_value(val, opts = {}, name = nil)
+      return nil if val.nil?
       param = if val.is_a?(String)
                 val.start_with?('{') ? JSON.load(val) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
               else
@@ -179,9 +196,14 @@ module Fluent
         end
         newparam
       end
+    end
+
+    HASH_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.hash_value(val, opts, name)
     }
 
-    ARRAY_TYPE = Proc.new { |val, opts = {}, name = nil|
+    def self.array_value(val, opts = {}, name = nil)
+      return nil if val.nil?
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)
               else
@@ -195,6 +217,10 @@ module Fluent
       else
         param
       end
+    end
+
+    ARRAY_TYPE = Proc.new { |val, opts = {}, name = nil|
+      Config.array_value(val, opts, name)
     }
   end
 end

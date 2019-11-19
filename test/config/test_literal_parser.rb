@@ -240,6 +240,7 @@ module Fluent::Config
         assert_text_parsed_as("foo1", '"foo#{worker_id}"')
         ENV.delete('SERVERENGINE_WORKER_ID')
       }
+      test('nil') { assert_text_parsed_as(nil, '"#{raise SetNil}"') }
     end
 
     sub_test_case 'array parsing' do

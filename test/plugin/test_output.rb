@@ -870,7 +870,7 @@ class OutputTest < Test::Unit::TestCase
 
   test 'raises an error if timekey is less than equal 0' do
     i = create_output(:delayed)
-    assert_raise Fluent::ConfigError.new('timekey should be greater than 0. current timekey: 0.0') do
+    assert_raise Fluent::ConfigError.new("<buffer ...> argument includes 'time', but timekey is not configured") do
       i.configure(config_element('ROOT','',{},[config_element('buffer', 'time', { "timekey" => nil })]))
     end
 

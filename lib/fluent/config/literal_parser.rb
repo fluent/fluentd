@@ -81,7 +81,11 @@ module Fluent
         string = []
         while true
           if skip(/\"/)
-            return string.join
+            if string.include?(nil)
+              return nil
+            else
+              return string.join
+            end
           elsif check(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
             if s = check(/[^\\]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
               string << s
@@ -168,7 +172,11 @@ module Fluent
 hostname = Socket.gethostname
 worker_id = ENV['SERVERENGINE_WORKER_ID'] || ''
 EOM
-        @eval_context.instance_eval(code)
+        begin
+          @eval_context.instance_eval(code)
+        rescue SetNil => e
+          nil
+        end
       end
 
       def eval_escape_char(c)

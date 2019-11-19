@@ -21,16 +21,18 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     data("integer" => [6, 6],
          "hoge" => [0, "hoge"],
-         "empty" => [0, ""],
-         "nil" => [0, nil])
+         "empty" => [0, ""])
     test 'not assumed case' do |(expected, val)|
       assert_equal(expected, Config.size_value(val))
     end
 
+    test 'nil' do
+      assert_equal(nil, Config.size_value(nil))
+    end
+
     data("integer" => [6, 6],
          "hoge" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"\""), ""],
-         "nil" => [Fluent::ConfigError.new("name1: can't convert nil into Integer"), nil])
+         "empty" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"\""), ""])
     test 'not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -39,6 +41,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       else
         assert_equal(expected, Config.size_value(val, { strict: true }, "name1"))
       end
+    end
+
+    test 'nil with strict' do
+      assert_equal(nil, Config.size_value(nil, { strict: true }))
     end
   end
 
@@ -56,16 +62,18 @@ class TestConfigTypes < ::Test::Unit::TestCase
     data("integer" => [4.0, 4],
          "float" => [0.4, 0.4],
          "hoge" => [0.0, "hoge"],
-         "empty" => [0.0, ""],
-         "nil" => [0.0, nil])
+         "empty" => [0.0, ""])
     test 'not assumed case' do |(expected, val)|
       assert_equal(expected, Config.time_value(val))
     end
 
+    test 'nil' do
+      assert_equal(nil, Config.time_value(nil))
+    end
+
     data("integer" => [6, 6],
          "hoge" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"\""), ""],
-         "nil" => [Fluent::ConfigError.new("name1: can't convert nil into Float"), nil])
+         "empty" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"\""), ""])
     test 'not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -74,6 +82,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       else
         assert_equal(expected, Config.time_value(val, { strict: true }, "name1"))
       end
+    end
+
+    test 'nil with strict' do
+      assert_equal(nil, Config.time_value(nil, { strict: true }))
     end
   end
 
@@ -138,6 +150,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
         Config.regexp_value(str)
       end
     end
+
+    test 'nil' do
+      assert_equal nil, Config.regexp_value(nil)
+    end
   end
 
   sub_test_case 'type converters for config_param definitions' do
@@ -147,6 +163,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'string' do |(expected, val)|
       assert_equal expected, Config::STRING_TYPE.call(val, {})
       assert_equal Encoding::UTF_8, Config::STRING_TYPE.call(val, {}).encoding
+    end
+
+    test 'string nil' do
+      assert_equal nil, Config::STRING_TYPE.call(nil, {})
     end
 
     data('latin' => 'Märch',
@@ -181,6 +201,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       end
     end
 
+    test 'enum: nil' do
+      assert_equal nil, Config::ENUM_TYPE.call(nil)
+    end
+
     data("1" => [1, '1'],
          "1.0" => [1, '1.0'],
          "1_000" => [1000, '1_000'],
@@ -191,16 +215,18 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     data("integer" => [6, 6],
          "hoge" => [0, "hoge"],
-         "empty" => [0, ""],
-         "nil" => [0, nil])
+         "empty" => [0, ""])
     test 'integer: not assumed case' do |(expected, val)|
       assert_equal expected, Config::INTEGER_TYPE.call(val, {})
     end
 
+    test 'integer: nil' do
+      assert_equal nil, Config::INTEGER_TYPE.call(nil, {})
+    end
+
     data("integer" => [6, 6],
          "hoge" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"\""), ""],
-         "nil" => [Fluent::ConfigError.new("name1: can't convert nil into Integer"), nil])
+         "empty" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"\""), ""])
     test 'integer: not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -209,6 +235,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       else
         assert_equal expected, Config::INTEGER_TYPE.call(val, { strict: true }, "name1")
       end
+    end
+
+    test 'integer: nil with strict' do
+      assert_equal nil, Config::INTEGER_TYPE.call(nil, { strict: true })
     end
 
     data("1" => [1.0, '1'],
@@ -221,16 +251,18 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     data("integer" => [6, 6],
          "hoge" => [0, "hoge"],
-         "empty" => [0, ""],
-         "nil" => [0, nil])
+         "empty" => [0, ""])
     test 'float: not assumed case' do |(expected, val)|
       assert_equal expected, Config::FLOAT_TYPE.call(val, {})
     end
 
+    test 'float: nil' do
+      assert_equal nil, Config::FLOAT_TYPE.call(nil, {})
+    end
+
     data("integer" => [6, 6],
          "hoge" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"\""), ""],
-         "nil" => [Fluent::ConfigError.new("name1: can't convert nil into Float"), nil])
+         "empty" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"\""), ""])
     test 'float: not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -239,6 +271,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       else
         assert_equal expected, Config::FLOAT_TYPE.call(val, { strict: true }, "name1")
       end
+    end
+
+    test 'float: nil with strict' do
+      assert_equal nil, Config::FLOAT_TYPE.call(nil, { strict: true })
     end
 
     data("1000" => [1000, '1000'],
@@ -318,6 +354,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(expected, Config::HASH_TYPE.call(target.b, { value_type: :string }))
     end
 
+    test 'hash w/ nil' do
+      assert_equal(nil, Config::HASH_TYPE.call(nil))
+    end
+
     data("strings and integer" => [["1","2",1],   '["1","2",1]', {}],
          "number strings" => [["1","2","1"], '1,2,1', {}],
          "alphabets" => [["a","b","c"], '["a","b","c"]', {}],
@@ -352,6 +392,10 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_raise(Fluent::ConfigError.new(": invalid value for Integer(): \"hoge\"")) do
         Config::ARRAY_TYPE.call("1,hoge", {value_type: :integer, strict: true}, "name1")
       end
+    end
+
+    test 'aray w/ nil' do
+      assert_equal(nil, Config::ARRAY_TYPE.call(nil))
     end
   end
 end
