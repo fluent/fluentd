@@ -26,4 +26,7 @@ module Fluent
 
   class SetNil < ConfigError
   end
+
+  class SetDefault < ConfigError
+  end
 end

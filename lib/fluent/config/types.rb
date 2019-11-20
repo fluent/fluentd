@@ -20,8 +20,18 @@ require 'fluent/config/error'
 
 module Fluent
   module Config
+    def self.default_value(opts = {})
+      if opts.has_key?(:default)
+        opts[:default]
+      else
+        nil
+      end
+    end
+
     def self.size_value(str, opts = {}, name = nil)
       return nil if str.nil?
+      return Config.default_value(opts) if str == :default
+
       case str.to_s
       when /([0-9]+)k/i
         $~[1].to_i * 1024
@@ -38,6 +48,8 @@ module Fluent
 
     def self.time_value(str, opts = {}, name = nil)
       return nil if str.nil?
+      return Config.default_value(opts) if str == :default
+
       case str.to_s
       when /([0-9]+)s/
         $~[1].to_i
@@ -54,6 +66,8 @@ module Fluent
 
     def self.bool_value(str, opts = {}, name = nil)
       return nil if str.nil?
+      return Config.default_value(opts) if str == :default
+
       case str.to_s
       when 'true', 'yes'
         true
@@ -76,6 +90,8 @@ module Fluent
 
     def self.regexp_value(str, opts = {}, name = nil)
       return nil unless str
+      return Config.default_value(opts) if str == :default
+
       return Regexp.compile(str) unless str.start_with?("/")
       right_slash_position = str.rindex("/")
       if right_slash_position < str.size - 3
@@ -90,6 +106,8 @@ module Fluent
 
     def self.string_value(val, opts = {}, name = nil)
       return nil if val.nil?
+      return Config.default_value(opts) if val == :default
+
       v = val.to_s
       v = v.frozen? ? v.dup : v # config_param can't assume incoming string is mutable
       v.force_encoding(Encoding::UTF_8)
@@ -101,6 +119,8 @@ module Fluent
 
     def self.enum_value(val, opts = {}, name = nil)
       return nil if val.nil?
+      return Config.default_value(opts) if val == :default
+
       s = val.to_sym
       list = opts[:list]
       raise "Plugin BUG: config type 'enum' requires :list of symbols" unless list.is_a?(Array) && list.all?{|v| v.is_a? Symbol }
@@ -118,6 +138,8 @@ module Fluent
       begin
         if val.nil?
           nil
+        elsif val == :default
+          Config.default_value(opts)
         elsif opts[:strict]
           Integer(val)
         else
@@ -132,6 +154,8 @@ module Fluent
       begin
         if val.nil?
           nil
+        elsif val == :default
+          Config.default_value(opts)
         elsif opts[:strict]
           Float(val)
         else
@@ -178,6 +202,8 @@ module Fluent
 
     def self.hash_value(val, opts = {}, name = nil)
       return nil if val.nil?
+      return Config.default_value(opts) if val == :default
+
       param = if val.is_a?(String)
                 val.start_with?('{') ? JSON.load(val) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
               else
@@ -204,6 +230,8 @@ module Fluent
 
     def self.array_value(val, opts = {}, name = nil)
       return nil if val.nil?
+      return Config.default_value(opts) if val == :default
+
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)
               else

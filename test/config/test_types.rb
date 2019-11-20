@@ -46,6 +46,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'nil with strict' do
       assert_equal(nil, Config.size_value(nil, { strict: true }))
     end
+
+    test 'default' do
+      assert_equal(2, Config.size_value(:default, { default: 2 }))
+    end
+
+    test 'no default' do
+      assert_equal(nil, Config.size_value(:default))
+    end
   end
 
   sub_test_case 'Config.time_value' do
@@ -87,6 +95,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'nil with strict' do
       assert_equal(nil, Config.time_value(nil, { strict: true }))
     end
+
+    test 'default' do
+      assert_equal(0.5, Config.time_value(:default, { default: 0.5 }))
+    end
+
+    test 'no default' do
+      assert_equal(nil, Config.time_value(:default))
+    end
   end
 
   sub_test_case 'Config.bool_value' do
@@ -111,7 +127,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
     data("true" =>  [true,  true],
          "false" => [false, false],
          "hoge" => [Fluent::ConfigError.new("name1: invalid bool value: hoge"), "hoge"],
-         "nill" => [nil, nil],
+         "nil" => [nil, nil],
          "integer" => [Fluent::ConfigError.new("name1: invalid bool value: 10"), 10])
     test 'not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
@@ -121,6 +137,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
       else
         assert_equal(expected, Config.bool_value(val, { strict: true }, "name1"))
       end
+    end
+
+    test 'default' do
+      assert_equal(true, Config.bool_value(:default, { default: true }))
+    end
+
+    test 'no default' do
+      assert_equal(nil, Config.time_value(:default))
     end
   end
 
@@ -154,6 +178,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
     test 'nil' do
       assert_equal nil, Config.regexp_value(nil)
     end
+
+    test 'default' do
+      assert_equal /regexp/, Config.regexp_value(:default, {default: /regexp/})
+    end
+
+    test 'no default' do
+      assert_equal nil, Config.regexp_value(:default)
+    end
   end
 
   sub_test_case 'type converters for config_param definitions' do
@@ -167,6 +199,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     test 'string nil' do
       assert_equal nil, Config::STRING_TYPE.call(nil, {})
+    end
+
+    test 'string default' do
+      assert_equal "hoge", Config::STRING_TYPE.call(:default, {default: "hoge"})
+    end
+
+    test 'string no default' do
+      assert_equal nil, Config::STRING_TYPE.call(:default)
     end
 
     data('latin' => 'Märch',
@@ -205,6 +245,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal nil, Config::ENUM_TYPE.call(nil)
     end
 
+    test 'enum: default' do
+      assert_equal :v, Config::ENUM_TYPE.call(:default, {list: [:val, :value, :v, :default], default: :v})
+    end
+
+    test 'enum: no default' do
+      assert_equal nil, Config::ENUM_TYPE.call(:default, {list: [:val, :value, :v, :default]})
+    end
+
     data("1" => [1, '1'],
          "1.0" => [1, '1.0'],
          "1_000" => [1000, '1_000'],
@@ -241,6 +289,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal nil, Config::INTEGER_TYPE.call(nil, { strict: true })
     end
 
+    test 'integer: default' do
+      assert_equal 4, Config::INTEGER_TYPE.call(:default, {default: 4})
+    end
+
+    test 'integer: no default' do
+      assert_equal nil, Config::INTEGER_TYPE.call(:default)
+    end
+
     data("1" => [1.0, '1'],
          "1.0" => [1.0, '1.0'],
          "1.00" => [1.0, '1.00'],
@@ -275,6 +331,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
 
     test 'float: nil with strict' do
       assert_equal nil, Config::FLOAT_TYPE.call(nil, { strict: true })
+    end
+
+    test 'float: default' do
+      assert_equal 4.0, Config::FLOAT_TYPE.call(:default, {default: 4.0})
+    end
+
+    test 'float: no default' do
+      assert_equal nil, Config::FLOAT_TYPE.call(:default)
     end
 
     data("1000" => [1000, '1000'],
@@ -358,6 +422,14 @@ class TestConfigTypes < ::Test::Unit::TestCase
       assert_equal(nil, Config::HASH_TYPE.call(nil))
     end
 
+    test 'hash w/ default' do
+      assert_equal({"a":"b", "c":"d"}, Config::HASH_TYPE.call(:default, {default: {"a":"b", "c":"d"}}))
+    end
+
+    test 'hash w/o default' do
+      assert_equal(nil, Config::HASH_TYPE.call(:default))
+    end
+
     data("strings and integer" => [["1","2",1],   '["1","2",1]', {}],
          "number strings" => [["1","2","1"], '1,2,1', {}],
          "alphabets" => [["a","b","c"], '["a","b","c"]', {}],
@@ -394,8 +466,16 @@ class TestConfigTypes < ::Test::Unit::TestCase
       end
     end
 
-    test 'aray w/ nil' do
+    test 'array w/ nil' do
       assert_equal(nil, Config::ARRAY_TYPE.call(nil))
+    end
+
+    test 'array w/ default' do
+      assert_equal([1, 2, 3], Config::ARRAY_TYPE.call(:default, {default: [1, 2, 3]}))
+    end
+
+    test 'array w/o default' do
+      assert_equal(nil, Config::ARRAY_TYPE.call(:default))
     end
   end
 end

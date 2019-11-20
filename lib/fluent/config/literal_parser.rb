@@ -83,6 +83,8 @@ module Fluent
           if skip(/\"/)
             if string.include?(nil)
               return nil
+            elsif string.include?(:default)
+              return :default
             else
               return string.join
             end
@@ -176,6 +178,8 @@ EOM
           @eval_context.instance_eval(code)
         rescue SetNil => e
           nil
+        rescue SetDefault => e
+          :default
         end
       end
 

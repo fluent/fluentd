@@ -241,6 +241,7 @@ module Fluent::Config
         ENV.delete('SERVERENGINE_WORKER_ID')
       }
       test('nil') { assert_text_parsed_as(nil, '"#{raise SetNil}"') }
+      test('default') { assert_text_parsed_as(:default, '"#{raise SetDefault}"') }
     end
 
     sub_test_case 'array parsing' do
