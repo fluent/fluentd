@@ -242,6 +242,8 @@ module Fluent::Config
       }
       test('nil') { assert_text_parsed_as(nil, '"#{raise SetNil}"') }
       test('default') { assert_text_parsed_as(:default, '"#{raise SetDefault}"') }
+      test('nil helper') { assert_text_parsed_as(nil, '"#{use_nil}"') }
+      test('default helper') { assert_text_parsed_as(:default, '"#{use_default}"') }
     end
 
     sub_test_case 'array parsing' do
