@@ -106,7 +106,7 @@ module Fluent
     end
 
     module SectionGenerator
-      def self.generate(proxy, conf, logger, plugin_class, strict_config_value = false, stack = [])
+      def self.generate(proxy, conf, logger, plugin_class, stack = [], strict_config_value = false)
         return nil if conf.nil?
 
         section_stack = ""
@@ -192,13 +192,13 @@ module Fluent
             raise ConfigError, "'<#{subproxy.name}>' sections are required" + section_stack
           end
           if subproxy.multi?
-            section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, strict_config_value, stack + [subproxy.name]) }
+            section_params[varname] = elements.map{ |e| generate(subproxy, e, logger, plugin_class, stack + [subproxy.name], strict_config_value) }
           else
             if elements.size > 1
               logger.error "config error in:\n#{conf}" if logger
               raise ConfigError, "'<#{subproxy.name}>' section cannot be written twice or more" + section_stack
             end
-            section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, strict_config_value, stack + [subproxy.name])
+            section_params[varname] = generate(subproxy, elements.first, logger, plugin_class, stack + [subproxy.name], strict_config_value)
           end
         end
 
