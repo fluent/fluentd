@@ -64,7 +64,8 @@ module Fluent::Plugin
       def config_ltsv(_req)
         obj = {
           'pid' => Process.pid,
-          'ppid' => Process.ppid
+          'ppid' => Process.ppid,
+          'version' => Fluent::VERSION,
         }.merge(@agent.fluentd_opts)
 
         render_ltsv([obj])
@@ -73,7 +74,8 @@ module Fluent::Plugin
       def config_json(req)
         obj = {
           'pid' => Process.pid,
-          'ppid' => Process.ppid
+          'ppid' => Process.ppid,
+          'version' => Fluent::VERSION,
         }.merge(@agent.fluentd_opts)
         opts = build_option(req)
 

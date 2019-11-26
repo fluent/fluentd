@@ -496,7 +496,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
   tag monitor
 ")
       d.instance.start
-      expected_response_regex = %r{pid:\d+\tppid:\d+\tconfig_path:#{@filepath}\tpid_file:\tplugin_dirs:/etc/fluent/plugin\tlog_path:}
+      expected_response_regex = %r{pid:\d+\tppid:\d+\tversion:#{Fluent::VERSION}\tconfig_path:#{@filepath}\tpid_file:\tplugin_dirs:/etc/fluent/plugin\tlog_path:}
       assert_match(expected_response_regex,
                    get("http://127.0.0.1:#{@port}/api/config").body)
     end
@@ -514,6 +514,7 @@ plugin_id:test_filter\tplugin_category:filter\ttype:test_filter\toutput_plugin:f
       assert_nil(res["pid_file"])
       assert_equal(["/etc/fluent/plugin"], res["plugin_dirs"])
       assert_nil(res["log_path"])
+      assert_equal(Fluent::VERSION, res["version"])
     end
 
     test "/api/config.json?debug=1" do
