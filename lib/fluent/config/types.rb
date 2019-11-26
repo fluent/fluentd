@@ -135,34 +135,34 @@ module Fluent
     }
 
     INTEGER_TYPE = Proc.new { |val, opts = {}, name = nil|
-      begin
-        if val.nil?
-          nil
-        elsif val == :default
-          Config.default_value(opts)
-        elsif opts[:strict]
+      if val.nil?
+        nil
+      elsif val == :default
+        Config.default_value(opts)
+      elsif opts[:strict]
+        begin
           Integer(val)
-        else
-          val.to_i
+        rescue ArgumentError, TypeError => e
+          raise ConfigError, "#{name}: #{e.message}"
         end
-      rescue ArgumentError, TypeError => e
-        raise ConfigError, "#{name}: #{e.message}"
+      else
+        val.to_i
       end
     }
 
     FLOAT_TYPE = Proc.new { |val, opts = {}, name = nil|
-      begin
-        if val.nil?
-          nil
-        elsif val == :default
-          Config.default_value(opts)
-        elsif opts[:strict]
+      if val.nil?
+        nil
+      elsif val == :default
+        Config.default_value(opts)
+      elsif opts[:strict]
+        begin
           Float(val)
-        else
-          val.to_f
+        rescue ArgumentError, TypeError => e
+          raise ConfigError, "#{name}: #{e.message}"
         end
-      rescue ArgumentError, TypeError => e
-        raise ConfigError, "#{name}: #{e.message}"
+      else
+        val.to_f
       end
     }
 
