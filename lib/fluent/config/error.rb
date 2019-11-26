@@ -24,9 +24,9 @@ module Fluent
   class ObsoletedParameterError < ConfigError
   end
 
-  class SetNil < ConfigError
+  class SetNil < Exception
   end
 
-  class SetDefault < ConfigError
+  class SetDefault < Exception
   end
 end
