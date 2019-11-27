@@ -251,9 +251,7 @@ module Fluent
       # Assume fluent.conf encoding is UTF-8
       config_data = File.open(path, "r:#{params['conf_encoding']}:utf-8") {|f| f.read }
       inline_config = params['inline_config']
-      if inline_config == '-'
-        config_data << "\n" << STDIN.read
-      elsif inline_config
+      if inline_config
         config_data << "\n" << inline_config.gsub("\\n","\n")
       end
       fluentd_conf = Fluent::Config.parse(config_data, config_fname, config_basedir, params['use_v1_config'])
@@ -572,6 +570,10 @@ module Fluent
         show_plugin_config
       end
 
+      if @inline_config == '-'
+        @inline_config = STDIN.read
+      end
+
       @conf = read_config
       @system_config = build_system_config(@conf)
 
@@ -783,10 +785,8 @@ module Fluent
       config_fname = File.basename(@config_path)
       config_basedir = File.dirname(@config_path)
       config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
-      if @inline_config == '-'
-        config_data << "\n" << STDIN.read
-      elsif @inline_config
-        config_data << "\n" << @inline_config.gsub("\\n","\n")
+      if @inline_config
+        config_data << "\n" << @inline_config.gsub("\\n", "\n")
       end
       Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
     end

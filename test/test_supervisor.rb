@@ -448,6 +448,21 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal 10, $log.out.instance_variable_get(:@shift_size)
   end
 
+  def test_inline_config
+    opts = Fluent::Supervisor.default_options
+    opts[:inline_config] = '-'
+    sv = Fluent::Supervisor.new(opts)
+    assert_equal '-', sv.instance_variable_get(:@inline_config)
+
+    inline_config = '<match *>\n@type stdout\n</match>'
+    stub(STDIN).read { inline_config }
+    stub(sv).read_config        # to skip
+    stub(sv).build_system_config { Fluent::SystemConfig.new } # to skip
+
+    sv.configure
+    assert_equal inline_config, sv.instance_variable_get(:@inline_config)
+  end
+
   def create_debug_dummy_logger
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::DEBUG
