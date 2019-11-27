@@ -245,8 +245,6 @@ module Fluent
         return params['pre_conf']
       end
 
-      workers = params['workers']
-      root_dir = params['root_dir']
       log_level = params['log_level']
       suppress_repeated_stacktrace = params['suppress_repeated_stacktrace']
 
@@ -255,9 +253,6 @@ module Fluent
       chgroup = params['chgroup']
       log_rotate_age = params['log_rotate_age']
       log_rotate_size = params['log_rotate_size']
-      rpc_endpoint = params['rpc_endpoint']
-      enable_get_dump = params['enable_get_dump']
-      counter_server = params['counter_server']
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
       logger_initializer = Supervisor::LoggerInitializer.new(
@@ -274,12 +269,10 @@ module Fluent
       # ServerEngine's "daemonize" option is boolean, and path of pid file is brought by "pid_path"
       pid_path = params['daemonize']
       daemonize = !!params['daemonize']
-      main_cmd = params['main_cmd']
-      signame = params['signame']
 
       se_config = {
           worker_type: 'spawn',
-          workers: workers,
+          workers: params['workers'],
           log_stdin: false,
           log_stdout: false,
           log_stderr: false,
@@ -287,7 +280,7 @@ module Fluent
           auto_heartbeat: false,
           unrecoverable_exit_codes: [2],
           stop_immediately_at_unrecoverable_exit: true,
-          root_dir: root_dir,
+          root_dir: params['root_dir'],
           logger: logger,
           log: logger.out,
           log_path: log_path,
@@ -298,9 +291,9 @@ module Fluent
           chumask: 0,
           suppress_repeated_stacktrace: suppress_repeated_stacktrace,
           daemonize: daemonize,
-          rpc_endpoint: rpc_endpoint,
-          counter_server: counter_server,
-          enable_get_dump: enable_get_dump,
+          rpc_endpoint: params['rpc_endpoint'],
+          counter_server: params['counter_server'],
+          enable_get_dump: params['enable_get_dump'],
           windows_daemon_cmdline: [ServerEngine.ruby_bin_path,
                                    File.join(File.dirname(__FILE__), 'daemon.rb'),
                                    ServerModule.name,
@@ -309,8 +302,8 @@ module Fluent
                                    JSON.dump(params)],
           command_sender: command_sender,
           fluentd_conf: params['fluentd_conf'],
-          main_cmd: main_cmd,
-          signame: signame,
+          main_cmd: params['main_cmd'],
+          signame: params['signame'],
       }
       if daemonize
         se_config[:pid_path] = pid_path
@@ -323,7 +316,7 @@ module Fluent
       pre_params['pre_conf'] = nil
       params['pre_conf'][:windows_daemon_cmdline][5] = JSON.dump(pre_params)
 
-      return se_config
+      se_config
     end
 
     class LoggerInitializer
