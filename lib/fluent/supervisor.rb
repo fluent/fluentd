@@ -245,8 +245,6 @@ module Fluent
         return params['pre_conf']
       end
 
-      # these params must NOT be configured via system config here.
-      # these may be overridden by command line params.
       workers = params['workers']
       root_dir = params['root_dir']
       log_level = params['log_level']
