@@ -234,7 +234,6 @@ module Fluent
 
   class Supervisor
     def self.load_config(path, params = {})
-
       pre_loadtime = 0
       pre_loadtime = params['pre_loadtime'].to_i if params['pre_loadtime']
       pre_config_mtime = nil
@@ -245,17 +244,6 @@ module Fluent
       if Time.now - Time.at(pre_loadtime) < 5 and config_mtime == pre_config_mtime
         return params['pre_conf']
       end
-
-      config_fname = File.basename(path)
-      config_basedir = File.dirname(path)
-      # Assume fluent.conf encoding is UTF-8
-      config_data = File.open(path, "r:#{params['conf_encoding']}:utf-8") {|f| f.read }
-      inline_config = params['inline_config']
-      if inline_config
-        config_data << "\n" << inline_config.gsub("\\n","\n")
-      end
-      fluentd_conf = Fluent::Config.parse(config_data, config_fname, config_basedir, params['use_v1_config'])
-      system_config = SystemConfig.create(fluentd_conf)
 
       # these params must NOT be configured via system config here.
       # these may be overridden by command line params.
@@ -269,9 +257,9 @@ module Fluent
       chgroup = params['chgroup']
       log_rotate_age = params['log_rotate_age']
       log_rotate_size = params['log_rotate_size']
-      rpc_endpoint = system_config.rpc_endpoint
-      enable_get_dump = system_config.enable_get_dump
-      counter_server = system_config.counter_server
+      rpc_endpoint = params['rpc_endpoint']
+      enable_get_dump = params['enable_get_dump']
+      counter_server = params['counter_server']
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
       logger_initializer = Supervisor::LoggerInitializer.new(
@@ -646,6 +634,9 @@ module Fluent
         'root_dir' => @system_config.root_dir,
         'log_level' => @system_config.log_level,
         'suppress_repeated_stacktrace' => @system_config.suppress_repeated_stacktrace,
+        'rpc_endpoint' => @system_config.rpc_endpoint,
+        'enable_get_dump' => @system_config.enable_get_dump,
+        'counter_server' => @system_config.counter_server,
       }
 
       se = ServerEngine.create(ServerModule, WorkerModule){
