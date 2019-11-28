@@ -322,7 +322,7 @@ module Fluent
                                    path,
                                    JSON.dump(params)],
           command_sender: command_sender,
-          fluentd_conf: fluentd_conf.to_s,
+          fluentd_conf: params['fluentd_conf'],
           main_cmd: main_cmd,
           signame: signame,
       }
@@ -640,6 +640,7 @@ module Fluent
         'use_v1_config' => @use_v1_config,
         'conf_encoding' => @conf_encoding,
         'signame' => @signame,
+        'fluentd_conf' => @conf.to_s,
 
         'workers' => @system_config.workers,
         'root_dir' => @system_config.root_dir,
