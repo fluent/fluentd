@@ -5,7 +5,7 @@ require 'fluent/plugin/out_forward/load_balancer'
 
 class LoadBalancerTest < Test::Unit::TestCase
   sub_test_case 'select_healthy_node' do
-    test 'select healty node' do
+    test 'select healthy node' do
       lb = Fluent::Plugin::ForwardOutput::LoadBalancer.new($log)
       n1 = flexmock('node', :'standby?' => false, :'available?' => false, weight: 1)
       n2 = flexmock('node', :'standby?' => false, :'available?' => true, weight: 1)
