@@ -20,17 +20,17 @@ require 'fluent/config/error'
 
 module Fluent
   module Config
-    def self.default_value(opts = {})
+    def self.default_value(opts = {}, name)
       if opts.has_key?(:default)
         opts[:default]
       else
-        nil
+        raise Fluent::ConfigError, "\'#{name}\' doesn't have default value"
       end
     end
 
     def self.size_value(str, opts = {}, name = nil)
       return nil if str.nil?
-      return Config.default_value(opts) if str == :default
+      return Config.default_value(opts, name) if str == :default
 
       case str.to_s
       when /([0-9]+)k/i
@@ -48,7 +48,7 @@ module Fluent
 
     def self.time_value(str, opts = {}, name = nil)
       return nil if str.nil?
-      return Config.default_value(opts) if str == :default
+      return Config.default_value(opts, name) if str == :default
 
       case str.to_s
       when /([0-9]+)s/
@@ -66,7 +66,7 @@ module Fluent
 
     def self.bool_value(str, opts = {}, name = nil)
       return nil if str.nil?
-      return Config.default_value(opts) if str == :default
+      return Config.default_value(opts, name) if str == :default
 
       case str.to_s
       when 'true', 'yes'
@@ -90,7 +90,7 @@ module Fluent
 
     def self.regexp_value(str, opts = {}, name = nil)
       return nil unless str
-      return Config.default_value(opts) if str == :default
+      return Config.default_value(opts, name) if str == :default
 
       return Regexp.compile(str) unless str.start_with?("/")
       right_slash_position = str.rindex("/")
@@ -106,7 +106,7 @@ module Fluent
 
     def self.string_value(val, opts = {}, name = nil)
       return nil if val.nil?
-      return Config.default_value(opts) if val == :default
+      return Config.default_value(opts, name) if val == :default
 
       v = val.to_s
       v = v.frozen? ? v.dup : v # config_param can't assume incoming string is mutable
@@ -119,7 +119,7 @@ module Fluent
 
     def self.enum_value(val, opts = {}, name = nil)
       return nil if val.nil?
-      return Config.default_value(opts) if val == :default
+      return Config.default_value(opts, name) if val == :default
 
       s = val.to_sym
       list = opts[:list]
@@ -138,7 +138,7 @@ module Fluent
       if val.nil?
         nil
       elsif val == :default
-        Config.default_value(opts)
+        Config.default_value(opts, name)
       elsif opts[:strict]
         begin
           Integer(val)
@@ -154,7 +154,7 @@ module Fluent
       if val.nil?
         nil
       elsif val == :default
-        Config.default_value(opts)
+        Config.default_value(opts, name)
       elsif opts[:strict]
         begin
           Float(val)
@@ -202,7 +202,7 @@ module Fluent
 
     def self.hash_value(val, opts = {}, name = nil)
       return nil if val.nil?
-      return Config.default_value(opts) if val == :default
+      return Config.default_value(opts, name) if val == :default
 
       param = if val.is_a?(String)
                 val.start_with?('{') ? JSON.load(val) : Hash[val.strip.split(/\s*,\s*/).map{|v| v.split(':', 2)}]
@@ -230,7 +230,7 @@ module Fluent
 
     def self.array_value(val, opts = {}, name = nil)
       return nil if val.nil?
-      return Config.default_value(opts) if val == :default
+      return Config.default_value(opts, name) if val == :default
 
       param = if val.is_a?(String)
                 val.start_with?('[') ? JSON.load(val) : val.strip.split(/\s*,\s*/)

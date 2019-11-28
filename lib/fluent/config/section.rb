@@ -125,7 +125,12 @@ module Fluent
           unless conf.arg.empty?
             key, block, opts = proxy.argument
             opts = opts.merge(strict: true) if strict_config_value
-            section_params[key] = self.instance_exec(conf.arg, opts, name, &block)
+            begin
+              section_params[key] = self.instance_exec(conf.arg, opts, name, &block)
+            rescue ConfigError => e
+              logger.error "config error in:\n#{conf}" if logger
+              raise e
+            end
           end
           unless section_params.has_key?(proxy.argument.first)
             logger.error "config error in:\n#{conf}" if logger # logger should exist, but somethimes it's nil (e.g, in tests)
@@ -144,7 +149,12 @@ module Fluent
                     conf[opts[:alias].to_s]
                   end
             opts = opts.merge(strict: true) if strict_config_value
-            section_params[varname] = self.instance_exec(val, opts, name, &block)
+            begin
+              section_params[varname] = self.instance_exec(val, opts, name, &block)
+            rescue ConfigError => e
+              logger.error "config error in:\n#{conf}" if logger
+              raise e
+            end
 
             # Source of definitions of deprecated/obsoleted:
             # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Deprecated_and_obsolete_features
@@ -158,6 +168,12 @@ module Fluent
             if opts[:obsoleted]
               logger.error "config error in:\n#{conf}" if logger
               raise ObsoletedParameterError, "'#{name}' parameter is already removed: #{opts[:obsoleted]}" + section_stack
+            end
+            if section_params[varname].nil?
+              unless opts.has_key?(:default) and opts[:default].nil?
+                logger.error "config error in:\n#{conf}" if logger
+                raise ConfigError, "'#{name}' parameter is required but nil is specified"
+              end
             end
           end
           unless section_params.has_key?(varname)

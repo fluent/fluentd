@@ -52,7 +52,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'no default' do
-      assert_equal(nil, Config.size_value(:default))
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config.size_value(:default, {}, "key")
+      end
     end
   end
 
@@ -101,7 +103,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'no default' do
-      assert_equal(nil, Config.time_value(:default))
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config.time_value(:default, {}, "key")
+      end
     end
   end
 
@@ -144,7 +148,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'no default' do
-      assert_equal(nil, Config.time_value(:default))
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config.time_value(:default, {}, "key")
+      end
     end
   end
 
@@ -184,7 +190,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'no default' do
-      assert_equal nil, Config.regexp_value(:default)
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config.regexp_value(:default, {}, "key")
+      end
     end
   end
 
@@ -206,7 +214,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'string no default' do
-      assert_equal nil, Config::STRING_TYPE.call(:default)
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config::STRING_TYPE.call(:default, {}, "key")
+      end
     end
 
     data('latin' => 'Märch',
@@ -250,7 +260,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'enum: no default' do
-      assert_equal nil, Config::ENUM_TYPE.call(:default, {list: [:val, :value, :v, :default]})
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config::ENUM_TYPE.call(:default, {list: [:val, :value, :v, :default]}, "key")
+      end
     end
 
     data("1" => [1, '1'],
@@ -294,7 +306,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'integer: no default' do
-      assert_equal nil, Config::INTEGER_TYPE.call(:default)
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config::INTEGER_TYPE.call(:default, {}, "key")
+      end
     end
 
     data("1" => [1.0, '1'],
@@ -338,7 +352,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'float: no default' do
-      assert_equal nil, Config::FLOAT_TYPE.call(:default)
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config::FLOAT_TYPE.call(:default, {}, "key")
+      end
     end
 
     data("1000" => [1000, '1000'],
@@ -427,7 +443,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'hash w/o default' do
-      assert_equal(nil, Config::HASH_TYPE.call(:default))
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config::HASH_TYPE.call(:default, {}, "key")
+      end
     end
 
     data("strings and integer" => [["1","2",1],   '["1","2",1]', {}],
@@ -475,7 +493,9 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'array w/o default' do
-      assert_equal(nil, Config::ARRAY_TYPE.call(:default))
+      assert_raise(Fluent::ConfigError.new("'key' doesn't have default value")) do
+        Config::ARRAY_TYPE.call(:default, {}, "key")
+      end
     end
   end
 end
