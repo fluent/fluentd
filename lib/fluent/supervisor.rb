@@ -210,11 +210,11 @@ module Fluent
     end
 
     def supervisor_dump_config_handler
-      $log.info config[:fluentd_conf].to_s
+      $log.info config[:fluentd_conf]
     end
 
     def supervisor_get_dump_config_handler
-      {conf: config[:fluentd_conf].to_s}
+      {conf: config[:fluentd_conf]}
     end
   end
 
@@ -322,7 +322,7 @@ module Fluent
                                    path,
                                    JSON.dump(params)],
           command_sender: command_sender,
-          fluentd_conf: fluentd_conf,
+          fluentd_conf: fluentd_conf.to_s,
           main_cmd: main_cmd,
           signame: signame,
       }
