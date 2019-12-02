@@ -142,18 +142,35 @@ module Fluent
         proxy.params.each_pair do |name, defval|
           varname = name.to_sym
           block, opts = defval
+          opts = opts.merge(strict: true) if strict_config_value
+
           if conf.has_key?(name.to_s) || opts[:alias] && conf.has_key?(opts[:alias].to_s)
             val = if conf.has_key?(name.to_s)
                     conf[name.to_s]
                   else
                     conf[opts[:alias].to_s]
                   end
-            opts = opts.merge(strict: true) if strict_config_value
-            begin
-              section_params[varname] = self.instance_exec(val, opts, name, &block)
-            rescue ConfigError => e
-              logger.error "config error in:\n#{conf}" if logger
-              raise e
+
+            if val == :default
+              # default value is already set if it exists
+              unless section_params.has_key?(varname)
+                logger.error "config error in:\n#{conf}" if logger
+                raise ConfigError, "'#{varname}' doesn't have default value"
+              end
+            else
+              begin
+                section_params[varname] = self.instance_exec(val, opts, name, &block)
+              rescue ConfigError => e
+                logger.error "config error in:\n#{conf}" if logger
+                raise e
+              end
+            end
+
+            if section_params[varname].nil?
+              unless proxy.defaults.has_key?(varname) and proxy.defaults[varname].nil?
+                logger.error "config error in:\n#{conf}" if logger
+                raise ConfigError, "'#{name}' parameter is required but nil is specified"
+              end
             end
 
             # Source of definitions of deprecated/obsoleted:
@@ -168,12 +185,6 @@ module Fluent
             if opts[:obsoleted]
               logger.error "config error in:\n#{conf}" if logger
               raise ObsoletedParameterError, "'#{name}' parameter is already removed: #{opts[:obsoleted]}" + section_stack
-            end
-            if section_params[varname].nil?
-              unless opts.has_key?(:default) and opts[:default].nil?
-                logger.error "config error in:\n#{conf}" if logger
-                raise ConfigError, "'#{name}' parameter is required but nil is specified"
-              end
             end
           end
           unless section_params.has_key?(varname)
