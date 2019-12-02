@@ -1701,5 +1701,84 @@ module Fluent::Config
         assert_equal 'foo', c.subsection.first.param0
       end
     end
+
+    sub_test_case '#config_argument' do
+      test 'with strict_config_value' do
+        class TestClass01
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass01.new
+        subsection = config_element('subsection', "hoge", { })
+        assert_raise(Fluent::ConfigError.new('param1: invalid value for Integer(): "hoge"')) do
+          c.configure(config_element('root', '', {}, [subsection]), strict_config_value: true)
+        end
+      end
+
+      test 'with nil' do
+        class TestClass02
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass02.new
+        subsection = config_element('subsection', nil, { })
+        assert_raise(Fluent::ConfigError.new("'<subsection ARG>' section requires argument, in section subsection")) do
+          c.configure(config_element('root', '', {}, [subsection]))
+        end
+      end
+
+      test 'with nil for an argument whose default value is nil' do
+        class TestClass03
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer, default: nil
+          end
+        end
+
+        c = TestClass03.new
+        subsection = config_element('subsection', nil, { })
+        c.configure(config_element('root', '', {}, [subsection]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal nil, c.subsection.first.param1
+      end
+
+      test 'with :default' do
+        class TestClass04
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer, default: 3
+          end
+        end
+
+        c = TestClass04.new
+        subsection = config_element('subsection', :default, { })
+        c.configure(config_element('root', '', {}, [subsection]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 3, c.subsection.first.param1
+      end
+
+      test 'with :default for an argument which does not have default value' do
+        class TestClass05
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass05.new
+        subsection = config_element('subsection', :default, { })
+        assert_raise(Fluent::ConfigError.new("'param1' doesn\'t have default value")) do
+          c.configure(config_element('root', '', {}, [subsection]))
+        end
+      end
+    end
   end
 end

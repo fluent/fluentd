@@ -122,14 +122,22 @@ module Fluent
         end
 
         if proxy.argument
-          unless conf.arg.empty?
+          unless conf.arg.nil? || conf.arg.empty?
             key, block, opts = proxy.argument
             opts = opts.merge(strict: true) if strict_config_value
-            begin
-              section_params[key] = self.instance_exec(conf.arg, opts, name, &block)
-            rescue ConfigError => e
-              logger.error "config error in:\n#{conf}" if logger
-              raise e
+
+            if conf.arg == :default
+              unless section_params.has_key?(key)
+                logger.error "config error in:\n#{conf}" if logger
+                raise ConfigError, "'#{key}' doesn't have default value"
+              end
+            else
+              begin
+                section_params[key] = self.instance_exec(conf.arg, opts, key, &block)
+              rescue ConfigError => e
+                logger.error "config error in:\n#{conf}" if logger
+                raise e
+              end
             end
           end
           unless section_params.has_key?(proxy.argument.first)

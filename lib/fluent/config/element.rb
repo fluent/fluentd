@@ -142,7 +142,7 @@ module Fluent
         indent = "  " * nest
         nindent = "  " * (nest + 1)
         out = ""
-        if @arg.empty?
+        if @arg.nil? || @arg.empty?
           out << "#{indent}<#{@name}>\n"
         else
           out << "#{indent}<#{@name} #{@arg}>\n"
