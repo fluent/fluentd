@@ -557,8 +557,7 @@ module Fluent
       if @inline_config == '-'
         @inline_config = STDIN.read
       end
-
-      @conf = read_config
+      @conf = Fluent::Config.build(config_path: @config_path, encoding: @conf_encoding, additional_config: @inline_config, use_v1_config: @use_v1_config)
       @system_config = build_system_config(@conf)
 
       @log.level = @system_config.log_level
@@ -767,16 +766,6 @@ module Fluent
       end
 
       exit!(unrecoverable_error ? 2 : 1)
-    end
-
-    def read_config
-      config_fname = File.basename(@config_path)
-      config_basedir = File.dirname(@config_path)
-      config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
-      if @inline_config
-        config_data << "\n" << @inline_config.gsub("\\n", "\n")
-      end
-      Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
     end
 
     def build_system_config(conf)
