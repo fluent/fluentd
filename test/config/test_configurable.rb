@@ -30,6 +30,13 @@ module ConfigurableSpec
     config_set_default :opt1, :baz
   end
 
+  class Base1Nil < Base1
+    config_set_default :name1, nil
+    config_set_default :name2, nil
+    config_set_default :opt1, nil
+    config_param :name5, :string, default: nil
+  end
+
   class Base2 < Base1
     config_set_default :name2, "base2"
     config_set_default :name4, "base2"
@@ -617,6 +624,60 @@ module Fluent::Config
           assert_raise(Fluent::ConfigError) { c.configure(default, strict_config_value: true) }
         end
       end
+
+        test 'set nil for a parameter which has no default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => nil, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name1' parameter is required but nil is specified")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set nil for a parameter which has non-nil default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => nil, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name3' parameter is required but nil is specified")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set nil for a parameter whose default value is nil' do
+          obj = ConfigurableSpec::Base1Nil.new
+          conf = config_element("", "", {"name5" => nil})
+          obj.configure(conf)
+          assert_nil obj.name5
+        end
+
+        test 'set nil for parameters whose default values are overwritten by nil' do
+          obj = ConfigurableSpec::Base1Nil.new
+          conf = config_element("", "", {"name1" => nil, "name2" => nil, "opt1" => nil})
+          obj.configure(conf)
+          assert_nil obj.name1
+          assert_nil obj.name2
+          assert_nil obj.opt1
+        end
+
+        test 'set :default' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => :default, "name5" => "t5", "opt3" => "a"})
+          obj.configure(conf)
+          assert_equal "base1", obj.name3
+        end
+
+        test 'set :default for a parameter which has no default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => :default, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name1' doesn't have default value")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set :default for a parameter which has an overwritten default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => "t3", "name4" => :default, "name5" => "t5", "opt3" => "a"})
+          obj.configure(conf)
+          assert_equal "base2", obj.name4
+        end
     end
 
     sub_test_case 'class defined with config_section' do
