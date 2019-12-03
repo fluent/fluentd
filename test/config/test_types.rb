@@ -31,8 +31,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     data("integer" => [6, 6],
-         "hoge" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"\""), ""])
+         "hoge" => [Fluent::ConfigError.new('name1: invalid value for Integer(): "hoge"'), "hoge"],
+         "empty" => [Fluent::ConfigError.new('name1: invalid value for Integer(): ""'), ""])
     test 'not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -72,8 +72,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     data("integer" => [6, 6],
-         "hoge" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"\""), ""])
+         "hoge" => [Fluent::ConfigError.new('name1: invalid value for Float(): "hoge"'), "hoge"],
+         "empty" => [Fluent::ConfigError.new('name1: invalid value for Float(): ""'), ""])
     test 'not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -225,8 +225,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     data("integer" => [6, 6],
-         "hoge" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Integer(): \"\""), ""])
+         "hoge" => [Fluent::ConfigError.new('name1: invalid value for Integer(): "hoge"'), "hoge"],
+         "empty" => [Fluent::ConfigError.new('name1: invalid value for Integer(): ""'), ""])
     test 'integer: not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -261,8 +261,8 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     data("integer" => [6, 6],
-         "hoge" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"hoge\""), "hoge"],
-         "empty" => [Fluent::ConfigError.new("name1: invalid value for Float(): \"\""), ""])
+         "hoge" => [Fluent::ConfigError.new('name1: invalid value for Float(): "hoge"'), "hoge"],
+         "empty" => [Fluent::ConfigError.new('name1: invalid value for Float(): ""'), ""])
     test 'float: not assumed case with strict' do |(expected, val)|
       if expected.kind_of? Exception
         assert_raise(expected) do
@@ -341,7 +341,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'hash w/ strict option' do
-      assert_raise(Fluent::ConfigError.new("y: invalid value for Integer(): \"hoge\"")) do
+      assert_raise(Fluent::ConfigError.new('y: invalid value for Integer(): "hoge"')) do
         Config::HASH_TYPE.call("x:1,y:hoge", {value_type: :integer, strict: true})
       end
     end
@@ -389,7 +389,7 @@ class TestConfigTypes < ::Test::Unit::TestCase
     end
 
     test 'array w/ strict option' do
-      assert_raise(Fluent::ConfigError.new(": invalid value for Integer(): \"hoge\"")) do
+      assert_raise(Fluent::ConfigError.new(': invalid value for Integer(): "hoge"')) do
         Config::ARRAY_TYPE.call("1,hoge", {value_type: :integer, strict: true}, "name1")
       end
     end
