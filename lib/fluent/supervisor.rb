@@ -42,6 +42,7 @@ end
 module Fluent
   module ServerModule
     def before_run
+      @fluentd_conf = config[:fluentd_conf]
       @rpc_server = nil
       @counter = nil
 
@@ -210,11 +211,11 @@ module Fluent
     end
 
     def supervisor_dump_config_handler
-      $log.info config[:fluentd_conf]
+      $log.info @fluentd_conf
     end
 
     def supervisor_get_dump_config_handler
-      {conf: config[:fluentd_conf]}
+      { conf: @fluentd_conf }
     end
   end
 
