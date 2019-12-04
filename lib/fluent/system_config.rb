@@ -104,7 +104,19 @@ module Fluent
     end
 
     def configure(conf, strict_config_value: false)
-      super
+      strict = strict_config_value
+      if !strict && conf && conf.has_key?("strict_config_value")
+        strict = Fluent::Config.bool_value(conf["strict_config_value"])
+      end
+
+      begin
+        super(conf, strict_config_value: strict)
+      rescue ConfigError => e
+        $log.error "config error in:\n#{conf}"
+        $log.error 'config error', error: e
+        $log.debug_backtrace
+        exit!(1)
+      end
 
       @log_level = Log.str_to_level(@log_level.to_s) if @log_level
     end
