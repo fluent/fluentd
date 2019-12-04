@@ -103,9 +103,9 @@ module Fluent
     def configure(conf)
       @root_agent.configure(conf)
 
-      @fleunt_log_event_router = FluentLogEventRouter.build(@root_agent)
+      @fluent_log_event_router = FluentLogEventRouter.build(@root_agent)
 
-      if @fleunt_log_event_router.emittable?
+      if @fluent_log_event_router.emittable?
         $log.enable_event(true)
       end
 
@@ -145,7 +145,7 @@ module Fluent
         $log.info "starting fluentd worker", pid: Process.pid, ppid: Process.ppid, worker: worker_id
         start
 
-        @fleunt_log_event_router.start
+        @fluent_log_event_router.start
 
         $log.info "fluentd worker is now running", worker: worker_id
         sleep MAINLOOP_SLEEP_INTERVAL until @engine_stopped
@@ -159,12 +159,12 @@ module Fluent
 
       unless @log_event_verbose
         $log.enable_event(false)
-        @fleunt_log_event_router.graceful_stop
+        @fluent_log_event_router.graceful_stop
       end
       $log.info "shutting down fluentd worker", worker: worker_id
       shutdown
 
-      @fleunt_log_event_router.stop
+      @fluent_log_event_router.stop
     end
 
     def stop
@@ -173,7 +173,7 @@ module Fluent
     end
 
     def push_log_event(tag, time, record)
-      @fleunt_log_event_router.emit_event([tag, time, record])
+      @fluent_log_event_router.emit_event([tag, time, record])
     end
 
     def worker_id
