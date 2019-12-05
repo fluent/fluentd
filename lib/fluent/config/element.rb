@@ -182,24 +182,27 @@ module Fluent
         false
       end
 
-      def options(key)
-        return {} if @corresponding_proxies.empty?
+      def param_type(key)
+        return nil if @corresponding_proxies.empty?
 
         param_key = key.to_sym
         proxy = @corresponding_proxies.detect do |_proxy|
           _proxy.params.has_key?(param_key)
         end
-        return {} unless proxy
+        return nil unless proxy
         _block, opts = proxy.params[param_key]
-        opts
-      end
-
-      def param_type(key)
-        options(key)[:type]
+        opts[:type]
       end
 
       def default_value(key)
-        options(key)[:default]
+        return nil if @corresponding_proxies.empty?
+
+        param_key = key.to_sym
+        proxy = @corresponding_proxies.detect do |_proxy|
+          _proxy.params.has_key?(param_key)
+        end
+        return nil unless proxy
+        proxy.defaults[param_key]
       end
 
       def dump_value(k, v, nindent)
