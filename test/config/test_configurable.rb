@@ -621,7 +621,7 @@ module Fluent::Config
 
           c = ConfigurableSpec::ExampleWithIntFloat.new
           assert_nothing_raised { c.configure(default) }
-          assert_raise(Fluent::ConfigError) { c.configure(default, strict_config_value: true) }
+          assert_raise(Fluent::ConfigError) { c.configure(default, true) }
         end
       end
 
@@ -1714,7 +1714,7 @@ module Fluent::Config
         c = TestClass01.new
         subsection = config_element('subsection', "hoge", { })
         assert_raise(Fluent::ConfigError.new('param1: invalid value for Integer(): "hoge"')) do
-          c.configure(config_element('root', '', {}, [subsection]), strict_config_value: true)
+          c.configure(config_element('root', '', {}, [subsection]), true)
         end
       end
 

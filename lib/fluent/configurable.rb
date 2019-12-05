@@ -74,7 +74,7 @@ module Fluent
       Fluent::Config::SectionGenerator.generate(proxy, conf, nil, nil)
     end
 
-    def configure(conf, strict_config_value: false)
+    def configure(conf, strict_config_value=false)
       @config = conf
 
       logger = if self.respond_to?(:log)

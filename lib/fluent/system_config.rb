@@ -75,7 +75,7 @@ module Fluent
       config_param :timeout, :time, default: nil
     end
 
-    def self.create(conf, strict_config_value: false)
+    def self.create(conf, strict_config_value=false)
       systems = conf.elements(name: 'system')
       return SystemConfig.new if systems.empty?
       raise Fluent::ConfigError, "<system> is duplicated. <system> should be only one" if systems.size > 1
@@ -100,17 +100,17 @@ module Fluent
     def initialize(conf=nil, strict_config_value=false)
       super()
       conf ||= SystemConfig.blank_system_config
-      configure(conf, strict_config_value: strict_config_value)
+      configure(conf, strict_config_value)
     end
 
-    def configure(conf, strict_config_value: false)
+    def configure(conf, strict_config_value=false)
       strict = strict_config_value
       if !strict && conf && conf.has_key?("strict_config_value")
         strict = Fluent::Config.bool_value(conf["strict_config_value"])
       end
 
       begin
-        super(conf, strict_config_value: strict)
+        super(conf, strict)
       rescue ConfigError => e
         $log.error "config error in:\n#{conf}"
         $log.error 'config error', error: e
