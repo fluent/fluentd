@@ -26,6 +26,7 @@ require 'fluent/plugin'
 require 'fluent/rpc'
 require 'fluent/system_config'
 require 'fluent/msgpack_factory'
+require 'fluent/variable_store'
 require 'serverengine'
 
 if Fluent.windows?
@@ -157,6 +158,11 @@ module Fluent
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
       end unless Fluent.windows?
+
+      trap :USR2 do
+        $log.debug 'fluentd supervisor process got SIGUSR2'
+        supervisor_sigusr2_handler
+      end unless Fluent.windows?
     end
 
     def install_windows_event_handler
@@ -180,20 +186,36 @@ module Fluent
     end
 
     def supervisor_sigusr1_handler
-      if log = config[:logger_initializer]
-        # Creating new thread due to mutex can't lock
-        # in main thread during trap context
-        Thread.new do
-          log.reopen!
-        end
-      end
+      reopen_log
+      send_signal_to_workers(:USR1)
+    end
 
-      if config[:worker_pid]
-        config[:worker_pid].each_value do |pid|
-          Process.kill(:USR1, pid)
-          # don't rescue Errno::ESRCH here (invalid status)
+    def supervisor_sigusr2_handler
+      conf = nil
+      Thread.new do
+        $log.info 'Reloading new config'
+
+        begin
+          # Validate that loading config is valid at first
+          conf = Fluent::Config.build(
+            config_path: config[:config_path],
+            encoding: config[:conf_encoding],
+            additional_config: config[:inline_config],
+            use_v1_config: config[:use_v1_config],
+          )
+
+          Fluent::VariableStore.try_to_reset do
+            Fluent::Engine.reload_config(conf)
+          end
+        rescue => e
+          $log.error "Failed to reload config file: #{e}"
+          next
         end
-      end
+      end.join
+
+      reopen_log
+      send_signal_to_workers(:USR2)
+      @fluentd_conf = conf.to_s
     end
 
     def kill_worker
@@ -216,6 +238,27 @@ module Fluent
 
     def supervisor_get_dump_config_handler
       { conf: @fluentd_conf }
+    end
+
+    private
+
+    def reopen_log
+      if (log = config[:logger_initializer])
+        # Creating new thread due to mutex can't lock
+        # in main thread during trap context
+        Thread.new do
+          log.reopen!
+        end
+      end
+    end
+
+    def send_signal_to_workers(signal)
+      return unless config[:worker_pid]
+
+      config[:worker_pid].each_value do |pid|
+        # don't rescue Errno::ESRCH here (invalid status)
+        Process.kill(signal, pid)
+      end
     end
   end
 
@@ -303,6 +346,9 @@ module Fluent
                                  JSON.dump(params)],
         command_sender: command_sender,
         fluentd_conf: params['fluentd_conf'],
+        conf_encoding: params['conf_encoding'],
+        inline_config: params['inline_config'],
+        config_path: path,
         main_cmd: params['main_cmd'],
         signame: params['signame'],
       }
@@ -673,6 +719,10 @@ module Fluent
         flush_buffer
       end unless Fluent.windows?
 
+      trap :USR2 do
+        reload_config
+      end unless Fluent.windows?
+
       if Fluent.windows?
         command_pipe = STDIN.dup
         STDIN.reopen(File::NULL, "rb")
@@ -710,6 +760,32 @@ module Fluent
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
         end
+      end
+    end
+
+    def reload_config
+      Thread.new do
+        $log.debug('worker got SIGUSR2')
+
+        begin
+          conf = Fluent::Config.build(
+            config_path: @config_path,
+            encoding: @conf_encoding,
+            additional_config: @inline_config,
+            use_v1_config: @use_v1_config,
+          )
+
+          Fluent::VariableStore.try_to_reset do
+            Fluent::Engine.reload_config(conf, supervisor: true)
+          end
+        rescue => e
+          # it is guranteed that config file is valid by supervisor side. but it's not atomic becuase of using signals to commnicate between worker and super
+          # So need this rescue code
+          $log.error("failed to reload config: #{e}")
+          next
+        end
+
+        @conf = conf
       end
     end
 

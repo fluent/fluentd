@@ -167,6 +167,50 @@ module Fluent
       @fluent_log_event_router.stop
     end
 
+    # @param conf [Fluent::Config]
+    # @param supervisor [Bool]
+    # @reutrn nil
+    def reload_config(conf, supervisor: false)
+      # configure first to reduce down time while restarting
+      new_agent = RootAgent.new(log: log, system_config: @system_config)
+      if (plugin = new_agent.find_unreloadable_plugin)
+        raise Fluent::ConfigError, "Unreloadable plugin: #{plugin.class}"
+      end
+
+      new_agent.configure(conf)
+      unless @suppress_config_dump
+        $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
+      end
+
+      old_agent, @root_agent = @root_agent, new_agent
+
+      # supervisor doesn't handle actual data. so the following code is unnecessary.
+      if supervisor
+        old_agent.shutdown      # to close thread created in #configure
+        return
+      end
+
+      # Stop phaze
+      unless @log_event_verbose
+        $log.enable_event(false)
+        @fluent_log_event_router.graceful_stop
+      end
+      $log.info 'shutting down fluentd worker', worker: worker_id
+      old_agent.shutdown      # Stop first but we can still accept sockets, thanks to serverengine SocketManager,
+
+      @fluent_log_event_router.stop
+
+      # Restart phaze
+      new_fleunt_log_event_router = FluentLogEventRouter.build(new_agent)
+      if new_fleunt_log_event_router.emittable?
+        $log.enable_event(true)
+      end
+      @fluent_log_event_router = new_fleunt_log_event_router
+
+      $log.info 'restart fluentd worker', worker: worker_id
+      @root_agent.start
+    end
+
     def stop
       @engine_stopped = true
       nil

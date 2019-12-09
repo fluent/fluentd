@@ -187,6 +187,11 @@ module Fluent
         #   https://github.com/ruby/ruby/blob/trunk/gc.c#L788
         "#<%s:%014x>" % [self.class.name, '0x%014x' % (__id__ << 1)]
       end
+
+      def reloadable_plugin?
+        # Engine can't capture all class variables. so it's forbbiden to use class variables in each plugins if enabling reload.
+        self.class.class_variables.empty?
+      end
     end
   end
 end
