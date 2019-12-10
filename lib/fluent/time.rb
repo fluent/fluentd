@@ -152,9 +152,7 @@ module Fluent
 
       def configure(conf)
         if conf.has_key?('localtime') || conf.has_key?('utc')
-          if conf.has_key?('localtime') && conf.has_key?('utc')
-            raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
-          elsif conf.has_key?('localtime')
+          if conf.has_key?('localtime')
             conf['localtime'] = Fluent::Config.bool_value(conf['localtime'])
           elsif conf.has_key?('utc')
             conf['localtime'] = !(Fluent::Config.bool_value(conf['utc']))
@@ -166,6 +164,10 @@ module Fluent
         end
 
         super
+
+        if conf.has_key?('localtime') && conf.has_key?('utc') && !(@localtime ^ @utc)
+          raise Fluent::ConfigError, "both of utc and localtime are specified, use only one of them"
+        end
 
         Fluent::Timezone.validate!(@timezone) if @timezone
       end

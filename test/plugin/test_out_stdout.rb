@@ -157,6 +157,23 @@ class StdoutOutputTest < Test::Unit::TestCase
     end
   end
 
+  data(
+    'utc and !localtime' => "utc true\nlocaltime false",
+    '!utc and localtime' => "utc false\nlocaltime true")
+  test  'configure with localtime and utc' do |c|
+    assert_nothing_raised do
+      create_driver(CONFIG + c)
+    end
+  end
+
+  data('utc and localtime' => "utc true\nlocaltime true",
+       '!utc and !localtime' => "utc false\nlocaltime false")
+  test  'configure with localtime and utc' do |c|
+    assert_raise(Fluent::ConfigError.new('both of utc and localtime are specified, use only one of them')) do
+      create_driver(CONFIG + c)
+    end
+  end
+
   # Capture the log output of the block given
   def capture_log(&block)
     tmp = $log
@@ -167,4 +184,3 @@ class StdoutOutputTest < Test::Unit::TestCase
     $log = tmp
   end
 end
-
