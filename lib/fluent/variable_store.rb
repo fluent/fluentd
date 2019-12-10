@@ -14,8 +14,6 @@
 #    limitations under the License.
 #
 
-require 'forwardable'
-
 module Fluent
   # VariableStore provides all pluigns with the way to shared variable without using class variable
   # it's for safe reloading mechanism
