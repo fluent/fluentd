@@ -147,7 +147,9 @@ module Fluent
       end
 
       def stop
-        @variable_store.delete(@path)
+        if @variable_store
+          @variable_store.delete(@path)
+        end
 
         super
       end

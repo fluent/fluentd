@@ -82,7 +82,9 @@ module Fluent
     end
 
     def stop
-      @_plugin_id_variable_store.delete(@id)
+      if @_plugin_id_variable_store
+        @_plugin_id_variable_store.delete(@id)
+      end
 
       super
     end

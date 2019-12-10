@@ -127,7 +127,9 @@ module Fluent
       end
 
       def stop
-        @variable_store.delete(@buffer_path)
+        if @variable_store
+          @variable_store.delete(@buffer_path)
+        end
 
         super
       end

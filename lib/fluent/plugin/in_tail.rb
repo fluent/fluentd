@@ -205,7 +205,9 @@ module Fluent::Plugin
     end
 
     def stop
-      @variable_store.delete(@pos_file)
+      if @variable_store
+        @variable_store.delete(@pos_file)
+      end
 
       super
     end
