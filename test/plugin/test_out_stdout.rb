@@ -37,6 +37,25 @@ class StdoutOutputTest < Test::Unit::TestCase
       end
     end
 
+    test 'configure with time_format' do
+      d = create_driver(CONFIG + <<-CONF)
+        <format>
+          @type stdout
+          time_format %Y-%m-%dT%H:%M:%S.%L%z
+        </format>
+      CONF
+
+      time = event_time
+      out = capture_log do
+        d.run(default_tag: 'test') do
+          d.feed(time, {'test' => 'test'})
+        end
+      end
+
+      t = Time.at(time).localtime.strftime("%Y-%m-%dT%H:%M:%S.%L%z")
+      assert_equal "#{t} test: {\"test\":\"test\"}\n", out
+    end
+
     test 'emit with default configuration' do
       d = create_driver
       time = event_time()
