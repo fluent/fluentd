@@ -151,16 +151,16 @@ class ConfigTest < Test::Unit::TestCase
     assert_equal before_size, match_conf.unused.size
   end
 
-  def write_config(path, data)
+  def write_config(path, data, encoding: 'utf-8')
     FileUtils.mkdir_p(File.dirname(path))
-    File.open(path, "w") {|f| f.write data }
+    File.open(path, "w:#{encoding}:utf-8") {|f| f.write data }
   end
 
   def test_inline
     prepare_config
     opts = {
-        :config_path => "#{TMP_DIR}/config_test_1.conf",
-        :inline_config => "<source>\n  type http\n  port 2222\n </source>"
+      :config_path => "#{TMP_DIR}/config_test_1.conf",
+      :inline_config => "<source>\n  type http\n  port 2222\n </source>"
     }
     assert_nothing_raised do
       Fluent::Supervisor.new(opts)
@@ -175,5 +175,27 @@ class ConfigTest < Test::Unit::TestCase
     logger = ServerEngine::DaemonLogger.new(logdev, dl_opts)
     $log = Fluent::Log.new(logger)
   end
-end
 
+  sub_test_case '.build'do
+    test 'read config' do
+      write_config("#{TMP_DIR}/build/config_build.conf", 'key value')
+      c = Fluent::Config.build(config_path: "#{TMP_DIR}/build/config_build.conf")
+      assert_equal('value', c['key'])
+    end
+
+    test 'read config with encoding' do
+      write_config("#{TMP_DIR}/build/config_build2.conf", "#てすと\nkey value", encoding: 'shift_jis')
+
+      c = Fluent::Config.build(config_path: "#{TMP_DIR}/build/config_build2.conf", encoding: 'shift_jis')
+      assert_equal('value', c['key'])
+    end
+
+    test 'read config with additional_config' do
+      write_config("#{TMP_DIR}/build/config_build2.conf", "key value")
+
+      c = Fluent::Config.build(config_path: "#{TMP_DIR}/build/config_build2.conf", additional_config: 'key2 value2')
+      assert_equal('value', c['key'])
+      assert_equal('value2', c['key2'])
+    end
+  end
+end

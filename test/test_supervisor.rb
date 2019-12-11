@@ -30,81 +30,6 @@ class SupervisorTest < ::Test::Unit::TestCase
     File.open(path, "w") {|f| f.write data }
   end
 
-  def test_read_config
-    create_info_dummy_logger
-
-    tmp_dir = "#{TMP_DIR}/dir/test_read_config.conf"
-    conf_str = %[
-<source>
-  @type forward
-  @id forward_input
-</source>
-<match debug.**>
-  @type stdout
-  @id stdout_output
-</match>
-]
-    write_config tmp_dir, conf_str
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
-
-    use_v1_config = {}
-    use_v1_config['use_v1_config'] = true
-
-    sv.instance_variable_set(:@config_path, tmp_dir)
-    sv.instance_variable_set(:@use_v1_config, use_v1_config)
-
-    conf = sv.__send__(:read_config)
-    elem = conf.elements.find { |e| e.name == 'source' }
-    assert_equal "forward", elem['@type']
-    assert_equal "forward_input", elem['@id']
-
-    elem = conf.elements.find { |e| e.name == 'match' }
-    assert_equal "debug.**", elem.arg
-    assert_equal "stdout", elem['@type']
-    assert_equal "stdout_output", elem['@id']
-
-    $log.out.reset
-  end
-
-  def test_read_config_with_multibyte_string
-    tmp_path = "#{TMP_DIR}/dir/test_multibyte_config.conf"
-    conf_str = %[
-<source>
-  @type forward
-  @id forward_input
-  @label @INPUT
-</source>
-<label @INPUT>
-  <filter>
-    @type record_transformer
-    <record>
-      message こんにちは. ${record["name"]} has made a order of ${record["item"]} just now.
-    </record>
-  </filter>
-  <match>
-    @type stdout
-  </match>
-</label>
-]
-    FileUtils.mkdir_p(File.dirname(tmp_path))
-    File.open(tmp_path, "w:utf-8") {|file| file.write(conf_str) }
-
-    opts = Fluent::Supervisor.default_options
-    sv = Fluent::Supervisor.new(opts)
-
-    use_v1_config = {}
-    use_v1_config['use_v1_config'] = true
-
-    sv.instance_variable_set(:@config_path, tmp_path)
-    sv.instance_variable_set(:@use_v1_config, use_v1_config)
-
-    conf = sv.__send__(:read_config)
-    label = conf.elements.detect {|e| e.name == "label" }
-    filter = label.elements.detect {|e| e.name == "filter" }
-    record_transformer = filter.elements.detect {|e| e.name = "record_transformer" }
-    assert_equal(Encoding::UTF_8, record_transformer["message"].encoding)
-  end
 
   def test_system_config
     opts = Fluent::Supervisor.default_options
@@ -416,7 +341,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     inline_config = '<match *>\n@type stdout\n</match>'
     stub(STDIN).read { inline_config }
-    stub(sv).read_config        # to skip
+    stub(Fluent::Config).build                                # to skip
     stub(sv).build_system_config { Fluent::SystemConfig.new } # to skip
 
     sv.configure
