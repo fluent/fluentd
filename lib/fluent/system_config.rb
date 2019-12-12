@@ -32,7 +32,7 @@ module Fluent
 
     config_param :workers,   :integer, default: 1
     config_param :root_dir,  :string, default: nil
-    config_param :log_level, :enum, list: [:trace, :debug, :info, :warn, :error, :fatal], default: nil
+    config_param :log_level, :enum, list: [:trace, :debug, :info, :warn, :error, :fatal], default: 'info'
     config_param :suppress_repeated_stacktrace, :bool, default: nil
     config_param :emit_error_log_interval,      :time, default: nil
     config_param :suppress_config_dump, :bool, default: nil
