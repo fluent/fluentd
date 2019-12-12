@@ -40,7 +40,7 @@ module Fluent
       helpers_internal :thread, :retry_state
 
       CHUNK_KEY_PATTERN = /^[-_.@a-zA-Z0-9]+$/
-      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{[-_.@$a-zA-Z0-9]+\}/
+      CHUNK_KEY_PLACEHOLDER_PATTERN = /\$\{([-_.@$a-zA-Z0-9]+)\}/
       CHUNK_TAG_PLACEHOLDER_PATTERN = /\$\{(tag(?:\[-?\d+\])?)\}/
       CHUNK_ID_PLACEHOLDER_PATTERN = /\$\{chunk_id\}/
 
@@ -707,7 +707,7 @@ module Fluent
       end
 
       def get_placeholders_keys(str)
-        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map{|ph| ph[2..-2]}.reject{|s| (s == "tag") || (s == 'chunk_id') }.sort
+        str.scan(CHUNK_KEY_PLACEHOLDER_PATTERN).map(&:first).reject{|s| (s == "tag") || (s == 'chunk_id') }.sort
       end
 
       # TODO: optimize this code
@@ -759,11 +759,19 @@ module Fluent
             @chunk_keys.each do |key|
               hash["${#{key}}"] = metadata.variables[key.to_sym]
             end
-            rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN, hash)
+
+            rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN) do |matched|
+              hash.fetch(matched) do
+                log.warn "chunk key placeholder '#{matched[2..-2]}' not replaced. template:#{str}"
+                ''
+              end
+            end
           end
+
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
-            log.warn "chunk key placeholder '#{$&}' not replaced. template:#{str}"
+            log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
           end
+
           rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
             if chunk_passed
               dump_unique_id_hex(chunk.unique_id)
