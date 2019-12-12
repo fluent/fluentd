@@ -378,6 +378,18 @@ class OutputTest < Test::Unit::TestCase
       assert { logs.any? { |log| log.include?("${chunk_id} is not allowed in this plugin") } }
     end
 
+    test '#extract_placeholders logs warn message with not replaced key' do
+      @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
+      tmpl = "/mypath/${key1}/test"
+      t = event_time('2016-04-11 20:30:00 +0900')
+      v = { key1: "value1" }
+      m = create_metadata(timekey: t, tag: 'fluentd.test.output', variables: v)
+      @i.extract_placeholders(tmpl, m)
+      logs = @i.log.out.logs
+
+      assert { logs.any? { |log| log.include?("chunk key placeholder 'key1' not replaced. template:#{tmpl}") } }
+    end
+
     sub_test_case '#placeholder_validators' do
       test 'returns validators for time, tag and keys when a template has placeholders even if plugin is not configured with these keys' do
         @i.configure(config_element('ROOT', '', {}, [config_element('buffer', '')]))
