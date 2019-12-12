@@ -1,9 +1,13 @@
-# Unreleased
+# v1.8
+
+## Release v1.8.0 - 2019/12/11
 
 ### New feature
 
 * Add service discovery plugin and `out_forward` use it
   https://github.com/fluent/fluentd/pull/2541
+* config: Add strict mode and support `default`/`nil` value in ruby embedded mode
+  https://github.com/fluent/fluentd/pull/2685
 
 ### Enhancement
 
@@ -15,6 +19,15 @@
   https://github.com/fluent/fluentd/pull/2673
 * log: Deprecate top-level match for capturing fluentd logs
   https://github.com/fluent/fluentd/pull/2689
+* in_monitor_agent: Expose Fluentd verion in REST API
+  https://github.com/fluent/fluentd/pull/2706
+* time: Accept localtime xor utc
+  https://github.com/fluent/fluentd/pull/2720
+  https://github.com/fluent/fluentd/pull/2731
+* formatter_stdout: Make time_format configurable in stdout format
+  https://github.com/fluent/fluentd/pull/2721
+* supervisor: create log directory when it doesn't exists
+  https://github.com/fluent/fluentd/pull/2732
 * clean up internal classes / methods / code
   https://github.com/fluent/fluentd/pull/2647
   https://github.com/fluent/fluentd/pull/2648
@@ -25,9 +38,14 @@
   https://github.com/fluent/fluentd/pull/2674
   https://github.com/fluent/fluentd/pull/2677
   https://github.com/fluent/fluentd/pull/2680
+  https://github.com/fluent/fluentd/pull/2709
+  https://github.com/fluent/fluentd/pull/2730
 
 ### Bug fixes
 
+* output: Fix warning printed when chunk key placeholder not replaced
+  https://github.com/fluent/fluentd/pull/2523
+  https://github.com/fluent/fluentd/pull/2733
 * Fix dry-run mode
   https://github.com/fluent/fluentd/pull/2651
 * suppress warning
@@ -44,7 +62,11 @@
   https://github.com/fluent/fluentd/pull/2695
 * server helper: Fix IPv6 dual stack mode issue for tcp socket.
   https://github.com/fluent/fluentd/pull/2697
-
+* supervisor: Fix inline config handling
+  https://github.com/fluent/fluentd/pull/2708
+* Fix typo
+  https://github.com/fluent/fluentd/pull/2710
+  https://github.com/fluent/fluentd/pull/2714
 
 # v1.7
 
