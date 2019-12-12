@@ -71,7 +71,7 @@ module Fluent::Config
       sc.overwrite_variables(s.for_system_config)
       assert_equal(1, sc.workers)
       assert_nil(sc.root_dir)
-      assert_nil(sc.log_level)
+      assert_equal(Fluent::Log::LEVEL_INFO, sc.log_level)
       assert_nil(sc.suppress_repeated_stacktrace)
       assert_nil(sc.emit_error_log_interval)
       assert_nil(sc.suppress_config_dump)

@@ -423,6 +423,17 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_equal inline_config, sv.instance_variable_get(:@inline_config)
   end
 
+  def test_log_level_affects
+    opts = Fluent::Supervisor.default_options
+    sv = Fluent::Supervisor.new(opts)
+
+    c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
+    stub(sv).read_config { config_element('ROOT', '', {}, [c]) }
+
+    sv.configure
+    assert_equal Fluent::Log::LEVEL_ERROR, $log.level
+  end
+
   def create_debug_dummy_logger
     dl_opts = {}
     dl_opts[:log_level] = ServerEngine::DaemonLogger::DEBUG
