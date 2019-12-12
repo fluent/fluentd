@@ -759,7 +759,13 @@ module Fluent
             @chunk_keys.each do |key|
               hash["${#{key}}"] = metadata.variables[key.to_sym]
             end
-            rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN, hash)
+
+            rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN) do |matched|
+              hash.fetch(matched) do
+                log.warn "chunk key placeholder '#{matched[2..-2]}' not replaced. template:#{str}"
+                ''
+              end
+            end
           end
 
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
