@@ -28,7 +28,7 @@ module Fluent
       def configure(conf)
         super
 
-        @time_formatter = Strftime.new(TIME_FORMAT)
+        @time_formatter = Strftime.new(@time_format || TIME_FORMAT)
         @sub_formatter = Plugin.new_formatter(@output_type, parent: self.owner)
         @sub_formatter.configure(conf)
       end

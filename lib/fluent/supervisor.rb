@@ -210,11 +210,11 @@ module Fluent
     end
 
     def supervisor_dump_config_handler
-      $log.info config[:fluentd_conf].to_s
+      $log.info config[:fluentd_conf]
     end
 
     def supervisor_get_dump_config_handler
-      {conf: config[:fluentd_conf].to_s}
+      {conf: config[:fluentd_conf]}
     end
   end
 
@@ -234,7 +234,6 @@ module Fluent
 
   class Supervisor
     def self.load_config(path, params = {})
-
       pre_loadtime = 0
       pre_loadtime = params['pre_loadtime'].to_i if params['pre_loadtime']
       pre_config_mtime = nil
@@ -246,23 +245,6 @@ module Fluent
         return params['pre_conf']
       end
 
-      config_fname = File.basename(path)
-      config_basedir = File.dirname(path)
-      # Assume fluent.conf encoding is UTF-8
-      config_data = File.open(path, "r:#{params['conf_encoding']}:utf-8") {|f| f.read }
-      inline_config = params['inline_config']
-      if inline_config == '-'
-        config_data << "\n" << STDIN.read
-      elsif inline_config
-        config_data << "\n" << inline_config.gsub("\\n","\n")
-      end
-      fluentd_conf = Fluent::Config.parse(config_data, config_fname, config_basedir, params['use_v1_config'])
-      system_config = SystemConfig.create(fluentd_conf)
-
-      # these params must NOT be configured via system config here.
-      # these may be overridden by command line params.
-      workers = params['workers']
-      root_dir = params['root_dir']
       log_level = params['log_level']
       suppress_repeated_stacktrace = params['suppress_repeated_stacktrace']
 
@@ -271,9 +253,6 @@ module Fluent
       chgroup = params['chgroup']
       log_rotate_age = params['log_rotate_age']
       log_rotate_size = params['log_rotate_size']
-      rpc_endpoint = system_config.rpc_endpoint
-      enable_get_dump = system_config.enable_get_dump
-      counter_server = system_config.counter_server
 
       log_opts = {suppress_repeated_stacktrace: suppress_repeated_stacktrace}
       logger_initializer = Supervisor::LoggerInitializer.new(
@@ -290,43 +269,41 @@ module Fluent
       # ServerEngine's "daemonize" option is boolean, and path of pid file is brought by "pid_path"
       pid_path = params['daemonize']
       daemonize = !!params['daemonize']
-      main_cmd = params['main_cmd']
-      signame = params['signame']
 
       se_config = {
-          worker_type: 'spawn',
-          workers: workers,
-          log_stdin: false,
-          log_stdout: false,
-          log_stderr: false,
-          enable_heartbeat: true,
-          auto_heartbeat: false,
-          unrecoverable_exit_codes: [2],
-          stop_immediately_at_unrecoverable_exit: true,
-          root_dir: root_dir,
-          logger: logger,
-          log: logger.out,
-          log_path: log_path,
-          log_level: log_level,
-          logger_initializer: logger_initializer,
-          chuser: chuser,
-          chgroup: chgroup,
-          chumask: 0,
-          suppress_repeated_stacktrace: suppress_repeated_stacktrace,
-          daemonize: daemonize,
-          rpc_endpoint: rpc_endpoint,
-          counter_server: counter_server,
-          enable_get_dump: enable_get_dump,
-          windows_daemon_cmdline: [ServerEngine.ruby_bin_path,
-                                   File.join(File.dirname(__FILE__), 'daemon.rb'),
-                                   ServerModule.name,
-                                   WorkerModule.name,
-                                   path,
-                                   JSON.dump(params)],
-          command_sender: command_sender,
-          fluentd_conf: fluentd_conf,
-          main_cmd: main_cmd,
-          signame: signame,
+        worker_type: 'spawn',
+        workers: params['workers'],
+        log_stdin: false,
+        log_stdout: false,
+        log_stderr: false,
+        enable_heartbeat: true,
+        auto_heartbeat: false,
+        unrecoverable_exit_codes: [2],
+        stop_immediately_at_unrecoverable_exit: true,
+        root_dir: params['root_dir'],
+        logger: logger,
+        log: logger.out,
+        log_path: log_path,
+        log_level: log_level,
+        logger_initializer: logger_initializer,
+        chuser: chuser,
+        chgroup: chgroup,
+        chumask: 0,
+        suppress_repeated_stacktrace: suppress_repeated_stacktrace,
+        daemonize: daemonize,
+        rpc_endpoint: params['rpc_endpoint'],
+        counter_server: params['counter_server'],
+        enable_get_dump: params['enable_get_dump'],
+        windows_daemon_cmdline: [ServerEngine.ruby_bin_path,
+                                 File.join(File.dirname(__FILE__), 'daemon.rb'),
+                                 ServerModule.name,
+                                 WorkerModule.name,
+                                 path,
+                                 JSON.dump(params)],
+        command_sender: command_sender,
+        fluentd_conf: params['fluentd_conf'],
+        main_cmd: params['main_cmd'],
+        signame: params['signame'],
       }
       if daemonize
         se_config[:pid_path] = pid_path
@@ -339,7 +316,7 @@ module Fluent
       pre_params['pre_conf'] = nil
       params['pre_conf'][:windows_daemon_cmdline][5] = JSON.dump(pre_params)
 
-      return se_config
+      se_config
     end
 
     class LoggerInitializer
@@ -427,6 +404,7 @@ module Fluent
         suppress_repeated_stacktrace: true,
         without_source: nil,
         use_v1_config: true,
+        strict_config_value: nil,
         supervise: true,
         standalone_worker: false,
         signame: nil,
@@ -572,6 +550,10 @@ module Fluent
         show_plugin_config
       end
 
+      if @inline_config == '-'
+        @inline_config = STDIN.read
+      end
+
       @conf = read_config
       @system_config = build_system_config(@conf)
 
@@ -638,11 +620,15 @@ module Fluent
         'use_v1_config' => @use_v1_config,
         'conf_encoding' => @conf_encoding,
         'signame' => @signame,
+        'fluentd_conf' => @conf.to_s,
 
         'workers' => @system_config.workers,
         'root_dir' => @system_config.root_dir,
         'log_level' => @system_config.log_level,
         'suppress_repeated_stacktrace' => @system_config.suppress_repeated_stacktrace,
+        'rpc_endpoint' => @system_config.rpc_endpoint,
+        'enable_get_dump' => @system_config.enable_get_dump,
+        'counter_server' => @system_config.counter_server,
       }
 
       se = ServerEngine.create(ServerModule, WorkerModule){
@@ -783,16 +769,14 @@ module Fluent
       config_fname = File.basename(@config_path)
       config_basedir = File.dirname(@config_path)
       config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
-      if @inline_config == '-'
-        config_data << "\n" << STDIN.read
-      elsif @inline_config
-        config_data << "\n" << @inline_config.gsub("\\n","\n")
+      if @inline_config
+        config_data << "\n" << @inline_config.gsub("\\n", "\n")
       end
       Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
     end
 
     def build_system_config(conf)
-      system_config = SystemConfig.create(conf)
+      system_config = SystemConfig.create(conf, @cl_opt[:strict_config_value])
       opt = {}
       Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
         if @cl_opt.key?(param) && !@cl_opt[param].nil?

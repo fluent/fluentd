@@ -406,16 +406,16 @@ module Fluent::Plugin
     def statistics
       stats = super
       services = discovery_manager.services
-      healty_nodes_count = 0
+      healthy_nodes_count = 0
       registed_nodes_count = services.size
       services.each do |s|
         if s.available?
-          healty_nodes_count += 1
+          healthy_nodes_count += 1
         end
       end
 
       stats.merge(
-        'healty_nodes_count' => healty_nodes_count,
+        'healthy_nodes_count' => healthy_nodes_count,
         'registered_nodes_count' => registed_nodes_count,
       )
     end

@@ -74,7 +74,7 @@ module Fluent
       Fluent::Config::SectionGenerator.generate(proxy, conf, nil, nil)
     end
 
-    def configure(conf)
+    def configure(conf, strict_config_value=false)
       @config = conf
 
       logger = if self.respond_to?(:log)
@@ -91,7 +91,7 @@ module Fluent
 
       # In the nested section, can't get plugin class through proxies so get plugin class here
       plugin_class = Fluent::Plugin.lookup_type_from_class(proxy.name.to_s)
-      root = Fluent::Config::SectionGenerator.generate(proxy, conf, logger, plugin_class)
+      root = Fluent::Config::SectionGenerator.generate(proxy, conf, logger, plugin_class, [], strict_config_value)
       @config_root_section = root
 
       root.instance_eval{ @params.keys }.each do |param_name|

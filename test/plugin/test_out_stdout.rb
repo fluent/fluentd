@@ -37,6 +37,25 @@ class StdoutOutputTest < Test::Unit::TestCase
       end
     end
 
+    test 'configure with time_format' do
+      d = create_driver(CONFIG + <<-CONF)
+        <format>
+          @type stdout
+          time_format %Y-%m-%dT%H:%M:%S.%L%z
+        </format>
+      CONF
+
+      time = event_time
+      out = capture_log do
+        d.run(default_tag: 'test') do
+          d.feed(time, {'test' => 'test'})
+        end
+      end
+
+      t = Time.at(time).localtime.strftime("%Y-%m-%dT%H:%M:%S.%L%z")
+      assert_equal "#{t} test: {\"test\":\"test\"}\n", out
+    end
+
     test 'emit with default configuration' do
       d = create_driver
       time = event_time()
@@ -157,6 +176,23 @@ class StdoutOutputTest < Test::Unit::TestCase
     end
   end
 
+  data(
+    'utc and !localtime' => "utc true\nlocaltime false",
+    '!utc and localtime' => "utc false\nlocaltime true")
+  test 'success when configure with localtime and utc' do |c|
+    assert_nothing_raised do
+      create_driver(CONFIG + c)
+    end
+  end
+
+  data('utc and localtime' => "utc true\nlocaltime true",
+       '!utc and !localtime' => "utc false\nlocaltime false")
+  test 'raise an error when configure with localtime and utc' do |c|
+    assert_raise(Fluent::ConfigError.new('both of utc and localtime are specified, use only one of them')) do
+      create_driver(CONFIG + c)
+    end
+  end
+
   # Capture the log output of the block given
   def capture_log(&block)
     tmp = $log
@@ -167,4 +203,3 @@ class StdoutOutputTest < Test::Unit::TestCase
     $log = tmp
   end
 end
-
