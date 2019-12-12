@@ -762,7 +762,7 @@ module Fluent
             rvalue = rvalue.gsub(CHUNK_KEY_PLACEHOLDER_PATTERN, hash)
           end
           if rvalue =~ CHUNK_KEY_PLACEHOLDER_PATTERN
-            log.warn "chunk key placeholder '#{$1}' not replaced. template:#{str}"
+            log.warn "chunk key placeholder '#{$&}' not replaced. template:#{str}"
           end
           rvalue.sub(CHUNK_ID_PLACEHOLDER_PATTERN) {
             if chunk_passed
