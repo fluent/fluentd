@@ -404,6 +404,7 @@ module Fluent
         suppress_repeated_stacktrace: true,
         without_source: nil,
         use_v1_config: true,
+        strict_config_value: nil,
         supervise: true,
         standalone_worker: false,
         signame: nil,
@@ -775,7 +776,7 @@ module Fluent
     end
 
     def build_system_config(conf)
-      system_config = SystemConfig.create(conf)
+      system_config = SystemConfig.create(conf, @cl_opt[:strict_config_value])
       opt = {}
       Fluent::SystemConfig::SYSTEM_CONFIG_PARAMETERS.each do |param|
         if @cl_opt.key?(param) && !@cl_opt[param].nil?

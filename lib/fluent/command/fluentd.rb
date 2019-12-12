@@ -131,6 +131,10 @@ op.on('--use-v0-config', "Use v0 configuration format", TrueClass) {|b|
   opts[:use_v1_config] = !b
 }
 
+op.on('--strict-config-value', "Parse config values strictly", TrueClass) {|b|
+  opts[:strict_config_value] = b
+}
+
 op.on('-v', '--verbose', "increase verbose level (-v: debug, -vv: trace)", TrueClass) {|b|
   if b
     opts[:log_level] = [opts[:log_level] - 1, Fluent::Log::LEVEL_TRACE].max

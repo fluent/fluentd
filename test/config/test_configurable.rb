@@ -30,6 +30,13 @@ module ConfigurableSpec
     config_set_default :opt1, :baz
   end
 
+  class Base1Nil < Base1
+    config_set_default :name1, nil
+    config_set_default :name2, nil
+    config_set_default :opt1, nil
+    config_param :name5, :string, default: nil
+  end
+
   class Base2 < Base1
     config_set_default :name2, "base2"
     config_set_default :name4, "base2"
@@ -212,6 +219,12 @@ module ConfigurableSpec
         CustomSection.new.configure(e)
       end
     end
+  end
+
+  class ExampleWithIntFloat
+    include Fluent::Configurable
+    config_param :int1, :integer
+    config_param :float1, :float
   end
 
   module Overwrite
@@ -602,7 +615,69 @@ module Fluent::Config
             assert_equal([], x6a.obj2)
           end
         end
+
+        test 'strict value type' do
+          default = config_element("", "", {"int1" => "1", "float1" => ""})
+
+          c = ConfigurableSpec::ExampleWithIntFloat.new
+          assert_nothing_raised { c.configure(default) }
+          assert_raise(Fluent::ConfigError) { c.configure(default, true) }
+        end
       end
+
+        test 'set nil for a parameter which has no default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => nil, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name1' parameter is required but nil is specified")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set nil for a parameter which has non-nil default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => nil, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name3' parameter is required but nil is specified")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set nil for a parameter whose default value is nil' do
+          obj = ConfigurableSpec::Base1Nil.new
+          conf = config_element("", "", {"name5" => nil})
+          obj.configure(conf)
+          assert_nil obj.name5
+        end
+
+        test 'set nil for parameters whose default values are overwritten by nil' do
+          obj = ConfigurableSpec::Base1Nil.new
+          conf = config_element("", "", {"name1" => nil, "name2" => nil, "opt1" => nil})
+          obj.configure(conf)
+          assert_nil obj.name1
+          assert_nil obj.name2
+          assert_nil obj.opt1
+        end
+
+        test 'set :default' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => :default, "name5" => "t5", "opt3" => "a"})
+          obj.configure(conf)
+          assert_equal "base1", obj.name3
+        end
+
+        test 'set :default for a parameter which has no default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => :default, "name5" => "t5", "opt3" => "a"})
+          assert_raise(Fluent::ConfigError.new("'name1' doesn't have default value")) do
+            obj.configure(conf)
+          end
+        end
+
+        test 'set :default for a parameter which has an overwritten default value' do
+          obj = ConfigurableSpec::Base2.new
+          conf = config_element("", "", {"name1" => "t1", "name3" => "t3", "name4" => :default, "name5" => "t5", "opt3" => "a"})
+          obj.configure(conf)
+          assert_equal "base2", obj.name4
+        end
     end
 
     sub_test_case 'class defined with config_section' do
@@ -1624,6 +1699,85 @@ module Fluent::Config
 
         assert_equal 1, c.subsection.size
         assert_equal 'foo', c.subsection.first.param0
+      end
+    end
+
+    sub_test_case '#config_argument' do
+      test 'with strict_config_value' do
+        class TestClass01
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass01.new
+        subsection = config_element('subsection', "hoge", { })
+        assert_raise(Fluent::ConfigError.new('param1: invalid value for Integer(): "hoge"')) do
+          c.configure(config_element('root', '', {}, [subsection]), true)
+        end
+      end
+
+      test 'with nil' do
+        class TestClass02
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass02.new
+        subsection = config_element('subsection', nil, { })
+        assert_raise(Fluent::ConfigError.new("'<subsection ARG>' section requires argument, in section subsection")) do
+          c.configure(config_element('root', '', {}, [subsection]))
+        end
+      end
+
+      test 'with nil for an argument whose default value is nil' do
+        class TestClass03
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer, default: nil
+          end
+        end
+
+        c = TestClass03.new
+        subsection = config_element('subsection', nil, { })
+        c.configure(config_element('root', '', {}, [subsection]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal nil, c.subsection.first.param1
+      end
+
+      test 'with :default' do
+        class TestClass04
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer, default: 3
+          end
+        end
+
+        c = TestClass04.new
+        subsection = config_element('subsection', :default, { })
+        c.configure(config_element('root', '', {}, [subsection]))
+
+        assert_equal 1, c.subsection.size
+        assert_equal 3, c.subsection.first.param1
+      end
+
+      test 'with :default for an argument which does not have default value' do
+        class TestClass05
+          include Fluent::Configurable
+          config_section :subsection do
+            config_argument :param1, :integer
+          end
+        end
+
+        c = TestClass05.new
+        subsection = config_element('subsection', :default, { })
+        assert_raise(Fluent::ConfigError.new("'param1' doesn\'t have default value")) do
+          c.configure(config_element('root', '', {}, [subsection]))
+        end
       end
     end
   end

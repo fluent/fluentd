@@ -88,6 +88,7 @@ module Fluent::Config
       'log_event_verbose' => ['log_event_verbose', true],
       'suppress_config_dump' => ['suppress_config_dump', true],
       'without_source' => ['without_source', true],
+      'strict_config_value' => ['strict_config_value', true],
     )
     test "accepts parameters" do |(k, v)|
       conf = parse_text(<<-EOS)

@@ -52,6 +52,16 @@ module Fluent
       def initialize(strscan, eval_context)
         super(strscan)
         @eval_context = eval_context
+        unless @eval_context.respond_to?(:use_nil)
+          def @eval_context.use_nil
+            raise SetNil
+          end
+        end
+        unless @eval_context.respond_to?(:use_default)
+          def @eval_context.use_default
+            raise SetDefault
+          end
+        end
       end
 
       def parse_literal(string_boundary_charset = LINE_END)
@@ -81,7 +91,13 @@ module Fluent
         string = []
         while true
           if skip(/\"/)
-            return string.join
+            if string.include?(nil)
+              return nil
+            elsif string.include?(:default)
+              return :default
+            else
+              return string.join
+            end
           elsif check(/[^"]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
             if s = check(/[^\\]#{LINE_END_WITHOUT_SPACING_AND_COMMENT}/)
               string << s
@@ -168,7 +184,13 @@ module Fluent
 hostname = Socket.gethostname
 worker_id = ENV['SERVERENGINE_WORKER_ID'] || ''
 EOM
-        @eval_context.instance_eval(code)
+        begin
+          @eval_context.instance_eval(code)
+        rescue SetNil => e
+          nil
+        rescue SetDefault => e
+          :default
+        end
       end
 
       def eval_escape_char(c)
