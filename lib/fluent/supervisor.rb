@@ -341,6 +341,10 @@ module Fluent
         @opts[:worker_id] = worker_id
 
         if @path && @path != "-"
+          unless File.exist?(@path)
+            FileUtils.mkdir_p(File.dirname(@path))
+          end
+
           @logdev = if @log_rotate_age || @log_rotate_size
                      Fluent::LogDeviceIO.new(Fluent.windows? ?
                                                worker_id_suffixed_path(worker_id, @path) : @path,
