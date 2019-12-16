@@ -969,6 +969,27 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal EX_PATHS - [EX_PATHS.last], plugin.expand_paths.sort
     end
 
+    def test_expand_paths_with_timezone
+      ['Asia/Taipei', '+08'].each do |tz_type|
+        taipei_config = EX_CONFIG + config_element("", "", {"path_timezone" => tz_type})
+        plugin = create_driver(taipei_config, false).instance
+
+        # Test exclude
+        exclude_config = taipei_config + config_element("", "", { "exclude_path" => %Q(["test/plugin/**/%Y%m%d-%H%M%S.log"]) })
+        exclude_plugin = create_driver(exclude_config, false).instance
+
+        with_timezone('utc') do
+          flexstub(Time) do |timeclass|
+            # env : 2010-01-01 19:04:05 (UTC), tail path : 2010-01-02 03:04:05 (Asia/Taipei)
+            timeclass.should_receive(:now).with_no_args.and_return(Time.new(2010, 1, 1, 19, 4, 5))
+
+            assert_equal EX_PATHS, plugin.expand_paths.sort
+            assert_equal EX_PATHS - [EX_PATHS.first], exclude_plugin.expand_paths.sort
+          end
+        end
+      end
+    end
+
     def test_log_file_without_extension
       expected_files = [
         'test/plugin/data/log/bar',

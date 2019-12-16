@@ -96,6 +96,8 @@ module Fluent::Plugin
     config_param :skip_refresh_on_startup, :bool, default: false
     desc 'Ignore repeated permission error logs'
     config_param :ignore_repeated_permission_error, :bool, default: false
+    desc 'Format path with the specified timezone'
+    config_param :path_timezone, :string, default: nil
 
     config_section :parse, required: false, multi: true, init: true, param_name: :parser_configs do
       config_argument :usage, :string, default: 'in_tail_parser'
@@ -128,6 +130,11 @@ module Fluent::Plugin
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
+      end
+      if @path_timezone
+        Fluent::Timezone.validate!(@path_timezone)
+        @path_formatters = @paths.map{|path| [path, Fluent::Timezone.formatter(@path_timezone, path)]}.to_h
+        @exclude_path_formatters = @exclude_path.map{|path| [path, Fluent::Timezone.formatter(@path_timezone, path)]}.to_h
       end
 
       # TODO: Use plugin_root_dir and storage plugin to store positions if available
@@ -225,17 +232,20 @@ module Fluent::Plugin
     end
 
     def expand_paths
-      date = Time.now
+      date = Fluent::EventTime.now
       paths = []
-
       @paths.each { |path|
-        path = date.strftime(path)
+        path = if @path_timezone
+                 @path_formatters[path].call(date)
+               else
+                 date.to_time.strftime(path)
+               end
         if path.include?('*')
           paths += Dir.glob(path).select { |p|
             begin
               is_file = !File.directory?(p)
               if File.readable?(p) && is_file
-                if @limit_recently_modified && File.mtime(p) < (date - @limit_recently_modified)
+                if @limit_recently_modified && File.mtime(p) < (date.to_time - @limit_recently_modified)
                   false
                 else
                   true
@@ -259,7 +269,14 @@ module Fluent::Plugin
           paths << path
         end
       }
-      excluded = @exclude_path.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
+      excluded = @exclude_path.map { |path|
+        path = if @path_timezone
+                 @exclude_path_formatters[path].call(date)
+               else
+                 date.to_time.strftime(path)
+               end
+        path.include?('*') ? Dir.glob(path) : path
+      }.flatten.uniq
       paths - excluded
     end
 
