@@ -283,8 +283,13 @@ module Fluent
               chunk.mon_enter # add lock to prevent to be committed/rollbacked from other threads
               operated_chunks << chunk
               if chunk.staged?
-                staged_bytesizes_by_chunk[chunk] = 0 if staged_bytesizes_by_chunk[chunk].nil?
-                staged_bytesizes_by_chunk[chunk] += adding_bytesize
+                #
+                # https://github.com/fluent/fluentd/issues/2712
+                # write_once is supposed to write to a chunk only once
+                # but this block **may** run multiple times from write_step_by_step and previous write may be rollbacked
+                # So we should be counting the stage_size only for the last successful write
+                #
+                staged_bytesizes_by_chunk[chunk] = adding_bytesize
               elsif chunk.unstaged?
                 unstaged_chunks[metadata] ||= []
                 unstaged_chunks[metadata] << chunk
@@ -337,10 +342,8 @@ module Fluent
           #
           staged_bytesizes_by_chunk.each do |chunk, bytesize|
             chunk.synchronize do
-              if chunk.staged?
-                synchronize { @stage_size += bytesize }
-                log.on_trace { log.trace { "chunk #{chunk.path} size_added: #{bytesize} new_size: #{chunk.bytesize}" } }
-              end
+              synchronize { @stage_size += bytesize }
+              log.on_trace { log.trace { "chunk #{chunk.path} size_added: #{bytesize} new_size: #{chunk.bytesize}" } }
             end
           end
 
