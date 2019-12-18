@@ -23,6 +23,7 @@ require 'fluent/time'
 require 'fluent/system_config'
 require 'fluent/plugin'
 require 'fluent/fluent_log_event_router'
+require 'fluent/static_config_analysis'
 
 module Fluent
   class EngineClass
@@ -166,16 +167,27 @@ module Fluent
     def reload_config(conf, supervisor: false)
       # configure first to reduce down time while restarting
       new_agent = RootAgent.new(log: log, system_config: @system_config)
-      if (plugin = new_agent.find_unreloadable_plugin)
-        raise Fluent::ConfigError, "Unreloadable plugin: #{plugin.class}"
+      ret = Fluent::StaticConfigAnalysis.call(conf, workers: system_config.workers)
+
+      ret.all_plugins.each do |plugin|
+        if plugin.respond_to?(:reloadable_plugin?) && !plugin.reloadable_plugin?
+          raise Fluent::ConfigError, "Unreloadable plugin: #{plugin.class}"
+        end
       end
 
-      new_agent.configure(conf)
+      # Assign @root_agent to new root_agent
+      # for https://github.com/fluent/fluentd/blob/fcef949ce40472547fde295ddd2cfe297e1eddd6/lib/fluent/plugin_helper/event_emitter.rb#L50
+      old_agent, @root_agent = @root_agent, new_agent
+      begin
+        @root_agent.configure(conf)
+      rescue
+        @root_agent = old_agent
+        raise
+      end
+
       unless @suppress_config_dump
         $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
       end
-
-      old_agent, @root_agent = @root_agent, new_agent
 
       # supervisor doesn't handle actual data. so the following code is unnecessary.
       if supervisor

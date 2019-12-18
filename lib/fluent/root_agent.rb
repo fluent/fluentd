@@ -63,16 +63,6 @@ module Fluent
     attr_reader :inputs
     attr_reader :labels
 
-    def find_unreloadable_plugin
-      lifecycle do |instance|
-        if instance.respond_to?(:reloadable_plugin?) && !instance.reloadable_plugin?
-          return instance
-        end
-      end
-
-      nil
-    end
-
     def configure(conf)
       used_worker_ids = []
       available_worker_ids = (0..Fluent::Engine.system_config.workers - 1).to_a
