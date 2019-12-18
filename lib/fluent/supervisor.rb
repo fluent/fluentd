@@ -192,30 +192,30 @@ module Fluent
 
     def supervisor_sigusr2_handler
       conf = nil
-      Thread.new do
+      t = Thread.new do
         $log.info 'Reloading new config'
 
-        begin
-          # Validate that loading config is valid at first
-          conf = Fluent::Config.build(
-            config_path: config[:config_path],
-            encoding: config[:conf_encoding],
-            additional_config: config[:inline_config],
-            use_v1_config: config[:use_v1_config],
-          )
+        # Validate that loading config is valid at first
+        conf = Fluent::Config.build(
+          config_path: config[:config_path],
+          encoding: config[:conf_encoding],
+          additional_config: config[:inline_config],
+          use_v1_config: config[:use_v1_config],
+        )
 
-          Fluent::VariableStore.try_to_reset do
-            Fluent::Engine.reload_config(conf)
-          end
-        rescue => e
-          $log.error "Failed to reload config file: #{e}"
-          next
+        Fluent::VariableStore.try_to_reset do
+          Fluent::Engine.reload_config(conf, supervisor: true)
         end
-      end.join
+      end
+
+      t.report_on_exception = false # Error is handled by myself
+      t.join
 
       reopen_log
       send_signal_to_workers(:USR2)
       @fluentd_conf = conf.to_s
+    rescue => e
+      $log.error "Failed to reload config file: #{e}"
     end
 
     def kill_worker
@@ -776,7 +776,7 @@ module Fluent
           )
 
           Fluent::VariableStore.try_to_reset do
-            Fluent::Engine.reload_config(conf, supervisor: true)
+            Fluent::Engine.reload_config(conf)
           end
         rescue => e
           # it is guranteed that config file is valid by supervisor side. but it's not atomic becuase of using signals to commnicate between worker and super
