@@ -157,14 +157,7 @@ module Fluent
         raise
       end
 
-      unless @log_event_verbose
-        $log.enable_event(false)
-        @fluent_log_event_router.graceful_stop
-      end
-      $log.info "shutting down fluentd worker", worker: worker_id
-      shutdown
-
-      @fluent_log_event_router.stop
+      stop_phase(@root_agent)
     end
 
     # @param conf [Fluent::Config]
@@ -190,17 +183,9 @@ module Fluent
         return
       end
 
-      # Stop phaze
-      unless @log_event_verbose
-        $log.enable_event(false)
-        @fluent_log_event_router.graceful_stop
-      end
-      $log.info 'shutting down fluentd worker', worker: worker_id
-      old_agent.shutdown      # Stop first but we can still accept sockets, thanks to serverengine SocketManager,
+      stop_phase(old_agent)
 
-      @fluent_log_event_router.stop
-
-      # Restart phaze
+      # Restart phase
       new_fleunt_log_event_router = FluentLogEventRouter.build(new_agent)
       if new_fleunt_log_event_router.emittable?
         $log.enable_event(true)
@@ -233,12 +218,20 @@ module Fluent
     end
 
     private
-    def start
-      @root_agent.start
+
+    def stop_phase(root_agent)
+      unless @log_event_verbose
+        $log.enable_event(false)
+        @fluent_log_event_router.graceful_stop
+      end
+      $log.info 'shutting down fluentd worker', worker: worker_id
+      root_agent.shutdown
+
+      @fluent_log_event_router.stop
     end
 
-    def shutdown
-      @root_agent.shutdown
+    def start
+      @root_agent.start
     end
   end
 
