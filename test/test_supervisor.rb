@@ -353,7 +353,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     sv = Fluent::Supervisor.new(opts)
 
     c = Fluent::Config::Element.new('system', '', { 'log_level' => 'error' }, [])
-    stub(sv).read_config { config_element('ROOT', '', {}, [c]) }
+    stub(Fluent::Config).build { config_element('ROOT', '', {}, [c]) }
 
     sv.configure
     assert_equal Fluent::Log::LEVEL_ERROR, $log.level
