@@ -171,7 +171,7 @@ module Fluent
 
       ret.all_plugins.each do |plugin|
         if plugin.respond_to?(:reloadable_plugin?) && !plugin.reloadable_plugin?
-          raise Fluent::ConfigError, "Unreloadable plugin: #{plugin.class}"
+          raise Fluent::ConfigError, "Unreloadable plugin plugin: #{Fluent::Plugin.lookup_type_from_class(plugin.class)}, plugin_id: #{plugin.plugin_id}, class_name: #{plugin.class})"
         end
       end
 
