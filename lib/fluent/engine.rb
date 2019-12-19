@@ -197,15 +197,8 @@ module Fluent
 
       stop_phase(old_agent)
 
-      # Restart phase
-      new_fleunt_log_event_router = FluentLogEventRouter.build(new_agent)
-      if new_fleunt_log_event_router.emittable?
-        $log.enable_event(true)
-      end
-      @fluent_log_event_router = new_fleunt_log_event_router
-
       $log.info 'restart fluentd worker', worker: worker_id
-      @root_agent.start
+      start_phase(new_agent)
     end
 
     def stop
@@ -240,6 +233,15 @@ module Fluent
       root_agent.shutdown
 
       @fluent_log_event_router.stop
+    end
+
+    def start_phase(root_agent)
+      @fluent_log_event_router = FluentLogEventRouter.build(root_agent)
+      if @fluent_log_event_router.emittable?
+        $log.enable_event(true)
+      end
+
+      @root_agent.start
     end
 
     def start
