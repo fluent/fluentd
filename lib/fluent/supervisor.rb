@@ -555,6 +555,7 @@ module Fluent
       end
 
       if @inline_config == '-'
+        $log.warn('the value "-" for `inline_config` is deprecated. See https://github.com/fluent/fluentd/issues/2711')
         @inline_config = STDIN.read
       end
 
