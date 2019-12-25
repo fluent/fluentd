@@ -100,6 +100,21 @@ class LabeledTSVParserTest < ::Test::Unit::TestCase
     end
   end
 
+  def test_parse_and_reject_invalid_kv_pairs
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
+    parser.configure(
+                     'delimiter'       => ' ',
+                     'label_delimiter' => '=',
+                     )
+    text = 'A leading portion that is not LTSV    :  foo=bar baz=derp and a trailing portion'
+
+    expected = {'foo' => 'bar', 'baz' => 'derp'}
+    parser.instance.parse(text) do |time, record|
+      assert_equal expected, record
+    end
+
+  end
+
   def test_parse_with_null_value_pattern
     parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::LabeledTSVParser)
     parser.configure(
