@@ -693,26 +693,11 @@ module Fluent
             end
           end
 
-          if RUBY_VERSION.to_f >= 2.3
-            NONBLOCK_ARG = { exception: false }
-            def try_handshake
-              @_handler_socket.accept_nonblock(**NONBLOCK_ARG)
-            end
-          else
-            def try_handshake
-              @_handler_socket.accept_nonblock
-            rescue IO::WaitReadable
-              :wait_readable
-            rescue IO::WaitWritable
-              :wait_writable
-            end
-          end
-
           def try_tls_accept
             return true if @_handler_accepted
 
             begin
-              result = try_handshake # this method call actually try to do handshake via TLS
+              result = @_handler_socket.accept_nonblock(exception: false) # this method call actually try to do handshake via TLS
               if result == :wait_readable || result == :wait_writable
                 # retry accept_nonblock: there aren't enough data in underlying socket buffer
               else

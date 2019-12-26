@@ -16,7 +16,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.license = "Apache-2.0"
 
-  gem.required_ruby_version = '>= 2.1'
+  gem.required_ruby_version = '>= 2.4'
 
   gem.add_runtime_dependency("msgpack", [">= 1.2.0", "< 2.0.0"])
   gem.add_runtime_dependency("yajl-ruby", ["~> 1.0"])
@@ -27,7 +27,6 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("tzinfo", [">= 1.0", "< 3.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
   gem.add_runtime_dependency("strptime", [">= 0.2.2", "< 1.0.0"])
-  gem.add_runtime_dependency("dig_rb", ["~> 1.0.0"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
