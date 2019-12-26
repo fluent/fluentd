@@ -25,6 +25,8 @@ matrix:
       dist: xenial
     - rvm: 2.6.5
       os: linux
+    - rvm: 2.7.0
+      os: linux
     - rvm: ruby-head
       os: linux
     - rvm: ruby-head
