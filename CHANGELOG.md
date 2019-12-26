@@ -1,5 +1,21 @@
 # v1.8
 
+## Release v1.8.1 - 2019/12/26
+
+### Enhancement
+
+* in_tail: Add `path_timezone` parameter to format `path` with the specified timezone
+  https://github.com/fluent/fluentd/pull/2719
+* out_copy: Add `copy_mode` parameter. `deep_copy` parameter is now deprecated.
+  https://github.com/fluent/fluentd/pull/2747
+* supervisor: Add deprecated log for `inline_config`
+  https://github.com/fluent/fluentd/pull/2746
+
+### Bug fixes
+
+* parser_ltsv: Prevent garbage result by checking `label_delimiter`
+  https://github.com/fluent/fluentd/pull/2748
+
 ## Release v1.8.0 - 2019/12/11
 
 ### New feature
