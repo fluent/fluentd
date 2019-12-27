@@ -19,7 +19,7 @@ require 'stringio'
 require 'json'
 require 'yajl'
 require 'socket'
-require 'irb/ruby-lex'  # RubyLex
+require 'ripper'
 
 require 'fluent/config/basic_parser'
 
@@ -155,15 +155,20 @@ module Fluent
       end
 
       def scan_embedded_code
-        rlex = RubyLex.new
-        src = '"#{'+@ss.rest+"\n=end\n}"
+        src = '"#{'+@ss.rest+"\n=begin\n=end\n}"
 
-        input = StringIO.new(src)
-        input.define_singleton_method(:encoding) { external_encoding }
-        rlex.set_input(input)
+        seek = -1
+        while (seek = src.index('}', seek + 1))
+          unless Ripper.sexp(src[0..seek] + '"').nil? # eager parsing until valid expression
+            break
+          end
+        end
 
-        tk = rlex.token
-        code = src[3,tk.seek-3]
+        unless seek
+          raise Fluent::ConfigParseError, @ss.rest
+        end
+
+        code = src[3, seek-3]
 
         if @ss.rest.length < code.length
           @ss.pos += @ss.rest.length

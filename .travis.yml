@@ -25,6 +25,8 @@ matrix:
       dist: xenial
     - rvm: 2.6.5
       os: linux
+    - rvm: 2.7.0
+      os: linux
     - rvm: ruby-head
       os: linux
     - rvm: ruby-head
@@ -56,9 +58,6 @@ branches:
     - master
     - v0.12
     - v0.14
-
-before_install:
-  - gem update --system=2.7.8
 
 sudo: false
 dist: trusty # for TLSv1.2 support
