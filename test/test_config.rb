@@ -176,7 +176,7 @@ class ConfigTest < Test::Unit::TestCase
     $log = Fluent::Log.new(logger)
   end
 
-  sub_test_case '.build'do
+  sub_test_case '.build' do
     test 'read config' do
       write_config("#{TMP_DIR}/build/config_build.conf", 'key value')
       c = Fluent::Config.build(config_path: "#{TMP_DIR}/build/config_build.conf")

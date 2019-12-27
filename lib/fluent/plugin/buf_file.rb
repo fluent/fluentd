@@ -56,7 +56,7 @@ module Fluent
       def configure(conf)
         super
 
-        @variable_store = Fluent::VariableStore.fetch_or_build(:buf_file_single)
+        @variable_store = Fluent::VariableStore.fetch_or_build(:buf_file)
 
         multi_workers_configured = owner.system_config.workers > 1 ? true : false
 
