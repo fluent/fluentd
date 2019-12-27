@@ -23,7 +23,7 @@ module Fluent
     module Elem
       Input = Struct.new(:plugin, :config)
       Output = Struct.new(:plugin, :config)
-      Format = Struct.new(:plugin, :config)
+      Filter = Struct.new(:plugin, :config)
       Label = Struct.new(:name, :config, :nodes)
       Worker = Struct.new(:ids, :config, :nodes)
     end
@@ -162,7 +162,7 @@ module Fluent
         end
 
         if e.name == 'filter'
-          f = Elem::Format.new(Fluent::Plugin.new_filter(type), e)
+          f = Elem::Filter.new(Fluent::Plugin.new_filter(type), e)
           ret << f
           @filters << f
         else
