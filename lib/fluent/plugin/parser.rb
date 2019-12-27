@@ -105,6 +105,12 @@ module Fluent
         :text_per_line
       end
 
+      def initialize
+        super
+
+        @timeout_checker = nil
+      end
+
       def configure(conf)
         super
 
