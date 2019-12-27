@@ -68,7 +68,7 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
-      sc.overwrite_variables(s.for_system_config)
+      sc.overwrite_variables(**s.for_system_config)
       assert_equal(1, sc.workers)
       assert_nil(sc.root_dir)
       assert_equal(Fluent::Log::LEVEL_INFO, sc.log_level)
@@ -98,7 +98,7 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
-      sc.overwrite_variables(s.for_system_config)
+      sc.overwrite_variables(**s.for_system_config)
       if k == 'log_level'
         assert_equal(Fluent::Log::LEVEL_ERROR, sc.__send__(k))
       else
@@ -117,7 +117,7 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new
       sc = Fluent::SystemConfig.new(conf)
-      sc.overwrite_variables(s.for_system_config)
+      sc.overwrite_variables(**s.for_system_config)
       assert_equal(:json, sc.log.format)
       assert_equal('%Y', sc.log.time_format)
     end
@@ -136,7 +136,7 @@ module Fluent::Config
       EOS
       s = FakeSupervisor.new(log_level: level)
       sc = Fluent::SystemConfig.new(conf)
-      sc.overwrite_variables(s.for_system_config)
+      sc.overwrite_variables(**s.for_system_config)
       assert_equal(level, sc.log_level)
     end
   end

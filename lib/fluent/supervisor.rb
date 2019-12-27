@@ -794,7 +794,7 @@ module Fluent
           opt[param] = @cl_opt[param]
         end
       end
-      system_config.overwrite_variables(opt)
+      system_config.overwrite_variables(**opt)
       system_config
     end
   end
