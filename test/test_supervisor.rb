@@ -409,6 +409,8 @@ class SupervisorTest < ::Test::Unit::TestCase
   end
 
   def test_inline_config
+    omit 'this feature is deprecated. see https://github.com/fluent/fluentd/issues/2711'
+
     opts = Fluent::Supervisor.default_options
     opts[:inline_config] = '-'
     sv = Fluent::Supervisor.new(opts)
