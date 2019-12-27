@@ -212,9 +212,9 @@ module Fluent::Plugin
             end
 
       if res.is_a?(Net::HTTPSuccess)
-        log.debug { "#{res.code} #{res.message}#{res.body}" }
+        log.debug { "#{res.code} #{res.message.rstrip}#{res.body.lstrip}" }
       else
-        msg = "#{res.code} #{res.message}#{res.body}"
+        msg = "#{res.code} #{res.message.rstrip} #{res.body.lstrip}"
 
         if @retryable_response_codes.include?(res.code.to_i)
           raise RetryableResponse, msg
