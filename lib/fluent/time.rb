@@ -16,7 +16,6 @@
 
 require 'time'
 require 'msgpack'
-require 'strptime'
 require 'fluent/timezone'
 require 'fluent/configurable'
 require 'fluent/config/error'
@@ -231,18 +230,9 @@ module Fluent
                     else Time.now.localtime.utc_offset # utc
                     end
 
-      strptime = format && (Strptime.new(format) rescue nil)
-
       @parse = case
-               when format_with_timezone && strptime then ->(v){ Fluent::EventTime.from_time(strptime.exec(v)) }
                when format_with_timezone             then ->(v){ Fluent::EventTime.from_time(Time.strptime(v, format)) }
                when format == '%iso8601'             then ->(v){ Fluent::EventTime.from_time(Time.iso8601(v)) }
-               when strptime then
-                 if offset_diff.respond_to?(:call)
-                   ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
-                 else
-                   ->(v) { t = strptime.exec(v); Fluent::EventTime.new(t.to_i + offset_diff, t.nsec) }
-                 end
                when format   then
                  if offset_diff.respond_to?(:call)
                    ->(v){ t = Time.strptime(v, format); Fluent::EventTime.new(t.to_i + offset_diff.call(t), t.nsec) }
