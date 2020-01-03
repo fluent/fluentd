@@ -16,6 +16,7 @@
 
 require 'time'
 require 'msgpack'
+require 'strptime'
 require 'fluent/timezone'
 require 'fluent/configurable'
 require 'fluent/config/error'
