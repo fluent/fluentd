@@ -211,7 +211,7 @@ class BufferTest < Test::Unit::TestCase
       assert_equal 2, @p.queued_num[@dm1]
     end
 
-    test '#close closes all chunks in in dequeued, enqueued and staged' do
+    test '#close closes all chunks in dequeued, enqueued and staged' do
       dmx = create_metadata(Time.parse('2016-04-11 15:50:00 +0000').to_i, nil, nil)
       cx = create_chunk(dmx, ["x" * 1024])
       @p.dequeued[cx.unique_id] = cx
