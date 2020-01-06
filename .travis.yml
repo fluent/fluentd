@@ -7,12 +7,6 @@ cache: bundler
 # See here for osx_image -> OSX versions: https://docs.travis-ci.com/user/languages/objective-c
 matrix:
   include:
-    - rvm: 2.1.10
-      os: linux
-    - rvm: 2.2.10
-      os: linux
-    - rvm: 2.2.10
-      os: linux-ppc64le
     - rvm: 2.4.9
       os: linux
     - rvm: 2.4.9
@@ -31,9 +25,6 @@ matrix:
       os: linux
     - rvm: ruby-head
       os: linux-ppc64le
-    - rvm: 2.1.10
-      os: osx
-      osx_image: xcode8.3 # OSX 10.12
     - rvm: 2.4.6
       os: osx
       osx_image: xcode8.3 # OSX 10.12
@@ -41,9 +32,6 @@ matrix:
       os: osx
       osx_image: xcode8.3 # OSX 10.12
   allow_failures:
-    - rvm: 2.1.10
-      os: osx
-      osx_image: xcode8.3
     - rvm: 2.4.6
       os: osx
       osx_image: xcode8.3
@@ -56,8 +44,6 @@ matrix:
 branches:
   only:
     - master
-    - v0.12
-    - v0.14
 
 sudo: false
 dist: trusty # for TLSv1.2 support

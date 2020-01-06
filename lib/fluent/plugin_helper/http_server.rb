@@ -15,7 +15,6 @@
 #
 
 begin
-  # raise if RUBY_VERSION < 2.3.x. see Gemfile
   require 'async'
   require 'fluent/plugin_helper/http_server/server'
 rescue LoadError => _
