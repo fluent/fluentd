@@ -42,11 +42,11 @@ Mobile/Web Application Logging | Fluentd can function as middleware to enable as
 ### Branch
 
 - master: For v1 development.
-- v0.12: For v0.12. This is security maintenance mode. Only security fix is accepted.
+- v0.12: For v0.12. This is deprecated version. we already stopped supporting (See https://www.fluentd.org/blog/drop-schedule-announcement-in-2019).
 
 ### Prerequisites
 
-- Ruby 2.1 or later
+- Ruby 2.4 or later
 - git
 
 `git` should be in `PATH`. On Windows, you can use `Github for Windows` and `GitShell` for easy setup.
