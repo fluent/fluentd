@@ -122,6 +122,15 @@ module Fluent
         nil
       }
 
+      @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
+        $log.debug "fluentd RPC got /api/config.gracefulReload request"
+        unless Fluent.windows?
+          Process.kill :USR2, $$
+        end
+
+        nil
+      }
+
       @rpc_server.mount_proc('/api/config.getDump') { |req, res|
         $log.debug "fluentd RPC got /api/config.getDump request"
         $log.info "get dump in-memory config via HTTP"
