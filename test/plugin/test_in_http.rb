@@ -446,7 +446,7 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[0][1]
     assert_equal_event_time time, d.events[1][1]
   end
-  
+
   def test_msgpack
     d = create_driver
     time = event_time("2011-01-02 13:14:15 UTC")
@@ -716,7 +716,7 @@ class HttpInputTest < Test::Unit::TestCase
       end
     end
   end
-  
+
   def test_cors_allowed_exclude_empty_string
     d = create_driver(CONFIG + 'cors_allow_origins ["", "http://*.foo.com"]')
 
@@ -736,7 +736,7 @@ class HttpInputTest < Test::Unit::TestCase
       end
     end
   end
-  
+
   def test_cors_allowed_wildcard_preflight_for_subdomain
     d = create_driver(CONFIG + 'cors_allow_origins ["http://*.foo.com"]')
 
