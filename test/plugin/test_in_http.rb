@@ -208,6 +208,38 @@ class HttpInputTest < Test::Unit::TestCase
     assert_equal_event_time time, d.events[1][1]
   end
 
+  def test_exact_match_for_expect
+    d = create_driver(CONFIG)
+    records = [{ "a" => 1}, { "a" => 2 }]
+    tag = "tag1"
+    res_codes = []
+
+    d.run(expect_records: 0, timeout: 5) do
+      res = post("/#{tag}", { "json" => records.to_json }, { 'Expect' => 'something' })
+      res_codes << res.code
+    end
+    assert_equal ["417"], res_codes
+  end
+
+  def test_exact_match_for_expect_with_other_header
+    d = create_driver(CONFIG)
+
+    records = [{ "a" => 1}, { "a" => 2 }]
+    tag = "tag1"
+    res_codes = []
+
+    d.run(expect_records: 2, timeout: 5) do
+      res = post("/#{tag}", { "json" => records.to_json, 'x-envoy-expected-rq-timeout-ms' => 4 })
+      res_codes << res.code
+    end
+    assert_equal ["200"], res_codes
+
+    assert_equal "tag1", d.events[0][0]
+    assert_equal 1, d.events[0][2]["a"]
+    assert_equal "tag1", d.events[1][0]
+    assert_equal 2, d.events[1][2]["a"]
+  end
+
   def test_multi_json_with_add_remote_addr
     d = create_driver(CONFIG + "add_remote_addr true")
     time = event_time("2011-01-02 13:14:15 UTC")
