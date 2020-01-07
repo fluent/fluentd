@@ -19,6 +19,7 @@ require 'fileutils'
 require 'fluent/plugin/buffer'
 require 'fluent/plugin/buffer/file_single_chunk'
 require 'fluent/system_config'
+require 'fluent/variable_store'
 
 module Fluent
   module Plugin
@@ -48,17 +49,18 @@ module Fluent
       desc 'The permission of chunk directory. If no specified, <system> setting or 0755 is used'
       config_param :dir_permission, :string, default: nil
 
-      @@buffer_paths = {}
-
       def initialize
         super
 
         @multi_workers_available = false
         @additional_resume_path = nil
+        @variable_store = nil
       end
 
       def configure(conf)
         super
+
+        @variable_store = Fluent::VariableStore.fetch_or_build(:buf_file_single)
 
         if @chunk_format == :auto
           @chunk_format = owner.formatted_to_msgpack_binary? ? :msgpack : :text
@@ -117,12 +119,12 @@ module Fluent
         end
 
         type_of_owner = Plugin.lookup_type_from_class(@_owner.class)
-        if @@buffer_paths.has_key?(@path) && !called_in_test?
-          type_using_this_path = @@buffer_paths[@path]
+        if @variable_store.has_key?(@path) && !called_in_test?
+          type_using_this_path = @variable_store[@path]
           raise Fluent::ConfigError, "Other '#{type_using_this_path}' plugin already uses same buffer path: type = #{type_of_owner}, buffer path = #{@path}"
         end
 
-        @@buffer_paths[@path] = type_of_owner
+        @variable_store[@path] = type_of_owner
         @dir_permission = if @dir_permission
                             @dir_permission.to_i(8)
                           else
@@ -145,7 +147,9 @@ module Fluent
       end
 
       def stop
-        @@buffer_paths.delete(@path)
+        if @variable_store
+          @variable_store.delete(@path)
+        end
 
         super
       end

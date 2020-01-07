@@ -23,6 +23,7 @@ require 'fluent/time'
 require 'fluent/system_config'
 require 'fluent/plugin'
 require 'fluent/fluent_log_event_router'
+require 'fluent/static_config_analysis'
 
 module Fluent
   class EngineClass
@@ -157,14 +158,47 @@ module Fluent
         raise
       end
 
-      unless @log_event_verbose
-        $log.enable_event(false)
-        @fluent_log_event_router.graceful_stop
-      end
-      $log.info "shutting down fluentd worker", worker: worker_id
-      shutdown
+      stop_phase(@root_agent)
+    end
 
-      @fluent_log_event_router.stop
+    # @param conf [Fluent::Config]
+    # @param supervisor [Bool]
+    # @reutrn nil
+    def reload_config(conf, supervisor: false)
+      # configure first to reduce down time while restarting
+      new_agent = RootAgent.new(log: log, system_config: @system_config)
+      ret = Fluent::StaticConfigAnalysis.call(conf, workers: system_config.workers)
+
+      ret.all_plugins.each do |plugin|
+        if plugin.respond_to?(:reloadable_plugin?) && !plugin.reloadable_plugin?
+          raise Fluent::ConfigError, "Unreloadable plugin plugin: #{Fluent::Plugin.lookup_type_from_class(plugin.class)}, plugin_id: #{plugin.plugin_id}, class_name: #{plugin.class})"
+        end
+      end
+
+      # Assign @root_agent to new root_agent
+      # for https://github.com/fluent/fluentd/blob/fcef949ce40472547fde295ddd2cfe297e1eddd6/lib/fluent/plugin_helper/event_emitter.rb#L50
+      old_agent, @root_agent = @root_agent, new_agent
+      begin
+        @root_agent.configure(conf)
+      rescue
+        @root_agent = old_agent
+        raise
+      end
+
+      unless @suppress_config_dump
+        $log.info :supervisor, "using configuration file: #{conf.to_s.rstrip}"
+      end
+
+      # supervisor doesn't handle actual data. so the following code is unnecessary.
+      if supervisor
+        old_agent.shutdown      # to close thread created in #configure
+        return
+      end
+
+      stop_phase(old_agent)
+
+      $log.info 'restart fluentd worker', worker: worker_id
+      start_phase(new_agent)
     end
 
     def stop
@@ -189,12 +223,29 @@ module Fluent
     end
 
     private
-    def start
+
+    def stop_phase(root_agent)
+      unless @log_event_verbose
+        $log.enable_event(false)
+        @fluent_log_event_router.graceful_stop
+      end
+      $log.info 'shutting down fluentd worker', worker: worker_id
+      root_agent.shutdown
+
+      @fluent_log_event_router.stop
+    end
+
+    def start_phase(root_agent)
+      @fluent_log_event_router = FluentLogEventRouter.build(root_agent)
+      if @fluent_log_event_router.emittable?
+        $log.enable_event(true)
+      end
+
       @root_agent.start
     end
 
-    def shutdown
-      @root_agent.shutdown
+    def start
+      @root_agent.start
     end
   end
 

@@ -26,6 +26,7 @@ require 'fluent/plugin'
 require 'fluent/rpc'
 require 'fluent/system_config'
 require 'fluent/msgpack_factory'
+require 'fluent/variable_store'
 require 'serverengine'
 
 if Fluent.windows?
@@ -42,6 +43,7 @@ end
 module Fluent
   module ServerModule
     def before_run
+      @fluentd_conf = config[:fluentd_conf]
       @rpc_server = nil
       @counter = nil
 
@@ -120,6 +122,15 @@ module Fluent
         nil
       }
 
+      @rpc_server.mount_proc('/api/config.gracefulReload') { |req, res|
+        $log.debug "fluentd RPC got /api/config.gracefulReload request"
+        unless Fluent.windows?
+          Process.kill :USR2, $$
+        end
+
+        nil
+      }
+
       @rpc_server.mount_proc('/api/config.getDump') { |req, res|
         $log.debug "fluentd RPC got /api/config.getDump request"
         $log.info "get dump in-memory config via HTTP"
@@ -156,6 +167,11 @@ module Fluent
         $log.debug "fluentd supervisor process get SIGUSR1"
         supervisor_sigusr1_handler
       end unless Fluent.windows?
+
+      trap :USR2 do
+        $log.debug 'fluentd supervisor process got SIGUSR2'
+        supervisor_sigusr2_handler
+      end unless Fluent.windows?
     end
 
     def install_windows_event_handler
@@ -179,20 +195,36 @@ module Fluent
     end
 
     def supervisor_sigusr1_handler
-      if log = config[:logger_initializer]
-        # Creating new thread due to mutex can't lock
-        # in main thread during trap context
-        Thread.new do
-          log.reopen!
+      reopen_log
+      send_signal_to_workers(:USR1)
+    end
+
+    def supervisor_sigusr2_handler
+      conf = nil
+      t = Thread.new do
+        $log.info 'Reloading new config'
+
+        # Validate that loading config is valid at first
+        conf = Fluent::Config.build(
+          config_path: config[:config_path],
+          encoding: config[:conf_encoding],
+          additional_config: config[:inline_config],
+          use_v1_config: config[:use_v1_config],
+        )
+
+        Fluent::VariableStore.try_to_reset do
+          Fluent::Engine.reload_config(conf, supervisor: true)
         end
       end
 
-      if config[:worker_pid]
-        config[:worker_pid].each_value do |pid|
-          Process.kill(:USR1, pid)
-          # don't rescue Errno::ESRCH here (invalid status)
-        end
-      end
+      t.report_on_exception = false # Error is handled by myself
+      t.join
+
+      reopen_log
+      send_signal_to_workers(:USR2)
+      @fluentd_conf = conf.to_s
+    rescue => e
+      $log.error "Failed to reload config file: #{e}"
     end
 
     def kill_worker
@@ -210,11 +242,32 @@ module Fluent
     end
 
     def supervisor_dump_config_handler
-      $log.info config[:fluentd_conf]
+      $log.info @fluentd_conf
     end
 
     def supervisor_get_dump_config_handler
-      {conf: config[:fluentd_conf]}
+      { conf: @fluentd_conf }
+    end
+
+    private
+
+    def reopen_log
+      if (log = config[:logger_initializer])
+        # Creating new thread due to mutex can't lock
+        # in main thread during trap context
+        Thread.new do
+          log.reopen!
+        end
+      end
+    end
+
+    def send_signal_to_workers(signal)
+      return unless config[:worker_pid]
+
+      config[:worker_pid].each_value do |pid|
+        # don't rescue Errno::ESRCH here (invalid status)
+        Process.kill(signal, pid)
+      end
     end
   end
 
@@ -302,6 +355,9 @@ module Fluent
                                  JSON.dump(params)],
         command_sender: command_sender,
         fluentd_conf: params['fluentd_conf'],
+        conf_encoding: params['conf_encoding'],
+        inline_config: params['inline_config'],
+        config_path: path,
         main_cmd: params['main_cmd'],
         signame: params['signame'],
       }
@@ -558,8 +614,7 @@ module Fluent
         $log.warn('the value "-" for `inline_config` is deprecated. See https://github.com/fluent/fluentd/issues/2711')
         @inline_config = STDIN.read
       end
-
-      @conf = read_config
+      @conf = Fluent::Config.build(config_path: @config_path, encoding: @conf_encoding, additional_config: @inline_config, use_v1_config: @use_v1_config)
       @system_config = build_system_config(@conf)
 
       @log.level = @system_config.log_level
@@ -674,6 +729,10 @@ module Fluent
         flush_buffer
       end unless Fluent.windows?
 
+      trap :USR2 do
+        reload_config
+      end unless Fluent.windows?
+
       if Fluent.windows?
         command_pipe = STDIN.dup
         STDIN.reopen(File::NULL, "rb")
@@ -711,6 +770,32 @@ module Fluent
         rescue Exception => e
           $log.warn "flushing thread error: #{e}"
         end
+      end
+    end
+
+    def reload_config
+      Thread.new do
+        $log.debug('worker got SIGUSR2')
+
+        begin
+          conf = Fluent::Config.build(
+            config_path: @config_path,
+            encoding: @conf_encoding,
+            additional_config: @inline_config,
+            use_v1_config: @use_v1_config,
+          )
+
+          Fluent::VariableStore.try_to_reset do
+            Fluent::Engine.reload_config(conf)
+          end
+        rescue => e
+          # it is guranteed that config file is valid by supervisor side. but it's not atomic becuase of using signals to commnicate between worker and super
+          # So need this rescue code
+          $log.error("failed to reload config: #{e}")
+          next
+        end
+
+        @conf = conf
       end
     end
 
@@ -768,16 +853,6 @@ module Fluent
       end
 
       exit!(unrecoverable_error ? 2 : 1)
-    end
-
-    def read_config
-      config_fname = File.basename(@config_path)
-      config_basedir = File.dirname(@config_path)
-      config_data = File.open(@config_path, "r:#{@conf_encoding}:utf-8") {|f| f.read }
-      if @inline_config
-        config_data << "\n" << @inline_config.gsub("\\n", "\n")
-      end
-      Fluent::Config.parse(config_data, config_fname, config_basedir, @use_v1_config)
     end
 
     def build_system_config(conf)
