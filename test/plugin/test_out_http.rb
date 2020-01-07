@@ -117,7 +117,7 @@ class HTTPOutputTest < Test::Unit::TestCase
     Fluent::Test.setup
     FileUtils.rm_rf(TMP_DIR)
 
-    @@result = Result.new(nil, nil, {}, nil)    
+    @@result = Result.new(nil, nil, {}, nil)
     @@http_server_thread ||= Thread.new do
       run_http_server
     end
@@ -230,6 +230,9 @@ class HTTPOutputTest < Test::Unit::TestCase
   end
 
   def test_write_with_retryable_response
+    old_report_on_exception = Thread.report_on_exception
+    Thread.report_on_exception = false # thread finished as invalid state since RetryableResponse raises.
+
     d = create_driver("endpoint #{base_endpoint}/503")
     assert_raise(Fluent::Plugin::HTTPOutput::RetryableResponse) do
       d.run(default_tag: 'test.http', shutdown: false) do
@@ -238,7 +241,10 @@ class HTTPOutputTest < Test::Unit::TestCase
         }
       end
     end
-    d.instance_shutdown
+
+    d.instance_shutdown(log: $log)
+  ensure
+    Thread.report_on_exception = old_report_on_exception
   end
 
   def test_write_with_disabled_unrecoverable
