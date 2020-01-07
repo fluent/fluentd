@@ -1,3 +1,26 @@
+# v1.9
+
+## Unreleased
+
+### New feature
+
+* New light-weight config reload mechanizm
+  https://github.com/fluent/fluentd/pull/2716
+* Drop ruby 2.1/2.2/2.3 support
+  https://github.com/fluent/fluentd/pull/2750
+
+### Enhancement
+
+* output: Show better message for secondary warning
+  https://github.com/fluent/fluentd/pull/2751
+* Clean up code for ruby 2.7
+  https://github.com/fluent/fluentd/pull/2753
+
+### Bug fixes
+
+* outut/buffer: Fix stage size computation
+  https://github.com/fluent/fluentd/pull/2734
+
 # v1.8
 
 ## Release v1.8.1 - 2019/12/26
