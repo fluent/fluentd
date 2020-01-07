@@ -39,13 +39,13 @@ Gem::Specification.new do |gem|
     gem.add_runtime_dependency("certstore_c", ["~> 0.1.2"])
   end
 
-  gem.add_development_dependency("rake", ["~> 12.0"])
+  gem.add_development_dependency("rake", ["~> 13.0"])
   gem.add_development_dependency("flexmock", ["~> 2.0"])
   gem.add_development_dependency("parallel_tests", ["~> 0.15.3"])
   gem.add_development_dependency("simplecov", ["~> 0.7"])
   gem.add_development_dependency("rr", ["~> 1.0"])
-  gem.add_development_dependency("timecop", ["~> 0.3"])
-  gem.add_development_dependency("test-unit", ["~> 3.2"])
+  gem.add_development_dependency("timecop", ["~> 0.9"])
+  gem.add_development_dependency("test-unit", ["~> 3.3"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
 end
