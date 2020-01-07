@@ -855,7 +855,7 @@ class OutputTest < Test::Unit::TestCase
     sub_test_case 'configure secondary' do
       test "Warn if primary type is different from secondary type and either primary or secondary has custom_format" do
         o = create_output(:buffered)
-        mock(o.log).warn("secondary type should be same with primary one",
+        mock(o.log).warn("Use different plugin for secondary. Check the plugin works with primary like secondary_file",
                          { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" })
 
         o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))
@@ -864,7 +864,7 @@ class OutputTest < Test::Unit::TestCase
 
       test "don't warn if primary type is the same as secondary type" do
         o = Fluent::Plugin::TestOutput.new
-        mock(o.log).warn("secondary type should be same with primary one",
+        mock(o.log).warn("Use different plugin for secondary. Check the plugin works with primary like secondary_file",
                          { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
 
         o.configure(config_element('ROOT','',{'name' => "cool2"},
@@ -876,7 +876,7 @@ class OutputTest < Test::Unit::TestCase
 
       test "don't warn if primary type is different from secondary type and both don't have custom_format" do
         o = create_output(:standard)
-        mock(o.log).warn("secondary type should be same with primary one",
+        mock(o.log).warn("Use different plugin for secondary. Check the plugin works with primary like secondary_file",
                          { primary: o.class.to_s, secondary: "Fluent::Plugin::TestOutput" }).never
 
         o.configure(config_element('ROOT','',{},[config_element('secondary','',{'@type'=>'test', 'name' => "cool"})]))

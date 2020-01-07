@@ -153,7 +153,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       i = create_output()
       i.configure(config_element('ROOT','',{},[priconf,secconf]))
       logs = i.log.out.logs
-      assert{ logs.any?{|l| l.include?("secondary type should be same with primary one") } }
+      assert{ logs.any?{|l| l.include?("Use different plugin for secondary. Check the plugin works with primary like secondary_file") } }
     end
 
     test 'secondary plugin lifecycle is kicked by primary' do
@@ -162,7 +162,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       i = create_output()
       i.configure(config_element('ROOT','',{},[priconf,secconf]))
       logs = i.log.out.logs
-      assert{ logs.any?{|l| l.include?("secondary type should be same with primary one") } }
+      assert{ logs.any?{|l| l.include?("Use different plugin for secondary. Check the plugin works with primary like secondary_file") } }
 
       assert i.secondary.configured?
 
