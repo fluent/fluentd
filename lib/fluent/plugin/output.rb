@@ -25,9 +25,9 @@ require 'fluent/plugin_helper'
 require 'fluent/timezone'
 require 'fluent/unique_id'
 require 'fluent/clock'
+require 'fluent/ext_monitor_require'
 
 require 'time'
-require 'monitor'
 
 module Fluent
   module Plugin

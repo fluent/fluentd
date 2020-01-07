@@ -27,7 +27,6 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency("tzinfo", [">= 1.0", "< 3.0"])
   gem.add_runtime_dependency("tzinfo-data", ["~> 1.0"])
   gem.add_runtime_dependency("strptime", [">= 0.2.2", "< 1.0.0"])
-  gem.add_runtime_dependency("ext_monitor", [">= 0.1.1", "< 0.2"])
 
   # build gem for a certain platform. see also Rakefile
   fake_platform = ENV['GEM_BUILD_FAKE_PLATFORM'].to_s
@@ -49,4 +48,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("test-unit", ["~> 3.2"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
+  gem.add_development_dependency("ext_monitor", [">= 0.1.1", "< 0.2"])
 end

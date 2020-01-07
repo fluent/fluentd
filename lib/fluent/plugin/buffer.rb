@@ -17,8 +17,7 @@
 require 'fluent/plugin/base'
 require 'fluent/plugin/owned_by_mixin'
 require 'fluent/unique_id'
-
-require 'monitor'
+require 'fluent/ext_monitor_require'
 
 module Fluent
   module Plugin
