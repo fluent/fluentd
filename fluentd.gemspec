@@ -45,7 +45,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency("simplecov", ["~> 0.7"])
   gem.add_development_dependency("rr", ["~> 1.0"])
   gem.add_development_dependency("timecop", ["~> 0.9"])
-  gem.add_development_dependency("test-unit", ["~> 3.3"])
+  gem.add_development_dependency("test-unit", ["~> 3.3.5"])
   gem.add_development_dependency("test-unit-rr", ["~> 1.0"])
   gem.add_development_dependency("oj", [">= 2.14", "< 4"])
   gem.add_development_dependency("ext_monitor", [">= 0.1.1", "< 0.2"])

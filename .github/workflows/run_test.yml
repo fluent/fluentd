@@ -1,0 +1,26 @@
+name: Run tests
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        ruby: [2.4, 2.5, 2.6, 2.7]
+        platform: [ubuntu-latest, windows-latest, macOS-latest]
+    env:
+      LANG: en_US.UTF-8
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Ruby ${{  matrix.ruby }}
+      uses: eregon/use-ruby-action@master
+      with:
+        ruby-version: ${{ matrix.ruby }}
+    - name: Install dependencies
+      run: |
+        gem install bundler --no-document
+        bundle install --jobs 4 --retry 3
+    - name: Run test
+      run: |
+        bundle exec rake
