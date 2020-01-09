@@ -101,13 +101,11 @@ rescue
   usage $!.to_s
 end
 
-
 require 'thread'
-require 'monitor'
 require 'socket'
 require 'yajl'
 require 'msgpack'
-
+require 'fluent/ext_monitor_require'
 
 class Writer
   include MonitorMixin

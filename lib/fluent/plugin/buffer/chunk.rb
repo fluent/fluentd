@@ -18,8 +18,8 @@ require 'fluent/plugin/buffer'
 require 'fluent/plugin/compressable'
 require 'fluent/unique_id'
 require 'fluent/event'
+require 'fluent/ext_monitor_require'
 
-require 'monitor'
 require 'tempfile'
 require 'zlib'
 
