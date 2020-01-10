@@ -321,11 +321,11 @@ EOS
   end
 
   sub_test_case 'octet counting frame' do
-    def test_msg_size_with_tcp
+    def test_octet_counting_with_tcp
       d = create_driver([CONFIG, "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
       tests = create_test_case
 
-      d.run(expect_emits: 2) do
+      d.run(expect_emits: 1) do
         tests.each {|test|
           TCPSocket.open('127.0.0.1', PORT) do |s|
             s.send(test['msg'], 0)
@@ -337,7 +337,7 @@ EOS
       compare_test_result(d.events, tests)
     end
 
-    def test_msg_size_with_same_tcp_connection
+    def test_octet_counting_with_same_tcp_connection
       d = create_driver([CONFIG, "<transport tcp> \n</transport>", 'frame_type octet_count'].join("\n"))
       tests = create_test_case
 
@@ -354,13 +354,14 @@ EOS
     end
 
     def create_test_case(large_message: false)
+      # actual syslog message may or may not have "\n"
       msgs = [
         {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 100, 'expected' => 'x' * 100},
-        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024, 'expected' => 'x' * 1024},
+        {'msg' => '<6>Sep 10 00:00:00 localhost logger: ' + 'x' * 1024 + "\n", 'expected' => 'x' * 1024},
       ]
       msgs.each { |msg|
         m = msg['msg']
-        msg['msg'] = "#{m.size + 1} #{m}"
+        msg['msg'] = "#{m.size} #{m}"
       }
       msgs
     end

@@ -181,12 +181,14 @@ module Fluent::Plugin
           if octet_count_frame
             while idx = buffer.index(delimiter, pos)
               num = Integer(buffer[pos..idx])
-              pos = idx + num
-              msg = buffer[idx + 1...pos]
-              if msg.size < num - 1
-                pos = pos - num - num.to_s.size
+              idx = idx + delimiter_size
+              msg = buffer[idx, num]
+              if msg.size != num
                 break
               end
+              pos = idx + msg.size
+              # syslog might append a \n as an extra frame delimiter
+              msg.chomp!
               message_handler(msg, conn)
             end
           else
