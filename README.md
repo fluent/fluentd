@@ -6,10 +6,6 @@ Travis CI:
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1189/badge)](https://bestpractices.coreinfrastructure.org/projects/1189)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Ffluent%2Ffluentd?ref=badge_shield)
 
-GitLab CI:
-
-[![pipeline status](https://gitlab.com/fluent/fluentd/badges/master/pipeline.svg)](https://gitlab.com/fluent/fluentd/commits/master)
-
 Drone CI for Arm64:
 
 [![pipeline status](https://cloud.drone.io/api/badges/fluent/fluentd/status.svg?branch=master)](https://cloud.drone.io/fluent/fluentd)
