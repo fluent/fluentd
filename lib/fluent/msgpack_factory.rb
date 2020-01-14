@@ -44,8 +44,8 @@ module Fluent
       end
     end
 
-    def self.engine_factory
-      @@engine_factory || factory
+    def self.engine_factory(enable_time_support: false)
+      @@engine_factory || factory(enable_time_support: enable_time_support)
     end
 
     def self.msgpack_packer(*args)
@@ -56,9 +56,15 @@ module Fluent
       engine_factory.unpacker(*args)
     end
 
-    def self.factory
+    def self.factory(enable_time_support: false)
       factory = MessagePack::Factory.new
       factory.register_type(Fluent::EventTime::TYPE, Fluent::EventTime)
+      if enable_time_support
+        factory.register_type(
+          MessagePack::Timestamp::TYPE, Time,
+          packer: MessagePack::Time::Packer,
+          unpacker: MessagePack::Time::Unpacker)
+      end
       factory
     end
 
