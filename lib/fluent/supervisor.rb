@@ -536,7 +536,7 @@ module Fluent
 
       begin
         ServerEngine::Privilege.change(@chuser, @chgroup)
-        MessagePackFactory.init
+        MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
         Fluent::Engine.init(@system_config, supervisor_mode: true)
         Fluent::Engine.run_configure(@conf, dry_run: dry_run)
       rescue Fluent::ConfigError => e
@@ -584,7 +584,7 @@ module Fluent
       main_process do
         create_socket_manager if @standalone_worker
         ServerEngine::Privilege.change(@chuser, @chgroup) if @standalone_worker
-        MessagePackFactory.init
+        MessagePackFactory.init(enable_time_support: @system_config.enable_msgpack_time_support)
         Fluent::Engine.init(@system_config)
         Fluent::Engine.run_configure(@conf)
         Fluent::Engine.run

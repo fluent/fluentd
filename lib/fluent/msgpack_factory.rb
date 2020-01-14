@@ -70,9 +70,15 @@ module Fluent
       factory.unpacker(*args)
     end
 
-    def self.init
+    def self.init(enable_time_support: false)
       factory = MessagePack::Factory.new
       factory.register_type(Fluent::EventTime::TYPE, Fluent::EventTime)
+      if enable_time_support
+        factory.register_type(
+          MessagePack::Timestamp::TYPE, Time,
+          packer: MessagePack::Time::Packer,
+          unpacker: MessagePack::Time::Unpacker)
+      end
       @@engine_factory = factory
     end
 
