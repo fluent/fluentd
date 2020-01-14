@@ -460,7 +460,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   CONFIG_ROUND_ROBIN = %[
     command ruby -e 'STDOUT.sync = true; STDIN.each_line{|line| puts line.chomp + "\t" + Process.pid.to_s }'
-    num_children 3
+    num_children 2
     <inject>
       tag_key     tag
       time_key    time_in
@@ -489,7 +489,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
     out_time_key time_out
     time_format %Y-%m-%d %H:%M:%S
     localtime
-    num_children 3
+    num_children 2
   ]
 
   data(
@@ -498,53 +498,38 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   )
   test 'using child processes by round robin' do |conf|
     d = create_driver(conf)
-    time = event_time("2011-01-02 13:14:15")
+    time = event_time('2011-01-02 13:14:15')
 
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: true,  shutdown: false){ d.feed(time, {"k1"=>1}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>2}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>3}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>4}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>5}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>6}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>7}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1"=>8}) }
-    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: true ){ d.feed(time, {"k1"=>9}) }
+    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: true,  shutdown: false){ d.feed(time, {"k1" => 0}) }
+    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1" => 1}) }
+    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1" => 2}) }
+    d.run(default_tag: 'test', expect_emits: 1, timeout: 10, start: false, shutdown: false){ d.feed(time, {"k1" => 3}) }
 
-    assert_equal "2011-01-02 13:14:15\ttest\t1\n", d.formatted[0]
-    assert_equal "2011-01-02 13:14:15\ttest\t2\n", d.formatted[1]
-    assert_equal "2011-01-02 13:14:15\ttest\t3\n", d.formatted[2]
-    assert_equal "2011-01-02 13:14:15\ttest\t4\n", d.formatted[3]
-    assert_equal "2011-01-02 13:14:15\ttest\t5\n", d.formatted[4]
-    assert_equal "2011-01-02 13:14:15\ttest\t6\n", d.formatted[5]
-    assert_equal "2011-01-02 13:14:15\ttest\t7\n", d.formatted[6]
-    assert_equal "2011-01-02 13:14:15\ttest\t8\n", d.formatted[7]
-    assert_equal "2011-01-02 13:14:15\ttest\t9\n", d.formatted[8]
+    assert_equal "2011-01-02 13:14:15\ttest\t0\n", d.formatted[0]
+    assert_equal "2011-01-02 13:14:15\ttest\t1\n", d.formatted[1]
+    assert_equal "2011-01-02 13:14:15\ttest\t2\n", d.formatted[2]
+    assert_equal "2011-01-02 13:14:15\ttest\t3\n", d.formatted[3]
 
     events = d.events
-    assert_equal 9, events.length
+    assert_equal 4, events.length
 
     pid_list = []
     events.each do |event|
       pid = event[2]['child_pid']
       pid_list << pid unless pid_list.include?(pid)
     end
-    assert_equal 3, pid_list.size, "the number of pids should be same with number of child processes: #{pid_list.inspect}"
+    assert_equal 2, pid_list.size, "the number of pids should be same with number of child processes: #{pid_list.inspect}"
 
     assert_equal pid_list[0], events[0][2]['child_pid']
     assert_equal pid_list[1], events[1][2]['child_pid']
-    assert_equal pid_list[2], events[2][2]['child_pid']
-    assert_equal pid_list[0], events[3][2]['child_pid']
-    assert_equal pid_list[1], events[4][2]['child_pid']
-    assert_equal pid_list[2], events[5][2]['child_pid']
-    assert_equal pid_list[0], events[6][2]['child_pid']
-    assert_equal pid_list[1], events[7][2]['child_pid']
-    assert_equal pid_list[2], events[8][2]['child_pid']
+    assert_equal pid_list[0], events[2][2]['child_pid']
+    assert_equal pid_list[1], events[3][2]['child_pid']
   end
 
   # child process exits per 3 lines
   CONFIG_RESPAWN = %[
     command ruby -e 'STDOUT.sync = true; proc = ->(){line = STDIN.readline.chomp; puts line + "\t" + Process.pid.to_s}; proc.call; proc.call; proc.call'
-    num_children 4
+    num_children 2
     child_respawn -1
     <inject>
       tag_key   tag
@@ -566,7 +551,7 @@ class ExecFilterOutputTest < Test::Unit::TestCase
 
   CONFIG_RESPAWN_COMPAT = %[
     command ruby -e 'STDOUT.sync = true; proc = ->(){line = STDIN.readline.chomp; puts line + "\t" + Process.pid.to_s}; proc.call; proc.call; proc.call'
-    num_children 4
+    num_children 2
     child_respawn -1
     in_keys time_in,tag,k1
     out_keys time_out,tag,k2,child_pid
@@ -584,35 +569,33 @@ class ExecFilterOutputTest < Test::Unit::TestCase
   test 'emit events via child processes which exits sometimes' do |conf|
     d = create_driver(conf)
     time = event_time("2011-01-02 13:14:15")
-
     countup = 0
 
     d.run(start: true, shutdown: false)
+    assert_equal 2, d.instance.instance_eval{ @_child_process_processes.size }
 
-    assert_equal 4, d.instance.instance_eval{ @_child_process_processes.size }
-
-    20.times do
-      d.run(default_tag: 'test', expect_emits: 1, timeout: 10, force_flush_retry: true, start: false, shutdown: false) do
-        d.feed(time, {"k1"=>countup}); countup += 1
-        d.feed(time, {"k1"=>countup}); countup += 1
-        d.feed(time, {"k1"=>countup}); countup += 1
+    2.times do
+      d.run(default_tag: 'test', expect_emits: 3, timeout: 3, force_flush_retry: true, start: false, shutdown: false) do
+        d.feed(time, { "k1" => countup }); countup += 1
+        d.feed(time, { "k1" => countup }); countup += 1
+        d.feed(time, { "k1" => countup }); countup += 1
       end
     end
 
     events = d.events
-    assert_equal 60, events.length
+    assert_equal 6, events.length
 
     pid_list = []
     events.each do |event|
       pid = event[2]['child_pid']
       pid_list << pid unless pid_list.include?(pid)
     end
-    # the number of pids should be same with number of child processes
-    assert{ pid_list.size >= 18 }
 
+    # the number of pids should be same with number of child processes
+    assert_equal 2, pid_list.size
     logs = d.instance.log.out.logs
-    assert{ logs.select{|l| l.include?("child process exits with error code") }.size >= 18 } # 20
-    assert{ logs.select{|l| l.include?("respawning child process") }.size >= 18 } # 20
+    assert_equal 2, logs.select { |l| l.include?('child process exits with error code') }.size
+    assert_equal 2, logs.select { |l| l.include?('respawning child process') }.size
 
     d.run(start: false, shutdown: true)
   end
