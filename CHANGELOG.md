@@ -13,13 +13,21 @@
 
 * output: Show better message for secondary warning
   https://github.com/fluent/fluentd/pull/2751
-* Clean up code for ruby 2.7
+* Use `ext_monitor` gem if it is installed. For ruby 2.6 or earlier
+  https://github.com/fluent/fluentd/pull/2670
+* Support Ruby's Time class in msgpack serde
+  https://github.com/fluent/fluentd/pull/2775
+* Clean up code
   https://github.com/fluent/fluentd/pull/2753
+  https://github.com/fluent/fluentd/pull/2763
+  https://github.com/fluent/fluentd/pull/2764
 
 ### Bug fixes
 
 * outut/buffer: Fix stage size computation
   https://github.com/fluent/fluentd/pull/2734
+* server: Ignore Errno::EHOSTUNREACH in TLS accept to avoid fluentd restart
+  https://github.com/fluent/fluentd/pull/2773
 
 # v1.8
 
