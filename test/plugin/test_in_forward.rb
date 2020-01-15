@@ -231,10 +231,9 @@ class ForwardInputTest < Test::Unit::TestCase
         ["tag2", time_i, {"a"=>2}],
       ]
 
-      d.run(expect_records: records.length, timeout: 20) do
+      d.run(expect_records: records.length, timeout: 20, shutdown: true) do
         records.each {|tag, _time, record|
           send_data [tag, _time, record].to_json + "\n"
-        sleep 1
         }
       end
 
@@ -727,7 +726,7 @@ class ForwardInputTest < Test::Unit::TestCase
         events.each {|tag, _time, record|
           op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
           expected_acks << op['chunk']
-          send_data [tag, _time, record, op].to_msgpack, try_to_receive_response: true, **options
+          send_data([tag, _time, record, op].to_msgpack, try_to_receive_response: true, response_timeout: 1, **options)
         }
       end
 
@@ -769,7 +768,7 @@ class ForwardInputTest < Test::Unit::TestCase
         }
         op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
         expected_acks << op['chunk']
-        send_data ["tag1", entries, op].to_msgpack, try_to_receive_response: true, **options
+        send_data(["tag1", entries, op].to_msgpack, try_to_receive_response: true, response_timeout: 1, **options)
       end
 
       assert_equal events, d.events
@@ -809,7 +808,7 @@ class ForwardInputTest < Test::Unit::TestCase
         }
         op = { 'chunk' => Base64.encode64(entries.object_id.to_s) }
         expected_acks << op['chunk']
-        send_data ["tag1", entries, op].to_msgpack, try_to_receive_response: true, **options
+        send_data(["tag1", entries, op].to_msgpack, try_to_receive_response: true, response_timeout: 1, **options)
       end
 
       assert_equal events, d.events
@@ -849,7 +848,7 @@ class ForwardInputTest < Test::Unit::TestCase
         events.each {|tag, _time, record|
           op = { 'chunk' => Base64.encode64(record.object_id.to_s) }
           expected_acks << op['chunk']
-          send_data [tag, _time, record, op].to_json, try_to_receive_response: true, **options
+          send_data([tag, _time, record, op].to_json, try_to_receive_response: true, response_timeout: 1, **options)
         }
       end
 
@@ -885,7 +884,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run(expect_records: events.size, timeout: 20) do
         events.each {|tag, _time, record|
-          send_data [tag, _time, record].to_msgpack, try_to_receive_response: true, **options
+          send_data([tag, _time, record].to_msgpack, try_to_receive_response: true, response_timeout: 1, **options)
         }
       end
 
@@ -922,7 +921,7 @@ class ForwardInputTest < Test::Unit::TestCase
         events.each {|tag, _time, record|
           entries << [_time, record]
         }
-        send_data ["tag1", entries].to_msgpack, try_to_receive_response: true, **options
+        send_data(["tag1", entries].to_msgpack, try_to_receive_response: true, response_timeout: 1, **options)
       end
 
       assert_equal events, d.events
@@ -958,7 +957,7 @@ class ForwardInputTest < Test::Unit::TestCase
         events.each {|tag, _time, record|
           [_time, record].to_msgpack(entries)
         }
-        send_data ["tag1", entries].to_msgpack, try_to_receive_response: true, **options
+        send_data(["tag1", entries].to_msgpack, try_to_receive_response: true, response_timeout: 1, **options)
       end
 
       assert_equal events, d.events
@@ -994,7 +993,7 @@ class ForwardInputTest < Test::Unit::TestCase
 
       d.run(expect_records: events.size, timeout: 20) do
         events.each {|tag, _time, record|
-          send_data [tag, _time, record].to_json, try_to_receive_response: true, **options
+          send_data([tag, _time, record].to_json, try_to_receive_response: true, response_timeout: 1, **options)
         }
       end
 
@@ -1016,7 +1015,7 @@ class ForwardInputTest < Test::Unit::TestCase
   # nil: socket read timeout
   def read_data(io, timeout, &block)
     res = ''
-    select_timeout = 2
+    select_timeout = 0.5
     clock_id = Process::CLOCK_MONOTONIC_RAW rescue Process::CLOCK_MONOTONIC
     timeout_at = Process.clock_gettime(clock_id) + timeout
     begin
