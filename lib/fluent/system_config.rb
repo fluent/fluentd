@@ -27,7 +27,7 @@ module Fluent
       :log_event_verbose,
       :without_source, :rpc_endpoint, :enable_get_dump, :process_name,
       :file_permission, :dir_permission, :counter_server, :counter_client,
-      :strict_config_value
+      :strict_config_value, :enable_msgpack_time_support
     ]
 
     config_param :workers,   :integer, default: 1
@@ -42,6 +42,7 @@ module Fluent
     config_param :enable_get_dump, :bool, default: nil
     config_param :process_name,    :string, default: nil
     config_param :strict_config_value, :bool, default: nil
+    config_param :enable_msgpack_time_support, :bool, default: nil
     config_param :file_permission, default: nil do |v|
       v.to_i(8)
     end
