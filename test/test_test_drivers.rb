@@ -47,8 +47,8 @@ class TestDriverTest < ::Test::Unit::TestCase
       driver_class, plugin_class = args
       d = driver_class.new(Class.new(plugin_class))
       assert_raise Fluent::Test::Driver::TestTimedOut do
-        d.run(timeout: 1) do
-          sleep 5
+        d.run(timeout: 0.5) do
+          sleep 2
         end
       end
     end
@@ -67,7 +67,7 @@ class TestDriverTest < ::Test::Unit::TestCase
         assert_nothing_raised do
           before = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           d.end_if{ false }
-          d.run(timeout: 5) do
+          d.run(timeout: 1) do
             sleep 0.1 until d.stop?
           end
           after = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -89,6 +89,7 @@ class TestDriverTest < ::Test::Unit::TestCase
           end
         end
       end
+
       assert_raise RuntimeError.new("yaaaaaaaaaay!") do
         d.end_if{ false }
         d.run(timeout: 3) do
