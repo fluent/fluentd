@@ -176,6 +176,9 @@ class SupervisorTest < ::Test::Unit::TestCase
   log_level debug
 </system>
 ]
+    now = Time.now
+    Timecop.freeze(now)
+
     write_config tmp_dir, conf_info_str
 
     params = {}
@@ -208,7 +211,7 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_nil pre_config_mtime
     assert_nil pre_loadtime
 
-    sleep 5
+    Timecop.freeze(now + 5)
 
     # third call after 5 seconds(don't reuse config)
     se_config = load_config_proc.call
@@ -228,6 +231,8 @@ class SupervisorTest < ::Test::Unit::TestCase
     # fifth call after changed conf file(don't reuse config)
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
+  ensure
+    Timecop.return
   end
 
   def test_load_config_for_daemonize
@@ -242,6 +247,10 @@ class SupervisorTest < ::Test::Unit::TestCase
   log_level debug
 </system>
 ]
+
+    now = Time.now
+    Timecop.freeze(now)
+
     write_config tmp_dir, conf_info_str
 
     params = {}
@@ -275,9 +284,9 @@ class SupervisorTest < ::Test::Unit::TestCase
     assert_nil pre_config_mtime
     assert_nil pre_loadtime
 
-    sleep 5
+    Timecop.freeze(now + 5)
 
-    # third call after 5 seconds(don't reuse config)
+    # third call after 6 seconds(don't reuse config)
     se_config = load_config_proc.call
     pre_config_mtime = se_config[:windows_daemon_cmdline][5]['pre_config_mtime']
     pre_loadtime = se_config[:windows_daemon_cmdline][5]['pre_loadtime']
@@ -295,6 +304,8 @@ class SupervisorTest < ::Test::Unit::TestCase
     # fifth call after changed conf file(don't reuse config)
     se_config = load_config_proc.call
     assert_equal Fluent::Log::LEVEL_INFO, se_config[:log_level]
+  ensure
+    Timecop.return
   end
 
   def test_logger
