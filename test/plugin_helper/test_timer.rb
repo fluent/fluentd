@@ -34,12 +34,12 @@ class TimerTest < Test::Unit::TestCase
       counter += 1
     end
 
-    sleep 5
+    sleep 2
 
     d1.stop
     assert !d1.timer_running?
 
-    assert{ counter >= 3 && counter <= 6 }
+    assert{ counter >= 1 && counter <= 2 }
 
     d1.shutdown; d1.close; d1.terminate
   end
@@ -52,19 +52,18 @@ class TimerTest < Test::Unit::TestCase
     counter1 = 0
     counter2 = 0
 
-    d1.timer_execute(:t1, 1) do
+    d1.timer_execute(:t1, 0.2) do
       counter1 += 1
     end
-    d1.timer_execute(:t2, 2) do
+    d1.timer_execute(:t2, 0.2) do
       counter2 += 1
     end
 
-    sleep 6
-
+    sleep 1
     d1.stop
 
-    assert{ counter1 >= 4 && counter1 <= 7 }
-    assert{ counter2 >= 2 && counter2 <= 4 }
+    assert{ counter1 >= 4 && counter1 <= 5 }
+    assert{ counter2 >= 4 && counter2 <= 5 }
 
     d1.shutdown; d1.close; d1.terminate
   end
@@ -77,19 +76,18 @@ class TimerTest < Test::Unit::TestCase
     counter1 = 0
     counter2 = 0
 
-    d1.timer_execute(:t1, 1) do
+    d1.timer_execute(:t1, 0.2) do
       counter1 += 1
     end
-    d1.timer_execute(:t2, 1) do
+    d1.timer_execute(:t2, 0.2) do
       raise "abort!!!!!!" if counter2 > 1
       counter2 += 1
     end
 
-    sleep 5
-
+    sleep 1
     d1.stop
 
-    assert{ counter1 >= 3 && counter1 <= 6 }
+    assert{ counter1 >= 4 && counter1 <= 5 }
     assert{ counter2 == 2 }
     msg = "Unexpected error raised. Stopping the timer. title=:t2"
     assert{ d1.log.out.logs.any?{|line| line.include?("[error]:") && line.include?(msg) && line.include?("abort!!!!!!") } }
