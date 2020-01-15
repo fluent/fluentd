@@ -671,7 +671,7 @@ EOL
 
     @d = d = create_driver(CONFIG + %[
       require_ack_response true
-      ack_response_timeout 5s
+      ack_response_timeout 1s
       <buffer tag>
         flush_mode immediate
         retry_type periodic
@@ -699,7 +699,7 @@ EOL
       end
     end
 
-    assert_equal (5 + 2), delayed_commit_timeout_value
+    assert_equal (1 + 2), delayed_commit_timeout_value
 
     events = target_input_driver.events
     assert_equal ['test', time, records[0]], events[0]
