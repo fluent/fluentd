@@ -138,9 +138,12 @@ module Fluent
         # Actually this overhead is very small but this class is generated *per chunk* (and used in hash object).
         # This means that this class is one of the most called object in Fluentd.
         # See https://github.com/fluent/fluentd/pull/2560
+        # But, this optimization has a side effect on Windows due to differing object_id.
+        # This difference causes flood of buffer files.
+        # So, this optimization should be enabled on non-Windows platform.
         def hash
           timekey.object_id
-        end
+        end unless Fluent.windows?
       end
 
       # for tests
