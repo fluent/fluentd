@@ -64,7 +64,7 @@ module Fluent::Plugin
     desc 'Raise UnrecoverableError when the response is non success, 4xx/5xx'
     config_param :error_response_as_unrecoverable, :bool, default: true
     desc 'The list of retryable response code'
-    config_param :retryable_response_codes, :array, value_type: :integer, default: [503]
+    config_param :retryable_response_codes, :array, value_type: :integer, default: [500, 502, 503, 504]
 
     config_section :format do
       config_set_default :@type, 'json'
