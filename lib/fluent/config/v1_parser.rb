@@ -147,11 +147,11 @@ module Fluent
       end
 
       def eval_include(attrs, elems, uri)
-        u = URI.parse(uri)
-        if u.scheme == 'file' || (!u.scheme.nil? && u.scheme.length == 1) || u.path == uri # file path
+        u = URI.parse(URI.encode_www_form_component(uri))
+        if u.scheme == 'file' || (!u.scheme.nil? && u.scheme.length == 1) || u.path == URI.encode_www_form_component(uri) # file path
           # When the Windows absolute path then u.scheme.length == 1
           # e.g. C:
-          path = u.path
+          path = URI.decode_www_form_component(u.path)
           if path[0] != ?/
             pattern = File.expand_path("#{@include_basepath}/#{path}")
           else
