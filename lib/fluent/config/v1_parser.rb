@@ -147,8 +147,8 @@ module Fluent
       end
 
       def eval_include(attrs, elems, uri)
-        u = URI.parse(URI.encode_www_form_component(uri))
-        if u.scheme == 'file' || (!u.scheme.nil? && u.scheme.length == 1) || u.path == URI.encode_www_form_component(uri) # file path
+        u = URI.parse(uri.gsub(/ /, '+')) # replace space(s)(' ') with '+' to prevent invalid uri due to space(s).
+        if u.scheme == 'file' || (!u.scheme.nil? && u.scheme.length == 1) || u.path == uri.gsub(/ /, '+') # file path
           # When the Windows absolute path then u.scheme.length == 1
           # e.g. C:
           path = URI.decode_www_form_component(u.path)
