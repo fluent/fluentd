@@ -751,6 +751,19 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       assert_equal 1, errors.size
       assert_equal "BUG: this event is disabled for udp: close", errors.first.message
     end
+
+    test 'can bind IPv4 / IPv6 together' do
+      omit "IPv6 unavailable here" unless ipv6_enabled?
+
+      assert_nothing_raised do
+        @d.server_create_udp(:s_ipv4_udp, PORT, bind: '0.0.0.0', shared: false, max_bytes: 128) do |data, sock|
+          # ...
+        end
+        @d.server_create_udp(:s_ipv6_udp, PORT, bind: '::', shared: false, max_bytes: 128) do |data, sock|
+          # ...
+        end
+      end
+    end
   end
 
   module CertUtil

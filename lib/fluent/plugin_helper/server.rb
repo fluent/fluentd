@@ -370,10 +370,10 @@ module Fluent
         sock = if shared
                  server_socket_manager_client.listen_udp(bind, port)
                else
-                 family = IPAddr.new(IPSocket.getaddress(bind)).ipv4? ? ::Socket::AF_INET : ::Socket::AF_INET6
-                 usock = UDPSocket.new(family)
-                 usock.bind(bind, port)
-                 usock
+                 # UDPSocket.new doesn't set IPV6_V6ONLY flag, so use Addrinfo class instead.
+                 usock = Addrinfo.udp(bind, port).bind
+                 usock.autoclose = false
+                 UDPSocket.for_fd(usock.fileno)
                end
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
