@@ -370,6 +370,7 @@ module Fluent
         sock = if shared
                  server_socket_manager_client.listen_udp(bind, port)
                else
+                 # UDPSocket.new doesn't set IPV6_V6ONLY flag, so use Addrinfo class instead.
                  usock = Addrinfo.udp(bind, port).bind
                  usock.autoclose = false
                  UDPSocket.for_fd(usock.fileno)
