@@ -235,11 +235,11 @@ class ChildProcessTest < Test::Unit::TestCase
     ary = []
     Timeout.timeout(TEST_DEADLOCK_TIMEOUT) do
       ran = false
-      args = ["-e", "while sleep 0.2; puts 1; STDOUT.flush; end"]
+      args = ["-e", "while sleep 0.1; puts 1; STDOUT.flush; end"]
       @d.child_process_execute(:t3, "ruby", arguments: args, mode: [:read]) do |io|
-        ran = true
         begin
           while @d.child_process_running? && line = io.readline
+            ran ||= true
             ary << line
           end
         rescue
