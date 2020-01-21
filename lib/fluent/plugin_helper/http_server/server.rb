@@ -26,20 +26,26 @@ module Fluent
   module PluginHelper
     module HttpServer
       class Server
+        # @param logger [Logger]
         # @param default_app [Object] This method must have #call.
-        def initialize(addr:, port:, logger:, default_app: nil)
+        # @param tls_context [OpenSSL::SSL::SSLContext]
+        def initialize(addr:, port:, logger:, default_app: nil, tls_context: nil)
           @addr = addr
           @port = port
           @logger = logger
 
-          # TODO: support https and http2
-          @uri = URI("http://#{@addr}:#{@port}").to_s
+          # TODO: support http2
+          scheme = tls_context ? 'https' : 'http'
+          @uri = URI("#{scheme}://#{@addr}:#{@port}").to_s
           @router = Router.new(default_app)
           @reactor = Async::Reactor.new
-          @server = Async::HTTP::Server.new(
-            App.new(@router, @logger),
-            Async::HTTP::Endpoint.parse(@uri)
-          )
+
+          opts = if tls_context
+                   { ssl_context: tls_context }
+                 else
+                   {}
+                 end
+          @server = Async::HTTP::Server.new(App.new(@router, @logger), Async::HTTP::Endpoint.parse(@uri, **opts))
 
           if block_given?
             yield(self)

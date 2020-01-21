@@ -16,6 +16,7 @@
 
 require 'fluent/plugin_helper/http_server/methods'
 require 'fluent/plugin_helper/http_server/compat/webrick_handler'
+require 'fluent/plugin_helper/http_server/compat/ssl_context_extractor'
 
 module Fluent
   module PluginHelper
@@ -24,16 +25,25 @@ module Fluent
         class Server
           # @param logger [Logger]
           # @param default_app [Object] ignored option. only for compat
-          def initialize(addr:, port:, logger:, default_app: nil)
+          # @param tls_context [OpenSSL::SSL::SSLContext]
+          def initialize(addr:, port:, logger:, default_app: nil, tls_context: nil)
             @addr = addr
             @port = port
             @logger = logger
-            @server = WEBrick::HTTPServer.new(
+
+            config = {
               BindAddress: @addr,
               Port: @port,
               Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
               AccessLog: [],
-            )
+            }
+            if tls_context
+              require 'webrick/https'
+              tls_opt = Fluent::PluginHelper::HttpServer::Compat::SSLContextExtractor.extract(tls_context)
+              config = tls_opt.merge(**config)
+            end
+
+            @server = WEBrick::HTTPServer.new(config)
 
             # @example ["/example.json", :get, handler object]
             @methods = []

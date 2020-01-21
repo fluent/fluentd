@@ -17,7 +17,7 @@
 require 'openssl'
 require 'socket'
 
-# this module is only for Socket/Server plugin helpers
+# this module is only for Socket/Server/HttpServer plugin helpers
 module Fluent
   module PluginHelper
     module CertOption
