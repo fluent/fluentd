@@ -142,39 +142,6 @@ class HtttpHelperTest < Test::Unit::TestCase
     end
   end
 
-  # def start_https_request(addr, port, verify: true, cert_path: nil, selfsigned: true)
-  #   https = Net::HTTP.new(addr, port)
-  #   https.use_ssl = true
-
-  #   if verify
-  #     cert_store = OpenSSL::X509::Store.new
-  #     cert_store.set_default_paths
-  #     if selfsigned && OpenSSL::X509.const_defined?('V_FLAG_CHECK_SS_SIGNATURE')
-  #       cert_store.flags = OpenSSL::X509::V_FLAG_CHECK_SS_SIGNATURE
-  #     end
-
-  #     if cert_path
-  #       cert_store.add_file(cert_path)
-  #     end
-
-  #     https.cert_store = cert_store
-
-  #     # https.verify_hostname = false
-
-  #     https.verify_mode = OpenSSL::SSL::VERIFY_PEER
-  #   else
-  #     https.verify_mode = OpenSSL::SSL::VERIFY_NONE
-  #   end
-
-  #   # if !hostname && context.respond_to?(:verify_hostname=)
-  #   #   context.verify_hostname = false # In test code, using hostname to be connected is very difficult
-  #   # end
-
-  #   https.start do
-  #     yield(https)
-  #   end
-  # end
-
   sub_test_case 'Create a HTTP server' do
     test 'monunt given path' do
       on_driver do |driver|
