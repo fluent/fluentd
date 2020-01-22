@@ -38,7 +38,7 @@ module Fluent
           scheme = tls_context ? 'https' : 'http'
           @uri = URI("#{scheme}://#{@addr}:#{@port}").to_s
           @router = Router.new(default_app)
-          @reactor = Async::Reactor.new
+          @reactor = Async::Reactor.new(nil, logger: @logger)
 
           opts = if tls_context
                    { ssl_context: tls_context }
