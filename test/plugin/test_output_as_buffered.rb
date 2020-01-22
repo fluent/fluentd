@@ -699,7 +699,7 @@ class BufferedOutputTest < Test::Unit::TestCase
         r["key#{i}"] = "value #{i}"
       end
 
-      3.times do |i|
+      2.times do |i|
         rand_records = rand(1..4)
         es = Fluent::ArrayEventStream.new([ [t, r] ] * rand_records)
         assert_equal rand_records, es.size
