@@ -46,6 +46,11 @@ module Fluent
         @_http_server = nil
       end
 
+      def create_http_server(title, addr:, port:, logger:, default_app: nil, proto: nil, tls_opts: nil, &block)
+        logger.warn('this method is deprecated. Use #http_server_create_http_server instead')
+        http_server_create_http_server(title, addr: addr, port: port, logger: logger, default_app: default_app, proto: proto, tls_opts: tls_opts, &block)
+      end
+
       # @param title [Symbol] the thread name. this value should be unique.
       # @param addr [String] Listen address
       # @param port [String] Listen port
@@ -53,7 +58,7 @@ module Fluent
       # @param default_app [Object] This method must have #call.
       # @param proto [Symbol] :tls or :tcp
       # @param tls_opts [Hash] options for TLS.
-      def create_http_server(title, addr:, port:, logger:, default_app: nil, proto: nil, tls_opts: nil, &block)
+      def http_server_create_http_server(title, addr:, port:, logger:, default_app: nil, proto: nil, tls_opts: nil, &block)
         unless block_given?
           raise ArgumentError, 'BUG: callback not specified'
         end
