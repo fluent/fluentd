@@ -39,6 +39,7 @@ module Fluent
             }
             if tls_context
               require 'webrick/https'
+              @logger.warn('Webrick ignores given TLS version')
               tls_opt = Fluent::PluginHelper::HttpServer::Compat::SSLContextExtractor.extract(tls_context)
               config = tls_opt.merge(**config)
             end
