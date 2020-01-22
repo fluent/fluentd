@@ -1,6 +1,6 @@
 # v1.9
 
-## Unreleased
+## Release v1.9.0 - 2020/01/22
 
 ### New feature
 
@@ -17,17 +17,25 @@
   https://github.com/fluent/fluentd/pull/2670
 * Support Ruby's Time class in msgpack serde
   https://github.com/fluent/fluentd/pull/2775
-* Clean up code
+* Clean up code/test
   https://github.com/fluent/fluentd/pull/2753
   https://github.com/fluent/fluentd/pull/2763
   https://github.com/fluent/fluentd/pull/2764
+  https://github.com/fluent/fluentd/pull/2780
 
-### Bug fixes
+### Bug fix
 
+* buffer: Disable the optimization of Metadata instance comparison on Windows
+  https://github.com/fluent/fluentd/pull/2778
 * outut/buffer: Fix stage size computation
   https://github.com/fluent/fluentd/pull/2734
 * server: Ignore Errno::EHOSTUNREACH in TLS accept to avoid fluentd restart
   https://github.com/fluent/fluentd/pull/2773
+* server: Fix IPv6 dual stack mode issue for udp socket
+  https://github.com/fluent/fluentd/pull/2781
+* config: Support @include/include directive for spaces included path
+  https://github.com/fluent/fluentd/pull/2780
+
 
 # v1.8
 
