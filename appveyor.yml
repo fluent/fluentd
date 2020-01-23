@@ -22,10 +22,11 @@ branches:
 # https://www.appveyor.com/docs/installed-software/#ruby
 environment:
   matrix:
+    - ruby_version: "25-x64"
+      ridk: 1
+    - ruby_version: "25"
+      ridk: 1
     - ruby_version: "24-x64"
       ridk: 1
     - ruby_version: "24"
       ridk: 1
-matrix:
-  allow_failures:
-    - ruby_version: "21"
