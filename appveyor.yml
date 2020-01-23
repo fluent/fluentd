@@ -5,11 +5,9 @@ version: '{build}'
 
 install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
-  - IF %ridk%==0 "%devkit%\\devkitvars.bat"
   - ruby --version
   - gem --version
-  - IF %ridk%==1 ridk.cmd exec bundle install
-  - IF %ridk%==0 bundle install
+  - ridk.cmd exec bundle install
 build: off
 test_script:
   - bundle exec rake test
@@ -23,10 +21,6 @@ branches:
 environment:
   matrix:
     - ruby_version: "25-x64"
-      ridk: 1
     - ruby_version: "25"
-      ridk: 1
     - ruby_version: "24-x64"
-      ridk: 1
     - ruby_version: "24"
-      ridk: 1
