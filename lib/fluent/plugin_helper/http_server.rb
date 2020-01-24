@@ -115,7 +115,7 @@ module Fluent
       private
 
       def _http_server_overwrite_config(config, opts)
-        conf = config
+        conf = config.dup
         Fluent::PluginHelper::Server::SERVER_TRANSPORT_PARAMS.map(&:to_s).each do |param|
           if opts.key?(param)
             conf[param] = opts[param]
