@@ -113,9 +113,6 @@ module Fluent::Plugin
       unless parser_config
         raise Fluent::ConfigError, "<parse> section is required."
       end
-      unless parser_config["@type"]
-        raise Fluent::ConfigError, "parse/@type is required."
-      end
 
       (1..Fluent::Plugin::MultilineParser::FORMAT_MAX_NUM).each do |n|
         parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
