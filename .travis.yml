@@ -7,39 +7,8 @@ cache: bundler
 # See here for osx_image -> OSX versions: https://docs.travis-ci.com/user/languages/objective-c
 matrix:
   include:
-    - rvm: 2.4.9
-      os: linux
-    - rvm: 2.4.9
-      os: linux-ppc64le
-    - rvm: 2.5.7
-      os: linux
-    - rvm: 2.5.7
-      os: linux
-      arch: s390x
-      dist: xenial
-    - rvm: 2.6.5
-      os: linux
     - rvm: 2.7.0
       os: linux
-    - rvm: ruby-head
-      os: linux
-    - rvm: ruby-head
-      os: linux-ppc64le
-    - rvm: 2.4.6
-      os: osx
-      osx_image: xcode8.3 # OSX 10.12
-    - rvm: ruby-head
-      os: osx
-      osx_image: xcode8.3 # OSX 10.12
-  allow_failures:
-    - rvm: 2.4.6
-      os: osx
-      osx_image: xcode8.3
-    - rvm: 2.5.7
-      os: linux
-      arch: s390x
-      dist: xenial
-    - rvm: ruby-head
 
 branches:
   only:

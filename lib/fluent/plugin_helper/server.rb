@@ -375,6 +375,8 @@ module Fluent
                  usock.autoclose = false
                  UDPSocket.for_fd(usock.fileno)
                end
+        p bind
+        p sock
         # close-on-exec is set by default in Ruby 2.0 or later (, and it's unavailable on Windows)
         sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK) # nonblock
         sock

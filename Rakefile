@@ -31,16 +31,7 @@ Rake::TestTask.new(:base_test) do |t|
   #  $ bundle exec rake base_test TEST=test/test_specified_path.rb
   #  $ bundle exec rake base_test TEST=test/test_*.rb
   t.libs << "test"
-  t.test_files = if ENV["WIN_RAPID"]
-                   ["test/test_event.rb", "test/test_supervisor.rb", "test/plugin_helper/test_event_loop.rb"]
-                 else
-                   tests = Dir["test/**/test_*.rb"].sort
-                   if Process.uid.zero?
-                     puts "test_file_util.rb for non-root user env. Disable this test on root environment"
-                     tests.delete("test/plugin/test_file_util.rb")
-                   end
-                   tests
-                 end
+  t.test_files = ["test/plugin_helper/test_server.rb"]
   t.verbose = true
   t.warning = true
   t.ruby_opts = ["-Eascii-8bit:ascii-8bit"]
