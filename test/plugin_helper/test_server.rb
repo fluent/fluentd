@@ -49,7 +49,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
 
     data(
       'server_create tcp'  => [:server_create, :tcp, {}],
-      'server_create udp'  => [:server_create, :udp, {max_bytes: 128}],
+      #'server_create udp'  => [:server_create, :udp, {max_bytes: 128}],
       'server_create tls'  => [:server_create, :tls, {tls_options: {insecure: true}}],
       # 'server_create unix'  = > [:server_create, :unix, {}],
       'server_create_connection tcp'  => [:server_create, :tcp, {}],
@@ -61,10 +61,10 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         d2 = Dummy.new; d2.start; d2.after_start
 
         assert_nothing_raised do
-          @d.__send__(m, :myserver, PORT, bind: '127.0.0.1', proto: proto, shared: false, **kwargs){|x| x }
+          @d.__send__(m, :myserver, PORT, bind: proto: proto, shared: false, **kwargs){|x| x }
         end
         assert_raise(Errno::EADDRINUSE, Errno::EACCES) do
-          d2.__send__(m, :myserver, PORT, bind: '127.0.0.1', proto: proto, **kwargs){|x| x }
+          d2.__send__(m, :myserver, PORT, proto: proto, **kwargs){|x| x }
         end
       ensure
         d2.stop; d2.before_shutdown; d2.shutdown; d2.after_shutdown; d2.close; d2.terminate
