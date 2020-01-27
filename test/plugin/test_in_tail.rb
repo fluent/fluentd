@@ -84,6 +84,19 @@ class TailInputTest < Test::Unit::TestCase
       end
     end
 
+    test "multi paths with path_delimiter" do
+      c = config_element("ROOT", "", { "path" => "tail.txt|test2|tmp,dev", "tag" => "t1", "path_delimiter" => "|" })
+      d = create_driver(c + PARSE_SINGLE_LINE_CONFIG, false)
+      assert_equal ["tail.txt", "test2", "tmp,dev"], d.instance.paths
+    end
+
+    test "multi paths with invaid path_delimiter" do
+      c = config_element("ROOT", "", { "path" => "tail.txt|test2|tmp,dev", "tag" => "t1", "path_delimiter" => "*" })
+      assert_raise(Fluent::ConfigError) do
+        create_driver(c + PARSE_SINGLE_LINE_CONFIG, false)
+      end
+    end
+
     test "both enable_watch_timer and enable_stat_watcher are false" do
       assert_raise(Fluent::ConfigError) do
         create_driver(CONFIG_ENABLE_WATCH_TIMER + CONFIG_DISABLE_STAT_WATCHER + PARSE_SINGLE_LINE_CONFIG)
