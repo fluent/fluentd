@@ -40,8 +40,6 @@ module Fluent::Config
             assert_equal("email", s1.send)
             assert_equal("normal", s1.klass)
             assert_equal(5, s1.keys)
-
-            assert_raise(NoMethodError) { s1.dup }
           end
 
           test 'creates object which contains specified hash object itself, including fields with at prefix' do

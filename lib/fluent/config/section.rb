@@ -58,6 +58,10 @@ module Fluent
         @params
       end
 
+      def dup
+        Section.new(@params.dup, @corresponding_config_element.dup)
+      end
+
       def +(other)
         Section.new(self.to_h.merge(other.to_h))
       end
