@@ -1,5 +1,5 @@
 require_relative '../../helper'
-require 'fluent/plugin/in_tail'
+require 'fluent/plugin/in_tail/position_file'
 
 class IntailPositionFileTest < Test::Unit::TestCase
   setup do
