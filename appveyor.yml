@@ -5,11 +5,9 @@ version: '{build}'
 
 install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
-  - IF %ridk%==0 "%devkit%\\devkitvars.bat"
   - ruby --version
   - gem --version
-  - IF %ridk%==1 ridk.cmd exec bundle install
-  - IF %ridk%==0 bundle install
+  - ridk.cmd exec bundle install
 build: off
 test_script:
   - bundle exec rake test
@@ -22,16 +20,9 @@ branches:
 # https://www.appveyor.com/docs/installed-software/#ruby
 environment:
   matrix:
-    - ruby_version: "23-x64"
-      devkit: C:\Ruby23-x64\DevKit
-      ridk: 0
-    - ruby_version: "23"
-      devkit: C:\Ruby23\DevKit
-      ridk: 0
+    - ruby_version: "26-x64"
+    - ruby_version: "26"
+    - ruby_version: "25-x64"
+    - ruby_version: "25"
     - ruby_version: "24-x64"
-      ridk: 1
     - ruby_version: "24"
-      ridk: 1
-matrix:
-  allow_failures:
-    - ruby_version: "21"
