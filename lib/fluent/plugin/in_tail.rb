@@ -35,6 +35,8 @@ module Fluent::Plugin
 
     helpers :timer, :event_loop, :parser, :compat_parameters
 
+    RESERVED_CHARS = ['/', '*', '%'].freeze
+
     class WatcherSetupError < StandardError
       def initialize(msg)
         @message = msg
@@ -58,6 +60,8 @@ module Fluent::Plugin
 
     desc 'The paths to read. Multiple paths can be specified, separated by comma.'
     config_param :path, :string
+    desc 'path delimiter used for spliting path config'
+    config_param :path_delimiter, :string, default: ','
     desc 'The tag of the event.'
     config_param :tag, :string
     desc 'The paths to exclude the files from watcher list.'
@@ -124,7 +128,12 @@ module Fluent::Plugin
         raise Fluent::ConfigError, "either of enable_watch_timer or enable_stat_watcher must be true"
       end
 
-      @paths = @path.split(',').map {|path| path.strip }
+      if RESERVED_CHARS.include?(@path_delimiter)
+        rc = RESERVED_CHARS.join(', ')
+        raise Fluent::ConfigError, "#{rc} are reserved words: #{@path_delimiter}"
+      end
+
+      @paths = @path.split(@path_delimiter).map(&:strip)
       if @paths.empty?
         raise Fluent::ConfigError, "tail: 'path' parameter is required on tail input"
       end
