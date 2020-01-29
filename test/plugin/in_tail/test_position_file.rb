@@ -1,9 +1,16 @@
 require_relative '../../helper'
 require 'fluent/plugin/in_tail/position_file'
 
+require 'tempfile'
+
 class IntailPositionFileTest < Test::Unit::TestCase
   setup do
-    @file = StringIO.new(+'')
+    @file = Tempfile.new('intail_position_file_test')
+  end
+
+  teardown do
+    @file.close rescue nil
+    @file.unlink rescue nil
   end
 
   UNWATCHED_STR = '%016x' % Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION
