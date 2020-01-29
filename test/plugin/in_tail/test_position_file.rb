@@ -19,15 +19,29 @@ class IntailPositionFileTest < Test::Unit::TestCase
     f.seek(0)
   end
 
-  test '.compact' do
-    write_data(@file, TEST_CONTENT)
-    Fluent::Plugin::TailInput::PositionFile.compact(@file)
+  sub_test_case '.compact' do
+    test 'compact invalid and convert 32 bit inode value' do
+      write_data(@file, TEST_CONTENT)
+      Fluent::Plugin::TailInput::PositionFile.compact(@file)
 
-    @file.seek(0)
-    lines = @file.readlines
-    assert_equal 2, lines.size
-    assert_equal "valid_path\t0000000000000002\t0000000000000001\n", lines[0]
-    assert_equal "inode23bit\t0000000000000000\t0000000000000000\n", lines[1]
+      @file.seek(0)
+      lines = @file.readlines
+      assert_equal 2, lines.size
+      assert_equal "valid_path\t0000000000000002\t0000000000000001\n", lines[0]
+      assert_equal "inode23bit\t0000000000000000\t0000000000000000\n", lines[1]
+    end
+
+    test 'compact data if duplicated line' do
+      write_data(@file, <<~EOF)
+        valid_path\t0000000000000002\t0000000000000001
+        valid_path\t0000000000000003\t0000000000000004
+      EOF
+      Fluent::Plugin::TailInput::PositionFile.compact(@file)
+
+      @file.seek(0)
+      lines = @file.readlines
+      assert_equal "valid_path\t0000000000000003\t0000000000000004\n", lines[0]
+    end
   end
 
   test '.parse' do

@@ -71,8 +71,9 @@ module Fluent::Plugin
 
       # Clean up unwatched file entries
       def self.compact(file)
+        existent_entries = {}
         file.pos = 0
-        existent_entries = file.each_line.map { |line|
+        file.each_line do |line|
           m = POSITION_FILE_ENTRY_REGEX.match(line)
           unless m
             $log.warn "Unparsable line in pos_file: #{line}"
@@ -81,13 +82,22 @@ module Fluent::Plugin
           path = m[1]
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
+
+          if pos == UNWATCHED_POSITION
+            next
+          end
+
+          if existent_entries.include?(path)
+            $log.warn("#{path} already exists. use latest one: deleted #{existent_entries[path]}")
+          end
+
           # 32bit inode converted to 64bit at this phase
-          pos == UNWATCHED_POSITION ? nil : (POSITION_FILE_ENTRY_FORMAT % [path, pos, ino])
-        }.compact
+          existent_entries[path] = (POSITION_FILE_ENTRY_FORMAT % [path, pos, ino])
+        end
 
         file.pos = 0
         file.truncate(0)
-        file.write(existent_entries.join)
+        file.write(existent_entries.values.join)
       end
     end
 
