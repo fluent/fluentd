@@ -17,6 +17,7 @@
 require 'fluent/output'
 require 'fluent/config/error'
 require 'fluent/clock'
+require 'fluent/tls'
 require 'base64'
 require 'forwardable'
 
@@ -89,9 +90,9 @@ module Fluent::Plugin
     config_param :compress, :enum, list: [:text, :gzip], default: :text
 
     desc 'The default version of TLS transport.'
-    config_param :tls_version, :enum, list: Fluent::PluginHelper::Socket::TLS_SUPPORTED_VERSIONS, default: Fluent::PluginHelper::Socket::TLS_DEFAULT_VERSION
+    config_param :tls_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: Fluent::TLS::DEFAULT_VERSION
     desc 'The cipher configuration of TLS transport.'
-    config_param :tls_ciphers, :string, default: Fluent::PluginHelper::Socket::CIPHERS_DEFAULT
+    config_param :tls_ciphers, :string, default: Fluent::TLS::CIPHERS_DEFAULT
     desc 'Skip all verification of certificates or not.'
     config_param :tls_insecure_mode, :bool, default: false
     desc 'Allow self signed certificates or not.'
