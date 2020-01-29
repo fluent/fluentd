@@ -1460,7 +1460,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
       test "can't connect with different TLS version" do
         @d.server_create_tls(:s, PORT, tls_options: @tls_options) do |data, conn|
         end
-        assert_raise(OpenSSL::SSL::SSLError) {
+        assert_raise(OpenSSL::SSL::SSLError, Errno::ECONNRESET) {
           open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: :'TLS1_1') do |sock|
           end
         }
@@ -1472,7 +1472,7 @@ class ServerPluginHelperTest < Test::Unit::TestCase
         opts = @tls_options.merge(min_version: :'TLS1_1', max_version: :'TLSv1_2')
         @d.server_create_tls(:s, PORT, tls_options: opts) do |data, conn|
         end
-        assert_raise(OpenSSL::SSL::SSLError) {
+        assert_raise(OpenSSL::SSL::SSLError, Errno::ECONNRESET) {
           open_tls_session('127.0.0.1', PORT, cert_path: @cert_path, version: :'TLS1') do |sock|
           end
         }
