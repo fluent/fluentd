@@ -20,6 +20,8 @@ module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
     class PositionFile
       UNWATCHED_POSITION = 0xffffffffffffffff
+      POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
+      POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
       def initialize(file, file_mutex, map, last_pos)
         @file = file
@@ -49,7 +51,7 @@ module Fluent::Plugin
         map = {}
         file.pos = 0
         file.each_line {|line|
-          m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
+          m = POSITION_FILE_ENTRY_REGEX.match(line)
           unless m
             $log.warn "Unparsable line in pos_file: #{line}"
             next
@@ -67,7 +69,7 @@ module Fluent::Plugin
       def self.compact(file)
         file.pos = 0
         existent_entries = file.each_line.map { |line|
-          m = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.match(line)
+          m = POSITION_FILE_ENTRY_REGEX.match(line)
           unless m
             $log.warn "Unparsable line in pos_file: #{line}"
             next
@@ -76,7 +78,7 @@ module Fluent::Plugin
           pos = m[2].to_i(16)
           ino = m[3].to_i(16)
           # 32bit inode converted to 64bit at this phase
-          pos == UNWATCHED_POSITION ? nil : ("%s\t%016x\t%016x\n" % [path, pos, ino])
+          pos == UNWATCHED_POSITION ? nil : (POSITION_FILE_ENTRY_FORMAT % [path, pos, ino])
         }.compact
 
         file.pos = 0
