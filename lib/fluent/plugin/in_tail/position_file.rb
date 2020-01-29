@@ -23,11 +23,10 @@ module Fluent::Plugin
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
       POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
-      def initialize(file, file_mutex, map, last_pos)
+      def initialize(file, file_mutex, map)
         @file = file
         @file_mutex = file_mutex
         @map = map
-        @last_pos = last_pos
       end
 
       def [](path)
@@ -36,10 +35,9 @@ module Fluent::Plugin
         end
 
         @file_mutex.synchronize {
-          @file.pos = @last_pos
+          @file.seek(0, IO::SEEK_END)
+          seek = @file.pos + path.bytesize + 1
           @file.write "#{path}\t0000000000000000\t0000000000000000\n"
-          seek = @last_pos + path.bytesize + 1
-          @last_pos = @file.pos
           @map[path] = FilePositionEntry.new(@file, @file_mutex, seek, 0, 0)
         }
       end
@@ -62,7 +60,7 @@ module Fluent::Plugin
           seek = file.pos - line.bytesize + path.bytesize + 1
           map[path] = FilePositionEntry.new(file, file_mutex, seek, pos, ino)
         }
-        new(file, file_mutex, map, file.pos)
+        new(file, file_mutex, map)
       end
 
       # Clean up unwatched file entries
