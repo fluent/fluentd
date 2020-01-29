@@ -49,10 +49,6 @@ module Fluent::Plugin
         end
       end
 
-      def self.parse(file, logger: $log)
-        load(file, logger: logger)
-      end
-
       # Clean up unwatched file entries
       def self.compact(file, logger: $log)
         pf = new(file, logger: logger)
