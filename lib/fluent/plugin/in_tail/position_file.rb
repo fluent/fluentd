@@ -42,6 +42,12 @@ module Fluent::Plugin
         }
       end
 
+      def unwatch(path)
+        if (entry = @map.delete(path))
+          entry.update_pos(UNWATCHED_POSITION)
+        end
+      end
+
       def self.parse(file)
         compact(file)
 

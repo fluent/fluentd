@@ -389,7 +389,7 @@ module Fluent::Plugin
       tw.close if close_io
       flush_buffer(tw)
       if tw.unwatched && @pf
-        @pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
+        @pf.unwatch(tw.path)
       end
     end
 

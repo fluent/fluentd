@@ -86,6 +86,23 @@ class IntailPositionFileTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case '#unwatch' do
+    test 'deletes entry by path' do
+      write_data(@file, TEST_CONTENT)
+      pf = Fluent::Plugin::TailInput::PositionFile.parse(@file)
+      p1 = pf['valid_path']
+      assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p1.class
+
+      pf.unwatch('valid_path')
+      assert_equal p1.read_pos, Fluent::Plugin::TailInput::PositionFile::UNWATCHED_POSITION
+
+      p2 = pf['valid_path']
+      assert_equal Fluent::Plugin::TailInput::FilePositionEntry, p2.class
+
+      assert_not_equal p1, p2
+    end
+  end
+
   sub_test_case 'FilePositionEntry' do
     FILE_POS_CONTENT = <<~EOF
       valid_path\t0000000000000002\t0000000000000001
