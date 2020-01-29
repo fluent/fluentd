@@ -211,7 +211,7 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.parse(@pf_file)
+        @pf = PositionFile.parse(@pf_file, logger: $log)
       end
 
       refresh_watchers unless @skip_refresh_on_startup

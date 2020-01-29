@@ -23,11 +23,11 @@ module Fluent::Plugin
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
       POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
-      def initialize(file, file_mutex, map, logger: nil)
+      def initialize(file, logger: nil)
         @file = file
-        @file_mutex = file_mutex
-        @map = map
         @logger = logger
+        @file_mutex = Mutex.new
+        @map = {}
       end
 
       def [](path)
@@ -49,25 +49,21 @@ module Fluent::Plugin
         end
       end
 
-      def self.parse(file)
-        load(file, logger: $log)
+      def self.parse(file, logger: $log)
+        load(file, logger: logger)
       end
 
       # Clean up unwatched file entries
-      def self.compact(file)
-        pf = new2(file, logger: $log)
+      def self.compact(file, logger: $log)
+        pf = new(file, logger: logger)
         pf.try_compact
         pf
       end
 
       def self.load(file, logger:)
-        pf = new2(file, logger: logger)
+        pf = new(file, logger: logger)
         pf.load
         pf
-      end
-
-      def self.new2(file, logger:)
-        new(file, Mutex.new, {}, logger: logger)
       end
 
       def load
