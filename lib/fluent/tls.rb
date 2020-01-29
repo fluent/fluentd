@@ -20,19 +20,24 @@ require 'fluent/config/error'
 module Fluent
   module TLS
     DEFAULT_VERSION = :'TLSv1_2'
-    SUPPORTED_VERSIONS = [:'TLSv1_1', :'TLSv1_2', :'TLS1_1', :'TLS1_2']
+    SUPPORTED_VERSIONS = if defined?(OpenSSL::SSL::TLS1_3_VERSION)
+                           [:'TLSv1_1', :'TLSv1_2', :'TLSv1_3', :'TLS1_1', :'TLS1_2', :'TLS1_3'].freeze
+                         else
+                           [:'TLSv1_1', :'TLSv1_2', :'TLS1_1', :'TLS1_2'].freeze
+                         end
     ### follow httpclient configuration by nahi
     # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
-    CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
+    CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2".freeze # OpenSSL >1.0.0 default
 
     METHODS_MAP = begin
                     map = {
                       TLSv1: OpenSSL::SSL::TLS1_VERSION,
                       TLSv1_1: OpenSSL::SSL::TLS1_1_VERSION,
-                      TLSv1_2: OpenSSL::SSL::TLS1_2_VERSION,
-                    }.freeze
+                      TLSv1_2: OpenSSL::SSL::TLS1_2_VERSION
+                    }
+                    map[:'TLSv1_3'] = OpenSSL::SSL::TLS1_3_VERSION if defined?(OpenSSL::SSL::TLS1_3_VERSION)
                     MIN_MAX_AVAILABLE = true
-                    map
+                    map.freeze
                   rescue NameError
                     # ruby 2.4 doesn't have OpenSSL::SSL::TLSXXX constants and min_version=/max_version= methods
                     map = {
