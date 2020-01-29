@@ -25,30 +25,39 @@ module Fluent
     # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
     CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
 
-    METHODS_MAP = {
-      TLSv1: OpenSSL::SSL::TLS1_VERSION,
-      TLSv1_1: OpenSSL::SSL::TLS1_1_VERSION,
-      TLSv1_2: OpenSSL::SSL::TLS1_2_VERSION,
-    }.freeze
-    METHODS_MAP_FOR_VERSION = {
-      TLS1: :'TLSv1',
-      TLS1_1: :'TLSv1_1',
-      TLS1_2: :'TLSv1_2',
-    }.freeze
+    METHODS_MAP = begin
+                    map = {
+                      TLSv1: OpenSSL::SSL::TLS1_VERSION,
+                      TLSv1_1: OpenSSL::SSL::TLS1_1_VERSION,
+                      TLSv1_2: OpenSSL::SSL::TLS1_2_VERSION,
+                    }.freeze
+                    MIN_MAX_AVAILABLE = true
+                    map
+                  rescue NameError
+                    # ruby 2.4 doesn't have OpenSSL::SSL::TLSXXX constants and min_version=/max_version= methods
+                    map = {
+                      TLS1: :'TLSv1',
+                      TLS1_1: :'TLSv1_1',
+                      TLS1_2: :'TLSv1_2',
+                    }.freeze
+                    MIN_MAX_AVAILABLE = false
+                    map
+                  end
+    private_constant :METHODS_MAP
 
     # Helper for old syntax/method support:
     # ruby 2.4 uses ssl_version= but this method is now deprecated.
     # min_version=/max_version= use 'TLS1_2' but ssl_version= uses 'TLSv1_2'
     def set_version_to_context(ctx, version, min_version, max_version)
-      if ctx.respond_to?(:'min_version=')
+      if MIN_MAX_AVAILABLE
         case
         when min_version.nil? && max_version.nil?
-          min_version = METHODS_MAP[version]
-          max_version = METHODS_MAP[version]
+          min_version = METHODS_MAP[version] || version
+          max_version = METHODS_MAP[version] || version
         when min_version.nil? && max_version
-          raise Fluentd::ConfigError, "When you set max_version, must set min_version together"
+          raise Fluent::ConfigError, "When you set max_version, must set min_version together"
         when min_version && max_version.nil?
-          raise Fluentd::ConfigError, "When you set min_version, must set max_version together"
+          raise Fluent::ConfigError, "When you set min_version, must set max_version together"
         else
           min_version = METHODS_MAP[min_version] || min_version
           max_version = METHODS_MAP[max_version] || max_version
@@ -56,12 +65,11 @@ module Fluent
         ctx.min_version = min_version
         ctx.max_version = max_version
       else
-        ctx.ssl_version = METHODS_MAP_FOR_VERSION[version] || version
+        ctx.ssl_version = METHODS_MAP[version] || version
       end
 
       ctx
     end
-
     module_function :set_version_to_context
   end
 end
