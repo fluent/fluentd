@@ -181,7 +181,8 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
          'type error' => TypeError,
          'argument error' => ArgumentError,
          'no method error' => NoMethodError,
-         'msgpack unpack error' => MessagePack::UnpackError)
+         'msgpack unpack error' => MessagePack::UnpackError,
+         'encoding error' => EncodingError)
     test 'backup chunk without secondary' do |error_class|
       Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test'
