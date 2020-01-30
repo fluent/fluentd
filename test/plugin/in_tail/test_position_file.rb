@@ -1,6 +1,7 @@
 require_relative '../../helper'
 require 'fluent/plugin/in_tail/position_file'
 
+require 'fileutils'
 require 'tempfile'
 
 class IntailPositionFileTest < Test::Unit::TestCase
@@ -37,10 +38,10 @@ class IntailPositionFileTest < Test::Unit::TestCase
     assert_equal "inode23bit\t0000000000000000\t0000000000000000\n", lines[1]
   end
 
-  sub_test_case '.compact' do
+  sub_test_case '#try_compact' do
     test 'compact invalid and convert 32 bit inode value' do
       write_data(@file, TEST_CONTENT)
-      Fluent::Plugin::TailInput::PositionFile.compact(@file)
+      Fluent::Plugin::TailInput::PositionFile.new(@file, logger: $log).try_compact
 
       @file.seek(0)
       lines = @file.readlines
@@ -54,11 +55,26 @@ class IntailPositionFileTest < Test::Unit::TestCase
         valid_path\t0000000000000002\t0000000000000001
         valid_path\t0000000000000003\t0000000000000004
       EOF
-      Fluent::Plugin::TailInput::PositionFile.compact(@file)
+      Fluent::Plugin::TailInput::PositionFile.new(@file, logger: $log).try_compact
 
       @file.seek(0)
       lines = @file.readlines
       assert_equal "valid_path\t0000000000000003\t0000000000000004\n", lines[0]
+    end
+
+    test 'does not change when the file is changed' do
+      write_data(@file, TEST_CONTENT)
+      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, logger: $log)
+
+      mock.proxy(pf).fetch_compacted_entries do
+        FileUtils.touch(@file.path) # change mtime
+      end
+
+      pf.try_compact
+
+      @file.seek(0)
+      lines = @file.readlines
+      assert_equal 4, lines.size
     end
   end
 
