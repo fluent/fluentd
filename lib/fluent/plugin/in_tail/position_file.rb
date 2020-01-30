@@ -23,6 +23,12 @@ module Fluent::Plugin
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
       POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
+      def self.load(file, logger:)
+        pf = new(file, logger: logger)
+        pf.load
+        pf
+      end
+
       def initialize(file, logger: nil)
         @file = file
         @logger = logger
@@ -47,19 +53,6 @@ module Fluent::Plugin
         if (entry = @map.delete(path))
           entry.update_pos(UNWATCHED_POSITION)
         end
-      end
-
-      # Clean up unwatched file entries
-      def self.compact(file, logger: $log)
-        pf = new(file, logger: logger)
-        pf.try_compact
-        pf
-      end
-
-      def self.load(file, logger:)
-        pf = new(file, logger: logger)
-        pf.load
-        pf
       end
 
       def load
