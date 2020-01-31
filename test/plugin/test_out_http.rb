@@ -168,6 +168,19 @@ class HTTPOutputTest < Test::Unit::TestCase
     assert_nil d.instance.headers
   end
 
+  def test_configure_with_warn
+    d = create_driver(config)
+    assert_match(/Status code 503 is going to be removed/, d.instance.log.out.logs.join)
+  end
+
+  def test_configure_without_warn
+    d = create_driver(<<~CONFIG)
+      endpoint #{base_endpoint}/test
+      retryable_response_codes [503]
+    CONFIG
+    assert_not_match(/Status code 503 is going to be removed/, d.instance.log.out.logs.join)
+  end
+
   data('json' => ['json', 'application/x-ndjson'],
        'ltsv' => ['ltsv', 'text/tab-separated-values'],
        'msgpack' => ['msgpack', 'application/x-msgpack'],
@@ -257,7 +270,7 @@ class HTTPOutputTest < Test::Unit::TestCase
         d.feed(event)
       }
     end
-    assert_match(/got error response from.*404 Not Found Not Found/, d.instance.log.out.logs.first)
+    assert_match(/got error response from.*404 Not Found Not Found/, d.instance.log.out.logs.join)
     d.instance_shutdown
   end
 
@@ -313,7 +326,7 @@ class HTTPOutputTest < Test::Unit::TestCase
           d.feed(event)
         }
       end
-      assert_match(/got unrecoverable error/, d.instance.log.out.logs.first)
+      assert_match(/got unrecoverable error/, d.instance.log.out.logs.join)
 
       d.instance_shutdown
     end

@@ -64,7 +64,7 @@ module Fluent::Plugin
     desc 'Raise UnrecoverableError when the response is non success, 4xx/5xx'
     config_param :error_response_as_unrecoverable, :bool, default: true
     desc 'The list of retryable response code'
-    config_param :retryable_response_codes, :array, value_type: :integer, default: [503]
+    config_param :retryable_response_codes, :array, value_type: :integer, default: nil
 
     config_section :format do
       config_set_default :@type, 'json'
@@ -89,6 +89,11 @@ module Fluent::Plugin
 
     def configure(conf)
       super
+
+      if @retryable_response_codes.nil?
+        log.warn('Status code 503 is going to be removed from default `retryable_response_codes` from fluentd v2. Please add it by yourself if you wish')
+        @retryable_response_codes = [503]
+      end
 
       @http_opt = setup_http_option
       @proxy_uri = URI.parse(@proxy) if @proxy
@@ -172,7 +177,7 @@ module Fluent::Plugin
     end
 
     def parse_endpoint(chunk)
-      endpoint = extract_placeholders(@endpoint, chunk)    
+      endpoint = extract_placeholders(@endpoint, chunk)
       URI.parse(endpoint)
     end
 
