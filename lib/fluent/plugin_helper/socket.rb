@@ -21,6 +21,7 @@ if Fluent.windows?
   require 'certstore'
 end
 
+require 'fluent/tls'
 require_relative 'socket_option'
 
 module Fluent
@@ -32,12 +33,6 @@ module Fluent
       # terminate: [-]
 
       include Fluent::PluginHelper::SocketOption
-
-      TLS_DEFAULT_VERSION = :'TLSv1_2'
-      TLS_SUPPORTED_VERSIONS = [:'TLSv1_1', :'TLSv1_2']
-      ### follow httpclient configuration by nahi
-      # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
-      CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
 
       attr_reader :_sockets # for tests
 
@@ -97,7 +92,7 @@ module Fluent
 
       def socket_create_tls(
           host, port,
-          version: TLS_DEFAULT_VERSION, ciphers: CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
+          version: Fluent::TLS::DEFAULT_VERSION, min_version: nil, max_version: nil, ciphers: Fluent::TLS::CIPHERS_DEFAULT, insecure: false, verify_fqdn: true, fqdn: nil,
           enable_system_cert_store: true, allow_self_signed_cert: false, cert_paths: nil,
           cert_path: nil, private_key_path: nil, private_key_passphrase: nil,
           cert_thumbprint: nil, cert_logical_store_name: nil, cert_use_enterprise_store: true,
@@ -106,7 +101,7 @@ module Fluent
         host_is_ipaddress = IPAddr.new(host) rescue false
         fqdn ||= host unless host_is_ipaddress
 
-        context = OpenSSL::SSL::SSLContext.new(version)
+        context = OpenSSL::SSL::SSLContext.new
 
         if insecure
           log.trace "setting TLS verify_mode NONE"
@@ -154,6 +149,7 @@ module Fluent
           context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path)) if cert_path
           context.key = OpenSSL::PKey::read(File.read(private_key_path), private_key_passphrase) if private_key_path
         end
+        Fluent::TLS.set_version_to_context(context, version, min_version, max_version)
 
         tcpsock = socket_create_tcp(host, port, **kwargs)
         sock = WrappedSocket::TLS.new(tcpsock, context)

@@ -240,7 +240,7 @@ module Fluent
       end
 
       SERVER_TRANSPORT_PARAMS = [
-        :protocol, :version, :ciphers, :insecure,
+        :protocol, :version, :min_version, :max_version, :ciphers, :insecure,
         :ca_path, :cert_path, :private_key_path, :private_key_passphrase, :client_cert_auth,
         :ca_cert_path, :ca_private_key_path, :ca_private_key_passphrase,
         :generate_private_key_length,
@@ -260,18 +260,13 @@ module Fluent
       end
 
       module ServerTransportParams
-        TLS_DEFAULT_VERSION = :'TLSv1_2'
-        TLS_SUPPORTED_VERSIONS = [:'TLSv1_1', :'TLSv1_2']
-        ### follow httpclient configuration by nahi
-        # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
-        CIPHERS_DEFAULT = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
-
         include Fluent::Configurable
         config_section :transport, required: false, multi: false, init: true, param_name: :transport_config do
           config_argument :protocol, :enum, list: [:tcp, :tls], default: :tcp
-          config_param :version, :enum, list: TLS_SUPPORTED_VERSIONS, default: TLS_DEFAULT_VERSION
-
-          config_param :ciphers, :string, default: CIPHERS_DEFAULT
+          config_param :version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: Fluent::TLS::DEFAULT_VERSION
+          config_param :min_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: nil
+          config_param :max_version, :enum, list: Fluent::TLS::SUPPORTED_VERSIONS, default: nil
+          config_param :ciphers, :string, default: Fluent::TLS::CIPHERS_DEFAULT
           config_param :insecure, :bool, default: false
 
           # Cert signed by public CA
