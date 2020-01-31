@@ -1,5 +1,29 @@
 # v1.9
 
+## Release v1.9.1 - 2020/01/31
+
+### Enhancement
+
+* http_server helper: Support HTTPS
+  https://github.com/fluent/fluentd/pull/2787
+* in_tail: Add `path_delimiter` to split with any char
+  https://github.com/fluent/fluentd/pull/2796
+* in_tail: Remove an entry from PositionaFile when it is unwatched
+  https://github.com/fluent/fluentd/pull/2803
+* out_http: Add warning for `retryable_response_code`
+  https://github.com/fluent/fluentd/pull/2809
+* parser_syslog: Add multiline RFC5424 support
+  https://github.com/fluent/fluentd/pull/2767
+* Add TLS module to unify TLS related code
+  https://github.com/fluent/fluentd/pull/2802
+
+### Bug fix
+
+* output: Add `EncodingError` to unrecoverable errors
+  https://github.com/fluent/fluentd/pull/2808
+* tls: Fix TLS version handling in secure mode
+  https://github.com/fluent/fluentd/pull/2802
+
 ## Release v1.9.0 - 2020/01/22
 
 ### New feature
