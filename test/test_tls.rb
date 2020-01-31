@@ -32,6 +32,8 @@ class UniqueIdTest < Test::Unit::TestCase
       @ctx = OpenSSL::SSL::SSLContext.new
     end
 
+    # TODO: After openssl module supports min_version/max_version accessor, add assert for it.
+
     data(TEST_TLS_CASES)
     test 'with version' do |ver|
       assert_nothing_raised {
