@@ -213,11 +213,11 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.load(@pf_file, logger: $log)
+        @pf = PositionFile.load(@pf_file, logger: log)
 
         if @pos_file_compaction_interval
           timer_execute(:in_tail_refresh_compact_pos_file, @pos_file_compaction_interval) do
-            $log.info('Clean up the pos file')
+            log.info('Clean up the pos file')
             @pf.try_compact
           end
         end
