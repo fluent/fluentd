@@ -797,6 +797,24 @@ CONF
       )
     end
 
+    test 'invalid values are set to RUBYOPT' do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('rubyopt_invalid_test.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        'Invalid option is passed to RUBYOPT',
+        env: { 'RUBYOPT' => 'a' },
+      )
+    end
+
     test 'success to start workers when file buffer is configured in non-workers way only for specific worker' do
       conf = <<CONF
 <system>
