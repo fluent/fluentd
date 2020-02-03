@@ -315,6 +315,7 @@ module Fluent
       )
       # this #init sets initialized logger to $log
       logger_initializer.init(:supervisor, 0)
+      logger_initializer.apply_options(format: params['log_format'], time_format: params['log_time_format'])
       logger = $log
 
       command_sender = Fluent.windows? ? "pipe" : "signal"
@@ -691,6 +692,8 @@ module Fluent
         'rpc_endpoint' => @system_config.rpc_endpoint,
         'enable_get_dump' => @system_config.enable_get_dump,
         'counter_server' => @system_config.counter_server,
+        'log_format' => @system_config.log.format,
+        'log_time_format' => @system_config.log.time_format,
       }
 
       se = ServerEngine.create(ServerModule, WorkerModule){

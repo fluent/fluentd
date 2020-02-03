@@ -235,6 +235,33 @@ class SupervisorTest < ::Test::Unit::TestCase
     Timecop.return
   end
 
+  def test_load_config_for_logger
+    tmp_dir = "#{TMP_DIR}/dir/test_load_config_log.conf"
+    conf_info_str = %[
+<system>
+  <log>
+    format json
+    time_format %FT%T.%L%z
+  </log>
+</system>
+]
+    write_config tmp_dir, conf_info_str
+    params = {
+      'use_v1_config' => true,
+      'conf_encoding' => 'utf8',
+      'log_level' => Fluent::Log::LEVEL_INFO,
+      'log_path' => 'test/tmp/supervisor/log',
+
+      'workers' => 1,
+      'log_format' => :json,
+      'log_time_format' => '%FT%T.%L%z',
+    }
+
+    r = Fluent::Supervisor.load_config(tmp_dir, params)
+    assert_equal :json, r[:logger].format
+    assert_equal '%FT%T.%L%z', r[:logger].time_format
+  end
+
   def test_load_config_for_daemonize
     tmp_dir = "#{TMP_DIR}/dir/test_load_config.conf"
     conf_info_str = %[
