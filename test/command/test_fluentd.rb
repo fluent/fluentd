@@ -797,6 +797,39 @@ CONF
       )
     end
 
+    test "-E option is set to RUBYOPT" do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('rubyopt_test.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        '-Eutf-8',
+        patterns_not_match: ['-Eascii-8bit:ascii-8bit'],
+        env: { 'RUBYOPT' => '-Eutf-8' },
+      )
+    end
+
+        test "without RUBYOPT" do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('rubyopt_test.conf', conf)
+      assert_log_matches(create_cmdline(conf_path), '-Eascii-8bit:ascii-8bit')
+    end
+
     test 'invalid values are set to RUBYOPT' do
       conf = <<CONF
 <source>

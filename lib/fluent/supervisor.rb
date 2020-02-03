@@ -662,9 +662,28 @@ module Fluent
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid, ruby: RUBY_VERSION
 
       rubyopt = ENV["RUBYOPT"]
-      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]
+      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
+
       if rubyopt
-        fluentd_spawn_cmd.concat(rubyopt.split(' '))
+        encodes, others = rubyopt.split(' ').partition { |e| e.match?('\A-E') }
+        fluentd_spawn_cmd.concat(others)
+
+        adopted_encode =
+          if encodes.size >= 1
+            r = encodes.pop
+            unless encodes.empty?
+              drop = encodes.join(', ')
+              $log.warn("Encoding option #{drop} is(are) ignored")
+            end
+
+            r
+          else
+            '-Eascii-8bit:ascii-8bit'
+          end
+
+        fluentd_spawn_cmd << adopted_encode
+      else
+        fluentd_spawn_cmd << '-Eascii-8bit:ascii-8bit'
       end
 
       # Adding `-h` so that it can avoid ruby's command blocking
