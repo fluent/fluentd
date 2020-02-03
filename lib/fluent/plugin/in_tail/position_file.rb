@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/in_tail'
+require 'fluent/plugin/input'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
