@@ -66,8 +66,9 @@ class IntailPositionFileTest < Test::Unit::TestCase
       write_data(@file, TEST_CONTENT)
       pf = Fluent::Plugin::TailInput::PositionFile.new(@file, logger: $log)
 
-      mock.proxy(pf).fetch_compacted_entries do
+      mock.proxy(pf).fetch_compacted_entries do |r|
         FileUtils.touch(@file.path) # change mtime
+        r
       end
 
       pf.try_compact
