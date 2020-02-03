@@ -67,7 +67,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
       pf = Fluent::Plugin::TailInput::PositionFile.new(@file, logger: $log)
 
       mock.proxy(pf).fetch_compacted_entries do |r|
-        FileUtils.touch(@file.path) # change mtime
+        @file.write("unwatched\t#{UNWATCHED_STR}\t0000000000000000\n")
         r
       end
 
@@ -75,7 +75,7 @@ class IntailPositionFileTest < Test::Unit::TestCase
 
       @file.seek(0)
       lines = @file.readlines
-      assert_equal 4, lines.size
+      assert_equal 5, lines.size
     end
   end
 
