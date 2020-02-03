@@ -50,13 +50,11 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     ["bundle", "exec", "ruby", cmd_path, "-c", conf_path, *fluentd_options]
   end
 
-  def execute_command(cmdline, chdir=TMP_DIR)
+  def execute_command(cmdline, chdir=TMP_DIR, env = {})
     null_stream = File.open(File::NULL, 'w')
     gemfile_path = File.expand_path(File.dirname(__FILE__) + "../../../Gemfile")
 
-    env = {
-      "BUNDLE_GEMFILE" => gemfile_path,
-    }
+    env = { "BUNDLE_GEMFILE" => gemfile_path }.merge(env)
     cmdname = cmdline.shift
     arg0 = "testing-fluentd"
     # p(here: "executing process", env: env, cmdname: cmdname, arg0: arg0, args: cmdline)
@@ -81,12 +79,12 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     null_stream.close rescue nil
   end
 
-  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10)
+  def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
     matched = false
     assert_error_msg = "matched correctly"
     stdio_buf = ""
     begin
-      execute_command(cmdline) do |pid, stdout|
+      execute_command(cmdline, TMP_DIR, env) do |pid, stdout|
         begin
           waiting(timeout) do
             while process_exist?(pid) && !matched
@@ -777,6 +775,25 @@ CONF
         "#0 fluentd worker is now running worker=0",
         "#1 fluentd worker is now running worker=1",
         '#1 adding source type="single"'
+      )
+    end
+
+    test "multiple values are set to RUBYOPT" do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('rubyopt_test.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        '#0 fluentd worker is now running worker=0',
+        patterns_not_match: ['(LoadError)'],
+        env: { 'RUBYOPT' => '-rtest-unit -rbundler/setup' },
       )
     end
 

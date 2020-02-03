@@ -661,7 +661,9 @@ module Fluent
 
       rubyopt = ENV["RUBYOPT"]
       fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]
-      fluentd_spawn_cmd << rubyopt if rubyopt
+      if rubyopt
+        fluentd_spawn_cmd.concat(rubyopt.split(' '))
+      end
       fluentd_spawn_cmd << $0
       fluentd_spawn_cmd += $fluentdargv
       fluentd_spawn_cmd << "--under-supervisor"
