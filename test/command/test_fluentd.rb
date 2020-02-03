@@ -47,7 +47,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   def create_cmdline(conf_path, *fluentd_options)
     cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
-    ["bundle", "exec", "ruby", cmd_path, "-c", conf_path, *fluentd_options]
+    ["bundle", "exec", cmd_path, "-c", conf_path, *fluentd_options]
   end
 
   def execute_command(cmdline, chdir=TMP_DIR, env = {})
@@ -283,7 +283,7 @@ CONF
 
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path),
-        "non directory entry exists:#{@root_path} (Fluent::InvalidRootDirectory)",
+        "non directory entry exists:#{@root_path}",
       )
     end
   end
