@@ -797,7 +797,13 @@ CONF
       )
     end
 
-    test "-E option is set to RUBYOPT" do
+    data(
+      '-E' => '-Eutf-8',
+      '-encoding' => '--encoding=utf-8',
+      '-external-encoding' => '--external-encoding=utf-8',
+      '-internal-encoding' => '--internal-encoding=utf-8',
+    )
+    test "-E option is set to RUBYOPT3" do |opt|
       conf = <<CONF
 <source>
   @type dummy
@@ -810,9 +816,9 @@ CONF
       conf_path = create_conf_file('rubyopt_test.conf', conf)
       assert_log_matches(
         create_cmdline(conf_path),
-        '-Eutf-8',
+        *opt.split(' '),
         patterns_not_match: ['-Eascii-8bit:ascii-8bit'],
-        env: { 'RUBYOPT' => '-Eutf-8' },
+        env: { 'RUBYOPT' => opt },
       )
     end
 

@@ -871,28 +871,18 @@ module Fluent
       system_config
     end
 
+    RUBY_ENCODING_OPTIONS_REGEX = %r{\A(-E|--encoding=|--internal-encoding=|--external-encoding=)}.freeze
+
     def build_spawn_command
       fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
 
       rubyopt = ENV['RUBYOPT']
       if rubyopt
-        encodes, others = rubyopt.split(' ').partition { |e| e.match?('\A-E') }
+        encodes, others = rubyopt.split(' ').partition { |e| e.match?(RUBY_ENCODING_OPTIONS_REGEX) }
         fluentd_spawn_cmd.concat(others)
 
-        adopted_encode =
-          if encodes.size >= 1
-            r = encodes.pop
-            unless encodes.empty?
-              drop = encodes.join(', ')
-              $log.warn("Encoding option #{drop} is(are) ignored")
-            end
-
-            r
-          else
-            '-Eascii-8bit:ascii-8bit'
-          end
-
-        fluentd_spawn_cmd << adopted_encode
+        adopted_encodes = encodes.empty? ? ['-Eascii-8bit:ascii-8bit'] : encodes
+        fluentd_spawn_cmd.concat(adopted_encodes)
       else
         fluentd_spawn_cmd << '-Eascii-8bit:ascii-8bit'
       end
