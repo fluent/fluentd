@@ -27,7 +27,7 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
-      REGEXP_RFC5424 = "(?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\\-|(?:\\[.*?(?<!\\\\)\\])+))(?: (?:\xef\xbb\xbf)?(?<message>.+))?"
+      REGEXP_RFC5424 = "(?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\\-|(?:\\[.*?(?<!\\\\)\\])+))(?: (?<message>.+))?"
       REGEXP_RFC5424_NO_PRI = Regexp.new('\\A' + REGEXP_RFC5424 + '\\z', Regexp::MULTILINE)
       REGEXP_RFC5424_WITH_PRI = Regexp.new('\\A<(?<pri>[0-9]{1,3})\\>[1-9]\\d{0,2} ' + REGEXP_RFC5424 + '\\z', Regexp::MULTILINE)
       REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
