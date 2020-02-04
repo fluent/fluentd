@@ -47,7 +47,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
 
   def create_cmdline(conf_path, *fluentd_options)
     cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
-    ["bundle", "exec", "ruby", cmd_path, "-c", conf_path, *fluentd_options]
+    ["bundle", "exec", cmd_path, "-c", conf_path, *fluentd_options]
   end
 
   def execute_command(cmdline, chdir=TMP_DIR, env = {})
@@ -283,7 +283,7 @@ CONF
 
       assert_fluentd_fails_to_start(
         create_cmdline(conf_path),
-        "non directory entry exists:#{@root_path} (Fluent::InvalidRootDirectory)",
+        "non directory entry exists:#{@root_path}",
       )
     end
   end
@@ -794,6 +794,24 @@ CONF
         '#0 fluentd worker is now running worker=0',
         patterns_not_match: ['(LoadError)'],
         env: { 'RUBYOPT' => '-rtest-unit -rbundler/setup' },
+      )
+    end
+
+    test 'invalid values are set to RUBYOPT' do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      conf_path = create_conf_file('rubyopt_invalid_test.conf', conf)
+      assert_log_matches(
+        create_cmdline(conf_path),
+        'Invalid option is passed to RUBYOPT',
+        env: { 'RUBYOPT' => 'a' },
       )
     end
 

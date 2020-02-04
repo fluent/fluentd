@@ -15,6 +15,7 @@
 #
 
 require 'fileutils'
+require 'open3'
 
 require 'fluent/config'
 require 'fluent/counter'
@@ -665,6 +666,16 @@ module Fluent
       if rubyopt
         fluentd_spawn_cmd.concat(rubyopt.split(' '))
       end
+
+      # Adding `-h` so that it can avoid ruby's command blocking
+      # e.g. `ruby -Eascii-8bit:ascii-8bit` will block. but `ruby -Eascii-8bit:ascii-8bit -h` won't.
+      cmd = fluentd_spawn_cmd.join(' ')
+      _, e, s = Open3.capture3("#{cmd} -h")
+      if s.exitstatus != 0
+        $log.error('Invalid option is passed to RUBYOPT', command: cmd, error: e)
+        exit s.exitstatus
+      end
+
       fluentd_spawn_cmd << $0
       fluentd_spawn_cmd += $fluentdargv
       fluentd_spawn_cmd << "--under-supervisor"
