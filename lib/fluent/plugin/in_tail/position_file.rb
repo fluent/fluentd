@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-require 'fluent/plugin/in_tail'
+require 'fluent/plugin/input'
 
 module Fluent::Plugin
   class TailInput < Fluent::Plugin::Input
@@ -23,10 +23,17 @@ module Fluent::Plugin
       POSITION_FILE_ENTRY_REGEX = /^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)/.freeze
       POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
-      def initialize(file, file_mutex, map)
+      def self.load(file, logger:)
+        pf = new(file, logger: logger)
+        pf.load
+        pf
+      end
+
+      def initialize(file, logger: nil)
         @file = file
-        @file_mutex = file_mutex
-        @map = map
+        @logger = logger
+        @file_mutex = Mutex.new
+        @map = {}
       end
 
       def [](path)
@@ -48,56 +55,89 @@ module Fluent::Plugin
         end
       end
 
-      def self.parse(file)
-        compact(file)
+      def load
+        compact
 
-        file_mutex = Mutex.new
         map = {}
-        file.pos = 0
-        file.each_line {|line|
-          m = POSITION_FILE_ENTRY_REGEX.match(line)
-          unless m
-            $log.warn "Unparsable line in pos_file: #{line}"
-            next
-          end
-          path = m[1]
-          pos = m[2].to_i(16)
-          ino = m[3].to_i(16)
-          seek = file.pos - line.bytesize + path.bytesize + 1
-          map[path] = FilePositionEntry.new(file, file_mutex, seek, pos, ino)
-        }
-        new(file, file_mutex, map)
-      end
+        @file_mutex.synchronize do
+          @file.pos = 0
 
-      # Clean up unwatched file entries
-      def self.compact(file)
-        existent_entries = {}
-        file.pos = 0
-        file.each_line do |line|
-          m = POSITION_FILE_ENTRY_REGEX.match(line)
-          unless m
-            $log.warn "Unparsable line in pos_file: #{line}"
-            next
-          end
-          path = m[1]
-          pos = m[2].to_i(16)
-          ino = m[3].to_i(16)
+          @file.each_line do |line|
+            m = POSITION_FILE_ENTRY_REGEX.match(line)
+            next if m.nil?
 
-          if pos == UNWATCHED_POSITION
-            next
+            path = m[1]
+            pos = m[2].to_i(16)
+            ino = m[3].to_i(16)
+            seek = @file.pos - line.bytesize + path.bytesize + 1
+            map[path] = FilePositionEntry.new(@file, @file_mutex, seek, pos, ino)
           end
-
-          if existent_entries.include?(path)
-            $log.warn("#{path} already exists. use latest one: deleted #{existent_entries[path]}")
-          end
-
-          # 32bit inode converted to 64bit at this phase
-          existent_entries[path] = (POSITION_FILE_ENTRY_FORMAT % [path, pos, ino])
         end
 
-        file.pos = 0
-        file.truncate(0)
-        file.write(existent_entries.values.join)
+        @map = map
+      end
+
+      # This method is similer to #compact but it tries to get less lock to avoid a lock contention
+      def try_compact
+        last_modified = nil
+        size = nil
+
+        @file_mutex.synchronize do
+          last_modified = @file.mtime
+          size = @file.size
+        end
+
+        entries = fetch_compacted_entries
+
+        @file_mutex.synchronize do
+          if last_modified == @file.mtime && size == @file.size
+            @file.pos = 0
+            @file.truncate(0)
+            @file.write(entries.join)
+          else
+            # skip
+          end
+        end
+      end
+
+      private
+
+      def compact
+        @file_mutex.synchronize do
+          entries = fetch_compacted_entries
+
+          @file.pos = 0
+          @file.truncate(0)
+          @file.write(entries.join)
+        end
+      end
+
+      def fetch_compacted_entries
+        entries = {}
+
+        @file.pos = 0
+        @file.each_line do |line|
+          m = POSITION_FILE_ENTRY_REGEX.match(line)
+          if m.nil?
+            @logger.warn "Unparsable line in pos_file: #{line}" if @logger
+            next
+          end
+
+          path = m[1]
+          pos = m[2].to_i(16)
+          ino = m[3].to_i(16)
+          if pos == UNWATCHED_POSITION
+            @logger.debug "Remove unwatched line from pos_file: #{line}" if @logger
+          else
+            if entries.include?(path)
+              @logger.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if @logger
+            end
+
+            entries[path] = (POSITION_FILE_ENTRY_FORMAT % [path, pos, ino])
+          end
+        end
+
+        entries.values
       end
     end
 

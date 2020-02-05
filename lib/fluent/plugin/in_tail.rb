@@ -71,6 +71,8 @@ module Fluent::Plugin
     config_param :rotate_wait, :time, default: 5
     desc 'Fluentd will record the position it last read into this file.'
     config_param :pos_file, :string, default: nil
+    desc 'The cleanup interval of pos file'
+    config_param :pos_file_compaction_interval, :integer, default: nil
     desc 'Start to read the logs from the head of file, not bottom.'
     config_param :read_from_head, :bool, default: false
     # When the program deletes log file and re-creates log file with same filename after passed refresh_interval,
@@ -211,7 +213,14 @@ module Fluent::Plugin
         FileUtils.mkdir_p(pos_file_dir) unless Dir.exist?(pos_file_dir)
         @pf_file = File.open(@pos_file, File::RDWR|File::CREAT|File::BINARY, @file_perm)
         @pf_file.sync = true
-        @pf = PositionFile.parse(@pf_file)
+        @pf = PositionFile.load(@pf_file, logger: log)
+
+        if @pos_file_compaction_interval
+          timer_execute(:in_tail_refresh_compact_pos_file, @pos_file_compaction_interval) do
+            log.info('Clean up the pos file')
+            @pf.try_compact
+          end
+        end
       end
 
       refresh_watchers unless @skip_refresh_on_startup
