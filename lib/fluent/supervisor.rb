@@ -487,6 +487,7 @@ module Fluent
     end
 
     def initialize(opt)
+      @config_file_type = opt[:config_file_type]
       @daemonize = opt[:daemonize]
       @standalone_worker= opt[:standalone_worker]
       @config_path = opt[:config_path]
@@ -620,7 +621,13 @@ module Fluent
         $log.warn('the value "-" for `inline_config` is deprecated. See https://github.com/fluent/fluentd/issues/2711')
         @inline_config = STDIN.read
       end
-      @conf = Fluent::Config.build(config_path: @config_path, encoding: @conf_encoding, additional_config: @inline_config, use_v1_config: @use_v1_config)
+      @conf = Fluent::Config.build(
+        config_path: @config_path,
+        encoding: @conf_encoding,
+        additional_config: @inline_config,
+        use_v1_config: @use_v1_config,
+        type: @config_file_type,
+      )
       @system_config = build_system_config(@conf)
 
       @log.level = @system_config.log_level
