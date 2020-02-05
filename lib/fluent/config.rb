@@ -17,6 +17,7 @@
 require 'fluent/config/error'
 require 'fluent/config/element'
 require 'fluent/configurable'
+require 'fluent/config/yaml_parser'
 
 module Fluent
   module Config
@@ -25,7 +26,11 @@ module Fluent
     # @param additional_config [String] config which is added to last of config body
     # @param use_v1_config [Bool] config is formatted with v1 or not
     # @return [Fluent::Config]
-    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true)
+    def self.build(config_path:, encoding: 'utf-8', additional_config: nil, use_v1_config: true, type: nil)
+      if type == :yaml
+        return Fluent::Config::YamlParser.parse(config_path)
+      end
+
       config_fname = File.basename(config_path)
       config_basedir = File.dirname(config_path)
       config_data = File.open(config_path, "r:#{encoding}:utf-8") do |f|
@@ -36,6 +41,7 @@ module Fluent
         end
         s
       end
+
       Fluent::Config.parse(config_data, config_fname, config_basedir, use_v1_config)
     end
 
