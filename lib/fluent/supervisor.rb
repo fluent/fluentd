@@ -661,25 +661,7 @@ module Fluent
       Process.setproctitle("supervisor:#{@system_config.process_name}") if @system_config.process_name
       $log.info "starting fluentd-#{Fluent::VERSION}", pid: Process.pid, ruby: RUBY_VERSION
 
-      rubyopt = ENV["RUBYOPT"]
-      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path, "-Eascii-8bit:ascii-8bit"]
-      if rubyopt
-        fluentd_spawn_cmd.concat(rubyopt.split(' '))
-      end
-
-      # Adding `-h` so that it can avoid ruby's command blocking
-      # e.g. `ruby -Eascii-8bit:ascii-8bit` will block. but `ruby -Eascii-8bit:ascii-8bit -h` won't.
-      cmd = fluentd_spawn_cmd.join(' ')
-      _, e, s = Open3.capture3("#{cmd} -h")
-      if s.exitstatus != 0
-        $log.error('Invalid option is passed to RUBYOPT', command: cmd, error: e)
-        exit s.exitstatus
-      end
-
-      fluentd_spawn_cmd << $0
-      fluentd_spawn_cmd += $fluentdargv
-      fluentd_spawn_cmd << "--under-supervisor"
-
+      fluentd_spawn_cmd = build_spawn_command
       $log.info "spawn command to main: ", cmdline: fluentd_spawn_cmd
 
       params = {
@@ -887,6 +869,38 @@ module Fluent
       end
       system_config.overwrite_variables(**opt)
       system_config
+    end
+
+    RUBY_ENCODING_OPTIONS_REGEX = %r{\A(-E|--encoding=|--internal-encoding=|--external-encoding=)}.freeze
+
+    def build_spawn_command
+      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
+
+      rubyopt = ENV['RUBYOPT']
+      if rubyopt
+        encodes, others = rubyopt.split(' ').partition { |e| e.match?(RUBY_ENCODING_OPTIONS_REGEX) }
+        fluentd_spawn_cmd.concat(others)
+
+        adopted_encodes = encodes.empty? ? ['-Eascii-8bit:ascii-8bit'] : encodes
+        fluentd_spawn_cmd.concat(adopted_encodes)
+      else
+        fluentd_spawn_cmd << '-Eascii-8bit:ascii-8bit'
+      end
+
+      # Adding `-h` so that it can avoid ruby's command blocking
+      # e.g. `ruby -Eascii-8bit:ascii-8bit` will block. but `ruby -Eascii-8bit:ascii-8bit -h` won't.
+      cmd = fluentd_spawn_cmd.join(' ')
+      _, e, s = Open3.capture3("#{cmd} -h")
+      if s.exitstatus != 0
+        $log.error('Invalid option is passed to RUBYOPT', command: cmd, error: e)
+        exit s.exitstatus
+      end
+
+      fluentd_spawn_cmd << $0
+      fluentd_spawn_cmd += $fluentdargv
+      fluentd_spawn_cmd << '--under-supervisor'
+
+      fluentd_spawn_cmd
     end
   end
 end
