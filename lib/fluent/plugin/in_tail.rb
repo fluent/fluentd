@@ -892,14 +892,11 @@ module Fluent::Plugin
             fsize = stat.size
           end
 
-          begin
-            if @inode != inode || fsize < @fsize
-              @on_rotate.call(stat)
-            end
-            @inode = inode
-            @fsize = fsize
+          if @inode != inode || fsize < @fsize
+            @on_rotate.call(stat)
           end
-
+          @inode = inode
+          @fsize = fsize
         rescue
           @watcher.log.error $!.to_s
           @watcher.log.error_backtrace
