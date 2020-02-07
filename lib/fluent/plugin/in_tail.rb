@@ -540,10 +540,10 @@ module Fluent::Plugin
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @stat_trigger = @enable_stat_watcher ? StatWatcher.new(self, &method(:on_notify)) : nil
+        @stat_trigger = @enable_stat_watcher ? StatWatcher.new(path, log, &method(:on_notify)) : nil
         @timer_trigger = @enable_watch_timer ? TimerTrigger.new(1, log, &method(:on_notify)) : nil
 
-        @rotate_handler = RotateHandler.new(self, &method(:on_rotate))
+        @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
         @io_handler = nil
         @log = log
 
@@ -690,18 +690,18 @@ module Fluent::Plugin
       end
 
       class StatWatcher < Coolio::StatWatcher
-        def initialize(watcher, &callback)
-          @watcher = watcher
+        def initialize(path, log, &callback)
           @callback = callback
-          super(watcher.path)
+          @log = log
+          super(path)
         end
 
         def on_change(prev, cur)
           @callback.call
         rescue
           # TODO log?
-          @watcher.log.error $!.to_s
-          @watcher.log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
 
@@ -876,8 +876,8 @@ module Fluent::Plugin
       end
 
       class RotateHandler
-        def initialize(watcher, &on_rotate)
-          @watcher = watcher
+        def initialize(log, &on_rotate)
+          @log = log
           @inode = nil
           @fsize = -1  # first
           @on_rotate = on_rotate
@@ -898,8 +898,8 @@ module Fluent::Plugin
           @inode = inode
           @fsize = fsize
         rescue
-          @watcher.log.error $!.to_s
-          @watcher.log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
 
