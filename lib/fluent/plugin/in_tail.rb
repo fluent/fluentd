@@ -547,6 +547,7 @@ module Fluent::Plugin
         @io_handler = nil
         @log = log
 
+        @line_buffer = nil
         @line_buffer_timer_flusher = line_buffer_timer_flusher
         @from_encoding = from_encoding
         @encoding = encoding
