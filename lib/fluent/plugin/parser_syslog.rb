@@ -30,8 +30,12 @@ module Fluent
       REGEXP_RFC5424 = <<~'EOS'.chomp
         (?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])+))(?: (?<message>.+))?
       EOS
-      REGEXP_RFC5424_NO_PRI = Regexp.new('\\A' + REGEXP_RFC5424 + '\\z', Regexp::MULTILINE)
-      REGEXP_RFC5424_WITH_PRI = Regexp.new('\\A<(?<pri>[0-9]{1,3})\\>[1-9]\\d{0,2} ' + REGEXP_RFC5424 + '\\z', Regexp::MULTILINE)
+      REGEXP_RFC5424_NO_PRI = Regexp.new(<<~'EOS'.chomp % REGEXP_RFC5424, Regexp::MULTILINE)
+        \A%s\z
+      EOS
+      REGEXP_RFC5424_WITH_PRI = Regexp.new(<<~'EOS'.chomp % REGEXP_RFC5424, Regexp::MULTILINE)
+        \A<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} %s\z
+      EOS
       REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
