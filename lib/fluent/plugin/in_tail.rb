@@ -835,26 +835,24 @@ module Fluent::Plugin
         end
 
         def with_io
-          begin
-            if @watcher.open_on_every_update
-              io = open
-              begin
-                yield io
-              ensure
-                io.close unless io.nil?
-              end
-            else
-              @io ||= open
-              yield @io
+          if @watcher.open_on_every_update
+            io = open
+            begin
+              yield io
+            ensure
+              io.close unless io.nil?
             end
-          rescue WatcherSetupError => e
-            close
-            raise e
-          rescue
-            @watcher.log.error $!.to_s
-            @watcher.log.error_backtrace
-            close
+          else
+            @io ||= open
+            yield @io
           end
+        rescue WatcherSetupError => e
+          close
+          raise e
+        rescue
+          @watcher.log.error $!.to_s
+          @watcher.log.error_backtrace
+          close
         end
       end
 
