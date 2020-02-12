@@ -526,6 +526,10 @@ module Fluent::Plugin
       end
 
       def include_cors_allow_origin
+        if @origin.nil?
+          return false
+        end
+
         if @cors_allow_origins.include?(@origin)
           return true
         end
