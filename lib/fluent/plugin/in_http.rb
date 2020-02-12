@@ -526,14 +526,20 @@ module Fluent::Plugin
       end
 
       def include_cors_allow_origin
+        if @origin.nil?
+          return false
+        end
+
         if @cors_allow_origins.include?(@origin)
           return true
         end
         filtered_cors_allow_origins = @cors_allow_origins.select {|origin| origin != ""}
-        return filtered_cors_allow_origins.find do |origin|
-          (start_str,end_str) = origin.split("*",2)
-          @origin.start_with?(start_str) and @origin.end_with?(end_str)
-        end != nil
+        r = filtered_cors_allow_origins.find do |origin|
+          (start_str, end_str) = origin.split("*", 2)
+          @origin.start_with?(start_str) && @origin.end_with?(end_str)
+        end
+
+        !r.nil?
       end
     end
   end
