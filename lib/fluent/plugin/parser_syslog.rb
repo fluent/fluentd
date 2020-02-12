@@ -27,8 +27,15 @@ module Fluent
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
       REGEXP_WITH_PRI = /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
-      REGEXP_RFC5424 = /\A(?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|\[(.*)\]))(?: (?<message>.+))?\z/m
-      REGEXP_RFC5424_WITH_PRI = /\A\<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} (?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|\[(.*)\]))(?: (?<message>.+))?\z/m
+      REGEXP_RFC5424 = <<~'EOS'.chomp
+        (?<time>[^ ]+) (?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])+))(?: (?<message>.+))?
+      EOS
+      REGEXP_RFC5424_NO_PRI = Regexp.new(<<~'EOS'.chomp % REGEXP_RFC5424, Regexp::MULTILINE)
+        \A%s\z
+      EOS
+      REGEXP_RFC5424_WITH_PRI = Regexp.new(<<~'EOS'.chomp % REGEXP_RFC5424, Regexp::MULTILINE)
+        \A<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} %s\z
+      EOS
       REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
@@ -73,7 +80,7 @@ module Fluent
                     end
                     @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
                     @support_rfc5424_without_subseconds = true
-                    @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424
+                    @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424_NO_PRI
                   when :auto
                     class << self
                       alias_method :parse, :parse_auto
@@ -96,7 +103,7 @@ module Fluent
 
       def parse_auto(text, &block)
         if REGEXP_DETECT_RFC5424.match(text)
-          @regexp = @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424
+          @regexp = @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424_NO_PRI
           @time_parser = @time_parser_rfc5424
           @support_rfc5424_without_subseconds = true
           parse_plain(text, &block)
