@@ -232,6 +232,7 @@ module Fluent
           @metadata.timekey = data[:timekey]
           @metadata.tag = data[:tag]
           @metadata.variables = data[:variables]
+          @metadata.seq = data[:seq] || 0
         end
 
         def restore_metadata_partially(chunk)
@@ -243,6 +244,7 @@ module Fluent
           @metadata.timekey = nil
           @metadata.tag = nil
           @metadata.variables = nil
+          @metadata.seq = 0
         end
 
         def write_metadata(update: true)

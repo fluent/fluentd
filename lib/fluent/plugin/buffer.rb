@@ -60,7 +60,17 @@ module Fluent
       desc 'Compress buffered data.'
       config_param :compress, :enum, list: [:text, :gzip], default: :text
 
-      Metadata = Struct.new(:timekey, :tag, :variables) do
+      Metadata = Struct.new(:timekey, :tag, :variables, :seq) do
+        def initialize(timekey, tag, variables)
+          super(timekey, tag, variables, 0)
+        end
+
+        def dup_next
+          m = dup
+          m.seq = seq + 1
+          m
+        end
+
         def empty?
           timekey.nil? && tag.nil? && variables.nil?
         end
@@ -656,13 +666,15 @@ module Fluent
         # Then, will generate chunks not staged (not queued) to append rest data.
         staged_chunk_used = false
         modified_chunks = []
+        modified_metadata = metadata
         get_next_chunk = ->(){
           c = if staged_chunk_used
                 # Staging new chunk here is bad idea:
                 # Recovering whole state including newly staged chunks is much harder than current implementation.
-                generate_chunk(metadata)
+                modified_metadata = modified_metadata.dup_next
+                generate_chunk(modified_metadata)
               else
-                synchronize{ @stage[metadata] ||= generate_chunk(metadata).staged! }
+                synchronize { @stage[modified_metadata] ||= generate_chunk(modified_metadata).staged! }
               end
           modified_chunks << c
           c
