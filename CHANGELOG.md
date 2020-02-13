@@ -1,5 +1,27 @@
 # v1.9
 
+## Release v1.9.2 - 2020/02/13
+
+### Enhancement
+
+* in_tail: Add `pos_file_compaction_interval` parameter for auto compaction
+  https://github.com/fluent/fluentd/pull/2805
+* command: Use given encoding when RUBYOPT has `-E`
+  https://github.com/fluent/fluentd/pull/2814
+
+### Bug fix
+
+* command: Accept RUBYOPT with two or more options
+  https://github.com/fluent/fluentd/pull/2807
+* command: Fix infinite loop bug when RUBYOPT is invalid
+  https://github.com/fluent/fluentd/pull/2813
+* log: serverengine's log should be formatted with the same format of fluentd
+  https://github.com/fluent/fluentd/pull/2812
+* in_http: Fix `NoMethodError` when `OPTIONS` request doesn't have 'Origin' header
+  https://github.com/fluent/fluentd/pull/2823
+* parser_syslog: Improved for parsing RFC5424 structured data in `parser_syslog`
+  https://github.com/fluent/fluentd/pull/2816
+
 ## Release v1.9.1 - 2020/01/31
 
 ### Enhancement
