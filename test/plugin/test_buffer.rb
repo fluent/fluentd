@@ -900,9 +900,12 @@ class BufferTest < Test::Unit::TestCase
       es = Fluent::ArrayEventStream.new([ [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * (128 - 22)}] ] * 45000)
       @p.write({@dm0 => es}, format: @format)
 
+      # metadata whose seq is 4 is created, but overwrite with original metadata(seq=0) for next use of this chunk https://github.com/fluent/fluentd/blob/9d113029d4550ce576d8825bfa9612aa3e55bff0/lib/fluent/plugin/buffer.rb#L357
       assert_equal [@dm0], @p.stage.keys
       assert_equal 5400, @p.stage[@dm0].size
-      assert_equal [@dm0,@dm0,@dm0,@dm0,@dm0], @p.queue.map(&:metadata)
+      r = [@dm0]
+      3.times { |i| r << r[i].dup_next }
+      assert_equal [@dm0, *r], @p.queue.map(&:metadata)
       assert_equal [5000, 9900, 9900, 9900, 9900], @p.queue.map(&:size) # splits: 45000 / 100 => 450 * ...
       # 9900 * 4 + 5400 == 45000
     end
@@ -990,7 +993,9 @@ class BufferTest < Test::Unit::TestCase
 
       assert_equal [@dm0], @p.stage.keys
       assert_equal 900, @p.stage[@dm0].size
-      assert_equal [@dm0,@dm0,@dm0,@dm0,@dm0], @p.queue.map(&:metadata)
+      r = [@dm0]
+      4.times { |i| r << r[i].dup_next }
+      assert_equal r, @p.queue.map(&:metadata)
       assert_equal [9500, 9900, 9900, 9900, 9900], @p.queue.map(&:size) # splits: 45000 / 100 => 450 * ...
       ##### 900 + 9500 + 9900 * 4 == 5000 + 45000
     end
