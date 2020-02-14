@@ -21,7 +21,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
     Timecop.return
   end
 
-  Metadata = Struct.new(:timekey, :tag, :variables)
+  Metadata = Fluent::Plugin::Buffer::Metadata
+
   def gen_metadata(timekey: nil, tag: nil, variables: nil)
     Metadata.new(timekey, tag, variables)
   end
