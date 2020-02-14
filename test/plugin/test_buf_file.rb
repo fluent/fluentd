@@ -1032,7 +1032,15 @@ class FileBufferTest < Test::Unit::TestCase
         f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay6"}].to_json + "\n"
       end
       m3 = m2.dup_next
-      write_metadata(p3 + '.meta', c1id, m3, 2, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i)
+      write_metadata(p3 + '.meta', c3id, m3, 2, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i)
+
+      c4id = Fluent::UniqueId.generate
+      p4 = File.join(@bufdir, "testbuf.b#{Fluent::UniqueId.hex(c4id)}.log")
+      File.open(p4, 'wb') do |f|
+        f.write ["t1.test", event_time('2016-04-17 14:00:15 -0700').to_i, {"message" => "yay5"}].to_json + "\n"
+        f.write ["t4.test", event_time('2016-04-17 14:00:28 -0700').to_i, {"message" => "yay6"}].to_json + "\n"
+      end
+      write_metadata(p4 + '.meta', c4id, m3, 2, event_time('2016-04-17 14:00:00 -0700').to_i, event_time('2016-04-17 14:00:28 -0700').to_i)
 
       Fluent::Test.setup
       @d = FluentPluginFileBufferTest::DummyOutputPlugin.new
@@ -1060,9 +1068,11 @@ class FileBufferTest < Test::Unit::TestCase
     end
 
     test '#resume returns each chunks' do
-      s, _ = @p.resume
+      s, e = @p.resume
       assert_equal 3, s.size
       assert_equal [0, 1, 2], s.keys.map(&:seq).sort
+      assert_equal 1, e.size
+      assert_equal [2], e.map { |e| e.metadata.seq }
     end
   end
 
