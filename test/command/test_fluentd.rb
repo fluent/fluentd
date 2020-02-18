@@ -694,6 +694,23 @@ CONF
       )
     end
 
+    test 'success to start a worker2 with worker specific configuration' do
+      conf = <<CONF
+<system>
+  root_dir #{@root_path}
+  dir_permission 0744
+</system>
+CONF
+      conf_path = create_conf_file('worker_section0.conf', conf)
+
+      FileUtils.rm_rf(@root_path) rescue nil
+
+      assert_path_not_exist(@root_path)
+      assert_log_matches(create_cmdline(conf_path), 'spawn command to main') # any message is ok
+      assert_path_exist(@root_path)
+      assert_equal '744', File.stat(@root_path).mode.to_s(8)[-3, 3]
+    end
+
     test 'success to start a worker with worker specific configuration' do
       conf = <<CONF
 <system>

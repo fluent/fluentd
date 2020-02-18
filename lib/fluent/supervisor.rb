@@ -439,9 +439,13 @@ module Fluent
         self
       end
 
-      def apply_options(format: nil, time_format: nil)
+      def apply_options(format: nil, time_format: nil, log_dir_perm: nil)
         $log.format = format if format
         $log.time_format = time_format if time_format
+
+        if @path && log_dir_perm
+          File.chmod(log_dir_perm || 0755, File.dirname(@path))
+        end
       end
 
       def level=(level)
@@ -529,7 +533,7 @@ module Fluent
           end
         else
           begin
-            FileUtils.mkdir_p(root_dir)
+            FileUtils.mkdir_p(root_dir, mode: @system_config.dir_permission || 0755)
           rescue => e
             raise Fluent::InvalidRootDirectory, "failed to create root directory:#{root_dir}, #{e.inspect}"
           end
@@ -620,7 +624,11 @@ module Fluent
       @system_config = build_system_config(@conf)
 
       @log.level = @system_config.log_level
-      @log.apply_options(format: @system_config.log.format, time_format: @system_config.log.time_format)
+      @log.apply_options(
+        format: @system_config.log.format,
+        time_format: @system_config.log.time_format,
+        log_dir_perm: @system_config.dir_permission,
+      )
 
       $log.info :supervisor, 'parsing config file is succeeded', path: @config_path
 
