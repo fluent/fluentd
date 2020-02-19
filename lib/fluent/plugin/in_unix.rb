@@ -28,12 +28,6 @@ module Fluent
   class StreamInput < Input
     config_param :blocking_timeout, :time, default: 0.5
 
-    def initialize
-      require 'socket'
-      require 'yajl'
-      super
-    end
-
     def start
       super
 
