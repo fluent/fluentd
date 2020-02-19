@@ -318,16 +318,29 @@ module Fluent::Plugin
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @enable_watch_timer, @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head,  @enable_stat_watcher, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+
+      if @enable_watch_timer
+        tt = TimerTrigger.new(1, log) { tw.on_notify }
+        tw.register_watcher(tt)
+      end
+
+      tw.watchers.each do |watcher|
+        event_loop_attach(watcher)
+      end
+
       tw.attach do |watcher|
-        event_loop_attach(watcher.timer_trigger) if watcher.timer_trigger
         event_loop_attach(watcher.stat_trigger) if watcher.stat_trigger
       end
+
       tw
     rescue => e
       if tw
+        tw.watchers.each do |watcher|
+          event_loop_detach(watcher)
+        end
+
         tw.detach { |watcher|
-          event_loop_detach(watcher.timer_trigger) if watcher.timer_trigger
           event_loop_detach(watcher.stat_trigger) if watcher.stat_trigger
         }
         tw.close
@@ -400,9 +413,12 @@ module Fluent::Plugin
     # so adding close_io argument to avoid this problem.
     # At shutdown, IOHandler's io will be released automatically after detached the event loop
     def detach_watcher(tw, close_io = true)
+      tw.watchers.each do |watcher|
+        event_loop_detach(watcher)
+      end
+
       tw.detach { |watcher|
-        event_loop_detach(watcher.timer_trigger) if watcher.timer_trigger
-        event_loop_detach(watcher.stat_trigger) if watcher.stat_trigger
+        (watcher.stat_trigger) if watcher.stat_trigger
       }
       tw.close if close_io
       flush_buffer(tw)
@@ -528,20 +544,33 @@ module Fluent::Plugin
       es
     end
 
+    class TimerTrigger < Coolio::TimerWatcher
+      def initialize(interval, log, &callback)
+        @log = log
+        @callback = callback
+        super(interval, true)
+      end
+
+      def on_timer
+        @callback.call
+      rescue => e
+        @log.error e.to_s
+        @log.error_backtrace
+      end
+    end
+
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, enable_watch_timer, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
+      def initialize(path, rotate_wait, pe, log, read_from_head, enable_stat_watcher, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
         @path = path
         @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
-        @enable_watch_timer = enable_watch_timer
         @enable_stat_watcher = enable_stat_watcher
         @read_lines_limit = read_lines_limit
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
         @stat_trigger = @enable_stat_watcher ? StatWatcher.new(path, log, &method(:on_notify)) : nil
-        @timer_trigger = @enable_watch_timer ? TimerTrigger.new(1, log, &method(:on_notify)) : nil
 
         @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
         @io_handler = nil
@@ -552,15 +581,16 @@ module Fluent::Plugin
         @from_encoding = from_encoding
         @encoding = encoding
         @open_on_every_update = open_on_every_update
+        @watchers = []
       end
 
       attr_reader :path
       attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
       attr_reader :from_encoding, :encoding
-      attr_reader :stat_trigger, :enable_watch_timer, :enable_stat_watcher
-      attr_accessor :timer_trigger
+      attr_reader :stat_trigger, :enable_stat_watcher
       attr_accessor :line_buffer, :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
+      attr_reader :watchers
 
       def tag
         @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
@@ -568,6 +598,10 @@ module Fluent::Plugin
 
       def wrap_receive_lines(lines)
         @receive_lines.call(lines, self)
+      end
+
+      def register_watcher(watcher)
+        @watchers << watcher
       end
 
       def attach
@@ -673,21 +707,6 @@ module Fluent::Plugin
         mpe.update(pe.read_inode, pe.read_pos)
         @pe = mpe
         pe # This pe will be updated in on_rotate after TailWatcher is initialized
-      end
-
-      class TimerTrigger < Coolio::TimerWatcher
-        def initialize(interval, log, &callback)
-          @callback = callback
-          @log = log
-          super(interval, true)
-        end
-
-        def on_timer
-          @callback.call
-        rescue => e
-          @log.error e.to_s
-          @log.error_backtrace
-        end
       end
 
       class StatWatcher < Coolio::StatWatcher
