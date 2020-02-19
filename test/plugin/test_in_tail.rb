@@ -1093,35 +1093,18 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
-      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        EX_PATHS.each do |path|
-          watcherclass.should_receive(:new).with(path, EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any).once.and_return do
-            flexmock('TailWatcher') { |watcher|
-              watcher.should_receive(:attach).once
-              watcher.should_receive(:unwatched=).zero_or_more_times
-              watcher.should_receive(:line_buffer).zero_or_more_times
-            }
-          end
-        end
-        plugin.refresh_watchers
+      EX_PATHS.each do |path|
+        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path, 0, anything, anything, true, 1000, anything, anything, anything, anything, false).once
       end
+
+      plugin.refresh_watchers
     end
 
-    plugin.instance_eval do
-      @tails['test/plugin/data/2010/01/20100102-030405.log'].should_receive(:close).zero_or_more_times
-    end
+    mock.proxy(plugin).detach_watcher_after_rotate_wait(plugin.instance_variable_get(:@tails)['test/plugin/data/2010/01/20100102-030405.log'])
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
-      flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
-        watcherclass.should_receive(:new).with('test/plugin/data/2010/01/20100102-030406.log', EX_ROTATE_WAIT, Fluent::Plugin::TailInput::FilePositionEntry, any, true, true, true, 1000, any, any, any, any, any, any).once.and_return do
-          flexmock('TailWatcher') do |watcher|
-            watcher.should_receive(:attach).once
-            watcher.should_receive(:unwatched=).zero_or_more_times
-            watcher.should_receive(:line_buffer).zero_or_more_times
-          end
-        end
-        plugin.refresh_watchers
-      end
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new('test/plugin/data/2010/01/20100102-030406.log', 0, anything, anything, true, 1000, anything, anything, anything, anything, false).once
+      plugin.refresh_watchers
 
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
         watcherclass.should_receive(:new).never
