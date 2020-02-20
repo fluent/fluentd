@@ -599,8 +599,7 @@ module Fluent::Plugin
       end
 
       attr_reader :path
-      attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
-      attr_reader :from_encoding, :encoding
+      attr_reader :pe
       attr_accessor :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
@@ -702,7 +701,7 @@ module Fluent::Plugin
       end
 
       def io_handler
-        IOHandler.new(self) do |lines|
+        IOHandler.new(self, path: @path, log: @log, read_lines_limit: @read_lines_limit, open_on_every_update: @open_on_every_update, from_encoding: @from_encoding, encoding: @encoding) do |lines|
           @receive_lines.call(lines, self)
         end
       end
@@ -774,15 +773,20 @@ module Fluent::Plugin
       end
 
       class IOHandler
-        def initialize(watcher, &receive_lines)
+        def initialize(watcher, path:, read_lines_limit:, log:, open_on_every_update:, from_encoding: nil, encoding: nil, &receive_lines)
           @watcher = watcher
+          @path = path
+          @read_lines_limit = read_lines_limit
           @receive_lines = receive_lines
-          @fifo = FIFO.new(@watcher.from_encoding || Encoding::ASCII_8BIT, @watcher.encoding || Encoding::ASCII_8BIT)
+          @open_on_every_update = open_on_every_update
+          @fifo = FIFO.new(from_encoding || Encoding::ASCII_8BIT, encoding || Encoding::ASCII_8BIT)
           @iobuf = ''.force_encoding('ASCII-8BIT')
           @lines = []
           @io = nil
           @notify_mutex = Mutex.new
-          @watcher.log.info "following tail of #{@watcher.path}"
+          @log = log
+
+          @log.info "following tail of #{@path}"
         end
 
         def on_notify
@@ -799,7 +803,7 @@ module Fluent::Plugin
                   while true
                     @fifo << io.readpartial(8192, @iobuf)
                     @fifo.read_lines(@lines)
-                    if @lines.size >= @watcher.read_lines_limit
+                    if @lines.size >= @read_lines_limit
                       # not to use too much memory in case the file is very large
                       read_more = true
                       break
@@ -833,18 +837,18 @@ module Fluent::Plugin
         end
 
         def open
-          io = Fluent::FileWrapper.open(@watcher.path)
+          io = Fluent::FileWrapper.open(@path)
           io.seek(@watcher.pe.read_pos + @fifo.bytesize)
           io
         rescue RangeError
           io.close if io
-          raise WatcherSetupError, "seek error with #{@watcher.path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
+          raise WatcherSetupError, "seek error with #{@path}: file position = #{@watcher.pe.read_pos.to_s(16)}, reading bytesize = #{@fifo.bytesize.to_s(16)}"
         rescue Errno::ENOENT
           nil
         end
 
         def with_io
-          if @watcher.open_on_every_update
+          if @open_on_every_update
             io = open
             begin
               yield io
@@ -859,8 +863,8 @@ module Fluent::Plugin
           close
           raise e
         rescue
-          @watcher.log.error $!.to_s
-          @watcher.log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
           close
         end
       end
