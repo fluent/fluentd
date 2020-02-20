@@ -540,13 +540,14 @@ module Fluent::Plugin
         @receive_lines = receive_lines
         @update_watcher = update_watcher
 
-        @stat_trigger = @enable_stat_watcher ? StatWatcher.new(self, &method(:on_notify)) : nil
+        @stat_trigger = @enable_stat_watcher ? StatWatcher.new(path, log, &method(:on_notify)) : nil
         @timer_trigger = @enable_watch_timer ? TimerTrigger.new(1, log, &method(:on_notify)) : nil
 
-        @rotate_handler = RotateHandler.new(self, &method(:on_rotate))
+        @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
         @io_handler = nil
         @log = log
 
+        @line_buffer = nil
         @line_buffer_timer_flusher = line_buffer_timer_flusher
         @from_encoding = from_encoding
         @encoding = encoding
@@ -690,18 +691,18 @@ module Fluent::Plugin
       end
 
       class StatWatcher < Coolio::StatWatcher
-        def initialize(watcher, &callback)
-          @watcher = watcher
+        def initialize(path, log, &callback)
           @callback = callback
-          super(watcher.path)
+          @log = log
+          super(path)
         end
 
         def on_change(prev, cur)
           @callback.call
         rescue
           # TODO log?
-          @watcher.log.error $!.to_s
-          @watcher.log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
 
@@ -834,26 +835,24 @@ module Fluent::Plugin
         end
 
         def with_io
-          begin
-            if @watcher.open_on_every_update
-              io = open
-              begin
-                yield io
-              ensure
-                io.close unless io.nil?
-              end
-            else
-              @io ||= open
-              yield @io
+          if @watcher.open_on_every_update
+            io = open
+            begin
+              yield io
+            ensure
+              io.close unless io.nil?
             end
-          rescue WatcherSetupError => e
-            close
-            raise e
-          rescue
-            @watcher.log.error $!.to_s
-            @watcher.log.error_backtrace
-            close
+          else
+            @io ||= open
+            yield @io
           end
+        rescue WatcherSetupError => e
+          close
+          raise e
+        rescue
+          @watcher.log.error $!.to_s
+          @watcher.log.error_backtrace
+          close
         end
       end
 
@@ -876,8 +875,8 @@ module Fluent::Plugin
       end
 
       class RotateHandler
-        def initialize(watcher, &on_rotate)
-          @watcher = watcher
+        def initialize(log, &on_rotate)
+          @log = log
           @inode = nil
           @fsize = -1  # first
           @on_rotate = on_rotate
@@ -892,17 +891,14 @@ module Fluent::Plugin
             fsize = stat.size
           end
 
-          begin
-            if @inode != inode || fsize < @fsize
-              @on_rotate.call(stat)
-            end
-            @inode = inode
-            @fsize = fsize
+          if @inode != inode || fsize < @fsize
+            @on_rotate.call(stat)
           end
-
+          @inode = inode
+          @fsize = fsize
         rescue
-          @watcher.log.error $!.to_s
-          @watcher.log.error_backtrace
+          @log.error $!.to_s
+          @log.error_backtrace
         end
       end
 
