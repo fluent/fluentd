@@ -317,7 +317,7 @@ module Fluent::Plugin
     end
 
     def setup_watcher(path, pe)
-      line_buffer_timer_flusher = (@multiline_mode && @multiline_flush_interval) ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
+      line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
       tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
 
       if @enable_watch_timer
@@ -435,7 +435,7 @@ module Fluent::Plugin
     end
 
     def flush_buffer(tw)
-      if lb = tw.line_buffer
+      if lb = tw.line_buffer_timer_flusher&.line_buffer
         lb.chomp!
         @parser.parse(lb) { |time, record|
           if time && record
@@ -505,11 +505,12 @@ module Fluent::Plugin
       es
     end
 
+    # No need to check if line_buffer_timer_flusher is nil, since line_buffer_timer_flusher should exist
     def parse_multilines(lines, tail_watcher)
-      lb = tail_watcher.line_buffer
+      lb = tail_watcher.line_buffer_timer_flusher.line_buffer
       es = Fluent::MultiEventStream.new
       if @parser.has_firstline?
-        tail_watcher.line_buffer_timer_flusher.reset_timer if tail_watcher.line_buffer_timer_flusher
+        tail_watcher.line_buffer_timer_flusher.reset_timer
         lines.each { |line|
           if @parser.firstline?(line)
             if lb
@@ -539,7 +540,7 @@ module Fluent::Plugin
           }
         end
       end
-      tail_watcher.line_buffer = lb
+      tail_watcher.line_buffer_timer_flusher.line_buffer = lb
       es
     end
 
@@ -588,7 +589,6 @@ module Fluent::Plugin
         @io_handler = nil
         @log = log
 
-        @line_buffer = nil
         @line_buffer_timer_flusher = line_buffer_timer_flusher
         @from_encoding = from_encoding
         @encoding = encoding
@@ -599,7 +599,7 @@ module Fluent::Plugin
       attr_reader :path
       attr_reader :log, :pe, :read_lines_limit, :open_on_every_update
       attr_reader :from_encoding, :encoding
-      attr_accessor :line_buffer, :line_buffer_timer_flusher
+      attr_accessor :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
 
@@ -911,24 +911,31 @@ module Fluent::Plugin
       end
 
       class LineBufferTimerFlusher
+        attr_accessor :line_buffer
+
         def initialize(log, flush_interval, &flush_method)
           @log = log
           @flush_interval = flush_interval
           @flush_method = flush_method
           @start = nil
+          @line_buffer = nil
         end
 
         def on_notify(tw)
-          if @start && @flush_interval
-            if Time.now - @start >= @flush_interval
-              @flush_method.call(tw)
-              tw.line_buffer = nil
-              @start = nil
-            end
+          unless @start && @flush_method
+            return
+          end
+
+          if Time.now - @start >= @flush_interval
+            @flush_method.call(tw)
+            @line_buffer = nil
+            @start = nil
           end
         end
 
         def reset_timer
+          return unless @flush_interval
+
           @start = Time.now
         end
       end
