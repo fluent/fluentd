@@ -330,11 +330,11 @@ module Fluent::Plugin
         tw.register_watcher(tt)
       end
 
+      tw.on_notify
+
       tw.watchers.each do |watcher|
         event_loop_attach(watcher)
       end
-
-      tw.on_notify
 
       tw
     rescue => e
