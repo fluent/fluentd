@@ -600,7 +600,7 @@ module Fluent::Plugin
 
       attr_reader :path
       attr_reader :pe
-      attr_accessor :line_buffer_timer_flusher
+      attr_reader :line_buffer_timer_flusher
       attr_accessor :unwatched  # This is used for removing position entry from PositionFile
       attr_reader :watchers
 
