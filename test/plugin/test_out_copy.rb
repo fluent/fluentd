@@ -64,6 +64,9 @@ class CopyOutputTest < Test::Unit::TestCase
     ])
 
     outputs = d.instance.outputs
+    assert_equal 1, outputs.size
+    assert_equal Fluent::Plugin::TestOutput, outputs[0].class
+    assert_equal "c0", outputs[0].name
     assert_true d.instance.deep_copy
     assert_equal :shallow, d.instance.copy_mode
   end
