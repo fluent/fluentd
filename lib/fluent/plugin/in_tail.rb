@@ -318,7 +318,7 @@ module Fluent::Plugin
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, @rotate_wait, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+      tw = TailWatcher.new(path, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
@@ -398,6 +398,9 @@ module Fluent::Plugin
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(path, pe)
+      log_msg = "detected rotation of #{path}"
+      log_msg << "; waiting #{@rotate_wait} seconds" # wait rotate_time if previous file exists
+
       if @pf
         unless pe.read_inode == @pf[path].read_inode
           log.debug "Skip update_watcher because watcher has been already updated by other inotify event"
@@ -576,9 +579,8 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, rotate_wait, pe, log, read_from_head, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
+      def initialize(path, pe, log, read_from_head, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
         @path = path
-        @rotate_wait = rotate_wait
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @read_lines_limit = read_lines_limit
@@ -694,13 +696,10 @@ module Fluent::Plugin
             watcher_needs_update = true
           end
 
-          log_msg = "detected rotation of #{@path}"
-          log_msg << "; waiting #{@rotate_wait} seconds" if watcher_needs_update # wait rotate_time if previous file exists
-          @log.info log_msg
-
           if watcher_needs_update
             @update_watcher.call(@path, swap_state(@pe))
           else
+            @log.info "detected rotation of #{@path}"
             @io_handler = IOHandler.new(self, &method(:wrap_receive_lines))
           end
         end
