@@ -400,6 +400,7 @@ module Fluent::Plugin
     def update_watcher(path, pe)
       log_msg = "detected rotation of #{path}"
       log_msg << "; waiting #{@rotate_wait} seconds" # wait rotate_time if previous file exists
+      log.info(log_msg)
 
       if @pf
         unless pe.read_inode == @pf[path].read_inode
