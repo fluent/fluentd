@@ -609,10 +609,6 @@ module Fluent::Plugin
         @parsed_tag ||= @path.tr('/', '.').gsub(/\.+/, '.').gsub(/^\./, '')
       end
 
-      def wrap_receive_lines(lines)
-        @receive_lines.call(lines, self)
-      end
-
       def register_watcher(watcher)
         @watchers << watcher
       end
@@ -671,7 +667,7 @@ module Fluent::Plugin
               pos = @read_from_head ? 0 : fsize
               @pe.update(inode, pos)
             end
-            @io_handler = IOHandler.new(self, &method(:wrap_receive_lines))
+            @io_handler = io_handler
           else
             @io_handler = NullIOHandler.new
           end
@@ -700,8 +696,14 @@ module Fluent::Plugin
             @update_watcher.call(@path, swap_state(@pe))
           else
             @log.info "detected rotation of #{@path}"
-            @io_handler = IOHandler.new(self, &method(:wrap_receive_lines))
+            @io_handler = io_handler
           end
+        end
+      end
+
+      def io_handler
+        IOHandler.new(self) do |lines|
+          @receive_lines.call(lines, self)
         end
       end
 
