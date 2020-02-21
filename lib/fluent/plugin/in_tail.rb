@@ -398,9 +398,7 @@ module Fluent::Plugin
 
     # refresh_watchers calls @tails.keys so we don't use stop_watcher -> start_watcher sequence for safety.
     def update_watcher(path, pe)
-      log_msg = "detected rotation of #{path}"
-      log_msg << "; waiting #{@rotate_wait} seconds" # wait rotate_time if previous file exists
-      log.info(log_msg)
+      log.info("detected rotation of #{path}; waiting #{@rotate_wait} seconds")
 
       if @pf
         unless pe.read_inode == @pf[path].read_inode
