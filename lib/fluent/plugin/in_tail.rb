@@ -558,7 +558,6 @@ module Fluent::Plugin
       def on_change(prev, cur)
         @callback.call
       rescue
-        # TODO log?
         @log.error $!.to_s
         @log.error_backtrace
       end
