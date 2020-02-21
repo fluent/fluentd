@@ -21,7 +21,8 @@ class BufferFileChunkTest < Test::Unit::TestCase
     Timecop.return
   end
 
-  Metadata = Struct.new(:timekey, :tag, :variables)
+  Metadata = Fluent::Plugin::Buffer::Metadata
+
   def gen_metadata(timekey: nil, tag: nil, variables: nil)
     Metadata.new(timekey, tag, variables)
   end
@@ -360,7 +361,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal content, File.open(@c.path, 'rb'){|f| f.read }
 
       stored_meta = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: unique_id,
         s: size,
         c: created_at.to_i,
@@ -424,7 +425,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.commit
 
       expected = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: @c.unique_id,
         s: @c.size,
         c: @c.created_at.to_i,
@@ -442,7 +443,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.write_metadata
 
       expected = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: @c.unique_id,
         s: @c.size,
         c: @c.created_at.to_i,
@@ -453,7 +454,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.commit
 
       expected = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: @c.unique_id,
         s: @c.size,
         c: @c.created_at.to_i,
@@ -473,7 +474,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       assert_equal content, File.open(@c.path, 'rb'){|f| f.read }
 
       stored_meta = {
-        timekey: nil, tag: nil, variables: nil,
+        timekey: nil, tag: nil, variables: nil, seq: 0,
         id: unique_id,
         s: size,
         c: created_at.to_i,
@@ -518,7 +519,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       end
 
       @metadata = {
-        timekey: nil, tag: 'testing', variables: {k: "x"},
+        timekey: nil, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -591,7 +592,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.append([d5s])
 
       metadata = {
-        timekey: nil, tag: 'testing', variables: {k: "x"},
+        timekey: nil, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -602,7 +603,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @c.write_metadata
 
       metadata = {
-        timekey: nil, tag: 'testing', variables: {k: "x"},
+        timekey: nil, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 5,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
@@ -671,7 +672,7 @@ class BufferFileChunkTest < Test::Unit::TestCase
       @dummy_timekey = Time.parse('2016-04-07 17:40:00 +0900').to_i
 
       @metadata = {
-        timekey: @dummy_timekey, tag: 'testing', variables: {k: "x"},
+        timekey: @dummy_timekey, tag: 'testing', variables: {k: "x"}, seq: 0,
         id: @chunk_id,
         s: 4,
         c: Time.parse('2016-04-07 17:44:00 +0900').to_i,
