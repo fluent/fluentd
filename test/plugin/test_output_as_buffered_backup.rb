@@ -232,6 +232,52 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
       end
     end
 
+    test 'create directory' do
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
+        id = 'backup_test_with_same_secondary'
+        hash = { 'flush_interval' => 1, 'flush_thread_burst_interval' => 0.1 }
+        chunk_id = nil
+        secconf = config_element('secondary', '', { '@type' => 'backup_output' })
+        @i.configure(config_element('ROOT', '', { '@id' => id }, [config_element('buffer', 'tag', hash), secconf]))
+        @i.register(:write) { |chunk|
+          chunk_id = chunk.unique_id;
+          raise Fluent::UnrecoverableError, "yay, your #write must fail"
+        }
+
+        flush_chunks
+
+        target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        target_dir = File.dirname(target)
+        wait_flush(target)
+
+        assert_path_exist(target_dir)
+        assert_equal '755', File.stat(target_dir).mode.to_s(8)[-3, 3]
+      end
+    end
+
+    test 'create directory with specific mode' do
+      Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR, 'dir_permission' => '744') do
+        id = 'backup_test_with_same_secondary'
+        hash = { 'flush_interval' => 1, 'flush_thread_burst_interval' => 0.1 }
+        chunk_id = nil
+        secconf = config_element('secondary', '', { '@type' => 'backup_output' })
+        @i.configure(config_element('ROOT', '', { '@id' => id }, [config_element('buffer', 'tag', hash), secconf]))
+        @i.register(:write) { |chunk|
+          chunk_id = chunk.unique_id;
+          raise Fluent::UnrecoverableError, "yay, your #write must fail"
+        }
+
+        flush_chunks
+
+        target = "#{TMP_DIR}/backup/worker0/#{id}/#{@i.dump_unique_id_hex(chunk_id)}.log"
+        target_dir = File.dirname(target)
+        wait_flush(target)
+
+        assert_path_exist(target_dir)
+        assert_equal '744', File.stat(target_dir).mode.to_s(8)[-3, 3]
+      end
+    end
+
     test 'backup chunk with different type secondary' do
       Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR) do
         id = 'backup_test_with_diff_secondary'

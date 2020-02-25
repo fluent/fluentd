@@ -1074,14 +1074,37 @@ class TailInputTest < Test::Unit::TestCase
       "read_from_head" => true,
       "refresh_interval" => 1
     })
-    d = create_driver(config, false)
-    d.run(expect_emits: 1, shutdown: false) do
-      File.open("#{TMP_DIR}/tail.txt", "ab") { |f| f.puts "test3\n" }
-    end
-    assert_path_exist("#{TMP_DIR}/pos/tail.pos")
-    cleanup_directory(TMP_DIR)
 
-    d.instance_shutdown
+    assert_path_not_exist("#{TMP_DIR}/pos")
+    d = create_driver(config, false)
+    d.run
+    assert_path_exist("#{TMP_DIR}/pos")
+    assert_equal '755', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+  ensure
+    cleanup_directory(TMP_DIR)
+  end
+
+  def test_pos_file_dir_creation_with_system_dir_permission
+    config = config_element("", "", {
+      "tag" => "tail",
+      "path" => "#{TMP_DIR}/*.txt",
+      "format" => "none",
+      "pos_file" => "#{TMP_DIR}/pos/tail.pos",
+      "read_from_head" => true,
+      "refresh_interval" => 1
+    })
+
+    assert_path_not_exist("#{TMP_DIR}/pos")
+
+    Fluent::SystemConfig.overwrite_system_config({ "dir_permission" => "744" }) do
+      d = create_driver(config, false)
+      d.run
+    end
+
+    assert_path_exist("#{TMP_DIR}/pos")
+    assert_equal '744', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+  ensure
+    cleanup_directory(TMP_DIR)
   end
 
   def test_z_refresh_watchers

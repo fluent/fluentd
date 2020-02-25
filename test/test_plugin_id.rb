@@ -97,5 +97,21 @@ class PluginIdTest < Test::Unit::TestCase
         ENV['SERVERENGINE_WORKER_ID'] = prev_env_val
       end
     end
+
+    test '#plugin_root_dir create dirctory with specify mode if not exists ' do
+      root_dir = Fluent::SystemConfig.overwrite_system_config({ 'root_dir' => File.join(TMP_DIR, "myroot"), 'dir_permission' => '0777' }) do
+        @p.plugin_root_dir
+      end
+
+      assert_equal '777', File.stat(root_dir).mode.to_s(8)[-3, 3]
+    end
+
+    test '#plugin_root_dir create dirctory with default permission if not exists ' do
+      root_dir = Fluent::SystemConfig.overwrite_system_config({ 'root_dir' => File.join(TMP_DIR, "myroot") }) do
+        @p.plugin_root_dir
+      end
+
+      assert_equal '755', File.stat(root_dir).mode.to_s(8)[-3, 3]
+    end
   end
 end
