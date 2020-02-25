@@ -1164,7 +1164,7 @@ class TailInputTest < Test::Unit::TestCase
 
     Timecop.freeze(2010, 1, 2, 3, 4, 5) do
       EX_PATHS.each do |path|
-        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path, anything, anything, true, 1000, anything, anything, anything, anything, false).once
+        mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new(path, anything, anything, true, anything, nil, anything).once
       end
 
       plugin.refresh_watchers
@@ -1173,7 +1173,7 @@ class TailInputTest < Test::Unit::TestCase
     mock.proxy(plugin).detach_watcher_after_rotate_wait(plugin.instance_variable_get(:@tails)['test/plugin/data/2010/01/20100102-030405.log'])
 
     Timecop.freeze(2010, 1, 2, 3, 4, 6) do
-      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new('test/plugin/data/2010/01/20100102-030406.log', anything, anything, true, 1000, anything, anything, anything, anything, false).once
+      mock.proxy(Fluent::Plugin::TailInput::TailWatcher).new('test/plugin/data/2010/01/20100102-030406.log', anything, anything, true, anything, nil, anything).once
       plugin.refresh_watchers
 
       flexstub(Fluent::Plugin::TailInput::TailWatcher) do |watcherclass|
