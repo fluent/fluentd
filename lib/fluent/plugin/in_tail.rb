@@ -123,6 +123,8 @@ module Fluent::Plugin
         parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
       end
 
+      parser_config['unmatched_lines'] = conf['emit_unmatched_lines']
+
       super
 
       if !@enable_watch_timer && !@enable_stat_watcher

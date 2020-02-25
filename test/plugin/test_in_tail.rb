@@ -48,14 +48,14 @@ class TailInputTest < Test::Unit::TestCase
   MULTILINE_CONFIG = config_element(
     "", "", {
       "format" => "multiline",
-      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.[^\\n]+))?/",
       "format_firstline" => "/^[s]/"
     })
   PARSE_MULTILINE_CONFIG = config_element(
     "", "", {},
     [config_element("parse", "", {
                       "@type" => "multiline",
-                      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>[^\\n]+))?/",
                       "format_firstline" => "/^[s]/"
                     })
     ])
@@ -739,6 +739,34 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal({"message1" => "test5"}, events[2][2])
       assert_equal({"message1" => "test6", "message2" => "test7"}, events[3][2])
       assert_equal({"message1" => "test8"}, events[4][2])
+    end
+
+    data(
+      flat: MULTILINE_CONFIG,
+      parse: PARSE_MULTILINE_CONFIG)
+    def test_multiline_with_emit_unmatched_lines2(data)
+      config = data + config_element("", "", { "emit_unmatched_lines" => true })
+      File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
+
+      d = create_driver(config)
+      d.run(expect_emits: 0, timeout: 1) do
+        File.open("#{TMP_DIR}/tail.txt", "ab") { |f|
+          f.puts "s test0"
+          f.puts "f test1"
+          f.puts "f test2"
+
+          f.puts "f test3"
+
+          f.puts "s test4"
+          f.puts "f test5"
+          f.puts "f test6"
+        }
+      end
+
+      events = d.events
+      assert_equal({"message1" => "test0", "message2" => "test1", "message3" => "test2"}, events[0][2])
+      assert_equal({ 'unmatched_line' => "f test3" }, events[1][2])
+      assert_equal({"message1" => "test4", "message2" => "test5", "message3" => "test6"}, events[2][2])
     end
 
     data(flat: MULTILINE_CONFIG,
