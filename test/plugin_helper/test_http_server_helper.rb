@@ -161,18 +161,10 @@ class HtttpHelperTest < Test::Unit::TestCase
         assert_equal(nil, resp.body)
         assert_equal('text/plain', resp['Content-Type'])
 
-        %w[get put post put delete trace].each do |n|
+        %w[get put post put delete options trace].each do |n|
           resp = send(n, "http://127.0.0.1:#{PORT}/example/hello")
           assert_equal('200', resp.code)
           assert_equal("hello #{n}", resp.body)
-          assert_equal('text/plain', resp['Content-Type'])
-        end
-
-        # TODO: remove when fluentd drop ruby 2.1
-        if Gem::Version.create(RUBY_VERSION) >= Gem::Version.create('2.2.0')
-          resp = options("http://127.0.0.1:#{PORT}/example/hello")
-          assert_equal('200', resp.code)
-          assert_equal("hello options", resp.body)
           assert_equal('text/plain', resp['Content-Type'])
         end
       end
