@@ -37,9 +37,6 @@ module Fluent::Plugin
       gzip: :gzip,
     }
 
-    FILE_PERMISSION = 0644
-    DIR_PERMISSION = 0755
-
     DEFAULT_TIMEKEY = 60 * 60 * 24
 
     desc "The Path of the file."
@@ -182,8 +179,8 @@ module Fluent::Plugin
         end
       end
 
-      @dir_perm = system_config.dir_permission || DIR_PERMISSION
-      @file_perm = system_config.file_permission || FILE_PERMISSION
+      @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
+      @file_perm = system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION
       @need_lock = system_config.workers > 1
     end
 

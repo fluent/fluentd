@@ -32,7 +32,6 @@ module Fluent
       DEFAULT_TOTAL_LIMIT_SIZE =  64 * 1024 * 1024 * 1024 #  64GB
 
       PATH_SUFFIX = ".#{Fluent::Plugin::Buffer::FileSingleChunk::PATH_EXT}"
-      DIR_PERMISSION = 0755
 
       desc 'The path where buffer chunks are stored.'
       config_param :path, :string, default: nil
@@ -128,7 +127,7 @@ module Fluent
         @dir_permission = if @dir_permission
                             @dir_permission.to_i(8)
                           else
-                            system_config.dir_permission || DIR_PERMISSION
+                            system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
                           end
       end
 

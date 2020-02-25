@@ -281,7 +281,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal m1, c1.metadata
       assert c1.empty?
       assert_equal :unstaged, c1.state
-      assert_equal Fluent::Plugin::Buffer::FileChunk::FILE_PERMISSION, c1.permission
+      assert_equal Fluent::DEFAULT_FILE_PERMISSION, c1.permission
       assert_equal @bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c1.unique_id)}."), c1.path
       assert{ File.stat(c1.path).mode.to_s(8).end_with?('644') }
 
@@ -291,7 +291,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal m2, c2.metadata
       assert c2.empty?
       assert_equal :unstaged, c2.state
-      assert_equal Fluent::Plugin::Buffer::FileChunk::FILE_PERMISSION, c2.permission
+      assert_equal Fluent::DEFAULT_FILE_PERMISSION, c2.permission
       assert_equal @bufpath.gsub('.*.', ".b#{Fluent::UniqueId.hex(c2.unique_id)}."), c2.path
       assert{ File.stat(c2.path).mode.to_s(8).end_with?('644') }
 

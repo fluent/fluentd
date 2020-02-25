@@ -31,8 +31,6 @@ module Fluent
       DEFAULT_CHUNK_LIMIT_SIZE = 256 * 1024 * 1024        # 256MB
       DEFAULT_TOTAL_LIMIT_SIZE =  64 * 1024 * 1024 * 1024 #  64GB, same with v0.12 (TimeSlicedOutput + buf_file)
 
-      DIR_PERMISSION = 0755
-
       desc 'The path where buffer chunks are stored.'
       config_param :path, :string, default: nil
       desc 'The suffix of buffer chunks'
@@ -108,7 +106,7 @@ module Fluent
         if @dir_permission
           @dir_permission = @dir_permission.to_i(8) if @dir_permission.is_a?(String)
         else
-          @dir_permission = system_config.dir_permission || DIR_PERMISSION
+          @dir_permission = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
         end
       end
 
