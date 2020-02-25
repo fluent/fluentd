@@ -14,7 +14,7 @@ CA_OPTION = {
   state: 'CA',
   locality: 'Mountain View',
   common_name: 'ca.testing.fluentd.org',
-  expiration: 30 * 86400,
+  expiration: 30 * 86400 * 12 * 100,
   digest: :sha256,
 }
 
@@ -24,7 +24,7 @@ SERVER_OPTION = {
   state: 'CA',
   locality: 'Mountain View',
   common_name: 'server.testing.fluentd.org',
-  expiration: 30 * 86400,
+  expiration: 30 * 86400 * 12 * 100,
   digest: :sha256,
 }
 
