@@ -117,7 +117,7 @@ class BufferFileSingleChunkTest < Test::Unit::TestCase
       assert_equal gen_chunk_path('b', @c.unique_id), @c.path
 
       assert File.exist?(gen_chunk_path('b', @c.unique_id))
-      assert { File.stat(gen_chunk_path('b', @c.unique_id)).mode.to_s(8).end_with?(@klass.const_get('FILE_PERMISSION').to_s(8)) }
+      assert { File.stat(gen_chunk_path('b', @c.unique_id)).mode.to_s(8).end_with?(Fluent::DEFAULT_FILE_PERMISSION.to_s(8)) }
 
       assert_equal :unstaged, @c.state
       assert @c.empty?

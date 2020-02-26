@@ -239,7 +239,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert_equal m1, c1.metadata
       assert c1.empty?
       assert_equal :unstaged, c1.state
-      assert_equal Fluent::Plugin::Buffer::FileSingleChunk::FILE_PERMISSION, c1.permission
+      assert_equal Fluent::DEFAULT_FILE_PERMISSION, c1.permission
       assert_equal File.join(@bufdir, "fsb.testing.b#{Fluent::UniqueId.hex(c1.unique_id)}.buf"), c1.path
       assert{ File.stat(c1.path).mode.to_s(8).end_with?('644') }
 
@@ -258,7 +258,7 @@ class FileSingleBufferTest < Test::Unit::TestCase
       assert_equal m1, c1.metadata
       assert c1.empty?
       assert_equal :unstaged, c1.state
-      assert_equal Fluent::Plugin::Buffer::FileSingleChunk::FILE_PERMISSION, c1.permission
+      assert_equal Fluent::DEFAULT_FILE_PERMISSION, c1.permission
       assert_equal File.join(@bufdir, "fsb.foo_bar.b#{Fluent::UniqueId.hex(c1.unique_id)}.buf"), c1.path
 
       c1.purge

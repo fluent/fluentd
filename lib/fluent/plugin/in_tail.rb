@@ -48,9 +48,6 @@ module Fluent::Plugin
       end
     end
 
-    FILE_PERMISSION = 0644
-    DIR_PERMISSION = 0755
-
     def initialize
       super
       @paths = []
@@ -168,8 +165,8 @@ module Fluent::Plugin
                          else
                            method(:parse_singleline)
                          end
-      @file_perm = system_config.file_permission || FILE_PERMISSION
-      @dir_perm = system_config.dir_permission || DIR_PERMISSION
+      @file_perm = system_config.file_permission || Fluent::DEFAULT_FILE_PERMISSION
+      @dir_perm = system_config.dir_permission || Fluent::DEFAULT_DIR_PERMISSION
       # parser is already created by parser helper
       @parser = parser_create(usage: parser_config['usage'] || @parser_configs.first.usage)
     end
