@@ -206,7 +206,7 @@ module Fluent
                 output_io = if chunk_io.is_a?(StringIO)
                               StringIO.new
                             else
-                              Tempfile.new('decompressed-data')
+                              Tempfile.new('decompressed-data').binmode
                             end
                 decompress(input_io: chunk_io, output_io: output_io)
                 output_io.seek(0, IO::SEEK_SET)
