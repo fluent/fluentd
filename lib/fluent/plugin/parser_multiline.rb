@@ -50,6 +50,7 @@ module Fluent
           m
         end
       end
+
       def configure(conf)
         super
 
