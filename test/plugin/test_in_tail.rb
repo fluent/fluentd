@@ -48,14 +48,29 @@ class TailInputTest < Test::Unit::TestCase
   MULTILINE_CONFIG = config_element(
     "", "", {
       "format" => "multiline",
-      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.[^\\n]+))?/",
+      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
       "format_firstline" => "/^[s]/"
     })
   PARSE_MULTILINE_CONFIG = config_element(
     "", "", {},
     [config_element("parse", "", {
                       "@type" => "multiline",
-                      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>[^\\n]+))?/",
+                      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.*))?/",
+                      "format_firstline" => "/^[s]/"
+                    })
+    ])
+
+  MULTILINE_CONFIG_WITH_NEWLINE = config_element(
+    "", "", {
+      "format" => "multiline",
+      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.[^\\n]+))?/",
+      "format_firstline" => "/^[s]/"
+    })
+  PARSE_MULTILINE_CONFIG_WITH_NEWLINE = config_element(
+    "", "", {},
+    [config_element("parse", "", {
+                      "@type" => "multiline",
+                      "format1" => "/^s (?<message1>[^\\n]+)(\\nf (?<message2>[^\\n]+))?(\\nf (?<message3>.[^\\n]+))?/",
                       "format_firstline" => "/^[s]/"
                     })
     ])
@@ -742,8 +757,8 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     data(
-      flat: MULTILINE_CONFIG,
-      parse: PARSE_MULTILINE_CONFIG)
+      flat: MULTILINE_CONFIG_WITH_NEWLINE,
+      parse: PARSE_MULTILINE_CONFIG_WITH_NEWLINE)
     def test_multiline_with_emit_unmatched_lines2(data)
       config = data + config_element("", "", { "emit_unmatched_lines" => true })
       File.open("#{TMP_DIR}/tail.txt", "wb") { |f| }
