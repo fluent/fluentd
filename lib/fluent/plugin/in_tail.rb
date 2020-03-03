@@ -558,9 +558,16 @@ module Fluent::Plugin
     private
 
     def io_handler(watcher, path)
-      TailWatcher::IOHandler.new(watcher, path: path, log: log, read_lines_limit: @read_lines_limit, open_on_every_update: @open_on_every_update, from_encoding: @from_encoding, encoding: @encoding) do |lines|
-        receive_lines(lines, watcher)
-      end
+      TailWatcher::IOHandler.new(
+        watcher,
+        path: path,
+        log: log,
+        read_lines_limit: @read_lines_limit,
+        open_on_every_update: @open_on_every_update,
+        from_encoding: @from_encoding,
+        encoding: @encoding,
+        &method(:receive_lines)
+      )
     end
 
     class StatWatcher < Coolio::StatWatcher
@@ -599,13 +606,11 @@ module Fluent::Plugin
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
         @update_watcher = update_watcher
-
-        @io_handler_build = io_handler_build
-        @io_handler = nil
         @log = log
-
-        @line_buffer_timer_flusher = line_buffer_timer_flusher
         @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
+        @line_buffer_timer_flusher = line_buffer_timer_flusher
+        @io_handler = nil
+        @io_handler_build = io_handler_build
         @watchers = []
       end
 
@@ -803,6 +808,19 @@ module Fluent::Plugin
           @notify_mutex.synchronize { handle_notify }
         end
 
+        def close
+          if @io && !@io.closed?
+            @io.close
+            @io = nil
+          end
+        end
+
+        def opened?
+          !!@io
+        end
+
+        private
+
         def handle_notify
           with_io do |io|
             begin
@@ -824,7 +842,7 @@ module Fluent::Plugin
               end
 
               unless @lines.empty?
-                if @receive_lines.call(@lines)
+                if @receive_lines.call(@lines, @watcher)
                   @watcher.pe.update_pos(io.pos - @fifo.bytesize)
                   @lines.clear
                 else
@@ -833,17 +851,6 @@ module Fluent::Plugin
               end
             end while read_more
           end
-        end
-
-        def close
-          if @io && !@io.closed?
-            @io.close
-            @io = nil
-          end
-        end
-
-        def opened?
-          !!@io
         end
 
         def open
