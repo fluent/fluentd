@@ -170,6 +170,7 @@ module Fluent
             # these chunks(unstaged chunks) has shared the same metadata
             # So perform enqueue step again https://github.com/fluent/fluentd/blob/9d113029d4550ce576d8825bfa9612aa3e55bff0/lib/fluent/plugin/buffer.rb#L364
             if chunk_size_full?(chunk) || stage.key?(chunk.metadata)
+              chunk.metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
               queue << chunk.enqueued!
             else
               stage[chunk.metadata] = chunk

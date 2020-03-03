@@ -428,6 +428,7 @@ module Fluent
             if chunk.empty?
               chunk.close
             else
+              chunk.metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
               @queue << chunk
               @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
               chunk.enqueued!
@@ -446,6 +447,7 @@ module Fluent
         synchronize do
           chunk.synchronize do
             metadata = chunk.metadata
+            metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
             @queue << chunk
             @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
             chunk.enqueued!

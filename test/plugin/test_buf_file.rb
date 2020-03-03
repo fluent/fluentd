@@ -1072,7 +1072,7 @@ class FileBufferTest < Test::Unit::TestCase
       assert_equal 3, s.size
       assert_equal [0, 1, 2], s.keys.map(&:seq).sort
       assert_equal 1, e.size
-      assert_equal [2], e.map { |e| e.metadata.seq }
+      assert_equal [0], e.map { |e| e.metadata.seq }
     end
   end
 
