@@ -910,6 +910,23 @@ class BufferTest < Test::Unit::TestCase
       # 9900 * 4 + 5400 == 45000
     end
 
+    test '#dequeue_chunk succeeds when chunk is splited' do
+      assert_equal [@dm0], @p.stage.keys
+      assert_equal [], @p.queue.map(&:metadata)
+
+      assert_equal 1_280_000, @p.chunk_limit_size
+
+      es = Fluent::ArrayEventStream.new([ [event_time('2016-04-11 16:00:02 +0000'), {"message" => "x" * (128 - 22)}] ] * 45000)
+      @p.write({@dm0 => es}, format: @format)
+      @p.enqueue_all(true)
+
+      dequeued_chunks = 6.times.map { |e| @p.dequeue_chunk } # splits: 45000 / 100 => 450 * ...
+      assert_equal [5000, 9900, 9900, 9900, 9900, 5400], dequeued_chunks.map(&:size)
+      r = [@dm0]
+      3.times { |i| r << r[i].dup_next }
+      assert_equal [@dm0, *r, @dm0], dequeued_chunks.map(&:metadata) # last last one's metadata.seq is 0
+    end
+
     test '#write raises BufferChunkOverflowError if a record is biggar than chunk limit size' do
       assert_equal [@dm0], @p.stage.keys
       assert_equal [], @p.queue.map(&:metadata)

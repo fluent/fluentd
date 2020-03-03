@@ -363,6 +363,8 @@ module Fluent
                 u = unstaged_chunks[m].pop
                 u.synchronize do
                   if u.unstaged? && !chunk_size_full?(u)
+                    # `u.metadata.seq` and `m.seq` can be different but Buffer#enqueue_chunk expect them to be the same value
+                    u.metadata.seq = 0
                     synchronize {
                       @stage[m] = u.staged!
                       @stage_size += u.bytesize
