@@ -256,6 +256,8 @@ class BufferedOutputBackupTest < Test::Unit::TestCase
     end
 
     test 'create directory with specific mode' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       Fluent::SystemConfig.overwrite_system_config('root_dir' => TMP_DIR, 'dir_permission' => '744') do
         id = 'backup_test_with_same_secondary'
         hash = { 'flush_interval' => 1, 'flush_thread_burst_interval' => 0.1 }
