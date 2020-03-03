@@ -446,8 +446,9 @@ module Fluent::Plugin
                 end
           record[@path_key] ||= tw.path unless @path_key.nil?
           router.emit(tag, time, record)
+        else
+          log.warn "got incomplete line at shutdown from #{tw.path}: #{buf.inspect}"
         end
-        log.warn "got incomplete line at shutdown from #{tw.path}: #{buf.inspect}"
       }
     end
 
