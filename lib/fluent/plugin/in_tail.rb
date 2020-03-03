@@ -421,7 +421,7 @@ module Fluent::Plugin
       tw.detach
 
       tw.close if close_io
-      flush_buffer(tw)
+
       if tw.unwatched && @pf
         @pf.unwatch(tw.path)
       end
@@ -435,23 +435,20 @@ module Fluent::Plugin
       end
     end
 
-    def flush_buffer(tw)
-      if lb = tw.line_buffer_timer_flusher&.line_buffer
-        lb.chomp!
-        @parser.parse(lb) { |time, record|
-          if time && record
-            tag = if @tag_prefix || @tag_suffix
-                    @tag_prefix + tw.tag + @tag_suffix
-                  else
-                    @tag
-                  end
-            record[@path_key] ||= tw.path unless @path_key.nil?
-            router.emit(tag, time, record)
-          else
-            log.warn "got incomplete line at shutdown from #{tw.path}: #{lb.inspect}"
-          end
-        }
-      end
+    def flush_buffer(tw, buf)
+      buf.chomp!
+      @parser.parse(buf) { |time, record|
+        if time && record
+          tag = if @tag_prefix || @tag_suffix
+                  @tag_prefix + tw.tag + @tag_suffix
+                else
+                  @tag
+                end
+          record[@path_key] ||= tw.path unless @path_key.nil?
+          router.emit(tag, time, record)
+        end
+        log.warn "got incomplete line at shutdown from #{tw.path}: #{buf.inspect}"
+      }
     end
 
     # @return true if no error or unrecoverable error happens in emit action. false if got BufferOverflowError
@@ -611,6 +608,7 @@ module Fluent::Plugin
 
       def detach
         @io_handler.on_notify if @io_handler
+        @line_buffer_timer_flusher&.close(self)
       end
 
       def close
@@ -929,10 +927,17 @@ module Fluent::Plugin
           end
 
           if Time.now - @start >= @flush_interval
-            @flush_method.call(tw)
+            @flush_method.call(tw, @line_buffer) if @line_buffer
             @line_buffer = nil
             @start = nil
           end
+        end
+
+        def close(tw)
+          return unless @line_buffer
+
+          @flush_method.call(tw, @line_buffer)
+          @line_buffer = nil
         end
 
         def reset_timer
