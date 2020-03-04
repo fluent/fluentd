@@ -363,6 +363,8 @@ module Fluent
                 u = unstaged_chunks[m].pop
                 u.synchronize do
                   if u.unstaged? && !chunk_size_full?(u)
+                    # `u.metadata.seq` and `m.seq` can be different but Buffer#enqueue_chunk expect them to be the same value
+                    u.metadata.seq = 0
                     synchronize {
                       @stage[m] = u.staged!
                       @stage_size += u.bytesize
@@ -426,6 +428,7 @@ module Fluent
             if chunk.empty?
               chunk.close
             else
+              chunk.metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
               @queue << chunk
               @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
               chunk.enqueued!
@@ -444,6 +447,7 @@ module Fluent
         synchronize do
           chunk.synchronize do
             metadata = chunk.metadata
+            metadata.seq = 0 # metadata.seq should be 0 for counting @queued_num
             @queue << chunk
             @queued_num[metadata] = @queued_num.fetch(metadata, 0) + 1
             chunk.enqueued!
