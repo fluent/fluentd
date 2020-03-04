@@ -161,7 +161,7 @@ class SupervisorTest < ::Test::Unit::TestCase
 
     assert{ $log.out.logs.first.end_with?(info_msg) }
   ensure
-    $log.out.reset unless $log.out.is_a?(Fluent::LogDeviceIO)
+    $log.out.reset if $log.out.is_a?(Fluent::Test::DummyLogDevice)
   end
 
   def test_load_config
