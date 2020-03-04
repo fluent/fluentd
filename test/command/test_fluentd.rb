@@ -46,8 +46,13 @@ class TestFluentdCommand < ::Test::Unit::TestCase
   end
 
   def create_cmdline(conf_path, *fluentd_options)
-    cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
-    ["bundle", "exec", cmd_path, "-c", conf_path, *fluentd_options]
+    if Fluent.windows?
+      cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
+      ["bundle", "exec", ServerEngine.ruby_bin_path, cmd_path, "-c", conf_path, *fluentd_options]
+    else
+      cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
+      ["bundle", "exec", cmd_path, "-c", conf_path, *fluentd_options]
+    end
   end
 
   def execute_command(cmdline, chdir=TMP_DIR, env = {})
