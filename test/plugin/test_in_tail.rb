@@ -1145,7 +1145,11 @@ class TailInputTest < Test::Unit::TestCase
     end
 
     assert_path_exist("#{TMP_DIR}/pos")
-    assert_equal '744', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+    if Fluent.windows?
+      assert_equal '755', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+    else
+      assert_equal '744', File.stat("#{TMP_DIR}/pos").mode.to_s(8)[-3, 3]
+    end
   ensure
     cleanup_directory(TMP_DIR)
   end

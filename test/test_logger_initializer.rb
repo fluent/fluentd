@@ -27,6 +27,8 @@ class LoggerInitializerTest < ::Test::Unit::TestCase
   end
 
   test 'apply_options with log_dir_perm' do
+    omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
     path = File.join(TMP_DIR, 'fluent_with_path.log')
 
     assert_false File.exist?(TMP_DIR)

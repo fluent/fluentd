@@ -99,6 +99,8 @@ class PluginIdTest < Test::Unit::TestCase
     end
 
     test '#plugin_root_dir create dirctory with specify mode if not exists ' do
+      omit "NTFS doesn't support UNIX like permissions" if Fluent.windows?
+
       root_dir = Fluent::SystemConfig.overwrite_system_config({ 'root_dir' => File.join(TMP_DIR, "myroot"), 'dir_permission' => '0777' }) do
         @p.plugin_root_dir
       end
