@@ -97,4 +97,15 @@ EOS
       assert_equal text, record['time']
     }
   end
+
+  def test_parse_unmatched_lines
+    parser = Fluent::Test::Driver::Parser.new(Fluent::Plugin::MultilineParser).configure(
+      'format1' => '/^message (?<message_id>\d)/',
+      'unmatched_lines' => true,
+    )
+    text = "message 1\nmessage a"
+    r = []
+    parser.instance.parse(text) { |_, record| r << record }
+    assert_equal [{ 'message_id' => '1' }, { 'unmatched_line' => 'message a'}], r
+  end
 end

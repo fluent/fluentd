@@ -123,6 +123,8 @@ module Fluent::Plugin
         parser_config["format#{n}"] = conf["format#{n}"] if conf["format#{n}"]
       end
 
+      parser_config['unmatched_lines'] = conf['emit_unmatched_lines']
+
       super
 
       if !@enable_watch_timer && !@enable_stat_watcher
@@ -447,6 +449,16 @@ module Fluent::Plugin
           record[@path_key] ||= tw.path unless @path_key.nil?
           router.emit(tag, time, record)
         else
+          if @emit_unmatched_lines
+            record = { 'unmatched_line' => buf }
+            record[@path_key] ||= tail_watcher.path unless @path_key.nil?
+            tag = if @tag_prefix || @tag_suffix
+                    @tag_prefix + tw.tag + @tag_suffix
+                  else
+                    @tag
+                  end
+            router.emit(tag, Fluent::EventTime.now, record)
+          end
           log.warn "got incomplete line at shutdown from #{tw.path}: #{buf.inspect}"
         end
       }
