@@ -713,7 +713,12 @@ CONF
       assert_path_not_exist(@root_path)
       assert_log_matches(create_cmdline(conf_path), 'spawn command to main') # any message is ok
       assert_path_exist(@root_path)
-      assert_equal '744', File.stat(@root_path).mode.to_s(8)[-3, 3]
+      if Fluent.windows?
+        # In Windows, dir permission is always 755.
+        assert_equal '755', File.stat(@root_path).mode.to_s(8)[-3, 3]
+      else
+        assert_equal '744', File.stat(@root_path).mode.to_s(8)[-3, 3]
+      end
     end
 
     test 'success to start a worker with worker specific configuration' do
