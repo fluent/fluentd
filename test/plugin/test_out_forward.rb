@@ -997,7 +997,11 @@ EOL
       e = assert_raise Fluent::UnrecoverableError do
         d.instance_start
       end
-      assert_match(/Connection refused/, e.message)
+      if Fluent.windows?
+        assert_match(/No connection could be made because the target machine actively refused it/, e.message)
+      else
+        assert_match(/Connection refused/, e.message)
+      end
 
       d.instance_shutdown
     end
