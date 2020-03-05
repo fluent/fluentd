@@ -196,7 +196,11 @@ class IntailPositionFileTest < Test::Unit::TestCase
       @file.seek(0)
       lines = @file.readlines
       assert_equal 2, lines.size
-      assert_equal "valid_path\t000000000000000a\t000000000000000b\n", lines[0]
+      if Fluent.windows?
+        assert_equal "valid_path\t0000000000000000a\t000000000000000b\n", lines[0]
+      else
+        assert_equal "valid_path\t000000000000000a\t000000000000000b\n", lines[0]
+      end
       assert_equal "valid_path2\t0000000000000003\t0000000000000002\n", lines[1]
     end
 
@@ -209,7 +213,11 @@ class IntailPositionFileTest < Test::Unit::TestCase
       @file.seek(0)
       lines = @file.readlines
       assert_equal 2, lines.size
-      assert_equal "valid_path\t000000000000000a\t0000000000000001\n", lines[0]
+      if Fluent.windows?
+        assert_equal "valid_path\t0000000000000000a0000000000000001\n", lines[0]
+      else
+        assert_equal "valid_path\t000000000000000a\t0000000000000001\n", lines[0]
+      end
       assert_equal "valid_path2\t0000000000000003\t0000000000000002\n", lines[1]
     end
 
