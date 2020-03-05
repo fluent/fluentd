@@ -21,6 +21,8 @@ require 'fcntl'
 module Fluent
   module PluginHelper
     module SocketOption
+      # ref: https://docs.microsoft.com/en-us/windows/win32/api/winsock/ns-winsock-linger
+      FORMAT_STRUCT_LINGER_WINDOWS  = 'S!S!' # { u_short l_onoff; u_short l_linger; }
       FORMAT_STRUCT_LINGER  = 'I!I!' # { int l_onoff; int l_linger; }
       FORMAT_STRUCT_TIMEVAL = 'L!L!' # { time_t tv_sec; suseconds_t tv_usec; }
 
@@ -49,9 +51,21 @@ module Fluent
         if nonblock
           sock.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
         end
-        if linger_timeout
+        if Fluent.windows?
+          # To prevent closing socket forcibly on Windows,
+          # this options shouldn't be set up when linger_timeout equals to 0 (including nil).
+          # This unintended behavior always ocurrs on Windows when linger_timeout.to_i == 0.
+          # This unintented behavior causes "Errno::ECONNRESET: An existing connection was forcibly
+          # closed by the remote host." on Windows.
+          if linger_timeout.to_i > 0
+            optval = [1, linger_timeout.to_i].pack(FORMAT_STRUCT_LINGER_WINDOWS)
+            socket_option_set_one(sock, :SO_LINGER, optval)
+          end
+        else
+          if linger_timeout
           optval = [1, linger_timeout.to_i].pack(FORMAT_STRUCT_LINGER)
           socket_option_set_one(sock, :SO_LINGER, optval)
+          end
         end
         if recv_timeout
           optval = [recv_timeout.to_i, 0].pack(FORMAT_STRUCT_TIMEVAL)
