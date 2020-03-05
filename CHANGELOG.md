@@ -1,5 +1,40 @@
 # v1.9
 
+## Unreleased
+
+### Enhancement
+
+* in_tail: Emit buffered lines as `unmatched_line` at shutdown phase when `emit_unmatched_lines true`
+  https://github.com/fluent/fluentd/pull/2837
+* Specify directory mode explicitly
+  https://github.com/fluent/fluentd/pull/2827
+* Refactor code
+  https://github.com/fluent/fluentd/pull/2829
+  https://github.com/fluent/fluentd/pull/2830
+  https://github.com/fluent/fluentd/pull/2832
+  https://github.com/fluent/fluentd/pull/2836
+  https://github.com/fluent/fluentd/pull/2838
+  https://github.com/fluent/fluentd/pull/2842
+  https://github.com/fluent/fluentd/pull/2843
+
+### Bug fix
+
+* buffer: Add seq to metadata that it can be unique
+  https://github.com/fluent/fluentd/pull/2824
+  https://github.com/fluent/fluentd/pull/2853
+* buffer: Use `Tempfile` as binmode for decompression
+  https://github.com/fluent/fluentd/pull/2847
+
+### Misc
+
+* Add `.idea` to git ignore file
+  https://github.com/fluent/fluentd/pull/2834
+* appveyor: Fix tests
+  https://github.com/fluent/fluentd/pull/2853
+  https://github.com/fluent/fluentd/pull/2855
+* Update pem for test
+  https://github.com/fluent/fluentd/pull/2839
+
 ## Release v1.9.2 - 2020/02/13
 
 ### Enhancement
