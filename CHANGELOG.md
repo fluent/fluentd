@@ -1,6 +1,6 @@
 # v1.9
 
-## Unreleased
+## Release v1.9.3 - 2020/03/05
 
 ### Enhancement
 
@@ -8,6 +8,8 @@
   https://github.com/fluent/fluentd/pull/2837
 * Specify directory mode explicitly
   https://github.com/fluent/fluentd/pull/2827
+* server helper: Change SSLError log level to warn in accept
+  https://github.com/fluent/fluentd/pull/2861
 * Refactor code
   https://github.com/fluent/fluentd/pull/2829
   https://github.com/fluent/fluentd/pull/2830
