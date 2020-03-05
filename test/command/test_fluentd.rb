@@ -46,8 +46,13 @@ class TestFluentdCommand < ::Test::Unit::TestCase
   end
 
   def create_cmdline(conf_path, *fluentd_options)
-    cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
-    ["bundle", "exec", cmd_path, "-c", conf_path, *fluentd_options]
+    if Fluent.windows?
+      cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
+      ["bundle", "exec", ServerEngine.ruby_bin_path, cmd_path, "-c", conf_path, *fluentd_options]
+    else
+      cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
+      ["bundle", "exec", cmd_path, "-c", conf_path, *fluentd_options]
+    end
   end
 
   def execute_command(cmdline, chdir=TMP_DIR, env = {})
@@ -708,7 +713,12 @@ CONF
       assert_path_not_exist(@root_path)
       assert_log_matches(create_cmdline(conf_path), 'spawn command to main') # any message is ok
       assert_path_exist(@root_path)
-      assert_equal '744', File.stat(@root_path).mode.to_s(8)[-3, 3]
+      if Fluent.windows?
+        # In Windows, dir permission is always 755.
+        assert_equal '755', File.stat(@root_path).mode.to_s(8)[-3, 3]
+      else
+        assert_equal '744', File.stat(@root_path).mode.to_s(8)[-3, 3]
+      end
     end
 
     test 'success to start a worker with worker specific configuration' do
@@ -821,6 +831,7 @@ CONF
       '-internal-encoding' => '--internal-encoding=utf-8',
     )
     test "-E option is set to RUBYOPT3" do |opt|
+      omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
       conf = <<CONF
 <source>
   @type dummy
@@ -854,6 +865,7 @@ CONF
     end
 
     test 'invalid values are set to RUBYOPT' do
+      omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
       conf = <<CONF
 <source>
   @type dummy
