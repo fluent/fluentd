@@ -1062,7 +1062,9 @@ class FileBufferTest < Test::Unit::TestCase
       if @bufdir
         Dir.glob(File.join(@bufdir, '*')).each do |path|
           next if ['.', '..'].include?(File.basename(path))
-          File.delete(path)
+          # Windows does not permit to delete files which are used in another process.
+          # Just ignore for removing failure.
+          File.delete(path) rescue nil
         end
       end
     end
