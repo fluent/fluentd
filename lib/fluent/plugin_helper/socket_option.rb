@@ -58,6 +58,10 @@ module Fluent
           # This unintented behavior causes "Errno::ECONNRESET: An existing connection was forcibly
           # closed by the remote host." on Windows.
           if linger_timeout.to_i > 0
+            if linger_timeout >= 2**16
+              log.warn "maximum linger_timeout is 65535(2^16 - 1). Set to 65535 forcibly."
+              linger_timeout = 2**16 - 1
+            end
             optval = [1, linger_timeout.to_i].pack(FORMAT_STRUCT_LINGER_WINDOWS)
             socket_option_set_one(sock, :SO_LINGER, optval)
           end
