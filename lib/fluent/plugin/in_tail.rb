@@ -319,7 +319,7 @@ module Fluent::Plugin
 
     def setup_watcher(path, pe)
       line_buffer_timer_flusher = @multiline_mode ? TailWatcher::LineBufferTimerFlusher.new(log, @multiline_flush_interval, &method(:flush_buffer)) : nil
-      tw = TailWatcher.new(path, pe, log, @read_from_head, @read_lines_limit, method(:update_watcher), line_buffer_timer_flusher, @from_encoding, @encoding, open_on_every_update, &method(:receive_lines))
+      tw = TailWatcher.new(path, pe, log, @read_from_head, method(:update_watcher), line_buffer_timer_flusher, method(:io_handler))
 
       if @enable_watch_timer
         tt = TimerTrigger.new(1, log) { tw.on_notify }
@@ -555,6 +555,21 @@ module Fluent::Plugin
       es
     end
 
+    private
+
+    def io_handler(watcher, path)
+      TailWatcher::IOHandler.new(
+        watcher,
+        path: path,
+        log: log,
+        read_lines_limit: @read_lines_limit,
+        open_on_every_update: @open_on_every_update,
+        from_encoding: @from_encoding,
+        encoding: @encoding,
+        &method(:receive_lines)
+      )
+    end
+
     class StatWatcher < Coolio::StatWatcher
       def initialize(path, log, &callback)
         @callback = callback
@@ -586,22 +601,16 @@ module Fluent::Plugin
     end
 
     class TailWatcher
-      def initialize(path, pe, log, read_from_head, read_lines_limit, update_watcher, line_buffer_timer_flusher, from_encoding, encoding, open_on_every_update, &receive_lines)
+      def initialize(path, pe, log, read_from_head, update_watcher, line_buffer_timer_flusher, io_handler_build)
         @path = path
         @pe = pe || MemoryPositionEntry.new
         @read_from_head = read_from_head
-        @read_lines_limit = read_lines_limit
-        @receive_lines = receive_lines
         @update_watcher = update_watcher
-
-        @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
-        @io_handler = nil
         @log = log
-
+        @rotate_handler = RotateHandler.new(log, &method(:on_rotate))
         @line_buffer_timer_flusher = line_buffer_timer_flusher
-        @from_encoding = from_encoding
-        @encoding = encoding
-        @open_on_every_update = open_on_every_update
+        @io_handler = nil
+        @io_handler_build = io_handler_build
         @watchers = []
       end
 
@@ -709,9 +718,7 @@ module Fluent::Plugin
       end
 
       def io_handler
-        IOHandler.new(self, path: @path, log: @log, read_lines_limit: @read_lines_limit, open_on_every_update: @open_on_every_update, from_encoding: @from_encoding, encoding: @encoding) do |lines|
-          @receive_lines.call(lines, self)
-        end
+        @io_handler_build.call(self, @path)
       end
 
       def swap_state(pe)
@@ -801,6 +808,19 @@ module Fluent::Plugin
           @notify_mutex.synchronize { handle_notify }
         end
 
+        def close
+          if @io && !@io.closed?
+            @io.close
+            @io = nil
+          end
+        end
+
+        def opened?
+          !!@io
+        end
+
+        private
+
         def handle_notify
           with_io do |io|
             begin
@@ -822,7 +842,7 @@ module Fluent::Plugin
               end
 
               unless @lines.empty?
-                if @receive_lines.call(@lines)
+                if @receive_lines.call(@lines, @watcher)
                   @watcher.pe.update_pos(io.pos - @fifo.bytesize)
                   @lines.clear
                 else
@@ -831,17 +851,6 @@ module Fluent::Plugin
               end
             end while read_more
           end
-        end
-
-        def close
-          if @io && !@io.closed?
-            @io.close
-            @io = nil
-          end
-        end
-
-        def opened?
-          !!@io
         end
 
         def open
