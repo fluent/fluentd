@@ -382,9 +382,7 @@ module Fluent::Plugin
           cert_logical_store_name: @tls_cert_logical_store_name,
           cert_use_enterprise_store: @tls_cert_use_enterprise_store,
 
-          # Enabling SO_LINGER causes data loss on Windows
-          # https://github.com/fluent/fluentd/issues/1968
-          linger_timeout: Fluent.windows? ? nil : @send_timeout,
+          linger_timeout: @send_timeout,
           send_timeout: @send_timeout,
           recv_timeout: @ack_response_timeout,
           connect_timeout: @connect_timeout,
