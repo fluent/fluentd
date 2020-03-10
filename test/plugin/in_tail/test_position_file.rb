@@ -6,7 +6,7 @@ require 'tempfile'
 
 class IntailPositionFileTest < Test::Unit::TestCase
   setup do
-    @file = Tempfile.new('intail_position_file_test')
+    @file = Tempfile.new('intail_position_file_test').binmode
   end
 
   teardown do
