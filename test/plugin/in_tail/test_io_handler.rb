@@ -5,7 +5,7 @@ require 'tempfile'
 
 class IntailIOHandlerTest < Test::Unit::TestCase
   setup do
-    @file = Tempfile.new('intail_io_handler')
+    @file = Tempfile.new('intail_io_handler').binmode
   end
 
   teardown do
