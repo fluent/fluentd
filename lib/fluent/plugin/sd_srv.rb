@@ -99,12 +99,7 @@ module Fluent
       end
 
       def fetch_srv_record
-        adders =
-          begin
-            @dns_resolve.getresources(@target, Resolv::DNS::Resource::IN::SRV)
-          rescue => e
-            raise e               # TODO
-          end
+        adders = @dns_resolve.getresources(@target, Resolv::DNS::Resource::IN::SRV)
 
         services = []
 
@@ -122,8 +117,6 @@ module Fluent
       def dns_lookup!(host)
         # may need to cache the result
         @dns_resolve.getaddress(host) # get first result for now
-      rescue => e
-        raise e             # TODO
       end
     end
   end
