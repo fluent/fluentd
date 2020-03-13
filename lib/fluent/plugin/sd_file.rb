@@ -85,6 +85,7 @@ module Fluent
             fetch_server_info
           rescue => e
             @log.error("sd_file: #{e}")
+            return
           end
 
         if s.nil?
