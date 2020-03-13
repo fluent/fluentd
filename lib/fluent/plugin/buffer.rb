@@ -758,13 +758,13 @@ module Fluent
 
       def statistics
         stage_size, queue_size = @stage_size, @queue_size
-        buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size).round
+        buffer_space = 1.0 - ((stage_size + queue_size * 1.0) / @total_limit_size)
         stats = {
           'stage_length' => @stage.size,
           'stage_byte_size' => stage_size,
           'queue_length' => @queue.size,
           'queue_byte_size' => queue_size,
-          'available_buffer_space_ratios' => buffer_space * 100,
+          'available_buffer_space_ratios' => (buffer_space * 100).round(1),
           'total_queued_size' => stage_size + queue_size,
         }
 
