@@ -149,6 +149,23 @@ class FileServiceDiscoveryTest < ::Test::Unit::TestCase
       assert_empty queue
     end
 
+    test 'Skip if error is occured' do
+      @sd_file.extend(TestStatEventHelperWrapper)
+
+      create_tmp_config('config.json', JSON.generate([{ port: 1233, host: '127.0.0.1' }]))
+      @sd_file.configure(config_element('service_discovery', '', { 'path' => File.join(@dir, 'config.yml') }))
+      queue = []
+
+      FileUtils.rm_r(File.join(@dir, 'tmp', 'config.json'))
+      mock.proxy(@sd_file).refresh_file(queue).twice
+
+      @sd_file.start(queue)
+      assert_empty queue
+
+      @sd_file.resume
+      assert_empty queue
+    end
+
     test 'if service is updated, service_in and service_out event happen' do
       @sd_file.extend(TestStatEventHelperWrapper)
 
