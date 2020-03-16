@@ -159,7 +159,7 @@ module Fluent
         time = @mutex.synchronize { @time_parser.parse(time_str) }
         record['time'] = time_str
 
-        parse_plain(time, text[(i + 1)..-1], record, &block)
+        parse_plain(time, text, i + 1, record, &block)
       end
 
       def parse_rfc5424_regex(text, &block)
@@ -202,20 +202,23 @@ module Fluent
         end
 
         record['time'] = time_str
-        parse_plain(time, text[(i + 1)..-1], record, &block)
+        parse_plain(time, text, i + 1, record, &block)
       end
 
-      def parse_plain(time, text, record, &block)
+      # @param time [EventTime]
+      # @param idx [Integer] note: this argument is needed to avoid string creation
+      # @param record [Hash]
+      def parse_plain(time, text, idx, record, &block)
+        m = @regexp.match(text, idx)
+        if m.nil?
+          yield nil, nil
+          return
+        end
+
         if @keep_time_key
           record['time'].squeeze!(' ')
         else
-          record.delete('time')
-        end
-        m = @regexp.match(text)
-
-        unless m
-          yield nil, nil
-          return
+          record.delete('time'.freeze)
         end
 
         m.names.each { |name|
