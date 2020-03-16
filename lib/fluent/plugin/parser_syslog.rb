@@ -41,9 +41,11 @@ module Fluent
       REGEXP_DETECT_RFC5424 = /^\<[0-9]{1,3}\>[1-9]\d{0,2}/
 
       RFC3164_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+      RFC3164_CAPTURES = ['host', 'ident', 'pid', 'message'].freeze
       RFC3164_PRI_REGEXP = /^<(?<pri>[0-9]{1,3})>/
 
       RFC5424_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])+))(?: (?<message>.+))?\z/m
+      RFC5424_CAPTURES = ['host', 'ident', 'extradata', 'pid', 'msgid', 'message'].freeze
       RFC5424_PRI_REGEXP = /^<(?<pri>\d{1,3})>(?<version>\d\d{0,2})\s/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
@@ -161,7 +163,7 @@ module Fluent
         time = @mutex.synchronize { @time_parser.parse(time_str) }
         record['time'] = time_str
 
-        parse_plain(time, text, i + 1, record, &block)
+        parse_plain(time, text, i + 1, record, RFC3164_CAPTURES, &block)
       end
 
       def parse_rfc5424_regex(text, &block)
@@ -206,13 +208,14 @@ module Fluent
         end
 
         record['time'] = time_str
-        parse_plain(time, text, i + 1, record, &block)
+        parse_plain(time, text, i + 1, record, RFC5424_CAPTURES, &block)
       end
 
       # @param time [EventTime]
       # @param idx [Integer] note: this argument is needed to avoid string creation
       # @param record [Hash]
-      def parse_plain(time, text, idx, record, &block)
+      # @param capture_list [Array] for performance
+      def parse_plain(time, text, idx, record, capture_list, &block)
         m = @regexp.match(text, idx)
         if m.nil?
           yield nil, nil
@@ -223,8 +226,8 @@ module Fluent
           record.delete('time'.freeze)
         end
 
-        m.names.each { |name|
-          if value = m[name]
+        capture_list.each { |name|
+          if value = (m[name] rescue nil)
             case name
             when "message"
               value.chomp!
