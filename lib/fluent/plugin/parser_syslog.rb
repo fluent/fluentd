@@ -93,6 +93,7 @@ module Fluent
         @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
       end
 
+      # this method is for tests
       def patterns
         {'format' => @regexp, 'time_format' => @time_format}
       end
