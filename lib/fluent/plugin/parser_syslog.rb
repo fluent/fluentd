@@ -139,9 +139,10 @@ module Fluent
         record = {}
 
         if @with_priority
-          if (m = RFC3164_PRI_REGEXP.match(text))
-            record['pri'] = Integer(m['pri'])
-            idx = m.end(0)
+          if RFC3164_PRI_REGEXP.match?(text)
+            v = text.index('>')
+            record['pri'] = text[1..v].to_i # trim `<` and ``>
+            idx = v + 1
           else
             yield(nil, nil)
             return
