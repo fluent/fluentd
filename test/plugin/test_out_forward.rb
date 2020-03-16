@@ -284,6 +284,29 @@ EOL
     assert_equal 1235, d.instance.discovery_manager.services[1].port
   end
 
+  test 'pass username and password as empty string to HandshakeProtocol' do
+    config_path = File.join(TMP_DIR, "sd_file.conf")
+    File.open(config_path, 'w') do |file|
+      file.write(%[
+- 'host': 127.0.0.1
+  'port': 1234
+  'weight': 1
+])
+    end
+
+    mock(Fluent::Plugin::ForwardOutput::HandshakeProtocol).new(log: anything, hostname: nil, shared_key: anything, password: '', username: '')
+    @d = d = create_driver(%[
+<service_discovery>
+  @type file
+  path #{config_path}
+</service_discovery>
+    ])
+
+    assert_equal 1, d.instance.discovery_manager.services.size
+    assert_equal '127.0.0.1', d.instance.discovery_manager.services[0].host
+    assert_equal 1234, d.instance.discovery_manager.services[0].port
+  end
+
   test 'compress_default_value' do
     @d = d = create_driver
     assert_equal :text, d.instance.compress

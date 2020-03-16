@@ -508,7 +508,7 @@ module Fluent::Plugin
 
     class Node
       extend Forwardable
-      def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby, :username, :password, :shared_key
+      def_delegators :@server, :discovery_id, :host, :port, :name, :weight, :standby
 
       # @param connection_manager [Fluent::Plugin::ForwardOutput::ConnectionManager]
       # @param ack_handler [Fluent::Plugin::ForwardOutput::AckHandler]
@@ -540,8 +540,8 @@ module Fluent::Plugin
           log: @log,
           hostname: sender.security && sender.security.self_hostname,
           shared_key: server.shared_key || (sender.security && sender.security.shared_key) || '',
-          password: server.password,
-          username: server.username,
+          password: server.password || '',
+          username: server.username || '',
         )
 
         @unpacker = Fluent::MessagePackFactory.msgpack_unpacker
