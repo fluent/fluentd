@@ -35,6 +35,24 @@ class SyslogParserTest < ::Test::Unit::TestCase
     assert_equal('%b %d %M:%S:%H', @parser.instance.patterns['time_format'])
   end
 
+  def test_parse_with_time_format2
+    @parser.configure('time_format' => '%Y-%m-%dT%H:%M:%SZ')
+    @parser.instance.parse('2020-03-03T10:14:29Z 192.168.0.1 fluentd[11111]: [error] Syslog test') { |time, record|
+      assert_equal(event_time('Mar 03 10:14:29', format: '%b %d %H:%M:%S'), time)
+      assert_equal(@expected, record)
+    }
+    assert_equal('%Y-%m-%dT%H:%M:%SZ', @parser.instance.patterns['time_format'])
+  end
+
+  def test_parse_with_time_format_rfc5424
+    @parser.configure('time_format' => '%Y-%m-%dT%H:%M:%SZ', 'message_format' => 'rfc5424')
+    @parser.instance.parse('2020-03-03T10:14:29Z 192.168.0.1 fluentd 11111 - - [error] Syslog test') { |time, record|
+      assert_equal(event_time('Mar 03 10:14:29', format: '%b %d %H:%M:%S'), time)
+      assert_equal(@expected.merge('host' => '192.168.0.1', 'msgid' => '-', 'extradata' => '-'), record)
+    }
+    assert_equal('%Y-%m-%dT%H:%M:%SZ', @parser.instance.patterns['time_format'])
+  end
+
   data('regexp' => 'regexp', 'string' => 'string')
   def test_parse_with_subsecond_time(param)
     @parser.configure('time_format' => '%b %d %H:%M:%S.%N', 'parser_type' => param)

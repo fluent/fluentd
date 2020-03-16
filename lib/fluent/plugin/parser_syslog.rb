@@ -62,6 +62,7 @@ module Fluent
         super
         @mutex = Mutex.new
         @space_count = nil
+        @space_count_rfc5424 = nil
       end
 
       def configure(conf)
