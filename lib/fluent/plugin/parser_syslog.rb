@@ -36,7 +36,7 @@ module Fluent
       REGEXP_RFC5424_WITH_PRI = Regexp.new(<<~'EOS'.chomp % REGEXP_RFC5424, Regexp::MULTILINE)
         \A<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} %s\z
       EOS
-      REGEXP_DETECT_RFC5424 = /^\<.*\>[1-9]\d{0,2}/
+      REGEXP_DETECT_RFC5424 = /^\<[0-9]{1,3}\>[1-9]\d{0,2}/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
       desc 'If the incoming logs have priority prefix, e.g. <9>, set true'

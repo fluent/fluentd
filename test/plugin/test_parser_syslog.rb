@@ -496,6 +496,13 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
                    @parser.instance.patterns['format'])
 
+      text = '<1>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test 2>1'
+      @parser.instance.parse(text) do |time, record|
+         assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
+         assert_equal(@expected.merge('pri' => 1, 'message'=> '[error] Syslog test 2>1'), record)
+       end
+       assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+
       text = '<1>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
