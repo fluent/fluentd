@@ -172,9 +172,8 @@ module Fluent
 
         if @with_priority
           if (m = RFC5424_PRI_REGEXP.match(text))
-            m.names.each do |name|
-              record[name] = m[name]
-            end
+            record['pri'] = m['pri']
+            record['version'] = m['version']
             idx = m.end(0)
           else
             yield(nil, nil)
