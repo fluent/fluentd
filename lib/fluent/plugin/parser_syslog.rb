@@ -148,11 +148,11 @@ module Fluent
 
         i = idx - 1
         @space_count.times do
-          while text[i + 1] == ' '
+          while text[i + 1] == ' '.freeze
             i += 1
           end
 
-          i = text.index(' ', i + 1)
+          i = text.index(' '.freeze, i + 1)
         end
 
         time_str = text.slice(idx, i - idx)
@@ -180,11 +180,11 @@ module Fluent
 
         i = idx - 1
         @space_count_rfc5424.times {
-          while text[i + 1] == ' '
+          while text[i + 1] == ' '.freeze
             i += 1
           end
 
-          i = text.index(' ', i + 1)
+          i = text.index(' '.freeze, i + 1)
         }
 
         time_str = text.slice(idx, i - idx)
