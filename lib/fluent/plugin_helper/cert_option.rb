@@ -36,7 +36,7 @@ module Fluent
         end
 
         if conf.client_cert_auth
-            ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER | OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
+          ctx.verify_mode = OpenSSL::SSL::VERIFY_PEER | OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
         end
 
         ctx.ca_file = conf.ca_path
@@ -45,6 +45,11 @@ module Fluent
         if extra && !extra.empty?
           ctx.extra_chain_cert = extra
         end
+        if conf.cert_verifier
+          verifier = File.exist?(conf.cert_verifier) ? File.read(conf.cert_verifier) : conf.cert_verifier
+          ctx.verify_callback = self.instance_eval(verifier)
+        end
+
         Fluent::TLS.set_version_to_context(ctx, version, conf.min_version, conf.max_version)
 
         ctx
