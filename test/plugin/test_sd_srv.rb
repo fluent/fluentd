@@ -14,8 +14,8 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
       mock(Resolv::DNS).new { flexmock('dns_resolver', getresources: [SRV_RECORD2, SRV_RECORD1], getaddress: '127.0.0.1') }
 
       sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com' }))
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, nil, nil, nil), sdf.services[0]
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, nil, nil, nil), sdf.services[1]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
 
     test 'reuturn host name without revolving name when dns_lookup is flase' do
@@ -23,8 +23,8 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
       mock(Resolv::DNS).new { flexmock('dns_resolver', getresources: [SRV_RECORD1, SRV_RECORD2], getaddress: '127.0.0.1') }
 
       sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com', 'dns_lookup' => false }))
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, 'service1.example.com', 8081, 'service1.example.com', 10, false, nil, nil, nil), sdf.services[0]
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, 'service2.example.com', 8082, 'service2.example.com', 20, false, nil, nil, nil), sdf.services[1]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, 'service1.example.com', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, 'service2.example.com', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
 
     test 'pass a value as :nameserver to Resolve::DNS when dns_server_host is given' do
@@ -32,8 +32,8 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
       mock(Resolv::DNS).new(nameserver: '8.8.8.8') { flexmock('dns_resolver', getresources: [SRV_RECORD1, SRV_RECORD2], getaddress: '127.0.0.1') }
 
       sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com', 'dns_server_host' => '8.8.8.8' }))
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, nil, nil, nil), sdf.services[0]
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, nil, nil, nil), sdf.services[1]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
 
     test 'pass a value as :nameserver_port to Resolve::DNS when dns_server_host has port' do
@@ -41,8 +41,8 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
       mock(Resolv::DNS).new(nameserver_port: [['8.8.8.8', 8080]]) { flexmock('dns_resolver', getresources: [SRV_RECORD1, SRV_RECORD2], getaddress: '127.0.0.1') }
 
       sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com', 'dns_server_host' => '8.8.8.8:8080' }))
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, nil, nil, nil), sdf.services[0]
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, nil, nil, nil), sdf.services[1]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
 
     test 'target follows RFC2782' do
@@ -54,8 +54,8 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
 
       mock(Resolv::DNS).new { mock }
       sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com' }))
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, nil, nil, nil), sdf.services[0]
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, nil, nil, nil), sdf.services[1]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
 
     test 'can change protocol' do
@@ -67,8 +67,8 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
 
       mock(Resolv::DNS).new { mock }
       sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com', 'proto' => 'udp' }))
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, nil, nil, nil), sdf.services[0]
-      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, nil, nil, nil), sdf.services[1]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
   end
 

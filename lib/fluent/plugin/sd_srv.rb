@@ -28,12 +28,24 @@ module Fluent
 
       helpers :timer
 
+      desc 'Service without underscore in RFC2782'
       config_param :service, :string
+      desc 'Proto without underscore in RFC2782'
       config_param :proto, :string, default: 'tcp'
+      desc 'Name without underscore in RFC2782'
       config_param :hostname, :string
+      desc 'hostname of DNS server to request the SRV record'
       config_param :dns_server_host, :string, default: nil
+      desc 'interval of requesting to DNS server'
       config_param :interval, :integer, default: 60
+      desc "resolve hostname to IP addr of SRV's Target"
       config_param :dns_lookup, :bool, default: true
+      desc 'The shared key per server'
+      config_param :shared_key, :string, default: nil, secret: true
+      desc 'The username for authentication'
+      config_param :username, :string, default: ''
+      desc 'The password for authentication'
+      config_param :password, :string, default: '', secret: true
 
       def initialize
         super
@@ -107,7 +119,7 @@ module Fluent
           host = @dns_lookup ? dns_lookup!(addr.target) : addr.target
           services << [
             addr.priority,
-            Service.new(:srv, host.to_s, addr.port.to_i, addr.target.to_s, addr.weight, false, nil, nil, nil)
+            Service.new(:srv, host.to_s, addr.port.to_i, addr.target.to_s, addr.weight, false, @username, @password, @shared_key)
           ]
         end
 
