@@ -21,7 +21,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
-    assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+    assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
@@ -51,7 +51,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected.merge('pri' => 6), record)
     }
-    assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+    assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
@@ -71,7 +71,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
       assert_equal(event_time('Feb 28 12:00:00', format: '%b %d %H:%M:%S'), time)
       assert_equal(@expected, record)
     }
-    assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+    assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     assert_equal("%b %d %H:%M:%S", @parser.instance.patterns['time_format'])
   end
 
@@ -184,8 +184,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     def test_parse_with_rfc5424_message_trailing_eol
@@ -202,8 +201,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     def test_parse_with_rfc5424_multiline_message
@@ -220,8 +218,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi,\nfrom\nFluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     def test_parse_with_rfc5424_message_and_without_priority
@@ -237,8 +234,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_NO_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     def test_parse_with_rfc5424_empty_message_and_without_priority
@@ -254,8 +250,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_nil record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_NO_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     def test_parse_with_rfc5424_message_without_time_format
@@ -408,7 +403,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("Feb 28 00:00:12", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected, record)
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP, @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     data('regexp' => 'regexp', 'string' => 'string')
@@ -424,7 +419,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected.merge('pri' => 6), record)
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     data('regexp' => 'regexp', 'string' => 'string')
@@ -443,8 +438,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     data('regexp' => 'regexp', 'string' => 'string')
@@ -464,9 +458,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
                      record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
-    end
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])end
 
     data('regexp' => 'regexp', 'string' => 'string')
     def test_parse_with_both_message_type(param)
@@ -482,7 +474,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected.merge('pri' => 1), record)
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -493,22 +485,21 @@ class SyslogParserTest < ::Test::Unit::TestCase
                      record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<1>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test 2>1'
       @parser.instance.parse(text) do |time, record|
-         assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
-         assert_equal(@expected.merge('pri' => 1, 'message'=> '[error] Syslog test 2>1'), record)
-       end
-       assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+        assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
+        assert_equal(@expected.merge('pri' => 1, 'message'=> '[error] Syslog test 2>1'), record)
+      end
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<1>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected.merge('pri' => 1), record)
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -518,8 +509,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
 
     data('regexp' => 'regexp', 'string' => 'string')
@@ -536,7 +526,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal(event_time("Feb 28 12:00:00", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected.merge('pri' => 6), record)
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd 11111 ID24224 [exampleSDID@20224 iut="3" eventSource="Application" eventID="11211"] Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -547,15 +537,14 @@ class SyslogParserTest < ::Test::Unit::TestCase
                      record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<16>Feb 28 12:00:02 192.168.0.1 fluentd[11111]: [error] Syslog test'
       @parser.instance.parse(text) do |time, record|
         assert_equal(event_time("Feb 28 12:00:02", format: '%b %d %M:%S:%H'), time)
         assert_equal(@expected.merge('pri' => 16), record)
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_WITH_PRI, @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC3164_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<16>1 2017-02-06T13:14:15.003Z 192.168.0.1 fluentd - - - Hi, from Fluentd!'
       @parser.instance.parse(text) do |time, record|
@@ -565,8 +554,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
 
       text = '<16>1 2017-02-06T13:14:15Z 192.168.0.1 fluentd - - - Hi, from Fluentd without subseconds!'
       @parser.instance.parse(text) do |time, record|
@@ -576,8 +564,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["extradata"]
         assert_equal "Hi, from Fluentd without subseconds!", record["message"]
       end
-      assert_equal(Fluent::Plugin::SyslogParser::REGEXP_RFC5424_WITH_PRI,
-                   @parser.instance.patterns['format'])
+      assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
     end
   end
 end

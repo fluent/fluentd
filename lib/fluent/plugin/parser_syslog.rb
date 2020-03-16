@@ -23,6 +23,7 @@ module Fluent
     class SyslogParser < Parser
       Plugin.register_parser('syslog', self)
 
+      # TODO: Remove them since these regexps are no longer needed. but keep them for compatibility for now
       # From existence TextParser pattern
       REGEXP = /^(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
       # From in_syslog default pattern
@@ -36,7 +37,14 @@ module Fluent
       REGEXP_RFC5424_WITH_PRI = Regexp.new(<<~'EOS'.chomp % REGEXP_RFC5424, Regexp::MULTILINE)
         \A<(?<pri>[0-9]{1,3})\>[1-9]\d{0,2} %s\z
       EOS
+
       REGEXP_DETECT_RFC5424 = /^\<[0-9]{1,3}\>[1-9]\d{0,2}/
+
+      RFC3164_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+      RFC3164_PRI_REGEXP = /^<(?<pri>[0-9]{1,3})>/
+
+      RFC5424_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])+))(?: (?<message>.+))?\z/m
+      RFC5424_PRI_REGEXP = /^<(?<pri>\d{1,3})>(?<version>\d\d{0,2})\s/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
       desc 'If the incoming logs have priority prefix, e.g. <9>, set true'
@@ -53,6 +61,7 @@ module Fluent
       def initialize
         super
         @mutex = Mutex.new
+        @space_count = nil
       end
 
       def configure(conf)
@@ -66,21 +75,21 @@ module Fluent
                   when :rfc3164
                     if @regexp_parser
                       class << self
-                        alias_method :parse, :parse_plain
+                        alias_method :parse, :parse_rfc3164_regex
                       end
                     else
                       class << self
                         alias_method :parse, :parse_rfc3164
                       end
                     end
-                    @with_priority ? REGEXP_WITH_PRI : REGEXP
+                    RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
                   when :rfc5424
                     class << self
-                      alias_method :parse, :parse_plain
+                      alias_method :parse, :parse_rfc5424_regex
                     end
                     @time_format = @rfc5424_time_format unless conf.has_key?('time_format')
                     @support_rfc5424_without_subseconds = true
-                    @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424_NO_PRI
+                    RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
                   when :auto
                     class << self
                       alias_method :parse, :parse_auto
@@ -89,6 +98,9 @@ module Fluent
                     @time_parser_rfc5424 = time_parser_create(format: @rfc5424_time_format)
                     nil
                   end
+
+        @space_count = @time_format.squeeze(' ').count(' ') + 1
+        @space_count_rfc5424 = @rfc5424_time_format.squeeze(' ').count(' ') + 1
         @time_parser = time_parser_create
         @time_parser_rfc5424_without_subseconds = time_parser_create(format: "%Y-%m-%dT%H:%M:%S%z")
       end
@@ -104,51 +116,110 @@ module Fluent
 
       def parse_auto(text, &block)
         if REGEXP_DETECT_RFC5424.match(text)
-          @regexp = @with_priority ? REGEXP_RFC5424_WITH_PRI : REGEXP_RFC5424_NO_PRI
+          @regexp = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP
           @time_parser = @time_parser_rfc5424
           @support_rfc5424_without_subseconds = true
-          parse_plain(text, &block)
+          parse_rfc5424_regex(text, &block)
         else
-          @regexp = @with_priority ? REGEXP_WITH_PRI : REGEXP
+          @regexp = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP
           @time_parser = @time_parser_rfc3164
           if @regexp_parser
-            parse_plain(text, &block)
+            parse_rfc3164_regex(text, &block)
           else
             parse_rfc3164(text, &block)
           end
         end
       end
 
-      def parse_plain(text, &block)
+      def parse_rfc3164_regex(text, &block)
+        idx = 0
+        record = {}
+
+        if @with_priority
+          if (m = RFC3164_PRI_REGEXP.match(text))
+            record['pri'] = Integer(m['pri'])
+            idx = m.end(0)
+          else
+            yield(nil, nil)
+            return
+          end
+        end
+
+        i = idx - 1
+        @space_count.times do
+          while text[i + 1] == ' '
+            i += 1
+          end
+
+          i = text.index(' ', i + 1)
+        end
+
+        time_str = text.slice(idx, i - idx)
+        time = @mutex.synchronize { @time_parser.parse(time_str) }
+        record['time'] = time_str
+
+        parse_plain(time, text[(i + 1)..-1], record, &block)
+      end
+
+      def parse_rfc5424_regex(text, &block)
+        idx = 0
+        record = {}
+
+        if @with_priority
+          if (m = RFC5424_PRI_REGEXP.match(text))
+            m.names.each do |name|
+              record[name] = m[name]
+            end
+            idx = m.end(0)
+          else
+            yield(nil, nil)
+            return
+          end
+        end
+
+        i = idx - 1
+        @space_count_rfc5424.times {
+          while text[i + 1] == ' '
+            i += 1
+          end
+
+          i = text.index(' ', i + 1)
+        }
+
+        time_str = text.slice(idx, i - idx)
+        time = @mutex.synchronize do
+          begin
+            @time_parser.parse(time_str)
+          rescue Fluent::TimeParser::TimeParseError => e
+            if @support_rfc5424_without_subseconds
+              log.trace(e)
+              @time_parser_rfc5424_without_subseconds.parse(time_str)
+            else
+              raise
+            end
+          end
+        end
+
+        record['time'] = time_str
+        parse_plain(time, text[(i + 1)..-1], record, &block)
+      end
+
+      def parse_plain(time, text, record, &block)
+        if @keep_time_key
+          record['time'].squeeze!(' ')
+        else
+          record.delete('time')
+        end
         m = @regexp.match(text)
+
         unless m
           yield nil, nil
           return
         end
 
-        time = nil
-        record = {}
-
         m.names.each { |name|
           if value = m[name]
             case name
-            when "pri"
-              record['pri'] = value.to_i
-            when "time"
-              time = @mutex.synchronize do
-                time_str = value.squeeze(' ')
-                begin
-                  @time_parser.parse(time_str)
-                rescue Fluent::TimeParser::TimeParseError => e
-                  if @support_rfc5424_without_subseconds
-                    log.trace(e)
-                    @time_parser_rfc5424_without_subseconds.parse(time_str)
-                  else
-                    raise
-                  end
-                end
-              end
-              record[name] = value if @keep_time_key
             when "message"
               value.chomp!
               record[name] = value
