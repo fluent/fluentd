@@ -147,15 +147,17 @@ module Fluent
         end
 
         i = idx - 1
+        sq = false
         @space_count.times do
           while text[i + 1] == ' '.freeze
+            sq = true
             i += 1
           end
 
           i = text.index(' '.freeze, i + 1)
         end
 
-        time_str = text.slice(idx, i - idx)
+        time_str = sq ? text.slice(idx, i - idx).squeeze(' ') : text.slice(idx, i - idx)
         time = @mutex.synchronize { @time_parser.parse(time_str) }
         record['time'] = time_str
 
@@ -179,15 +181,17 @@ module Fluent
         end
 
         i = idx - 1
+        sq = false
         @space_count_rfc5424.times {
           while text[i + 1] == ' '.freeze
+            sq = true
             i += 1
           end
 
           i = text.index(' '.freeze, i + 1)
         }
 
-        time_str = text.slice(idx, i - idx)
+        time_str = sq ? text.slice(idx, i - idx).squeeze(' '.freeze) : text.slice(idx, i - idx)
         time = @mutex.synchronize do
           begin
             @time_parser.parse(time_str)
@@ -215,9 +219,7 @@ module Fluent
           return
         end
 
-        if @keep_time_key
-          record['time'].squeeze!(' ')
-        else
+        unless @keep_time_key
           record.delete('time'.freeze)
         end
 
