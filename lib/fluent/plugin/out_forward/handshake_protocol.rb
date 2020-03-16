@@ -105,6 +105,10 @@ module Fluent::Plugin
           .hexdigest
         ping = ['PING', @hostname, @shared_key_salt, shared_key_hexdigest]
         if !ri.auth.empty?
+          if @username.nil? || @password.nil?
+            raise PingpongError, "username and password are required"
+          end
+
           password_hexdigest = Digest::SHA512.new.update(ri.auth).update(@username).update(@password).hexdigest
           ping.push(@username, password_hexdigest)
         else
