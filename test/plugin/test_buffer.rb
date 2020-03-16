@@ -1202,4 +1202,24 @@ class BufferTest < Test::Unit::TestCase
       assert chunk.singleton_class.ancestors.include?(Fluent::Plugin::Buffer::Chunk::Decompressable)
     end
   end
+
+  sub_test_case '#statistics' do
+    setup do
+      @p = create_buffer({ "total_limit_size" => 1024 })
+      dm = create_metadata(Time.parse('2020-03-13 16:00:00 +0000').to_i, nil, nil)
+
+      (class << @p; self; end).module_eval do
+        define_method(:resume) {
+          queued = [create_chunk(dm, ["a" * (1024 - 102)]).enqueued!]
+          return {}, queued
+        }
+      end
+
+      @p.start
+    end
+
+    test 'returns available_buffer_space_ratios' do
+      assert_equal 10.0, @p.statistics['buffer']['available_buffer_space_ratios']
+    end
+  end
 end
