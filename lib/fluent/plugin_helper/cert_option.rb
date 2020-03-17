@@ -47,7 +47,7 @@ module Fluent
         end
         if conf.cert_verifier
           verifier = File.exist?(conf.cert_verifier) ? File.read(conf.cert_verifier) : conf.cert_verifier
-          ctx.verify_callback = self.instance_eval(verifier)
+          ctx.verify_callback = self.instance_eval(verifier, File.basename(conf.cert_verifier))
         end
 
         Fluent::TLS.set_version_to_context(ctx, version, conf.min_version, conf.max_version)
