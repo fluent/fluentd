@@ -237,7 +237,7 @@ class TailInputTest < Test::Unit::TestCase
       assert_equal(true, events.length > 0)
       assert_equal({"message" => msg}, events[0][2])
       assert_equal({"message" => msg}, events[1][2])
-      assert_equal(num_events, d.emit_count)
+      assert num_events <= d.emit_count
     end
 
     data(flat: CONFIG_READ_FROM_HEAD + SINGLE_LINE_CONFIG,
