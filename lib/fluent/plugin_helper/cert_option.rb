@@ -46,8 +46,13 @@ module Fluent
           ctx.extra_chain_cert = extra
         end
         if conf.cert_verifier
-          verifier = File.exist?(conf.cert_verifier) ? File.read(conf.cert_verifier) : conf.cert_verifier
-          ctx.verify_callback = self.instance_eval(verifier, File.basename(conf.cert_verifier))
+          sandbox = Class.new
+          ctx.verify_callback = if File.exist?(conf.cert_verifier)
+                                  verifier = File.read(conf.cert_verifier)
+                                  sandbox.instance_eval(verifier, File.basename(conf.cert_verifier))
+                                else
+                                  sandbox.instance_eval(conf.cert_verifier)
+                                end
         end
 
         Fluent::TLS.set_version_to_context(ctx, version, conf.min_version, conf.max_version)
