@@ -171,9 +171,12 @@ module Fluent
 
       def cert_option_certificates_from_file(path)
         data = File.read(path)
-        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\n(?:[^-]*\n)+-+END CERTIFICATE-+\n?', Regexp::MULTILINE)
+        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\r?\n(?:[^-]*\r?\n)+-+END CERTIFICATE-+\r?\n?', Regexp::MULTILINE)
         list = []
         data.scan(pattern){|match| list << OpenSSL::X509::Certificate.new(match) }
+        if list.length == 0
+          log.warn "cert_path does not contain a valid certificate"
+        end
         list
       end
     end
