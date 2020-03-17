@@ -32,7 +32,7 @@ module Fluent
       config_param :service, :string
       desc 'Proto without underscore in RFC2782'
       config_param :proto, :string, default: 'tcp'
-      desc 'Name without underscore in RFC2782'
+      desc 'Name in RFC2782'
       config_param :hostname, :string
       desc 'hostname of DNS server to request the SRV record'
       config_param :dns_server_host, :string, default: nil
