@@ -70,6 +70,15 @@ class SrvServiceDiscoveryTest < ::Test::Unit::TestCase
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, '', '', nil), sdf.services[0]
       assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, '', '', nil), sdf.services[1]
     end
+
+    test 'can set password, username, password' do
+      sdf = Fluent::Plugin::SrvServiceDiscovery.new
+      mock(Resolv::DNS).new { flexmock('dns_resolver', getresources: [SRV_RECORD2, SRV_RECORD1], getaddress: '127.0.0.1') }
+
+      sdf.configure(config_element('service_discovery', '', { 'service' => 'service1', 'hostname' => 'example.com', 'shared_key' => 'key', 'username' => 'user', 'password' => 'pass' }))
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8081, 'service1.example.com', 10, false, 'user', 'pass', 'key'), sdf.services[0]
+      assert_equal Fluent::Plugin::ServiceDiscovery::Service.new(:srv, '127.0.0.1', 8082, 'service2.example.com', 20, false, 'user', 'pass', 'key'), sdf.services[1]
+    end
   end
 
   sub_test_case '#start' do
