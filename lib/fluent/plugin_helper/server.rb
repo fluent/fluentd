@@ -243,7 +243,7 @@ module Fluent
         :protocol, :version, :min_version, :max_version, :ciphers, :insecure,
         :ca_path, :cert_path, :private_key_path, :private_key_passphrase, :client_cert_auth,
         :ca_cert_path, :ca_private_key_path, :ca_private_key_passphrase,
-        :generate_private_key_length,
+        :cert_verifier, :generate_private_key_length,
         :generate_cert_country, :generate_cert_state, :generate_cert_state,
         :generate_cert_locality, :generate_cert_common_name,
         :generate_cert_expiration, :generate_cert_digest,
@@ -280,6 +280,8 @@ module Fluent
           config_param :ca_cert_path, :string, default: nil
           config_param :ca_private_key_path, :string, default: nil
           config_param :ca_private_key_passphrase, :string, default: nil, secret: true
+
+          config_param :cert_verifier, :string, default: nil
 
           # Options for generating certs by private CA certs or self-signed
           config_param :generate_private_key_length, :integer, default: 2048
