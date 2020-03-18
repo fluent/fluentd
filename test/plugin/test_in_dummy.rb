@@ -95,16 +95,15 @@ class DummyTest < Test::Unit::TestCase
   TEST_PLUGIN_STORAGE_PATH = File.join( File.dirname(File.dirname(__FILE__)), 'tmp', 'in_dummy', 'store' )
   FileUtils.mkdir_p TEST_PLUGIN_STORAGE_PATH
 
-  sub_test_case "doesn't suspend internal counters in default" do
+  sub_test_case 'when dummy plugin has storage which is not specified the path'  do
     config1 = {
       'tag' => 'dummy',
       'rate' => '2',
       'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
       'auto_increment_key' => 'id',
-      'suspend' => false,
     }
     conf1 = config_element('ROOT', '', config1, [])
-    test "value of auto increment key is not suspended after stop-and-start" do
+    test "value of auto increment key is not kept after stop-and-start" do
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-01.json'))
 
       d1 = create_driver(conf1)
@@ -136,7 +135,7 @@ class DummyTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case "suspend internal counters if suspend is true" do
+  sub_test_case 'when dummy plugin has storage which is specified the path'  do
     setup do
       FileUtils.rm_rf(TEST_PLUGIN_STORAGE_PATH)
       FileUtils.mkdir_p(File.join(TEST_PLUGIN_STORAGE_PATH, 'json'))
@@ -149,7 +148,6 @@ class DummyTest < Test::Unit::TestCase
       'rate' => '2',
       'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
       'auto_increment_key' => 'id',
-      'suspend' => true,
     }
     conf2 = config_element('ROOT', '', config2, [
               config_element(
@@ -161,7 +159,7 @@ class DummyTest < Test::Unit::TestCase
                  'persistent' => true,
                 })
             ])
-    test "value of auto increment key is suspended after stop-and-start" do
+    test "value of auto increment key is kept after stop-and-start" do
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
       d1 = create_driver(conf2)
