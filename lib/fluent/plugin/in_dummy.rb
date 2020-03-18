@@ -37,7 +37,7 @@ module Fluent::Plugin
     desc "If specified, each generated event has an auto-incremented key field."
     config_param :auto_increment_key, :string, default: nil
     desc "The boolean to suspend-and-resume incremental value after restart"
-    config_param :suspend, :bool, default: false
+    config_param :suspend, :bool, default: false,deprecated: 'This parameters is ignored'
     desc "The dummy data to be generated. An array of JSON hashes or a single JSON hash."
     config_param :dummy, default: [{"message"=>"dummy"}] do |val|
       begin
