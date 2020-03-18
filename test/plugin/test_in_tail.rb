@@ -1078,11 +1078,11 @@ class TailInputTest < Test::Unit::TestCase
                                 "refresh_interval" => 1,
                               })
       d = create_driver(config, false)
-      d.run(expect_emits: 1, shutdown: false) do
+      d.end_if { d.instance.instance_variable_get(:@tails).keys.size >= 1 }
+      d.run(expect_emits: 1, shutdown: false, timeout: 1) do
         File.open("#{TMP_DIR}/tail.txt", "ab") { |f| f.puts "test3\n" }
       end
 
-      assert_equal 1, d.instance.instance_variable_get(:@tails).keys.size
       cleanup_directory(TMP_DIR)
       waiting(20) { sleep 0.1 until Dir.glob("#{TMP_DIR}/*.txt").size == 0 } # Ensure file is deleted on Windows
       waiting(5) { sleep 0.1 until d.instance.instance_variable_get(:@tails).keys.size == 0 }
