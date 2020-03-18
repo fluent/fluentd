@@ -41,11 +41,11 @@ module Fluent
       REGEXP_DETECT_RFC5424 = /^\<[0-9]{1,3}\>[1-9]\d{0,2}/
 
       RFC3164_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[^ ]*) (?<ident>[^ :\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
-      RFC3164_CAPTURES = ['host', 'ident', 'pid', 'message'].freeze
+      RFC3164_CAPTURES = RFC3164_WITHOUT_TIME_AND_PRI_REGEXP.names.freeze
       RFC3164_PRI_REGEXP = /^<(?<pri>[0-9]{1,3})>/
 
       RFC5424_WITHOUT_TIME_AND_PRI_REGEXP = /(?<host>[!-~]{1,255}) (?<ident>[!-~]{1,48}) (?<pid>[!-~]{1,128}) (?<msgid>[!-~]{1,32}) (?<extradata>(?:\-|(?:\[.*?(?<!\\)\])+))(?: (?<message>.+))?\z/m
-      RFC5424_CAPTURES = ['host', 'ident', 'extradata', 'pid', 'msgid', 'message'].freeze
+      RFC5424_CAPTURES = RFC5424_WITHOUT_TIME_AND_PRI_REGEXP.names.freeze
       RFC5424_PRI_REGEXP = /^<(?<pri>\d{1,3})>(?<version>\d\d{0,2})\s/
 
       config_set_default :time_format, "%b %d %H:%M:%S"
