@@ -162,7 +162,9 @@ module Fluent
 
         time_str = sq ? text.slice(idx, i - idx).squeeze(' ') : text.slice(idx, i - idx)
         time = @mutex.synchronize { @time_parser.parse(time_str) }
-        record['time'] = time_str
+        if @keep_time_key
+          record['time'] = time_str
+        end
 
         parse_plain(time, text, i + 1, record, RFC3164_CAPTURES, &block)
       end
@@ -207,7 +209,9 @@ module Fluent
           end
         end
 
-        record['time'] = time_str
+        if @keep_time_key
+          record['time'] = time_str
+        end
         parse_plain(time, text, i + 1, record, RFC5424_CAPTURES, &block)
       end
 
@@ -220,10 +224,6 @@ module Fluent
         if m.nil?
           yield nil, nil
           return
-        end
-
-        unless @keep_time_key
-          record.delete('time'.freeze)
         end
 
         capture_list.each { |name|
