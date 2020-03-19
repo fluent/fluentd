@@ -84,6 +84,18 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     null_stream.close rescue nil
   end
 
+  def eager_read(io)
+    buf = +''
+
+    loop do
+      b = io.read_nonblock(1024, nil, exception: false)
+      if b == :wait_readable || b.nil?
+        return buf
+      end
+      buf << b
+    end
+  end
+
   def assert_log_matches(cmdline, *pattern_list, patterns_not_match: [], timeout: 10, env: {})
     matched = false
     assert_error_msg = "matched correctly"
@@ -97,7 +109,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
               next unless readables
               break if readables.first.eof?
 
-              buf = readables.first.readpartial(1024)
+              buf = eager_read(readables.first)
               # puts buf
               stdio_buf << buf
               lines = stdio_buf.split("\n")
@@ -150,7 +162,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
               next unless readables
               next if readables.first.eof?
 
-              stdio_buf << readables.first.readpartial(1024)
+              stdio_buf << eager_read(readables.first)
               lines = stdio_buf.split("\n")
               if lines.any?{|line| line.include?("fluentd worker is now running") }
                 running = true
