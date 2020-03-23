@@ -98,7 +98,7 @@ class DummyTest < Test::Unit::TestCase
   sub_test_case 'when dummy plugin has storage which is not specified the path'  do
     config1 = {
       'tag' => 'dummy',
-      'rate' => '2',
+      'rate' => '0',
       'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
       'auto_increment_key' => 'id',
     }
@@ -108,7 +108,7 @@ class DummyTest < Test::Unit::TestCase
 
       d1 = create_driver(conf1)
       d1.run(timeout: 0.5) do
-        d1.instance.emit(4)
+        d1.instance.emit(2)
       end
 
       events = d1.events.sort{|a,b| a[2]['id'] <=> b[2]['id'] }
@@ -123,7 +123,7 @@ class DummyTest < Test::Unit::TestCase
 
       d2 = create_driver(conf1)
       d2.run(timeout: 0.5) do
-        d2.instance.emit(4)
+        d2.instance.emit(2)
       end
 
       events = d2.events.sort{|a,b| a[2]['id'] <=> b[2]['id'] }
@@ -145,7 +145,7 @@ class DummyTest < Test::Unit::TestCase
     config2 = {
       '@id' => 'test-02',
       'tag' => 'dummy',
-      'rate' => '2',
+      'rate' => '0',
       'dummy' => '[{"x": 1, "y": "1"}, {"x": 2, "y": "2"}, {"x": 3, "y": "3"}]',
       'auto_increment_key' => 'id',
     }
@@ -163,8 +163,8 @@ class DummyTest < Test::Unit::TestCase
       assert !File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
       d1 = create_driver(conf2)
-      d1.run(timeout: 0.5) do
-        d1.instance.emit(4)
+      d1.run(timeout: 1) do
+        d1.instance.emit(2)
       end
 
       first_id1 = d1.events.first[2]['id']
@@ -176,8 +176,8 @@ class DummyTest < Test::Unit::TestCase
       assert File.exist?(File.join(TEST_PLUGIN_STORAGE_PATH, 'json', 'test-02.json'))
 
       d2 = create_driver(conf2)
-      d2.run(timeout: 0.5) do
-        d2.instance.emit(4)
+      d2.run(timeout: 1) do
+        d2.instance.emit(2)
       end
       d2.events
 
