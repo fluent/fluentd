@@ -1,3 +1,51 @@
+# v1.10
+
+## Release v1.10.0 - 2020/03/24
+
+### New feature
+
+* sd plugin: Add RSV record plugin
+  https://github.com/fluent/fluentd/pull/2876
+
+### Enhancement
+
+* server: Add `cert_verifier` parameter for TLS transport
+  https://github.com/fluent/fluentd/pull/2888
+* parser_syslog: Support customized time format
+  https://github.com/fluent/fluentd/pull/2886
+* in_dummy: Delete `suspend` parameter
+  https://github.com/fluent/fluentd/pull/2897
+* Refactor code
+  https://github.com/fluent/fluentd/pull/2858
+  https://github.com/fluent/fluentd/pull/2862
+  https://github.com/fluent/fluentd/pull/2864
+  https://github.com/fluent/fluentd/pull/2869
+  https://github.com/fluent/fluentd/pull/2870
+  https://github.com/fluent/fluentd/pull/2874
+  https://github.com/fluent/fluentd/pull/2881
+  https://github.com/fluent/fluentd/pull/2885
+  https://github.com/fluent/fluentd/pull/2894
+  https://github.com/fluent/fluentd/pull/2896
+  https://github.com/fluent/fluentd/pull/2898
+  https://github.com/fluent/fluentd/pull/2899
+  https://github.com/fluent/fluentd/pull/2900
+  https://github.com/fluent/fluentd/pull/2901
+  https://github.com/fluent/fluentd/pull/2906
+
+### Bug fix
+
+* out_forward: windows: Permit to specify `linger_timeout`
+  https://github.com/fluent/fluentd/pull/2868
+* parser_syslog: Fix syslog format detection
+  https://github.com/fluent/fluentd/pull/2879
+* buffer: Fix `available_buffer_space_ratio` calculation
+  https://github.com/fluent/fluentd/pull/2882
+* tls: Support CRLF based X.509 certificates
+  https://github.com/fluent/fluentd/pull/2890
+* msgpack_factory mixin: Fix performance penalty for deprecation log
+  https://github.com/fluent/fluentd/pull/2903
+
+
 # v1.9
 
 ## Release v1.9.3 - 2020/03/05
