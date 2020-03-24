@@ -23,24 +23,31 @@ module Fluent
 
     module Mixin
       def msgpack_factory
-        if $log
-          $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.engine_factory')
+        unless @deprecated_log_done
+          deprecated_log('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.engine_factory')
         end
         MessagePackFactory.engine_factory
       end
 
       def msgpack_packer(*args)
-        if $log
-          $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.msgpack_packer')
+        unless @deprecated_log_done
+          deprecated_log('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.msgpack_packer')
         end
         MessagePackFactory.msgpack_packer(*args)
       end
 
       def msgpack_unpacker(*args)
-        if $log
-          $log.warn('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.msgpack_unpacker')
+        unless @deprecated_log_done
+          deprecated_log('Deprecated method: this method is going to be deleted. Use Fluent::MessagePackFactory.msgpack_unpacker')
         end
         MessagePackFactory.msgpack_unpacker(*args)
+      end
+
+      def deprecated_log(str)
+        if $log
+          $log.warn(str)
+          @deprecated_log_done = true
+        end
       end
     end
 
