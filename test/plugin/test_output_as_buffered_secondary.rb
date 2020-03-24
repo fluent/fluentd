@@ -617,7 +617,7 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ !chunks[1].empty? }
 
       30.times do |i| # large enough
-        now = first_failure + 60 * 0.8 + 2 + [i, 10].min # must be less than retry_timeout
+        now = first_failure + 60 * 0.8 + 2 + [i, 9].min # must be less than retry_timeout
         Timecop.freeze( now )
         @i.flush_thread_wakeup
 
