@@ -286,9 +286,11 @@ class ChildProcessTest < Test::Unit::TestCase
       assert_equal [], @d.log.out.logs
 
       @d.stop # nothing occurs
-      sleep TEST_WAIT_INTERVAL_FOR_LOOP
-      lines1 = ary.size
-      assert{ lines1 > 1 }
+      lines1 = nil
+      waiting(TEST_WAIT_INTERVAL_FOR_LOOP * 3) do
+        lines1 = ary.size
+        lines1 > 1
+      end
 
       pid = @d._child_process_processes.keys.first
       # default value 10 is too long for test
