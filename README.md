@@ -81,6 +81,10 @@ You can run specified test via `TEST` environment variable:
 - Copyright: 2011-2019 Fluentd Authors
 - License: Apache License, Version 2.0
 
+## Security
+
+A third party security audit was performed by Cure53, you can see the full report [here](docs/SECURITY_AUDIT.pdf).
+
 ## Contributors:
 
 Patches contributed by [great developers](https://github.com/fluent/fluentd/contributors).
