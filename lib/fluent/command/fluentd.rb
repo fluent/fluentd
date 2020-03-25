@@ -335,5 +335,18 @@ else
   end
   worker = Fluent::Supervisor.new(opts)
   worker.configure
-  worker.run_worker
+
+  if opts[:daemonize]
+    require 'fluent/daemonizer'
+    args = ARGV.dup
+    i = args.index('--daemon')
+    args.delete_at(i + 1)          # value of --daemon
+    args.delete_at(i)              # --daemon itself
+
+    Fluent::Daemonizer.daemonize(opts[:daemonize], args) do
+      worker.run_worker
+    end
+  else
+    worker.run_worker
+  end
 end
