@@ -36,6 +36,7 @@ class DaemonizerTest < ::Test::Unit::TestCase
 
   sub_test_case 'when pid file already exists' do
     test 'raise an error when process is running' do
+      omit 'chmod of file does not affetct root user' if Process.uid.zero?
       pid_path = File.join(TMP_DIR, 'file.pid')
       File.write(pid_path, '1')
 
@@ -48,6 +49,7 @@ class DaemonizerTest < ::Test::Unit::TestCase
     end
 
     test 'raise an error when file is not redable' do
+      omit 'chmod of file does not affetct root user' if Process.uid.zero?
       not_readable_path = File.join(TMP_DIR, 'not_readable.pid')
 
       File.write(not_readable_path, '1')
@@ -60,6 +62,7 @@ class DaemonizerTest < ::Test::Unit::TestCase
     end
 
     test 'raise an error when file is not writable' do
+      omit 'chmod of file does not affetct root user' if Process.uid.zero?
       not_writable_path = File.join(TMP_DIR, 'not_writable.pid')
 
       File.write(not_writable_path, '1')
@@ -72,6 +75,7 @@ class DaemonizerTest < ::Test::Unit::TestCase
     end
 
     test 'raise an error when directory is not writable' do
+      omit 'chmod of file does not affetct root user' if Process.uid.zero?
       not_writable_dir = File.join(TMP_DIR, 'not_writable')
       pid_path = File.join(not_writable_dir, 'file.pid')
 
