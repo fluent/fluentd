@@ -617,7 +617,15 @@ class BufferedOutputSecondaryTest < Test::Unit::TestCase
       assert{ !chunks[1].empty? }
 
       30.times do |i| # large enough
-        now = first_failure + 60 * 0.8 + 2 + [i, 9].min # must be less than retry_timeout
+        # In https://github.com/fluent/fluentd/blob/c90c024576b3d35f356a55fd33d1232947114a9a/lib/fluent/plugin_helper/retry_state.rb
+        # @timeout_at is 2016-04-13 18:34:31, @next_time must be less than 2016-04-13 18:34:30
+        #
+        # first_failure + 60 * 0.8 + 2 # => 2016-04-13 18:34:21
+        # @next_time is not added by 1, but by randomize(@retry_wait) https://github.com/fluent/fluentd/blob/c90c024576b3d35f356a55fd33d1232947114a9a/lib/fluent/plugin_helper/retry_state.rb#L196
+        # current_time(=Time.now) + randomize(@retry_wait) < @timeout_at
+        # (2016-04-13 18:34:21 + 6) + 3 < 2016-04-13 18:34:31
+        # So, current_time must be at most 6
+        now = first_failure + 60 * 0.8 + 2 + [i, 6].min
         Timecop.freeze( now )
         @i.flush_thread_wakeup
 
