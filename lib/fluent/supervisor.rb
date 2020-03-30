@@ -897,10 +897,9 @@ module Fluent
 
       # Adding `-h` so that it can avoid ruby's command blocking
       # e.g. `ruby -Eascii-8bit:ascii-8bit` will block. but `ruby -Eascii-8bit:ascii-8bit -h` won't.
-      cmd = fluentd_spawn_cmd.join(' ')
-      _, e, s = Open3.capture3("#{cmd} -h")
+      _, e, s = Open3.capture3(*fluentd_spawn_cmd, "-h")
       if s.exitstatus != 0
-        $log.error('Invalid option is passed to RUBYOPT', command: cmd, error: e)
+        $log.error('Invalid option is passed to RUBYOPT', command: fluentd_spawn_cmd, error: e)
         exit s.exitstatus
       end
 
