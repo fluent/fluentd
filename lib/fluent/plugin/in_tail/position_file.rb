@@ -83,8 +83,8 @@ module Fluent::Plugin
         size = nil
 
         @file_mutex.synchronize do
-          last_modified = @file.mtime
           size = @file.size
+          last_modified = @file.mtime
         end
 
         entries = fetch_compacted_entries
