@@ -1183,6 +1183,25 @@ class TailInputTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case "refresh of pos file" do
+    test 'type of pos_file_compaction_interval is time' do
+      tail = {
+        "tag" => "tail",
+        "path" => "#{TMP_DIR}/*.txt",
+        "format" => "none",
+        "pos_file" => "#{TMP_DIR}/pos/tail.pos",
+        "refresh_interval" => 1,
+        "read_from_head" => true,
+        'pos_file_compaction_interval' => '24h',
+      }
+      config = config_element("", "", tail)
+      d = create_driver(config, false)
+      mock(d.instance).timer_execute(:in_tail_refresh_watchers, 1.0).once
+      mock(d.instance).timer_execute(:in_tail_refresh_compact_pos_file, 60 * 60 * 24).once
+      d.run                     # call start
+    end
+  end
+
   sub_test_case "receive_lines" do
     DummyWatcher = Struct.new("DummyWatcher", :tag)
 
