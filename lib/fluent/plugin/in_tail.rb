@@ -70,7 +70,7 @@ module Fluent::Plugin
     desc 'Fluentd will record the position it last read into this file.'
     config_param :pos_file, :string, default: nil
     desc 'The cleanup interval of pos file'
-    config_param :pos_file_compaction_interval, :integer, default: nil
+    config_param :pos_file_compaction_interval, :time, default: nil
     desc 'Start to read the logs from the head of file, not bottom.'
     config_param :read_from_head, :bool, default: false
     # When the program deletes log file and re-creates log file with same filename after passed refresh_interval,
