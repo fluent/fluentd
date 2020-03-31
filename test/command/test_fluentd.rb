@@ -843,7 +843,7 @@ CONF
       '-external-encoding' => '--external-encoding=utf-8',
       '-internal-encoding' => '--internal-encoding=utf-8',
     )
-    test "-E option is set to RUBYOPT3" do |opt|
+    test "-E option is set to RUBYOPT" do |opt|
       omit "hard to run correctly on Windows. Need to debug." if Fluent.windows?
       conf = <<CONF
 <source>
@@ -863,7 +863,7 @@ CONF
       )
     end
 
-        test "without RUBYOPT" do
+    test "without RUBYOPT" do
       conf = <<CONF
 <source>
   @type dummy
