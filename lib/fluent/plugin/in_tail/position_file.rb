@@ -93,6 +93,12 @@ module Fluent::Plugin
             @file.pos = 0
             @file.truncate(0)
             @file.write(entries.values.map(&:to_entry_fmt).join)
+
+            entries.each do |path, val|
+              if (m = @map[path])
+                m.seek = val.seek
+              end
+            end
           else
             # skip
           end
@@ -115,6 +121,7 @@ module Fluent::Plugin
         entries = {}
 
         @file.pos = 0
+        file_pos = 0
         @file.each_line do |line|
           m = POSITION_FILE_ENTRY_REGEX.match(line)
           if m.nil?
@@ -132,7 +139,8 @@ module Fluent::Plugin
               @logger.warn("#{path} already exists. use latest one: deleted #{entries[path]}") if @logger
             end
 
-            entries[path] = Entry.new(path, pos, ino)
+            entries[path] = Entry.new(path, pos, ino, file_pos + path.size + 1)
+            file_pos += line.size
           end
         end
 
@@ -140,7 +148,7 @@ module Fluent::Plugin
       end
     end
 
-    Entry = Struct.new(:path, :pos, :ino) do
+    Entry = Struct.new(:path, :pos, :ino, :seek) do
       POSITION_FILE_ENTRY_FORMAT = "%s\t%016x\t%016x\n".freeze
 
       def to_entry_fmt
@@ -164,6 +172,8 @@ module Fluent::Plugin
         @pos = pos
         @inode = inode
       end
+
+      attr_writer :seek
 
       def update(ino, pos)
         @file_mutex.synchronize {

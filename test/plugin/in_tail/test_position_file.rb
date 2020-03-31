@@ -77,6 +77,30 @@ class IntailPositionFileTest < Test::Unit::TestCase
       lines = @file.readlines
       assert_equal 5, lines.size
     end
+
+    test 'update seek postion of remained position entry' do
+      pf = Fluent::Plugin::TailInput::PositionFile.new(@file, logger: $log)
+      pf['path1']
+      pf['path2']
+      pf['path3']
+      pf.unwatch('path1')
+
+      pf.try_compact
+
+      @file.seek(0)
+      lines = @file.readlines
+      assert_equal "path2\t0000000000000000\t0000000000000000\n", lines[0]
+      assert_equal "path3\t0000000000000000\t0000000000000000\n", lines[1]
+      assert_equal 2, lines.size
+
+      pf.unwatch('path2')
+      pf.unwatch('path3')
+      @file.seek(0)
+      lines = @file.readlines
+      assert_equal "path2\t#{UNWATCHED_STR}\t0000000000000000\n", lines[0]
+      assert_equal "path3\t#{UNWATCHED_STR}\t0000000000000000\n", lines[1]
+      assert_equal 2, lines.size
+    end
   end
 
   sub_test_case '#load' do
