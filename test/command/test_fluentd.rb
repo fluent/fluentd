@@ -16,6 +16,7 @@ class TestFluentdCommand < ::Test::Unit::TestCase
     FileUtils.mkdir_p(TMP_DIR)
     @supervisor_pid = nil
     @worker_pids = []
+    ENV["TEST_RUBY_PATH"] = nil
   end
 
   def process_exist?(pid)
@@ -892,6 +893,38 @@ CONF
         create_cmdline(conf_path),
         'Invalid option is passed to RUBYOPT',
         env: { 'RUBYOPT' => 'a' },
+      )
+    end
+
+    # https://github.com/fluent/fluentd/issues/2915
+    test "ruby path contains spaces" do
+      conf = <<CONF
+<source>
+  @type dummy
+  tag dummy
+</source>
+<match>
+  @type null
+</match>
+CONF
+      ruby_path = ServerEngine.ruby_bin_path
+      tmp_ruby_path = File.join(TMP_DIR, "ruby with spaces")
+      if Fluent.windows?
+        tmp_ruby_path << ".bat"
+        File.open(tmp_ruby_path, "w") do |file|
+          file.write "#{ruby_path} %*"
+        end
+      else
+        FileUtils.ln_sf(ruby_path, tmp_ruby_path)
+      end
+      ENV["TEST_RUBY_PATH"] = tmp_ruby_path
+      cmd_path = File.expand_path(File.dirname(__FILE__) + "../../../bin/fluentd")
+      conf_path = create_conf_file('space_mixed_ruby_path_test.conf', conf)
+      args = ["bundle", "exec", tmp_ruby_path, cmd_path, "-c", conf_path]
+      assert_log_matches(
+        args,
+        'spawn command to main:',
+        '-Eascii-8bit:ascii-8bit'
       )
     end
 

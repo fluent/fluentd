@@ -882,7 +882,11 @@ module Fluent
     RUBY_ENCODING_OPTIONS_REGEX = %r{\A(-E|--encoding=|--internal-encoding=|--external-encoding=)}.freeze
 
     def build_spawn_command
-      fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
+      if ENV['TEST_RUBY_PATH']
+        fluentd_spawn_cmd = [ENV['TEST_RUBY_PATH']]
+      else
+        fluentd_spawn_cmd = [ServerEngine.ruby_bin_path]
+      end
 
       rubyopt = ENV['RUBYOPT']
       if rubyopt
