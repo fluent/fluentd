@@ -175,7 +175,7 @@ module Fluent
 
         if @with_priority
           if (m = RFC5424_PRI_REGEXP.match(text))
-            record['pri'] = m['pri']
+            record['pri'] = m['pri'].to_i
             idx = m.end(0)
           else
             yield(nil, nil)
