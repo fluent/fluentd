@@ -464,6 +464,7 @@ class SyslogParserTest < ::Test::Unit::TestCase
         assert_equal "-", record["pid"]
         assert_equal "-", record["msgid"]
         assert_equal "-", record["extradata"]
+        assert_equal 16, record["pri"]
         assert_equal "Hi, from Fluentd!", record["message"]
       end
       assert_equal(Fluent::Plugin::SyslogParser::RFC5424_WITHOUT_TIME_AND_PRI_REGEXP, @parser.instance.patterns['format'])
